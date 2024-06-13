@@ -55,11 +55,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// The path to scratch space (.build) directory.
     let scratchDirectory: AbsolutePath
 
-    /// The llbuild build delegate reference.
-    private var buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
-
-    /// The llbuild build system reference.
-    private var buildSystem: SPMLLBuild.BuildSystem?
+    /// The llbuild build system reference previously created
+    /// via `createBuildSystem` call.
+    private var current: (buildSystem: SPMLLBuild.BuildSystem, tracker: LLBuildProgressTracker)?
 
     /// If build manifest caching should be enabled.
     public let cacheBuildManifest: Bool
@@ -194,7 +192,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Cancel the active build operation.
     public func cancel(deadline: DispatchTime) throws {
-        buildSystem?.cancel()
+        current?.buildSystem.cancel()
     }
 
     // Emit a warning if a target imports another target in this build
@@ -355,8 +353,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         try verifyTargetImports(in: buildDescription)
 
         // Create the build system.
-        let buildSystem = try self.createBuildSystem(buildDescription: buildDescription)
-        self.buildSystem = buildSystem
+        let (buildSystem, progressTracker) = try self.createBuildSystem(
+            buildDescription: buildDescription
+        )
+        self.current = (buildSystem, progressTracker)
 
         // If any plugins are part of the build set, compile them now to surface
         // any errors up-front. Returns true if we should proceed with the build
@@ -366,7 +366,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
 
         // delegate is only available after createBuildSystem is called
-        self.buildSystemDelegate?.buildStart(configuration: self.productsBuildParameters.configuration)
+        progressTracker.buildStart(configuration: self.productsBuildParameters.configuration)
 
         // Perform the build.
         let llbuildTarget = try computeLLBuildTargetName(for: subset)
@@ -386,12 +386,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             subsetDescriptor = nil
         }
 
-        self.buildSystemDelegate?.buildComplete(
+        progressTracker.buildComplete(
             success: success,
             duration: duration,
             subsetDescriptor: subsetDescriptor
         )
-        self.delegate?.buildSystem(self, didFinishWithResult: success)
         guard success else { throw Diagnostics.fatalError }
 
         // Create backwards-compatibility symlink to old build path.
@@ -459,45 +458,48 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             throw InternalError("unknown plugin script runner")
         }
         // Compile the plugin, getting back a PluginCompilationResult.
-        class Delegate: PluginScriptCompilerDelegate {
+        final class Delegate: PluginScriptCompilerDelegate {
             let preparationStepName: String
-            let buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
-            init(preparationStepName: String, buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?) {
+            let progressTracker: LLBuildProgressTracker?
+            init(preparationStepName: String, progressTracker: LLBuildProgressTracker?) {
                 self.preparationStepName = preparationStepName
-                self.buildSystemDelegate = buildSystemDelegate
+                self.progressTracker = progressTracker
             }
             func willCompilePlugin(commandLine: [String], environment: EnvironmentVariables) {
-                self.buildSystemDelegate?.preparationStepStarted(preparationStepName)
+                self.progressTracker?.preparationStepStarted(preparationStepName)
             }
             func didCompilePlugin(result: PluginCompilationResult) {
-                self.buildSystemDelegate?.preparationStepHadOutput(
+                self.progressTracker?.preparationStepHadOutput(
                     preparationStepName,
                     output: result.commandLine.joined(separator: " "),
                     verboseOnly: true
                 )
                 if !result.compilerOutput.isEmpty {
-                    self.buildSystemDelegate?.preparationStepHadOutput(
+                    self.progressTracker?.preparationStepHadOutput(
                         preparationStepName,
                         output: result.compilerOutput,
                         verboseOnly: false
                     )
                 }
-                self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: (result.succeeded ? .succeeded : .failed))
+                self.progressTracker?.preparationStepFinished(preparationStepName, result: (result.succeeded ? .succeeded : .failed))
             }
             func skippedCompilingPlugin(cachedResult: PluginCompilationResult) {
                 // Historically we have emitted log info about cached plugins that are used. We should reconsider whether this is the right thing to do.
-                self.buildSystemDelegate?.preparationStepStarted(preparationStepName)
+                self.progressTracker?.preparationStepStarted(preparationStepName)
                 if !cachedResult.compilerOutput.isEmpty {
-                    self.buildSystemDelegate?.preparationStepHadOutput(
+                    self.progressTracker?.preparationStepHadOutput(
                         preparationStepName,
                         output: cachedResult.compilerOutput,
                         verboseOnly: false
                     )
                 }
-                self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: (cachedResult.succeeded ? .succeeded : .failed))
+                self.progressTracker?.preparationStepFinished(preparationStepName, result: (cachedResult.succeeded ? .succeeded : .failed))
             }
         }
-        let delegate = Delegate(preparationStepName: "Compiling plugin \(plugin.targetName)", buildSystemDelegate: self.buildSystemDelegate)
+        let delegate = Delegate(
+            preparationStepName: "Compiling plugin \(plugin.targetName)",
+            progressTracker: self.current?.tracker
+        )
         let result = try temp_await {
             pluginConfiguration.scriptRunner.compilePluginScript(
                 sourceFiles: plugin.sources.paths,
@@ -746,8 +748,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Build the package structure target.
     private func buildPackageStructure() throws -> Bool {
-        let buildSystem = try self.createBuildSystem(buildDescription: .none)
-        self.buildSystem = buildSystem
+        let (buildSystem, tracker) = try self.createBuildSystem(
+            buildDescription: .none
+        )
+        self.current = (buildSystem, tracker)
 
         // Build the package structure target which will re-generate the llbuild manifest, if necessary.
         return buildSystem.build(target: "PackageStructure")
@@ -757,7 +761,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     ///
     /// The build description should only be omitted when creating the build system for
     /// building the package structure target.
-    private func createBuildSystem(buildDescription: BuildDescription?) throws -> SPMLLBuild.BuildSystem {
+    private func createBuildSystem(
+        buildDescription: BuildDescription?
+    ) throws -> (buildSystem: SPMLLBuild.BuildSystem, tracker: LLBuildProgressTracker) {
         // Figure out which progress bar we have to use during the build.
         let progressAnimation = ProgressAnimation.ninja(
             stream: self.outputStream,
@@ -774,7 +780,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         )
 
         // Create the build delegate.
-        let buildSystemDelegate = BuildOperationBuildSystemDelegateHandler(
+        let progressTracker = LLBuildProgressTracker(
             buildSystem: self,
             buildExecutionContext: buildExecutionContext,
             outputStream: self.outputStream,
@@ -783,23 +789,17 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             observabilityScope: self.observabilityScope,
             delegate: self.delegate
         )
-        self.buildSystemDelegate = buildSystemDelegate
 
         let databasePath = self.scratchDirectory.appending("build.db").pathString
-        let buildSystem = SPMLLBuild.BuildSystem(
+
+        let llbuildSystem = SPMLLBuild.BuildSystem(
             buildFile: self.productsBuildParameters.llbuildManifest.pathString,
             databaseFile: databasePath,
-            delegate: buildSystemDelegate,
+            delegate: progressTracker,
             schedulerLanes: self.productsBuildParameters.workers
         )
 
-        // TODO: this seems fragile, perhaps we replace commandFailureHandler by adding relevant calls in the delegates chain
-        buildSystemDelegate.commandFailureHandler = {
-            buildSystem.cancel()
-            self.delegate?.buildSystemDidCancel(self)
-        }
-
-        return buildSystem
+        return (buildSystem: llbuildSystem, tracker: progressTracker)
     }
 
     /// Runs any prebuild commands associated with the given list of plugin invocation results, in order, and returns the
