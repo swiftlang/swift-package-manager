@@ -391,7 +391,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             duration: duration,
             subsetDescriptor: subsetDescriptor
         )
-        self.delegate?.buildSystem(self, didFinishWithResult: success)
         guard success else { throw Diagnostics.fatalError }
 
         // Create backwards-compatibility symlink to old build path.

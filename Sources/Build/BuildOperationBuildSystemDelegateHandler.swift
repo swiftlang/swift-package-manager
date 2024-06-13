@@ -983,6 +983,8 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
 
         queue.sync {
             self.progressAnimation.complete(success: success)
+            self.delegate?.buildSystem(self.buildSystem, didFinishWithResult: success)
+
             if success {
                 let message = cancelled ? "Build \(subsetString)cancelled!" : "Build \(subsetString)complete!"
                 self.progressAnimation.clear()
