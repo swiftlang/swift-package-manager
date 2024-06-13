@@ -15,7 +15,9 @@ import OrderedCollections
 import PackageLoading
 import PackageModel
 
+import struct TSCBasic.KeyedPair
 import func TSCBasic.bestMatch
+import func TSCBasic.findCycle
 
 extension ModulesGraph {
     /// Load the package graph for the given package path.
@@ -32,7 +34,6 @@ extension ModulesGraph {
         customPlatformsRegistry: PlatformRegistry? = .none,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
-        availableLibraries: [LibraryMetadata],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> ModulesGraph {
@@ -44,17 +45,6 @@ extension ModulesGraph {
         // prefer roots
         root.manifests.forEach {
             manifestMap[$0.key] = ($0.value, fileSystem)
-        }
-        func nodeSuccessorsProvider(node: GraphLoadingNode) -> [GraphLoadingNode] {
-            node.requiredDependencies.compactMap { dependency in
-                manifestMap[dependency.identity].map { (manifest, fileSystem) in
-                    GraphLoadingNode(
-                        identity: dependency.identity,
-                        manifest: manifest,
-                        productFilter: dependency.productFilter
-                    )
-                }
-            }
         }
 
         // Construct the root root dependencies set.
@@ -73,36 +63,55 @@ extension ModulesGraph {
                 )
             }
         }
-        let inputManifests = rootManifestNodes + rootDependencyNodes
+        let inputManifests = (rootManifestNodes + rootDependencyNodes).map {
+            KeyedPair($0, key: $0.id)
+        }
 
         // Collect the manifests for which we are going to build packages.
-        var allNodes: [GraphLoadingNode]
+        var allNodes = [GraphLoadingNode]()
 
-        // Detect cycles in manifest dependencies.
-        if let cycle = findCycle(inputManifests, successors: nodeSuccessorsProvider) {
-            observabilityScope.emit(PackageGraphError.cycleDetected(cycle))
-            // Break the cycle so we can build a partial package graph.
-            allNodes = inputManifests.filter({ $0.manifest != cycle.cycle[0] })
-        } else {
-            // Sort all manifests topologically.
-            allNodes = try topologicalSort(inputManifests, successors: nodeSuccessorsProvider)
-        }
-
-        var flattenedManifests: [PackageIdentity: GraphLoadingNode] = [:]
-        for node in allNodes {
-            if let existing = flattenedManifests[node.identity] {
-                let merged = GraphLoadingNode(
-                    identity: node.identity,
-                    manifest: node.manifest,
-                    productFilter: existing.productFilter.union(node.productFilter)
-                )
-                flattenedManifests[node.identity] = merged
-            } else {
-                flattenedManifests[node.identity] = node
+        let nodeSuccessorProvider = { (node: KeyedPair<GraphLoadingNode, PackageIdentity>) in
+            node.item.requiredDependencies.compactMap { dependency in
+                manifestMap[dependency.identity].map { manifest, _ in
+                    KeyedPair(
+                        GraphLoadingNode(
+                            identity: dependency.identity,
+                            manifest: manifest,
+                            productFilter: dependency.productFilter
+                        ),
+                        key: dependency.identity
+                    )
+                }
             }
         }
-        // sort by identity
-        allNodes = flattenedManifests.keys.sorted().map { flattenedManifests[$0]! } // force unwrap fine since we are iterating on keys
+
+        // Package dependency cycles feature is gated on tools version 6.0.
+        if !root.manifests.allSatisfy({ $1.toolsVersion >= .v6_0 }) {
+            if let cycle = findCycle(inputManifests, successors: nodeSuccessorProvider) {
+                let path = (cycle.path + cycle.cycle).map(\.item.manifest)
+                observabilityScope.emit(PackageGraphError.dependencyCycleDetected(
+                    path: path, cycle: cycle.cycle[0].item.manifest
+                ))
+
+                return try ModulesGraph(
+                    rootPackages: [],
+                    rootDependencies: [],
+                    packages: IdentifiableSet(),
+                    dependencies: requiredDependencies,
+                    binaryArtifacts: binaryArtifacts
+                )
+            }
+        }
+
+        // Cycles in dependencies don't matter as long as there are no target cycles between packages.
+        depthFirstSearch(
+            inputManifests,
+            successors: nodeSuccessorProvider
+        ) {
+            allNodes.append($0.item)
+        } onDuplicate: { _,_ in
+            // no de-duplication is required.
+        }
 
         // Create the packages.
         var manifestToPackage: [Manifest: Package] = [:]
@@ -160,38 +169,47 @@ extension ModulesGraph {
             unsafeAllowedPackages: unsafeAllowedPackages,
             platformRegistry: customPlatformsRegistry ?? .default,
             platformVersionProvider: platformVersionProvider,
-            availableLibraries: availableLibraries,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
 
-        let rootPackages = resolvedPackages.filter{ root.manifests.values.contains($0.manifest) }
-        checkAllDependenciesAreUsed(rootPackages, observabilityScope: observabilityScope)
+        let rootPackages = resolvedPackages.filter { root.manifests.values.contains($0.manifest) }
+        checkAllDependenciesAreUsed(packages: resolvedPackages, rootPackages, observabilityScope: observabilityScope)
 
         return try ModulesGraph(
             rootPackages: rootPackages,
-            rootDependencies: resolvedPackages.filter{ rootDependencies.contains($0.manifest) },
+            rootDependencies: resolvedPackages.filter { rootDependencies.contains($0.manifest) },
+            packages: resolvedPackages,
             dependencies: requiredDependencies,
             binaryArtifacts: binaryArtifacts
         )
     }
 }
 
-private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], observabilityScope: ObservabilityScope) {
+private func checkAllDependenciesAreUsed(
+    packages: IdentifiableSet<ResolvedPackage>,
+    _ rootPackages: [ResolvedPackage],
+    observabilityScope: ObservabilityScope
+) {
     for package in rootPackages {
         // List all dependency products dependent on by the package targets.
-        let productDependencies = IdentifiableSet(package.targets.flatMap({ target in
-            return target.dependencies.compactMap({ targetDependency in
+        let productDependencies = IdentifiableSet(package.targets.flatMap { target in
+            return target.dependencies.compactMap { targetDependency in
                 switch targetDependency {
                 case .product(let product, _):
                     return product
                 case .target:
                     return nil
                 }
-            })
-        }))
+            }
+        })
 
-        for dependency in package.dependencies {
+        for dependencyId in package.dependencies {
+            guard let dependency = packages[dependencyId] else {
+                observabilityScope.emit(.error("Unknown package: \(dependencyId)"))
+                return
+            }
+
             // We continue if the dependency contains executable products to make sure we don't
             // warn on a valid use-case for a lone dependency: swift run dependency executables.
             guard !dependency.products.contains(where: { $0.type == .executable }) else {
@@ -217,7 +235,12 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], obse
             )
 
             // Otherwise emit a warning if none of the dependency package's products are used.
-            let dependencyIsUsed = dependency.products.contains(where: { productDependencies.contains(id: $0.id) })
+            let dependencyIsUsed = dependency.products.contains { product in
+                // Don't compare by product ID, but by product name to make sure both build triples as properties of
+                // `ResolvedProduct.ID` are allowed.
+                productDependencies.contains { $0.name == product.name }
+            }
+
             if !dependencyIsUsed && !observabilityScope.errorsReportedInAnyScope {
                 packageDiagnosticsScope.emit(.unusedDependency(dependency.identity.description))
             }
@@ -245,10 +268,9 @@ private func createResolvedPackages(
     unsafeAllowedPackages: Set<PackageReference>,
     platformRegistry: PlatformRegistry,
     platformVersionProvider: PlatformVersionProvider,
-    availableLibraries: [LibraryMetadata],
     fileSystem: FileSystem,
     observabilityScope: ObservabilityScope
-) throws -> [ResolvedPackage] {
+) throws -> IdentifiableSet<ResolvedPackage> {
 
     // Create package builder objects from the input manifests.
     let packageBuilders: [ResolvedPackageBuilder] = nodes.compactMap{ node in
@@ -275,7 +297,10 @@ private func createResolvedPackages(
 
     // Resolve module aliases, if specified, for targets and their dependencies
     // across packages. Aliasing will result in target renaming.
-    let moduleAliasingUsed = try resolveModuleAliases(packageBuilders: packageBuilders, observabilityScope: observabilityScope)
+    let moduleAliasingUsed = try resolveModuleAliases(
+        packageBuilders: packageBuilders,
+        observabilityScope: observabilityScope
+    )
 
     // Scan and validate the dependencies
     for packageBuilder in packageBuilders {
@@ -521,32 +546,26 @@ private func createResolvedPackages(
                             t.name != productRef.name
                         }
 
-                        let identitiesAvailableInSDK = availableLibraries.flatMap { $0.identities.map { $0.identity } }
-                        // TODO: Do we have to care about "name" vs. identity here?
-                        if let name = productRef.package, identitiesAvailableInSDK.contains(PackageIdentity.plain(name)) {
-                            // Do not emit any diagnostic.
-                        } else {
-                            // Find a product name from the available product dependencies that is most similar to the required product name.
-                            let bestMatchedProductName = bestMatch(for: productRef.name, from: Array(allTargetNames))
-                            var packageContainingBestMatchedProduct: String?
-                            if let bestMatchedProductName, productRef.name == bestMatchedProductName {
-                                let dependentPackages = packageBuilder.dependencies.map(\.package)
-                                for p in dependentPackages where p.targets.contains(where: { $0.name == bestMatchedProductName }) {
-                                    packageContainingBestMatchedProduct = p.identity.description
-                                    break
-                                }
+                        // Find a product name from the available product dependencies that is most similar to the required product name.
+                        let bestMatchedProductName = bestMatch(for: productRef.name, from: Array(allTargetNames))
+                        var packageContainingBestMatchedProduct: String?
+                        if let bestMatchedProductName, productRef.name == bestMatchedProductName {
+                            let dependentPackages = packageBuilder.dependencies.map(\.package)
+                            for p in dependentPackages where p.targets.contains(where: { $0.name == bestMatchedProductName }) {
+                                packageContainingBestMatchedProduct = p.identity.description
+                                break
                             }
-                            let error = PackageGraphError.productDependencyNotFound(
-                                package: package.identity.description,
-                                targetName: targetBuilder.target.name,
-                                dependencyProductName: productRef.name,
-                                dependencyPackageName: productRef.package,
-                                dependencyProductInDecl: !declProductsAsDependency.isEmpty,
-                                similarProductName: bestMatchedProductName, 
-                                packageContainingSimilarProduct: packageContainingBestMatchedProduct
-                            )
-                            packageObservabilityScope.emit(error)
                         }
+                        let error = PackageGraphError.productDependencyNotFound(
+                            package: package.identity.description,
+                            targetName: targetBuilder.target.name,
+                            dependencyProductName: productRef.name,
+                            dependencyPackageName: productRef.package,
+                            dependencyProductInDecl: !declProductsAsDependency.isEmpty,
+                            similarProductName: bestMatchedProductName,
+                            packageContainingSimilarProduct: packageContainingBestMatchedProduct
+                        )
+                        packageObservabilityScope.emit(error)
                     }
                     continue
                 }
@@ -610,7 +629,7 @@ private func createResolvedPackages(
                 case (.some(let registryIdentity), .none):
                     observabilityScope.emit(
                         ModuleError.duplicateModulesScmAndRegistry(
-                            regsitryPackage: registryIdentity,
+                            registryPackage: registryIdentity,
                             scmPackage: potentiallyDuplicatePackage.key.package2.identity,
                             targets: potentiallyDuplicatePackage.value
                         )
@@ -618,7 +637,7 @@ private func createResolvedPackages(
                 case (.none, .some(let registryIdentity)):
                     observabilityScope.emit(
                         ModuleError.duplicateModulesScmAndRegistry(
-                            regsitryPackage: registryIdentity,
+                            registryPackage: registryIdentity,
                             scmPackage: potentiallyDuplicatePackage.key.package1.identity,
                             targets: potentiallyDuplicatePackage.value
                         )
@@ -640,12 +659,37 @@ private func createResolvedPackages(
             observabilityScope.emit(
                 ModuleError.duplicateModule(
                     targetName: entry.key,
-                    packages: entry.value.map{ $0.identity })
+                    packages: entry.value.map { $0.identity })
             )
         }
     }
 
-    return try packageBuilders.map{ try $0.construct() }
+    do {
+        let targetBuilders = packageBuilders.flatMap {
+            $0.targets.map {
+                KeyedPair($0, key: $0.target)
+            }
+        }
+        if let cycle = findCycle(targetBuilders, successors: {
+            $0.item.dependencies.flatMap {
+                switch $0 {
+                case .product(let productBuilder, conditions: _):
+                    return productBuilder.targets.map { KeyedPair($0, key: $0.target) }
+                case .target:
+                    return [] // local targets were checked by PackageBuilder.
+                }
+            }
+        }) {
+            observabilityScope.emit(
+                ModuleError.cycleDetected(
+                    (cycle.path.map(\.key.name), cycle.cycle.map(\.key.name))
+                )
+            )
+            return IdentifiableSet()
+        }
+    }
+
+    return IdentifiableSet(try packageBuilders.map { try $0.construct() })
 }
 
 private func emitDuplicateProductDiagnostic(
@@ -891,7 +935,7 @@ private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
 }
 
 /// Builder for resolved target.
-private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
+private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedModule> {
     /// Enumeration to represent target dependencies.
     enum Dependency {
 
@@ -932,14 +976,14 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
         self.platformVersionProvider = platformVersionProvider
     }
 
-    override func constructImpl() throws -> ResolvedTarget {
+    override func constructImpl() throws -> ResolvedModule {
         let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter() {
             var metadata = ObservabilityMetadata()
             metadata.targetName = target.name
             return metadata
         }
 
-        let dependencies = try self.dependencies.map { dependency -> ResolvedTarget.Dependency in
+        let dependencies = try self.dependencies.map { dependency -> ResolvedModule.Dependency in
             switch dependency {
             case .target(let targetBuilder, let conditions):
                 return .target(try targetBuilder.construct(), conditions: conditions)
@@ -956,7 +1000,7 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
             }
         }
 
-        return ResolvedTarget(
+        return ResolvedModule(
             packageIdentity: self.packageIdentity,
             underlying: self.target,
             dependencies: dependencies,
@@ -1042,67 +1086,19 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     }
 
     override func constructImpl() throws -> ResolvedPackage {
+        let products = try self.products.map { try $0.construct() }
+        var targets = products.reduce(into: IdentifiableSet()) { $0.formUnion($1.targets) }
+        try targets.formUnion(self.targets.map { try $0.construct() })
+
         return ResolvedPackage(
             underlying: self.package,
             defaultLocalization: self.defaultLocalization,
             supportedPlatforms: self.supportedPlatforms,
-            dependencies: try self.dependencies.map{ try $0.construct() },
-            targets: try self.targets.map{ try $0.construct() },
-            products: try self.products.map{ try $0.construct() },
+            dependencies: self.dependencies.map { $0.package.identity },
+            targets: targets,
+            products: products,
             registryMetadata: self.registryMetadata,
             platformVersionProvider: self.platformVersionProvider
         )
     }
-}
-
-/// Finds the first cycle encountered in a graph.
-///
-/// This is different from the one in tools support core, in that it handles equality separately from node traversal. Nodes traverse product filters, but only the manifests must be equal for there to be a cycle.
-fileprivate func findCycle(
-    _ nodes: [GraphLoadingNode],
-    successors: (GraphLoadingNode) throws -> [GraphLoadingNode]
-) rethrows -> (path: [Manifest], cycle: [Manifest])? {
-    // Ordered set to hold the current traversed path.
-    var path = OrderedCollections.OrderedSet<Manifest>()
-    
-    var fullyVisitedManifests = Set<Manifest>()
-
-    // Function to visit nodes recursively.
-    // FIXME: Convert to stack.
-    func visit(
-      _ node: GraphLoadingNode,
-      _ successors: (GraphLoadingNode) throws -> [GraphLoadingNode]
-    ) rethrows -> (path: [Manifest], cycle: [Manifest])? {
-        // Once all successors have been visited, this node cannot participate
-        // in a cycle.
-        if fullyVisitedManifests.contains(node.manifest) {
-            return nil
-        }
-        
-        // If this node is already in the current path then we have found a cycle.
-        if !path.append(node.manifest).inserted {
-            let index = path.firstIndex(of: node.manifest)! // forced unwrap safe
-            return (Array(path[path.startIndex..<index]), Array(path[index..<path.endIndex]))
-        }
-
-        for succ in try successors(node) {
-            if let cycle = try visit(succ, successors) {
-                return cycle
-            }
-        }
-        // No cycle found for this node, remove it from the path.
-        let item = path.removeLast()
-        assert(item == node.manifest)
-        // Track fully visited nodes
-        fullyVisitedManifests.insert(node.manifest)
-        return nil
-    }
-
-    for node in nodes {
-        if let cycle = try visit(node, successors) {
-            return cycle
-        }
-    }
-    // Couldn't find any cycle in the graph.
-    return nil
 }

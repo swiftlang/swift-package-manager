@@ -15,17 +15,17 @@ import Basics
 import struct TSCBasic.ByteString
 import protocol TSCBasic.HashAlgorithm
 
-package final class MockHashAlgorithm {
-    package typealias Handler = @Sendable (ByteString) -> ByteString
+public final class MockHashAlgorithm {
+    public typealias Handler = @Sendable (ByteString) -> ByteString
 
-    package let hashes = ThreadSafeArrayStore<ByteString>()
+    public let hashes = ThreadSafeArrayStore<ByteString>()
     private let handler: Handler?
 
-    package init(handler: Handler? = nil) {
+    public init(handler: Handler? = nil) {
         self.handler = handler
     }
 
-    package func hash(_ hash: ByteString) -> ByteString {
+    public func hash(_ hash: ByteString) -> ByteString {
         if let handler = self.handler {
             return handler(hash)
         } else {

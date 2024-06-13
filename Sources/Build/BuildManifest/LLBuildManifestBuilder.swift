@@ -27,7 +27,7 @@ import enum TSCBasic.ProcessEnv
 import func TSCBasic.topologicalSort
 
 /// High-level interface to ``LLBuildManifest`` and ``LLBuildManifestWriter``.
-package class LLBuildManifestBuilder {
+public class LLBuildManifestBuilder {
     enum Error: Swift.Error {
         case ldPathDriverOptionUnavailable(option: String)
 
@@ -39,11 +39,11 @@ package class LLBuildManifestBuilder {
         }
     }
 
-    package enum TargetKind {
+    public enum TargetKind {
         case main
         case test
 
-        package var targetName: String {
+        public var targetName: String {
             switch self {
             case .main: return "main"
             case .test: return "test"
@@ -52,24 +52,24 @@ package class LLBuildManifestBuilder {
     }
 
     /// The build plan to work on.
-    package let plan: BuildPlan
+    public let plan: BuildPlan
 
     /// Whether to sandbox commands from build tool plugins.
-    package let disableSandboxForPluginCommands: Bool
+    public let disableSandboxForPluginCommands: Bool
 
     /// File system reference.
     let fileSystem: any FileSystem
 
     /// ObservabilityScope with which to emit diagnostics
-    package let observabilityScope: ObservabilityScope
+    public let observabilityScope: ObservabilityScope
 
-    package internal(set) var manifest: LLBuildManifest = .init()
+    public internal(set) var manifest: LLBuildManifest = .init()
 
     /// Mapping from Swift compiler path to Swift get version files.
     var swiftGetVersionFiles = [AbsolutePath: AbsolutePath]()
 
     /// Create a new builder with a build plan.
-    package init(
+    public init(
         _ plan: BuildPlan,
         disableSandboxForPluginCommands: Bool = false,
         fileSystem: any FileSystem,
@@ -85,7 +85,7 @@ package class LLBuildManifestBuilder {
 
     /// Generate build manifest at the given path.
     @discardableResult
-    package func generateManifest(at path: AbsolutePath) throws -> LLBuildManifest {
+    public func generateManifest(at path: AbsolutePath) throws -> LLBuildManifest {
         self.swiftGetVersionFiles.removeAll()
 
         self.manifest.createTarget(TargetKind.main.targetName)
@@ -121,6 +121,44 @@ package class LLBuildManifestBuilder {
         // Create command for all products in the plan.
         for (_, description) in self.plan.productMap {
             try self.createProductCommand(description)
+        }
+
+        try LLBuildManifestWriter.write(self.manifest, at: path, fileSystem: self.fileSystem)
+        return self.manifest
+    }
+
+    package func generatePrepareManifest(at path: AbsolutePath) throws -> LLBuildManifest {
+        self.swiftGetVersionFiles.removeAll()
+
+        self.manifest.createTarget(TargetKind.main.targetName)
+        self.manifest.createTarget(TargetKind.test.targetName)
+        self.manifest.defaultTarget = TargetKind.main.targetName
+
+        addPackageStructureCommand()
+
+        for (_, description) in self.plan.targetMap {
+            switch description {
+            case .swift(let desc):
+                try self.createSwiftCompileCommand(desc)
+            case .clang(let desc):
+                if desc.target.buildTriple == .tools {
+                    // Need the clang targets for tools
+                    try self.createClangCompileCommand(desc)
+                } else {
+                    // Hook up the clang module target
+                    try self.createClangPrepareCommand(desc)
+                }
+            }
+        }
+
+        for (_, description) in self.plan.productMap {
+            // Need to generate macro products
+            switch description.product.type {
+            case .macro, .plugin:
+                try self.createProductCommand(description)
+            default:
+                break
+            }
         }
 
         try LLBuildManifestWriter.write(self.manifest, at: path, fileSystem: self.fileSystem)
@@ -316,49 +354,21 @@ extension TargetBuildDescription {
     }
 }
 
-extension ResolvedTarget {
-    package func getCommandName(config: String) -> String {
-        "C." + self.getLLBuildTargetName(config: config)
-    }
-
-    package func getLLBuildTargetName(config: String) -> String {
-        "\(name)-\(config).module"
-    }
-
-    package func getLLBuildResourcesCmdName(config: String) -> String {
-        "\(name)-\(config).module-resources"
+extension TargetBuildDescription {
+    package var llbuildResourcesCmdName: String {
+        "\(self.target.name)-\(self.buildParameters.triple.tripleString)-\(self.buildParameters.buildConfig)\(self.buildParameters.suffix).module-resources"
     }
 }
 
-extension ResolvedProduct {
-    package func getLLBuildTargetName(config: String) throws -> String {
-        let potentialExecutableTargetName = "\(name)-\(config).exe"
-        let potentialLibraryTargetName = "\(name)-\(config).dylib"
-
-        switch type {
-        case .library(.dynamic):
-            return potentialLibraryTargetName
-        case .test:
-            return "\(name)-\(config).test"
-        case .library(.static):
-            return "\(name)-\(config).a"
-        case .library(.automatic):
-            throw InternalError("automatic library not supported")
-        case .executable, .snippet:
-            return potentialExecutableTargetName
-        case .macro:
-            #if BUILD_MACROS_AS_DYLIBS
-            return potentialLibraryTargetName
-            #else
-            return potentialExecutableTargetName
-            #endif
-        case .plugin:
-            throw InternalError("unexpectedly asked for the llbuild target name of a plugin product")
-        }
+extension ClangTargetBuildDescription {
+    package var llbuildTargetName: String {
+        self.target.getLLBuildTargetName(buildParameters: self.buildParameters)
     }
+}
 
-    package func getCommandName(config: String) throws -> String {
-        try "C." + self.getLLBuildTargetName(config: config)
+extension ResolvedModule {
+    public func getLLBuildTargetName(buildParameters: BuildParameters) -> String {
+        "\(self.name)-\(buildParameters.triple.tripleString)-\(buildParameters.buildConfig)\(buildParameters.suffix).module"
     }
 }
 

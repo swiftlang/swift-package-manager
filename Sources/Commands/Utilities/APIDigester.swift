@@ -14,11 +14,8 @@ import Dispatch
 import Foundation
 
 import SPMBuildCore
-
 import Basics
-
 import CoreCommands
-
 import PackageGraph
 import PackageModel
 import SourceControl
@@ -183,7 +180,7 @@ struct APIDigesterBaselineDumper {
 }
 
 /// A wrapper for the swift-api-digester tool.
-package struct SwiftAPIDigester {
+public struct SwiftAPIDigester {
     /// The file system to use
     let fileSystem: FileSystem
 
@@ -196,7 +193,7 @@ package struct SwiftAPIDigester {
     }
 
     /// Emit an API baseline file for the specified module at the specified location.
-    package func emitAPIBaseline(
+    public func emitAPIBaseline(
         to outputPath: AbsolutePath,
         for module: String,
         buildPlan: SPMBuildCore.BuildPlan
@@ -226,7 +223,7 @@ package struct SwiftAPIDigester {
     }
 
     /// Compare the current package API to a provided baseline file.
-    package func compareAPIToBaseline(
+    public func compareAPIToBaseline(
         at baselinePath: AbsolutePath,
         for module: String,
         buildPlan: SPMBuildCore.BuildPlan,
@@ -271,12 +268,12 @@ package struct SwiftAPIDigester {
 }
 
 extension SwiftAPIDigester {
-    package enum Error: Swift.Error, CustomStringConvertible {
+    public enum Error: Swift.Error, CustomStringConvertible {
         case failedToGenerateBaseline(module: String)
         case failedToValidateBaseline(module: String)
         case noSymbolsInBaseline(module: String, toolOutput: String)
 
-        package var description: String {
+        public var description: String {
             switch self {
             case .failedToGenerateBaseline(let module):
                 return "failed to generate baseline for \(module)"
@@ -291,7 +288,7 @@ extension SwiftAPIDigester {
 
 extension SwiftAPIDigester {
     /// The result of comparing a module's API to a provided baseline.
-    package struct ComparisonResult {
+    public struct ComparisonResult {
         /// The name of the module being diffed.
         var moduleName: String
         /// Breaking changes made to the API since the baseline was generated.
@@ -331,7 +328,7 @@ extension SerializedDiagnostics.SourceLocation {
     }
 }
 
-#if swift(<6.0)
+#if compiler(<6.0)
 extension SerializedDiagnostics.SourceLocation: DiagnosticLocation {}
 #else
 extension SerializedDiagnostics.SourceLocation: @retroactive DiagnosticLocation {}

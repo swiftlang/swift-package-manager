@@ -12,9 +12,7 @@
 
 import ArgumentParser
 import Basics
-
 import CoreCommands
-
 import Foundation
 import PackageGraph
 import PackageLoading
@@ -27,14 +25,18 @@ import XCBuildSupport
 import enum TSCUtility.Diagnostics
 
 /// swift-package tool namespace
-package struct SwiftPackageCommand: AsyncParsableCommand {
-    package static var configuration = CommandConfiguration(
+public struct SwiftPackageCommand: AsyncParsableCommand {
+    public static var configuration = CommandConfiguration(
         commandName: "package",
         _superCommandName: "swift",
         abstract: "Perform operations on Swift packages",
         discussion: "SEE ALSO: swift build, swift run, swift test",
         version: SwiftVersion.current.completeDisplayString,
         subcommands: [
+            AddDependency.self,
+            AddProduct.self,
+            AddTarget.self,
+            AddTargetDependency.self,
             Clean.self,
             PurgeCache.self,
             Reset.self,
@@ -76,9 +78,9 @@ package struct SwiftPackageCommand: AsyncParsableCommand {
     @OptionGroup()
     var globalOptions: GlobalOptions
 
-    package static var _errorLabel: String { "error" }
+    public static var _errorLabel: String { "error" }
 
-    package init() {}
+    public init() {}
 }
 
 extension SwiftPackageCommand {

@@ -21,6 +21,7 @@ public class Target: PolymorphicCodableProtocol {
         SystemLibraryTarget.self,
         BinaryTarget.self,
         PluginTarget.self,
+        ProvidedLibraryTarget.self,
     ]
 
     /// The target kind.
@@ -33,6 +34,7 @@ public class Target: PolymorphicCodableProtocol {
         case plugin
         case snippet
         case `macro`
+        case providedLibrary
     }
 
     /// A group a target belongs to that allows customizing access boundaries. A target is treated as
@@ -131,7 +133,7 @@ public class Target: PolymorphicCodableProtocol {
     /// The name of the target.
     ///
     /// NOTE: This name is not the language-level target (i.e., the importable
-    /// name) name in many cases, instead use c99name if you need uniqueness.
+    /// name) name in many cases, instead use ``Target/c99name`` if you need uniqueness.
     public private(set) var name: String
 
     /// Module aliases needed to build this target. The key is an original name of a
@@ -233,7 +235,8 @@ public class Target: PolymorphicCodableProtocol {
     /// The build settings assignments of this target.
     public let buildSettings: BuildSettings.AssignmentTable
 
-    package let buildSettingsDescription: [TargetBuildSettingDescription.Setting]
+    @_spi(SwiftPMInternal)
+    public let buildSettingsDescription: [TargetBuildSettingDescription.Setting]
 
     /// The usages of package plugins by this target.
     public let pluginUsages: [PluginUsage]
@@ -339,7 +342,8 @@ public class Target: PolymorphicCodableProtocol {
         self.usesUnsafeFlags = try container.decode(Bool.self, forKey: .usesUnsafeFlags)
     }
 
-    package var isEmbeddedSwiftTarget: Bool {
+    @_spi(SwiftPMInternal)
+    public var isEmbeddedSwiftTarget: Bool {
         for case .enableExperimentalFeature("Embedded") in self.buildSettingsDescription.swiftSettings.map(\.kind) {
             return true
         }
@@ -380,7 +384,8 @@ public extension Sequence where Iterator.Element == Target {
 }
 
 extension [TargetBuildSettingDescription.Setting] {
-    package var swiftSettings: Self {
+    @_spi(SwiftPMInternal)
+    public var swiftSettings: Self {
         self.filter { $0.tool == .swift }
     }
 }

@@ -12,15 +12,11 @@
 
 import ArgumentParser
 import Basics
-
 import CoreCommands
-
 import Dispatch
 import PackageGraph
 import PackageModel
 import SourceControl
-
-import SPMBuildCore
 
 struct DeprecatedAPIDiff: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "experimental-api-diff",

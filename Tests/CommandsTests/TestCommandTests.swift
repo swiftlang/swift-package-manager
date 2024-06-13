@@ -293,4 +293,20 @@ final class TestCommandTests: CommandsTestCase {
             }
         }
     }
+
+#if !canImport(Darwin)
+    func testGeneratedMainIsConcurrencySafe_XCTest() throws {
+        let strictConcurrencyFlags = ["-Xswiftc", "-strict-concurrency=complete"]
+        try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+            let (_, stderr) = try SwiftPM.Test.execute(strictConcurrencyFlags, packagePath: fixturePath)
+            XCTAssertNoMatch(stderr, .contains("is not concurrency-safe"))
+        }
+    }
+#endif
+
+    func testLibraryEnvironmentVariable() throws {
+      try fixture(name: "Miscellaneous/CheckTestLibraryEnvironmentVariable") { fixturePath in
+        XCTAssertNoThrow(try SwiftPM.Test.execute(packagePath: fixturePath))
+      }
+    }
 }

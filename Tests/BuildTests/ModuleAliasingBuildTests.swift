@@ -12,7 +12,10 @@
 
 import Basics
 @testable import Build
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 @testable import PackageGraph
+
 import PackageLoading
 @testable import PackageModel
 import SPMBuildCore
@@ -186,9 +189,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -262,7 +267,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )) { error in
-            XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'Logging' in: 'barpkg' (at '\(barPkg)'), 'foopkg' (at '\(fooPkg)')")
+            XCTAssertEqual((error as? PackageGraphError)?.description, "multiple packages (\'barpkg\' (at '\(barPkg)'), \'foopkg\' (at '\(fooPkg)')) declare products with a conflicting name: \'Logging’; product names need to be unique across the package graph")
         }
     }
 
@@ -324,7 +329,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )) { error in
-            XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'Logging' in: 'barpkg' (at '\(barPkg)'), 'foopkg' (at '\(fooPkg)')")
+            XCTAssertEqual((error as? PackageGraphError)?.description, "multiple packages (\'barpkg\' (at '\(barPkg)'), \'foopkg\' (at '\(fooPkg)')) declare products with a conflicting name: \'Logging’; product names need to be unique across the package graph")
         }
     }
 
@@ -388,9 +393,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -472,9 +479,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -598,9 +607,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -694,9 +705,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -724,33 +737,33 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertMatch(
             fooLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/debug/FooLogging.build/FooLogging-Swift.h", .anySequence]
+             "/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/FooLogging.build/FooLogging-Swift.h", .anySequence]
         )
         XCTAssertMatch(
             barLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/debug/BarLogging.build/BarLogging-Swift.h", .anySequence]
+             "/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/BarLogging.build/BarLogging-Swift.h", .anySequence]
         )
         XCTAssertMatch(
             loggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence]
+             "/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/Logging.build/Logging-Swift.h", .anySequence]
         )
         #else
         XCTAssertNoMatch(
             fooLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/debug/FooLogging.build/FooLogging-Swift.h", .anySequence]
+             "/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/FooLogging.build/FooLogging-Swift.h", .anySequence]
         )
         XCTAssertNoMatch(
             barLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/debug/BarLogging.build/BarLogging-Swift.h", .anySequence]
+             "/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/BarLogging.build/BarLogging-Swift.h", .anySequence]
         )
         XCTAssertNoMatch(
             loggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence]
+             "/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/Logging.build/Logging-Swift.h", .anySequence]
         )
         #endif
     }
@@ -812,9 +825,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -842,23 +857,23 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertMatch(
             otherLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/debug/OtherLogging.build/OtherLogging-Swift.h", .anySequence]
+             "/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/OtherLogging.build/OtherLogging-Swift.h", .anySequence]
         )
         XCTAssertMatch(
             loggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence]
+             "/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/Logging.build/Logging-Swift.h", .anySequence]
         )
         #else
         XCTAssertNoMatch(
             otherLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/debug/OtherLogging.build/OtherLogging-Swift.h", .anySequence]
+             "/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/OtherLogging.build/OtherLogging-Swift.h", .anySequence]
         )
         XCTAssertNoMatch(
             loggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence]
+             "/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/Logging.build/Logging-Swift.h", .anySequence]
         )
         #endif
     }
@@ -986,9 +1001,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -1315,9 +1332,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -1420,9 +1439,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -1621,9 +1642,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -1796,9 +1819,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -2009,9 +2034,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -2226,9 +2253,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -2403,9 +2432,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -2547,9 +2578,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -2690,9 +2723,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -2840,9 +2875,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -2992,9 +3029,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -3105,9 +3144,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -3216,9 +3257,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -3294,9 +3337,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -3440,9 +3485,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -3614,9 +3661,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -3747,9 +3796,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -3875,9 +3926,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -4016,9 +4069,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -4188,9 +4243,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -4358,9 +4415,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -4525,9 +4584,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -4620,9 +4681,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
@@ -4692,7 +4755,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
 
             XCTFail("unexpectedly resolved the package graph successfully")
         } catch {
-            XCTAssertEqual(error.interpolationDescription, "multiple products named 'SomeProduct' in: 'other' (at '\(AbsolutePath("/Other"))'), 'some' (at '\(AbsolutePath("/Some"))')")
+            XCTAssertEqual(error.interpolationDescription, "multiple packages ('other' (at '\(AbsolutePath("/Other"))'), 'some' (at '\(AbsolutePath("/Some"))')) declare products with a conflicting name: 'SomeProduct’; product names need to be unique across the package graph")
         }
         XCTAssertEqual(observability.diagnostics.map { $0.description }.sorted(), ["[warning]: product aliasing requires tools-version 5.2 or later, so it is not supported by \'other\'", "[warning]: product aliasing requires tools-version 5.2 or later, so it is not supported by \'some\'"])
     }

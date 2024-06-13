@@ -11,11 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 import class Basics.ObservabilitySystem
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
+import func PackageGraph.loadModulesGraph
+
 import class PackageModel.Manifest
 import struct PackageModel.ProductDescription
 import struct PackageModel.TargetDescription
 import class TSCBasic.InMemoryFileSystem
-import func SPMTestSupport.loadModulesGraph
 import func SPMTestSupport.XCTAssertNoDiagnostics
 
 @testable
@@ -107,7 +110,7 @@ final class MermaidPackageSerializerTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         XCTAssertEqual(graph.packages.count, 2)
-        let package = try XCTUnwrap(graph.packages.first)
+        let package = try XCTUnwrap(graph.package(for: .plain("A")))
         let serializer = MermaidPackageSerializer(package: package.underlying)
         XCTAssertEqual(
             serializer.renderedMarkdown,
@@ -166,7 +169,7 @@ final class MermaidPackageSerializerTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         XCTAssertEqual(graph.packages.count, 2)
-        let package = try XCTUnwrap(graph.packages.first)
+        let package = try XCTUnwrap(graph.package(for: .plain("A")))
         let serializer = MermaidPackageSerializer(package: package.underlying)
         XCTAssertEqual(
             serializer.renderedMarkdown,

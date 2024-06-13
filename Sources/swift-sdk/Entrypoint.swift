@@ -10,20 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import ArgumentParser
+import SwiftSDKCommand
 
-package struct ConfigureSwiftSDK: ParsableCommand {
-    package static let configuration = CommandConfiguration(
-        commandName: "configuration",
-        abstract: """
-        Manages configuration options for installed Swift SDKs.
-        """,
-        subcommands: [
-            ResetConfiguration.self,
-            SetConfiguration.self,
-            ShowConfiguration.self,
-        ]
-    )
-
-    package init() {}
+@main
+struct Entrypoint {
+    static func main() async {
+        await SwiftSDKCommand.main()
+    }
 }

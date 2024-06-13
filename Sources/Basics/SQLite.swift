@@ -19,12 +19,12 @@ import SPMSQLite3
 #endif
 
 /// A minimal SQLite wrapper.
-public final class SQLite {
+package final class SQLite {
     /// The location of the database.
-    public let location: Location
+    package let location: Location
 
     /// The configuration for the database.
-    public let configuration: Configuration
+    package let configuration: Configuration
 
     /// Pointer to the database.
     let db: OpaquePointer
@@ -32,7 +32,7 @@ public final class SQLite {
     /// Create or open the database at the given path.
     ///
     /// The database is opened in serialized mode.
-    public init(location: Location, configuration: Configuration = Configuration()) throws {
+    package init(location: Location, configuration: Configuration = Configuration()) throws {
         self.location = location
         self.configuration = configuration
 
@@ -64,19 +64,19 @@ public final class SQLite {
     }
 
     @available(*, deprecated, message: "use init(location:configuration) instead")
-    public convenience init(dbPath: AbsolutePath) throws {
+    package convenience init(dbPath: AbsolutePath) throws {
         try self.init(location: .path(dbPath))
     }
 
     /// Prepare the given query.
-    public func prepare(query: String) throws -> PreparedStatement {
+    package func prepare(query: String) throws -> PreparedStatement {
         try PreparedStatement(db: self.db, query: query)
     }
 
     /// Directly execute the given query.
     ///
     /// Note: Use withCString for string arguments.
-    public func exec(query queryString: String, args: [CVarArg] = [], _ callback: SQLiteExecCallback? = nil) throws {
+    package func exec(query queryString: String, args: [CVarArg] = [], _ callback: SQLiteExecCallback? = nil) throws {
         let query = withVaList(args) { ptr in
             sqlite3_vmprintf(queryString, ptr)
         }
@@ -96,27 +96,27 @@ public final class SQLite {
         }
     }
 
-    public func close() throws {
+    package func close() throws {
         try Self.checkError { sqlite3_close(db) }
     }
 
-    public typealias SQLiteExecCallback = ([Column]) -> Void
+    package typealias SQLiteExecCallback = ([Column]) -> Void
 
-    public struct Configuration {
-        public var busyTimeoutMilliseconds: Int32
-        public var maxSizeInBytes: Int?
+    package struct Configuration {
+        package var busyTimeoutMilliseconds: Int32
+        package var maxSizeInBytes: Int?
 
         // https://www.sqlite.org/pgszchng2016.html
         private let defaultPageSizeInBytes = 1024
 
-        public init() {
+        package init() {
             self.busyTimeoutMilliseconds = 5000
             self.maxSizeInBytes = .none
         }
 
         // FIXME: deprecated 12/2020, remove once clients migrated over
         @available(*, deprecated, message: "use busyTimeout instead")
-        public var busyTimeoutSeconds: Int32 {
+        package var busyTimeoutSeconds: Int32 {
             get {
                 self._busyTimeoutSeconds
             } set {
@@ -133,7 +133,7 @@ public final class SQLite {
             }
         }
 
-        public var maxSizeInMegabytes: Int? {
+        package var maxSizeInMegabytes: Int? {
             get {
                 self.maxSizeInBytes.map { $0 / (1024 * 1024) }
             }
@@ -142,12 +142,12 @@ public final class SQLite {
             }
         }
 
-        public var maxPageCount: Int? {
+        package var maxPageCount: Int? {
             self.maxSizeInBytes.map { $0 / self.defaultPageSizeInBytes }
         }
     }
 
-    public enum Location {
+    package enum Location: Sendable {
         case path(AbsolutePath)
         case memory
         case temporary
@@ -165,7 +165,7 @@ public final class SQLite {
     }
 
     /// Represents an sqlite value.
-    public enum SQLiteValue {
+    package enum SQLiteValue {
         case null
         case string(String)
         case int(Int)
@@ -173,35 +173,35 @@ public final class SQLite {
     }
 
     /// Represents a row returned by called step() on a prepared statement.
-    public struct Row {
+    package struct Row {
         /// The pointer to the prepared statement.
         let stmt: OpaquePointer
 
         /// Get integer at the given column index.
-        public func int(at index: Int32) -> Int {
+        package func int(at index: Int32) -> Int {
             Int(sqlite3_column_int64(self.stmt, index))
         }
 
         /// Get blob data at the given column index.
-        public func blob(at index: Int32) -> Data {
+        package func blob(at index: Int32) -> Data {
             let bytes = sqlite3_column_blob(stmt, index)!
             let count = sqlite3_column_bytes(stmt, index)
             return Data(bytes: bytes, count: Int(count))
         }
 
         /// Get string at the given column index.
-        public func string(at index: Int32) -> String {
+        package func string(at index: Int32) -> String {
             String(cString: sqlite3_column_text(self.stmt, index))
         }
     }
 
-    public struct Column {
-        public var name: String
-        public var value: String
+    package struct Column {
+        package var name: String
+        package var value: String
     }
 
     /// Represents a prepared statement.
-    public struct PreparedStatement {
+    package struct PreparedStatement {
         typealias sqlite3_destructor_type = @convention(c) (UnsafeMutableRawPointer?) -> Void
         static let SQLITE_STATIC = unsafeBitCast(0, to: sqlite3_destructor_type.self)
         static let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
@@ -209,7 +209,7 @@ public final class SQLite {
         /// The pointer to the prepared statement.
         let stmt: OpaquePointer
 
-        public init(db: OpaquePointer, query: String) throws {
+        package init(db: OpaquePointer, query: String) throws {
             var stmt: OpaquePointer?
             try SQLite.checkError { sqlite3_prepare_v2(db, query, -1, &stmt, nil) }
             self.stmt = stmt!
@@ -217,7 +217,7 @@ public final class SQLite {
 
         /// Evaluate the prepared statement.
         @discardableResult
-        public func step() throws -> Row? {
+        package func step() throws -> Row? {
             let result = sqlite3_step(stmt)
 
             switch result {
@@ -231,7 +231,7 @@ public final class SQLite {
         }
 
         /// Bind the given arguments to the statement.
-        public func bind(_ arguments: [SQLiteValue]) throws {
+        package func bind(_ arguments: [SQLiteValue]) throws {
             for (idx, argument) in arguments.enumerated() {
                 let idx = Int32(idx) + 1
                 switch argument {
@@ -258,17 +258,17 @@ public final class SQLite {
         }
 
         /// Reset the prepared statement.
-        public func reset() throws {
+        package func reset() throws {
             try SQLite.checkError { sqlite3_reset(stmt) }
         }
 
         /// Clear bindings from the prepared statement.
-        public func clearBindings() throws {
+        package func clearBindings() throws {
             try SQLite.checkError { sqlite3_clear_bindings(stmt) }
         }
 
         /// Finalize the statement and free up resources.
-        public func finalize() throws {
+        package func finalize() throws {
             try SQLite.checkError { sqlite3_finalize(stmt) }
         }
     }
@@ -296,7 +296,7 @@ public final class SQLite {
         }
     }
 
-    public enum Errors: Error {
+    package enum Errors: Error {
         case databaseFull
     }
 }

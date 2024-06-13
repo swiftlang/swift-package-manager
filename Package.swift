@@ -49,6 +49,7 @@ let swiftPMDataModelProduct = (
         "PackageLoading",
         "PackageMetadata",
         "PackageModel",
+        "PackageModelSyntax",
         "SourceControl",
         "Workspace",
     ]
@@ -80,7 +81,6 @@ let systemSQLitePkgConfig: String? = "sqlite3"
  automatic linking type with `-auto` suffix appended to product's name.
  */
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
-
 
 let packageModelResourcesSettings: [SwiftSetting]
 let packageModelResources: [Resource]
@@ -193,7 +193,10 @@ let package = Package(
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
                 .product(name: "SystemPackage", package: "swift-system"),
             ],
-            exclude: ["CMakeLists.txt", "Vendor/README.md"]
+            exclude: ["CMakeLists.txt", "Vendor/README.md"],
+            swiftSettings: [
+                .enableExperimentalFeature("StrictConcurrency"),
+            ]
         ),
 
         .target(
@@ -242,6 +245,23 @@ let package = Package(
             exclude: ["CMakeLists.txt", "README.md"],
             resources: packageModelResources,
             swiftSettings: packageModelResourcesSettings
+        ),
+
+        .target(
+            /** Primary Package model objects relationship to SwiftSyntax */
+            name: "PackageModelSyntax",
+            dependencies: [
+                "Basics",
+                "PackageLoading",
+                "PackageModel",
+                .product(name: "SwiftBasicFormat", package: "swift-syntax"),
+                .product(name: "SwiftDiagnostics", package: "swift-syntax"),
+                .product(name: "SwiftIDEUtils", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
+            ],
+            exclude: ["CMakeLists.txt"]
         ),
 
         .target(
@@ -412,10 +432,12 @@ let package = Package(
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
+                .product(name: "SwiftIDEUtils", package: "swift-syntax"),
                 "Basics",
                 "Build",
                 "CoreCommands",
                 "PackageGraph",
+                "PackageModelSyntax",
                 "SourceControl",
                 "Workspace",
                 "XCBuildSupport",
@@ -473,6 +495,9 @@ let package = Package(
             dependencies: [
                 "Basics",
                 .product(name: "Crypto", package: "swift-crypto"),
+            ],
+            swiftSettings: [
+                .enableExperimentalFeature("StrictConcurrency=complete"),
             ]
         ),
 
@@ -504,6 +529,12 @@ let package = Package(
         ),
         .executableTarget(
             /** Interacts with Swift SDKs used for cross-compilation */
+            name: "swift-sdk",
+            dependencies: ["Commands", "SwiftSDKCommand"],
+            exclude: ["CMakeLists.txt"]
+        ),
+        .executableTarget(
+            /** Deprecated command superseded by `swift-sdk` */
             name: "swift-experimental-sdk",
             dependencies: ["Commands", "SwiftSDKCommand"],
             exclude: ["CMakeLists.txt"]
@@ -533,7 +564,7 @@ let package = Package(
                 "Commands",
                 "SwiftSDKCommand",
                 "PackageCollectionsCommand",
-                "PackageRegistryCommand"
+                "PackageRegistryCommand",
             ],
             linkerSettings: swiftpmLinkSettings
         ),
@@ -631,6 +662,14 @@ let package = Package(
             dependencies: ["PackageModel", "SPMTestSupport"]
         ),
         .testTarget(
+            name: "PackageModelSyntaxTests",
+            dependencies: [
+                "PackageModelSyntax",
+                "SPMTestSupport",
+                .product(name: "SwiftIDEUtils", package: "swift-syntax"),
+            ]
+        ),
+        .testTarget(
             name: "PackageGraphTests",
             dependencies: ["PackageGraph", "SPMTestSupport"]
         ),
@@ -673,6 +712,10 @@ let package = Package(
             dependencies: ["SPMTestSupport", "PackageSigning"]
         ),
         .testTarget(
+            name: "QueryEngineTests",
+            dependencies: ["QueryEngine", "SPMTestSupport"]
+        ),
+        .testTarget(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "SPMTestSupport"],
             exclude: ["Inputs/TestRepo.tgz"]
@@ -682,6 +725,12 @@ let package = Package(
             dependencies: ["XCBuildSupport", "SPMTestSupport"],
             exclude: ["Inputs/Foo.pc"]
         ),
+        // Examples (These are built to ensure they stay up to date with the API.)
+        .executableTarget(
+            name: "package-info",
+            dependencies: ["Workspace"],
+            path: "Examples/package-info/Sources/package-info"
+        )
     ],
     swiftLanguageVersions: [.v5]
 )
@@ -694,7 +743,7 @@ package.targets.append(contentsOf: [
         name: "FunctionalPerformanceTests",
         dependencies: [
             "swift-package-manager",
-            "SPMTestSupport"
+            "SPMTestSupport",
         ]
     ),
 ])
@@ -727,6 +776,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "Build",
                 "Commands",
                 "PackageModel",
+                "PackageModelSyntax",
                 "PackageRegistryCommand",
                 "SourceControl",
                 "SPMTestSupport",
@@ -776,9 +826,10 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.2.2")),
         .package(url: "https://github.com/apple/swift-driver.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
-        .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
-        .package(url: "https://github.com/apple/swift-collections.git", .upToNextMinor(from: "1.0.1")),
-        .package(url: "https://github.com/apple/swift-certificates.git", .upToNextMinor(from: "1.0.1")),
+        .package(url: "https://github.com/apple/swift-syntax.git", branch: relatedDependenciesBranch),
+        .package(url: "https://github.com/apple/swift-system.git", "1.1.1" ..< "1.4.0"),
+        .package(url: "https://github.com/apple/swift-collections.git", "1.0.1" ..< "1.2.0"),
+        .package(url: "https://github.com/apple/swift-certificates.git", "1.0.1" ..< "1.4.0"),
     ]
 } else {
     package.dependencies += [
@@ -786,6 +837,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-argument-parser"),
         .package(path: "../swift-driver"),
         .package(path: "../swift-crypto"),
+        .package(path: "../swift-syntax"),
         .package(path: "../swift-system"),
         .package(path: "../swift-collections"),
         .package(path: "../swift-certificates"),

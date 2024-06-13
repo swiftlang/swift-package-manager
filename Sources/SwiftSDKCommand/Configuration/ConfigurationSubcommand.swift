@@ -12,6 +12,7 @@
 
 import ArgumentParser
 import Basics
+import Foundation
 import PackageModel
 
 protocol ConfigurationSubcommand: SwiftSDKSubcommand {
@@ -47,6 +48,8 @@ extension ConfigurationSubcommand {
         _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {
+        fputs("warning: `swift sdk configuration` command is deprecated and will be removed in a future version of SwiftPM. Use `swift sdk configure` instead.\n", stderr)
+
         let bundleStore = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
             fileSystem: self.fileSystem,

@@ -51,6 +51,7 @@ add_library(PackageModel
   Target/BinaryTarget.swift
   Target/ClangTarget.swift
   Target/PluginTarget.swift
+  Target/ProvidedLibraryTarget.swift
   Target/SwiftTarget.swift
   Target/SystemLibraryTarget.swift
   Target/Target.swift

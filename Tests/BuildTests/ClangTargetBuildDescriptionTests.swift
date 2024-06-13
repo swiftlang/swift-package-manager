@@ -28,9 +28,9 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
     func testSwiftCorelibsFoundationIncludeWorkaround() throws {
         let toolchain = MockToolchain(swiftResourcesPath: AbsolutePath("/fake/path/lib/swift"))
 
-        let macosParameters = mockBuildParameters(toolchain: toolchain, targetTriple: .macOS)
-        let linuxParameters = mockBuildParameters(toolchain: toolchain, targetTriple: .arm64Linux)
-        let androidParameters = mockBuildParameters(toolchain: toolchain, targetTriple: .arm64Android)
+        let macosParameters = mockBuildParameters(destination: .target, toolchain: toolchain, triple: .macOS)
+        let linuxParameters = mockBuildParameters(destination: .target, toolchain: toolchain, triple: .arm64Linux)
+        let androidParameters = mockBuildParameters(destination: .target, toolchain: toolchain, triple: .arm64Android)
 
         let macDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
                                                             buildParameters: macosParameters)
@@ -65,8 +65,8 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
         )
     }
 
-    private func makeResolvedTarget() throws -> ResolvedTarget {
-        ResolvedTarget(
+    private func makeResolvedTarget() throws -> ResolvedModule {
+        ResolvedModule(
             packageIdentity: .plain("dummy"),
             underlying: try makeClangTarget(),
             dependencies: [],
@@ -106,13 +106,14 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
                            defaultLocalization: nil,
                            supportedPlatforms: [],
                            dependencies: [],
-                           targets: [target],
+                           targets: .init([target]),
                            products: [],
                            registryMetadata: nil,
                            platformVersionProvider: .init(implementation: .minimumDeploymentTargetDefault)),
             target: target,
             toolsVersion: .current,
             buildParameters: buildParameters ?? mockBuildParameters(
+                destination: .target,
                 toolchain: try UserToolchain.default,
                 indexStoreMode: .on
             ),

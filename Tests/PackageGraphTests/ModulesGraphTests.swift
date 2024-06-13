@@ -11,7 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 @testable import PackageGraph
+
 import PackageModel
 import SPMTestSupport
 import XCTest
@@ -80,13 +83,13 @@ final class ModulesGraphTests: XCTestCase {
             result.checkTarget("Baz") { result in result.check(dependencies: "Bar") }
         }
 
-        let fooPackage = try XCTUnwrap(g.packages.first{ $0.identity == .plain("Foo") })
-        let fooTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "Foo" })
-        let fooDepTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "FooDep" })
+        let fooPackage = try XCTUnwrap(g.package(for: .plain("Foo")))
+        let fooTarget = try XCTUnwrap(g.target(for: "Foo", destination: .destination))
+        let fooDepTarget = try XCTUnwrap(g.target(for: "FooDep", destination: .destination))
         XCTAssertEqual(g.package(for: fooTarget)?.id, fooPackage.id)
         XCTAssertEqual(g.package(for: fooDepTarget)?.id, fooPackage.id)
-        let barPackage = try XCTUnwrap(g.packages.first{ $0.identity == .plain("Bar") })
-        let barTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "Bar" })
+        let barPackage = try XCTUnwrap(g.package(for: .plain("Bar")))
+        let barTarget = try XCTUnwrap(g.target(for: "Bar", destination: .destination))
         XCTAssertEqual(g.package(for: barTarget)?.id, barPackage.id)
     }
 
@@ -183,15 +186,17 @@ final class ModulesGraphTests: XCTestCase {
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: "cyclic dependency declaration found: Foo -> Bar -> Baz -> Bar", severity: .error)
+            result.check(
+                diagnostic: "cyclic dependency between packages Foo -> Bar -> Baz -> Bar requires tools-version 6.0 or later",
+                severity: .error
+            )
         }
     }
 
-    func testCycle2() throws {
+    func testLocalTargetCycle() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/source.swift",
-            "/Bar/Sources/Bar/source.swift",
-            "/Baz/Sources/Baz/source.swift"
+            "/Foo/Sources/Bar/source.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -201,18 +206,186 @@ final class ModulesGraphTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "Foo",
                     path: "/Foo",
-                    dependencies: [
-                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
-                    ],
                     targets: [
-                        TargetDescription(name: "Foo"),
+                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                        TargetDescription(name: "Bar", dependencies: ["Foo"])
                     ]),
             ],
             observabilityScope: observability.topScope
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: "cyclic dependency declaration found: Foo -> Foo", severity: .error)
+            result.check(
+                diagnostic: "cyclic dependency declaration found: Bar -> Foo -> Bar",
+                severity: .error
+            )
+        }
+    }
+
+    func testDependencyCycleWithoutTargetCycleV5() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/source.swift",
+            "/Bar/Sources/Bar/source.swift",
+            "/Bar/Sources/Baz/source.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let _ = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    toolsVersion: .v5_10,
+                    dependencies: [
+                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    products: [
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    displayName: "Bar",
+                    path: "/Bar",
+                    dependencies: [
+                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    products: [
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
+                        ProductDescription(name: "Baz", type: .library(.automatic), targets: ["Baz"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar"),
+                        TargetDescription(name: "Baz", dependencies: ["Foo"]),
+                    ])
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(
+                diagnostic: "cyclic dependency between packages Foo -> Bar -> Foo requires tools-version 6.0 or later",
+                severity: .error
+            )
+        }
+    }
+
+    func testDependencyCycleWithoutTargetCycle() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/A/Sources/A/source.swift",
+            "/B/Sources/B/source.swift",
+            "/C/Sources/C/source.swift"
+        )
+
+        func testDependencyCycleDetection(rootToolsVersion: ToolsVersion) throws -> [Diagnostic] {
+            let observability = ObservabilitySystem.makeForTesting()
+            let _ = try loadModulesGraph(
+                fileSystem: fs,
+                manifests: [
+                    Manifest.createRootManifest(
+                        displayName: "A",
+                        path: "/A",
+                        toolsVersion: rootToolsVersion,
+                        dependencies: [
+                            .localSourceControl(path: "/B", requirement: .upToNextMajor(from: "1.0.0"))
+                        ],
+                        products: [
+                            ProductDescription(name: "A", type: .library(.automatic), targets: ["A"])
+                        ],
+                        targets: [
+                            TargetDescription(name: "A", dependencies: ["B"]),
+                        ]
+                    ),
+                    Manifest.createFileSystemManifest(
+                        displayName: "B",
+                        path: "/B",
+                        dependencies: [
+                            .localSourceControl(path: "/C", requirement: .upToNextMajor(from: "1.0.0"))
+                        ],
+                        products: [
+                            ProductDescription(name: "B", type: .library(.automatic), targets: ["B"]),
+                        ],
+                        targets: [
+                            TargetDescription(name: "B"),
+                        ]
+                    ),
+                    Manifest.createFileSystemManifest(
+                        displayName: "C",
+                        path: "/C",
+                        dependencies: [
+                            .localSourceControl(path: "/A", requirement: .upToNextMajor(from: "1.0.0"))
+                        ],
+                        products: [
+                            ProductDescription(name: "C", type: .library(.automatic), targets: ["C"]),
+                        ],
+                        targets: [
+                            TargetDescription(name: "C"),
+                        ]
+                    )
+                ],
+                observabilityScope: observability.topScope
+            )
+            return observability.diagnostics
+        }
+
+        try testDiagnostics(testDependencyCycleDetection(rootToolsVersion: .v5)) { result in
+            result.check(
+                diagnostic: "cyclic dependency between packages A -> B -> C -> A requires tools-version 6.0 or later",
+                severity: .error
+            )
+        }
+
+        try XCTAssertNoDiagnostics(testDependencyCycleDetection(rootToolsVersion: .v6_0))
+    }
+
+    func testDependencyCycleWithoutTargetCycleV6() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/source.swift",
+            "/Bar/Sources/Bar/source.swift",
+            "/Bar/Sources/Baz/source.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    toolsVersion: .v6_0,
+                    dependencies: [
+                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    products: [
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    displayName: "Bar",
+                    path: "/Bar",
+                    dependencies: [
+                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    products: [
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
+                        ProductDescription(name: "Baz", type: .library(.automatic), targets: ["Baz"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar"),
+                        TargetDescription(name: "Baz", dependencies: ["Foo"]),
+                    ])
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        PackageGraphTester(graph) { result in
+            result.check(packages: "Foo", "Bar")
+            result.check(targets: "Bar", "Baz", "Foo")
         }
     }
 
@@ -336,7 +509,7 @@ final class ModulesGraphTests: XCTestCase {
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: "multiple targets named 'Bar' in: 'bar', 'foo'", severity: .error)
+            result.check(diagnostic: "multiple packages ('bar', 'foo') declare targets with a conflicting name: 'Bar’; target names need to be unique across the package graph", severity: .error)
         }
     }
 
@@ -395,7 +568,7 @@ final class ModulesGraphTests: XCTestCase {
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: "multiple targets named 'First' in: 'first', 'fourth', 'second', 'third'", severity: .error)
+            result.check(diagnostic: "multiple packages ('first', 'fourth', 'second', 'third') declare targets with a conflicting name: 'First’; target names need to be unique across the package graph", severity: .error)
         }
     }
 
@@ -465,8 +638,8 @@ final class ModulesGraphTests: XCTestCase {
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.checkUnordered(diagnostic: "multiple targets named 'Bar' in: 'fourth', 'third'", severity: .error)
-            result.checkUnordered(diagnostic: "multiple targets named 'Foo' in: 'first', 'second'", severity: .error)
+            result.checkUnordered(diagnostic: "multiple packages ('fourth', 'third') declare targets with a conflicting name: 'Bar’; target names need to be unique across the package graph", severity: .error)
+            result.checkUnordered(diagnostic: "multiple packages ('first', 'second') declare targets with a conflicting name: 'Foo’; target names need to be unique across the package graph", severity: .error)
         }
     }
 
@@ -534,7 +707,7 @@ final class ModulesGraphTests: XCTestCase {
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: "multiple targets named 'First' in: 'first', 'fourth'", severity: .error)
+            result.check(diagnostic: "multiple packages ('first', 'fourth') declare targets with a conflicting name: 'First’; target names need to be unique across the package graph", severity: .error)
         }
     }
 
@@ -1254,7 +1427,7 @@ final class ModulesGraphTests: XCTestCase {
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: "multiple targets named 'Foo' in: 'dep2', 'start'", severity: .error)
+            result.check(diagnostic: "multiple packages ('dep2', 'start') declare targets with a conflicting name: 'Foo’; target names need to be unique across the package graph", severity: .error)
         }
     }
 
@@ -1303,8 +1476,7 @@ final class ModulesGraphTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )) { error in
-            XCTAssertEqual((error as? PackageGraphError)?.description,
-                           "multiple products named 'Bar' in: 'bar' (at '\(barPkg)'), 'baz' (at '\(bazPkg)')")
+            XCTAssertEqual((error as? PackageGraphError)?.description, "multiple packages (\'bar\' (at '\(barPkg)'), \'baz\' (at '\(bazPkg)')) declare products with a conflicting name: \'Bar’; product names need to be unique across the package graph")
         }
     }
 

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import protocol Basics.FileSystem
+import class Basics.ObservabilityScope
 import struct Basics.IdentifiableSet
 import OrderedCollections
 import PackageLoading
@@ -20,16 +22,34 @@ enum PackageGraphError: Swift.Error {
     case noModules(Package)
 
     /// The package dependency declaration has cycle in it.
-    case cycleDetected((path: [Manifest], cycle: [Manifest]))
+    case dependencyCycleDetected(path: [Manifest], cycle: Manifest)
 
     /// The product dependency not found.
-    case productDependencyNotFound(package: String, targetName: String, dependencyProductName: String, dependencyPackageName: String?, dependencyProductInDecl: Bool, similarProductName: String?, packageContainingSimilarProduct: String?)
+    case productDependencyNotFound(
+        package: String,
+        targetName: String,
+        dependencyProductName: String,
+        dependencyPackageName: String?,
+        dependencyProductInDecl: Bool,
+        similarProductName: String?,
+        packageContainingSimilarProduct: String?
+    )
 
     /// The package dependency already satisfied by a different dependency package
-    case dependencyAlreadySatisfiedByIdentifier(package: String, dependencyLocation: String, otherDependencyURL: String, identity: PackageIdentity)
+    case dependencyAlreadySatisfiedByIdentifier(
+        package: String,
+        dependencyLocation: String,
+        otherDependencyURL: String,
+        identity: PackageIdentity
+    )
 
     /// The package dependency already satisfied by a different dependency package
-    case dependencyAlreadySatisfiedByName(package: String, dependencyLocation: String, otherDependencyURL: String, name: String)
+    case dependencyAlreadySatisfiedByName(
+        package: String,
+        dependencyLocation: String,
+        otherDependencyURL: String,
+        name: String
+    )
 
     /// The product dependency was found but the package name was not referenced correctly (tools version > 5.2).
     case productDependencyMissingPackage(
@@ -38,15 +58,23 @@ enum PackageGraphError: Swift.Error {
         packageIdentifier: String
     )
     /// Dependency between a plugin and a dependent target/product of a given type is unsupported
-    case unsupportedPluginDependency(targetName: String, dependencyName: String, dependencyType: String, dependencyPackage: String?)
+    case unsupportedPluginDependency(
+        targetName: String,
+        dependencyName: String,
+        dependencyType: String,
+        dependencyPackage: String?
+    )
+
     /// A product was found in multiple packages.
     case duplicateProduct(product: String, packages: [Package])
 
     /// Duplicate aliases for a target found in a product.
-    case multipleModuleAliases(target: String,
-                               product: String,
-                               package: String,
-                               aliases: [String])
+    case multipleModuleAliases(
+        target: String,
+        product: String,
+        package: String,
+        aliases: [String]
+    )
 }
 
 @available(*,
@@ -61,22 +89,28 @@ public struct ModulesGraph {
     /// The root packages.
     public let rootPackages: IdentifiableSet<ResolvedPackage>
 
-    /// The complete list of contained packages, in topological order starting
-    /// with the root packages.
-    public let packages: [ResolvedPackage]
+    /// The complete set of contained packages.
+    public let packages: IdentifiableSet<ResolvedPackage>
 
     /// The list of all targets reachable from root targets.
-    public let reachableTargets: IdentifiableSet<ResolvedTarget>
+    public private(set) var reachableTargets: IdentifiableSet<ResolvedModule>
 
     /// The list of all products reachable from root targets.
-    public let reachableProducts: IdentifiableSet<ResolvedProduct>
+    public private(set) var reachableProducts: IdentifiableSet<ResolvedProduct>
 
     /// Returns all the targets in the graph, regardless if they are reachable from the root targets or not.
-    public let allTargets: IdentifiableSet<ResolvedTarget>
+    public private(set) var allTargets: IdentifiableSet<ResolvedModule>
+
+    /// Returns all targets within the module graph in topological order, starting with low-level targets (that have no
+    /// dependencies).
+    package var allTargetsInTopologicalOrder: [ResolvedModule] {
+        get throws {
+            try topologicalSort(Array(allTargets)) { $0.dependencies.compactMap { $0.target } }.reversed()
+        }
+    }
 
     /// Returns all the products in the graph, regardless if they are reachable from the root targets or not.
-
-    public let allProducts: IdentifiableSet<ResolvedProduct>
+    public private(set) var allProducts: IdentifiableSet<ResolvedProduct>
 
     /// Package dependencies required for a fully resolved graph.
     ///
@@ -85,12 +119,16 @@ public struct ModulesGraph {
     public let requiredDependencies: [PackageReference]
 
     /// Returns true if a given target is present in root packages and is not excluded for the given build environment.
-    public func isInRootPackages(_ target: ResolvedTarget, satisfying buildEnvironment: BuildEnvironment) -> Bool {
+    public func isInRootPackages(_ target: ResolvedModule, satisfying buildEnvironment: BuildEnvironment) -> Bool {
         // FIXME: This can be easily cached.
-        return rootPackages.reduce(into: IdentifiableSet<ResolvedTarget>()) { (accumulator: inout IdentifiableSet<ResolvedTarget>, package: ResolvedPackage) in
+        return rootPackages.reduce(
+            into: IdentifiableSet<ResolvedModule>()
+        ) { (accumulator: inout IdentifiableSet<ResolvedModule>, package: ResolvedPackage) in
             let allDependencies = package.targets.flatMap { $0.dependencies }
             let unsatisfiedDependencies = allDependencies.filter { !$0.satisfies(buildEnvironment) }
-            let unsatisfiedDependencyTargets = unsatisfiedDependencies.compactMap { (dep: ResolvedTarget.Dependency) -> ResolvedTarget? in
+            let unsatisfiedDependencyTargets = unsatisfiedDependencies.compactMap { (
+                dep: ResolvedModule.Dependency
+            ) -> ResolvedModule? in
                 switch dep {
                 case .target(let target, _):
                     return target
@@ -108,17 +146,82 @@ public struct ModulesGraph {
         return self.rootPackages.contains(id: package.id)
     }
 
-    private let targetsToPackages: [ResolvedTarget.ID: ResolvedPackage]
-    /// Returns the package that contains the target, or nil if the target isn't in the graph.
-    public func package(for target: ResolvedTarget) -> ResolvedPackage? {
-        return self.targetsToPackages[target.id]
+    /// Returns the package  based on the given identity, or nil if the package isn't in the graph.
+    public func package(for identity: PackageIdentity) -> ResolvedPackage? {
+        packages[identity]
     }
 
+    /// Returns the package that contains the module, or nil if the module isn't in the graph.
+    public func package(for module: ResolvedModule) -> ResolvedPackage? {
+        self.package(for: module.packageIdentity)
+    }
 
-    private let productsToPackages: [ResolvedProduct.ID: ResolvedPackage]
     /// Returns the package that contains the product, or nil if the product isn't in the graph.
     public func package(for product: ResolvedProduct) -> ResolvedPackage? {
-        return self.productsToPackages[product.id]
+        self.package(for: product.packageIdentity)
+    }
+
+    /// Returns all of the packages that the given package depends on directly.
+    public func directDependencies(for package: ResolvedPackage) -> [ResolvedPackage] {
+        package.dependencies.compactMap { self.package(for: $0) }
+    }
+
+    /// Find a product given a name and an optional destination. If a destination is not specified
+    /// this method uses `.destination` and falls back to `.tools` for macros, plugins, and tests.
+    public func product(for name: String, destination: BuildTriple? = .none) -> ResolvedProduct? {
+        func findProduct(name: String, destination: BuildTriple) -> ResolvedProduct? {
+            self.allProducts.first { $0.name == name && $0.buildTriple == destination }
+        }
+
+        if let destination {
+            return findProduct(name: name, destination: destination)
+        }
+
+        if let product = findProduct(name: name, destination: .destination) {
+            return product
+        }
+
+        // It's possible to request a build of a macro, a plugin, or a test via `swift build`
+        // which won't have the right destination set because it's impossible to indicate it.
+        //
+        // Same happens with `--test-product` - if one of the test targets directly references
+        // a macro then all if its targets and the product itself become `host`.
+        if let toolsProduct = findProduct(name: name, destination: .tools),
+            toolsProduct.type == .macro || toolsProduct.type == .plugin || toolsProduct.type == .test
+        {
+            return toolsProduct
+        }
+
+        return nil
+    }
+
+    /// Find a target given a name and an optional destination. If a destination is not specified
+    /// this method uses `.destination` and falls back to `.tools` for macros, plugins, and tests.
+    public func target(for name: String, destination: BuildTriple? = .none) -> ResolvedModule? {
+        func findModule(name: String, destination: BuildTriple) -> ResolvedModule? {
+            self.allTargets.first { $0.name == name && $0.buildTriple == destination }
+        }
+
+        if let destination {
+            return findModule(name: name, destination: destination)
+        }
+
+        if let module = findModule(name: name, destination: .destination) {
+            return module
+        }
+
+        // It's possible to request a build of a macro, a plugin or a test via `swift build`
+        // which won't have the right destination set because it's impossible to indicate it.
+        //
+        // Same happens with `--test-product` - if one of the test targets directly references
+        // a macro then all if its targets and the product itself become `host`.
+        if let toolsModule = findModule(name: name, destination: .tools),
+            toolsModule.type == .macro || toolsModule.type == .plugin || toolsModule.type == .test
+        {
+            return toolsModule
+        }
+
+        return nil
     }
 
     /// All root and root dependency packages provided as input to the graph.
@@ -131,6 +234,7 @@ public struct ModulesGraph {
     public init(
         rootPackages: [ResolvedPackage],
         rootDependencies: [ResolvedPackage] = [],
+        packages: IdentifiableSet<ResolvedPackage>,
         dependencies requiredDependencies: [PackageReference],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]]
     ) throws {
@@ -138,45 +242,80 @@ public struct ModulesGraph {
         self.requiredDependencies = requiredDependencies
         self.inputPackages = rootPackages + rootDependencies
         self.binaryArtifacts = binaryArtifacts
-        self.packages = try topologicalSort(inputPackages, successors: { $0.dependencies })
+        self.packages = packages
 
-        // Create a mapping from targets to the packages that define them.  Here
-        // we include all targets, including tests in non-root packages, since
-        // this is intended for lookup and not traversal.
-        self.targetsToPackages = packages.reduce(into: [:], { partial, package in
-            package.targets.forEach{ partial[$0.id] = package }
-        })
-
-        let allTargets = IdentifiableSet(packages.flatMap({ package -> [ResolvedTarget] in
+        var allTargets = IdentifiableSet<ResolvedModule>()
+        var allProducts = IdentifiableSet<ResolvedProduct>()
+        for package in self.packages {
+            let targetsToInclude: [ResolvedModule]
             if rootPackages.contains(id: package.id) {
-                return package.targets
+                targetsToInclude = Array(package.targets)
             } else {
                 // Don't include tests targets from non-root packages so swift-test doesn't
                 // try to run them.
-                return package.targets.filter({ $0.type != .test })
+                targetsToInclude = package.targets.filter { $0.type != .test }
             }
-        }))
 
-        // Create a mapping from products to the packages that define them.  Here
-        // we include all products, including tests in non-root packages, since
-        // this is intended for lookup and not traversal.
-        self.productsToPackages = packages.reduce(into: [:], { partial, package in
-            package.products.forEach { partial[$0.id] = package }
-        })
+            for target in targetsToInclude {
+                allTargets.insert(target)
 
-        let allProducts = IdentifiableSet(packages.flatMap({ package -> [ResolvedProduct] in
+                // Explicitly include dependencies of host tools in the maps of all targets or all products
+                if target.buildTriple == .tools {
+                    for dependency in try target.recursiveDependencies() {
+                        switch dependency {
+                        case .target(let targetDependency, _):
+                            allTargets.insert(targetDependency)
+                        case .product(let productDependency, _):
+                            allProducts.insert(productDependency)
+                        }
+                    }
+                }
+
+                // Create a new executable product if plugin depends on an executable target.
+                // This is necessary, even though PackageBuilder creates one already, because
+                // that product is going to be built for `destination`, and this one has to
+                // be built for `tools`.
+                if target.underlying is PluginTarget {
+                    for dependency in target.dependencies {
+                        switch dependency {
+                        case .product(_, conditions: _):
+                            break
+
+                        case .target(let target, conditions: _):
+                            if target.type != .executable {
+                                continue
+                            }
+
+                            var product = try ResolvedProduct(
+                                packageIdentity: target.packageIdentity,
+                                product: .init(
+                                    package: target.packageIdentity,
+                                    name: target.name,
+                                    type: .executable,
+                                    targets: [target.underlying]
+                                ),
+                                targets: IdentifiableSet([target])
+                            )
+                            product.buildTriple = .tools
+
+                            allProducts.insert(product)
+                        }
+                    }
+                }
+            }
+
             if rootPackages.contains(id: package.id) {
-                return package.products
+                allProducts.formUnion(package.products)
             } else {
-                // Don't include tests products from non-root packages so swift-test doesn't
+                // Don't include test products from non-root packages so swift-test doesn't
                 // try to run them.
-                return package.products.filter({ $0.type != .test })
+                allProducts.formUnion(package.products.filter { $0.type != .test })
             }
-        }))
+        }
 
         // Compute the reachable targets and products.
-        let inputTargets = inputPackages.flatMap { $0.targets }
-        let inputProducts = inputPackages.flatMap { $0.products }
+        let inputTargets = self.inputPackages.flatMap { $0.targets }
+        let inputProducts = self.inputPackages.flatMap { $0.products }
         let recursiveDependencies = try inputTargets.lazy.flatMap { try $0.recursiveDependencies() }
 
         self.reachableTargets = IdentifiableSet(inputTargets).union(recursiveDependencies.compactMap { $0.target })
@@ -187,13 +326,14 @@ public struct ModulesGraph {
     }
 
     /// Computes a map from each executable target in any of the root packages to the corresponding test targets.
-    func computeTestTargetsForExecutableTargets() throws -> [ResolvedTarget.ID: [ResolvedTarget]] {
-        var result = [ResolvedTarget.ID: [ResolvedTarget]]()
+    @_spi(SwiftPMInternal)
+    public func computeTestTargetsForExecutableTargets() throws -> [ResolvedModule.ID: [ResolvedModule]] {
+        var result = [ResolvedModule.ID: [ResolvedModule]]()
 
         let rootTargets = IdentifiableSet(rootPackages.flatMap { $0.targets })
 
         // Create map of test target to set of its direct dependencies.
-        let testTargetDepMap: [ResolvedTarget.ID: IdentifiableSet<ResolvedTarget>] = try {
+        let testTargetDepMap: [ResolvedModule.ID: IdentifiableSet<ResolvedModule>] = try {
             let testTargetDeps = rootTargets.filter({ $0.type == .test }).map({
                 ($0.id, IdentifiableSet($0.dependencies.compactMap { $0.target }.filter { $0.type != .plugin }))
             })
@@ -225,10 +365,10 @@ extension PackageGraphError: CustomStringConvertible {
         case .noModules(let package):
             return "package '\(package)' contains no products"
 
-        case .cycleDetected(let cycle):
-            return "cyclic dependency declaration found: " +
-            (cycle.path + cycle.cycle).map({ $0.displayName }).joined(separator: " -> ") +
-            " -> " + cycle.cycle[0].displayName
+        case .dependencyCycleDetected(let path, let package):
+            return "cyclic dependency between packages " +
+            (path.map({ $0.displayName }).joined(separator: " -> ")) +
+            " -> \(package.displayName) requires tools-version 6.0 or later"
 
         case .productDependencyNotFound(let package, let targetName, let dependencyProductName, let dependencyPackageName, let dependencyProductInDecl, let similarProductName, let packageContainingSimilarProduct):
             if dependencyProductInDecl {
@@ -276,8 +416,7 @@ extension PackageGraphError: CustomStringConvertible {
                 }
                 return description
             }
-
-            return "multiple products named '\(product)' in: \(packagesDescriptions.joined(separator: ", "))"
+            return "multiple packages (\(packagesDescriptions.joined(separator: ", "))) declare products with a conflicting name: '\(product)’; product names need to be unique across the package graph"
         case .multipleModuleAliases(let target, let product, let package, let aliases):
             return "multiple aliases: ['\(aliases.joined(separator: "', '"))'] found for target '\(target)' in product '\(product)' from package '\(package)'"
         case .unsupportedPluginDependency(let targetName, let dependencyName, let dependencyType,  let dependencyPackage):
@@ -354,4 +493,50 @@ func topologicalSort<T: Identifiable>(
     }
 
     return result.reversed()
+}
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
+public func loadModulesGraph(
+    identityResolver: IdentityResolver = DefaultIdentityResolver(),
+    fileSystem: FileSystem,
+    manifests: [Manifest],
+    binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]] = [:],
+    explicitProduct: String? = .none,
+    shouldCreateMultipleTestProducts: Bool = false,
+    createREPLProduct: Bool = false,
+    useXCBuildFileRules: Bool = false,
+    customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
+    observabilityScope: ObservabilityScope
+) throws -> ModulesGraph {
+    let rootManifests = manifests.filter(\.packageKind.isRoot).spm_createDictionary { ($0.path, $0) }
+    let externalManifests = try manifests.filter { !$0.packageKind.isRoot }
+        .reduce(
+            into: OrderedCollections
+                .OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()
+        ) { partial, item in
+            partial[try identityResolver.resolveIdentity(for: item.packageKind)] = (item, fileSystem)
+        }
+
+    let packages = Array(rootManifests.keys)
+    let input = PackageGraphRootInput(packages: packages)
+    let graphRoot = PackageGraphRoot(
+        input: input,
+        manifests: rootManifests,
+        explicitProduct: explicitProduct,
+        observabilityScope: observabilityScope
+    )
+
+    return try ModulesGraph.load(
+        root: graphRoot,
+        identityResolver: identityResolver,
+        additionalFileRules: useXCBuildFileRules ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription
+            .swiftpmFileTypes,
+        externalManifests: externalManifests,
+        binaryArtifacts: binaryArtifacts,
+        shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
+        createREPLProduct: createREPLProduct,
+        customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
+        fileSystem: fileSystem,
+        observabilityScope: observabilityScope
+    )
 }

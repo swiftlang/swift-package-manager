@@ -19,12 +19,14 @@ import struct TSCBasic.ProcessResult
 /// Defines the executables used by SwiftPM.
 /// Contains path to the currently built executable and
 /// helper method to execute them.
-package enum SwiftPM {
+public enum SwiftPM {
     case Build
     case Package
     case Registry
     case Test
     case Run
+    case experimentalSDK
+    case sdk
 }
 
 extension SwiftPM {
@@ -41,14 +43,18 @@ extension SwiftPM {
             return "swift-test"
         case .Run:
             return "swift-run"
+        case .experimentalSDK:
+            return "swift-experimental-sdk"
+        case .sdk:
+            return "swift-sdk"
         }
     }
 
-    package var xctestBinaryPath: AbsolutePath {
+    public var xctestBinaryPath: AbsolutePath {
         Self.xctestBinaryPath(for: RelativePath("swift-package-manager"))
     }
 
-    package static func xctestBinaryPath(for executableName: RelativePath) -> AbsolutePath {
+    public static func xctestBinaryPath(for executableName: RelativePath) -> AbsolutePath {
         #if canImport(Darwin)
         for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
             return try! AbsolutePath(AbsolutePath(validating: bundle.bundlePath).parentDirectory, executableName)
@@ -71,7 +77,7 @@ extension SwiftPM {
     ///
     /// - Returns: The output of the process.
     @discardableResult
-    package func execute(
+    public func execute(
         _ args: [String] = [],
         packagePath: AbsolutePath? = nil,
         env: [String: String]? = nil
@@ -135,7 +141,7 @@ extension SwiftPM {
 }
 
 extension SwiftPM {
-    package static func packagePath(for packageName: String, packageRoot: AbsolutePath) throws -> AbsolutePath {
+    public static func packagePath(for packageName: String, packageRoot: AbsolutePath) throws -> AbsolutePath {
         // FIXME: The directory paths are hard coded right now and should be replaced by --get-package-path
         // whenever we design that. https://bugs.swift.org/browse/SR-2753
         let packagesPath = packageRoot.appending(components: ".build", "checkouts")
@@ -148,12 +154,12 @@ extension SwiftPM {
     }
 }
 
-package enum SwiftPMError: Error {
+public enum SwiftPMError: Error {
     case packagePathNotFound
     case executionFailure(underlying: Error, stdout: String, stderr: String)
 }
 
-package enum SwiftPMProductError: Swift.Error {
+public enum SwiftPMProductError: Swift.Error {
     case packagePathNotFound
     case executionFailure(error: Swift.Error, output: String, stderr: String)
 }

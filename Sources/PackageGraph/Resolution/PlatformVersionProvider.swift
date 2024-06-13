@@ -32,7 +32,7 @@ func merge(into partial: inout [SupportedPlatform], platforms: [SupportedPlatfor
 
 public struct PlatformVersionProvider: Hashable {
     public enum Implementation: Hashable {
-        case mergingFromTargets(IdentifiableSet<ResolvedTarget>)
+        case mergingFromTargets(IdentifiableSet<ResolvedModule>)
         case customXCTestMinimumDeploymentTargets([PackageModel.Platform: PlatformVersion])
         case minimumDeploymentTargetDefault
     }

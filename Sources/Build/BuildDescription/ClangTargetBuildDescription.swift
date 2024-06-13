@@ -15,7 +15,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import struct PackageGraph.ModulesGraph
-import struct PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedModule
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildToolPluginInvocationResult
 import struct SPMBuildCore.PrebuildCommandResult
@@ -23,20 +23,20 @@ import struct SPMBuildCore.PrebuildCommandResult
 import enum TSCBasic.ProcessEnv
 
 /// Target description for a Clang target i.e. C language family target.
-package final class ClangTargetBuildDescription {
+public final class ClangTargetBuildDescription {
     /// The package this target belongs to.
-    package let package: ResolvedPackage
+    public let package: ResolvedPackage
 
     /// The target described by this target.
-    package let target: ResolvedTarget
+    public let target: ResolvedModule
 
     /// The underlying clang target.
-    package let clangTarget: ClangTarget
+    public let clangTarget: ClangTarget
 
     /// The tools version of the package that declared the target.  This can
     /// can be used to conditionalize semantically significant changes in how
     /// a target is built.
-    package let toolsVersion: ToolsVersion
+    public let toolsVersion: ToolsVersion
 
     /// The build parameters.
     let buildParameters: BuildParameters
@@ -47,13 +47,13 @@ package final class ClangTargetBuildDescription {
     }
 
     /// The list of all resource files in the target, including the derived ones.
-    package var resources: [Resource] {
+    public var resources: [Resource] {
         self.target.underlying.resources + self.pluginDerivedResources
     }
 
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
-        guard !resources.isEmpty else {
+        guard !self.resources.isEmpty else {
             return .none
         }
 
@@ -65,7 +65,7 @@ package final class ClangTargetBuildDescription {
     }
 
     /// The modulemap file for this target, if any.
-    package private(set) var moduleMap: AbsolutePath?
+    public private(set) var moduleMap: AbsolutePath?
 
     /// Path to the temporary directory for this target.
     var tempsPath: AbsolutePath
@@ -82,13 +82,13 @@ package final class ClangTargetBuildDescription {
     private var pluginDerivedResources: [Resource]
 
     /// Path to the resource accessor header file, if generated.
-    package private(set) var resourceAccessorHeaderFile: AbsolutePath?
+    public private(set) var resourceAccessorHeaderFile: AbsolutePath?
 
     /// Path to the resource Info.plist file, if generated.
-    package private(set) var resourceBundleInfoPlistPath: AbsolutePath?
+    public private(set) var resourceBundleInfoPlistPath: AbsolutePath?
 
     /// The objects in this target.
-    package var objects: [AbsolutePath] {
+    public var objects: [AbsolutePath] {
         get throws {
             try compilePaths().map(\.object)
         }
@@ -104,17 +104,17 @@ package final class ClangTargetBuildDescription {
     private let fileSystem: FileSystem
 
     /// If this target is a test target.
-    package var isTestTarget: Bool {
+    public var isTestTarget: Bool {
         target.type == .test
     }
 
     /// The results of applying any build tool plugins to this target.
-    package let buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
+    public let buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
 
     /// Create a new target description with target and build parameters.
     init(
         package: ResolvedPackage,
-        target: ResolvedTarget,
+        target: ResolvedModule,
         toolsVersion: ToolsVersion,
         additionalFileRules: [FileRuleDescription] = [],
         buildParameters: BuildParameters,
@@ -133,7 +133,7 @@ package final class ClangTargetBuildDescription {
         self.target = target
         self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
-        self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
+        self.tempsPath = target.tempsPath(buildParameters)
         self.derivedSources = Sources(paths: [], root: tempsPath.appending("DerivedSources"))
 
         // We did not use to apply package plugins to C-family targets in prior tools-versions, this preserves the behavior.
@@ -188,7 +188,7 @@ package final class ClangTargetBuildDescription {
     }
 
     /// An array of tuples containing filename, source, object and dependency path for each of the source in this target.
-    package func compilePaths()
+    public func compilePaths()
         throws -> [(filename: RelativePath, source: AbsolutePath, object: AbsolutePath, deps: AbsolutePath)]
     {
         let sources = [
@@ -207,12 +207,30 @@ package final class ClangTargetBuildDescription {
         }
     }
 
+    /// Determines the arguments needed to run `swift-symbolgraph-extract` for
+    /// this module.
+    package func symbolGraphExtractArguments() throws -> [String] {
+        var args = [String]()
+        if self.clangTarget.isCXX {
+            args += ["-cxx-interoperability-mode=default"]
+        }
+        if let cxxLanguageStandard = self.clangTarget.cxxLanguageStandard {
+            args += ["-Xcc", "-std=\(cxxLanguageStandard)"]
+        }
+        args += ["-I", self.clangTarget.includeDir.pathString]
+        args += self.additionalFlags.asSwiftcCCompilerFlags()
+        // Unconditionally use clang modules with swift tools.
+        args += try self.clangModuleArguments().asSwiftcCCompilerFlags()
+        args += try self.currentModuleMapFileArguments().asSwiftcCCompilerFlags()
+        return args
+    }
+
     /// Builds up basic compilation arguments for a source file in this target; these arguments may be different for C++
     /// vs non-C++.
     /// NOTE: The parameter to specify whether to get C++ semantics is currently optional, but this is only for revlock
     /// avoidance with clients. Callers should always specify what they want based either the user's indication or on a
     /// default value (possibly based on the filename suffix).
-    package func basicArguments(
+    public func basicArguments(
         isCXX isCXXOverride: Bool? = .none,
         isC: Bool = false
     ) throws -> [String] {
@@ -225,7 +243,7 @@ package final class ClangTargetBuildDescription {
         if self.buildParameters.triple.isDarwin() {
             args += ["-fobjc-arc"]
         }
-        args += try buildParameters.targetTripleArgs(for: target)
+        args += try self.buildParameters.tripleArgs(for: target)
 
         args += optimizationArguments
         args += activeCompilationConditions
@@ -249,7 +267,7 @@ package final class ClangTargetBuildDescription {
         // clang modules aren't fully supported in C++ mode in the current Darwin SDKs.
         let enableModules = triple.isDarwin() && !isCXX
         if enableModules {
-            args += ["-fmodules", "-fmodule-name=" + target.c99name]
+            args += try self.clangModuleArguments()
         }
 
         // Only add the build path to the framework search path if there are binary frameworks to link against.
@@ -259,9 +277,7 @@ package final class ClangTargetBuildDescription {
 
         args += ["-I", clangTarget.includeDir.pathString]
         args += additionalFlags
-        if enableModules {
-            args += try moduleCacheArgs
-        }
+
         args += buildParameters.sanitizers.compileCFlags()
 
         // Add arguments from declared build settings.
@@ -335,7 +351,7 @@ package final class ClangTargetBuildDescription {
         return args
     }
 
-    package func emitCommandLine(for filePath: AbsolutePath) throws -> [String] {
+    public func emitCommandLine(for filePath: AbsolutePath) throws -> [String] {
         let standards = [
             (clangTarget.cxxLanguageStandard, SupportedLanguageExtension.cppExtensions),
             (clangTarget.cLanguageStandard, SupportedLanguageExtension.cExtensions),
@@ -419,11 +435,22 @@ package final class ClangTargetBuildDescription {
         return compilationConditions
     }
 
-    /// Module cache arguments.
-    private var moduleCacheArgs: [String] {
-        get throws {
-            try ["-fmodules-cache-path=\(buildParameters.moduleCache.pathString)"]
+    /// Enable Clang module flags.
+    private func clangModuleArguments() throws -> [String] {
+        let cachePath = try self.buildParameters.moduleCache.pathString
+        return [
+            "-fmodules",
+            "-fmodule-name=\(self.target.c99name)",
+            "-fmodules-cache-path=\(cachePath)",
+        ]
+    }
+    
+    private func currentModuleMapFileArguments() throws -> [String] {
+        // Pass the path to the current module's module map if present.
+        if let moduleMap = self.moduleMap {
+            return ["-fmodule-map-file=\(moduleMap.pathString)"]
         }
+        return []
     }
 
     /// Generate the resource bundle accessor, if appropriate.

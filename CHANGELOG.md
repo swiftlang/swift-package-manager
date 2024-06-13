@@ -1,18 +1,44 @@
 Note: This is in reverse chronological order, so newer entries are added to the top.
 
-Swift Next
+* [#7530]
+
+  Starting from tools-version 6.0 makes it possible for packages to depend on each other if such dependency doesn't form any target-level cycles.
+  For example, package `A` can depend on `B` and `B` on `A` unless targets in `B` depend on products of `A` that depend on some of the same
+  targets from `B` and vice versa.
+
+Swift 6.0
 -----------
+
+* [#7507] 
+
+  `swift experimental-sdk` command is deprecated with `swift sdk` command replacing it. `--experimental-swift-sdk` and
+  `--experimental-swift-sdks-path` options on `swift build` are deprecated with replacements that don't have the
+  `experimental` prefix.
+
+* [#7535] The `swift sdk configuration` subcommand is deprecated with a replacement named `configure` that has options that exactly match
+  [SE-0387 proposal text].
 
 * [#7202]
 
   Package manifests can now access information about the Git repository the given package is in via the context object's 
   `gitInformation` property. This allows to determine the current tag (if any), the current commit and whether or not there are uncommited changes.
 
+* [#7201]
+
+  `// swift-tools-version:` can now be specified on subsequent lines of `Package.swift`, for example when first few lines are required to contain a licensing comment header.
+
+* [#7118]
+
+  Macros cross-compiled by SwiftPM with Swift SDKs are now correctly built, loaded, and evaluated for the host triple.
+
+Swift 5.10
+-----------
+
 * [#7010]
 
   On macOS, `swift build` and `swift run` now produce binaries that allow backtraces in debug builds. Pass `SWIFT_BACKTRACE=enable=yes` environment variable to enable backtraces on such binaries when running them.
 
-* [7101]
+* [#7101]
 
    Binary artifacts are now cached along side repository checkouts so they do not need to be re-downloaded across projects.
 
@@ -343,6 +369,7 @@ Swift 3.0
 [SE-0386]: https://github.com/apple/swift-evolution/blob/main/proposals/0386-package-access-modifier.md
 [SE-0387]: https://github.com/apple/swift-evolution/blob/main/proposals/0387-cross-compilation-destinations.md
 [SE-0391]: https://github.com/apple/swift-evolution/blob/main/proposals/0391-package-registry-publish.md
+[SE-0387 proposal text]: https://github.com/apple/swift-evolution/blob/main/proposals/0387-cross-compilation-destinations.md#swift-sdk-installation-and-configuration
 
 [SR-5918]: https://bugs.swift.org/browse/SR-5918
 [SR-6978]: https://bugs.swift.org/browse/SR-6978
@@ -387,4 +414,10 @@ Swift 3.0
 [#6276]: https://github.com/apple/swift-package-manager/pull/6276
 [#6540]: https://github.com/apple/swift-package-manager/pull/6540
 [#6663]: https://github.com/apple/swift-package-manager/pull/6663
+[#7010]: https://github.com/apple/swift-package-manager/pull/7010
 [#7101]: https://github.com/apple/swift-package-manager/pull/7101
+[#7118]: https://github.com/apple/swift-package-manager/pull/7118
+[#7201]: https://github.com/apple/swift-package-manager/pull/7201
+[#7202]: https://github.com/apple/swift-package-manager/pull/7202
+[#7507]: https://github.com/apple/swift-package-manager/pull/7507
+[#7535]: https://github.com/apple/swift-package-manager/pull/7535

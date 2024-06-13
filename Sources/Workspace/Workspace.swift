@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -96,7 +96,7 @@ public class Workspace {
     public let pinsStore: LoadableResult<PinsStore>
 
     /// The file system on which the workspace will operate.
-    let fileSystem: any FileSystem
+    package let fileSystem: any FileSystem
 
     /// The host toolchain to use.
     private let hostToolchain: UserToolchain
@@ -173,6 +173,7 @@ public class Workspace {
     ///   - delegate: Delegate for workspace events
     public convenience init(
         fileSystem: any FileSystem,
+        environment: EnvironmentVariables = .process(),
         location: Location,
         authorizationProvider: (any AuthorizationProvider)? = .none,
         registryAuthorizationProvider: (any AuthorizationProvider)? = .none,
@@ -189,6 +190,7 @@ public class Workspace {
     ) throws {
         try self.init(
             fileSystem: fileSystem,
+            environment: environment,
             location: location,
             authorizationProvider: authorizationProvider,
             registryAuthorizationProvider: registryAuthorizationProvider,
@@ -236,6 +238,7 @@ public class Workspace {
     ///   - delegate: Delegate for workspace events
     public convenience init(
         fileSystem: FileSystem? = .none,
+        environment: EnvironmentVariables = .process(),
         forRootPackage packagePath: AbsolutePath,
         authorizationProvider: AuthorizationProvider? = .none,
         registryAuthorizationProvider: AuthorizationProvider? = .none,
@@ -243,6 +246,7 @@ public class Workspace {
         cancellator: Cancellator? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
         // optional customization used for advanced integration situations
+        customHostToolchain: UserToolchain? = .none,
         customManifestLoader: ManifestLoaderProtocol? = .none,
         customPackageContainerProvider: PackageContainerProvider? = .none,
         customRepositoryProvider: RepositoryProvider? = .none,
@@ -253,12 +257,14 @@ public class Workspace {
         let location = try Location(forRootPackage: packagePath, fileSystem: fileSystem)
         try self.init(
             fileSystem: fileSystem,
+            environment: environment,
             location: location,
             authorizationProvider: authorizationProvider,
             registryAuthorizationProvider: registryAuthorizationProvider,
             configuration: configuration,
             cancellator: cancellator,
             initializationWarningHandler: initializationWarningHandler,
+            customHostToolchain: customHostToolchain,
             customManifestLoader: customManifestLoader,
             customPackageContainerProvider: customPackageContainerProvider,
             customRepositoryProvider: customRepositoryProvider,
@@ -331,6 +337,7 @@ public class Workspace {
     public static func _init(
         // core
         fileSystem: FileSystem,
+        environment: EnvironmentVariables,
         location: Location,
         authorizationProvider: AuthorizationProvider? = .none,
         registryAuthorizationProvider: AuthorizationProvider? = .none,
@@ -359,6 +366,7 @@ public class Workspace {
     ) throws -> Workspace {
         try .init(
             fileSystem: fileSystem,
+            environment: environment,
             location: location,
             authorizationProvider: authorizationProvider,
             registryAuthorizationProvider: registryAuthorizationProvider,
@@ -388,6 +396,7 @@ public class Workspace {
     private init(
         // core
         fileSystem: FileSystem,
+        environment: EnvironmentVariables,
         location: Location,
         authorizationProvider: AuthorizationProvider?,
         registryAuthorizationProvider: AuthorizationProvider?,
@@ -426,7 +435,13 @@ public class Workspace {
         )
 
         let currentToolsVersion = customToolsVersion ?? ToolsVersion.current
-        let hostToolchain = try customHostToolchain ?? UserToolchain(swiftSDK: .hostSwiftSDK())
+        let hostToolchain = try customHostToolchain ?? UserToolchain(
+            swiftSDK: .hostSwiftSDK(
+                environment: environment
+            ),
+            environment: environment,
+            fileSystem: fileSystem
+        )
         var manifestLoader = customManifestLoader ?? ManifestLoader(
             toolchain: hostToolchain,
             cacheDir: location.sharedManifestsCacheDirectory,
@@ -572,9 +587,9 @@ public class Workspace {
         )
     }
 
-    fileprivate var providedLibraries: [LibraryMetadata] {
+    var providedLibraries: [ProvidedLibrary] {
         // Note: Eventually, we should get these from the individual SDKs, but the first step is providing the metadata centrally in the toolchain.
-        return self.hostToolchain.providedLibraries
+        self.hostToolchain.providedLibraries
     }
 }
 
@@ -626,7 +641,6 @@ extension Workspace {
         packageName: String,
         forceRemove: Bool,
         root: PackageGraphRootInput,
-        availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
     ) async throws {
         guard let dependency = self.state.dependencies[.plain(packageName)] else {
@@ -643,7 +657,6 @@ extension Workspace {
             dependency: dependency,
             forceRemove: forceRemove,
             root: root,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
     }
@@ -664,7 +677,6 @@ extension Workspace {
         try await self._resolve(
             root: root,
             explicitProduct: explicitProduct,
-            availableLibraries: self.providedLibraries,
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : forceResolution ? .update(forceResolution: true) :
                 .bestEffort,
             observabilityScope: observabilityScope
@@ -708,6 +720,8 @@ extension Workspace {
             defaultRequirement = checkoutState.requirement
         case .registryDownload(let version), .custom(let version, _):
             defaultRequirement = .versionSet(.exact(version))
+        case .providedLibrary(_, version: let version):
+            defaultRequirement = .versionSet(.exact(version))
         case .fileSystem:
             throw StringError("local dependency '\(dependency.packageRef.identity)' can't be resolved")
         case .edited:
@@ -736,7 +750,6 @@ extension Workspace {
         // Run the resolution.
         try await self.resolveAndUpdateResolvedFile(
             root: root,
-            availableLibraries: self.providedLibraries,
             forceResolution: false,
             constraints: [constraint],
             observabilityScope: observabilityScope
@@ -754,7 +767,6 @@ extension Workspace {
         try await self._resolveBasedOnResolvedVersionsFile(
             root: root,
             explicitProduct: .none,
-            availableLibraries: self.providedLibraries,
             observabilityScope: observabilityScope
         )
     }
@@ -865,7 +877,6 @@ extension Workspace {
             root: root,
             packages: packages,
             dryRun: dryRun,
-            availableLibraries: self.providedLibraries,
             observabilityScope: observabilityScope
         )
     }
@@ -877,7 +888,6 @@ extension Workspace {
         forceResolvedVersions: Bool = false,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
-        availableLibraries: [LibraryMetadata],
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
         observabilityScope: ObservabilityScope
     ) async throws -> ModulesGraph {
@@ -897,7 +907,6 @@ extension Workspace {
         let manifests = try await self._resolve(
             root: root,
             explicitProduct: explicitProduct,
-            availableLibraries: availableLibraries,
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : .bestEffort,
             observabilityScope: observabilityScope
         )
@@ -924,7 +933,6 @@ extension Workspace {
             createREPLProduct: self.configuration.createREPLProduct,
             customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
             testEntryPointPath: testEntryPointPath,
-            availableLibraries: self.providedLibraries,
             fileSystem: self.fileSystem,
             observabilityScope: observabilityScope
         )
@@ -946,7 +954,6 @@ extension Workspace {
         try await self.loadPackageGraph(
             rootInput: PackageGraphRootInput(packages: [rootPath]),
             explicitProduct: explicitProduct,
-            availableLibraries: self.providedLibraries,
             observabilityScope: observabilityScope
         )
     }
@@ -1097,7 +1104,7 @@ extension Workspace {
         packageGraph: ModulesGraph,
         observabilityScope: ObservabilityScope
     ) async throws -> Package {
-        guard let previousPackage = packageGraph.packages.first(where: { $0.identity == identity }) else {
+        guard let previousPackage = packageGraph.package(for: identity) else {
             throw StringError("could not find package with identity \(identity)")
         }
 
@@ -1286,6 +1293,8 @@ extension Workspace {
                 }
             case .registryDownload(let version)?, .custom(let version, _):
                 result.append("resolved to '\(version)'")
+            case .providedLibrary(_, version: let version):
+                result.append("resolved to '\(version)'")
             case .edited?:
                 result.append("edited")
             case .fileSystem?:
@@ -1407,7 +1416,7 @@ private func warnToStderr(_ message: String) {
 }
 
 // used for manifest validation
-#if swift(<6.0)
+#if compiler(<6.0)
 extension RepositoryManager: ManifestSourceControlValidator {}
 #else
 extension RepositoryManager: @retroactive ManifestSourceControlValidator {}

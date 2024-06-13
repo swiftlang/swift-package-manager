@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -33,8 +33,7 @@ extension String {
     }
 }
 
-class ManifestSourceGenerationTests: XCTestCase {
-
+final class ManifestSourceGenerationTests: XCTestCase {
     /// Private function that writes the contents of a package manifest to a temporary package directory and then loads it, then serializes the loaded manifest back out again and loads it once again, after which it compares that no information was lost. Return the source of the newly generated manifest.
     @discardableResult
     private func testManifestWritingRoundTrip(
@@ -588,5 +587,40 @@ class ManifestSourceGenerationTests: XCTestCase {
             ])
         let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
         try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v5_9)
+    }
+
+    func testManifestGenerationWithSwiftLanguageVersion() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            path: "/pkg",
+            toolsVersion: .v6_0,
+            dependencies: [],
+            targets: [
+                try TargetDescription(
+                    name: "v5",
+                    type: .executable,
+                    settings: [
+                        .init(tool: .swift, kind: .swiftLanguageVersion(.v6))
+                    ]
+                ),
+                try TargetDescription(
+                    name: "custom",
+                    type: .executable,
+                    settings: [
+                        .init(tool: .swift, kind: .swiftLanguageVersion(.init(string: "5.10")!))
+                    ]
+                ),
+                try TargetDescription(
+                    name: "conditional",
+                    type: .executable,
+                    settings: [
+                        .init(tool: .swift, kind: .swiftLanguageVersion(.v5), condition: .init(platformNames: ["linux"])),
+                        .init(tool: .swift, kind: .swiftLanguageVersion(.v4), condition: .init(platformNames: ["macos"], config: "debug"))
+                    ]
+                )
+            ])
+        let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
+        try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v6_0)
     }
 }

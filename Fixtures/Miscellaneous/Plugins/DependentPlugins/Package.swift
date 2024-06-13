@@ -10,7 +10,7 @@ let package = Package(
     targets: [
         .executableTarget(name: "MyExecutable"),
         .executableTarget(name: "MyExecutable2"),
-        
+
         .plugin(
             name: "MyPlugin",
             capability: .buildTool(),
@@ -18,7 +18,7 @@ let package = Package(
                 "MyExecutable"
             ]
         ),
-        
+
         .plugin(
             name: "MyPlugin2",
             capability: .buildTool(),
@@ -34,5 +34,6 @@ let package = Package(
                 "MyPlugin2",
             ]
         ),
-    ]
+    ],
+    swiftLanguageVersions: [.v5]
 )

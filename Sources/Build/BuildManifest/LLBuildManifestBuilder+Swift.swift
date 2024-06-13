@@ -17,7 +17,7 @@ import struct Basics.TSCAbsolutePath
 import struct LLBuildManifest.Node
 import struct LLBuildManifest.LLBuildManifest
 import struct SPMBuildCore.BuildParameters
-import struct PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedModule
 import protocol TSCBasic.FileSystem
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.topologicalSort
@@ -41,7 +41,7 @@ extension LLBuildManifestBuilder {
         let inputs = try self.computeSwiftCompileCmdInputs(target)
 
         // Outputs.
-        let objectNodes = try target.objects.map(Node.file)
+        let objectNodes = target.buildParameters.prepareForIndexing ? [] : try target.objects.map(Node.file)
         let moduleNode = Node.file(target.moduleOutputPath)
         let cmdOutputs = objectNodes + [moduleNode]
 
@@ -188,12 +188,11 @@ extension LLBuildManifestBuilder {
     // dependency graph of B. The driver is then responsible for the necessary post-processing
     // to merge the dependency graphs and plan the build for A, using artifacts of B as explicit
     // inputs.
-    package func addTargetsToExplicitBuildManifest() throws {
+    public func addTargetsToExplicitBuildManifest() throws {
         // Sort the product targets in topological order in order to collect and "bubble up"
         // their respective dependency graphs to the depending targets.
-        let nodes: [ResolvedTarget.Dependency] = try self.plan.targetMap.keys.compactMap {
-            guard let target = self.plan.graph.allTargets[$0] else { throw InternalError("unknown target \($0)") }
-            return ResolvedTarget.Dependency.target(target, conditions: [])
+        let nodes = self.plan.targets.compactMap {
+            ResolvedModule.Dependency.target($0.target, conditions: [])
         }
         let allPackageDependencies = try topologicalSort(nodes, successors: { $0.dependencies })
         // Instantiate the inter-module dependency oracle which will cache commonly-scanned
@@ -376,7 +375,7 @@ extension LLBuildManifestBuilder {
         cmdOutputs: [Node]
     ) throws {
         let isLibrary = target.target.type == .library || target.target.type == .test
-        let cmdName = target.target.getCommandName(config: target.buildParameters.buildConfig)
+        let cmdName = target.getCommandName()
 
         self.manifest.addWriteSourcesFileListCommand(sources: target.sources, sourcesFileListPath: target.sourcesFileListPath)
         self.manifest.addSwiftCmd(
@@ -395,7 +394,8 @@ extension LLBuildManifestBuilder {
             fileList: target.sourcesFileListPath,
             isLibrary: isLibrary,
             wholeModuleOptimization: target.buildParameters.configuration == .release,
-            outputFileMapPath: try target.writeOutputFileMap() // FIXME: Eliminate side effect.
+            outputFileMapPath: try target.writeOutputFileMap(), // FIXME: Eliminate side effect.
+            prepareForIndexing: target.buildParameters.prepareForIndexing
         )
     }
 
@@ -415,25 +415,30 @@ extension LLBuildManifestBuilder {
             inputs.append(resourcesNode)
         }
 
-        func addStaticTargetInputs(_ target: ResolvedTarget) throws {
+        if let resourcesEmbeddingSource = target.resourcesEmbeddingSource {
+            let resourceFilesToEmbed = target.resourceFilesToEmbed
+            self.manifest.addWriteEmbeddedResourcesCommand(resources: resourceFilesToEmbed, outputPath: resourcesEmbeddingSource)
+        }
+
+        let prepareForIndexing = target.buildParameters.prepareForIndexing
+
+        func addStaticTargetInputs(_ target: ResolvedModule) throws {
             // Ignore C Modules.
             if target.underlying is SystemLibraryTarget { return }
             // Ignore Binary Modules.
             if target.underlying is BinaryTarget { return }
             // Ignore Plugin Targets.
             if target.underlying is PluginTarget { return }
+            // Ignore Provided Libraries.
+            if target.underlying is ProvidedLibraryTarget { return }
 
             // Depend on the binary for executable targets.
-            if target.type == .executable {
+            if target.type == .executable && !prepareForIndexing {
                 // FIXME: Optimize.
-                let product = try plan.graph.allProducts.first {
-                    try $0.type == .executable && $0.executableTarget.id == target.id
-                }
-                if let product {
-                    guard let planProduct = plan.productMap[product.id] else {
-                        throw InternalError("unknown product \(product)")
-                    }
-                    try inputs.append(file: planProduct.binaryPath)
+                if let productDescription = try plan.productMap.values.first(where: {
+                    try $0.product.type == .executable && $0.product.executableTarget.id == target.id
+                }) {
+                    try inputs.append(file: productDescription.binaryPath)
                 }
                 return
             }
@@ -442,8 +447,16 @@ extension LLBuildManifestBuilder {
             case .swift(let target)?:
                 inputs.append(file: target.moduleOutputPath)
             case .clang(let target)?:
-                for object in try target.objects {
-                    inputs.append(file: object)
+                if prepareForIndexing {
+                    // In preparation, we're only building swiftmodules
+                    // propagate the dependency to the header files in this target
+                    for header in target.clangTarget.headers {
+                        inputs.append(file: header)
+                    }
+                } else {
+                    for object in try target.objects {
+                        inputs.append(file: object)
+                    }
                 }
             case nil:
                 throw InternalError("unexpected: target \(target) not in target map \(self.plan.targetMap)")
@@ -489,7 +502,7 @@ extension LLBuildManifestBuilder {
 
         // Depend on any required macro product's output.
         try target.requiredMacroProducts.forEach { macro in
-            try inputs.append(.virtual(macro.getLLBuildTargetName(config: target.buildParameters.buildConfig)))
+            try inputs.append(.virtual(macro.llbuildTargetName))
         }
 
         return inputs + additionalInputs
@@ -498,7 +511,7 @@ extension LLBuildManifestBuilder {
     /// Adds a top-level phony command that builds the entire target.
     private func addTargetCmd(_ target: SwiftTargetBuildDescription, cmdOutputs: [Node]) {
         // Create a phony node to represent the entire target.
-        let targetName = target.target.getLLBuildTargetName(config: target.buildParameters.buildConfig)
+        let targetName = target.getLLBuildTargetName()
         let targetOutput: Node = .virtual(targetName)
 
         self.manifest.addNode(targetOutput, toTarget: targetName)
@@ -523,7 +536,7 @@ extension LLBuildManifestBuilder {
             "-modulewrap", target.moduleOutputPath.pathString,
             "-o", target.wrappedModuleOutputPath.pathString,
         ]
-        moduleWrapArgs += try target.buildParameters.targetTripleArgs(for: target.target)
+        moduleWrapArgs += try target.buildParameters.tripleArgs(for: target.target)
         self.manifest.addShellCmd(
             name: target.wrappedModuleOutputPath.pathString,
             description: "Wrapping AST for \(target.target.name) for debugging",
@@ -602,5 +615,15 @@ extension Driver {
            !self.supportedFrontendFeatures.contains("ld-path-driver-option") {
             throw LLBuildManifestBuilder.Error.ldPathDriverOptionUnavailable(option: option)
         }
+    }
+}
+
+extension SwiftTargetBuildDescription {
+    public func getCommandName() -> String {
+        "C." + self.getLLBuildTargetName()
+    }
+
+    public func getLLBuildTargetName() -> String {
+        self.target.getLLBuildTargetName(buildParameters: self.buildParameters)
     }
 }

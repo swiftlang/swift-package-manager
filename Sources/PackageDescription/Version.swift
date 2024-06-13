@@ -35,7 +35,7 @@
 /// Increase the third digit of a version, or _patch version_, if you're making
 /// a backward-compatible bug fix. This allows clients to benefit from bugfixes
 /// to your package without incurring any maintenance burden.
-public struct Version {
+public struct Version: Sendable {
 
     /// The major version according to the semantic versioning standard.
     public let major: Int

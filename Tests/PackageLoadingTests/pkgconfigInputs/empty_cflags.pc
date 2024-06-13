@@ -2,6 +2,9 @@ prefix=/usr/local/bin
 exec_prefix=${prefix}
 
 #some comment
+Name: empty_cflags
+Version: 1
+Description: Demonstrate an empty cflags list
 
 Requires: gdk-3.0 atk
 Libs:-L${prefix} -lgtk-3 

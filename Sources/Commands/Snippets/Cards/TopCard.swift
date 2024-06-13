@@ -10,9 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 import CoreCommands
-
 import Foundation
 import PackageModel
 import PackageGraph
@@ -153,6 +151,8 @@ fileprivate extension Target.Kind {
             return "snippets"
         case .macro:
             return "macros"
+        case .providedLibrary:
+            return "provided libraries"
         }
     }
 }
