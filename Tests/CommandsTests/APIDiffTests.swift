@@ -43,7 +43,7 @@ final class APIDiffTests: CommandsTestCase {
         try skipIfApiDigesterUnsupported()
         // The following is added to separate out the integration point testing of the API
         // diff digester with SwiftPM from the functionality tests of the digester itself
-        guard try true || ProcessEnv.block["SWIFTPM_TEST_API_DIFF_OUTPUT"] == "1" else {
+        guard ProcessEnv.block["SWIFTPM_TEST_API_DIFF_OUTPUT"] == "1" else {
             throw XCTSkip("Env var SWIFTPM_TEST_API_DIFF_OUTPUT must be set to test the output")
         }
     }
@@ -57,7 +57,7 @@ final class APIDiffTests: CommandsTestCase {
       // not all of which can be tested for easily. Fortunately, we can test for the
       // `-disable-fail-on-error` option, and any version which supports this flag
       // will meet the other requirements.
-      guard try true || DriverSupport.checkSupportedFrontendFlags(flags: ["disable-fail-on-error"], toolchain: UserToolchain.default, fileSystem: localFileSystem) else {
+      guard DriverSupport.checkSupportedFrontendFlags(flags: ["disable-fail-on-error"], toolchain: try UserToolchain.default, fileSystem: localFileSystem) else {
         throw XCTSkip("swift-api-digester is too old")
       }
     }
