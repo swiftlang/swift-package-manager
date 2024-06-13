@@ -632,3 +632,48 @@ extension FileLock {
         return try Self.prepareLock(fileToLock: fileToLock.underlying, at: lockFilesDirectory?.underlying)
     }
 }
+
+/// Convenience initializers for testing purposes.
+extension InMemoryFileSystem {
+    /// Create a new file system with the given files, provided as a map from
+    /// file path to contents.
+    public convenience init(files: [String: ByteString]) {
+        self.init()
+
+        for (path, contents) in files {
+            let path = try! AbsolutePath(validating: path)
+            try! createDirectory(path.parentDirectory, recursive: true)
+            try! writeFileContents(path, bytes: contents)
+        }
+    }
+
+    /// Create a new file system with an empty file at each provided path.
+    public convenience init(emptyFiles files: String...) {
+        self.init(emptyFiles: files)
+    }
+
+    /// Create a new file system with an empty file at each provided path.
+    public convenience init(emptyFiles files: [String]) {
+        self.init()
+        self.createEmptyFiles(at: .root, files: files)
+    }
+}
+
+extension FileSystem {
+    public func createEmptyFiles(at root: AbsolutePath, files: String...) {
+        self.createEmptyFiles(at: root, files: files)
+    }
+
+    public func createEmptyFiles(at root: AbsolutePath, files: [String]) {
+        do {
+            try createDirectory(root, recursive: true)
+            for path in files {
+                let path = try AbsolutePath(validating: String(path.dropFirst()), relativeTo: root)
+                try createDirectory(path.parentDirectory, recursive: true)
+                try writeFileContents(path, bytes: "")
+            }
+        } catch {
+            fatalError("Failed to create empty files: \(error)")
+        }
+    }
+}
