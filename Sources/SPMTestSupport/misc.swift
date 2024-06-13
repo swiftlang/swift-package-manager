@@ -488,7 +488,7 @@ extension InitPackage {
     }
 }
 
-#if swift(<6.0)
+#if compiler(<6.0)
 extension RelativePath: ExpressibleByStringLiteral {}
 extension RelativePath: ExpressibleByStringInterpolation {}
 extension URL: ExpressibleByStringLiteral {}
