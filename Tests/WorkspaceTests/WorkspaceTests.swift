@@ -7429,6 +7429,7 @@ final class WorkspaceTests: XCTestCase {
         // make sure artifact downloaded is deleted
         XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root")))
         XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/root/a.zip")))
+        XCTAssertFalse(fs.exists(AbsolutePath("/home/user/caches/org.swift.swiftpm/artifacts/https___a_com_a_zip")))
     }
 
     func testArtifactDownloaderOrArchiverError() throws {
