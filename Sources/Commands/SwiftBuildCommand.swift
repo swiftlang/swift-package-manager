@@ -180,7 +180,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
                     library: library
                 )
             }
-            for library in try options.testLibraryOptions.enabledTestingLibraries(swiftCommandState: swiftCommandState) {
+            for library in try await options.testLibraryOptions.enabledTestingLibraries(swiftCommandState: swiftCommandState) {
                 updateTestingParameters(of: &productsBuildParameters, library: library)
                 updateTestingParameters(of: &toolsBuildParameters, library: library)
                 try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)

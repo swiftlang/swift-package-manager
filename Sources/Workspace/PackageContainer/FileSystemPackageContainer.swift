@@ -24,7 +24,7 @@ import struct TSCUtility.Version
 /// There is no need to perform any git operations on such packages and they
 /// should be used as-is. In fact, they might not even have a git repository.
 /// Examples: Root packages, local dependencies, edited packages.
-public struct FileSystemPackageContainer: PackageContainer {
+public actor FileSystemPackageContainer: PackageContainer {
     public let package: PackageReference
     private let identityResolver: IdentityResolver
     private let dependencyMapper: DependencyMapper
@@ -135,7 +135,7 @@ public struct FileSystemPackageContainer: PackageContainer {
 }
 
 extension FileSystemPackageContainer: CustomStringConvertible  {
-    public var description: String {
+    public nonisolated var description: String {
         return "FileSystemPackageContainer(\(self.package.identity))"
     }
 }

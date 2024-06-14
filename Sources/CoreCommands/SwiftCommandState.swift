@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import ArgumentParser
 import Basics
 import Dispatch
@@ -478,15 +479,20 @@ public final class SwiftCommandState {
         return workspace
     }
 
-    public func getRootPackageInformation() throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
+    package func getRootPackageInformation() throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
         let workspace = try self.getActiveWorkspace()
         let root = try self.getWorkspaceRoot()
-        let rootManifests = try temp_await {
-            workspace.loadRootManifests(
-                packages: root.packages,
-                observabilityScope: self.observabilityScope,
-                completion: $0
-            )
+        let rootManifests = try temp_await { (completion: @escaping (Result<[AbsolutePath: Manifest], Error>) -> ()) in
+            Task {
+                do {
+                    try await completion(.success(workspace.loadRootManifests(
+                        packages: root.packages,
+                        observabilityScope: self.observabilityScope
+                    )))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
         }
 
         var identities = [PackageIdentity: [PackageIdentity]]()
@@ -585,11 +591,11 @@ public final class SwiftCommandState {
     }
 
     /// Resolve the dependencies.
-    public func resolve() throws {
+    package func resolve() async throws {
         let workspace = try getActiveWorkspace()
         let root = try getWorkspaceRoot()
 
-        try workspace.resolve(
+        try await workspace.resolve(
             root: root,
             forceResolution: false,
             forceResolvedVersions: options.resolver.forceResolvedVersions,
@@ -612,12 +618,10 @@ public final class SwiftCommandState {
     public func loadPackageGraph(
         explicitProduct: String? = nil,
         testEntryPointPath: AbsolutePath? = nil
-    ) throws -> ModulesGraph {
+    ) async throws -> ModulesGraph {
         do {
-            let workspace = try getActiveWorkspace()
-
             // Fetch and load the package graph.
-            let graph = try workspace.loadPackageGraph(
+            let graph = try await workspace.loadPackageGraph(
                 rootInput: getWorkspaceRoot(),
                 explicitProduct: explicitProduct,
                 forceResolvedVersions: options.resolver.forceResolvedVersions,

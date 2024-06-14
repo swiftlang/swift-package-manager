@@ -99,7 +99,7 @@ final class RegistryPackageContainerTests: XCTestCase {
             let provider = try createProvider(.v4)
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
-            let versions = try container.toolsVersionsAppropriateVersionsDescending()
+            let versions = try await container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, ["1.0.1"])
         }
 
@@ -107,7 +107,7 @@ final class RegistryPackageContainerTests: XCTestCase {
             let provider = try createProvider(.v4_2)
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
-            let versions = try container.toolsVersionsAppropriateVersionsDescending()
+            let versions = try await container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, ["1.0.2", "1.0.1"])
         }
 
@@ -115,7 +115,7 @@ final class RegistryPackageContainerTests: XCTestCase {
             let provider = try createProvider(.v5_4)
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
-            let versions = try container.toolsVersionsAppropriateVersionsDescending()
+            let versions = try await container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, ["1.0.3", "1.0.2", "1.0.1"])
         }
     }
@@ -167,8 +167,8 @@ final class RegistryPackageContainerTests: XCTestCase {
             let provider = try createProvider(.v5_2) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
-            XCTAssertEqual(try container.toolsVersion(for: packageVersion), .v5_3)
-            let versions = try container.toolsVersionsAppropriateVersionsDescending()
+            try await XCTAssertAsyncEqual(try await container.toolsVersion(for: packageVersion), .v5_3)
+            let versions = try await container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, [])
         }
 
@@ -176,8 +176,8 @@ final class RegistryPackageContainerTests: XCTestCase {
             let provider = try createProvider(.v5_3) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
-            XCTAssertEqual(try container.toolsVersion(for: packageVersion), .v5_3)
-            let versions = try container.toolsVersionsAppropriateVersionsDescending()
+            try await XCTAssertAsyncEqual(try await container.toolsVersion(for: packageVersion), .v5_3)
+            let versions = try await container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, [packageVersion])
         }
 
@@ -185,8 +185,8 @@ final class RegistryPackageContainerTests: XCTestCase {
             let provider = try createProvider(.v5_4) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
-            XCTAssertEqual(try container.toolsVersion(for: packageVersion), .v5_4)
-            let versions = try container.toolsVersionsAppropriateVersionsDescending()
+            try await XCTAssertAsyncEqual(try await container.toolsVersion(for: packageVersion), .v5_4)
+            let versions = try await container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, [packageVersion])
         }
 
@@ -194,8 +194,8 @@ final class RegistryPackageContainerTests: XCTestCase {
             let provider = try createProvider(.v5_5) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
-            XCTAssertEqual(try container.toolsVersion(for: packageVersion), .v5_5)
-            let versions = try container.toolsVersionsAppropriateVersionsDescending()
+            try await XCTAssertAsyncEqual(try await container.toolsVersion(for: packageVersion), .v5_5)
+            let versions = try await container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, [packageVersion])
         }
 
@@ -203,8 +203,8 @@ final class RegistryPackageContainerTests: XCTestCase {
             let provider = try createProvider(.v5_6) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
-            XCTAssertEqual(try container.toolsVersion(for: packageVersion), .v5_5)
-            let versions = try container.toolsVersionsAppropriateVersionsDescending()
+            try await XCTAssertAsyncEqual(try await container.toolsVersion(for: packageVersion), .v5_5)
+            let versions = try await container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, [packageVersion])
         }
     }
@@ -293,7 +293,7 @@ final class RegistryPackageContainerTests: XCTestCase {
             let provider = try createProvider(.v5_3) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref) as! RegistryPackageContainer
-            let manifest = try container.loadManifest(version: packageVersion)
+            let manifest = try await container.loadManifest(version: packageVersion)
             XCTAssertEqual(manifest.toolsVersion, .v5_3)
         }
 
@@ -301,7 +301,7 @@ final class RegistryPackageContainerTests: XCTestCase {
             let provider = try createProvider(v5_3_3) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref) as! RegistryPackageContainer
-            let manifest = try container.loadManifest(version: packageVersion)
+            let manifest = try await container.loadManifest(version: packageVersion)
             XCTAssertEqual(manifest.toolsVersion, v5_3_3)
         }
 
@@ -309,7 +309,7 @@ final class RegistryPackageContainerTests: XCTestCase {
             let provider = try createProvider(.v5_4) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref) as! RegistryPackageContainer
-            let manifest = try container.loadManifest(version: packageVersion)
+            let manifest = try await container.loadManifest(version: packageVersion)
             XCTAssertEqual(manifest.toolsVersion, .v5_4)
         }
 
@@ -317,7 +317,7 @@ final class RegistryPackageContainerTests: XCTestCase {
             let provider = try createProvider(.v5_5) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref) as! RegistryPackageContainer
-            let manifest = try container.loadManifest(version: packageVersion)
+            let manifest = try await container.loadManifest(version: packageVersion)
             XCTAssertEqual(manifest.toolsVersion, .v5_5)
         }
 
@@ -325,7 +325,7 @@ final class RegistryPackageContainerTests: XCTestCase {
             let provider = try createProvider(.v5_6) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref) as! RegistryPackageContainer
-            let manifest = try container.loadManifest(version: packageVersion)
+            let manifest = try await container.loadManifest(version: packageVersion)
             XCTAssertEqual(manifest.toolsVersion, .v5_5)
         }
     }

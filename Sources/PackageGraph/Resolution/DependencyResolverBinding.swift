@@ -13,8 +13,8 @@
 import enum PackageModel.ProductFilter
 import struct PackageModel.PackageReference
 
-public struct DependencyResolverBinding {
-    public let package: PackageReference
-    public let boundVersion: BoundVersion
-    public let products: ProductFilter
+package struct DependencyResolverBinding {
+    package let package: PackageReference
+    package let boundVersion: BoundVersion
+    package let products: ProductFilter
 }

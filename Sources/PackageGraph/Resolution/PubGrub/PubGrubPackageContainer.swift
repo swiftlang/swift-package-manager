@@ -18,7 +18,7 @@ import struct TSCUtility.Version
 
 /// A container for an individual package. This enhances PackageContainer to add PubGrub specific
 /// logic which is mostly related to computing incompatibilities at a particular version.
-internal final class PubGrubPackageContainer {
+final class PubGrubPackageContainer {
     /// The underlying package container.
     let underlying: PackageContainer
 
@@ -45,22 +45,22 @@ internal final class PubGrubPackageContainer {
     }
 
     /// Returns the numbers of versions that are satisfied by the given version requirement.
-    func versionCount(_ requirement: VersionSetSpecifier) throws -> Int {
+    func versionCount(_ requirement: VersionSetSpecifier) async throws -> Int {
         if let pinnedVersion, requirement.contains(pinnedVersion) {
             return 1
         }
-        return try self.underlying.versionsDescending().filter(requirement.contains).count
+        return try await self.underlying.versionsDescending().filter(requirement.contains).count
     }
 
     /// Computes the bounds of the given range against the versions available in the package.
     ///
     /// `includesLowerBound` is `false` if range's lower bound is less than or equal to the lowest available version.
     /// Similarly, `includesUpperBound` is `false` if range's upper bound is greater than or equal to the highest available version.
-    func computeBounds(for range: Range<Version>) throws -> (includesLowerBound: Bool, includesUpperBound: Bool) {
+    func computeBounds(for range: Range<Version>) async throws -> (includesLowerBound: Bool, includesUpperBound: Bool) {
         var includeLowerBound = true
         var includeUpperBound = true
 
-        let versions = try self.underlying.versionsDescending()
+        let versions = try await self.underlying.versionsDescending()
 
         if let last = versions.last, range.lowerBound < last {
             includeLowerBound = false
@@ -74,7 +74,7 @@ internal final class PubGrubPackageContainer {
     }
 
     /// Returns the best available version for a given term.
-    func getBestAvailableVersion(for term: Term) throws -> Version? {
+    func getBestAvailableVersion(for term: Term) async throws -> Version? {
         assert(term.isPositive, "Expected term to be positive")
         var versionSet = term.requirement
 
@@ -85,7 +85,7 @@ internal final class PubGrubPackageContainer {
                     versionSet = .exact(pinnedVersion)
                 } else {
                     // Make sure the pinned version is still available
-                    let version = try self.underlying.versionsDescending().first { pinnedVersion == $0 }
+                    let version = try await self.underlying.versionsDescending().first { pinnedVersion == $0 }
                     if version != nil {
                         return version
                     }
@@ -94,13 +94,14 @@ internal final class PubGrubPackageContainer {
         }
 
         // Return the highest version that is allowed by the input requirement.
-        return try self.underlying.versionsDescending().first { versionSet.contains($0) }
+        return try await self.underlying.versionsDescending().first { versionSet.contains($0) }
     }
 
     /// Compute the bounds of incompatible tools version starting from the given version.
-    private func computeIncompatibleToolsVersionBounds(fromVersion: Version) throws -> VersionSetSpecifier {
-        assert(!self.underlying.isToolsVersionCompatible(at: fromVersion))
-        let versions: [Version] = try self.underlying.versionsAscending()
+    private func computeIncompatibleToolsVersionBounds(fromVersion: Version) async throws -> VersionSetSpecifier {
+        let isToolsVersionCompatible = await self.underlying.isToolsVersionCompatible(at: fromVersion)
+        assert(!isToolsVersionCompatible)
+        let versions: [Version] = try await self.underlying.versionsAscending()
 
         // This is guaranteed to be present.
         let idx = versions.firstIndex(of: fromVersion)!
@@ -109,7 +110,7 @@ internal final class PubGrubPackageContainer {
         var upperBound = fromVersion
 
         for version in versions.dropFirst(idx + 1) {
-            let isToolsVersionCompatible = self.underlying.isToolsVersionCompatible(at: version)
+            let isToolsVersionCompatible = await self.underlying.isToolsVersionCompatible(at: version)
             if isToolsVersionCompatible {
                 break
             }
@@ -117,7 +118,7 @@ internal final class PubGrubPackageContainer {
         }
 
         for version in versions.dropLast(versions.count - idx).reversed() {
-            let isToolsVersionCompatible = self.underlying.isToolsVersionCompatible(at: version)
+            let isToolsVersionCompatible = await self.underlying.isToolsVersionCompatible(at: version)
             if isToolsVersionCompatible {
                 break
             }
@@ -152,15 +153,15 @@ internal final class PubGrubPackageContainer {
         node: DependencyResolutionNode,
         overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)],
         root: DependencyResolutionNode
-    ) throws -> [Incompatibility] {
+    ) async throws -> [Incompatibility] {
         // FIXME: It would be nice to compute bounds for this as well.
-        if !self.underlying.isToolsVersionCompatible(at: version) {
-            let requirement = try self.computeIncompatibleToolsVersionBounds(fromVersion: version)
-            let toolsVersion = try self.underlying.toolsVersion(for: version)
+        if await !self.underlying.isToolsVersionCompatible(at: version) {
+            let requirement = try await self.computeIncompatibleToolsVersionBounds(fromVersion: version)
+            let toolsVersion = try await self.underlying.toolsVersion(for: version)
             return [try Incompatibility(Term(node, requirement), root: root, cause: .incompatibleToolsVersion(toolsVersion))]
         }
 
-        var unprocessedDependencies = try self.underlying.getDependencies(at: version, productFilter: node.productFilter)
+        var unprocessedDependencies = try await self.underlying.getDependencies(at: version, productFilter: node.productFilter)
         if let sharedVersion = node.versionLock(version: version) {
             unprocessedDependencies.append(sharedVersion)
         }

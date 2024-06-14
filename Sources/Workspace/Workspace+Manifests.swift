@@ -10,12 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+
+import _Concurrency
 import struct Basics.AbsolutePath
 import struct Basics.Diagnostic
 import struct Basics.InternalError
 import class Basics.ObservabilityScope
 import struct Basics.SwiftVersion
-import func Basics.temp_await
+import func Basics.findCycle
+import func Basics.topologicalSort
 import func Basics.depthFirstSearch
 import class Basics.ThreadSafeKeyValueStore
 import class Dispatch.DispatchGroup
@@ -36,10 +39,8 @@ import struct PackageModel.PackageReference
 import enum PackageModel.ProductFilter
 import struct PackageModel.ToolsVersion
 import protocol TSCBasic.FileSystem
-import func TSCBasic.findCycle
 import struct TSCBasic.KeyedPair
 import struct TSCBasic.StringError
-import func TSCBasic.topologicalSort
 import func TSCBasic.transitiveClosure
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
@@ -418,7 +419,7 @@ extension Workspace {
         root: PackageGraphRoot,
         automaticallyAddManagedDependencies: Bool = false,
         observabilityScope: ObservabilityScope
-    ) throws -> DependencyManifests {
+    ) async throws -> DependencyManifests {
         let prepopulateManagedDependencies: ([PackageReference]) throws -> Void = { refs in
             // pre-populate managed dependencies if we are asked to do so (this happens when resolving to a resolved
             // file)
@@ -458,7 +459,7 @@ extension Workspace {
         }
 
         // Validates that all the managed dependencies are still present in the file system.
-        self.fixManagedDependencies(
+        await self.fixManagedDependencies(
             observabilityScope: observabilityScope
         )
         guard !observabilityScope.errorsReported else {
@@ -474,11 +475,10 @@ extension Workspace {
         // Load root dependencies manifests (in parallel)
         let rootDependencies = root.dependencies.map(\.packageRef)
         try prepopulateManagedDependencies(rootDependencies)
-        let rootDependenciesManifests = try temp_await { self.loadManagedManifests(
+        let rootDependenciesManifests = try await self.loadManagedManifests(
             for: rootDependencies,
-            observabilityScope: observabilityScope,
-            completion: $0
-        ) }
+            observabilityScope: observabilityScope
+        )
 
         let topLevelManifests = root.manifests.merging(rootDependenciesManifests, uniquingKeysWith: { lhs, _ in
             lhs // prefer roots!
@@ -486,26 +486,24 @@ extension Workspace {
 
         // optimization: preload first level dependencies manifest (in parallel)
         let firstLevelDependencies = topLevelManifests.values.map { $0.dependencies.map(\.packageRef) }.flatMap { $0 }
-        let firstLevelManifests = try temp_await { self.loadManagedManifests(
+        let firstLevelManifests = try await self.loadManagedManifests(
             for: firstLevelDependencies,
-            observabilityScope: observabilityScope,
-            completion: $0
-        ) } // FIXME: this should not block
+            observabilityScope: observabilityScope
+        )
 
         // Continue to load the rest of the manifest for this graph
         // Creates a map of loaded manifests. We do this to avoid reloading the shared nodes.
         var loadedManifests = firstLevelManifests
-        let successorManifests: (KeyedPair<Manifest, Key>) throws -> [KeyedPair<Manifest, Key>] = { pair in
+        let successorManifests: (KeyedPair<Manifest, Key>) async throws -> [KeyedPair<Manifest, Key>] = { pair in
             // optimization: preload manifest we know about in parallel
             let dependenciesRequired = pair.item.dependenciesRequired(for: pair.key.productFilter)
             let dependenciesToLoad = dependenciesRequired.map(\.packageRef)
                 .filter { !loadedManifests.keys.contains($0.identity) }
             try prepopulateManagedDependencies(dependenciesToLoad)
-            let dependenciesManifests = try temp_await { self.loadManagedManifests(
+            let dependenciesManifests = try await self.loadManagedManifests(
                 for: dependenciesToLoad,
-                observabilityScope: observabilityScope,
-                completion: $0
-            ) }
+                observabilityScope: observabilityScope
+            )
             dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
             return dependenciesRequired.compactMap { dependency in
                 loadedManifests[dependency.identity].flatMap {
@@ -557,12 +555,18 @@ extension Workspace {
             {
                 observabilityScope
                     .emit(
-                        error: "unable to override package '\(manifest.displayName)' because its identity '\(PackageIdentity(urlString: manifest.packageLocation))' doesn't match override's identity (directory name) '\(PackageIdentity(urlString: override.packageLocation))'"
+                        error: """
+                            unable to override package '\(manifest.displayName)' because its identity '\(
+                                PackageIdentity(urlString: manifest.packageLocation)
+                            )' doesn't match override's identity (directory name) '\(
+                                PackageIdentity(urlString: override.packageLocation)
+                            )'
+                            """
                     )
             }
         }
 
-        let dependencies = try dependencyManifests.map { identity, manifest, productFilter -> (
+        let dependencies = try await dependencyManifests.parallelMap { identity, manifest, productFilter -> (
             Manifest,
             ManagedDependency,
             ProductFilter,
@@ -573,7 +577,7 @@ extension Workspace {
             }
 
             let packageRef = PackageReference(identity: identity, kind: manifest.packageKind)
-            let fileSystem = try self.getFileSystem(
+            let fileSystem = try await self.getFileSystem(
                 package: packageRef,
                 state: dependency.state,
                 observabilityScope: observabilityScope
@@ -592,39 +596,38 @@ extension Workspace {
     /// Loads the given manifests, if it is present in the managed dependencies.
     private func loadManagedManifests(
         for packages: [PackageReference],
-        observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<[PackageIdentity: Manifest], Error>) -> Void
-    ) {
-        let sync = DispatchGroup()
-        let manifests = ThreadSafeKeyValueStore<PackageIdentity, Manifest>()
-        Set(packages).forEach { package in
-            sync.enter()
-            self.loadManagedManifest(for: package, observabilityScope: observabilityScope) { manifest in
-                defer { sync.leave() }
-                if let manifest {
-                    manifests[package.identity] = manifest
+        observabilityScope: ObservabilityScope
+    ) async throws -> [PackageIdentity: Manifest] {
+        try await withThrowingTaskGroup(of: (PackageIdentity, Manifest?).self) { group in
+            for package in Set(packages) {
+                group.addTask {
+                    await (
+                        package.identity,
+                        self.loadManagedManifest(for: package, observabilityScope: observabilityScope)
+                    )
                 }
             }
-        }
 
-        sync.notify(queue: .sharedConcurrent) {
-            completion(.success(manifests.get()))
+            var result = [PackageIdentity: Manifest]()
+            for try await case let (identity, manifest?) in group {
+                result[identity] = manifest
+            }
+            return result
         }
     }
 
     /// Loads the given manifest, if it is present in the managed dependencies.
     private func loadManagedManifest(
         for package: PackageReference,
-        observabilityScope: ObservabilityScope,
-        completion: @escaping (Manifest?) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) async -> Manifest? {
         // Check if this dependency is available.
         // we also compare the location as this function may attempt to load
         // dependencies that have the same identity but from a different location
         // which is an error case we diagnose an report about in the GraphLoading part which
         // is prepared to handle the case where not all manifest are available
         guard let managedDependency = self.state.dependencies[comparingLocation: package] else {
-            return completion(.none)
+            return nil
         }
 
         // Get the path of the package.
@@ -663,7 +666,7 @@ extension Workspace {
 
         let fileSystem: FileSystem?
         do {
-            fileSystem = try self.getFileSystem(
+            fileSystem = try await self.getFileSystem(
                 package: package,
                 state: managedDependency.state,
                 observabilityScope: observabilityScope
@@ -678,7 +681,8 @@ extension Workspace {
         }
 
         // Load and return the manifest.
-        self.loadManifest(
+        // error is added to diagnostics in the function below
+        return try? await self.loadManifest(
             packageIdentity: managedDependency.packageRef.identity,
             packageKind: packageKind,
             packagePath: packagePath,
@@ -686,10 +690,7 @@ extension Workspace {
             packageVersion: packageVersion,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
-        ) { result in
-            // error is added to diagnostics in the function above
-            completion(try? result.get())
-        }
+        )
     }
 
     /// Load the manifest at a given path.
@@ -702,9 +703,8 @@ extension Workspace {
         packageLocation: String,
         packageVersion: Version? = nil,
         fileSystem: FileSystem? = nil,
-        observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<Manifest, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) async throws -> Manifest {
         let fileSystem = fileSystem ?? self.fileSystem
 
         // Load the manifest, bracketed by the calls to the delegate callbacks.
@@ -722,61 +722,74 @@ extension Workspace {
 
         var manifestLoadingDiagnostics = [Diagnostic]()
 
-        let start = DispatchTime.now()
-        self.manifestLoader.load(
-            packagePath: packagePath,
-            packageIdentity: packageIdentity,
-            packageKind: packageKind,
-            packageLocation: packageLocation,
-            packageVersion: packageVersion.map { (version: $0, revision: nil) },
-            currentToolsVersion: self.currentToolsVersion,
-            identityResolver: self.identityResolver,
-            dependencyMapper: self.dependencyMapper,
-            fileSystem: fileSystem,
-            observabilityScope: manifestLoadingScope,
-            delegateQueue: .sharedConcurrent,
-            callbackQueue: .sharedConcurrent
-        ) { result in
-            let duration = start.distance(to: .now())
-            var result = result
-            switch result {
-            case .failure(let error):
-                manifestLoadingDiagnostics.append(.error(error))
-                self.delegate?.didLoadManifest(
-                    packageIdentity: packageIdentity,
-                    packagePath: packagePath,
-                    url: packageLocation,
-                    version: packageVersion,
-                    packageKind: packageKind,
-                    manifest: nil,
-                    diagnostics: manifestLoadingDiagnostics,
-                    duration: duration
-                )
-            case .success(let manifest):
-                let validator = ManifestValidator(
-                    manifest: manifest,
-                    sourceControlValidator: self.repositoryManager,
-                    fileSystem: self.fileSystem
-                )
-                let validationIssues = validator.validate()
-                if !validationIssues.isEmpty {
-                    // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
-                    result = .failure(Diagnostics.fatalError)
-                    manifestLoadingDiagnostics.append(contentsOf: validationIssues)
-                }
-                self.delegate?.didLoadManifest(
-                    packageIdentity: packageIdentity,
-                    packagePath: packagePath,
-                    url: packageLocation,
-                    version: packageVersion,
-                    packageKind: packageKind,
-                    manifest: manifest,
-                    diagnostics: manifestLoadingDiagnostics,
-                    duration: duration
-                )
-            }
+        defer {
             manifestLoadingScope.emit(manifestLoadingDiagnostics)
-            completion(result)
+        }
+
+        let start = DispatchTime.now()
+        do {
+            let manifest = try await self.manifestLoader.load(
+                packagePath: packagePath,
+                packageIdentity: packageIdentity,
+                packageKind: packageKind,
+                packageLocation: packageLocation,
+                packageVersion: packageVersion.map { (version: $0, revision: nil) },
+                currentToolsVersion: self.currentToolsVersion,
+                identityResolver: self.identityResolver,
+                dependencyMapper: self.dependencyMapper,
+                fileSystem: fileSystem,
+                observabilityScope: manifestLoadingScope,
+                delegateQueue: .sharedConcurrent,
+                callbackQueue: .sharedConcurrent
+            )
+
+            let duration = start.distance(to: .now())
+            let validator = ManifestValidator(
+                manifest: manifest,
+                sourceControlValidator: self.repositoryManager,
+                fileSystem: self.fileSystem
+            )
+            let validationIssues = validator.validate()
+            var diagnostics: Diagnostics?
+            if !validationIssues.isEmpty {
+                manifestLoadingDiagnostics.append(contentsOf: validationIssues)
+
+                // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
+                diagnostics = Diagnostics.fatalError
+            }
+            self.delegate?.didLoadManifest(
+                packageIdentity: packageIdentity,
+                packagePath: packagePath,
+                url: packageLocation,
+                version: packageVersion,
+                packageKind: packageKind,
+                manifest: manifest,
+                diagnostics: manifestLoadingDiagnostics,
+                duration: duration
+            )
+
+            if let diagnostics {
+                throw diagnostics
+            }
+
+            return manifest
+        } catch Diagnostics.fatalError {
+            // Rethrow `fatalError` without a delegate `didLoadManifest` call, as it already happened
+            throw Diagnostics.fatalError
+        } catch {
+            let duration = start.distance(to: .now())
+            manifestLoadingDiagnostics.append(.error(error))
+            self.delegate?.didLoadManifest(
+                packageIdentity: packageIdentity,
+                packagePath: packagePath,
+                url: packageLocation,
+                version: packageVersion,
+                packageKind: packageKind,
+                manifest: nil,
+                diagnostics: manifestLoadingDiagnostics,
+                duration: duration
+            )
+            throw error
         }
     }
 
@@ -786,7 +799,7 @@ extension Workspace {
     /// fallback on the original checkout.
     private func fixManagedDependencies(
         observabilityScope: ObservabilityScope
-    ) {
+    ) async {
         // Reset managed dependencies if the state file was removed during the lifetime of the Workspace object.
         if !self.state.dependencies.isEmpty && !self.state.stateFileExists() {
             try? self.state.reset()
@@ -795,7 +808,7 @@ extension Workspace {
         // Make a copy of dependencies as we might mutate them in the for loop.
         let allDependencies = Array(self.state.dependencies)
         for dependency in allDependencies {
-            observabilityScope.makeChildScope(
+            await observabilityScope.makeChildScope(
                 description: "copying managed dependencies",
                 metadata: dependency.packageRef.diagnosticsMetadata
             ).trap {
@@ -827,17 +840,18 @@ extension Workspace {
                         .emit(.registryDependencyMissing(packageName: dependency.packageRef.identity.description))
 
                 case .custom(let version, let path):
-                    let container = try temp_await {
-                        self.packageContainerProvider.getContainer(
-                            for: dependency.packageRef,
-                            updateStrategy: .never,
-                            observabilityScope: observabilityScope,
-                            on: .sharedConcurrent,
-                            completion: $0
-                        )
-                    }
+                    let container = try await self.packageContainerProvider.getContainer(
+                        for: dependency.packageRef,
+                        updateStrategy: .never,
+                        observabilityScope: observabilityScope,
+                        on: .sharedConcurrent
+                    )
+
                     if let customContainer = container as? CustomPackageContainer {
-                        let newPath = try customContainer.retrieve(at: version, observabilityScope: observabilityScope)
+                        let newPath = try await customContainer.retrieve(
+                            at: version,
+                            observabilityScope: observabilityScope
+                        )
                         observabilityScope
                             .emit(.customDependencyMissing(packageName: dependency.packageRef.identity.description))
 
@@ -855,7 +869,7 @@ extension Workspace {
                     // Note: We don't resolve the dependencies when unediting
                     // here because we expect this method to be called as part
                     // of some other resolve operation (i.e. resolve, update, etc).
-                    try self.unedit(
+                    try await self.unedit(
                         dependency: dependency,
                         forceRemove: true,
                         observabilityScope: observabilityScope
@@ -880,7 +894,7 @@ extension Workspace {
         package: PackageReference,
         state: Workspace.ManagedDependency.State,
         observabilityScope: ObservabilityScope
-    ) throws -> FileSystem? {
+    ) async throws -> FileSystem? {
         // Only custom containers may provide a file system.
         guard self.customPackageContainerProvider != nil else {
             return nil
@@ -891,20 +905,17 @@ extension Workspace {
         case .fileSystem:
             return nil
         case .custom:
-            let container = try temp_await {
-                self.packageContainerProvider.getContainer(
-                    for: package,
-                    updateStrategy: .never,
-                    observabilityScope: observabilityScope,
-                    on: .sharedConcurrent,
-                    completion: $0
-                )
-            }
+            let container = try await self.packageContainerProvider.getContainer(
+                for: package,
+                updateStrategy: .never,
+                observabilityScope: observabilityScope,
+                on: .sharedConcurrent
+            )
             guard let customContainer = container as? CustomPackageContainer else {
                 observabilityScope.emit(error: "invalid custom dependency container: \(container)")
                 return nil
             }
-            return try customContainer.getFileSystem()
+            return try await customContainer.getFileSystem()
         default:
             observabilityScope.emit(error: "invalid managed dependency state for custom dependency: \(state)")
             return nil

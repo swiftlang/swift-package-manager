@@ -235,14 +235,14 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             throw TestError.xcodeNotInstalled
         }
 
-        let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options, library: .xctest)
+        let (productsBuildParameters, _) = try await swiftCommandState.buildParametersForTest(options: self.options, library: .xctest)
 
         // Remove test output from prior runs and validate priors.
         if self.options.enableExperimentalTestOutput && productsBuildParameters.triple.supportsTestSummary {
             _ = try? localFileSystem.removeFileTree(productsBuildParameters.testOutputPath)
         }
 
-        let testProducts = try buildTestsIfNeeded(swiftCommandState: swiftCommandState, library: .xctest)
+        let testProducts = try await buildTestsIfNeeded(swiftCommandState: swiftCommandState, library: .xctest)
         if !self.options.shouldRunInParallel {
             let xctestArgs = try xctestArgs(for: testProducts, swiftCommandState: swiftCommandState)
             try await runTestProducts(
@@ -365,8 +365,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     // MARK: - swift-testing
 
     private func swiftTestingRun(_ swiftCommandState: SwiftCommandState) async throws {
-        let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options, library: .swiftTesting)
-        let testProducts = try buildTestsIfNeeded(swiftCommandState: swiftCommandState, library: .swiftTesting)
+        let (productsBuildParameters, _) = try await swiftCommandState.buildParametersForTest(options: self.options, library: .swiftTesting)
+        let testProducts = try await buildTestsIfNeeded(swiftCommandState: swiftCommandState, library: .swiftTesting)
         let additionalArguments = Array(CommandLine.arguments.dropFirst())
         try await runTestProducts(
             testProducts,
@@ -389,13 +389,13 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
 
         if self.options.shouldPrintCodeCovPath {
-            try printCodeCovPath(swiftCommandState)
+            try await printCodeCovPath(swiftCommandState)
         } else if self.options._deprecated_shouldListTests {
             // backward compatibility 6/2022 for deprecation of flag into a subcommand
             let command = try List.parse()
-            try command.run(swiftCommandState)
+            try await command.run(swiftCommandState)
         } else {
-            if try options.testLibraryOptions.enableSwiftTestingLibrarySupport(swiftCommandState: swiftCommandState) {
+            if try await options.testLibraryOptions.enableSwiftTestingLibrarySupport(swiftCommandState: swiftCommandState) {
                 try await swiftTestingRun(swiftCommandState)
             }
             if options.testLibraryOptions.enableXCTestSupport {
@@ -502,23 +502,26 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
 
         // Merge all the profraw files to produce a single profdata file.
-        try mergeCodeCovRawDataFiles(swiftCommandState: swiftCommandState, library: library)
+        try await mergeCodeCovRawDataFiles(swiftCommandState: swiftCommandState, library: library)
 
-        let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options, library: library)
+        let (productsBuildParameters, _) = try await swiftCommandState.buildParametersForTest(options: self.options, library: library)
         for product in testProducts {
             // Export the codecov data as JSON.
             let jsonPath = productsBuildParameters.codeCovAsJSONPath(packageName: rootManifest.displayName)
-            try exportCodeCovAsJSON(to: jsonPath, testBinary: product.binaryPath, swiftCommandState: swiftCommandState, library: library)
+            try await exportCodeCovAsJSON(to: jsonPath, testBinary: product.binaryPath, swiftCommandState: swiftCommandState, library: library)
         }
     }
 
     /// Merges all profraw profiles in codecoverage directory into default.profdata file.
-    private func mergeCodeCovRawDataFiles(swiftCommandState: SwiftCommandState, library: BuildParameters.Testing.Library) throws {
+    private func mergeCodeCovRawDataFiles(
+        swiftCommandState: SwiftCommandState,
+        library: BuildParameters.Testing.Library
+    ) async throws {
         // Get the llvm-prof tool.
         let llvmProf = try swiftCommandState.getTargetToolchain().getLLVMProf()
 
         // Get the profraw files.
-        let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options, library: library)
+        let (productsBuildParameters, _) = try await swiftCommandState.buildParametersForTest(options: self.options, library: library)
         let codeCovFiles = try swiftCommandState.fileSystem.getDirectoryContents(productsBuildParameters.codeCovPath)
 
         // Construct arguments for invoking the llvm-prof tool.
@@ -531,7 +534,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
         args += ["-o", productsBuildParameters.codeCovDataFile.pathString]
 
-        try TSCBasic.Process.checkNonZeroExit(arguments: args)
+        try await TSCBasic.Process.checkNonZeroExit(arguments: args)
     }
 
     /// Exports profdata as a JSON file.
@@ -540,17 +543,17 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         testBinary: AbsolutePath,
         swiftCommandState: SwiftCommandState,
         library: BuildParameters.Testing.Library
-    ) throws {
+    ) async throws {
         // Export using the llvm-cov tool.
         let llvmCov = try swiftCommandState.getTargetToolchain().getLLVMCov()
-        let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options, library: library)
+        let (productsBuildParameters, _) = try await swiftCommandState.buildParametersForTest(options: self.options, library: library)
         let args = [
             llvmCov.pathString,
             "export",
             "-instr-profile=\(productsBuildParameters.codeCovDataFile)",
             testBinary.pathString
         ]
-        let result = try TSCBasic.Process.popen(arguments: args)
+        let result = try await TSCBasic.Process.popen(arguments: args)
 
         if result.exitStatus != .terminated(code: 0) {
             let output = try result.utf8Output() + result.utf8stderrOutput()
@@ -565,8 +568,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     private func buildTestsIfNeeded(
         swiftCommandState: SwiftCommandState,
         library: BuildParameters.Testing.Library
-    ) throws -> [BuiltTestProduct] {
-        let (productsBuildParameters, toolsBuildParameters) = try swiftCommandState.buildParametersForTest(options: self.options, library: library)
+    ) async throws -> [BuiltTestProduct] {
+        let (productsBuildParameters, toolsBuildParameters) = try await swiftCommandState.buildParametersForTest(options: self.options, library: library)
         return try Commands.buildTestsIfNeeded(
             swiftCommandState: swiftCommandState,
             productsBuildParameters: productsBuildParameters,
@@ -607,16 +610,13 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 }
 
 extension SwiftTestCommand {
-    func printCodeCovPath(_ swiftCommandState: SwiftCommandState) throws {
+    func printCodeCovPath(_ swiftCommandState: SwiftCommandState) async throws {
         let workspace = try swiftCommandState.getActiveWorkspace()
         let root = try swiftCommandState.getWorkspaceRoot()
-        let rootManifests = try temp_await {
-            workspace.loadRootManifests(
-                packages: root.packages,
-                observabilityScope: swiftCommandState.observabilityScope,
-                completion: $0
-            )
-        }
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: swiftCommandState.observabilityScope
+        )
         guard let rootManifest = rootManifests.values.first else {
             throw StringError("invalid manifests at \(root.packages)")
         }
@@ -638,7 +638,7 @@ extension SwiftTestCommand {
         }
     }
 
-    struct List: SwiftCommand {
+    struct List: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Lists test methods in specifier format"
         )
@@ -731,8 +731,8 @@ extension SwiftTestCommand {
 
         // MARK: - Common implementation
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
-            if try testLibraryOptions.enableSwiftTestingLibrarySupport(swiftCommandState: swiftCommandState) {
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
+            if try await testLibraryOptions.enableSwiftTestingLibrarySupport(swiftCommandState: swiftCommandState) {
                 try swiftTestingRun(swiftCommandState)
             }
             if testLibraryOptions.enableXCTestSupport {
@@ -1302,7 +1302,7 @@ extension SwiftCommandState {
     func buildParametersForTest(
         options: TestCommandOptions,
         library: BuildParameters.Testing.Library
-    ) throws -> (productsBuildParameters: BuildParameters, toolsBuildParameters: BuildParameters) {
+    ) async throws -> (productsBuildParameters: BuildParameters, toolsBuildParameters: BuildParameters) {
         var result = try self.buildParametersForTest(
             enableCodeCoverage: options.enableCodeCoverage,
             enableTestability: options.enableTestableImports,
@@ -1310,7 +1310,7 @@ extension SwiftCommandState {
             experimentalTestOutput: options.enableExperimentalTestOutput,
             library: library
         )
-        if try options.testLibraryOptions.enableSwiftTestingLibrarySupport(swiftCommandState: self) {
+        if try await options.testLibraryOptions.enableSwiftTestingLibrarySupport(swiftCommandState: self) {
             result.productsBuildParameters.flags.swiftCompilerFlags += ["-DSWIFT_PM_SUPPORTS_SWIFT_TESTING"]
             result.toolsBuildParameters.flags.swiftCompilerFlags += ["-DSWIFT_PM_SUPPORTS_SWIFT_TESTING"]
         }

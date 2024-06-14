@@ -65,7 +65,7 @@ let benchmarks = {
         let workspace = try Workspace(fileSystem: localFileSystem, location: .init(forRootPackage: path, fileSystem: localFileSystem))
 
         for _ in benchmark.scaledIterations {
-            try workspace.loadPackageGraph(rootPath: path, observabilityScope: ObservabilitySystem.NOOP)
+            try await workspace.loadPackageGraph(rootPath: path, observabilityScope: ObservabilitySystem.NOOP)
         }
     }
 

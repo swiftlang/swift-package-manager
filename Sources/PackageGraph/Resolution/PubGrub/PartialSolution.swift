@@ -17,30 +17,30 @@ import struct TSCUtility.Version
 
 /// The partial solution is a constantly updated solution used throughout the
 /// dependency resolution process, tracking know assignments.
-public struct PartialSolution {
+package struct PartialSolution {
     var root: DependencyResolutionNode?
 
     /// All known assignments.
-    public private(set) var assignments: [Assignment]
+    package private(set) var assignments: [Assignment]
 
     /// All known decisions.
-    public private(set) var decisions: [DependencyResolutionNode: Version] = [:]
+    package private(set) var decisions: [DependencyResolutionNode: Version] = [:]
 
     /// The intersection of all positive assignments for each package, minus any
     /// negative assignments that refer to that package.
-    public private(set) var _positive: OrderedCollections.OrderedDictionary<DependencyResolutionNode, Term> = [:]
+    package private(set) var _positive: OrderedCollections.OrderedDictionary<DependencyResolutionNode, Term> = [:]
 
     /// Union of all negative assignments for a package.
     ///
     /// Only present if a package has no positive assignment.
-    public private(set) var _negative: [DependencyResolutionNode: Term] = [:]
+    package private(set) var _negative: [DependencyResolutionNode: Term] = [:]
 
     /// The current decision level.
-    public var decisionLevel: Int {
+    package var decisionLevel: Int {
         decisions.count - 1
     }
 
-    public init(assignments: [Assignment] = []) {
+    package init(assignments: [Assignment] = []) {
         self.assignments = assignments
         for assignment in assignments {
             register(assignment)
@@ -48,13 +48,13 @@ public struct PartialSolution {
     }
 
     /// A list of all packages that have been assigned, but are not yet satisfied.
-    public var undecided: [Term] {
+    package var undecided: [Term] {
         _positive.values.filter { !decisions.keys.contains($0.node) }
     }
 
     /// Create a new derivation assignment and add it to the partial solution's
     /// list of known assignments.
-    public mutating func derive(_ term: Term, cause: Incompatibility) {
+    package mutating func derive(_ term: Term, cause: Incompatibility) {
         let derivation = Assignment.derivation(term, cause: cause, decisionLevel: self.decisionLevel)
         self.assignments.append(derivation)
         register(derivation)
@@ -62,7 +62,7 @@ public struct PartialSolution {
 
     /// Create a new decision assignment and add it to the partial solution's
     /// list of known assignments.
-    public mutating func decide(_ node: DependencyResolutionNode, at version: Version) {
+    package mutating func decide(_ node: DependencyResolutionNode, at version: Version) {
         decisions[node] = version
         let term = Term(node, .exact(version))
         let decision = Assignment.decision(term, decisionLevel: decisionLevel)
@@ -92,7 +92,7 @@ public struct PartialSolution {
 
     /// Returns the first Assignment in this solution such that the list of
     /// assignments up to and including that entry satisfies term.
-    public func satisfier(for term: Term) throws -> Assignment {
+    package func satisfier(for term: Term) throws -> Assignment {
         var assignedTerm: Term?
 
         for assignment in assignments {
@@ -111,7 +111,7 @@ public struct PartialSolution {
 
     /// Backtrack to a specific decision level by dropping all assignments with
     /// a decision level which is greater.
-    public mutating func backtrack(toDecisionLevel decisionLevel: Int) {
+    package mutating func backtrack(toDecisionLevel decisionLevel: Int) {
         var toBeRemoved: [(Int, Assignment)] = []
 
         for (idx, assignment) in zip(0..., assignments) {

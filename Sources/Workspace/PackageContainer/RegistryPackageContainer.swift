@@ -21,7 +21,7 @@ import class TSCBasic.InMemoryFileSystem
 
 import struct TSCUtility.Version
 
-public class RegistryPackageContainer: PackageContainer {
+public actor RegistryPackageContainer: PackageContainer {
     public let package: PackageReference
 
     private let registryClient: RegistryClient
@@ -245,7 +245,7 @@ public class RegistryPackageContainer: PackageContainer {
 // MARK: - CustomStringConvertible
 
 extension RegistryPackageContainer: CustomStringConvertible {
-    public var description: String {
+    public nonisolated var description: String {
         return "RegistryPackageContainer(\(package.identity))"
     }
 }

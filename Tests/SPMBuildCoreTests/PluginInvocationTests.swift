@@ -316,7 +316,7 @@ final class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(
+            let packageGraph = try await workspace.loadPackageGraph(
                 rootInput: rootInput,
                 observabilityScope: observability.topScope
             )
@@ -696,7 +696,7 @@ final class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            XCTAssertThrowsError(try workspace.loadPackageGraph(
+            await XCTAssertAsyncThrowsError(try await workspace.loadPackageGraph(
                 rootInput: rootInput,
                 observabilityScope: observability.topScope
             )) { error in
@@ -775,7 +775,7 @@ final class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            XCTAssertThrowsError(try workspace.loadPackageGraph(
+            await XCTAssertAsyncThrowsError(try await workspace.loadPackageGraph(
                 rootInput: rootInput,
                 observabilityScope: observability.topScope)) { error in
                 var diagnosed = false
@@ -884,7 +884,7 @@ final class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(
+            let packageGraph = try await workspace.loadPackageGraph(
                 rootInput: rootInput,
                 observabilityScope: observability.topScope
             )
@@ -1078,7 +1078,7 @@ final class PluginInvocationTests: XCTestCase {
             )
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
-            let graph = try workspace.loadPackageGraph(
+            let graph = try await workspace.loadPackageGraph(
                 rootInput: rootInput,
                 observabilityScope: observability.topScope
             )
@@ -1225,7 +1225,7 @@ final class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(
+            let packageGraph = try await workspace.loadPackageGraph(
                 rootInput: rootInput,
                 observabilityScope: observability.topScope
             )
