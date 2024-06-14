@@ -128,3 +128,9 @@ extension IdentifiableSet: Hashable {
         }
     }
 }
+
+extension IdentifiableSet: ExpressibleByArrayLiteral {
+    public init(arrayLiteral elements: Element...) {
+        self.init(elements)
+    }
+}
