@@ -516,7 +516,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Compute the llbuild target name using the given subset.
-    private func computeLLBuildTargetName(for subset: BuildSubset) throws -> String {
+    func computeLLBuildTargetName(for subset: BuildSubset) throws -> String {
         switch subset {
         case .allExcludingTests:
             return LLBuildManifestBuilder.TargetKind.main.targetName
@@ -526,9 +526,15 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             // FIXME: This is super unfortunate that we might need to load the package graph.
             let graph = try getPackageGraph()
 
+            let buildTriple: BuildTriple? = if let destination {
+                destination == .host ? .tools : .destination
+            } else {
+                nil
+            }
+
             let product = graph.product(
                 for: productName,
-                destination: destination == .host ? .tools : .destination
+                destination: buildTriple
             )
 
             guard let product else {
@@ -556,9 +562,15 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             // FIXME: This is super unfortunate that we might need to load the package graph.
             let graph = try getPackageGraph()
 
+            let buildTriple: BuildTriple? = if let destination {
+                destination == .host ? .tools : .destination
+            } else {
+                nil
+            }
+
             let target = graph.target(
                 for: targetName,
-                destination: destination == .host ? .tools : .destination
+                destination: buildTriple
             )
 
             guard let target else {
@@ -669,7 +681,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins, once we know what files they handled.
         // rdar://113256834 This fix works for the plugins that do not have PreBuildCommands.
         let targetsToConsider: [ResolvedModule]
-        if let subset = subset, let recursiveDependencies = try 
+        if let subset = subset, let recursiveDependencies = try
             subset.recursiveDependencies(for: graph, observabilityScope: observabilityScope) {
             targetsToConsider = recursiveDependencies
         } else {
@@ -939,18 +951,30 @@ extension BuildSubset {
         case .allExcludingTests:
             return graph.reachableTargets.filter { $0.type != .test }
         case .product(let productName, let destination):
+            let buildTriple: BuildTriple? = if let destination {
+                destination == .host ? .tools : .destination
+            } else {
+                nil
+            }
+
             guard let product = graph.product(
                 for: productName,
-                destination: destination == .host ? .tools : .destination
+                destination: buildTriple
             ) else {
                 observabilityScope.emit(error: "no product named '\(productName)'")
                 return nil
             }
             return try product.recursiveTargetDependencies()
         case .target(let targetName, let destination):
+            let buildTriple: BuildTriple? = if let destination {
+                destination == .host ? .tools : .destination
+            } else {
+                nil
+            }
+
             guard let target = graph.target(
                 for: targetName,
-                destination: destination == .host ? .tools : .destination
+                destination: buildTriple
             ) else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 return nil

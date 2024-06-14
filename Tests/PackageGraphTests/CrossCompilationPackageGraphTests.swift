@@ -82,6 +82,10 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
                 }
             }
 
+            result.checkProduct("MMIOMacros") { result in
+                result.check(buildTriple: .tools)
+            }
+
             result.checkTargets("SwiftSyntax") { results in
                 XCTAssertEqual(results.count, 2)
 
@@ -99,6 +103,7 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
             result.check(
                 targets: "MMIO",
                 "MMIOMacros",
+                "MMIOPlugin",
                 "SwiftCompilerPlugin",
                 "SwiftCompilerPlugin",
                 "SwiftCompilerPluginMessageHandling",
@@ -110,7 +115,7 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
                 "SwiftSyntaxMacrosTestSupport",
                 "SwiftSyntaxMacrosTestSupport"
             )
-            result.check(testModules: "MMIOMacrosTests")
+            result.check(testModules: "MMIOMacrosTests", "MMIOMacro+PluginTests")
             result.checkTarget("MMIO") { result in
                 result.check(buildTriple: .destination)
                 result.check(dependencies: "MMIOMacros")
@@ -118,6 +123,7 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
             result.checkTargets("MMIOMacros") { results in
                 XCTAssertEqual(results.count, 1)
             }
+
             result.checkTarget("MMIOMacrosTests", destination: .tools) { result in
                 result.check(buildTriple: .tools)
                 result.checkDependency("MMIOMacros") { result in
@@ -145,11 +151,50 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
                 }
             }
 
+            result.checkTarget("MMIOMacros") { result in
+                result.check(buildTriple: .tools)
+            }
+
+            result.checkTarget("MMIOMacrosTests") { result in
+                result.check(buildTriple: .tools)
+            }
+
             result.checkTargets("SwiftSyntax") { results in
                 XCTAssertEqual(results.count, 2)
 
                 XCTAssertEqual(results.filter({ $0.target.buildTriple == .tools }).count, 1)
                 XCTAssertEqual(results.filter({ $0.target.buildTriple == .destination }).count, 1)
+            }
+        }
+    }
+
+    func testPlugins() throws {
+        let graph = try macrosTestsPackageGraph().graph
+        PackageGraphTester(graph) { result in
+            result.checkProduct("MMIOPlugin", destination: .tools) { result in
+                result.check(buildTriple: .tools)
+            }
+
+            result.checkProduct("MMIOPlugin") { result in
+                result.check(buildTriple: .tools)
+            }
+
+            result.checkTarget("MMIOPlugin", destination: .tools) { result in
+                result.check(buildTriple: .tools)
+            }
+
+            result.checkTarget("MMIOPlugin") { result in
+                result.check(buildTriple: .tools)
+            }
+
+            result.checkTarget("MMIOMacro+PluginTests", destination: .tools) { result in
+                result.check(buildTriple: .tools)
+                result.check(dependencies: "MMIOPlugin", "MMIOMacros")
+            }
+
+            result.checkTarget("MMIOMacro+PluginTests") { result in
+                result.check(buildTriple: .tools)
+                result.check(dependencies: "MMIOPlugin", "MMIOMacros")
             }
         }
     }

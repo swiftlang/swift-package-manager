@@ -127,9 +127,11 @@ package func macrosPackageGraph() throws -> MockPackageGraph {
 
 package func macrosTestsPackageGraph() throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(emptyFiles:
+        "/swift-mmio/Plugins/MMIOPlugin/source.swift",
         "/swift-mmio/Sources/MMIO/source.swift",
         "/swift-mmio/Sources/MMIOMacros/source.swift",
         "/swift-mmio/Sources/MMIOMacrosTests/source.swift",
+        "/swift-mmio/Sources/MMIOMacro+PluginTests/source.swift",
         "/swift-syntax/Sources/SwiftSyntax/source.swift",
         "/swift-syntax/Sources/SwiftSyntaxMacrosTestSupport/source.swift",
         "/swift-syntax/Sources/SwiftSyntaxMacros/source.swift",
@@ -156,6 +158,11 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
                         name: "MMIO",
                         type: .library(.automatic),
                         targets: ["MMIO"]
+                    ),
+                    ProductDescription(
+                        name: "MMIOPlugin",
+                        type: .plugin,
+                        targets: ["MMIOPlugin"]
                     )
                 ],
                 targets: [
@@ -172,10 +179,23 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
                         type: .macro
                     ),
                     TargetDescription(
+                        name: "MMIOPlugin",
+                        type: .plugin,
+                        pluginCapability: .buildTool
+                    ),
+                    TargetDescription(
                         name: "MMIOMacrosTests",
                         dependencies: [
                             .target(name: "MMIOMacros"),
                             .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax")
+                        ],
+                        type: .test
+                    ),
+                    TargetDescription(
+                        name: "MMIOMacro+PluginTests",
+                        dependencies: [
+                            .target(name: "MMIOPlugin"),
+                            .target(name: "MMIOMacros")
                         ],
                         type: .test
                     )
