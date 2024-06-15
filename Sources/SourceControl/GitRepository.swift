@@ -42,12 +42,12 @@ private struct GitShellHelper {
     /// output as a string.
     func run(
         _ args: [String],
-        environment: EnvironmentVariables = Git.environment,
+        environment: ProcessEnvironmentBlock = Git.environmentBlock,
         outputRedirection: TSCBasic.Process.OutputRedirection = .collect
     ) throws -> String {
         let process = TSCBasic.Process(
             arguments: [Git.tool] + args,
-            environment: environment,
+            environmentBlock: environment,
             outputRedirection: outputRedirection
         )
         let result: ProcessResult
@@ -68,7 +68,7 @@ private struct GitShellHelper {
             // Handle a failure to even launch the Git tool by synthesizing a result that we can wrap an error around.
             let result = ProcessResult(
                 arguments: process.arguments,
-                environment: process.environment,
+                environmentBlock: process.environmentBlock,
                 exitStatus: .terminated(code: -1),
                 output: .failure(error),
                 stderrOutput: .failure(error)
@@ -97,7 +97,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     @discardableResult
     private func callGit(
         _ args: [String],
-        environment: EnvironmentVariables = Git.environment,
+        environment: ProcessEnvironmentBlock = Git.environmentBlock,
         repository: RepositorySpecifier,
         failureMessage: String = "",
         progress: FetchProgress.Handler? = nil
@@ -138,7 +138,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     @discardableResult
     private func callGit(
         _ args: String...,
-        environment: EnvironmentVariables = Git.environment,
+        environment: ProcessEnvironmentBlock = Git.environmentBlock,
         repository: RepositorySpecifier,
         failureMessage: String = "",
         progress: FetchProgress.Handler? = nil
@@ -440,7 +440,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     @discardableResult
     private func callGit(
         _ args: String...,
-        environment: EnvironmentVariables = Git.environment,
+        environment: ProcessEnvironmentBlock = Git.environmentBlock,
         failureMessage: String = "",
         progress: FetchProgress.Handler? = nil
     ) throws -> String {

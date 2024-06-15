@@ -497,7 +497,7 @@ public struct SwiftSDK: Equatable {
     public static func hostDestination(
         _ binDir: AbsolutePath? = nil,
         originalWorkingDirectory: AbsolutePath? = nil,
-        environment: [String: String]
+        environment: ProcessEnvironmentBlock
     ) throws -> SwiftSDK {
         try self.hostSwiftSDK(binDir, environment: environment)
     }
@@ -505,7 +505,7 @@ public struct SwiftSDK: Equatable {
     /// The Swift SDK for the host platform.
     public static func hostSwiftSDK(
         _ binDir: AbsolutePath? = nil,
-        environment: EnvironmentVariables = .process(),
+        environment: ProcessEnvironmentBlock = .current,
         observabilityScope: ObservabilityScope? = nil,
         fileSystem: any FileSystem = localFileSystem
     ) throws -> SwiftSDK {
@@ -526,7 +526,7 @@ public struct SwiftSDK: Equatable {
             // No value in env, so search for it.
             let sdkPathStr = try TSCBasic.Process.checkNonZeroExit(
                 arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"],
-                environment: environment
+                environmentBlock: environment
             ).spm_chomp()
             guard !sdkPathStr.isEmpty else {
                 throw SwiftSDKError.invalidInstallation("default SDK not found")
@@ -575,14 +575,14 @@ public struct SwiftSDK: Equatable {
 
     /// Returns `macosx` sdk platform framework path.
     public static func sdkPlatformFrameworkPaths(
-        environment: EnvironmentVariables = .process()
+        environment: ProcessEnvironmentBlock = .current
     ) throws -> (fwk: AbsolutePath, lib: AbsolutePath) {
         if let path = _sdkPlatformFrameworkPath {
             return path
         }
         let platformPath = try TSCBasic.Process.checkNonZeroExit(
             arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-platform-path"],
-            environment: environment
+            environmentBlock: environment
         ).spm_chomp()
 
         guard !platformPath.isEmpty else {

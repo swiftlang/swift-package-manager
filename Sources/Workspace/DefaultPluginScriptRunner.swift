@@ -271,7 +271,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         /// Persisted information about the last time the compiler was invoked.
         struct PersistedCompilationState: Codable {
             var commandLine: [String]
-            var environment: EnvironmentVariables
+            var environment: ProcessEnvironmentBlock
             var inputHash: String?
             var output: String
             var result: Result
@@ -352,7 +352,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         }
         
         // Now invoke the compiler asynchronously.
-        TSCBasic.Process.popen(arguments: commandLine, environment: environment, queue: callbackQueue) {
+        TSCBasic.Process.popen(arguments: commandLine, environmentBlock: environment, queue: callbackQueue) {
             // We are now on our caller's requested callback queue, so we just call the completion handler directly.
             dispatchPrecondition(condition: .onQueue(callbackQueue))
             completion($0.tryMap { process in

@@ -125,7 +125,7 @@ enum TestingSupport {
                 library: .xctest
             )
 
-            try TSCBasic.Process.checkNonZeroExit(arguments: args, environment: env)
+            try TSCBasic.Process.checkNonZeroExit(arguments: args, environmentBlock: env)
             // Read the temporary file's content.
             return try swiftCommandState.fileSystem.readFileContents(AbsolutePath(tempFile.path))
         }
@@ -153,8 +153,8 @@ enum TestingSupport {
         destinationBuildParameters buildParameters: BuildParameters,
         sanitizers: [Sanitizer],
         library: BuildParameters.Testing.Library
-    ) throws -> EnvironmentVariables {
-        var env = EnvironmentVariables.process()
+    ) throws -> ProcessEnvironmentBlock {
+        var env = ProcessEnvironmentBlock.current
 
         // If the standard output or error stream is NOT a TTY, set the NO_COLOR
         // environment variable. This environment variable is a de facto
@@ -191,8 +191,9 @@ enum TestingSupport {
         // Add the sdk platform path if we have it.
         if let sdkPlatformFrameworksPath = try? SwiftSDK.sdkPlatformFrameworkPaths() {
             // appending since we prefer the user setting (if set) to the one we inject
-            env.appendPath("DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.fwk.pathString)
-            env.appendPath("DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.lib.pathString)
+            // FIXME: Rauhul
+            // env.appendPath("DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.fwk.pathString)
+            // env.appendPath("DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.lib.pathString)
         }
 
         // Fast path when no sanitizers are enabled.

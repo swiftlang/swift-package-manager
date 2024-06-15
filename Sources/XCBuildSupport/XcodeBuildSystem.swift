@@ -199,12 +199,12 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
 
         // We need to sanitize the environment we are passing to XCBuild because we could otherwise interfere with its
         // linked dependencies e.g. when we have a custom swift-driver dynamic library in the path.
-        var sanitizedEnvironment = ProcessEnv.vars
+        var sanitizedEnvironment = ProcessEnv.block
         sanitizedEnvironment["DYLD_LIBRARY_PATH"] = nil
 
         let process = TSCBasic.Process(
             arguments: arguments,
-            environment: sanitizedEnvironment,
+            environmentBlock: sanitizedEnvironment,
             outputRedirection: redirection
         )
         try process.launch()

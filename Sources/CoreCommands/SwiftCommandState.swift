@@ -265,7 +265,7 @@ public final class SwiftCommandState {
 
     fileprivate var buildSystemProvider: BuildSystemProvider?
 
-    private let environment: EnvironmentVariables
+    private let environment: ProcessEnvironmentBlock
 
     private let hostTriple: Basics.Triple?
 
@@ -301,7 +301,7 @@ public final class SwiftCommandState {
         workspaceLoaderProvider: @escaping WorkspaceLoaderProvider,
         hostTriple: Basics.Triple? = nil,
         fileSystem: any FileSystem = localFileSystem,
-        environment: EnvironmentVariables = ProcessEnv.vars
+        environment: ProcessEnvironmentBlock = .current
     ) throws {
         self.hostTriple = hostTriple
         self.fileSystem = fileSystem

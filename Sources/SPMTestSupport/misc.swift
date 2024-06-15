@@ -247,7 +247,7 @@ public func executeSwiftBuild(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: EnvironmentVariables? = nil
+    env: ProcessEnvironmentBlock? = nil
 ) throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
     return try SwiftPM.Build.execute(args, packagePath: packagePath, env: env)
@@ -262,7 +262,7 @@ public func executeSwiftRun(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: EnvironmentVariables? = nil
+    env: ProcessEnvironmentBlock? = nil
 ) throws -> (stdout: String, stderr: String) {
     var args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
     args.append(executable)
@@ -277,7 +277,7 @@ public func executeSwiftPackage(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: EnvironmentVariables? = nil
+    env: ProcessEnvironmentBlock? = nil
 ) throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
     return try SwiftPM.Package.execute(args, packagePath: packagePath, env: env)
@@ -291,7 +291,7 @@ public func executeSwiftTest(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: EnvironmentVariables? = nil
+    env: ProcessEnvironmentBlock? = nil
 ) throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
     return try SwiftPM.Test.execute(args, packagePath: packagePath, env: env)

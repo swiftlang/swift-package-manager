@@ -391,7 +391,7 @@ extension SwiftCommandState {
         outputStream: OutputByteStream = stderrStream,
         options: GlobalOptions,
         fileSystem: any FileSystem = localFileSystem,
-        environment: EnvironmentVariables = .process()
+        environment: EnvironmentVariables = .current
     ) throws -> SwiftCommandState {
         return try SwiftCommandState(
             outputStream: outputStream,

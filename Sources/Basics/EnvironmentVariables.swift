@@ -10,61 +10,59 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
 import class Foundation.ProcessInfo
+import struct TSCBasic.ProcessEnvironmentBlock
+import struct TSCBasic.ProcessEnvironmentKey
+import enum TSCBasic.ProcessEnv
 
-public typealias EnvironmentVariables = [String: String]
+public typealias ProcessEnvironmentBlock = TSCBasic.ProcessEnvironmentBlock
 
-extension EnvironmentVariables {
-    public static func empty() -> EnvironmentVariables {
-        [:]
-    }
+extension ProcessEnvironmentBlock {
+    public static var current: ProcessEnvironmentBlock { ProcessEnv.block }
 
-    public static func process() -> EnvironmentVariables {
-        ProcessInfo.processInfo.environment
-    }
-
-    public mutating func prependPath(_ key: String, value: String) {
-        var values = value.isEmpty ? [] : [value]
-        if let existing = self[key], !existing.isEmpty {
-            values.append(existing)
+    public mutating func prependPath(value: String) {
+        if let existing = self[Self.pathKey] {
+            self[Self.pathKey] = "\(value):\(existing)"
+        } else {
+            self[Self.pathKey] = value
         }
-        self.setPath(key, values)
     }
 
-    public mutating func appendPath(_ key: String, value: String) {
-        var values = value.isEmpty ? [] : [value]
-        if let existing = self[key], !existing.isEmpty {
-            values.insert(existing, at: 0)
+    public mutating func appendPath(value: String) {
+        if let existing = self[Self.pathKey] {
+            self[Self.pathKey] = "\(existing):\(value)"
+        } else {
+            self[Self.pathKey] = value
         }
-        self.setPath(key, values)
-    }
-
-    private mutating func setPath(_ key: String, _ values: [String]) {
-        #if os(Windows)
-        let delimiter = ";"
-        #else
-        let delimiter = ":"
-        #endif
-        self[key] = values.joined(separator: delimiter)
     }
 
     /// `PATH` variable in the process's environment (`Path` under Windows).
-    public var path: String? {
+    package var path: String? { self[Self.pathKey] }
+
+    package static var pathValueDelimiter: String {
         #if os(Windows)
-        let pathArg = "Path"
+        ";"
         #else
-        let pathArg = "PATH"
+        ":"
         #endif
-        return self[pathArg]
+    }
+
+    package static var pathKey: ProcessEnvironmentKey {
+        #if os(Windows)
+        "Path"
+        #else
+        "PATH"
+        #endif
     }
 }
 
 // filter env variable that should not be included in a cache as they change
 // often and should not be considered in business logic
 // rdar://107029374
-extension EnvironmentVariables {
+extension ProcessEnvironmentBlock {
     // internal for testing
-    static let nonCachableKeys: Set<String> = [
+    static let nonCachableKeys: Set<ProcessEnvironmentKey> = [
         "TERM",
         "TERM_PROGRAM",
         "TERM_PROGRAM_VERSION",
@@ -82,7 +80,29 @@ extension EnvironmentVariables {
         "SSH_AUTH_SOCK",
     ]
 
-    public var cachable: EnvironmentVariables {
-        return self.filter { !Self.nonCachableKeys.contains($0.key) }
+    /// Returns a copy of `self` with known non-cacheable keys removed.
+    public var cachable: ProcessEnvironmentBlock {
+        self.filter { !Self.nonCachableKeys.contains($0.key) }
+    }
+}
+
+extension ProcessEnvironmentKey: @retroactive Comparable {
+    public static func < (lhs: Self, rhs: Self) -> Bool {
+        #if os(Windows)
+        // TODO: is this any faster than just doing a lowercased conversion and compare?
+        lhs.value.caseInsensitiveCompare(rhs.value) == .orderedAscending
+        #else
+        lhs.value < rhs.value
+        #endif
+    }
+}
+
+extension ProcessEnvironmentBlock {
+    package func nonPortable() -> [String: String] {
+        var dict = [String: String]()
+        for (key, value) in self {
+            dict[key.value] = value
+        }
+        return dict
     }
 }

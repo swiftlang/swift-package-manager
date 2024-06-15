@@ -1055,7 +1055,7 @@ final class PluginInvocationTests: XCTestCase {
             /////////
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let environment = EnvironmentVariables.process()
+            let environment = EnvironmentVariables.current
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
                 location: try Workspace.Location(forRootPackage: packageDir, fileSystem: localFileSystem),
@@ -1248,7 +1248,7 @@ final class PluginInvocationTests: XCTestCase {
                     toolset: swiftSDK.toolset,
                     pathsConfiguration: swiftSDK.pathsConfiguration
                 ),
-                environment: .process()
+                environment: .current
             )
 
             // Create a plugin script runner for the duration of the test.

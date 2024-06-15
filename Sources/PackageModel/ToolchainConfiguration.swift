@@ -27,7 +27,7 @@ public struct ToolchainConfiguration {
     public var swiftCompilerFlags: [String]
 
     /// Environment to pass to the Swift compiler (defaults to the inherited environment).
-    public var swiftCompilerEnvironment: EnvironmentVariables
+    public var swiftCompilerEnvironment: ProcessEnvironmentBlock
 
     /// SwiftPM library paths.
     public var swiftPMLibrariesLocation: SwiftPMLibrariesLocation
@@ -56,7 +56,7 @@ public struct ToolchainConfiguration {
         librarianPath: AbsolutePath,
         swiftCompilerPath: AbsolutePath,
         swiftCompilerFlags: [String] = [],
-        swiftCompilerEnvironment: EnvironmentVariables = .process(),
+        swiftCompilerEnvironment: ProcessEnvironmentBlock = .current,
         swiftPMLibrariesLocation: SwiftPMLibrariesLocation? = nil,
         sdkRootPath: AbsolutePath? = nil,
         xctestPath: AbsolutePath? = nil

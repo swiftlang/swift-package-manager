@@ -32,7 +32,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         self.lineBufferedOutput = Data()
     }
 
-    func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables) {
+    func pluginCompilationStarted(commandLine: [String], environment: ProcessEnvironmentBlock) {
     }
 
     func pluginCompilationEnded(result: PluginCompilationResult) {

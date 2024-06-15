@@ -416,7 +416,7 @@ class MiscellaneousTestCase: XCTestCase {
                 let (stdout, stderr) = try executeSwiftTest(fixturePath, extraArgs: ["-v"])
                 print("testTestsCanLinkAgainstExecutable failed")
                 print("ENV:\n")
-                for (k, v) in ProcessEnv.vars.sorted(by: { $0.key < $1.key }) {
+                for (k, v) in ProcessEnv.block.sorted(by: { $0.key < $1.key }) {
                     print("  \(k)=\(v)")
                 }
                 print("STDOUT:\n\(stdout)")

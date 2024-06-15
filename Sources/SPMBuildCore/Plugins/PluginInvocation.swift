@@ -204,7 +204,7 @@ extension PluginModule {
                 self.observabilityScope = observabilityScope
             }
             
-            func willCompilePlugin(commandLine: [String], environment: EnvironmentVariables) {
+            func willCompilePlugin(commandLine: [String], environment: ProcessEnvironmentBlock) {
                 invocationDelegate.pluginCompilationStarted(commandLine: commandLine, environment: environment)
             }
             
@@ -479,7 +479,7 @@ extension ModulesGraph {
                         self.builtToolNames = builtToolNames
                     }
                     
-                    func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables) {
+                    func pluginCompilationStarted(commandLine: [String], environment: ProcessEnvironmentBlock) {
                     }
                     
                     func pluginCompilationEnded(result: PluginCompilationResult) {
@@ -500,7 +500,7 @@ extension ModulesGraph {
                         diagnostics.append(diagnostic)
                     }
 
-                    func pluginDefinedBuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, inputFiles: [AbsolutePath], outputFiles: [AbsolutePath]) {
+                    func pluginDefinedBuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: ProcessEnvironmentBlock, workingDirectory: AbsolutePath?, inputFiles: [AbsolutePath], outputFiles: [AbsolutePath]) {
                         dispatchPrecondition(condition: .onQueue(delegateQueue))
                         buildCommands.append(.init(
                             configuration: .init(
@@ -513,7 +513,7 @@ extension ModulesGraph {
                             outputFiles: outputFiles))
                     }
                     
-                    func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool {
+                    func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: ProcessEnvironmentBlock, workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool {
                         dispatchPrecondition(condition: .onQueue(delegateQueue))
                         // executable must exist before running prebuild command
                         if builtToolNames.contains(executable.basename) {
@@ -788,7 +788,7 @@ public struct BuildToolPluginInvocationResult {
         public var displayName: String?
         public var executable: AbsolutePath
         public var arguments: [String]
-        public var environment: [String: String]
+        public var environment: ProcessEnvironmentBlock
         public var workingDirectory: AbsolutePath?
     }
 
@@ -815,8 +815,8 @@ public enum PluginEvaluationError: Swift.Error {
 
 public protocol PluginInvocationDelegate {
     /// Called before a plugin is compiled. This call is always followed by a `pluginCompilationEnded()`, but is mutually exclusive with `pluginCompilationWasSkipped()` (which is called if the plugin didn't need to be recompiled).
-    func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables)
-    
+    func pluginCompilationStarted(commandLine: [String], environment: ProcessEnvironmentBlock)
+
     /// Called after a plugin is compiled. This call always follows a `pluginCompilationStarted()`, but is mutually exclusive with `pluginCompilationWasSkipped()` (which is called if the plugin didn't need to be recompiled).
     func pluginCompilationEnded(result: PluginCompilationResult)
     

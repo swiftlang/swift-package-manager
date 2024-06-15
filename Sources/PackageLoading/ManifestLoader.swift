@@ -568,7 +568,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 packageLocation: packageLocation,
                 manifestPath: path,
                 toolsVersion: toolsVersion,
-                env: ProcessEnv.cachableVars,
+                env: ProcessEnvironmentBlock.current.cachable,
                 swiftpmVersion: SwiftVersion.current.displayString,
                 fileSystem: fileSystem
             )
@@ -960,7 +960,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     // Compile the manifest.
                     TSCBasic.Process.popen(
                         arguments: cmd,
-                        environment: self.toolchain.swiftCompilerEnvironment,
+                        environmentBlock: self.toolchain.swiftCompilerEnvironment,
                         queue: callbackQueue
                     ) { result in
                         dispatchPrecondition(condition: .onQueue(callbackQueue))
@@ -1054,7 +1054,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                             )
                         }
 
-                        var environment = ProcessEnv.vars
+                        var environment = ProcessEnvironmentBlock.current
                         #if os(Windows)
                         let windowsPathComponent = runtimePath.pathString.replacingOccurrences(of: "/", with: "\\")
                         environment["Path"] = "\(windowsPathComponent);\(environment["Path"] ?? "")"
@@ -1063,7 +1063,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         let cleanupAfterRunning = cleanupIfError.delay()
                         TSCBasic.Process.popen(
                             arguments: cmd,
-                            environment: environment,
+                            environmentBlock: environment,
                             queue: callbackQueue
                         ) { result in
                             dispatchPrecondition(condition: .onQueue(callbackQueue))
@@ -1199,7 +1199,7 @@ extension ManifestLoader {
         let manifestPath: AbsolutePath
         let manifestContents: [UInt8]
         let toolsVersion: ToolsVersion
-        let env: EnvironmentVariables
+        let env: ProcessEnvironmentBlock
         let swiftpmVersion: String
         let sha256Checksum: String
 
@@ -1207,7 +1207,7 @@ extension ManifestLoader {
               packageLocation: String,
               manifestPath: AbsolutePath,
               toolsVersion: ToolsVersion,
-              env: EnvironmentVariables,
+              env: ProcessEnvironmentBlock,
               swiftpmVersion: String,
               fileSystem: FileSystem
         ) throws {
@@ -1239,7 +1239,7 @@ extension ManifestLoader {
             packageLocation: String,
             manifestContents: [UInt8],
             toolsVersion: ToolsVersion,
-            env: EnvironmentVariables,
+            env: ProcessEnvironmentBlock,
             swiftpmVersion: String
         ) throws -> String {
             let stream = BufferedOutputByteStream()
@@ -1248,7 +1248,7 @@ extension ManifestLoader {
             stream.send(manifestContents)
             stream.send(toolsVersion.description)
             for (key, value) in env.sorted(by: { $0.key > $1.key }) {
-                stream.send(key).send(value)
+                stream.send(key.value).send(value)
             }
             stream.send(swiftpmVersion)
             return stream.bytes.sha256Checksum
@@ -1307,11 +1307,5 @@ extension ManifestLoader {
             action = nil
             return next
         }
-    }
-}
-
-extension ProcessEnv {
-    fileprivate static var cachableVars: EnvironmentVariables {
-        Self.vars.cachable
     }
 }

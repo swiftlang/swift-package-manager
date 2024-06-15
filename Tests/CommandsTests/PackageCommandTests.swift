@@ -638,7 +638,7 @@ final class PackageCommandTests: CommandsTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [manifestA, manifestB, manifestC, manifestD],
             observabilityScope: observability.topScope
@@ -1842,7 +1842,7 @@ final class PackageCommandTests: CommandsTestCase {
                 </dict>
                 """
             )
-            let environment = EnvironmentVariables.process()
+            let environment = EnvironmentVariables.current
             let hostTriple = try UserToolchain(
                 swiftSDK: .hostSwiftSDK(environment: environment),
                 environment: environment

@@ -68,7 +68,7 @@ public enum DriverSupport {
         do {
             let helpJob = try Process.launchProcess(
                 arguments: [swiftcPathString, "-h"],
-                env: ProcessEnv.vars
+                env: ProcessEnvironmentBlock.current.nonPortable()
             )
             let processResult = try helpJob.waitUntilExit()
             guard processResult.exitStatus == .terminated(code: 0) else {

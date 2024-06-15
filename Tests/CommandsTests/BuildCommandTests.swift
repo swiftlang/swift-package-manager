@@ -665,7 +665,7 @@ final class BuildCommandTests: CommandsTestCase {
     func testCodeCoverage() throws {
         // Test that no codecov directory is created if not specified when building.
         try fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
-            let buildResult = try self.build(["--build-tests"], packagePath: path, cleanAfterward: false)
+            _ = try self.build(["--build-tests"], packagePath: path, cleanAfterward: false)
             XCTAssertThrowsError(try SwiftPM.Test.execute(["--skip-build", "--enable-code-coverage"], packagePath: path))
         }
 

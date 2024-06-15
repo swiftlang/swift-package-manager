@@ -173,7 +173,7 @@ public class Workspace {
     ///   - delegate: Delegate for workspace events
     public convenience init(
         fileSystem: any FileSystem,
-        environment: EnvironmentVariables = .process(),
+        environment: ProcessEnvironmentBlock = .current,
         location: Location,
         authorizationProvider: (any AuthorizationProvider)? = .none,
         registryAuthorizationProvider: (any AuthorizationProvider)? = .none,
@@ -238,7 +238,7 @@ public class Workspace {
     ///   - delegate: Delegate for workspace events
     public convenience init(
         fileSystem: FileSystem? = .none,
-        environment: EnvironmentVariables = .process(),
+        environment: ProcessEnvironmentBlock = .current,
         forRootPackage packagePath: AbsolutePath,
         authorizationProvider: AuthorizationProvider? = .none,
         registryAuthorizationProvider: AuthorizationProvider? = .none,
@@ -337,7 +337,7 @@ public class Workspace {
     public static func _init(
         // core
         fileSystem: FileSystem,
-        environment: EnvironmentVariables,
+        environment: ProcessEnvironmentBlock,
         location: Location,
         authorizationProvider: AuthorizationProvider? = .none,
         registryAuthorizationProvider: AuthorizationProvider? = .none,
@@ -396,7 +396,7 @@ public class Workspace {
     private init(
         // core
         fileSystem: FileSystem,
-        environment: EnvironmentVariables,
+        environment: ProcessEnvironmentBlock,
         location: Location,
         authorizationProvider: AuthorizationProvider?,
         registryAuthorizationProvider: AuthorizationProvider?,

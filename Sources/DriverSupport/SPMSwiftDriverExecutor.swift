@@ -31,11 +31,11 @@ public final class SPMSwiftDriverExecutor: DriverExecutor {
     
     public let resolver: ArgsResolver
     let fileSystem: FileSystem
-    let env: EnvironmentVariables
-    
+    let env: ProcessEnvironmentBlock
+
     public init(resolver: ArgsResolver,
          fileSystem: FileSystem,
-         env: EnvironmentVariables) {
+         env: ProcessEnvironmentBlock) {
         self.resolver = resolver
         self.fileSystem = fileSystem
         self.env = env
@@ -54,7 +54,11 @@ public final class SPMSwiftDriverExecutor: DriverExecutor {
             throw Error.inPlaceExecutionUnsupported
         }
         
-        var childEnv = env
+        
+        var childEnv = [String: String]()
+        for (key, value) in env {
+            childEnv[key.value] = value
+        }
         childEnv.merge(job.extraEnvironment, uniquingKeysWith: { (_, new) in new })
         
         let process = try Process.launchProcess(arguments: arguments, env: childEnv)

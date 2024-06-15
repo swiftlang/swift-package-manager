@@ -64,17 +64,17 @@ final class EnvironmentVariablesTests: XCTestCase {
         let key = UUID().uuidString
         let value = UUID().uuidString
         
-        var env = EnvironmentVariables.process()
+        var env = EnvironmentVariables.current
         XCTAssertNil(env[key])
         
         try ProcessEnv.setVar(key, value: value)
-        env = EnvironmentVariables.process() // read from process
+        env = EnvironmentVariables.current // read from process
         XCTAssertEqual(env[key], value)
         
         try ProcessEnv.unsetVar(key)
         XCTAssertEqual(env[key], value) // this is a copy!
         
-        env = EnvironmentVariables.process() // read again from process
+        env = EnvironmentVariables.current // read again from process
         XCTAssertNil(env[key])
     }
 }

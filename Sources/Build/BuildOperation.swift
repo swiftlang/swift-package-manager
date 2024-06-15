@@ -227,7 +227,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 let resolver = try ArgsResolver(fileSystem: localFileSystem)
                 let executor = SPMSwiftDriverExecutor(resolver: resolver,
                                                       fileSystem: localFileSystem,
-                                                      env: ProcessEnv.vars)
+                                                      env: ProcessEnvironmentBlock.current)
 
                 let consumeDiagnostics: DiagnosticsEngine = DiagnosticsEngine(handlers: [])
                 var driver = try Driver(args: commandLine,
@@ -465,7 +465,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 self.preparationStepName = preparationStepName
                 self.progressTracker = progressTracker
             }
-            func willCompilePlugin(commandLine: [String], environment: EnvironmentVariables) {
+            func willCompilePlugin(commandLine: [String], environment: ProcessEnvironmentBlock) {
                 self.progressTracker?.preparationStepStarted(preparationStepName)
             }
             func didCompilePlugin(result: PluginCompilationResult) {
@@ -824,7 +824,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 if !pluginConfiguration.disableSandbox {
                     commandLine = try Sandbox.apply(command: commandLine, fileSystem: self.fileSystem, strictness: .writableTemporaryDirectory, writableDirectories: [pluginResult.pluginOutputDirectory])
                 }
-                let processResult = try Process.popen(arguments: commandLine, environment: command.configuration.environment)
+                let processResult = try Process.popen(arguments: commandLine, environmentBlock: command.configuration.environment)
                 let output = try processResult.utf8Output() + processResult.utf8stderrOutput()
                 if processResult.exitStatus != .terminated(code: 0) {
                     throw StringError("failed: \(command)\n\n\(output)")
