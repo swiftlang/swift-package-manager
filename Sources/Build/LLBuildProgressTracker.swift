@@ -19,15 +19,10 @@ import PackageModel
 import SPMBuildCore
 import SPMLLBuild
 
-import struct TSCBasic.ByteString
-import struct TSCBasic.Format
-import class TSCBasic.LocalFileOutputByteStream
 import protocol TSCBasic.OutputByteStream
-import enum TSCBasic.ProcessEnv
 import struct TSCBasic.RegEx
 import class TSCBasic.ThreadSafeOutputByteStream
 
-import class TSCUtility.IndexStore
 import class TSCUtility.IndexStoreAPI
 
 #if canImport(llbuildSwift)
@@ -35,279 +30,6 @@ typealias LLBuildBuildSystemDelegate = llbuildSwift.BuildSystemDelegate
 #else
 typealias LLBuildBuildSystemDelegate = llbuild.BuildSystemDelegate
 #endif
-
-
-class CustomLLBuildCommand: SPMLLBuild.ExternalCommand {
-    let context: BuildExecutionContext
-
-    required init(_ context: BuildExecutionContext) {
-        self.context = context
-    }
-
-    func getSignature(_: SPMLLBuild.Command) -> [UInt8] {
-        []
-    }
-
-    func execute(
-        _: SPMLLBuild.Command,
-        _: SPMLLBuild.BuildSystemCommandInterface
-    ) -> Bool {
-        fatalError("subclass responsibility")
-    }
-}
-
-extension IndexStore.TestCaseClass.TestMethod {
-    fileprivate var allTestsEntry: String {
-        let baseName = name.hasSuffix("()") ? String(name.dropLast(2)) : name
-
-        return "(\"\(baseName)\", \(isAsync ? "asyncTest(\(baseName))" : baseName))"
-    }
-}
-
-final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
-    private func write(
-        tests: [IndexStore.TestCaseClass],
-        forModule module: String,
-        fileSystem: Basics.FileSystem,
-        path: AbsolutePath
-    ) throws {
-
-        let testsByClassNames = Dictionary(grouping: tests, by: { $0.name }).sorted(by: { $0.key < $1.key })
-
-        var content = "import XCTest\n"
-        content += "@testable import \(module)\n"
-
-        for iterator in testsByClassNames {
-            // 'className' provides uniqueness for derived class.
-            let className = iterator.key
-            let testMethods = iterator.value.flatMap(\.testMethods)
-            content +=
-                #"""
-
-                fileprivate extension \#(className) {
-                    @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
-                    @MainActor
-                    static let __allTests__\#(className) = [
-                        \#(testMethods.map { $0.allTestsEntry }.joined(separator: ",\n        "))
-                    ]
-                }
-
-                """#
-        }
-
-        content +=
-        #"""
-        @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
-        @MainActor
-        func __\#(module)__allTests() -> [XCTestCaseEntry] {
-            return [
-                \#(testsByClassNames.map { "testCase(\($0.key).__allTests__\($0.key))" }
-                    .joined(separator: ",\n        "))
-            ]
-        }
-        """#
-
-        try fileSystem.writeFileContents(path, string: content)
-    }
-
-    private func execute(fileSystem: Basics.FileSystem, tool: TestDiscoveryTool) throws {
-        let outputs = tool.outputs.compactMap { try? AbsolutePath(validating: $0.name) }
-
-        switch self.context.productsBuildParameters.testingParameters.library {
-        case .swiftTesting:
-            for file in outputs {
-                try fileSystem.writeIfChanged(path: file, string: "")
-            }
-        case .xctest:
-            let index = self.context.productsBuildParameters.indexStore
-            let api = try self.context.indexStoreAPI.get()
-            let store = try IndexStore.open(store: TSCAbsolutePath(index), api: api)
-
-            // FIXME: We can speed this up by having one llbuild command per object file.
-            let tests = try store.listTests(in: tool.inputs.map { try TSCAbsolutePath(AbsolutePath(validating: $0.name)) })
-
-            let testsByModule = Dictionary(grouping: tests, by: { $0.module.spm_mangledToC99ExtendedIdentifier() })
-
-            // Find the main file path.
-            guard let mainFile = outputs.first(where: { path in
-                path.basename == TestDiscoveryTool.mainFileName
-            }) else {
-                throw InternalError("main output (\(TestDiscoveryTool.mainFileName)) not found")
-            }
-
-            // Write one file for each test module.
-            //
-            // We could write everything in one file but that can easily run into type conflicts due
-            // in complex packages with large number of test targets.
-            for file in outputs where file != mainFile {
-                // FIXME: This is relying on implementation detail of the output but passing the
-                // the context all the way through is not worth it right now.
-                let module = file.basenameWithoutExt.spm_mangledToC99ExtendedIdentifier()
-
-                guard let tests = testsByModule[module] else {
-                    // This module has no tests so just write an empty file for it.
-                    try fileSystem.writeFileContents(file, bytes: "")
-                    continue
-                }
-                try write(
-                    tests: tests,
-                    forModule: module,
-                    fileSystem: fileSystem,
-                    path: file
-                )
-            }
-
-            let testsKeyword = tests.isEmpty ? "let" : "var"
-
-            // Write the main file.
-            let stream = try LocalFileOutputByteStream(mainFile)
-
-            stream.send(
-                #"""
-                import XCTest
-
-                @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
-                @MainActor
-                public func __allDiscoveredTests() -> [XCTestCaseEntry] {
-                    \#(testsKeyword) tests = [XCTestCaseEntry]()
-
-                    \#(testsByModule.keys.map { "tests += __\($0)__allTests()" }.joined(separator: "\n    "))
-
-                    return tests
-                }
-                """#
-            )
-
-            stream.flush()
-        }
-    }
-
-    override func execute(
-        _ command: SPMLLBuild.Command,
-        _: SPMLLBuild.BuildSystemCommandInterface
-    ) -> Bool {
-        do {
-            // This tool will never run without the build description.
-            guard let buildDescription = self.context.buildDescription else {
-                throw InternalError("unknown build description")
-            }
-            guard let tool = buildDescription.testDiscoveryCommands[command.name] else {
-                throw InternalError("command \(command.name) not registered")
-            }
-            try execute(fileSystem: self.context.fileSystem, tool: tool)
-            return true
-        } catch {
-            self.context.observabilityScope.emit(error)
-            return false
-        }
-    }
-}
-
-extension TestEntryPointTool {
-    public static func mainFileName(for library: BuildParameters.Testing.Library) -> String {
-        "runner-\(library).swift"
-    }
-}
-
-final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
-    private func execute(fileSystem: Basics.FileSystem, tool: TestEntryPointTool) throws {
-        let outputs = tool.outputs.compactMap { try? AbsolutePath(validating: $0.name) }
-
-        // Find the main output file
-        let mainFileName = TestEntryPointTool.mainFileName(
-            for: self.context.productsBuildParameters.testingParameters.library
-        )
-        guard let mainFile = outputs.first(where: { path in
-            path.basename == mainFileName
-        }) else {
-            throw InternalError("main file output (\(mainFileName)) not found")
-        }
-
-        // Write the main file.
-        let stream = try LocalFileOutputByteStream(mainFile)
-
-        switch self.context.productsBuildParameters.testingParameters.library {
-        case .swiftTesting:
-            stream.send(
-                #"""
-                #if canImport(Testing)
-                import Testing
-                #endif
-
-                @main struct Runner {
-                    static func main() async {
-                #if canImport(Testing)
-                        await Testing.__swiftPMEntryPoint() as Never
-                #endif
-                    }
-                }
-                """#
-            )
-        case .xctest:
-            // Find the inputs, which are the names of the test discovery module(s)
-            let inputs = tool.inputs.compactMap { try? AbsolutePath(validating: $0.name) }
-            let discoveryModuleNames = inputs.map(\.basenameWithoutExt)
-
-            let testObservabilitySetup: String
-            let buildParameters = self.context.productsBuildParameters
-            if buildParameters.testingParameters.experimentalTestOutput && buildParameters.triple.supportsTestSummary {
-                testObservabilitySetup = "_ = SwiftPMXCTestObserver()\n"
-            } else {
-                testObservabilitySetup = ""
-            }
-
-            stream.send(
-                #"""
-                \#(generateTestObservationCode(buildParameters: buildParameters))
-
-                import XCTest
-                \#(discoveryModuleNames.map { "import \($0)" }.joined(separator: "\n"))
-
-                @main
-                @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
-                struct Runner {
-                    #if os(WASI)
-                    /// On WASI, we can't block the main thread, so XCTestMain is defined as async.
-                    static func main() async {
-                        \#(testObservabilitySetup)
-                        await XCTMain(__allDiscoveredTests()) as Never
-                    }
-                    #else
-                    static func main() {
-                        \#(testObservabilitySetup)
-                        XCTMain(__allDiscoveredTests()) as Never
-                    }
-                    #endif
-                }
-                """#
-            )
-        }
-
-        stream.flush()
-    }
-
-    override func execute(
-        _ command: SPMLLBuild.Command,
-        _: SPMLLBuild.BuildSystemCommandInterface
-    ) -> Bool {
-        do {
-            // This tool will never run without the build description.
-            guard let buildDescription = self.context.buildDescription else {
-                throw InternalError("unknown build description")
-            }
-            guard let tool = buildDescription.testEntryPointCommands[command.name] else {
-                throw InternalError("command \(command.name) not registered")
-            }
-            try execute(fileSystem: self.context.fileSystem, tool: tool)
-            return true
-        } catch {
-            self.context.observabilityScope.emit(error)
-            return false
-        }
-    }
-}
-
-private protocol TestBuildCommand {}
 
 private final class InProcessTool: Tool {
     let context: BuildExecutionContext
@@ -320,119 +42,6 @@ private final class InProcessTool: Tool {
 
     func createCommand(_: String) -> ExternalCommand? {
         type.init(self.context)
-    }
-}
-
-/// Contains the description of the build that is needed during the execution.
-public struct BuildDescription: Codable {
-    public typealias CommandName = String
-    public typealias TargetName = String
-    public typealias CommandLineFlag = String
-
-    /// The Swift compiler invocation targets.
-    let swiftCommands: [LLBuildManifest.CmdName: SwiftCompilerTool]
-
-    /// The Swift compiler frontend invocation targets.
-    let swiftFrontendCommands: [LLBuildManifest.CmdName: SwiftFrontendTool]
-
-    /// The map of test discovery commands.
-    let testDiscoveryCommands: [LLBuildManifest.CmdName: TestDiscoveryTool]
-
-    /// The map of test entry point commands.
-    let testEntryPointCommands: [LLBuildManifest.CmdName: TestEntryPointTool]
-
-    /// The map of copy commands.
-    let copyCommands: [LLBuildManifest.CmdName: CopyTool]
-
-    /// The map of write commands.
-    let writeCommands: [LLBuildManifest.CmdName: WriteAuxiliaryFile]
-
-    /// A flag that indicates this build should perform a check for whether targets only import
-    /// their explicitly-declared dependencies
-    let explicitTargetDependencyImportCheckingMode: BuildParameters.TargetDependencyImportCheckingMode
-
-    /// Every target's set of dependencies.
-    let targetDependencyMap: [TargetName: [TargetName]]
-
-    /// A full swift driver command-line invocation used to dependency-scan a given Swift target
-    let swiftTargetScanArgs: [TargetName: [CommandLineFlag]]
-
-    /// A set of all targets with generated source
-    let generatedSourceTargetSet: Set<TargetName>
-
-    /// The built test products.
-    public let builtTestProducts: [BuiltTestProduct]
-
-    /// Distilled information about any plugins defined in the package.
-    let pluginDescriptions: [PluginDescription]
-
-    public init(
-        plan: BuildPlan,
-        swiftCommands: [LLBuildManifest.CmdName: SwiftCompilerTool],
-        swiftFrontendCommands: [LLBuildManifest.CmdName: SwiftFrontendTool],
-        testDiscoveryCommands: [LLBuildManifest.CmdName: TestDiscoveryTool],
-        testEntryPointCommands: [LLBuildManifest.CmdName: TestEntryPointTool],
-        copyCommands: [LLBuildManifest.CmdName: CopyTool],
-        writeCommands: [LLBuildManifest.CmdName: WriteAuxiliaryFile],
-        pluginDescriptions: [PluginDescription]
-    ) throws {
-        self.swiftCommands = swiftCommands
-        self.swiftFrontendCommands = swiftFrontendCommands
-        self.testDiscoveryCommands = testDiscoveryCommands
-        self.testEntryPointCommands = testEntryPointCommands
-        self.copyCommands = copyCommands
-        self.writeCommands = writeCommands
-        self.explicitTargetDependencyImportCheckingMode = plan.destinationBuildParameters.driverParameters
-            .explicitTargetDependencyImportCheckingMode
-        self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) { partial, targetBuildDescription in
-            let deps = try targetBuildDescription.target.recursiveDependencies(
-                satisfying: targetBuildDescription.buildParameters.buildEnvironment
-            )
-                .compactMap(\.target).map(\.c99name)
-            partial[targetBuildDescription.target.c99name] = deps
-        }
-        var targetCommandLines: [TargetName: [CommandLineFlag]] = [:]
-        var generatedSourceTargets: [TargetName] = []
-        for description in plan.targets {
-            guard case .swift(let desc) = description else {
-                continue
-            }
-            let buildParameters = description.buildParameters
-            targetCommandLines[desc.target.c99name] =
-                try desc.emitCommandLine(scanInvocation: true) + [
-                    "-driver-use-frontend-path", buildParameters.toolchain.swiftCompilerPath.pathString
-                ]
-            if case .discovery = desc.testTargetRole {
-                generatedSourceTargets.append(desc.target.c99name)
-            }
-        }
-        generatedSourceTargets.append(
-            contentsOf: plan.pluginDescriptions
-                .map(\.targetC99Name)
-        )
-        self.swiftTargetScanArgs = targetCommandLines
-        self.generatedSourceTargetSet = Set(generatedSourceTargets)
-        self.builtTestProducts = try plan.buildProducts.filter { $0.product.type == .test }.map { desc in
-            return try BuiltTestProduct(
-                productName: desc.product.name,
-                binaryPath: desc.binaryPath,
-                packagePath: desc.package.path,
-                library: desc.buildParameters.testingParameters.library
-            )
-        }
-        self.pluginDescriptions = pluginDescriptions
-    }
-
-    public func write(fileSystem: Basics.FileSystem, path: AbsolutePath) throws {
-        let encoder = JSONEncoder.makeWithDefaults()
-        let data = try encoder.encode(self)
-        try fileSystem.writeFileContents(path, bytes: ByteString(data))
-    }
-
-    public static func load(fileSystem: Basics.FileSystem, path: AbsolutePath) throws -> BuildDescription {
-        let contents: Data = try fileSystem.readFileContents(path)
-        let decoder = JSONDecoder.makeWithDefaults()
-        return try decoder.decode(BuildDescription.self, from: contents)
     }
 }
 
@@ -505,11 +114,11 @@ public final class BuildExecutionContext {
                 // library is currently installed as `libIndexStore.dll` rather than
                 // `IndexStore.dll`.  In the future, this may require a fallback
                 // search, preferring `IndexStore.dll` over `libIndexStore.dll`.
-                let indexStoreLib = toolsBuildParameters.toolchain.swiftCompilerPath
+                let indexStoreLib = self.toolsBuildParameters.toolchain.swiftCompilerPath
                     .parentDirectory
                     .appending("libIndexStore.dll")
                 #else
-                let ext = toolsBuildParameters.triple.dynamicLibraryExtension
+                let ext = self.toolsBuildParameters.triple.dynamicLibraryExtension
                 let indexStoreLib = try toolsBuildParameters.toolchain.toolchainLibDir
                     .appending("libIndexStore" + ext)
                 #endif
@@ -521,126 +130,8 @@ public final class BuildExecutionContext {
     }
 }
 
-final class WriteAuxiliaryFileCommand: CustomLLBuildCommand {
-    override func getSignature(_ command: SPMLLBuild.Command) -> [UInt8] {
-        guard let buildDescription = self.context.buildDescription else {
-            self.context.observabilityScope.emit(error: "unknown build description")
-            return []
-        }
-        guard let tool = buildDescription.writeCommands[command.name] else {
-            self.context.observabilityScope.emit(error: "command \(command.name) not registered")
-            return []
-        }
-
-        do {
-            let encoder = JSONEncoder.makeWithDefaults()
-            var hash = Data()
-            hash += try encoder.encode(tool.inputs)
-            hash += try encoder.encode(tool.outputs)
-            return [UInt8](hash)
-        } catch {
-            self.context.observabilityScope.emit(error: "getSignature() failed: \(error.interpolationDescription)")
-            return []
-        }
-    }
-
-    override func execute(
-        _ command: SPMLLBuild.Command,
-        _: SPMLLBuild.BuildSystemCommandInterface
-    ) -> Bool {
-        let outputFilePath: AbsolutePath
-        let tool: WriteAuxiliaryFile!
-
-        do {
-            guard let buildDescription = self.context.buildDescription else {
-                throw InternalError("unknown build description")
-            }
-            guard let _tool = buildDescription.writeCommands[command.name] else {
-                throw StringError("command \(command.name) not registered")
-            }
-            tool = _tool
-
-            guard let output = tool.outputs.first, output.kind == .file else {
-                throw StringError("invalid output path")
-            }
-            outputFilePath = try AbsolutePath(validating: output.name)
-        } catch {
-            self.context.observabilityScope.emit(error: "failed to write auxiliary file: \(error.interpolationDescription)")
-            return false
-        }
-
-        do {
-            try self.context.fileSystem.writeIfChanged(path: outputFilePath, string: getFileContents(tool: tool))
-            return true
-        } catch {
-            self.context.observabilityScope.emit(error: "failed to write auxiliary file '\(outputFilePath.pathString)': \(error.interpolationDescription)")
-            return false
-        }
-    }
-
-    func getFileContents(tool: WriteAuxiliaryFile) throws -> String {
-        guard tool.inputs.first?.kind == .virtual, let generatedFileType = tool.inputs.first?.name.dropFirst().dropLast() else {
-            throw StringError("invalid inputs")
-        }
-
-        for fileType in WriteAuxiliary.fileTypes {
-            if generatedFileType == fileType.name {
-                return try fileType.getFileContents(inputs: Array(tool.inputs.dropFirst()))
-            }
-        }
-
-        throw InternalError("unhandled generated file type '\(generatedFileType)'")
-    }
-}
-
 public protocol PackageStructureDelegate {
     func packageStructureChanged() -> Bool
-}
-
-final class PackageStructureCommand: CustomLLBuildCommand {
-    override func getSignature(_: SPMLLBuild.Command) -> [UInt8] {
-        let encoder = JSONEncoder.makeWithDefaults()
-        // Include build parameters and process env in the signature.
-        var hash = Data()
-        hash += try! encoder.encode(self.context.productsBuildParameters)
-        hash += try! encoder.encode(self.context.toolsBuildParameters)
-        hash += try! encoder.encode(ProcessEnv.vars)
-        return [UInt8](hash)
-    }
-
-    override func execute(
-        _: SPMLLBuild.Command,
-        _: SPMLLBuild.BuildSystemCommandInterface
-    ) -> Bool {
-        self.context.packageStructureDelegate.packageStructureChanged()
-    }
-}
-
-final class CopyCommand: CustomLLBuildCommand {
-    override func execute(
-        _ command: SPMLLBuild.Command,
-        _: SPMLLBuild.BuildSystemCommandInterface
-    ) -> Bool {
-        do {
-            // This tool will never run without the build description.
-            guard let buildDescription = self.context.buildDescription else {
-                throw InternalError("unknown build description")
-            }
-            guard let tool = buildDescription.copyCommands[command.name] else {
-                throw StringError("command \(command.name) not registered")
-            }
-
-            let input = try AbsolutePath(validating: tool.inputs[0].name)
-            let output = try AbsolutePath(validating: tool.outputs[0].name)
-            try self.context.fileSystem.createDirectory(output.parentDirectory, recursive: true)
-            try self.context.fileSystem.removeFileTree(output)
-            try self.context.fileSystem.copy(from: input, to: output)
-        } catch {
-            self.context.observabilityScope.emit(error)
-            return false
-        }
-        return true
-    }
 }
 
 /// Convenient llbuild build system delegate implementation
@@ -705,17 +196,17 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     func lookupTool(_ name: String) -> Tool? {
         switch name {
         case TestDiscoveryTool.name:
-            return InProcessTool(buildExecutionContext, type: TestDiscoveryCommand.self)
+            InProcessTool(self.buildExecutionContext, type: TestDiscoveryCommand.self)
         case TestEntryPointTool.name:
-            return InProcessTool(buildExecutionContext, type: TestEntryPointCommand.self)
+            InProcessTool(self.buildExecutionContext, type: TestEntryPointCommand.self)
         case PackageStructureTool.name:
-            return InProcessTool(buildExecutionContext, type: PackageStructureCommand.self)
+            InProcessTool(self.buildExecutionContext, type: PackageStructureCommand.self)
         case CopyTool.name:
-            return InProcessTool(buildExecutionContext, type: CopyCommand.self)
+            InProcessTool(self.buildExecutionContext, type: CopyCommand.self)
         case WriteAuxiliaryFile.name:
-            return InProcessTool(buildExecutionContext, type: WriteAuxiliaryFileCommand.self)
+            InProcessTool(self.buildExecutionContext, type: WriteAuxiliaryFileCommand.self)
         default:
-            return nil
+            nil
         }
     }
 
@@ -744,16 +235,16 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     func commandStatusChanged(_ command: SPMLLBuild.Command, kind: CommandStatusKind) {
         guard !self.logLevel.isVerbose else { return }
         guard command.shouldShowStatus else { return }
-        guard !swiftParsers.keys.contains(command.name) else { return }
+        guard !self.swiftParsers.keys.contains(command.name) else { return }
 
-        queue.async {
+        self.queue.async {
             self.taskTracker.commandStatusChanged(command, kind: kind)
             self.updateProgress()
         }
     }
 
     func commandPreparing(_ command: SPMLLBuild.Command) {
-        queue.async {
+        self.queue.async {
             self.delegate?.buildSystem(self.buildSystem, willStartCommand: BuildSystemCommand(command))
         }
     }
@@ -761,7 +252,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     func commandStarted(_ command: SPMLLBuild.Command) {
         guard command.shouldShowStatus else { return }
 
-        queue.async {
+        self.queue.async {
             self.delegate?.buildSystem(self.buildSystem, didStartCommand: BuildSystemCommand(command))
             if self.logLevel.isVerbose {
                 self.outputStream.send("\(command.verboseDescription)\n")
@@ -776,9 +267,9 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
 
     func commandFinished(_ command: SPMLLBuild.Command, result: CommandResult) {
         guard command.shouldShowStatus else { return }
-        guard !swiftParsers.keys.contains(command.name) else { return }
+        guard !self.swiftParsers.keys.contains(command.name) else { return }
 
-        queue.async {
+        self.queue.async {
             if result == .cancelled {
                 self.cancelled = true
                 self.delegate?.buildSystemDidCancel(self.buildSystem)
@@ -830,7 +321,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
         if let swiftParser = swiftParsers[command.name] {
             swiftParser.parse(bytes: data)
         } else {
-            queue.async {
+            self.queue.async {
                 self.nonSwiftMessageBuffers[command.name, default: []] += data
             }
         }
@@ -842,8 +333,9 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
         result: CommandExtendedResult
     ) {
         // FIXME: This should really happen at the command-level and is just a stopgap measure.
-        let shouldFilterOutput = !self.logLevel.isVerbose && command.verboseDescription.hasPrefix("codesign ") && result.result != .failed
-        queue.async {
+        let shouldFilterOutput = !self.logLevel.isVerbose && command.verboseDescription.hasPrefix("codesign ") && result
+            .result != .failed
+        self.queue.async {
             if let buffer = self.nonSwiftMessageBuffers[command.name], !shouldFilterOutput {
                 self.progressAnimation.clear()
                 self.outputStream.send(buffer)
@@ -859,7 +351,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
         case .failed:
             // The command failed, so we queue up an asynchronous task to see if we have any error messages from the
             // target to provide advice about.
-            queue.async {
+            self.queue.async {
                 guard let target = self.swiftParsers[command.name]?.targetName else { return }
                 guard let errorMessages = self.errorMessagesByTarget[target] else { return }
                 for errorMessage in errorMessages {
@@ -884,7 +376,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     func cycleDetected(rules: [BuildKey]) {
         self.observabilityScope.emit(.cycleError(rules: rules))
 
-        queue.async {
+        self.queue.async {
             self.delegate?.buildSystemDidDetectCycleInRules(self.buildSystem)
         }
     }
@@ -895,7 +387,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
 
     /// Invoked right before running an action taken before building.
     func preparationStepStarted(_ name: String) {
-        queue.async {
+        self.queue.async {
             self.taskTracker.buildPreparationStepStarted(name)
             self.updateProgress()
         }
@@ -904,7 +396,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     /// Invoked when an action taken before building emits output.
     /// when verboseOnly is set to true, the output will only be printed in verbose logging mode
     func preparationStepHadOutput(_ name: String, output: String, verboseOnly: Bool) {
-        queue.async {
+        self.queue.async {
             self.progressAnimation.clear()
             if !verboseOnly || self.logLevel.isVerbose {
                 self.outputStream.send("\(output.spm_chomp())\n")
@@ -916,7 +408,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     /// Invoked right after running an action taken before building. The result
     /// indicates whether the action succeeded, failed, or was cancelled.
     func preparationStepFinished(_ name: String, result: CommandResult) {
-        queue.async {
+        self.queue.async {
             self.taskTracker.buildPreparationStepFinished(name)
             self.updateProgress()
         }
@@ -925,7 +417,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     // MARK: SwiftCompilerOutputParserDelegate
 
     func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didParse message: SwiftCompilerMessage) {
-        queue.async {
+        self.queue.async {
             if self.logLevel.isVerbose {
                 if let text = message.verboseProgressText {
                     self.outputStream.send("\(text)\n")
@@ -951,7 +443,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
                     let regex = try! RegEx(pattern: #".*(error:[^\n]*)\n.*"#, options: .dotMatchesLineSeparators)
                     for match in regex.matchGroups(in: output) {
                         self.errorMessagesByTarget[parser.targetName] = (
-                                self.errorMessagesByTarget[parser.targetName] ?? []
+                            self.errorMessagesByTarget[parser.targetName] ?? []
                         ) + [match[0]]
                     }
                 }
@@ -966,7 +458,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     }
 
     func buildStart(configuration: BuildConfiguration) {
-        queue.sync {
+        self.queue.sync {
             self.progressAnimation.clear()
             self.outputStream.send("Building for \(configuration == .debug ? "debugging" : "production")...\n")
             self.outputStream.flush()
@@ -974,19 +466,18 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     }
 
     func buildComplete(success: Bool, duration: DispatchTimeInterval, subsetDescriptor: String? = nil) {
-        let subsetString: String
-        if let subsetDescriptor {
-            subsetString = "of \(subsetDescriptor) "
+        let subsetString = if let subsetDescriptor {
+            "of \(subsetDescriptor) "
         } else {
-            subsetString = ""
+            ""
         }
 
-        queue.sync {
+        self.queue.sync {
             self.progressAnimation.complete(success: success)
             self.delegate?.buildSystem(self.buildSystem, didFinishWithResult: success)
 
             if success {
-                let message = cancelled ? "Build \(subsetString)cancelled!" : "Build \(subsetString)complete!"
+                let message = self.cancelled ? "Build \(subsetString)cancelled!" : "Build \(subsetString)complete!"
                 self.progressAnimation.clear()
                 self.outputStream.send("\(message) (\(duration.descriptionInSeconds))\n")
                 self.outputStream.flush()
@@ -999,8 +490,8 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     private func updateProgress() {
         if let progressText = taskTracker.latestFinishedText {
             self.progressAnimation.update(
-                step: taskTracker.finishedCount,
-                total: taskTracker.totalCount,
+                step: self.taskTracker.finishedCount,
+                total: self.taskTracker.totalCount,
                 text: progressText
             )
         }
@@ -1032,7 +523,7 @@ private struct CommandTaskTracker {
     }
 
     mutating func commandFinished(_ command: SPMLLBuild.Command, result: CommandResult, targetName: String?) {
-        let progressTextValue = progressText(of: command, targetName: targetName)
+        let progressTextValue = self.progressText(of: command, targetName: targetName)
         self.onTaskProgressUpdateText?(progressTextValue, targetName)
 
         self.latestFinishedText = progressTextValue
@@ -1042,18 +533,18 @@ private struct CommandTaskTracker {
         switch message.kind {
         case .began(let info):
             if let text = progressText(of: message, targetName: targetName) {
-                swiftTaskProgressTexts[info.pid] = text
-                onTaskProgressUpdateText?(text, targetName)
+                self.swiftTaskProgressTexts[info.pid] = text
+                self.onTaskProgressUpdateText?(text, targetName)
             }
 
-            totalCount += 1
+            self.totalCount += 1
         case .finished(let info):
             if let progressText = swiftTaskProgressTexts[info.pid] {
-                latestFinishedText = progressText
-                swiftTaskProgressTexts[info.pid] = nil
+                self.latestFinishedText = progressText
+                self.swiftTaskProgressTexts[info.pid] = nil
             }
 
-            finishedCount += 1
+            self.finishedCount += 1
         case .unparsableOutput, .signalled, .skipped:
             break
         }
@@ -1109,7 +600,7 @@ private struct CommandTaskTracker {
     }
 
     mutating func buildPreparationStepFinished(_ name: String) {
-        latestFinishedText = name
+        self.latestFinishedText = name
         self.finishedCount += 1
     }
 }
@@ -1118,9 +609,9 @@ extension SwiftCompilerMessage {
     fileprivate var verboseProgressText: String? {
         switch kind {
         case .began(let info):
-            return ([info.commandExecutable] + info.commandArguments).joined(separator: " ")
+            ([info.commandExecutable] + info.commandArguments).joined(separator: " ")
         case .skipped, .finished, .signalled, .unparsableOutput:
-            return nil
+            nil
         }
     }
 
@@ -1128,11 +619,11 @@ extension SwiftCompilerMessage {
         switch kind {
         case .finished(let info),
              .signalled(let info):
-            return info.output
+            info.output
         case .unparsableOutput(let output):
-            return output
+            output
         case .skipped, .began:
-            return nil
+            nil
         }
     }
 }
