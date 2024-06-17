@@ -7416,6 +7416,7 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let sandbox = AbsolutePath("/tmp/ws/")
         try fs.createDirectory(sandbox, recursive: true)
+        let artifactUrl = "https://a.com/a.zip"
 
         let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             do {
@@ -7446,7 +7447,7 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "A1",
                             type: .binary,
-                            url: "https://a.com/a.zip",
+                            url: artifactUrl,
                             checksum: "a1"
                         ),
                     ]
@@ -7471,6 +7472,17 @@ final class WorkspaceTests: XCTestCase {
         // make sure artifact downloaded is deleted
         XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root")))
         XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/root/a.zip")))
+
+        // make sure the cached artifact is also deleted
+        let artifactCacheKey = artifactUrl.spm_mangledToC99ExtendedIdentifier()
+        guard let cachePath = workspace.workspaceLocation?
+            .sharedBinaryArtifactsCacheDirectory?
+            .appending(artifactCacheKey) else {
+            XCTFail("Required workspace location wasn't found")
+            return
+        }
+
+        XCTAssertFalse(fs.exists(cachePath))
     }
 
     func testArtifactDownloaderOrArchiverError() throws {

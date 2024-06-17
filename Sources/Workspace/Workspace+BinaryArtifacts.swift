@@ -618,6 +618,9 @@ extension Workspace {
                 progress: progress,
                 completion: { result in
                     self.delegate?.willDownloadBinaryArtifact(from: artifact.url.absoluteString, fromCache: false)
+                    if case .failure = result {
+                        try? self.fileSystem.removeFileTree(cachedArtifactPath)
+                    }
                     completion(result.flatMap {
                         Result.init(catching: {
                             // copy from cache to destination
