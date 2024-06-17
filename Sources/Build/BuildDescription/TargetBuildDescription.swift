@@ -124,4 +124,22 @@ public enum TargetBuildDescription {
         case .clang(let target): try target.symbolGraphExtractArguments()
         }
     }
+
+    /// Determines the arguments needed to run `swift-api-digester` for emitting
+    /// an API baseline for this module.
+    package func apiDigesterEmitBaselineArguments() throws -> [String] {
+        switch self {
+        case .swift(let target): try target.apiDigesterEmitBaselineArguments()
+        case .clang(let target): try target.apiDigesterEmitBaselineArguments()
+        }
+    }
+
+    /// Determines the arguments needed to run `swift-api-digester` for
+    /// comparing to an API baseline for this module.
+    package func apiDigesterCompareBaselineArguments() throws -> [String] {
+        switch self {
+        case .swift(let target): try target.apiDigesterCompareBaselineArguments()
+        case .clang(let target): try target.apiDigesterCompareBaselineArguments()
+        }
+    }
 }

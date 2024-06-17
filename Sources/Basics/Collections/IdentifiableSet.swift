@@ -97,6 +97,16 @@ public struct IdentifiableSet<Element: Identifiable>: Collection {
     public func contains(id: Element.ID) -> Bool {
         self.storage.keys.contains(id)
     }
+
+    public func filter(_ isIncluded: (Self.Element) throws -> Bool) rethrows -> Self {
+        var copy = Self()
+        for element in self {
+            if try isIncluded(element) {
+                copy.insert(element)
+            }
+        }
+        return copy
+    }
 }
 
 extension OrderedDictionary where Value: Identifiable, Key == Value.ID {
@@ -116,5 +126,11 @@ extension IdentifiableSet: Hashable {
         for key in self.storage.keys {
             hasher.combine(key)
         }
+    }
+}
+
+extension IdentifiableSet: ExpressibleByArrayLiteral {
+    public init(arrayLiteral elements: Element...) {
+        self.init(elements)
     }
 }

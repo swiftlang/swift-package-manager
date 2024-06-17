@@ -69,27 +69,27 @@ struct APIDigesterBaselineDumper {
 
     /// Emit the API baseline files and return the path to their directory.
     func emitAPIBaseline(
-        for modulesToDiff: Set<String>,
+        for modulesToDiffInCurrentRevision: IdentifiableSet<ResolvedModule>,
         at baselineDir: AbsolutePath?,
         force: Bool,
         logLevel: Basics.Diagnostic.Severity,
         swiftCommandState: SwiftCommandState
     ) throws -> AbsolutePath {
-        var modulesToDiff = modulesToDiff
+        var modulesToDiffInCurrentRevision = modulesToDiffInCurrentRevision
         let apiDiffDir = productsBuildParameters.apiDiff
         let baselineDir = (baselineDir ?? apiDiffDir).appending(component: baselineRevision.identifier)
-        let baselinePath: (String)->AbsolutePath = { module in
-            baselineDir.appending(component: module + ".json")
+        let baselinePath: (ResolvedModule) -> AbsolutePath = { module in
+            baselineDir.appending(component: module.c99name + ".json")
         }
 
         if !force {
             // Baselines which already exist don't need to be regenerated.
-            modulesToDiff = modulesToDiff.filter {
+            modulesToDiffInCurrentRevision = modulesToDiffInCurrentRevision.filter {
                 !swiftCommandState.fileSystem.exists(baselinePath($0))
             }
         }
 
-        guard !modulesToDiff.isEmpty else {
+        guard !modulesToDiffInCurrentRevision.isEmpty else {
             // If none of the baselines need to be regenerated, return.
             return baselineDir
         }
@@ -123,8 +123,14 @@ struct APIDigesterBaselineDumper {
             observabilityScope: self.observabilityScope
         )
 
-        // Don't emit a baseline for a module that didn't exist yet in this revision.
-        modulesToDiff.formIntersection(graph.apiDigesterModules)
+        // FIXME: Indicate modules added or removed instead of ignoring
+        // Only emit a baseline for modules that exists both in the previous
+        // revision and the current revision of the package.
+        let modulesToDiffInCurrentRevisionC99Names = Set(modulesToDiffInCurrentRevision.map(\.c99name))
+        let modulesInPreviousRevision = graph.apiDigesterModules
+        let modulesToDiff = modulesInPreviousRevision.filter {
+            modulesToDiffInCurrentRevisionC99Names.contains($0.c99name)
+        }
 
         // Abort if we weren't able to load the package graph.
         if observabilityScope.errorsReported {
@@ -195,12 +201,15 @@ public struct SwiftAPIDigester {
     /// Emit an API baseline file for the specified module at the specified location.
     public func emitAPIBaseline(
         to outputPath: AbsolutePath,
-        for module: String,
-        buildPlan: SPMBuildCore.BuildPlan
+        for module: ResolvedModule,
+        buildPlan: BuildPlan
     ) throws {
-        var args = ["-dump-sdk", "-compiler-style-diags"]
-        args += try buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
-        args += ["-module", module, "-o", outputPath.pathString]
+        var args = [String]()
+        args += try buildPlan.apiDigesterEmitBaselineArguments(for: module)
+
+        // FIXME: everything here should be in apiDigesterEmitBaselineArguments
+        args += ["-dump-sdk", "-compiler-style-diags"]
+        args += ["-module", module.c99name, "-o", outputPath.pathString]
 
         let result = try runTool(args)
 
@@ -225,16 +234,19 @@ public struct SwiftAPIDigester {
     /// Compare the current package API to a provided baseline file.
     public func compareAPIToBaseline(
         at baselinePath: AbsolutePath,
-        for module: String,
+        for module: ResolvedModule,
         buildPlan: SPMBuildCore.BuildPlan,
         except breakageAllowlistPath: AbsolutePath?
     ) throws -> ComparisonResult? {
-        var args = [
+        var args = [String]()
+        args += try buildPlan.apiDigesterCompareBaselineArguments(for: module)
+
+        // FIXME: everything here should be in apiDigesterCompareBaselineArguments
+        args += [
             "-diagnose-sdk",
             "-baseline-path", baselinePath.pathString,
-            "-module", module
+            "-module", module.c99name
         ]
-        args.append(contentsOf: try buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: false))
         if let breakageAllowlistPath {
             args.append(contentsOf: ["-breakage-allowlist-path", breakageAllowlistPath.pathString])
         }
@@ -250,9 +262,10 @@ public struct SwiftAPIDigester {
             let apiDigesterCategory = "api-digester-breaking-change"
             let apiBreakingChanges = serializedDiagnostics.diagnostics.filter { $0.category == apiDigesterCategory }
             let otherDiagnostics = serializedDiagnostics.diagnostics.filter { $0.category != apiDigesterCategory }
-            return ComparisonResult(moduleName: module,
-                                    apiBreakingChanges: apiBreakingChanges,
-                                    otherDiagnostics: otherDiagnostics)
+            return ComparisonResult(
+                module: module,
+                apiBreakingChanges: apiBreakingChanges,
+                otherDiagnostics: otherDiagnostics)
         }
     }
 
@@ -269,18 +282,18 @@ public struct SwiftAPIDigester {
 
 extension SwiftAPIDigester {
     public enum Error: Swift.Error, CustomStringConvertible {
-        case failedToGenerateBaseline(module: String)
-        case failedToValidateBaseline(module: String)
-        case noSymbolsInBaseline(module: String, toolOutput: String)
+        case failedToGenerateBaseline(module: ResolvedModule)
+        case failedToValidateBaseline(module: ResolvedModule)
+        case noSymbolsInBaseline(module: ResolvedModule, toolOutput: String)
 
         public var description: String {
             switch self {
             case .failedToGenerateBaseline(let module):
-                return "failed to generate baseline for \(module)"
+                return "failed to generate baseline for \(module.c99name)"
             case .failedToValidateBaseline(let module):
-                return "failed to validate baseline for \(module)"
+                return "failed to validate baseline for \(module.c99name)"
             case .noSymbolsInBaseline(let module, let toolOutput):
-                return "baseline for \(module) contains no symbols, swift-api-digester output: \(toolOutput)"
+                return "baseline for \(module.c99name) contains no symbols, swift-api-digester output: \(toolOutput)"
             }
         }
     }
@@ -289,8 +302,8 @@ extension SwiftAPIDigester {
 extension SwiftAPIDigester {
     /// The result of comparing a module's API to a provided baseline.
     public struct ComparisonResult {
-        /// The name of the module being diffed.
-        var moduleName: String
+        /// The module being diffed.
+        var module: ResolvedModule
         /// Breaking changes made to the API since the baseline was generated.
         var apiBreakingChanges: [SerializedDiagnostics.Diagnostic]
         /// Other diagnostics emitted while comparing the current API to the baseline.
@@ -312,13 +325,14 @@ extension BuildParameters {
 
 extension ModulesGraph {
     /// The list of modules that should be used as an input to the API digester.
-    var apiDigesterModules: [String] {
+    var apiDigesterModules: IdentifiableSet<ResolvedModule> {
         self.rootPackages
             .flatMap(\.products)
             .filter { $0.type.isLibrary }
             .flatMap(\.targets)
+            // FIXME: this should be runnable on ClangTargets
             .filter { $0.underlying is SwiftTarget }
-            .map { $0.c99name }
+            .reduce(into: .init()) { $0.insert($1) }
     }
 }
 

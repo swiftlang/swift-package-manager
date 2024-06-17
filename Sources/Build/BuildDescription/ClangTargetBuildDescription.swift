@@ -225,6 +225,18 @@ public final class ClangTargetBuildDescription {
         return args
     }
 
+    /// Determines the arguments needed to run `swift-api-digester` for emitting
+    /// an API baseline for this module.
+    package func apiDigesterEmitBaselineArguments() throws -> [String] {
+        throw InternalError("Unimplemented \(#function)")
+    }
+
+    /// Determines the arguments needed to run `swift-api-digester` for
+    /// comparing to an API baseline for this module.
+    package func apiDigesterCompareBaselineArguments() throws -> [String] {
+        throw InternalError("Unimplemented \(#function)")
+    }
+
     /// Builds up basic compilation arguments for a source file in this target; these arguments may be different for C++
     /// vs non-C++.
     /// NOTE: The parameter to specify whether to get C++ semantics is currently optional, but this is only for revlock

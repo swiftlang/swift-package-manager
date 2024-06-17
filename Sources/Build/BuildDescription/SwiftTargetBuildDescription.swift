@@ -641,6 +641,44 @@ public final class SwiftTargetBuildDescription {
         return args
     }
 
+    /// Determines the arguments needed to run `swift-api-digester` for emitting
+    /// an API baseline for this module.
+    package func apiDigesterEmitBaselineArguments() throws -> [String] {
+        var args = [String]()
+        args += try self.apiDigesterCommonArguments()
+        return args
+    }
+
+    /// Determines the arguments needed to run `swift-api-digester` for
+    /// comparing to an API baseline for this module.
+    package func apiDigesterCompareBaselineArguments() throws -> [String] {
+        var args = [String]()
+        args += try self.apiDigesterCommonArguments()
+        return args
+    }
+
+    public func apiDigesterCommonArguments() throws -> [String] {
+        var args = [String]()
+        args += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
+
+        // FIXME: remove additionalFlags
+        // Add search paths determined during planning
+        args += self.additionalFlags
+        args += ["-I", self.modulesPath.pathString]
+
+        // FIXME: Only include valid args
+        // `swift-api-digester` args doesn't support -L args.
+        for index in args.indices.dropLast().reversed() {
+            if args[index] == "-L" {
+                // Remove the flag
+                args.remove(at: index)
+                // Remove the argument
+                args.remove(at: index)
+            }
+        }
+        return args
+    }
+
     // FIXME: this function should operation on a strongly typed buildSetting
     // Move logic from PackageBuilder here.
     /// Determines the arguments needed for cxx interop for this module.

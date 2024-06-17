@@ -523,53 +523,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         // handle that situation.
     }
 
-    public func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String] {
-        // API tool runs on products, hence using `self.productsBuildParameters`, not `self.toolsBuildParameters`
-        let buildPath = self.destinationBuildParameters.buildPath.pathString
-        var arguments = ["-I", buildPath]
-
-        // swift-symbolgraph-extract does not support parsing `-use-ld=lld` and
-        // will silently error failing the operation.  Filter out this flag
-        // similar to how we filter out the library search path unless
-        // explicitly requested.
-        var extraSwiftCFlags = self.destinationBuildParameters.toolchain.extraFlags.swiftCompilerFlags
-            .filter { !$0.starts(with: "-use-ld=") }
-        if !includeLibrarySearchPaths {
-            for index in extraSwiftCFlags.indices.dropLast().reversed() {
-                if extraSwiftCFlags[index] == "-L" {
-                    // Remove the flag
-                    extraSwiftCFlags.remove(at: index)
-                    // Remove the argument
-                    extraSwiftCFlags.remove(at: index)
-                }
-            }
-        }
-        arguments += extraSwiftCFlags
-
-        // Add search paths to the directories containing module maps and Swift modules.
-        for target in self.targets {
-            switch target {
-            case .swift(let targetDescription):
-                arguments += ["-I", targetDescription.moduleOutputPath.parentDirectory.pathString]
-            case .clang(let targetDescription):
-                if let includeDir = targetDescription.moduleMap?.parentDirectory {
-                    arguments += ["-I", includeDir.pathString]
-                }
-            }
-        }
-
-        // Add search paths from the system library targets.
-        for target in self.graph.reachableTargets {
-            if let systemLib = target.underlying as? SystemLibraryTarget {
-                try arguments.append(contentsOf: self.pkgConfig(for: systemLib).cFlags)
-                // Add the path to the module map.
-                arguments += ["-I", systemLib.moduleMapPath.parentDirectory.pathString]
-            }
-        }
-
-        return arguments
-    }
-
     /// Creates arguments required to launch the Swift REPL that will allow
     /// importing the modules in the package graph.
     public func createREPLArguments() throws -> [String] {
@@ -655,6 +608,24 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             throw InternalError("Expected description for module \(module)")
         }
         return try description.symbolGraphExtractArguments()
+    }
+
+    /// Determines the arguments needed to run `swift-api-digester` for emitting
+    /// an API baseline for a particular module.
+    public func apiDigesterEmitBaselineArguments(for module: ResolvedModule) throws -> [String] {
+        guard let description = self.targetMap[module.id] else {
+            throw InternalError("Expected description for module \(module)")
+        }
+        return try description.apiDigesterEmitBaselineArguments()
+    }
+
+    /// Determines the arguments needed to run `swift-api-digester` for
+    /// comparing to an API baseline for a particular module.
+    public func apiDigesterCompareBaselineArguments(for module: ResolvedModule) throws -> [String] {
+        guard let description = self.targetMap[module.id] else {
+            throw InternalError("Expected description for module \(module)")
+        }
+        return try description.apiDigesterCompareBaselineArguments()
     }
 }
 

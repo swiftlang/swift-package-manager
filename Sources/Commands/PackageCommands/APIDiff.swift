@@ -19,9 +19,10 @@ import PackageModel
 import SourceControl
 
 struct DeprecatedAPIDiff: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "experimental-api-diff",
-                                                    abstract: "Deprecated - use `swift package diagnose-api-breaking-changes` instead",
-                                                    shouldDisplay: false)
+    static let configuration = CommandConfiguration(
+        commandName: "experimental-api-diff",
+        abstract: "Deprecated - use `swift package diagnose-api-breaking-changes` instead",
+        shouldDisplay: false)
 
     @Argument(parsing: .captureForPassthrough)
     var args: [String] = []
@@ -109,18 +110,18 @@ struct APIDiff: SwiftCommand {
             at: overrideBaselineDir,
             force: regenerateBaseline,
             logLevel: swiftCommandState.logLevel,
-                    swiftCommandState: swiftCommandState
+            swiftCommandState: swiftCommandState
         )
 
         let results = ThreadSafeArrayStore<SwiftAPIDigester.ComparisonResult>()
         let group = DispatchGroup()
         let semaphore = DispatchSemaphore(value: Int(try buildSystem.buildPlan.destinationBuildParameters.workers))
-        var skippedModules: Set<String> = []
+        var skippedModules = IdentifiableSet<ResolvedModule>()
 
         for module in modulesToDiff {
-            let moduleBaselinePath = baselineDir.appending("\(module).json")
+            let moduleBaselinePath = baselineDir.appending("\(module.c99name).json")
             guard swiftCommandState.fileSystem.exists(moduleBaselinePath) else {
-                print("\nSkipping \(module) because it does not exist in the baseline")
+                print("\nSkipping \(module.c99name) because it does not exist in the baseline")
                 skippedModules.insert(module)
                 continue
             }
@@ -146,7 +147,7 @@ struct APIDiff: SwiftCommand {
 
         let failedModules = modulesToDiff
             .subtracting(skippedModules)
-            .subtracting(results.map(\.moduleName))
+            .subtracting(results.map(\.module))
         for failedModule in failedModules {
             swiftCommandState.observabilityScope.emit(error: "failed to read API digester output for \(failedModule)")
         }
@@ -160,8 +161,8 @@ struct APIDiff: SwiftCommand {
         }
     }
 
-    private func determineModulesToDiff(packageGraph: ModulesGraph, observabilityScope: ObservabilityScope) throws -> Set<String> {
-        var modulesToDiff: Set<String> = []
+    private func determineModulesToDiff(packageGraph: ModulesGraph, observabilityScope: ObservabilityScope) throws -> IdentifiableSet<ResolvedModule> {
+        var modulesToDiff = IdentifiableSet<ResolvedModule>()
         if products.isEmpty && targets.isEmpty {
             modulesToDiff.formUnion(packageGraph.apiDigesterModules)
         } else {
@@ -177,7 +178,10 @@ struct APIDiff: SwiftCommand {
                     observabilityScope.emit(error: "'\(productName)' is not a library product")
                     continue
                 }
-                modulesToDiff.formUnion(product.targets.filter { $0.underlying is SwiftTarget }.map(\.c99name))
+                let swiftModules = product
+                    .targets
+                    .filter { $0.underlying is SwiftTarget }
+                modulesToDiff.formUnion(swiftModules)
             }
             for targetName in targets {
                 guard let target = packageGraph
@@ -195,7 +199,7 @@ struct APIDiff: SwiftCommand {
                     observabilityScope.emit(error: "'\(targetName)' is not a Swift language target")
                     continue
                 }
-                modulesToDiff.insert(target.c99name)
+                modulesToDiff.insert(target)
             }
             guard !observabilityScope.errorsReported else {
                 throw ExitCode.failure
@@ -232,7 +236,7 @@ struct APIDiff: SwiftCommand {
             }
         }
 
-        let moduleName = comparisonResult.moduleName
+        let moduleName = comparisonResult.module.c99name
         if comparisonResult.apiBreakingChanges.isEmpty {
             print("\nNo breaking changes detected in \(moduleName)")
         } else {
