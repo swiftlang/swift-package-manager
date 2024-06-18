@@ -80,6 +80,9 @@ public final class Manifest: Sendable {
     /// The products declared in the manifest.
     public let products: [ProductDescription]
 
+    /// The set of traits of this package.
+    public let traits: Set<TraitDescription>
+
     /// The C language standard flag.
     public let cLanguageStandard: String?
 
@@ -118,7 +121,8 @@ public final class Manifest: Sendable {
         swiftLanguageVersions: [SwiftLanguageVersion]?,
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
-        targets: [TargetDescription] = []
+        targets: [TargetDescription] = [],
+        traits: Set<TraitDescription>
     ) {
         self.displayName = displayName
         self.path = path
@@ -138,6 +142,7 @@ public final class Manifest: Sendable {
         self.products = products
         self.targets = targets
         self.targetMap = Dictionary(targets.lazy.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
+        self.traits = traits
     }
 
     /// Returns the targets required for a particular product filter.
@@ -597,7 +602,8 @@ extension Manifest {
             cxxLanguageStandard: nil,
             swiftLanguageVersions: nil,
             products: products,
-            targets: targets
+            targets: targets,
+            traits: []
         )
     }
 }
