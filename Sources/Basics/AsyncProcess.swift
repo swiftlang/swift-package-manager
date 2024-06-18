@@ -12,6 +12,10 @@ import _Concurrency
 import Dispatch
 import Foundation
 
+#if os(Linux)
+import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
+#endif
+
 import class TSCBasic.CStringArray
 import class TSCBasic.LocalFileOutputByteStream
 import enum TSCBasic.ProcessEnv
