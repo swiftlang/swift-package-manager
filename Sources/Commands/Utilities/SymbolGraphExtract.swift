@@ -26,7 +26,7 @@ import class Basics.AsyncProcess
 import struct Basics.AsyncProcessResult
 
 /// A wrapper for swift-symbolgraph-extract tool.
-public struct SymbolGraphExtract {
+package struct SymbolGraphExtract {
     let fileSystem: FileSystem
     let tool: AbsolutePath
     let observabilityScope: ObservabilityScope

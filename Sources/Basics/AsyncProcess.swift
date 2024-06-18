@@ -14,6 +14,7 @@ import Foundation
 
 #if os(Linux)
 import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
+import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
 #endif
 
 import class TSCBasic.CStringArray
