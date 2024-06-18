@@ -60,7 +60,7 @@ extension TSCBasic.Process {
 }
 
 extension TSCBasic.Process {
-    static package func popen(
+    package static func popen(
         arguments: [String],
         environment: Environment,
         loggingHandler: LoggingHandler? = nil,
@@ -71,7 +71,7 @@ extension TSCBasic.Process {
     }
 
     @discardableResult
-    static package func popen(
+    package static func popen(
         arguments: [String],
         environment: Environment,
         loggingHandler: LoggingHandler? = nil
@@ -80,7 +80,7 @@ extension TSCBasic.Process {
     }
 
     @discardableResult
-    static package func popen(
+    package static func popen(
         args: String...,
         environment: Environment,
         loggingHandler: LoggingHandler? = nil
@@ -88,7 +88,7 @@ extension TSCBasic.Process {
         try popen(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
     }
 
-    static package func popen(
+    package static func popen(
         arguments: [String],
         environment: Environment,
         loggingHandler: LoggingHandler? = nil
@@ -96,7 +96,7 @@ extension TSCBasic.Process {
         try await popen(arguments: arguments, environmentBlock: .init(environment), loggingHandler: loggingHandler)
     }
 
-    static package func popen(
+    package static func popen(
         args: String...,
         environment: Environment,
         loggingHandler: LoggingHandler? = nil
@@ -107,7 +107,7 @@ extension TSCBasic.Process {
 
 extension TSCBasic.Process {
     @discardableResult
-    static package func checkNonZeroExit(
+    package static func checkNonZeroExit(
         arguments: [String],
         environment: Environment,
         loggingHandler: LoggingHandler? = nil
@@ -116,7 +116,7 @@ extension TSCBasic.Process {
     }
 
     @discardableResult
-    static package func checkNonZeroExit(
+    package static func checkNonZeroExit(
         arguments: [String],
         environment: Environment,
         loggingHandler: LoggingHandler? = nil
@@ -125,7 +125,7 @@ extension TSCBasic.Process {
     }
 
     @discardableResult
-    static package func checkNonZeroExit(
+    package static func checkNonZeroExit(
         args: String...,
         environment: Environment,
         loggingHandler: LoggingHandler? = nil
@@ -135,7 +135,7 @@ extension TSCBasic.Process {
 
 
     @discardableResult
-    static package func checkNonZeroExit(
+    package static func checkNonZeroExit(
         args: String...,
         environment: Environment,
         loggingHandler: LoggingHandler? = nil

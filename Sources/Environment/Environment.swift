@@ -53,7 +53,7 @@ extension Environment {
         self.storage = .init()
     }
 
-    public subscript(_ key: EnvironmentKey) -> String? {
+    package subscript(_ key: EnvironmentKey) -> String? {
         _read { yield self.storage[key] }
         _modify { yield &self.storage[key] }
     }
@@ -61,7 +61,7 @@ extension Environment {
 
 // MARK: - Conversions between Dictionary<String, String>
 extension Environment {
-    public init(_ dictionary: [String: String]) {
+    package init(_ dictionary: [String: String]) {
         self.storage = .init()
         let sorted = dictionary.sorted { $0.key < $1.key }
         for (key, value) in sorted {
@@ -71,7 +71,7 @@ extension Environment {
 }
 
 extension Dictionary<String, String> {
-    public init(_ environment: Environment) {
+    package init(_ environment: Environment) {
         self.init()
         let sorted = environment.sorted { $0.key < $1.key }
         for (key, value) in sorted {
@@ -82,7 +82,7 @@ extension Dictionary<String, String> {
 
 // MARK: - Path Modification
 extension Environment {
-    public mutating func prependPath(key: EnvironmentKey, value: String) {
+    package mutating func prependPath(key: EnvironmentKey, value: String) {
         guard !value.isEmpty else { return }
         if let existing = self[key] {
             self[key] = "\(value)\(Self.pathValueDelimiter)\(existing)"
@@ -91,7 +91,7 @@ extension Environment {
         }
     }
 
-    public mutating func appendPath(key: EnvironmentKey, value: String) {
+    package mutating func appendPath(key: EnvironmentKey, value: String) {
         guard !value.isEmpty else { return }
         if let existing = self[key] {
             self[key] = "\(existing)\(Self.pathValueDelimiter)\(value)"
@@ -100,7 +100,7 @@ extension Environment {
         }
     }
 
-    public static var pathValueDelimiter: String {
+    package static var pathValueDelimiter: String {
         #if os(Windows)
         ";"
         #else
@@ -239,7 +239,7 @@ extension Environment {
     /// Returns a copy of `self` with known non-cacheable keys removed.
     ///
     /// - Issue: rdar://107029374
-    public var cachable: Environment {
+    package var cachable: Environment {
         var cachable = Environment()
         for (key, value) in self {
             if !EnvironmentKey.nonCachable.contains(key) {

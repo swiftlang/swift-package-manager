@@ -184,7 +184,9 @@ let package = Package(
 
         .systemLibrary(name: "SPMSQLite3", pkgConfig: systemSQLitePkgConfig),
 
-        .target(name: "Environment"),
+        .target(
+            name: "Environment",
+            exclude: ["CMakeLists.txt"]),
 
         .target(
             name: "Basics",
