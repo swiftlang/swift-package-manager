@@ -14,7 +14,7 @@ import Basics
 import Foundation
 import PackageCollectionsModel
 @testable import PackageCollectionsSigning
-import SPMTestSupport
+import InternalTestSupport
 import X509
 import XCTest
 

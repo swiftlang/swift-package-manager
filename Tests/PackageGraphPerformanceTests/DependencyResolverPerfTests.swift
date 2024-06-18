@@ -15,7 +15,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
-import SPMTestSupport
+import InternalTestSupport
 import XCTest
 
 import enum TSCBasic.JSON

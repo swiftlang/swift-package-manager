@@ -15,7 +15,7 @@ import Basics
 import Crypto
 import Foundation
 @testable import PackageSigning
-import SPMTestSupport
+import InternalTestSupport
 import SwiftASN1
 @testable import X509 // need internal APIs for OCSP testing
 import XCTest

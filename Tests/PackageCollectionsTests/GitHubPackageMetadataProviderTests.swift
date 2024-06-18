@@ -17,7 +17,7 @@ import Basics
 @testable import PackageCollections
 import PackageModel
 import SourceControl
-import SPMTestSupport
+import InternalTestSupport
 
 import enum TSCBasic.ProcessEnv
 

@@ -17,7 +17,7 @@ import Basics
 import PackageLoading
 import PackageModel
 @testable import SPMBuildCore
-import SPMTestSupport
+import InternalTestSupport
 import Workspace
 import XCTest
 

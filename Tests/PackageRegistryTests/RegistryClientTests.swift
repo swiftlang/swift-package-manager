@@ -17,7 +17,7 @@ import PackageLoading
 import PackageModel
 @testable import PackageRegistry
 import PackageSigning
-import SPMTestSupport
+import InternalTestSupport
 import XCTest
 
 import protocol TSCBasic.HashAlgorithm

@@ -12,7 +12,7 @@
 
 import Basics
 import SourceControl
-import SPMTestSupport
+import InternalTestSupport
 import XCTest
 
 class VersionSpecificTests: XCTestCase {

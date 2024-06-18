@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
-import SPMTestSupport
+import InternalTestSupport
 import Workspace
 import XCTest
 

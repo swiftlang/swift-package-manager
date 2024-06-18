@@ -12,7 +12,7 @@
 
 import Foundation
 import XCTest
-import SPMTestSupport
+import InternalTestSupport
 
 import Basics
 @testable import PackageCollections

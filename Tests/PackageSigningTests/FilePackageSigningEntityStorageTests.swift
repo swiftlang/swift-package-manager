@@ -15,7 +15,7 @@ import Foundation
 import Basics
 import PackageModel
 @testable import PackageSigning
-import SPMTestSupport
+import InternalTestSupport
 import XCTest
 
 import class TSCBasic.InMemoryFileSystem

@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import SPMTestSupport
+import InternalTestSupport
 import PackageModel
 import Workspace
 import XCTest

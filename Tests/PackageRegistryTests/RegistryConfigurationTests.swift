@@ -13,7 +13,7 @@
 import Foundation
 import PackageModel
 import PackageRegistry
-import SPMTestSupport
+import InternalTestSupport
 import XCTest
 
 private let defaultRegistryBaseURL = URL("https://packages.example.com/")

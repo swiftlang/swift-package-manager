@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import PackageModel
-import SPMTestSupport
+import InternalTestSupport
 import XCTest
 
 import var TSCBasic.localFileSystem

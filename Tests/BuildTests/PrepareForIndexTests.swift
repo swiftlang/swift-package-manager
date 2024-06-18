@@ -14,7 +14,7 @@ import Build
 import Foundation
 import LLBuildManifest
 @_spi(SwiftPMInternal)
-import SPMTestSupport
+import InternalTestSupport
 import TSCBasic
 import XCTest
 

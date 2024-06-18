@@ -21,7 +21,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
-import SPMTestSupport
+import InternalTestSupport
 import Workspace
 import XCTest
 

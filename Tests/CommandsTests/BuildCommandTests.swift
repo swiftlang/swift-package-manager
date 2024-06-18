@@ -17,7 +17,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
-import SPMTestSupport
+import InternalTestSupport
 import Workspace
 import XCTest
 

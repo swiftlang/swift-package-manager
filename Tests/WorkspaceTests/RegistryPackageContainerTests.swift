@@ -16,7 +16,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import PackageRegistry
-import SPMTestSupport
+import InternalTestSupport
 @testable import Workspace
 import XCTest
 

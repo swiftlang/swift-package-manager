@@ -15,7 +15,7 @@ import Foundation
 import PackageFingerprint
 import PackageModel
 @testable import PackageRegistry
-import SPMTestSupport
+import InternalTestSupport
 import XCTest
 
 import struct TSCUtility.Version

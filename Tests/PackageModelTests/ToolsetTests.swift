@@ -12,7 +12,7 @@
 
 @testable import Basics
 @testable import PackageModel
-import SPMTestSupport
+import InternalTestSupport
 import XCTest
 
 import class TSCBasic.InMemoryFileSystem

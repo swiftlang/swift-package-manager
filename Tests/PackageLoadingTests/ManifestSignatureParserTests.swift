@@ -13,7 +13,7 @@
 import Basics
 import Foundation
 import PackageLoading
-import SPMTestSupport
+import InternalTestSupport
 import XCTest
 
 class ManifestSignatureParserTests: XCTestCase {

@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import SPMTestSupport
+import InternalTestSupport
 import XCTest
 
 @testable import PackageCollectionsModel

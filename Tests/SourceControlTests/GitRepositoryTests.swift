@@ -12,7 +12,7 @@
 
 import Basics
 @testable import SourceControl
-import SPMTestSupport
+import InternalTestSupport
 import XCTest
 
 import struct TSCBasic.FileSystemError

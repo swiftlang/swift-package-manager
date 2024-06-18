@@ -25,8 +25,8 @@ import struct PackageGraph.ResolvedProduct
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import func PackageGraph.loadModulesGraph
 
-import func SPMTestSupport.mockBuildParameters
-import func SPMTestSupport.XCTAssertNoDiagnostics
+import func InternalTestSupport.mockBuildParameters
+import func InternalTestSupport.XCTAssertNoDiagnostics
 import XCTest
 
 final class ProductBuildDescriptionTests: XCTestCase {

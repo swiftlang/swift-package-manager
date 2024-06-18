@@ -15,7 +15,7 @@ import Basics
 import Crypto
 import Foundation
 @testable import PackageCollectionsSigning
-import SPMTestSupport
+import InternalTestSupport
 import X509
 import XCTest
 

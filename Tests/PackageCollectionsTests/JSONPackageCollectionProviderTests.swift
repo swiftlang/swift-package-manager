@@ -18,7 +18,7 @@ import Basics
 import PackageCollectionsSigning
 import PackageModel
 import SourceControl
-import SPMTestSupport
+import InternalTestSupport
 
 class JSONPackageCollectionProviderTests: XCTestCase {
     func testGood() async throws {

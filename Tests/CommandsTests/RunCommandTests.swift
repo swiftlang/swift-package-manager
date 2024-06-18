@@ -12,7 +12,7 @@
 
 import Basics
 import Commands
-import SPMTestSupport
+import InternalTestSupport
 import XCTest
 
 import class TSCBasic.Process

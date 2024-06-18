@@ -16,7 +16,7 @@ import OrderedCollections
 import PackageLoading
 @testable import PackageModel
 import SourceControl
-import SPMTestSupport
+import InternalTestSupport
 import XCTest
 
 import class TSCBasic.InMemoryFileSystem
