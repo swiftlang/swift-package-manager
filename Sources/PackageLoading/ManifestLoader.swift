@@ -20,7 +20,6 @@ import SourceControl
 import class TSCBasic.BufferedOutputByteStream
 import struct TSCBasic.ByteString
 import class TSCBasic.Process
-import enum TSCBasic.ProcessEnv
 import struct TSCBasic.ProcessResult
 
 import enum TSCUtility.Diagnostics
@@ -568,7 +567,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 packageLocation: packageLocation,
                 manifestPath: path,
                 toolsVersion: toolsVersion,
-                env: ProcessEnvironmentBlock.current.cachable,
+                env: Environment.current.cachable,
                 swiftpmVersion: SwiftVersion.current.displayString,
                 fileSystem: fileSystem
             )
@@ -859,8 +858,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // FIXME: Workaround for the module cache bug that's been haunting Swift CI
         // <rdar://problem/48443680>
         let moduleCachePath = try (
-            ProcessEnv.block["SWIFTPM_MODULECACHE_OVERRIDE"] ??
-            ProcessEnv.block["SWIFTPM_TESTS_MODULECACHE"]).flatMap { try AbsolutePath(validating: $0) }
+            Environment.current["SWIFTPM_MODULECACHE_OVERRIDE"] ??
+            Environment.current["SWIFTPM_TESTS_MODULECACHE"]).flatMap { try AbsolutePath(validating: $0) }
 
         var cmd: [String] = []
         cmd += [self.toolchain.swiftCompilerPathForManifests.pathString]
@@ -960,7 +959,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     // Compile the manifest.
                     TSCBasic.Process.popen(
                         arguments: cmd,
-                        environmentBlock: self.toolchain.swiftCompilerEnvironment,
+                        environment: self.toolchain.swiftCompilerEnvironment,
                         queue: callbackQueue
                     ) { result in
                         dispatchPrecondition(condition: .onQueue(callbackQueue))
@@ -1054,7 +1053,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                             )
                         }
 
-                        var environment = ProcessEnvironmentBlock.current
+                        var environment = Environment.current
                         #if os(Windows)
                         let windowsPathComponent = runtimePath.pathString.replacingOccurrences(of: "/", with: "\\")
                         environment["Path"] = "\(windowsPathComponent);\(environment["Path"] ?? "")"
@@ -1063,7 +1062,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         let cleanupAfterRunning = cleanupIfError.delay()
                         TSCBasic.Process.popen(
                             arguments: cmd,
-                            environmentBlock: environment,
+                            environment: environment,
                             queue: callbackQueue
                         ) { result in
                             dispatchPrecondition(condition: .onQueue(callbackQueue))
@@ -1199,7 +1198,7 @@ extension ManifestLoader {
         let manifestPath: AbsolutePath
         let manifestContents: [UInt8]
         let toolsVersion: ToolsVersion
-        let env: ProcessEnvironmentBlock
+        let env: Environment
         let swiftpmVersion: String
         let sha256Checksum: String
 
@@ -1207,7 +1206,7 @@ extension ManifestLoader {
               packageLocation: String,
               manifestPath: AbsolutePath,
               toolsVersion: ToolsVersion,
-              env: ProcessEnvironmentBlock,
+              env: Environment,
               swiftpmVersion: String,
               fileSystem: FileSystem
         ) throws {
@@ -1239,7 +1238,7 @@ extension ManifestLoader {
             packageLocation: String,
             manifestContents: [UInt8],
             toolsVersion: ToolsVersion,
-            env: ProcessEnvironmentBlock,
+            env: Environment,
             swiftpmVersion: String
         ) throws -> String {
             let stream = BufferedOutputByteStream()
@@ -1248,7 +1247,7 @@ extension ManifestLoader {
             stream.send(manifestContents)
             stream.send(toolsVersion.description)
             for (key, value) in env.sorted(by: { $0.key > $1.key }) {
-                stream.send(key.value).send(value)
+                stream.send(key.rawValue).send(value)
             }
             stream.send(swiftpmVersion)
             return stream.bytes.sha256Checksum

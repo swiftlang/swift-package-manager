@@ -22,7 +22,6 @@ import func PackageGraph.loadModulesGraph
 import SPMTestSupport
 import XCTest
 
-import enum TSCBasic.ProcessEnv
 import class TSCBasic.BufferedOutputByteStream
 import protocol TSCBasic.OutputByteStream
 import var TSCBasic.stderrStream
@@ -391,7 +390,7 @@ extension SwiftCommandState {
         outputStream: OutputByteStream = stderrStream,
         options: GlobalOptions,
         fileSystem: any FileSystem = localFileSystem,
-        environment: EnvironmentVariables = .current
+        environment: Environment = .current
     ) throws -> SwiftCommandState {
         return try SwiftCommandState(
             outputStream: outputStream,

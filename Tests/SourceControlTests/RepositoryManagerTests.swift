@@ -17,7 +17,6 @@ import SPMTestSupport
 import XCTest
 
 import class TSCBasic.InMemoryFileSystem
-import enum TSCBasic.ProcessEnv
 
 class RepositoryManagerTests: XCTestCase {
     func testBasics() async throws {

@@ -20,8 +20,6 @@ import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildToolPluginInvocationResult
 import struct SPMBuildCore.PrebuildCommandResult
 
-import enum TSCBasic.ProcessEnv
-
 @available(*, deprecated, renamed: "ClangModuleBuildDescription")
 public typealias ClangTargetBuildDescription = ClangModuleBuildDescription
 

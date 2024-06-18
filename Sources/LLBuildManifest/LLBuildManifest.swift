@@ -336,7 +336,7 @@ public struct LLBuildManifest {
         inputs: [Node],
         outputs: [Node],
         arguments: [String],
-        environment: ProcessEnvironmentBlock = [:],
+        environment: Environment = [:],
         workingDirectory: String? = nil,
         allowMissingInputs: Bool = false
     ) {

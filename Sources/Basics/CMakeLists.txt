@@ -25,7 +25,7 @@ add_library(Basics
   Concurrency/ThreadSafeKeyValueStore.swift
   Concurrency/TokenBucket.swift
   DispatchTimeInterval+Extensions.swift
-  EnvironmentVariables.swift
+  Environment.swift
   Errors.swift
   FileSystem/AbsolutePath.swift
   FileSystem/FileSystem+Extensions.swift

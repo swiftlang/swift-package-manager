@@ -33,7 +33,7 @@ extension UserToolchain {
     }
 }
 
-extension ProcessEnvironmentBlock {
+extension Environment {
     package static var mockEnvironment: Self { ["PATH": "/fake/path/to"] }
 }
 

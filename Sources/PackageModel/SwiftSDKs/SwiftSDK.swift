@@ -14,7 +14,6 @@ import Basics
 import Foundation
 
 import class TSCBasic.Process
-import enum TSCBasic.ProcessEnv
 
 import struct TSCUtility.Version
 
@@ -497,7 +496,7 @@ public struct SwiftSDK: Equatable {
     public static func hostDestination(
         _ binDir: AbsolutePath? = nil,
         originalWorkingDirectory: AbsolutePath? = nil,
-        environment: ProcessEnvironmentBlock
+        environment: Environment
     ) throws -> SwiftSDK {
         try self.hostSwiftSDK(binDir, environment: environment)
     }
@@ -505,7 +504,7 @@ public struct SwiftSDK: Equatable {
     /// The Swift SDK for the host platform.
     public static func hostSwiftSDK(
         _ binDir: AbsolutePath? = nil,
-        environment: ProcessEnvironmentBlock = .current,
+        environment: Environment = .current,
         observabilityScope: ObservabilityScope? = nil,
         fileSystem: any FileSystem = localFileSystem
     ) throws -> SwiftSDK {
@@ -526,7 +525,7 @@ public struct SwiftSDK: Equatable {
             // No value in env, so search for it.
             let sdkPathStr = try TSCBasic.Process.checkNonZeroExit(
                 arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"],
-                environmentBlock: environment
+                environment: environment
             ).spm_chomp()
             guard !sdkPathStr.isEmpty else {
                 throw SwiftSDKError.invalidInstallation("default SDK not found")
@@ -575,14 +574,14 @@ public struct SwiftSDK: Equatable {
 
     /// Returns `macosx` sdk platform framework path.
     public static func sdkPlatformFrameworkPaths(
-        environment: ProcessEnvironmentBlock = .current
+        environment: Environment = .current
     ) throws -> (fwk: AbsolutePath, lib: AbsolutePath) {
         if let path = _sdkPlatformFrameworkPath {
             return path
         }
         let platformPath = try TSCBasic.Process.checkNonZeroExit(
             arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-platform-path"],
-            environmentBlock: environment
+            environment: environment
         ).spm_chomp()
 
         guard !platformPath.isEmpty else {

@@ -25,8 +25,6 @@ import XCTest
 
 import class TSCBasic.InMemoryFileSystem
 
-import func TSCTestSupport.withCustomEnv
-
 class PIFBuilderTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
 
@@ -486,7 +484,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         var pif: PIF.TopLevelObject!
-        try withCustomEnv(["PKG_CONFIG_PATH": self.inputsDir.pathString]) {
+        try Environment.makeCustom(["PKG_CONFIG_PATH": self.inputsDir.pathString]) {
             let builder = PIFBuilder(
                 graph: graph,
                 parameters: .mock(),
@@ -856,7 +854,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         var pif: PIF.TopLevelObject!
-        try withCustomEnv(["PKG_CONFIG_PATH": self.inputsDir.pathString]) {
+        try Environment.makeCustom(["PKG_CONFIG_PATH": self.inputsDir.pathString]) {
             let builder = PIFBuilder(
                 graph: graph,
                 parameters: .mock(),
@@ -1163,7 +1161,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         var pif: PIF.TopLevelObject!
-        try withCustomEnv(["PKG_CONFIG_PATH": self.inputsDir.pathString]) {
+        try Environment.makeCustom(["PKG_CONFIG_PATH": self.inputsDir.pathString]) {
             let builder = PIFBuilder(
                 graph: graph,
                 parameters: .mock(),
@@ -1319,7 +1317,7 @@ class PIFBuilderTests: XCTestCase {
         }
     }
 
-    func testLibraryTargets() throws {
+    func testLibraryTargets() async throws {
         #if !os(macOS)
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
@@ -1370,7 +1368,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         var pif: PIF.TopLevelObject!
-        try withCustomEnv(["PKG_CONFIG_PATH": self.inputsDir.pathString]) {
+        try Environment.makeCustom(["PKG_CONFIG_PATH": self.inputsDir.pathString]) {
             let builder = PIFBuilder(
                 graph: graph,
                 parameters: .mock(),
@@ -1709,7 +1707,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         var pif: PIF.TopLevelObject!
-        try withCustomEnv(["PKG_CONFIG_PATH": self.inputsDir.pathString]) {
+        try Environment.makeCustom(["PKG_CONFIG_PATH": self.inputsDir.pathString]) {
             let builder = PIFBuilder(
                 graph: graph,
                 parameters: .mock(),
@@ -1922,7 +1920,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         var pif: PIF.TopLevelObject!
-        try withCustomEnv(["PKG_CONFIG_PATH": self.inputsDir.pathString]) {
+        try Environment.makeCustom(["PKG_CONFIG_PATH": self.inputsDir.pathString]) {
             let builder = PIFBuilder(
                 graph: graph,
                 parameters: .mock(shouldCreateDylibForDynamicProducts: true),
@@ -1978,7 +1976,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         var pif: PIF.TopLevelObject!
-        try withCustomEnv(["PKG_CONFIG_PATH": self.inputsDir.pathString]) {
+        try Environment.makeCustom(["PKG_CONFIG_PATH": self.inputsDir.pathString]) {
             let builder = PIFBuilder(
                 graph: graph,
                 parameters: .mock(shouldCreateDylibForDynamicProducts: true),
@@ -2035,7 +2033,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         var pif: PIF.TopLevelObject!
-        try withCustomEnv(["PKG_CONFIG_PATH": self.inputsDir.pathString]) {
+        try Environment.makeCustom(["PKG_CONFIG_PATH": self.inputsDir.pathString]) {
             let builder = PIFBuilder(
                 graph: graph,
                 parameters: .mock(),

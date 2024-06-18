@@ -60,7 +60,7 @@ extension SwiftSDKSubcommand {
         let observabilityScope = observabilitySystem.topScope
         let swiftSDKsDirectory = try self.getOrCreateSwiftSDKsDirectory()
 
-        let environment = ProcessEnvironmentBlock.current
+        let environment = Environment.current
         let hostToolchain = try UserToolchain(
             swiftSDK: SwiftSDK.hostSwiftSDK(
                 environment: environment

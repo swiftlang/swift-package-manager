@@ -194,12 +194,12 @@ public struct ManifestToolStream {
         }
     }
 
-    public subscript(key: String) -> ProcessEnvironmentBlock {
+    package subscript(key: String) -> Environment {
         get { fatalError() }
         set {
             self.buffer += "    \(key):\n"
-            for (key, value) in newValue.sorted(by: { $0.key.value < $1.key.value }) {
-                self.buffer += "      \(key.value.asJSON): \(value.asJSON)\n"
+            for (key, value) in newValue.sorted(by: { $0.key < $1.key }) {
+                self.buffer += "      \(key.rawValue.asJSON): \(value.asJSON)\n"
             }
         }
     }

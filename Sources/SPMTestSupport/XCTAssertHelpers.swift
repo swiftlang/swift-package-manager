@@ -73,7 +73,7 @@ public func XCTAssertBuilds(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: ProcessEnvironmentBlock? = nil,
+    env: Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line
 ) {
@@ -101,7 +101,7 @@ public func XCTAssertSwiftTest(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: ProcessEnvironmentBlock? = nil,
+    env: Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line
 ) {
@@ -126,7 +126,7 @@ public func XCTAssertBuildFails(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: ProcessEnvironmentBlock? = nil,
+    env: Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line
 ) -> CommandExecutionError? {

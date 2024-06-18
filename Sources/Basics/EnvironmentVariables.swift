@@ -10,99 +10,149 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
-import class Foundation.ProcessInfo
+@_exported import Environment
 import struct TSCBasic.ProcessEnvironmentBlock
-import struct TSCBasic.ProcessEnvironmentKey
-import enum TSCBasic.ProcessEnv
 
-public typealias ProcessEnvironmentBlock = TSCBasic.ProcessEnvironmentBlock
+import class TSCBasic.Process
+import struct TSCBasic.ProcessResult
+import struct TSCBasic.AbsolutePath
+
+import Dispatch
+
+// FIXME: remove ProcessEnvironmentBlockShims
+// only needed outside this module for Git
+extension Environment {
+    @_spi(ProcessEnvironmentBlockShim)
+    public init(_ processEnvironmentBlock: ProcessEnvironmentBlock) {
+        self.init()
+        for (key, value) in processEnvironmentBlock {
+            self[.init(key.value)] = value
+        }
+    }
+}
 
 extension ProcessEnvironmentBlock {
-    public static var current: ProcessEnvironmentBlock { ProcessEnv.block }
+    @_spi(ProcessEnvironmentBlockShim)
+    public init(_ environment: Environment) {
+        self.init()
+        for (key, value) in environment {
+            self[.init(key.rawValue)] = value
+        }
+    }
+}
 
-    public mutating func prependPath(value: String) {
-        if let existing = self[Self.pathKey] {
-            self[Self.pathKey] = "\(value):\(existing)"
+// MARK: - Process Shims
+extension TSCBasic.Process {
+    package convenience init(
+        arguments: [String],
+        environment: Environment = .current,
+        workingDirectory: TSCBasic.AbsolutePath? = nil,
+        outputRedirection: OutputRedirection = .collect,
+        startNewProcessGroup: Bool = true,
+        loggingHandler: LoggingHandler? = .none
+    ) {
+        if let workingDirectory {
+            self.init(arguments: arguments, environmentBlock: .init(environment), workingDirectory: workingDirectory, outputRedirection: outputRedirection, startNewProcessGroup: startNewProcessGroup, loggingHandler: loggingHandler)
         } else {
-            self[Self.pathKey] = value
+            self.init(arguments: arguments, environmentBlock: .init(environment), outputRedirection: outputRedirection, startNewProcessGroup: startNewProcessGroup, loggingHandler: loggingHandler)
         }
-    }
-
-    public mutating func appendPath(value: String) {
-        if let existing = self[Self.pathKey] {
-            self[Self.pathKey] = "\(existing):\(value)"
-        } else {
-            self[Self.pathKey] = value
-        }
-    }
-
-    /// `PATH` variable in the process's environment (`Path` under Windows).
-    package var path: String? { self[Self.pathKey] }
-
-    package static var pathValueDelimiter: String {
-        #if os(Windows)
-        ";"
-        #else
-        ":"
-        #endif
-    }
-
-    package static var pathKey: ProcessEnvironmentKey {
-        #if os(Windows)
-        "Path"
-        #else
-        "PATH"
-        #endif
     }
 }
 
-// filter env variable that should not be included in a cache as they change
-// often and should not be considered in business logic
-// rdar://107029374
-extension ProcessEnvironmentBlock {
-    // internal for testing
-    static let nonCachableKeys: Set<ProcessEnvironmentKey> = [
-        "TERM",
-        "TERM_PROGRAM",
-        "TERM_PROGRAM_VERSION",
-        "TERM_SESSION_ID",
-        "ITERM_PROFILE",
-        "ITERM_SESSION_ID",
-        "SECURITYSESSIONID",
-        "LaunchInstanceID",
-        "LC_TERMINAL",
-        "LC_TERMINAL_VERSION",
-        "CLICOLOR",
-        "LS_COLORS",
-        "VSCODE_IPC_HOOK_CLI",
-        "HYPERFINE_RANDOMIZED_ENVIRONMENT_OFFSET",
-        "SSH_AUTH_SOCK",
-    ]
+extension TSCBasic.Process {
+    static package func popen(
+        arguments: [String],
+        environment: Environment,
+        loggingHandler: LoggingHandler? = nil,
+        queue: DispatchQueue? = nil,
+        completion: @escaping (Result<ProcessResult, Swift.Error>) -> Void
+    ) {
+        popen(arguments: arguments, environmentBlock: .init(environment), loggingHandler: loggingHandler,queue: queue,completion: completion)
+    }
 
-    /// Returns a copy of `self` with known non-cacheable keys removed.
-    public var cachable: ProcessEnvironmentBlock {
-        self.filter { !Self.nonCachableKeys.contains($0.key) }
+    @discardableResult
+    static package func popen(
+        arguments: [String],
+        environment: Environment,
+        loggingHandler: LoggingHandler? = nil
+    ) throws -> ProcessResult {
+        try popen(arguments: arguments, environmentBlock: .init(environment), loggingHandler: loggingHandler)
+    }
+
+    @discardableResult
+    static package func popen(
+        args: String...,
+        environment: Environment,
+        loggingHandler: LoggingHandler? = nil
+    ) throws -> ProcessResult {
+        try popen(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
+    }
+
+    static package func popen(
+        arguments: [String],
+        environment: Environment,
+        loggingHandler: LoggingHandler? = nil
+    ) async throws -> ProcessResult {
+        try await popen(arguments: arguments, environmentBlock: .init(environment), loggingHandler: loggingHandler)
+    }
+
+    static package func popen(
+        args: String...,
+        environment: Environment,
+        loggingHandler: LoggingHandler? = nil
+    ) async throws -> ProcessResult {
+        try await popen(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
     }
 }
 
-extension ProcessEnvironmentKey: @retroactive Comparable {
-    public static func < (lhs: Self, rhs: Self) -> Bool {
-        #if os(Windows)
-        // TODO: is this any faster than just doing a lowercased conversion and compare?
-        lhs.value.caseInsensitiveCompare(rhs.value) == .orderedAscending
-        #else
-        lhs.value < rhs.value
-        #endif
+extension TSCBasic.Process {
+    @discardableResult
+    static package func checkNonZeroExit(
+        arguments: [String],
+        environment: Environment,
+        loggingHandler: LoggingHandler? = nil
+    ) throws -> String {
+        try checkNonZeroExit(arguments: arguments, environmentBlock: .init(environment), loggingHandler: loggingHandler)
+    }
+
+    @discardableResult
+    static package func checkNonZeroExit(
+        arguments: [String],
+        environment: Environment,
+        loggingHandler: LoggingHandler? = nil
+    ) async throws -> String {
+        try await checkNonZeroExit(arguments: arguments, environmentBlock: .init(environment), loggingHandler: loggingHandler)
+    }
+
+    @discardableResult
+    static package func checkNonZeroExit(
+        args: String...,
+        environment: Environment,
+        loggingHandler: LoggingHandler? = nil
+    ) throws -> String {
+        try checkNonZeroExit(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
+    }
+
+
+    @discardableResult
+    static package func checkNonZeroExit(
+        args: String...,
+        environment: Environment,
+        loggingHandler: LoggingHandler? = nil
+    ) async throws -> String {
+        try await checkNonZeroExit(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
     }
 }
 
-extension ProcessEnvironmentBlock {
-    package func nonPortable() -> [String: String] {
-        var dict = [String: String]()
-        for (key, value) in self {
-            dict[key.value] = value
-        }
-        return dict
+// MARK: ProcessResult Shims
+extension ProcessResult {
+    package init(
+        arguments: [String],
+        environment: Environment,
+        exitStatus: ExitStatus,
+        output: Result<[UInt8], Swift.Error>,
+        stderrOutput: Result<[UInt8], Swift.Error>
+    ) {
+        self.init(arguments: arguments, environmentBlock: .init(environment), exitStatus: exitStatus, output: output, stderrOutput: stderrOutput)
     }
 }

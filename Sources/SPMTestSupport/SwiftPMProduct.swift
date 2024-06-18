@@ -80,7 +80,7 @@ extension SwiftPM {
     public func execute(
         _ args: [String] = [],
         packagePath: AbsolutePath? = nil,
-        env: ProcessEnvironmentBlock? = nil
+        env: Environment? = nil
     ) throws -> (stdout: String, stderr: String) {
         let result = try executeProcess(
             args,
@@ -104,9 +104,9 @@ extension SwiftPM {
     private func executeProcess(
         _ args: [String],
         packagePath: AbsolutePath? = nil,
-        env: ProcessEnvironmentBlock? = nil
+        env: Environment? = nil
     ) throws -> ProcessResult {
-        var environment = ProcessEnvironmentBlock.current
+        var environment = Environment.current
 #if !os(Windows)
         environment["SDKROOT"] = nil
 #endif
@@ -136,7 +136,7 @@ extension SwiftPM {
         }
         completeArgs += args
 
-        return try Process.popen(arguments: completeArgs, environmentBlock: environment)
+        return try Process.popen(arguments: completeArgs, environment: environment)
     }
 }
 

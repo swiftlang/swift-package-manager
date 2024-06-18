@@ -117,7 +117,7 @@ public struct ShellTool: ToolProtocol {
     public var inputs: [Node]
     public var outputs: [Node]
     public var arguments: [String]
-    public var environment: ProcessEnvironmentBlock
+    public var environment: Environment
     public var workingDirectory: String?
     public var allowMissingInputs: Bool
 
@@ -126,7 +126,7 @@ public struct ShellTool: ToolProtocol {
         inputs: [Node],
         outputs: [Node],
         arguments: [String],
-        environment: ProcessEnvironmentBlock,
+        environment: Environment,
         workingDirectory: String? = nil,
         allowMissingInputs: Bool = false
     ) {

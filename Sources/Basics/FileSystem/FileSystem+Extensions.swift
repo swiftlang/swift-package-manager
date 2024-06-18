@@ -23,7 +23,6 @@ import protocol TSCBasic.FileSystem
 import enum TSCBasic.FileSystemAttribute
 import var TSCBasic.localFileSystem
 import protocol TSCBasic.WritableByteStream
-import enum TSCBasic.ProcessEnv
 
 public typealias FileSystem = TSCBasic.FileSystem
 public let localFileSystem = TSCBasic.localFileSystem
@@ -215,7 +214,7 @@ extension FileSystem {
     /// or under $XDG_CONFIG_HOME/swiftpm if the environmental variable is defined
     public var dotSwiftPM: AbsolutePath {
         get throws {
-            if let configurationDirectory = ProcessEnv.block["XDG_CONFIG_HOME"] {
+            if let configurationDirectory = Environment.current["XDG_CONFIG_HOME"] {
                 return try AbsolutePath(validating: configurationDirectory).appending("swiftpm")
             } else {
                 return try self.homeDirectory.appending(".swiftpm")

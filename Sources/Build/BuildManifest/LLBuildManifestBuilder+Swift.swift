@@ -19,9 +19,8 @@ import struct LLBuildManifest.LLBuildManifest
 import struct SPMBuildCore.BuildParameters
 import struct PackageGraph.ResolvedModule
 import protocol TSCBasic.FileSystem
-import enum TSCBasic.ProcessEnv
 import func TSCBasic.topologicalSort
-import struct Basics.ProcessEnvironmentBlock
+import struct Basics.Environment
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import class DriverSupport.SPMSwiftDriverExecutor
@@ -76,7 +75,7 @@ extension LLBuildManifestBuilder {
         let executor = SPMSwiftDriverExecutor(
             resolver: resolver,
             fileSystem: target.fileSystem,
-            env: ProcessEnvironmentBlock.current
+            env: Environment.current
         )
         var driver = try Driver(
             args: commandLine,
@@ -291,7 +290,7 @@ extension LLBuildManifestBuilder {
         let executor = SPMSwiftDriverExecutor(
             resolver: resolver,
             fileSystem: self.fileSystem,
-            env: ProcessEnvironmentBlock.current
+            env: Environment.current
         )
         var driver = try Driver(
             args: commandLine,
