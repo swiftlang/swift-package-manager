@@ -145,7 +145,7 @@ enum Serialization {
 
         let kind: Kind
         let moduleAliases: [String: String]?
-        let traits: Set<Trait>
+        let traits: Set<Trait>?
     }
 
     // MARK: - platforms serialization
@@ -295,7 +295,7 @@ enum Serialization {
         let providers: [SystemPackageProvider]?
         let targets: [Target]
         let products: [Product]
-        let traits: Set<Trait>
+        let traits: Set<Trait>?
         let dependencies: [PackageDependency]
         let swiftLanguageVersions: [SwiftVersion]?
         let cLanguageStandard: CLanguageStandard?
