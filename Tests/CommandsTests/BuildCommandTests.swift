@@ -655,17 +655,12 @@ final class BuildCommandTests: CommandsTestCase {
     }
 
 #if !canImport(Darwin)
-    func testIgnoresLinuxMain() throws {
-        try fixture(name: "Miscellaneous/TestDiscovery/IgnoresLinuxMain") { fixturePath in
+    func testIgnoresLinuxMain() async throws {
+        try await fixture(name: "Miscellaneous/TestDiscovery/IgnoresLinuxMain") { fixturePath in
             let buildResult = try await self.build(["-v", "--build-tests", "--enable-test-discovery"], packagePath: fixturePath, cleanAfterward: false)
             let testBinaryPath = buildResult.binPath.appending("IgnoresLinuxMainPackageTests.xctest")
 
-            let processTerminated = expectation(description: "Process terminated")
-            _ = try AsyncProcess.run(testBinaryPath.asURL, arguments: [] ) { process in
-               XCTAssertEqual(process.terminationStatus, EXIT_SUCCESS)
-               processTerminated.fulfill()
-            }
-            wait(for: [processTerminated], timeout: .infinity)
+            _ = try await AsyncProcess.checkNonZeroExit(arguments: [testBinaryPath.pathString])
         }
     }
 #endif
