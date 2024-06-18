@@ -539,10 +539,13 @@ public final class SwiftTargetBuildDescription {
         }
 
         if self.buildParameters.prepareForIndexing {
+            if !args.contains("-enable-testing") {
+                // enable-testing needs the non-exportable-decls
+                args += ["-Xfrontend", "-experimental-skip-non-exportable-decls"]
+            }
             args += [
                 "-Xfrontend", "-experimental-skip-all-function-bodies",
                 "-Xfrontend", "-experimental-lazy-typecheck",
-                "-Xfrontend", "-experimental-skip-non-exportable-decls",
                 "-Xfrontend", "-experimental-allow-module-with-compiler-errors",
                 "-Xfrontend", "-empty-abi-descriptor"
             ]
