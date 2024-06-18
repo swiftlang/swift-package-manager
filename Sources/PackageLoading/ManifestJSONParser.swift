@@ -115,7 +115,7 @@ enum ManifestJSONParser {
             dependencies: dependencies,
             providers: input.package.providers?.map { .init($0) },
             products: try input.package.products.map { try .init($0) },
-            traits: Set(input.package.traits.map { TraitDescription($0) }),
+            traits: Set(input.package.traits?.map { TraitDescription($0) } ?? []),
             cxxLanguageStandard: input.package.cxxLanguageStandard?.rawValue,
             cLanguageStandard: input.package.cLanguageStandard?.rawValue
         )
@@ -638,7 +638,7 @@ extension MappablePackageDependency {
                     path: path
                 ),
                 productFilter: .everything,
-                traits: Set(seed.traits.map { PackageDependency.Trait.init($0) })
+                traits: Set(seed.traits?.map { PackageDependency.Trait.init($0) } ?? [])
             )
         case .sourceControl(let name, let location, let requirement):
             self.init(
@@ -649,7 +649,7 @@ extension MappablePackageDependency {
                     requirement: .init(requirement)
                 ),
                 productFilter: .everything,
-                traits: Set(seed.traits.map { PackageDependency.Trait.init($0) })
+                traits: Set(seed.traits?.map { PackageDependency.Trait.init($0) } ?? [])
             )
         case .registry(let id, let requirement):
             self.init(
@@ -659,7 +659,7 @@ extension MappablePackageDependency {
                     requirement: .init(requirement)
                 ),
                 productFilter: .everything,
-                traits: Set(seed.traits.map { PackageDependency.Trait.init($0) })
+                traits: Set(seed.traits?.map { PackageDependency.Trait.init($0) } ?? [])
             )
         }
     }
