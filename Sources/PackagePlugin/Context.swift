@@ -31,7 +31,7 @@ public struct PluginContext {
     /// write its outputs to that directory. The plugin may also create other
     /// directories for cache files and other file system content that either
     /// it or the command will need.
-    @available(_PackageDescription, deprecated: 6.0, renamed: "pluginWorkDirectory")
+    @available(_PackageDescription, deprecated: 6.0, renamed: "pluginWorkDirectoryURL")
     public let pluginWorkDirectory: Path
 
     /// The path of a writable directory into which the plugin or the build
