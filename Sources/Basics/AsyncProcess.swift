@@ -10,17 +10,8 @@
 
 import _Concurrency
 import Dispatch
-import protocol Foundation.CustomNSError
-import var Foundation.NSLocalizedDescriptionKey
-import class Foundation.NSLock
-import class Foundation.ProcessInfo
-
-#if os(Windows)
 import Foundation
-#endif
 
-//@_implementationOnly import TSCclibc
-//import TSCLibc
 import class TSCBasic.CStringArray
 import class TSCBasic.LocalFileOutputByteStream
 import enum TSCBasic.ProcessEnv
