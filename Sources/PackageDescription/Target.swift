@@ -1359,11 +1359,9 @@ extension Target.Dependency {
 /// A condition that limits the application of a target's dependency.
 public struct TargetDependencyCondition {
     let platforms: [Platform]?
-    let traits: Set<String>?
 
-    private init(platforms: [Platform]?, traits: Set<String>?) {
+    private init(platforms: [Platform]?) {
         self.platforms = platforms
-        self.traits = traits
     }
 
     /// Creates a target dependency condition.
@@ -1376,7 +1374,7 @@ public struct TargetDependencyCondition {
     ) -> TargetDependencyCondition {
         // FIXME: This should be an error, not a precondition.
         precondition(!(platforms == nil))
-        return TargetDependencyCondition(platforms: platforms, traits: nil)
+        return TargetDependencyCondition(platforms: platforms)
     }
 
     /// Creates a target dependency condition.
@@ -1386,31 +1384,7 @@ public struct TargetDependencyCondition {
     public static func when(
         platforms: [Platform]
     ) -> TargetDependencyCondition? {
-        return !platforms.isEmpty ? TargetDependencyCondition(platforms: platforms, traits: nil) : .none
-    }
-
-    /// Creates a target dependency condition.
-    ///
-    /// - Parameter platforms: The applicable platforms for this target dependency condition.
-    /// - Parameter traits: The applicable traits for this target dependency condition.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
-    public static func when(
-        platforms: [Platform],
-        traits: Set<String>
-    ) -> TargetDependencyCondition? {
-        return TargetDependencyCondition(platforms: platforms, traits: traits)
-    }
-
-    /// Creates a target dependency condition.
-    ///
-    /// - Parameter traits: The applicable traits for this target dependency condition.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
-    public static func when(
-        traits: Set<String>
-    ) -> TargetDependencyCondition? {
-        return TargetDependencyCondition(platforms: nil, traits: traits)
+        return !platforms.isEmpty ? TargetDependencyCondition(platforms: platforms) : .none
     }
 }
 

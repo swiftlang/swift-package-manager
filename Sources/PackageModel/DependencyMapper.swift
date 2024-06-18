@@ -48,8 +48,7 @@ public struct DefaultDependencyMapper: DependencyMapper {
             return .registry(
                 identity: .plain(mappedLocationString),
                 requirement: try dependency.registryRequirement(for: mappedLocationString),
-                productFilter: dependency.productFilter,
-                traits: dependency.traits
+                productFilter: dependency.productFilter
             )
         } else if parseScheme(mappedLocationString) != nil {
             // mapped to a URL, we assume a remote SCM location
@@ -60,8 +59,7 @@ public struct DefaultDependencyMapper: DependencyMapper {
                 nameForTargetDependencyResolutionOnly: dependency.nameForTargetDependencyResolutionOnly,
                 url: url,
                 requirement: try dependency.sourceControlRequirement(for: mappedLocationString),
-                productFilter: dependency.productFilter,
-                traits: dependency.traits
+                productFilter: dependency.productFilter
             )
 
         } else {
@@ -73,8 +71,7 @@ public struct DefaultDependencyMapper: DependencyMapper {
                 nameForTargetDependencyResolutionOnly: dependency.nameForTargetDependencyResolutionOnly,
                 path: localPath,
                 requirement: try dependency.sourceControlRequirement(for: mappedLocationString),
-                productFilter: dependency.productFilter,
-                traits: dependency.traits
+                productFilter: dependency.productFilter
             )
         }
     }
@@ -133,18 +130,15 @@ public struct MappablePackageDependency {
     public let parentPackagePath: AbsolutePath
     public let kind: Kind
     public let productFilter: ProductFilter
-    public let traits: Set<PackageDependency.Trait>
 
     public init(
         parentPackagePath: AbsolutePath,
         kind: Kind,
-        productFilter: ProductFilter,
-        traits: Set<PackageDependency.Trait>
+        productFilter: ProductFilter
     ) {
         self.parentPackagePath = parentPackagePath
         self.kind = kind
         self.productFilter = productFilter
-        self.traits = traits
     }
 
     public enum Kind {
@@ -171,8 +165,7 @@ extension MappablePackageDependency {
                     name: settings.nameForTargetDependencyResolutionOnly,
                     path: settings.path.pathString
                 ),
-                productFilter: settings.productFilter,
-                traits: settings.traits
+                productFilter: settings.productFilter
             )
         case .sourceControl(let settings):
             let locationString: String
@@ -189,8 +182,7 @@ extension MappablePackageDependency {
                     location: locationString,
                     requirement: settings.requirement
                 ),
-                productFilter: settings.productFilter,
-                traits: settings.traits
+                productFilter: settings.productFilter
             )
         case .registry(let settings):
             self.init(
@@ -199,8 +191,7 @@ extension MappablePackageDependency {
                     id: settings.identity.description,
                     requirement: settings.requirement
                 ),
-                productFilter: settings.productFilter,
-                traits: settings.traits
+                productFilter: settings.productFilter
             )
         }
     }
@@ -285,8 +276,7 @@ extension PackageDependency {
                 identity: .init(path: path),
                 nameForTargetDependencyResolutionOnly: name,
                 path: path,
-                productFilter: seed.productFilter,
-                traits: seed.traits
+                productFilter: seed.productFilter
             )
         case .sourceControl(let name, _, let requirement):
             let identity: PackageIdentity
@@ -304,15 +294,13 @@ extension PackageDependency {
                 nameForTargetDependencyResolutionOnly: name,
                 location: location,
                 requirement: requirement,
-                productFilter: seed.productFilter,
-                traits: seed.traits
+                productFilter: seed.productFilter
             )
         case .registry(let id, let requirement):
             self = .registry(
                 identity: .plain(id),
                 requirement: requirement,
-                productFilter: seed.productFilter,
-                traits: seed.traits
+                productFilter: seed.productFilter
             )
         }
     }

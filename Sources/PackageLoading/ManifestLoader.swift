@@ -450,8 +450,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     swiftLanguageVersions: parsedManifest.swiftLanguageVersions,
                     dependencies: parsedManifest.dependencies,
                     products: products,
-                    targets: targets,
-                    traits: parsedManifest.traits
+                    targets: targets
                 )
 
                 // Inform the delegate.

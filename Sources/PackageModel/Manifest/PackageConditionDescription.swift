@@ -14,13 +14,11 @@
 public struct PackageConditionDescription: Codable, Hashable, Sendable {
     public let platformNames: [String]
     public let config: String?
-    public let traits: Set<String>?
 
-    public init(platformNames: [String] = [], config: String? = nil, traits: Set<String>? = nil) {
-        assert(!(platformNames.isEmpty && config == nil && traits == nil))
+    public init(platformNames: [String] = [], config: String? = nil) {
+        assert(!(platformNames.isEmpty && config == nil))
         self.platformNames = platformNames
         self.config = config
-        self.traits = traits
     }
 }
 
@@ -33,7 +31,6 @@ public protocol PackageConditionProtocol: Codable {
 struct PackageConditionWrapper: Codable, Equatable, Hashable {
     var platform: PlatformsCondition?
     var config: ConfigurationCondition?
-    var traits: TraitCondition?
 
     @available(*, deprecated, renamed: "underlying")
     var condition: PackageConditionProtocol {
@@ -51,8 +48,6 @@ struct PackageConditionWrapper: Codable, Equatable, Hashable {
             return .platforms(platform)
         } else if let config {
             return .configuration(config)
-        } else if let traits {
-            return .traits(traits)
         } else {
             fatalError("unreachable")
         }
@@ -76,8 +71,6 @@ struct PackageConditionWrapper: Codable, Equatable, Hashable {
             self.platform = platforms
         case let .configuration(configuration):
             self.config = configuration
-        case .traits(let traits):
-            self.traits = traits
         }
     }
 }
@@ -87,7 +80,6 @@ struct PackageConditionWrapper: Codable, Equatable, Hashable {
 public enum PackageCondition: Hashable, Sendable {
     case platforms(PlatformsCondition)
     case configuration(ConfigurationCondition)
-    case traits(TraitCondition)
 
     public func satisfies(_ environment: BuildEnvironment) -> Bool {
         switch self {
@@ -95,8 +87,6 @@ public enum PackageCondition: Hashable, Sendable {
             return configuration.satisfies(environment)
         case .platforms(let platforms):
             return platforms.satisfies(environment)
-        case .traits(let traits):
-            return traits.satisfies(environment)
         }
     }
 
@@ -114,14 +104,6 @@ public enum PackageCondition: Hashable, Sendable {
         }
 
         return configurationCondition
-    }
-
-    public var traitCondition: TraitCondition? {
-        guard case let .traits(traitCondition) = self else {
-            return nil
-        }
-
-        return traitCondition
     }
 
     public init(platforms: [Platform]) {
@@ -164,19 +146,3 @@ public struct ConfigurationCondition: PackageConditionProtocol, Hashable, Sendab
         }
     }
 }
-
-
-/// A configuration condition implies that an assignment is valid on
-/// a particular build configuration.
-public struct TraitCondition: PackageConditionProtocol, Hashable, Sendable {
-    public let traits: Set<String>
-
-    public init(traits: Set<String>) {
-        self.traits = traits
-    }
-
-    public func satisfies(_ environment: BuildEnvironment) -> Bool {
-        return true
-    }
-}
-

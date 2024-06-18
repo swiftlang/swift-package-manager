@@ -15,13 +15,11 @@ add_library(PackageDescription
   PackageDescriptionSerialization.swift
   PackageDescriptionSerializationConversion.swift
   PackageDependency.swift
-  PackageDependencyTrait.swift
   PackageRequirement.swift
   Product.swift
   Resource.swift
   SupportedPlatforms.swift
   Target.swift
-  Trait.swift
   Version.swift
   Version+StringLiteralConvertible.swift)
 

@@ -59,13 +59,10 @@ public struct BuildSettingCondition: Sendable {
     let platforms: [Platform]?
     /// The applicable build configuration for this build setting condition.
     let config: BuildConfiguration?
-    /// The applicable traits for this build setting condition.
-    let traits: Set<String>?
 
-    private init(platforms: [Platform]?, config: BuildConfiguration?, traits: Set<String>?) {
+    private init(platforms: [Platform]?, config: BuildConfiguration?) {
         self.platforms = platforms
         self.config = config
-        self.traits = traits
     }
 
     @available(_PackageDescription, deprecated: 5.7)
@@ -74,24 +71,7 @@ public struct BuildSettingCondition: Sendable {
         configuration: BuildConfiguration? = nil
     ) -> BuildSettingCondition {
         precondition(!(platforms == nil && configuration == nil))
-        return BuildSettingCondition(platforms: platforms, config: configuration, traits: nil)
-    }
-
-    /// Creates a build setting condition.
-    ///
-    /// - Parameters:
-    ///   - platforms: The applicable platforms for this build setting condition.
-    ///   - configuration: The applicable build configuration for this build setting condition.
-    ///   - traits: The applicable traits for this build setting condition.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
-    public static func when(
-        platforms: [Platform]? = nil,
-        configuration: BuildConfiguration? = nil,
-        traits: Set<String>? = nil
-    ) -> BuildSettingCondition {
-        precondition(!(platforms == nil && configuration == nil && traits == nil))
-        return BuildSettingCondition(platforms: platforms, config: configuration, traits: traits)
+        return BuildSettingCondition(platforms: platforms, config: configuration)
     }
 
     /// Creates a build setting condition.
@@ -101,7 +81,7 @@ public struct BuildSettingCondition: Sendable {
     ///   - configuration: The applicable build configuration for this build setting condition.
     @available(_PackageDescription, introduced: 5.7)
     public static func when(platforms: [Platform], configuration: BuildConfiguration) -> BuildSettingCondition {
-        BuildSettingCondition(platforms: platforms, config: configuration, traits: nil)
+        BuildSettingCondition(platforms: platforms, config: configuration)
     }
 
     /// Creates a build setting condition.
@@ -109,7 +89,7 @@ public struct BuildSettingCondition: Sendable {
     /// - Parameter platforms: The applicable platforms for this build setting condition.
     @available(_PackageDescription, introduced: 5.7)
     public static func when(platforms: [Platform]) -> BuildSettingCondition {
-        BuildSettingCondition(platforms: platforms, config: .none, traits: nil)
+        BuildSettingCondition(platforms: platforms, config: .none)
     }
 
     /// Creates a build setting condition.
@@ -117,7 +97,7 @@ public struct BuildSettingCondition: Sendable {
     /// - Parameter configuration: The applicable build configuration for this build setting condition.
     @available(_PackageDescription, introduced: 5.7)
     public static func when(configuration: BuildConfiguration) -> BuildSettingCondition {
-        BuildSettingCondition(platforms: .none, config: configuration, traits: nil)
+        BuildSettingCondition(platforms: .none, config: configuration)
     }
 }
 

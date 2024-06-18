@@ -215,8 +215,7 @@ extension Manifest {
         swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
-        targets: [TargetDescription] = [],
-        traits: Set<TraitDescription> = []
+        targets: [TargetDescription] = []
     ) -> Manifest {
         return Manifest(
             displayName: displayName,
@@ -235,8 +234,7 @@ extension Manifest {
             swiftLanguageVersions: swiftLanguageVersions,
             dependencies: dependencies,
             products: products,
-            targets: targets,
-            traits: traits
+            targets: targets
         )
     }
 
@@ -258,8 +256,7 @@ extension Manifest {
             swiftLanguageVersions: self.swiftLanguageVersions,
             dependencies: self.dependencies,
             products: self.products,
-            targets: self.targets,
-            traits: self.traits
+            targets: self.targets
         )
     }
 }

@@ -204,8 +204,7 @@ extension Workspace {
                             nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
                             location: settings.location,
                             requirement: settings.requirement,
-                            productFilter: settings.productFilter,
-                            traits: settings.traits
+                            productFilter: settings.productFilter
                         )
                     case .swizzle:
                         // we replace the *entire* source control dependency with a registry one
@@ -223,8 +222,7 @@ extension Workspace {
                             modifiedDependency = .registry(
                                 identity: registryIdentity,
                                 requirement: requirement,
-                                productFilter: settings.productFilter,
-                                traits: settings.traits
+                                productFilter: settings.productFilter
                             )
                         case .branch, .revision:
                             // branch and revision dependencies are not supported by the registry
@@ -240,8 +238,7 @@ extension Workspace {
                                 nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
                                 location: settings.location,
                                 requirement: settings.requirement,
-                                productFilter: settings.productFilter,
-                                traits: settings.traits
+                                productFilter: settings.productFilter
                             )
                         }
                     }
@@ -312,8 +309,7 @@ extension Workspace {
                 swiftLanguageVersions: manifest.swiftLanguageVersions,
                 dependencies: modifiedDependencies,
                 products: manifest.products,
-                targets: modifiedTargets,
-                traits: manifest.traits
+                targets: modifiedTargets
             )
 
             return modifiedManifest

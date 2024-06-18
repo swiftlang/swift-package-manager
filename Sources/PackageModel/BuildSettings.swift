@@ -66,13 +66,6 @@ public enum BuildSettings {
             self.values = []
             self.default = `default`
         }
-
-        public init(values: [String] = [], conditions: [PackageCondition] = []) {
-            self._conditions = []
-            self.values = values
-            self.default = false // TODO(franz): Check again
-            self.conditions = conditions
-        }
     }
 
     /// Build setting assignment table which maps a build setting to a list of assignments.

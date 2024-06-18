@@ -20,7 +20,6 @@ extension Serialization.BuildSettingCondition {
     init(_ condition: PackageDescription.BuildSettingCondition) {
         self.platforms = condition.platforms?.map { .init($0) }
         self.config = condition.config.map { .init($0) }
-        self.traits = condition.traits
     }
 }
 
@@ -172,20 +171,6 @@ extension Serialization.PackageDependency {
     init(_ dependency: PackageDescription.Package.Dependency) {
         self.kind = .init(dependency.kind)
         self.moduleAliases = dependency.moduleAliases
-        self.traits = Set(dependency.traits?.map { Serialization.PackageDependency.Trait.init($0) } ?? [])
-    }
-}
-
-extension Serialization.PackageDependency.Trait {
-    init(_ trait: PackageDescription.Package.Dependency.Trait) {
-        self.name = trait.name
-        self.condition = trait.condition.flatMap { .init($0) }
-    }
-}
-
-extension Serialization.PackageDependency.Trait.Condition {
-    init(_ condition: PackageDescription.Package.Dependency.Trait.Condition) {
-        self.traits = condition.traits
     }
 }
 
@@ -205,7 +190,6 @@ extension Serialization.SupportedPlatform {
 extension Serialization.TargetDependency.Condition {
     init(_ condition: TargetDependencyCondition) {
         self.platforms = condition.platforms?.map { .init($0) }
-        self.traits = condition.traits
     }
 }
 
@@ -378,15 +362,6 @@ extension Serialization.Product {
     }
 }
 
-extension Serialization.Trait {
-    init(_ trait: PackageDescription.Trait) {
-        self.name = trait.name
-        self.description = trait.description
-        self.isDefault = trait.isDefault
-        self.enabledTraits = trait.enabledTraits
-    }
-}
-
 extension Serialization.Package {
     init(_ package: PackageDescription.Package) {
         self.name = package.name
@@ -396,7 +371,6 @@ extension Serialization.Package {
         self.providers = package.providers?.map { .init($0) }
         self.targets = package.targets.map { .init($0) }
         self.products = package.products.map { .init($0) }
-        self.traits = Set(package.traits.map { Serialization.Trait($0) })
         self.dependencies = package.dependencies.map { .init($0) }
         self.swiftLanguageVersions = package.swiftLanguageVersions?.map { .init($0) }
         self.cLanguageStandard = package.cLanguageStandard.map { .init($0) }
