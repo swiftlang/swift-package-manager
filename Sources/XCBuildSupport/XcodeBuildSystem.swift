@@ -24,7 +24,7 @@ import SPMBuildCore
 
 import func TSCBasic.memoize
 import protocol TSCBasic.OutputByteStream
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.withTemporaryFile
 
@@ -97,7 +97,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         if let xcbuildTool = ProcessEnv.block["XCBUILD_TOOL"] {
             xcbuildPath = try AbsolutePath(validating: xcbuildTool)
         } else {
-            let xcodeSelectOutput = try TSCBasic.Process.popen(args: "xcode-select", "-p").utf8Output().spm_chomp()
+            let xcodeSelectOutput = try AsyncProcess.popen(args: "xcode-select", "-p").utf8Output().spm_chomp()
             let xcodeDirectory = try AbsolutePath(validating: xcodeSelectOutput)
             xcbuildPath = try AbsolutePath(
                 validating: "../SharedFrameworks/XCBuild.framework/Versions/A/Support/xcbuild",
@@ -186,7 +186,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         var hasStdout = false
         var stdoutBuffer: [UInt8] = []
         var stderrBuffer: [UInt8] = []
-        let redirection: TSCBasic.Process.OutputRedirection = .stream(stdout: { bytes in
+        let redirection: AsyncProcess.OutputRedirection = .stream(stdout: { bytes in
             hasStdout = hasStdout || !bytes.isEmpty
             delegate.parse(bytes: bytes)
 
@@ -202,7 +202,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         var sanitizedEnvironment = ProcessEnv.vars
         sanitizedEnvironment["DYLD_LIBRARY_PATH"] = nil
 
-        let process = TSCBasic.Process(
+        let process = AsyncProcess(
             arguments: arguments,
             environment: sanitizedEnvironment,
             outputRedirection: redirection

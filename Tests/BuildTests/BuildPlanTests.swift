@@ -613,15 +613,15 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" })
     }
 
-    func testPackageNameFlag() throws {
+    func testPackageNameFlag() async throws {
         try XCTSkipIfCI() // test is disabled because it isn't stable, see rdar://118239206
         let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
             flags: ["package-name"],
             toolchain: UserToolchain.default,
             fileSystem: localFileSystem
         )
-        try fixture(name: "Miscellaneous/PackageNameFlag") { fixturePath in
-            let (stdout, _) = try executeSwiftBuild(fixturePath.appending("appPkg"), extraArgs: ["-vv"])
+        try await fixture(name: "Miscellaneous/PackageNameFlag") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("appPkg"), extraArgs: ["-vv"])
             XCTAssertMatch(stdout, .contains("-module-name Foo"))
             XCTAssertMatch(stdout, .contains("-module-name Zoo"))
             XCTAssertMatch(stdout, .contains("-module-name Bar"))
@@ -641,14 +641,14 @@ final class BuildPlanTests: XCTestCase {
     }
 
     #if os(macOS)
-    func testPackageNameFlagXCBuild() throws {
+    func testPackageNameFlagXCBuild() async throws {
         let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
             flags: ["package-name"],
             toolchain: UserToolchain.default,
             fileSystem: localFileSystem
         )
-        try fixture(name: "Miscellaneous/PackageNameFlag") { fixturePath in
-            let (stdout, _) = try executeSwiftBuild(
+        try await fixture(name: "Miscellaneous/PackageNameFlag") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(
                 fixturePath.appending("appPkg"),
                 extraArgs: ["--build-system", "xcode", "-vv"]
             )
@@ -671,14 +671,14 @@ final class BuildPlanTests: XCTestCase {
     }
     #endif
 
-    func testTargetsWithPackageAccess() throws {
+    func testTargetsWithPackageAccess() async throws {
         let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
             flags: ["package-name"],
             toolchain: UserToolchain.default,
             fileSystem: localFileSystem
         )
-        try fixture(name: "Miscellaneous/TargetPackageAccess") { fixturePath in
-            let (stdout, _) = try executeSwiftBuild(fixturePath.appending("libPkg"), extraArgs: ["-v"])
+        try await fixture(name: "Miscellaneous/TargetPackageAccess") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("libPkg"), extraArgs: ["-v"])
             if isFlagSupportedInDriver {
                 let moduleFlag1 = stdout.range(of: "-module-name DataModel")
                 XCTAssertNotNil(moduleFlag1)

@@ -13,7 +13,7 @@
 import Basics
 import Foundation
 
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 import enum TSCBasic.ProcessEnv
 
 import struct TSCUtility.Version
@@ -524,7 +524,7 @@ public struct SwiftSDK: Equatable {
             sdkPath = try AbsolutePath(validating: value)
         } else {
             // No value in env, so search for it.
-            let sdkPathStr = try TSCBasic.Process.checkNonZeroExit(
+            let sdkPathStr = try AsyncProcess.checkNonZeroExit(
                 arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"],
                 environment: environment
             ).spm_chomp()
@@ -580,7 +580,7 @@ public struct SwiftSDK: Equatable {
         if let path = _sdkPlatformFrameworkPath {
             return path
         }
-        let platformPath = try TSCBasic.Process.checkNonZeroExit(
+        let platformPath = try AsyncProcess.checkNonZeroExit(
             arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-platform-path"],
             environment: environment
         ).spm_chomp()

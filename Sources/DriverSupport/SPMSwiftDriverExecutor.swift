@@ -69,7 +69,7 @@ public final class SPMSwiftDriverExecutor: DriverExecutor {
     }
     
     public func checkNonZeroExit(args: String..., environment: [String : String]) throws -> String {
-        return try TSCBasic.Process.checkNonZeroExit(arguments: args, environment: environment)
+        return try AsyncProcess.checkNonZeroExit(arguments: args, environment: environment)
     }
     
     public func description(of job: Job, forceResponseFiles: Bool) throws -> String {

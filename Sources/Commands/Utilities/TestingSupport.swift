@@ -16,7 +16,7 @@ import PackageModel
 import SPMBuildCore
 import Workspace
 
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 import var TSCBasic.stderrStream
 import var TSCBasic.stdoutStream
 import func TSCBasic.withTemporaryFile
@@ -55,8 +55,8 @@ enum TestingSupport {
         }
 
         // This will be true during swiftpm development or when using swift.org toolchains.
-        let xcodePath = try TSCBasic.Process.checkNonZeroExit(args: "/usr/bin/xcode-select", "--print-path").spm_chomp()
-        let installedSwiftBuildPath = try TSCBasic.Process.checkNonZeroExit(
+        let xcodePath = try AsyncProcess.checkNonZeroExit(args: "/usr/bin/xcode-select", "--print-path").spm_chomp()
+        let installedSwiftBuildPath = try AsyncProcess.checkNonZeroExit(
             args: "/usr/bin/xcrun", "--find", "swift-build",
             environment: ["DEVELOPER_DIR": xcodePath]
         ).spm_chomp()
@@ -125,7 +125,7 @@ enum TestingSupport {
                 library: .xctest
             )
 
-            try TSCBasic.Process.checkNonZeroExit(arguments: args, environment: env)
+            try AsyncProcess.checkNonZeroExit(arguments: args, environment: env)
             // Read the temporary file's content.
             return try swiftCommandState.fileSystem.readFileContents(AbsolutePath(tempFile.path))
         }
@@ -141,7 +141,7 @@ enum TestingSupport {
             library: .xctest
         )
         args = [path.description, "--dump-tests-json"]
-        let data = try Process.checkNonZeroExit(arguments: args, environment: env)
+        let data = try AsyncProcess.checkNonZeroExit(arguments: args, environment: env)
         #endif
         // Parse json and return TestSuites.
         return try TestSuite.parse(jsonString: data, context: args.joined(separator: " "))

@@ -17,9 +17,9 @@ import PackageModel
 import SPMBuildCore
 
 import struct TSCBasic.ByteString
-import struct TSCBasic.ProcessResult
+import struct Basics.AsyncProcessResult
 import enum TSCBasic.ProcessEnv
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 
 import struct TSCUtility.SerializedDiagnostics
 
@@ -280,7 +280,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 case abnormal(exception: UInt32)
                 case signal(number: Int32)
                 
-                init(_ processExitStatus: ProcessResult.ExitStatus) {
+                init(_ processExitStatus: AsyncProcessResult.ExitStatus) {
                     switch processExitStatus {
                     case .terminated(let code):
                         self = .exit(code: code)
@@ -352,7 +352,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         }
         
         // Now invoke the compiler asynchronously.
-        TSCBasic.Process.popen(arguments: commandLine, environment: environment, queue: callbackQueue) {
+        AsyncProcess.popen(arguments: commandLine, environment: environment, queue: callbackQueue) {
             // We are now on our caller's requested callback queue, so we just call the completion handler directly.
             dispatchPrecondition(condition: .onQueue(callbackQueue))
             completion($0.tryMap { process in
@@ -405,7 +405,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         var sdkRootPath: Basics.AbsolutePath?
         // Find SDKROOT on macOS using xcrun.
         #if os(macOS)
-        let foundPath = try? TSCBasic.Process.checkNonZeroExit(
+        let foundPath = try? AsyncProcess.checkNonZeroExit(
             args: "/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"
         )
         guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {

@@ -19,9 +19,9 @@ import SourceControl
 
 import class TSCBasic.BufferedOutputByteStream
 import struct TSCBasic.ByteString
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 import enum TSCBasic.ProcessEnv
-import struct TSCBasic.ProcessResult
+import struct Basics.AsyncProcessResult
 
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
@@ -958,7 +958,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     evaluationResult.compilerCommandLine = cmd
 
                     // Compile the manifest.
-                    TSCBasic.Process.popen(
+                    AsyncProcess.popen(
                         arguments: cmd,
                         environment: self.toolchain.swiftCompilerEnvironment,
                         queue: callbackQueue
@@ -968,7 +968,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         var cleanupIfError = DelayableAction(target: tmpDir, action: cleanupTmpDir)
                         defer { cleanupIfError.perform() }
 
-                        let compilerResult : ProcessResult
+                        let compilerResult: AsyncProcessResult
                         do {
                             compilerResult = try result.get()
                             evaluationResult.compilerOutput = try (compilerResult.utf8Output() + compilerResult.utf8stderrOutput()).spm_chuzzle()
@@ -1061,7 +1061,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         #endif
 
                         let cleanupAfterRunning = cleanupIfError.delay()
-                        TSCBasic.Process.popen(
+                        AsyncProcess.popen(
                             arguments: cmd,
                             environment: environment,
                             queue: callbackQueue
@@ -1081,7 +1081,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                                 // Return now if there was an error.
                                 if runResult.exitStatus != .terminated(code: 0) {
                                     // TODO: should this simply be an error?
-                                    // return completion(.failure(ProcessResult.Error.nonZeroExit(runResult)))
+                                    // return completion(.failure(AsyncProcessResult.Error.nonZeroExit(runResult)))
                                     evaluationResult.errorOutput = evaluationResult.compilerOutput
                                     return completion(.success(evaluationResult))
                                 }
@@ -1123,7 +1123,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         var sdkRootPath: AbsolutePath? = nil
         // Find SDKROOT on macOS using xcrun.
         #if os(macOS)
-        let foundPath = try? TSCBasic.Process.checkNonZeroExit(
+        let foundPath = try? AsyncProcess.checkNonZeroExit(
             args: "/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path")
         guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
             return nil

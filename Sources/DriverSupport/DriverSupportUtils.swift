@@ -66,7 +66,7 @@ public enum DriverSupport {
             return cachedSupportedFlagSet.intersection(trimmedFlagSet) == trimmedFlagSet
         }
         do {
-            let helpJob = try Process.launchProcess(
+            let helpJob = try TSCBasic.Process.launchProcess(
                 arguments: [swiftcPathString, "-h"],
                 env: ProcessEnv.vars
             )

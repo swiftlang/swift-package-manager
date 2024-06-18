@@ -13,7 +13,7 @@
 @testable import PackageModel
 import XCTest
 
-import struct TSCBasic.ProcessResult
+import struct Basics.AsyncProcessResult
 
 class MinimumDeploymentTargetTests: XCTestCase {
     func testDoesNotAssertWithNoOutput() throws {
@@ -21,7 +21,7 @@ class MinimumDeploymentTargetTests: XCTestCase {
         // these tests eventually call `xcrun`.
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
-        let result = ProcessResult(arguments: [],
+        let result = AsyncProcessResult(arguments: [],
                                    environmentBlock: [:],
                                    exitStatus: .terminated(code: 0),
                                    output: "".asResult,
@@ -35,7 +35,7 @@ class MinimumDeploymentTargetTests: XCTestCase {
         // these tests eventually call `xcrun`.
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
-        let result = ProcessResult(arguments: [],
+        let result = AsyncProcessResult(arguments: [],
                                    environmentBlock: [:],
                                    exitStatus: .terminated(code: 0),
                                    output: "some string".asResult,
@@ -49,7 +49,7 @@ class MinimumDeploymentTargetTests: XCTestCase {
         // these tests eventually call `xcrun`.
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
-        let result = ProcessResult(arguments: [],
+        let result = AsyncProcessResult(arguments: [],
                                    environmentBlock: [:],
                                    exitStatus: .terminated(code: 0),
                                    output: .failure(DummyError()),
