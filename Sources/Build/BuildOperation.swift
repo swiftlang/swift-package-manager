@@ -36,6 +36,11 @@ import DriverSupport
 import SwiftDriver
 #endif
 
+struct BuildManifestDescription {
+    let description: BuildDescription
+    let manifest: LLBuildManifest
+}
+
 public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem, BuildErrorAdviceProvider {
     /// The delegate used by the build system.
     public weak var delegate: SPMBuildCore.BuildSystemDelegate?
@@ -47,7 +52,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     let toolsBuildParameters: BuildParameters
 
     /// The closure for loading the package graph.
-    let packageGraphLoader: () throws -> ModulesGraph
+    let packageGraphLoader: () async throws -> ModulesGraph
 
     /// the plugin configuration for build plugins
     let pluginConfiguration: PluginConfiguration?
@@ -94,7 +99,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     private let observabilityScope: ObservabilityScope
 
     public var builtTestProducts: [BuiltTestProduct] {
-        (try? getBuildDescription())?.builtTestProducts ?? []
+        get async {
+            (try? await getBuildDescription())?.builtTestProducts ?? []
+        }
     }
 
     /// File rules to determine resource handling behavior.
@@ -113,7 +120,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
         cacheBuildManifest: Bool,
-        packageGraphLoader: @escaping () throws -> ModulesGraph,
+        packageGraphLoader: @escaping () async throws -> ModulesGraph,
         pluginConfiguration: PluginConfiguration? = .none,
         scratchDirectory: AbsolutePath,
         additionalFileRules: [FileRuleDescription],
@@ -148,9 +155,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Operation")
     }
 
-    public func getPackageGraph() throws -> ModulesGraph {
-        try self.packageGraph.memoize {
-            try self.packageGraphLoader()
+    public var modulesGraph: ModulesGraph {
+        get async throws {
+            try await self.packageGraph.memoize {
+                try await self.packageGraphLoader()
+            }
         }
     }
 
@@ -158,8 +167,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     ///
     /// This will try skip build planning if build manifest caching is enabled
     /// and the package structure hasn't changed.
-    public func getBuildDescription(subset: BuildSubset? = nil) throws -> BuildDescription {
-        return try self.buildDescription.memoize {
+    public func getBuildDescription(subset: BuildSubset? = nil) async throws -> BuildDescription {
+        return try await self.buildDescription.memoize {
             if self.cacheBuildManifest {
                 do {
                     // if buildPackageStructure returns a valid description we use that, otherwise we perform full planning
@@ -182,12 +191,12 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 }
             }
             // We need to perform actual planning if we reach here.
-            return try self.plan(subset: subset).description
+            return try await self.plan(subset: subset).description
         }
     }
 
-    public func getBuildManifest() throws -> LLBuildManifest {
-        return try self.plan().manifest
+    public func getBuildManifest() async throws -> LLBuildManifest {
+        return try await self.plan().manifest
     }
 
     /// Cancel the active build operation.
@@ -337,7 +346,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Perform a build using the given build description and subset.
-    public func build(subset: BuildSubset) throws {
+    public func build(subset: BuildSubset) async throws {
         guard !self.productsBuildParameters.shouldSkipBuilding else {
             return
         }
@@ -347,7 +356,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Get the build description (either a cached one or newly created).
 
         // Get the build description
-        let buildDescription = try getBuildDescription(subset: subset)
+        let buildDescription = try await getBuildDescription(subset: subset)
 
         // Verify dependency imports on the described targets
         try verifyTargetImports(in: buildDescription)
@@ -361,7 +370,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // If any plugins are part of the build set, compile them now to surface
         // any errors up-front. Returns true if we should proceed with the build
         // or false if not. It will already have thrown any appropriate error.
-        guard try self.compilePlugins(in: subset) else {
+        guard try await self.compilePlugins(in: subset) else {
             return
         }
 
@@ -369,7 +378,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         progressTracker.buildStart(configuration: self.productsBuildParameters.configuration)
 
         // Perform the build.
-        let llbuildTarget = try computeLLBuildTargetName(for: subset)
+        let llbuildTarget = try await computeLLBuildTargetName(for: subset)
         let success = buildSystem.build(target: llbuildTarget)
 
         let duration = buildStartTime.distance(to: .now())
@@ -422,10 +431,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// true if the build should proceed. Throws an error in case of failure. A
     /// reason why the build might not proceed even on success is if only plugins
     /// should be compiled.
-    func compilePlugins(in subset: BuildSubset) throws -> Bool {
+    func compilePlugins(in subset: BuildSubset) async throws -> Bool {
         // Figure out what, if any, plugin descriptions to compile, and whether
         // to continue building after that based on the subset.
-        let allPlugins = try getBuildDescription().pluginDescriptions
+        let allPlugins = try await getBuildDescription().pluginDescriptions
         let pluginsToCompile: [PluginDescription]
         let continueBuilding: Bool
         switch subset {
@@ -518,7 +527,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Compute the llbuild target name using the given subset.
-    func computeLLBuildTargetName(for subset: BuildSubset) throws -> String {
+    func computeLLBuildTargetName(for subset: BuildSubset) async throws -> String {
         switch subset {
         case .allExcludingTests:
             return LLBuildManifestBuilder.TargetKind.main.targetName
@@ -526,7 +535,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return LLBuildManifestBuilder.TargetKind.test.targetName
         case .product(let productName, let destination):
             // FIXME: This is super unfortunate that we might need to load the package graph.
-            let graph = try getPackageGraph()
+            let graph = try await self.modulesGraph
 
             let buildTriple: BuildTriple? = if let destination {
                 destination == .host ? .tools : .destination
@@ -562,7 +571,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return try product.getLLBuildTargetName(buildParameters: buildParameters)
         case .target(let targetName, let destination):
             // FIXME: This is super unfortunate that we might need to load the package graph.
-            let graph = try getPackageGraph()
+            let graph = try await self.modulesGraph
 
             let buildTriple: BuildTriple? = if let destination {
                 destination == .host ? .tools : .destination
@@ -591,9 +600,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Create the build plan and return the build description.
-    private func plan(subset: BuildSubset? = nil) throws -> (description: BuildDescription, manifest: LLBuildManifest) {
+    private func plan(subset: BuildSubset? = nil) async throws -> BuildManifestDescription {
         // Load the package graph.
-        let graph = try getPackageGraph()
+        let graph = try await self.modulesGraph
         let buildToolPluginInvocationResults: [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])]
         let prebuildCommandResults: [ResolvedModule.ID: [PrebuildCommandResult]]
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
@@ -624,7 +633,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 observabilityScope: self.observabilityScope
             )
 
-            buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
+            buildToolPluginInvocationResults = try await graph.invokeBuildToolPlugins(
                 outputDir: pluginConfiguration.workDirectory.appending("outputs"),
                 buildParameters: pluginsBuildParameters,
                 additionalFileRules: self.additionalFileRules,
@@ -634,7 +643,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 observabilityScope: self.observabilityScope,
                 fileSystem: self.fileSystem
             ) { name, path in
-                try buildOperationForPluginDependencies.build(subset: .product(name, for: .host))
+                try await buildOperationForPluginDependencies.build(subset: .product(name, for: .host))
                 if let builtTool = try buildOperationForPluginDependencies.buildPlan.buildProducts.first(where: {
                     $0.product.name == name && $0.buildParameters.destination == .host
                 }) {
@@ -743,7 +752,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         )
 
         // Finally create the llbuild manifest from the plan.
-        return (buildDescription, buildManifest)
+        return .init(description: buildDescription, manifest: buildManifest)
     }
 
     /// Build the package structure target.
@@ -871,7 +880,16 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     public func packageStructureChanged() -> Bool {
         do {
-            _ = try self.plan()
+            _ = try temp_await { (callback: @escaping (Result<BuildManifestDescription, any Error>) -> Void) in
+                _Concurrency.Task {
+                    do {
+                        let value = try await self.plan()
+                        callback(.success(value))
+                    } catch {
+                        callback(.failure(error))
+                    }
+                }
+            }
         }
         catch Diagnostics.fatalError {
             return false

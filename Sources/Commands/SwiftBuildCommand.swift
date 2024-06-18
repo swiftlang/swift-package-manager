@@ -143,7 +143,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             guard let buildOperation = try swiftCommandState.createBuildSystem(explicitBuildSystem: .native) as? BuildOperation else {
                 throw StringError("asked for native build system but did not get it")
             }
-            let buildManifest = try buildOperation.getBuildManifest()
+            let buildManifest = try await buildOperation.getBuildManifest()
             var serializer = DOTManifestSerializer(manifest: buildManifest)
             // print to stdout
             let outputStream = stdoutStream
@@ -183,10 +183,10 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             for library in try options.testLibraryOptions.enabledTestingLibraries(swiftCommandState: swiftCommandState) {
                 updateTestingParameters(of: &productsBuildParameters, library: library)
                 updateTestingParameters(of: &toolsBuildParameters, library: library)
-                try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
+                try await build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
             }
         } else {
-            try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
+            try await build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
         }
     }
 
@@ -195,7 +195,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         subset: BuildSubset,
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters
-    ) throws {
+    ) async throws {
         let buildSystem = try swiftCommandState.createBuildSystem(
             explicitProduct: options.product,
             shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
@@ -206,7 +206,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             outputStream: TSCBasic.stdoutStream
         )
         do {
-            try buildSystem.build(subset: subset)
+            try await buildSystem.build(subset: subset)
         } catch _ as Diagnostics {
             throw ExitCode.failure
         }

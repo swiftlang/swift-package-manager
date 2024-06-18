@@ -222,10 +222,10 @@ extension PluginTarget {
             }
 
             /// Invoked when the plugin emits a message. The `responder` closure can be used to send any reply messages.
-            func handleMessage(data: Data, responder: @escaping (Data) -> Void) throws {
+            func handleMessage(data: Data, responder: @escaping (Data) -> Void) async throws {
                 let message = try PluginToHostMessage(data)
                 switch message {
-                    
+
                 case .emitDiagnostic(let severity, let message, let file, let line):
                     let metadata: ObservabilityMetadata? = file.map {
                         var metadata = ObservabilityMetadata()
@@ -279,49 +279,40 @@ extension PluginTarget {
                     }
 
                 case .buildOperationRequest(let subset, let parameters):
-                    self.invocationDelegate.pluginRequestedBuildOperation(subset: .init(subset), parameters: .init(parameters)) {
+                    do {
                         do {
-                            switch $0 {
-                            case .success(let result):
-                                responder(try HostToPluginMessage.buildOperationResponse(result: .init(result)).toData())
-                            case .failure(let error):
-                                responder(try HostToPluginMessage.errorResponse(error: String(describing: error)).toData())
-                            }
+                            let result = try await self.invocationDelegate.pluginRequestedBuildOperation(subset: .init(subset), parameters: .init(parameters))
+                            responder(try HostToPluginMessage.buildOperationResponse(result: .init(result)).toData())
+                        } catch {
+                            responder(try HostToPluginMessage.errorResponse(error: String(describing: error)).toData())
                         }
-                        catch {
-                            self.observabilityScope.emit(debug: "couldn't send reply to plugin", underlyingError: error)
-                        }
+                    } catch {
+                        self.observabilityScope.emit(debug: "couldn't send reply to plugin", underlyingError: error)
                     }
 
                 case .testOperationRequest(let subset, let parameters):
-                    self.invocationDelegate.pluginRequestedTestOperation(subset: .init(subset), parameters: .init(parameters)) {
+                    do {
                         do {
-                            switch $0 {
-                            case .success(let result):
-                                responder(try HostToPluginMessage.testOperationResponse(result: .init(result)).toData())
-                            case .failure(let error):
-                                responder(try HostToPluginMessage.errorResponse(error: String(describing: error)).toData())
-                            }
+                            let result = try await self.invocationDelegate.pluginRequestedTestOperation(subset: .init(subset), parameters: .init(parameters))
+                            responder(try HostToPluginMessage.testOperationResponse(result: .init(result)).toData())
+                        } catch {
+                            responder(try HostToPluginMessage.errorResponse(error: String(describing: error)).toData())
                         }
-                        catch {
-                            self.observabilityScope.emit(debug: "couldn't send reply to plugin", underlyingError: error)
-                        }
+                    } catch {
+                        self.observabilityScope.emit(debug: "couldn't send reply to plugin", underlyingError: error)
                     }
 
                 case .symbolGraphRequest(let targetName, let options):
                     // The plugin requested symbol graph information for a target. We ask the delegate and then send a response.
-                    self.invocationDelegate.pluginRequestedSymbolGraph(forTarget: .init(targetName), options: .init(options)) {
+                    do {
                         do {
-                            switch $0 {
-                            case .success(let result):
-                                responder(try HostToPluginMessage.symbolGraphResponse(result: .init(result)).toData())
-                            case .failure(let error):
-                                responder(try HostToPluginMessage.errorResponse(error: String(describing: error)).toData())
-                            }
+                            let result = try await self.invocationDelegate.pluginRequestedSymbolGraph(forTarget: .init(targetName), options: .init(options))
+                            responder(try HostToPluginMessage.symbolGraphResponse(result: .init(result)).toData())
+                        } catch {
+                            responder(try HostToPluginMessage.errorResponse(error: String(describing: error)).toData())
                         }
-                        catch {
-                            self.observabilityScope.emit(debug: "couldn't send reply to plugin", underlyingError: error)
-                        }
+                    } catch {
+                        self.observabilityScope.emit(debug: "couldn't send reply to plugin", underlyingError: error)
                     }
                 }
             }
@@ -401,8 +392,8 @@ extension ModulesGraph {
         pluginScriptRunner: PluginScriptRunner,
         observabilityScope: ObservabilityScope,
         fileSystem: FileSystem,
-        builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath? = { _, _ in return nil }
-    ) throws -> [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] {
+        builtToolHandler: (_ name: String, _ path: RelativePath) async throws -> AbsolutePath? = { _, _ in return nil }
+    ) async throws -> [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] {
         var pluginResultsByTarget: [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] = [:]
         for target in self.allTargets.sorted(by: { $0.name < $1.name }) {
             // Infer plugins from the declared dependencies, and collect them as well as any regular dependencies. Although usage of build tool plugins is declared separately from dependencies in the manifest, in the internal model we currently consider both to be dependencies.
@@ -439,9 +430,9 @@ extension ModulesGraph {
                 // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
                 // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
                 var builtToolNames: [String] = []
-                let accessibleTools = try pluginTarget.processAccessibleTools(packageGraph: self, fileSystem: fileSystem, environment: buildParameters.buildEnvironment, for: try pluginScriptRunner.hostTriple) { name, path in
+                let accessibleTools = try await pluginTarget.processAccessibleTools(packageGraph: self, fileSystem: fileSystem, environment: buildParameters.buildEnvironment, for: try pluginScriptRunner.hostTriple) { name, path in
                     builtToolNames.append(name)
-                    if let result = try builtToolHandler(name, path) {
+                    if let result = try await builtToolHandler(name, path) {
                         return result
                     } else {
                         return buildParameters.buildPath.appending(path)
@@ -700,13 +691,19 @@ public extension PluginTarget {
         })
     }
 
-    func processAccessibleTools(packageGraph: ModulesGraph, fileSystem: FileSystem, environment: BuildEnvironment, for hostTriple: Triple, builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath?) throws -> [String: (path: AbsolutePath, triples: [String]?)] {
+    func processAccessibleTools(
+        packageGraph: ModulesGraph,
+        fileSystem: FileSystem,
+        environment: BuildEnvironment,
+        for hostTriple: Triple,
+        builtToolHandler: (_ name: String, _ path: RelativePath) async throws -> AbsolutePath?
+    ) async throws -> [String: (path: AbsolutePath, triples: [String]?)] {
         var pluginAccessibleTools: [String: (path: AbsolutePath, triples: [String]?)] = [:]
 
         for dep in try accessibleTools(packageGraph: packageGraph, fileSystem: fileSystem, environment: environment, for: hostTriple) {
             switch dep {
             case .builtTool(let name, let path):
-                if let path = try builtToolHandler(name, path) {
+                if let path = try await builtToolHandler(name, path) {
                     pluginAccessibleTools[name] = (path, nil)
                 }
             case .vendedTool(let name, let path, let triples):
@@ -839,13 +836,22 @@ public protocol PluginInvocationDelegate {
     func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool
     
     /// Called when a plugin requests a build operation through the PackagePlugin APIs.
-    func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters, completion: @escaping (Result<PluginInvocationBuildResult, Error>) -> Void)
+    func pluginRequestedBuildOperation(
+        subset: PluginInvocationBuildSubset,
+        parameters: PluginInvocationBuildParameters
+    ) async throws -> PluginInvocationBuildResult
 
     /// Called when a plugin requests a test operation through the PackagePlugin APIs.
-    func pluginRequestedTestOperation(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters, completion: @escaping (Result<PluginInvocationTestResult, Error>) -> Void)
+    func pluginRequestedTestOperation(
+        subset: PluginInvocationTestSubset,
+        parameters: PluginInvocationTestParameters
+    ) async throws -> PluginInvocationTestResult
 
     /// Called when a plugin requests that the host computes and returns symbol graph information for a particular target.
-    func pluginRequestedSymbolGraph(forTarget name: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void)
+    func pluginRequestedSymbolGraph(
+        forTarget name: String,
+        options: PluginInvocationSymbolGraphOptions
+    ) async throws -> PluginInvocationSymbolGraphResult
 }
 
 public struct PluginInvocationSymbolGraphOptions {
@@ -965,14 +971,24 @@ public extension PluginInvocationDelegate {
     func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool {
         return true
     }
-    func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters, completion: @escaping (Result<PluginInvocationBuildResult, Error>) -> Void) {
-        DispatchQueue.sharedConcurrent.async { completion(Result.failure(StringError("unimplemented"))) }
+    func pluginRequestedBuildOperation(
+        subset: PluginInvocationBuildSubset,
+        parameters: PluginInvocationBuildParameters
+    ) async throws -> PluginInvocationBuildResult {
+        throw StringError("unimplemented")
     }
-    func pluginRequestedTestOperation(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters, completion: @escaping (Result<PluginInvocationTestResult, Error>) -> Void) {
-        DispatchQueue.sharedConcurrent.async { completion(Result.failure(StringError("unimplemented"))) }
+    func pluginRequestedTestOperation(
+        subset: PluginInvocationTestSubset,
+        parameters: PluginInvocationTestParameters
+    ) async throws -> PluginInvocationTestResult {
+        throw StringError("unimplemented")
     }
-    func pluginRequestedSymbolGraph(forTarget name: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void) {
-        DispatchQueue.sharedConcurrent.async { completion(Result.failure(StringError("unimplemented"))) }
+
+    func pluginRequestedSymbolGraph(
+        forTarget name: String,
+        options: PluginInvocationSymbolGraphOptions
+    ) async throws -> PluginInvocationSymbolGraphResult {
+        throw StringError("unimplemented")
     }
 }
 
