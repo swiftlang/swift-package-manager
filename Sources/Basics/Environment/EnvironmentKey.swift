@@ -10,15 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-internal import Foundation
-
 /// A key used to access values in an ``Environment``.
 ///
 /// This type respects the compiled platform's case sensitivity requirements.
 public struct EnvironmentKey {
     public var rawValue: String
 
-    public init(_ rawValue: String) {
+    package init(_ rawValue: String) {
         self.rawValue = rawValue
     }
 }

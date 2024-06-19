@@ -185,13 +185,8 @@ let package = Package(
         .systemLibrary(name: "SPMSQLite3", pkgConfig: systemSQLitePkgConfig),
 
         .target(
-            name: "Environment",
-            exclude: ["CMakeLists.txt"]),
-
-        .target(
             name: "Basics",
             dependencies: [
-                "Environment",
                 "SPMSQLite3",
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
@@ -626,10 +621,6 @@ let package = Package(
                 "SPMTestSupport",
             ]
         ),
-
-        .testTarget(
-            name: "EnvironmentTests",
-            dependencies: ["Environment"]),
 
         .testTarget(
             name: "BasicsTests",

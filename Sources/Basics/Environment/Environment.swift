@@ -10,22 +10,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-internal import Foundation
-internal import Synchronization
+import Foundation
 
-#if canImport(Glibc)
-import Glibc
-#elseif canImport(Musl)
-import Musl
-#elseif os(Windows)
-import CRT
-import WinSDK
+#if USE_IMPL_ONLY_IMPORTS
+@_implementationOnly import TSCclibc
 #else
-import Darwin.C
+import TSCclibc
 #endif
 
 // FIXME: Use Synchronization.Mutex when available
-struct Mutex<T>: @unchecked Sendable {
+class Mutex<T>: @unchecked Sendable {
     var lock: NSLock
     var value: T
 
@@ -34,7 +28,7 @@ struct Mutex<T>: @unchecked Sendable {
         self.value = value
     }
 
-    mutating func withLock<U>(_ body: (inout T) -> U) -> U {
+    func withLock<U>(_ body: (inout T) -> U) -> U {
         self.lock.lock()
         defer { self.lock.unlock() }
         return body(&self.value)
@@ -111,7 +105,7 @@ extension Environment {
 
 // MARK: - Global Environment
 extension Environment {
-    static var _cachedCurrent = Mutex<Self?>(value: nil)
+    static let _cachedCurrent = Mutex<Self?>(value: nil)
 
     /// Vends a copy of the current process's environment variables.
     ///

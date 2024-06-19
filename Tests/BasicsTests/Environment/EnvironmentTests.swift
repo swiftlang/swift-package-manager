@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import Environment
+@testable import Basics
 import XCTest
 
 final class EnvironmentTests: XCTestCase {

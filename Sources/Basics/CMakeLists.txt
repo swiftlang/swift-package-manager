@@ -25,7 +25,9 @@ add_library(Basics
   Concurrency/ThreadSafeKeyValueStore.swift
   Concurrency/TokenBucket.swift
   DispatchTimeInterval+Extensions.swift
-  EnvironmentVariables.swift
+  Environment/Environment.swift
+  Environment/EnvironmentKey.swift
+  Environment/EnvironmentShims.swift
   Errors.swift
   FileSystem/AbsolutePath.swift
   FileSystem/FileSystem+Extensions.swift
@@ -73,7 +75,6 @@ add_library(Basics
   Vendor/Triple.swift
   Vendor/Triple+Platforms.swift)
 target_link_libraries(Basics PUBLIC
-  Environment
   SwiftCollections::DequeModule
   SwiftCollections::OrderedCollections
   SwiftSystem::SystemPackage

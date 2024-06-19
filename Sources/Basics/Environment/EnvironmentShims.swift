@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_exported import Environment
 import struct TSCBasic.ProcessEnvironmentBlock
 
 import class TSCBasic.Process

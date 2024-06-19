@@ -17,7 +17,6 @@ import SPMBuildCore
 import SPMLLBuild
 
 import class TSCBasic.LocalFileOutputByteStream
-import enum TSCBasic.ProcessEnv
 
 import class TSCUtility.IndexStore
 
