@@ -426,7 +426,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Figure out what, if any, plugin descriptions to compile, and whether
         // to continue building after that based on the subset.
         let allPlugins = try getBuildDescription().pluginDescriptions
-        let pluginsToCompile: [PluginDescription]
+        let pluginsToCompile: [PluginBuildDescription]
         let continueBuilding: Bool
         switch subset {
         case .allExcludingTests, .allIncludingTests:
@@ -436,7 +436,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             pluginsToCompile = allPlugins.filter{ $0.productNames.contains(productName) }
             continueBuilding = pluginsToCompile.isEmpty
         case .target(let targetName, _):
-            pluginsToCompile = allPlugins.filter{ $0.targetName == targetName }
+            pluginsToCompile = allPlugins.filter{ $0.moduleName == targetName }
             continueBuilding = pluginsToCompile.isEmpty
         }
 
@@ -453,7 +453,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     // Compiles a single plugin, emitting its output and throwing an error if it
     // fails.
-    func compilePlugin(_ plugin: PluginDescription) throws {
+    func compilePlugin(_ plugin: PluginBuildDescription) throws {
         guard let pluginConfiguration else {
             throw InternalError("unknown plugin script runner")
         }
@@ -497,13 +497,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             }
         }
         let delegate = Delegate(
-            preparationStepName: "Compiling plugin \(plugin.targetName)",
+            preparationStepName: "Compiling plugin \(plugin.moduleName)",
             progressTracker: self.current?.tracker
         )
         let result = try temp_await {
             pluginConfiguration.scriptRunner.compilePluginScript(
                 sourceFiles: plugin.sources.paths,
-                pluginName: plugin.targetName,
+                pluginName: plugin.moduleName,
                 toolsVersion: plugin.toolsVersion,
                 observabilityScope: self.observabilityScope,
                 callbackQueue: DispatchQueue.sharedConcurrent,
@@ -570,7 +570,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 nil
             }
 
-            let target = graph.target(
+            let target = graph.module(
                 for: targetName,
                 destination: buildTriple
             )
@@ -651,7 +651,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 for result in results {
                     let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
                         var metadata = ObservabilityMetadata()
-                        metadata.targetName = target.name
+                        metadata.moduleName = target.name
                         metadata.pluginName = result.plugin.name
                         return metadata
                     }
@@ -670,7 +670,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             }
 
             // Run any prebuild commands provided by build tool plugins. Any failure stops the build.
-            prebuildCommandResults = try graph.reachableTargets.reduce(into: [:], { partial, target in
+            prebuildCommandResults = try graph.reachableModules.reduce(into: [:], { partial, target in
                 partial[target.id] = try buildToolPluginInvocationResults[target.id].map {
                     try self.runPrebuildCommands(for: $0.results)
                 }
@@ -687,7 +687,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             subset.recursiveDependencies(for: graph, observabilityScope: observabilityScope) {
             targetsToConsider = recursiveDependencies
         } else {
-            targetsToConsider = Array(graph.reachableTargets)
+            targetsToConsider = Array(graph.reachableModules)
         }
 
         for target in targetsToConsider {
@@ -711,7 +711,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 var metadata = ObservabilityMetadata()
                 metadata.packageIdentity = package.identity
                 metadata.packageKind = package.manifest.packageKind
-                metadata.targetName = target.name
+                metadata.moduleName = target.name
                 return metadata
             }
             var warning = "found \(unhandledFiles.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
@@ -947,9 +947,9 @@ extension BuildSubset {
     func recursiveDependencies(for graph: ModulesGraph, observabilityScope: ObservabilityScope) throws -> [ResolvedModule]? {
         switch self {
         case .allIncludingTests:
-            return Array(graph.reachableTargets)
+            return Array(graph.reachableModules)
         case .allExcludingTests:
-            return graph.reachableTargets.filter { $0.type != .test }
+            return graph.reachableModules.filter { $0.type != .test }
         case .product(let productName, let destination):
             let buildTriple: BuildTriple? = if let destination {
                 destination == .host ? .tools : .destination
@@ -964,7 +964,7 @@ extension BuildSubset {
                 observabilityScope.emit(error: "no product named '\(productName)'")
                 return nil
             }
-            return try product.recursiveTargetDependencies()
+            return try product.recursiveModuleDependencies()
         case .target(let targetName, let destination):
             let buildTriple: BuildTriple? = if let destination {
                 destination == .host ? .tools : .destination
@@ -972,14 +972,14 @@ extension BuildSubset {
                 nil
             }
 
-            guard let target = graph.target(
+            guard let target = graph.module(
                 for: targetName,
                 destination: buildTriple
             ) else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 return nil
             }
-            return try target.recursiveTargetDependencies()
+            return try target.recursiveModuleDependencies()
         }
     }
 }

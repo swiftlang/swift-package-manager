@@ -260,7 +260,7 @@ enum BuildError: Swift.Error {
 
 public struct BuildPlanResult {
     public let plan: Build.BuildPlan
-    public let targetMap: [ResolvedModule.ID: TargetBuildDescription]
+    public let targetMap: [ResolvedModule.ID: ModuleBuildDescription]
     public let productMap: [ResolvedProduct.ID: Build.ProductBuildDescription]
 
     public init(plan: Build.BuildPlan) throws {
@@ -273,7 +273,7 @@ public struct BuildPlanResult {
         self.targetMap = try Dictionary(
             throwingUniqueKeysWithValues: plan.targetMap.compactMap {
                 guard 
-                    let target = plan.graph.allTargets[$0] ??
+                    let target = plan.graph.allModules[$0] ??
                         IdentifiableSet(plan.derivedTestTargetsMap.values.flatMap { $0 })[$0]
                 else {
                     throw BuildError.error("Target \($0) not found.")
@@ -291,8 +291,8 @@ public struct BuildPlanResult {
         XCTAssertEqual(self.plan.productMap.count, count, file: file, line: line)
     }
 
-    public func target(for name: String) throws -> TargetBuildDescription {
-        let matchingIDs = targetMap.keys.filter({ $0.targetName == name })
+    public func moduleBuildDescription(for name: String) throws -> ModuleBuildDescription {
+        let matchingIDs = targetMap.keys.filter({ $0.moduleName == name })
         guard matchingIDs.count == 1, let target = targetMap[matchingIDs[0]] else {
             if matchingIDs.isEmpty {
                 throw BuildError.error("Target \(name) not found.")
@@ -317,20 +317,20 @@ public struct BuildPlanResult {
     }
 }
 
-extension TargetBuildDescription {
-    public func swiftTarget() throws -> SwiftTargetBuildDescription {
+extension ModuleBuildDescription {
+    public func swift() throws -> SwiftModuleBuildDescription {
         switch self {
-        case .swift(let target):
-            return target
+        case .swift(let description):
+            return description
         default:
             throw BuildError.error("Unexpected \(self) type found")
         }
     }
 
-    public func clangTarget() throws -> ClangTargetBuildDescription {
+    public func clang() throws -> ClangModuleBuildDescription {
         switch self {
-        case .clang(let target):
-            return target
+        case .clang(let description):
+            return description
         default:
             throw BuildError.error("Unexpected \(self) type")
         }

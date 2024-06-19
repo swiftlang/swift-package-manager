@@ -10,7 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-public final class PluginTarget: Target {
+@available(*, deprecated, renamed: "PluginModule")
+public typealias PluginTarget = PluginModule
+
+public final class PluginModule: Module {
+    /// Description of the module type used in `swift package describe` output. Preserved for backwards compatibility.
+    public override class var typeDescription: String { "PluginTarget" }
 
     /// Declared capability of the plugin.
     public let capability: PluginCapability
@@ -23,7 +28,7 @@ public final class PluginTarget: Target {
         sources: Sources,
         apiVersion: ToolsVersion,
         pluginCapability: PluginCapability,
-        dependencies: [Target.Dependency] = [],
+        dependencies: [Module.Dependency] = [],
         packageAccess: Bool
     ) {
         self.capability = pluginCapability

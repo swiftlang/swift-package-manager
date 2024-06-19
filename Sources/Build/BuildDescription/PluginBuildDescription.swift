@@ -16,52 +16,52 @@ import PackageModel
 import struct Basics.InternalError
 import protocol Basics.FileSystem
 
-/// Description for a plugin target. This is treated a bit differently from the
-/// regular kinds of targets, and is not included in the LLBuild description.
-/// But because the package graph and build plan are not loaded for incremental
+/// Description for a plugin module. This is treated a bit differently from the
+/// regular kinds of modules, and is not included in the LLBuild description.
+/// But because the modules graph and build plan are not loaded for incremental
 /// builds, this information is included in the BuildDescription, and the plugin
-/// targets are compiled directly.
-public final class PluginDescription: Codable {
+/// modules are compiled directly.
+public final class PluginBuildDescription: Codable {
     /// The identity of the package in which the plugin is defined.
     public let package: PackageIdentity
 
-    /// The name of the plugin target in that package (this is also the name of
+    /// The name of the plugin module in that package (this is also the name of
     /// the plugin).
-    public let targetName: String
+    public let moduleName: String
 
-    /// The language-level target name.
-    public let targetC99Name: String
+    /// The language-level module name.
+    public let moduleC99Name: String
 
     /// The names of any plugin products in that package that vend the plugin
     /// to other packages.
     public let productNames: [String]
 
-    /// The tools version of the package that declared the target. This affects
+    /// The tools version of the package that declared the module. This affects
     /// the API that is available in the PackagePlugin module.
     public let toolsVersion: ToolsVersion
 
     /// Swift source files that comprise the plugin.
     public let sources: Sources
 
-    /// Initialize a new plugin target description. The target is expected to be
+    /// Initialize a new plugin module description. The module is expected to be
     /// a `PluginTarget`.
     init(
-        target: ResolvedModule,
+        module: ResolvedModule,
         products: [ResolvedProduct],
         package: ResolvedPackage,
         toolsVersion: ToolsVersion,
         testDiscoveryTarget: Bool = false,
         fileSystem: FileSystem
     ) throws {
-        guard target.underlying is PluginTarget else {
-            throw InternalError("underlying target type mismatch \(target)")
+        guard module.underlying is PluginModule else {
+            throw InternalError("underlying target type mismatch \(module)")
         }
 
         self.package = package.identity
-        self.targetName = target.name
-        self.targetC99Name = target.c99name
+        self.moduleName = module.name
+        self.moduleC99Name = module.c99name
         self.productNames = products.map(\.name)
         self.toolsVersion = toolsVersion
-        self.sources = target.sources
+        self.sources = module.sources
     }
 }

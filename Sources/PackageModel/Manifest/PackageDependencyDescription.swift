@@ -140,7 +140,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
 
     // FIXME: we should simplify target based dependencies such that this is no longer required
     // A name to be used *only* for target dependencies resolution
-    public var nameForTargetDependencyResolutionOnly: String {
+    public var nameForModuleDependencyResolutionOnly: String {
         switch self {
         case .fileSystem(let settings):
             return settings.nameForTargetDependencyResolutionOnly ?? PackageIdentityParser.computeDefaultName(fromPath: settings.path)
@@ -158,7 +158,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
 
     // FIXME: we should simplify target based dependencies such that this is no longer required
     // A name to be used *only* for target dependencies resolution
-    public var explicitNameForTargetDependencyResolutionOnly: String? {
+    public var explicitNameForModuleDependencyResolutionOnly: String? {
         switch self {
         case .fileSystem(let settings):
             return settings.nameForTargetDependencyResolutionOnly

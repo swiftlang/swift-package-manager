@@ -12,7 +12,12 @@
 
 import struct Basics.AbsolutePath
 
-public final class SystemLibraryTarget: Target {
+@available(*, deprecated, renamed: "SystemLibraryModule")
+public typealias SystemLibraryTarget = SystemLibraryModule
+
+public final class SystemLibraryModule: Module {
+    /// Description of the module type used in `swift package describe` output. Preserved for backwards compatibility.
+    public override class var typeDescription: String { "SystemLibraryTarget" }
 
     /// The name of pkgConfig file, if any.
     public let pkgConfig: String?
@@ -20,8 +25,7 @@ public final class SystemLibraryTarget: Target {
     /// List of system package providers, if any.
     public let providers: [SystemPackageProviderDescription]?
 
-    /// True if this system library should become implicit target
-    /// dependency of its dependent packages.
+    /// True if this system library should become implicit dependency of its dependent packages.
     public let isImplicit: Bool
 
     public init(

@@ -11,7 +11,7 @@ add_library(Build
   BuildDescription/PluginDescription.swift
   BuildDescription/ProductBuildDescription.swift
   BuildDescription/ResolvedModule+BuildDescription.swift
-  BuildDescription/SwiftTargetBuildDescription.swift
+  BuildDescription/SwiftModuleBuildDescription.swift
   BuildDescription/TargetBuildDescription.swift
   BuildManifest/LLBuildManifestBuilder.swift
   BuildManifest/LLBuildManifestBuilder+Clang.swift

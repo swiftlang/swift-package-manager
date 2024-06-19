@@ -29,19 +29,19 @@ public enum ModuleError: Swift.Error {
     }
 
     /// Indicates two targets with the same name and their corresponding packages.
-    case duplicateModule(targetName: String, packages: [PackageIdentity])
+    case duplicateModule(moduleName: String, packages: [PackageIdentity])
 
     /// The referenced target could not be found.
     case moduleNotFound(String, TargetDescription.TargetType, shouldSuggestRelaxedSourceDir: Bool)
 
     /// The artifact for the binary target could not be found.
-    case artifactNotFound(targetName: String, expectedArtifactName: String)
+    case artifactNotFound(moduleName: String, expectedArtifactName: String)
 
     /// Invalid module alias.
     case invalidModuleAlias(originalName: String, newName: String)
 
     /// Invalid custom path.
-    case invalidCustomPath(target: String, path: String)
+    case invalidCustomPath(moduleName: String, path: String)
 
     /// Package layout is invalid.
     case invalidLayout(InvalidLayoutType)
@@ -83,13 +83,13 @@ public enum ModuleError: Swift.Error {
     case embedInCodeNotSupported(target: String)
 
     /// Indicates several targets with the same name exist in packages
-    case duplicateModules(package: PackageIdentity, otherPackage: PackageIdentity, targets: [String])
+    case duplicateModules(package: PackageIdentity, otherPackage: PackageIdentity, modules: [String])
 
     /// Indicates several targets with the same name exist in a registry and scm package
     case duplicateModulesScmAndRegistry(
         registryPackage: PackageIdentity.RegistryIdentity,
         scmPackage: PackageIdentity,
-        targets: [String]
+        modules: [String]
     )
 }
 
@@ -186,7 +186,7 @@ extension ModuleError.InvalidLayoutType: CustomStringConvertible {
     }
 }
 
-extension Target {
+extension Module {
     /// An error in the organization or configuration of an individual target.
     enum Error: Swift.Error {
         /// The target's name is invalid.
@@ -201,7 +201,7 @@ extension Target {
     }
 }
 
-extension Target.Error: CustomStringConvertible {
+extension Module.Error: CustomStringConvertible {
     var description: String {
         switch self {
         case .invalidName(let path, let problem):
@@ -212,7 +212,7 @@ extension Target.Error: CustomStringConvertible {
     }
 }
 
-extension Target.Error.ModuleNameProblem: CustomStringConvertible {
+extension Module.Error.ModuleNameProblem: CustomStringConvertible {
     var description: String {
         switch self {
         case .emptyName:
@@ -243,7 +243,7 @@ extension Product.Error: CustomStringConvertible {
 /// A structure representing the remote artifact information necessary to construct the package.
 public struct BinaryArtifact {
     /// The kind of the artifact.
-    public let kind: BinaryTarget.Kind
+    public let kind: BinaryModule.Kind
 
     /// The URL the artifact was downloaded from.
     public let originURL: String?
@@ -251,7 +251,7 @@ public struct BinaryArtifact {
     /// The path to the  artifact.
     public let path: AbsolutePath
 
-    public init(kind: BinaryTarget.Kind, originURL: String?, path: AbsolutePath) {
+    public init(kind: BinaryModule.Kind, originURL: String?, path: AbsolutePath) {
         self.kind = kind
         self.originURL = originURL
         self.path = path
@@ -381,7 +381,7 @@ public final class PackageBuilder {
     }
 
     /// Computes the special directory where targets are present or should be placed in future.
-    private func findTargetSpecialDirs(_ targets: [Target]) -> (targetDir: String, testTargetDir: String) {
+    private func findTargetSpecialDirs(_ targets: [Module]) -> (targetDir: String, testTargetDir: String) {
         let predefinedDirs = self.findPredefinedTargetDirectory()
 
         // Select the preferred tests directory.
@@ -419,7 +419,7 @@ public final class PackageBuilder {
         if basename.hasPrefix(".") { return false }
 
         // Ignore test entry point files.
-        if SwiftTarget.testEntryPointNames.contains(basename) { return false }
+        if SwiftModule.testEntryPointNames.contains(basename) { return false }
 
         // Ignore paths which are not valid files.
         if !self.fileSystem.isFile(path) {
@@ -452,7 +452,7 @@ public final class PackageBuilder {
     }
 
     /// Private function that creates and returns a list of targets defined by a package.
-    private func constructTargets() throws -> [Target] {
+    private func constructTargets() throws -> [Module] {
         // Check for a modulemap file, which indicates a system target.
         let moduleMapPath = self.packagePath.appending(component: moduleMapFilename)
         if self.fileSystem.isFile(moduleMapPath) {
@@ -471,7 +471,7 @@ public final class PackageBuilder {
             // Package contains a modulemap at the top level, so we assuming
             // it's a system library target.
             return [
-                SystemLibraryTarget(
+                SystemLibraryModule(
                     name: self.manifest.displayName, // FIXME: use identity instead?
                     path: self.packagePath,
                     isImplicit: true,
@@ -518,7 +518,7 @@ public final class PackageBuilder {
     }
 
     /// Construct targets according to PackageDescription 4 conventions.
-    private func constructV4Targets() throws -> [Target] {
+    private func constructV4Targets() throws -> [Module] {
         // Select the correct predefined directory list.
         let predefinedDirs = self.findPredefinedTargetDirectory()
 
@@ -539,12 +539,12 @@ public final class PackageBuilder {
         func findPath(for target: TargetDescription) throws -> AbsolutePath {
             if target.type == .binary {
                 guard let artifact = self.binaryArtifacts[target.name] else {
-                    throw ModuleError.artifactNotFound(targetName: target.name, expectedArtifactName: target.name)
+                    throw ModuleError.artifactNotFound(moduleName: target.name, expectedArtifactName: target.name)
                 }
                 return artifact.path
             } else if let targetPath = target.path, target.type == .providedLibrary {
                 guard let path = try? AbsolutePath(validating: targetPath) else {
-                    throw ModuleError.invalidCustomPath(target: target.name, path: targetPath)
+                    throw ModuleError.invalidCustomPath(moduleName: target.name, path: targetPath)
                 }
 
                 if !self.fileSystem.isDirectory(path) {
@@ -570,7 +570,7 @@ public final class PackageBuilder {
                 if self.fileSystem.isDirectory(path) {
                     return path
                 }
-                throw ModuleError.invalidCustomPath(target: target.name, path: subpath)
+                throw ModuleError.invalidCustomPath(moduleName: target.name, path: subpath)
             }
 
             // Check if target is present in the predefined directory.
@@ -625,7 +625,7 @@ public final class PackageBuilder {
 
         let targets = try createModules(potentialTargets)
 
-        let snippetTargets: [Target]
+        let snippetTargets: [Module]
 
         if self.manifest.packageKind.isRoot {
             // Snippets: depend on all available library targets in the package.
@@ -633,7 +633,7 @@ public final class PackageBuilder {
             let productTargets = Set(manifest.products.flatMap(\.targets))
             let snippetDependencies = targets
                 .filter { $0.type == .library && productTargets.contains($0.name) }
-                .map { Target.Dependency.target($0, conditions: []) }
+                .map { Module.Dependency.module($0, conditions: []) }
             snippetTargets = try createSnippetTargets(dependencies: snippetDependencies)
         } else {
             snippetTargets = []
@@ -643,7 +643,7 @@ public final class PackageBuilder {
     }
 
     // Create targets from the provided potential targets.
-    private func createModules(_ potentialModules: [PotentialModule]) throws -> [Target] {
+    private func createModules(_ potentialModules: [PotentialModule]) throws -> [Module] {
         // Find if manifest references a target which isn't present on disk.
         let allVisibleModuleNames = self.manifest.visibleModuleNames(for: self.productFilter)
         let potentialModulesName = Set(potentialModules.map(\.name))
@@ -717,7 +717,7 @@ public final class PackageBuilder {
         let potentialModules = try topologicalSort(potentialModules, successors: successors)
 
         // The created targets mapped to their name.
-        var targets = [String: Target]()
+        var targets = [String: Module]()
         // If a directory is empty, we don't create a target object for them.
         var emptyModules = Set<String>()
 
@@ -730,14 +730,14 @@ public final class PackageBuilder {
             let manifestTarget = manifest.targetMap[potentialModule.name]
 
             // Get the dependencies of this target.
-            let dependencies: [Target.Dependency] = try manifestTarget.map {
-                try $0.dependencies.compactMap { dependency -> Target.Dependency? in
+            let dependencies: [Module.Dependency] = try manifestTarget.map {
+                try $0.dependencies.compactMap { dependency -> Module.Dependency? in
                     switch dependency {
                     case .target(let name, let condition):
                         // We don't create an object for targets which have no sources.
                         if emptyModules.contains(name) { return nil }
                         guard let target = targets[name] else { return nil }
-                        return .target(target, conditions: buildConditions(from: condition))
+                        return .module(target, conditions: buildConditions(from: condition))
 
                     case .product(let name, let package, let moduleAliases, let condition):
                         try validateModuleAliases(moduleAliases)
@@ -749,7 +749,7 @@ public final class PackageBuilder {
                         // We don't create an object for targets which have no sources.
                         if emptyModules.contains(name) { return nil }
                         if let target = targets[name] {
-                            return .target(target, conditions: buildConditions(from: condition))
+                            return .module(target, conditions: buildConditions(from: condition))
                         } else if potentialModuleMap[name] == nil {
                             return .product(
                                 .init(name: name, package: nil),
@@ -763,17 +763,17 @@ public final class PackageBuilder {
             } ?? []
 
             // Get dependencies from the plugin usages of this target.
-            let pluginUsages: [Target.PluginUsage] = manifestTarget?.pluginUsages.map {
+            let pluginUsages: [Module.PluginUsage] = manifestTarget?.pluginUsages.map {
                 $0.compactMap { usage in
                     switch usage {
                     case .plugin(let name, let package):
                         if let package {
-                            return .product(Target.ProductReference(name: name, package: package), conditions: [])
+                            return .product(Module.ProductReference(name: name, package: package), conditions: [])
                         } else {
                             if let target = targets[name] {
-                                return .target(target, conditions: [])
+                                return .module(target, conditions: [])
                             } else if let targetName = pluginTargetName(for: name), let target = targets[targetName] {
-                                return .target(target, conditions: [])
+                                return .module(target, conditions: [])
                             } else {
                                 self.observabilityScope.emit(.pluginNotFound(name: name))
                                 return nil
@@ -813,7 +813,7 @@ public final class PackageBuilder {
     /// if there's a problem, it throws an error describing what the problem is.
     private func validateModuleName(_ path: AbsolutePath, _ name: String, isTest: Bool) throws {
         if name.isEmpty {
-            throw Target.Error.invalidName(
+            throw Module.Error.invalidName(
                 path: path.relative(to: self.packagePath),
                 problem: .emptyName
             )
@@ -837,8 +837,8 @@ public final class PackageBuilder {
     private func createTarget(
         potentialModule: PotentialModule,
         manifestTarget: TargetDescription?,
-        dependencies: [Target.Dependency]
-    ) throws -> Target? {
+        dependencies: [Module.Dependency]
+    ) throws -> Module? {
         guard let manifestTarget else { return nil }
 
         // Create system library target.
@@ -848,7 +848,7 @@ public final class PackageBuilder {
                 throw ModuleError.invalidLayout(.modulemapMissing(moduleMapPath))
             }
 
-            return SystemLibraryTarget(
+            return SystemLibraryModule(
                 name: potentialModule.name,
                 path: potentialModule.path, isImplicit: false,
                 pkgConfig: manifestTarget.pkgConfig,
@@ -858,15 +858,15 @@ public final class PackageBuilder {
             guard let artifact = self.binaryArtifacts[potentialModule.name] else {
                 throw InternalError("unknown binary artifact for '\(potentialModule.name)'")
             }
-            let artifactOrigin: BinaryTarget.Origin = artifact.originURL.flatMap { .remote(url: $0) } ?? .local
-            return BinaryTarget(
+            let artifactOrigin: BinaryModule.Origin = artifact.originURL.flatMap { .remote(url: $0) } ?? .local
+            return BinaryModule(
                 name: potentialModule.name,
                 kind: artifact.kind,
                 path: potentialModule.path,
                 origin: artifactOrigin
             )
         } else if potentialModule.type == .providedLibrary {
-            return ProvidedLibraryTarget(
+            return ProvidedLibraryModule(
                 name: potentialModule.name,
                 path: potentialModule.path
             )
@@ -882,7 +882,7 @@ public final class PackageBuilder {
                 let dupProductName = name.isEmpty ? dupProductID : name
                 self.observabilityScope.emit(.duplicateProduct(name: dupProductName, package: pkg))
             }
-            let dupTargetNames = dependencies.compactMap { $0.target?.name }.spm_findDuplicates()
+            let dupTargetNames = dependencies.compactMap { $0.module?.name }.spm_findDuplicates()
             for dupTargetName in dupTargetNames {
                 self.observabilityScope.emit(.duplicateTargetDependency(
                     dependency: dupTargetName,
@@ -911,7 +911,7 @@ public final class PackageBuilder {
         )
 
         // Compute the path to public headers directory.
-        let publicHeaderComponent = manifestTarget.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
+        let publicHeaderComponent = manifestTarget.publicHeadersPath ?? ClangModule.defaultPublicHeadersComponent
         let publicHeadersPath = try potentialModule.path.appending(RelativePath(validating: publicHeaderComponent))
         guard publicHeadersPath.isDescendantOfOrEqual(to: potentialModule.path) else {
             throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
@@ -954,7 +954,7 @@ public final class PackageBuilder {
             }
 
             // Create and return an PluginTarget configured with the information from the manifest.
-            return PluginTarget(
+            return PluginModule(
                 name: potentialModule.name,
                 sources: sources,
                 apiVersion: self.manifest.toolsVersion,
@@ -965,7 +965,7 @@ public final class PackageBuilder {
         }
 
         /// Determine the target's type, or leave nil to check the source directory.
-        let targetType: Target.Kind
+        let targetType: Module.Kind
         switch potentialModule.type {
         case .test:
             targetType = .test
@@ -987,7 +987,7 @@ public final class PackageBuilder {
 
         // Create and return the right kind of target depending on what kind of sources we found.
         if sources.hasSwiftSources {
-            return try SwiftTarget(
+            return try SwiftModule(
                 name: potentialModule.name,
                 potentialBundleName: potentialBundleName,
                 type: targetType,
@@ -1030,7 +1030,7 @@ public final class PackageBuilder {
                 throw ModuleError.embedInCodeNotSupported(target: potentialModule.name)
             }
 
-            return try ClangTarget(
+            return try ClangModule(
                 name: potentialModule.name,
                 potentialBundleName: potentialBundleName,
                 cLanguageStandard: self.manifest.cLanguageStandard,
@@ -1278,7 +1278,7 @@ public final class PackageBuilder {
     }
 
     /// Find the test entry point file for the package.
-    private func findTestEntryPoint(in testTargets: [Target]) throws -> AbsolutePath? {
+    private func findTestEntryPoint(in testTargets: [Module]) throws -> AbsolutePath? {
         if let testEntryPointPath {
             return testEntryPointPath
         }
@@ -1303,7 +1303,7 @@ public final class PackageBuilder {
                 }
                 // If we have already searched this path, skip.
                 if !pathsSearched.contains(searchPath) {
-                    for name in SwiftTarget.testEntryPointNames {
+                    for name in SwiftModule.testEntryPointNames {
                         let path = searchPath.appending(component: name)
                         if self.fileSystem.isFile(path) {
                             testEntryPointFiles.insert(path)
@@ -1328,7 +1328,7 @@ public final class PackageBuilder {
     }
 
     /// Collects the products defined by a package.
-    private func constructProducts(_ targets: [Target]) throws -> [Product] {
+    private func constructProducts(_ targets: [Module]) throws -> [Product] {
         var products = OrderedCollections.OrderedSet<KeyedPair<Product, String>>()
 
         /// Helper method to append to products array.
@@ -1344,9 +1344,9 @@ public final class PackageBuilder {
             guard target.type == .test else { return false }
             #if os(Linux)
             // FIXME: Ignore C language test targets on linux for now.
-            if target is ClangTarget {
+            if module is ClangModule {
                 self.observabilityScope
-                    .emit(.unsupportedCTestTarget(package: self.identity.description, target: target.name))
+                    .emit(.unsupportedCTestTarget(package: self.identity.description, module: module.name))
                 return false
             }
             #endif
@@ -1360,7 +1360,7 @@ public final class PackageBuilder {
                     package: self.identity,
                     name: testTarget.name,
                     type: .test,
-                    targets: [testTarget]
+                    modules: [testTarget]
                 )
                 append(product)
             }
@@ -1378,7 +1378,7 @@ public final class PackageBuilder {
                 package: self.identity,
                 name: productName,
                 type: .test,
-                targets: testModules,
+                modules: testModules,
                 testEntryPointPath: testEntryPointPath
             )
             append(product)
@@ -1388,7 +1388,7 @@ public final class PackageBuilder {
         let modulesMap = Dictionary(targets.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
 
         /// Helper method to get targets from target names.
-        func modulesFrom(targetNames names: [String], product: String) throws -> [Target] {
+        func modulesFrom(targetNames names: [String], product: String) throws -> [Module] {
             // Get targets from target names.
             try names.map { targetName in
                 // Ensure we have this target.
@@ -1415,7 +1415,7 @@ public final class PackageBuilder {
             let targets = try modulesFrom(targetNames: product.targets, product: product.name)
             // Perform special validations if this product is exporting
             // a system library target.
-            if targets.contains(where: { $0 is SystemLibraryTarget }) {
+            if targets.contains(where: { $0 is SystemLibraryModule }) {
                 if product.type != .library(.automatic) || targets.count != 1 {
                     self.observabilityScope.emit(.systemPackageProductValidation(product: product.name))
                     continue
@@ -1440,7 +1440,7 @@ public final class PackageBuilder {
                 }
             }
 
-            try append(Product(package: self.identity, name: product.name, type: product.type, targets: targets))
+            try append(Product(package: self.identity, name: product.name, type: product.type, modules: targets))
         }
 
         // Add implicit executables - for root packages and for dependency plugins.
@@ -1491,7 +1491,7 @@ public final class PackageBuilder {
                         package: self.identity,
                         name: target.name,
                         type: .executable,
-                        targets: [target]
+                        modules: [target]
                     )
                     append(product)
                 }
@@ -1509,7 +1509,7 @@ public final class PackageBuilder {
                     package: self.identity,
                     name: self.identity.description + Product.replProductSuffix,
                     type: .library(.dynamic),
-                    targets: libraryTargets
+                    modules: libraryTargets
                 )
                 append(replProduct)
             }
@@ -1518,19 +1518,19 @@ public final class PackageBuilder {
         // Create implicit snippet products
         try targets
             .filter { $0.type == .snippet }
-            .map { try Product(package: self.identity, name: $0.name, type: .snippet, targets: [$0]) }
+            .map { try Product(package: self.identity, name: $0.name, type: .snippet, modules: [$0]) }
             .forEach(append)
 
         // Create implicit macro products
         try targets
             .filter { $0.type == .macro }
-            .map { try Product(package: self.identity, name: $0.name, type: .macro, targets: [$0]) }
+            .map { try Product(package: self.identity, name: $0.name, type: .macro, modules: [$0]) }
             .forEach(append)
 
         return products.map(\.item)
     }
 
-    private func validateLibraryProduct(_ product: ProductDescription, with targets: [Target]) -> Bool {
+    private func validateLibraryProduct(_ product: ProductDescription, with targets: [Module]) -> Bool {
         let pluginTargets = targets.filter { $0.type == .plugin }
         guard pluginTargets.isEmpty else {
             self.observabilityScope.emit(.nonPluginProductWithPluginTargets(
@@ -1554,7 +1554,7 @@ public final class PackageBuilder {
         return true
     }
 
-    private func validateExecutableProduct(_ product: ProductDescription, with targets: [Target]) -> Bool {
+    private func validateExecutableProduct(_ product: ProductDescription, with targets: [Module]) -> Bool {
         let executableTargetCount = targets.executables.count
         guard executableTargetCount == 1 else {
             if executableTargetCount == 0 {
@@ -1581,7 +1581,7 @@ public final class PackageBuilder {
         return true
     }
 
-    private func validatePluginProduct(_ product: ProductDescription, with targets: [Target]) -> Bool {
+    private func validatePluginProduct(_ product: ProductDescription, with targets: [Module]) -> Bool {
         let nonPluginTargets = targets.filter { $0.type != .plugin }
         guard nonPluginTargets.isEmpty else {
             self.observabilityScope
@@ -1685,7 +1685,7 @@ extension Sources {
     }
 
     /// Determine target type based on the sources.
-    fileprivate func computeTargetType() -> Target.Kind {
+    fileprivate func computeTargetType() -> Module.Kind {
         let isLibrary = !relativePaths.contains { path in
             let file = path.basename.lowercased()
             // Look for a main.xxx file avoiding cases like main.xxx.xxx
@@ -1695,10 +1695,10 @@ extension Sources {
     }
 }
 
-extension Target.Dependency {
+extension Module.Dependency {
     fileprivate var nameAndType: String {
         switch self {
-        case .target:
+        case .module:
             "target-\(name)"
         case .product:
             "product-\(name)"
@@ -1709,7 +1709,7 @@ extension Target.Dependency {
 // MARK: - Snippets
 
 extension PackageBuilder {
-    private func createSnippetTargets(dependencies: [Target.Dependency]) throws -> [Target] {
+    private func createSnippetTargets(dependencies: [Module.Dependency]) throws -> [Module] {
         let snippetsDirectory = self.packagePath.appending("Snippets")
         guard self.fileSystem.isDirectory(snippetsDirectory) else {
             return []
@@ -1739,7 +1739,7 @@ extension PackageBuilder {
                     toolsSwiftVersion: self.toolsSwiftVersion()
                 )
 
-                return SwiftTarget(
+                return SwiftModule(
                     name: name,
                     type: .snippet,
                     path: .root,

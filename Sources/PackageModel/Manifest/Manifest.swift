@@ -351,7 +351,7 @@ public final class Manifest: Sendable {
     ) -> PackageDependency? {
         self.dependencies.first(where: {
             // rdar://80594761 make sure validation is case insensitive
-            $0.nameForTargetDependencyResolutionOnly.lowercased() == packageName.lowercased()
+            $0.nameForModuleDependencyResolutionOnly.lowercased() == packageName.lowercased()
         })
     }
 

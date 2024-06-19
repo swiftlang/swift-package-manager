@@ -22,8 +22,11 @@ import struct SPMBuildCore.PrebuildCommandResult
 
 import enum TSCBasic.ProcessEnv
 
-/// Target description for a Clang target i.e. C language family target.
-public final class ClangTargetBuildDescription {
+@available(*, deprecated, renamed: "ClangModuleBuildDescription")
+public typealias ClangTargetBuildDescription = ClangModuleBuildDescription
+
+/// Build description for a Clang target i.e. C language family module.
+public final class ClangModuleBuildDescription {
     /// The package this target belongs to.
     public let package: ResolvedPackage
 
@@ -31,7 +34,7 @@ public final class ClangTargetBuildDescription {
     public let target: ResolvedModule
 
     /// The underlying clang target.
-    public let clangTarget: ClangTarget
+    public let clangTarget: ClangModule
 
     /// The tools version of the package that declared the target.  This can
     /// can be used to conditionalize semantically significant changes in how
@@ -123,7 +126,7 @@ public final class ClangTargetBuildDescription {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
-        guard let clangTarget = target.underlying as? ClangTarget else {
+        guard let clangTarget = target.underlying as? ClangModule else {
             throw InternalError("underlying target type mismatch \(target)")
         }
 
