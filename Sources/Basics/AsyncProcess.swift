@@ -13,9 +13,17 @@ import Dispatch
 import Foundation
 
 #if os(Linux)
+#if USE_IMPL_ONLY_IMPORTS
+@_implementationOnly
 import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
+
+@_implementationOnly
 import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
-#endif
+#else
+private import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
+private import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
+#endif // #if USE_IMPL_ONLY_IMPORTS
+#endif // #if os(Linux)
 
 import class TSCBasic.CStringArray
 import class TSCBasic.LocalFileOutputByteStream
