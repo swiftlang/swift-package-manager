@@ -126,22 +126,6 @@ public final class SwiftTarget: Target {
         )
     }
 
-    private enum CodingKeys: String, CodingKey {
-        case declaredSwiftVersions
-    }
-
-    override public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.declaredSwiftVersions, forKey: .declaredSwiftVersions)
-        try super.encode(to: encoder)
-    }
-
-    public required init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.declaredSwiftVersions = try container.decode([SwiftLanguageVersion].self, forKey: .declaredSwiftVersions)
-        try super.init(from: decoder)
-    }
-
     public var supportsTestableExecutablesFeature: Bool {
         // Exclude macros from testable executables if they are built as dylibs.
         #if BUILD_MACROS_AS_DYLIBS
