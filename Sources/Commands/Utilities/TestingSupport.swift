@@ -183,7 +183,7 @@ enum TestingSupport {
         #if !os(macOS)
         #if os(Windows)
         if let location = toolchain.xctestPath {
-            env.prependPath("Path", value: location.pathString)
+            env.prependPath(key: .path, value: location.pathString)
         }
         #endif
         return env
