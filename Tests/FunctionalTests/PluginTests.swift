@@ -831,7 +831,8 @@ final class PluginTests: XCTestCase {
                             modulesGraph: packageGraph,
                             observabilityScope: observability.topScope,
                             callbackQueue: delegateQueue,
-                            delegate: delegate
+                            delegate: delegate, 
+                            arguments: []
                         )
                     } onCancel: {
                         do {

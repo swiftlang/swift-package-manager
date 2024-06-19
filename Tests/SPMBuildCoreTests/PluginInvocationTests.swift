@@ -57,7 +57,7 @@ final class PluginInvocationTests: XCTestCase {
                         TargetDescription(
                             name: "Foo",
                             type: .regular,
-                            pluginUsages: [.plugin(name: "FooPlugin", package: nil)]
+                            pluginUsages: [.plugin(name: "FooPlugin", package: nil, arguments: ["123", "321"])]
                         ),
                         TargetDescription(
                             name: "FooPlugin",

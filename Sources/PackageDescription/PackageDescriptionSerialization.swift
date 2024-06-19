@@ -207,7 +207,7 @@ enum Serialization {
     }
 
     enum PluginUsage: Codable {
-        case plugin(name: String, package: String?)
+        case plugin(name: String, package: String?, arguments: [String])
     }
 
     struct Target: Codable {

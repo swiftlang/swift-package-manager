@@ -161,7 +161,7 @@ public final class Target {
         /// The plug-in to apply to each target that uses it, and creates commands
         /// that run before or during the build of the target.
         @available(_PackageDescription, introduced: 5.5)
-        case buildTool
+        case buildTool(arguments: [String])
 
         /// Specifies that the plug-in provides a user command capability.
         ///
@@ -227,7 +227,7 @@ public final class Target {
         /// - Parameters:
         ///   - name: The name of the plug-in target.
         ///   - package: The name of the package that defines the plug-in target.
-        case plugin(name: String, package: String?)
+        case plugin(name: String, package: String?, arguments: [String])
     }
 
     /// Construct a target.
@@ -1424,7 +1424,7 @@ extension Target.PluginCapability {
     ///  - Returns: A plug-in capability that defines a build tool.
     @available(_PackageDescription, introduced: 5.5)
     public static func buildTool() -> Target.PluginCapability {
-        return .buildTool
+        return .buildTool(arguments: [])
     }
 }
 
@@ -1533,8 +1533,8 @@ extension Target.PluginUsage {
     /// - Parameter name: The name of the plugin target.
     /// - Returns: A `PluginUsage` instance.
     @available(_PackageDescription, introduced: 5.5)
-    public static func plugin(name: String) -> Target.PluginUsage {
-        return .plugin(name: name, package: nil)
+    public static func plugin(name: String, arguments: [String]) -> Target.PluginUsage {
+        return .plugin(name: name, package: nil, arguments: arguments)
     }
 }
 
@@ -1561,7 +1561,7 @@ extension Target.PluginUsage: ExpressibleByStringLiteral {
     ///
     /// - Parameter value: A string literal.
     public init(stringLiteral value: String) {
-        self = .plugin(name: value, package: nil)
+        self = .plugin(name: value, package: nil, arguments: [])
     }
 }
 
