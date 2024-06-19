@@ -254,6 +254,9 @@ extension Environment: Collection {
         var underlying: Dictionary<EnvironmentKey, String>.Index
     }
     public typealias Element = (key: EnvironmentKey, value: String)
+    // FIXME: Remove after upgrading past Swift 5.9
+    // Required to be explicitly spelled out on older Swift compilers.
+    public typealias Iterator = IndexingIterator<Self>
 
     public var startIndex: Index {
         Index(underlying: self.storage.startIndex)
