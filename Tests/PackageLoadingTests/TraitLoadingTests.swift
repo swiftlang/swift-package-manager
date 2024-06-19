@@ -300,7 +300,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
             ]
         )
         XCTAssertEqual(
-            manifest.moduleBuilders.first,
+            manifest.targets.first,
             try .init(
                 name: "Target",
                 dependencies: [
