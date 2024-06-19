@@ -19,7 +19,6 @@ import XCTest
 import SPMTestSupport
 import class Basics.ObservabilitySystem
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-import func PackageGraph.loadModulesGraph
 import class PackageModel.Manifest
 import struct PackageModel.TargetDescription
 
