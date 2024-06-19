@@ -3341,10 +3341,10 @@ final class BuildPlanTests: XCTestCase {
         graphResult.check(reachableTargets: "ATarget", "BTarget1")
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         graphResult.check(products: "aexec", "BLibrary")
-        graphResult.check(moduleBuilders: "ATarget", "BTarget1")
+        graphResult.check(modules: "ATarget", "BTarget1")
         #else
         graphResult.check(products: "BLibrary", "bexec", "aexec", "cexec")
-        graphResult.check(moduleBuilders: "ATarget", "BTarget1", "BTarget2", "CTarget")
+        graphResult.check(modules: "ATarget", "BTarget1", "BTarget2", "CTarget")
         #endif
 
         let planResult = try BuildPlanResult(plan: mockBuildPlan(
