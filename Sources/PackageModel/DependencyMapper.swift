@@ -133,13 +133,13 @@ public struct MappablePackageDependency {
     public let parentPackagePath: AbsolutePath
     public let kind: Kind
     public let productFilter: ProductFilter
-    public let traits: Set<PackageDependency.Trait>
+    public let traits: Set<PackageDependency.Trait>?
 
     public init(
         parentPackagePath: AbsolutePath,
         kind: Kind,
         productFilter: ProductFilter,
-        traits: Set<PackageDependency.Trait>
+        traits: Set<PackageDependency.Trait>?
     ) {
         self.parentPackagePath = parentPackagePath
         self.kind = kind

@@ -172,7 +172,7 @@ extension Serialization.PackageDependency {
     init(_ dependency: PackageDescription.Package.Dependency) {
         self.kind = .init(dependency.kind)
         self.moduleAliases = dependency.moduleAliases
-        self.traits = Set(dependency.traits?.map { Serialization.PackageDependency.Trait.init($0) } ?? [])
+        self.traits = Set(dependency.traits.map { Serialization.PackageDependency.Trait.init($0) })
     }
 }
 

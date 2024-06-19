@@ -22,7 +22,7 @@ public extension PackageDependency {
         deprecatedName: String? = nil,
         path: AbsolutePath,
         productFilter: ProductFilter = .everything,
-        traits: Set<Trait> = []
+        traits: Set<Trait> = [.init(name: "defaults")]
     ) -> Self {
         let identity = identity ?? PackageIdentity(path: path)
         return .fileSystem(
@@ -40,7 +40,7 @@ public extension PackageDependency {
         path: AbsolutePath,
         requirement: SourceControl.Requirement,
         productFilter: ProductFilter = .everything,
-        traits: Set<Trait> = []
+        traits: Set<Trait> = [.init(name: "defaults")]
     ) -> Self {
         let identity = identity ?? PackageIdentity(path: path)
         return .localSourceControl(
@@ -59,7 +59,7 @@ public extension PackageDependency {
         url: SourceControlURL,
         requirement: SourceControl.Requirement,
         productFilter: ProductFilter = .everything,
-        traits: Set<Trait> = []
+        traits: Set<Trait> = [.init(name: "defaults")]
     ) -> Self {
         let identity = identity ?? PackageIdentity(url: url)
         return .remoteSourceControl(
@@ -76,7 +76,7 @@ public extension PackageDependency {
         identity: String,
         requirement: Registry.Requirement,
         productFilter: ProductFilter = .everything,
-        traits: Set<Trait> = []
+        traits: Set<Trait> = [.init(name: "defaults")]
     ) -> Self {
         return .registry(
             identity: .plain(identity),

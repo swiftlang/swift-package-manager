@@ -37,7 +37,6 @@ extension ModulesGraph {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> ModulesGraph {
-
         let observabilityScope = observabilityScope.makeChildScope(description: "Loading Package Graph")
 
         // Create a map of the manifests, keyed by their identity.
@@ -51,43 +50,64 @@ extension ModulesGraph {
         let rootDependencies = Set(root.dependencies.compactMap{
             manifestMap[$0.identity]?.manifest
         })
-        let rootManifestNodes = root.packages.map { identity, package in
-            GraphLoadingNode(identity: identity, manifest: package.manifest, productFilter: .everything)
+
+        let rootManifestNodes = try root.packages.map { identity, package in
+            // We are going to enable all default traits of the root manifests.
+            // In a future PR we make this overridable by CLI options.
+            let enabledTraits = package.manifest.traits.lazy.filter { $0.isDefault }.map { $0.name }
+            return try GraphLoadingNode(
+                identity: identity,
+                manifest: package.manifest,
+                productFilter: .everything,
+                enabledTraits: Set(enabledTraits)
+            )
         }
-        let rootDependencyNodes = root.dependencies.lazy.compactMap { dependency in
-            manifestMap[dependency.identity].map {
-                GraphLoadingNode(
+        let rootDependencyNodes = try root.dependencies.lazy.compactMap { dependency in
+            try manifestMap[dependency.identity].map {
+                try GraphLoadingNode(
                     identity: dependency.identity,
                     manifest: $0.manifest,
-                    productFilter: dependency.productFilter
+                    productFilter: dependency.productFilter,
+                    enabledTraits: dependency.traits.flatMap { Set($0.map { $0.name }) }
                 )
             }
         }
         let inputManifests = (rootManifestNodes + rootDependencyNodes).map {
-            KeyedPair($0, key: $0.id)
+            KeyedPair($0, key: $0.identity)
         }
 
         // Collect the manifests for which we are going to build packages.
-        var allNodes = [GraphLoadingNode]()
+        var allNodes = OrderedDictionary<PackageIdentity, GraphLoadingNode>()
 
         let nodeSuccessorProvider = { (node: KeyedPair<GraphLoadingNode, PackageIdentity>) in
-            node.item.requiredDependencies.compactMap { dependency in
-                manifestMap[dependency.identity].map { manifest, _ in
-                    KeyedPair(
-                        GraphLoadingNode(
-                            identity: dependency.identity,
-                            manifest: manifest,
-                            productFilter: dependency.productFilter
-                        ),
-                        key: dependency.identity
-                    )
+            return try node.item.requiredDependencies.compactMap { dependency in
+                return try manifestMap[dependency.identity].map { manifest, _ in
+                    // We are going to check the conditionally enabled traits here and enable them if
+                    // required. This checks the current node and then enables the conditional
+                    // dependencies of the dependency node.
+                    let enabledTraits = dependency.traits?.filter {
+                        guard let conditionTraits = $0.condition?.traits else {
+                            return true
+                        }
+                        return !conditionTraits.intersection(node.item.enabledTraits).isEmpty
+                    }.map { $0.name }
+
+                    return try KeyedPair(
+                            GraphLoadingNode(
+                                identity: dependency.identity,
+                                manifest: manifest,
+                                productFilter: dependency.productFilter,
+                                enabledTraits: enabledTraits.flatMap { Set($0) }
+                            ),
+                            key: dependency.identity
+                        )
                 }
             }
         }
 
         // Package dependency cycles feature is gated on tools version 6.0.
         if !root.manifests.allSatisfy({ $1.toolsVersion >= .v6_0 }) {
-            if let cycle = findCycle(inputManifests, successors: nodeSuccessorProvider) {
+            if let cycle = try findCycle(inputManifests, successors: nodeSuccessorProvider) {
                 let path = (cycle.path + cycle.cycle).map(\.item.manifest)
                 observabilityScope.emit(PackageGraphError.dependencyCycleDetected(
                     path: path, cycle: cycle.cycle[0].item.manifest
@@ -104,18 +124,19 @@ extension ModulesGraph {
         }
 
         // Cycles in dependencies don't matter as long as there are no target cycles between packages.
-        depthFirstSearch(
+        try depthFirstSearch(
             inputManifests,
             successors: nodeSuccessorProvider
         ) {
-            allNodes.append($0.item)
-        } onDuplicate: { _,_ in
-            // no de-duplication is required.
+            allNodes[$0.key] = $0.item
+        } onDuplicate: { first, second in
+            // We are unifying the enabled traits on duplicate
+            allNodes[first.key]?.enabledTraits.formUnion(second.item.enabledTraits)
         }
 
         // Create the packages.
         var manifestToPackage: [Manifest: Package] = [:]
-        for node in allNodes {
+        for node in allNodes.values {
             let nodeObservabilityScope = observabilityScope.makeChildScope(
                 description: "loading package \(node.identity)",
                 metadata: .packageMetadata(identity: node.identity, kind: node.manifest.packageKind)
@@ -139,7 +160,8 @@ extension ModulesGraph {
                     testEntryPointPath: testEntryPointPath,
                     createREPLProduct: manifest.packageKind.isRoot ? createREPLProduct : false,
                     fileSystem: fileSystem,
-                    observabilityScope: nodeObservabilityScope
+                    observabilityScope: nodeObservabilityScope,
+                    enabledTraits: node.enabledTraits
                 )
                 let package = try builder.construct()
                 manifestToPackage[manifest] = package
@@ -162,7 +184,7 @@ extension ModulesGraph {
 
         // Resolve dependencies and create resolved packages.
         let resolvedPackages = try createResolvedPackages(
-            nodes: allNodes,
+            nodes: Array(allNodes.values),
             identityResolver: identityResolver,
             manifestToPackage: manifestToPackage,
             rootManifests: root.manifests,
@@ -273,7 +295,7 @@ private func createResolvedPackages(
 ) throws -> IdentifiableSet<ResolvedPackage> {
 
     // Create package builder objects from the input manifests.
-    let packageBuilders: [ResolvedPackageBuilder] = nodes.compactMap{ node in
+    let packageBuilders: [ResolvedPackageBuilder] = nodes.compactMap { node in
         guard let package = manifestToPackage[node.manifest] else {
             return nil
         }
@@ -283,6 +305,7 @@ private func createResolvedPackages(
         return ResolvedPackageBuilder(
             package,
             productFilter: node.productFilter,
+            enabledTraits: node.enabledTraits,
             isAllowedToVendUnsafeProducts: isAllowedToVendUnsafeProducts,
             allowedToOverride: allowedToOverride,
             platformVersionProvider: platformVersionProvider
@@ -315,8 +338,9 @@ private func createResolvedPackages(
         var dependenciesByNameForTargetDependencyResolution = [String: ResolvedPackageBuilder]()
         var dependencyNamesForTargetDependencyResolutionOnly = [PackageIdentity: String]()
 
-        // Establish the manifest-declared package dependencies.
-        package.manifest.dependenciesRequired(for: packageBuilder.productFilter).forEach { dependency in
+        package.manifest.dependenciesRequired(
+            for: packageBuilder.productFilter
+        ).forEach { dependency in
             let dependencyPackageRef = dependency.packageRef
 
             // Otherwise, look it up by its identity.
@@ -530,6 +554,13 @@ private func createResolvedPackages(
 
             // Establish product dependencies.
             for case .product(let productRef, let conditions) in targetBuilder.target.dependencies {
+                if let traitCondition = conditions.compactMap({ $0.traitCondition }).first {
+                    if packageBuilder.enabledTraits.intersection(traitCondition.traits).isEmpty {
+                        ///  If we land here non of the traits required to enable this depenendcy has been enabled.
+                        continue
+                    }
+                }
+
                 // Find the product in this package's dependency products.
                 // Look it up by ID if module aliasing is used, otherwise by name.
                 let product = lookupByProductIDs ? productDependencyMap[productRef.identity] : productDependencyMap[productRef.name]
@@ -1054,6 +1085,9 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     /// The products in this package.
     var products: [ResolvedProductBuilder] = []
 
+    /// The enabled traits of this package.
+    var enabledTraits: Set<String> = []
+
     /// The dependencies of this package.
     var dependencies: [ResolvedPackageBuilder] = []
 
@@ -1074,12 +1108,14 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     init(
         _ package: Package,
         productFilter: ProductFilter,
+        enabledTraits: Set<String>,
         isAllowedToVendUnsafeProducts: Bool,
         allowedToOverride: Bool,
         platformVersionProvider: PlatformVersionProvider
     ) {
         self.package = package
         self.productFilter = productFilter
+        self.enabledTraits = enabledTraits
         self.isAllowedToVendUnsafeProducts = isAllowedToVendUnsafeProducts
         self.allowedToOverride = allowedToOverride
         self.platformVersionProvider = platformVersionProvider
@@ -1095,6 +1131,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
             defaultLocalization: self.defaultLocalization,
             supportedPlatforms: self.supportedPlatforms,
             dependencies: self.dependencies.map { $0.package.identity },
+            enabledTraits: self.enabledTraits,
             targets: targets,
             products: products,
             registryMetadata: self.registryMetadata,

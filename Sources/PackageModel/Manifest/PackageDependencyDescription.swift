@@ -24,7 +24,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         /// A condition that limits the application of a dependencies trait.
         public struct Condition: Hashable, Sendable, Codable {
             /// The set of traits of this package that enable the dependencie's trait.
-            let traits: Set<String>?
+            public let traits: Set<String>?
 
             public init(traits: Set<String>?) {
                 self.traits = traits
@@ -79,7 +79,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         public let nameForTargetDependencyResolutionOnly: String?
         public let path: AbsolutePath
         public let productFilter: ProductFilter
-        public let traits: Set<Trait>
+        public let traits: Set<Trait>?
     }
 
     public struct SourceControl: Equatable, Hashable, Encodable, Sendable {
@@ -88,7 +88,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         public let location: Location
         public let requirement: Requirement
         public let productFilter: ProductFilter
-        public let traits: Set<Trait>
+        public let traits: Set<Trait>?
 
         public enum Requirement: Equatable, Hashable, Sendable {
             case exact(Version)
@@ -107,7 +107,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         public let identity: PackageIdentity
         public let requirement: Requirement
         public let productFilter: ProductFilter
-        public let traits: Set<Trait>
+        public let traits: Set<Trait>?
 
         /// The dependency requirement.
         public enum Requirement: Equatable, Hashable, Sendable {
@@ -116,7 +116,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         }
     }
 
-    public var traits: Set<Trait> {
+    public var traits: Set<Trait>? {
         switch self {
         case .fileSystem(let settings):
             return settings.traits
@@ -214,7 +214,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         nameForTargetDependencyResolutionOnly: String?,
         path: AbsolutePath,
         productFilter: ProductFilter,
-        traits: Set<Trait>
+        traits: Set<Trait>?
     ) -> Self {
         .fileSystem(
             .init(
@@ -233,7 +233,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         path: AbsolutePath,
         requirement: SourceControl.Requirement,
         productFilter: ProductFilter,
-        traits: Set<Trait>
+        traits: Set<Trait>?
     ) -> Self {
         .sourceControl(
             identity: identity,
@@ -251,7 +251,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         url: SourceControlURL,
         requirement: SourceControl.Requirement,
         productFilter: ProductFilter,
-        traits: Set<Trait>
+        traits: Set<Trait>?
     ) -> Self {
         .sourceControl(
             identity: identity,
@@ -269,7 +269,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         location: SourceControl.Location,
         requirement: SourceControl.Requirement,
         productFilter: ProductFilter,
-        traits: Set<Trait>
+        traits: Set<Trait>?
     ) -> Self {
         .sourceControl(
             .init(
@@ -287,7 +287,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         identity: PackageIdentity,
         requirement: Registry.Requirement,
         productFilter: ProductFilter,
-        traits: Set<Trait>
+        traits: Set<Trait>?
     ) -> Self {
         .registry(
             .init(

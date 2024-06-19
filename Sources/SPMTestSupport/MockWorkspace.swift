@@ -265,7 +265,8 @@ public final class MockWorkspace {
                     toolsVersion: packageToolsVersion,
                     dependencies: package.dependencies.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) },
                     products: package.products.map { try ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.targets) },
-                    targets: try package.targets.map { try $0.convert(identityResolver: self.identityResolver) }
+                    targets: try package.targets.map { try $0.convert(identityResolver: self.identityResolver) },
+                    traits: package.traits
                 )
             }
 
