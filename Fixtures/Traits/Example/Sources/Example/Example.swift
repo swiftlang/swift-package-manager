@@ -1,53 +1,53 @@
-#if TRAIT_Package1
+#if Package1
 import Package1Library1
 #endif
-#if TRAIT_Package2
+#if Package2
 import Package2Library1
 #endif
-#if TRAIT_Package3
+#if Package3
 import Package3Library1
 #endif
-#if TRAIT_Package4
+#if Package4
 import Package4Library1
 #endif
-#if TRAIT_Package5
+#if Package5
 import Package5Library1
 #endif
-#if TRAIT_Package7
+#if Package7
 import Package7Library1
 #endif
-#if TRAIT_Package9
+#if Package9
 import Package9Library1
 #endif
-#if TRAIT_Package10
+#if Package10
 import Package10Library1
 #endif
 
 @main
 struct Example {
     static func main() {
-        #if TRAIT_Package1
+        #if Package1
         Package1Library1.hello()
         #endif
-        #if TRAIT_Package2
+        #if Package2
         Package2Library1.hello()
         #endif
-        #if TRAIT_Package3
+        #if Package3
         Package3Library1.hello()
         #endif
-        #if TRAIT_Package4
+        #if Package4
         Package4Library1.hello()
         #endif
-        #if TRAIT_Package5
+        #if Package5
         Package5Library1.hello()
         #endif
-        #if TRAIT_Package7
+        #if Package7
         Package7Library1.hello()
         #endif
-        #if TRAIT_Package9
+        #if Package9
         Package9Library1.hello()
         #endif
-        #if TRAIT_Package10
+        #if Package10
         Package10Library1.hello()
         #endif
         #if DEFINE1

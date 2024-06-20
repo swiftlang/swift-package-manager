@@ -9,7 +9,7 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-
+#if compiler(>=6.0)
 import DriverSupport
 import SPMTestSupport
 import PackageModel
@@ -32,3 +32,4 @@ final class TraitTests: XCTestCase {
         }
     }
 }
+#endif
