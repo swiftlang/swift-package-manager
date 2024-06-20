@@ -22,59 +22,6 @@ public struct PackageConditionDescription: Codable, Hashable, Sendable {
     }
 }
 
-/// A manifest condition.
-public protocol PackageConditionProtocol: Codable {
-    func satisfies(_ environment: BuildEnvironment) -> Bool
-}
-
-/// Wrapper for package condition so it can conform to Codable.
-struct PackageConditionWrapper: Codable, Equatable, Hashable {
-    var platform: PlatformsCondition?
-    var config: ConfigurationCondition?
-
-    @available(*, deprecated, renamed: "underlying")
-    var condition: PackageConditionProtocol {
-        if let platform {
-            return platform
-        } else if let config {
-            return config
-        } else {
-            fatalError("unreachable")
-        }
-    }
-
-    var underlying: PackageCondition {
-        if let platform {
-            return .platforms(platform)
-        } else if let config {
-            return .configuration(config)
-        } else {
-            fatalError("unreachable")
-        }
-    }
-
-    @available(*, deprecated, message: "Use .init(_ condition: PackageCondition) instead")
-    init(_ condition: PackageConditionProtocol) {
-        switch condition {
-        case let platform as PlatformsCondition:
-            self.platform = platform
-        case let config as ConfigurationCondition:
-            self.config = config
-        default:
-            fatalError("unknown condition \(condition)")
-        }
-    }
-
-    init(_ condition: PackageCondition) {
-        switch condition {
-        case let .platforms(platforms):
-            self.platform = platforms
-        case let .configuration(configuration):
-            self.config = configuration
-        }
-    }
-}
-
 /// One of possible conditions used in package manifests to restrict targets from being built for certain platforms or
 /// build configurations.
 public enum PackageCondition: Hashable, Sendable {
@@ -116,7 +63,7 @@ public enum PackageCondition: Hashable, Sendable {
 }
 
 /// Platforms condition implies that an assignment is valid on these platforms.
-public struct PlatformsCondition: PackageConditionProtocol, Hashable, Sendable {
+public struct PlatformsCondition: Hashable, Sendable {
     public let platforms: [Platform]
 
     public init(platforms: [Platform]) {
@@ -131,7 +78,7 @@ public struct PlatformsCondition: PackageConditionProtocol, Hashable, Sendable {
 
 /// A configuration condition implies that an assignment is valid on
 /// a particular build configuration.
-public struct ConfigurationCondition: PackageConditionProtocol, Hashable, Sendable {
+public struct ConfigurationCondition: Hashable, Sendable {
     public let configuration: BuildConfiguration
 
     public init(configuration: BuildConfiguration) {

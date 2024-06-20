@@ -32,13 +32,4 @@ public final class ProvidedLibraryTarget: Target {
             usesUnsafeFlags: false
         )
     }
-
-
-    public override func encode(to encoder: Encoder) throws {
-        try super.encode(to: encoder)
-    }
-
-    required public init(from decoder: Decoder) throws {
-        try super.init(from: decoder)
-    }
 }
