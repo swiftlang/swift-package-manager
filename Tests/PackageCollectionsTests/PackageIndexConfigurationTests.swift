@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import class Basics.InMemoryFileSystem
 import PackageCollections
 import XCTest
 
