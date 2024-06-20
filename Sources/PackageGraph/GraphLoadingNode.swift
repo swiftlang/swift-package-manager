@@ -42,13 +42,13 @@ public struct GraphLoadingNode: Equatable, Hashable {
         self.manifest = manifest
         self.productFilter = productFilter
 
+        // This the point where we flatten the enabled traits and resolve the recursive traits
+        var recursiveEnabledTraits = enabledTraits ?? []
+        let areDefaultsEnabled = recursiveEnabledTraits.remove("defaults") != nil
+
         // We are going to calculate which traits are actually enabled for a node here. To do this
         // we have to check if default traits should be used and then flatten all the enabled traits.
-        for trait in enabledTraits ?? [] {
-            if trait == "defaults" {
-                // The defaults trait is special and every package has it
-                continue
-            }
+        for trait in recursiveEnabledTraits {
             // Check if the enabled trait is a valid trait
             if self.manifest.traits.first(where: { $0.name == trait }) == nil {
                 // The enabled trait is invalid
@@ -56,11 +56,7 @@ public struct GraphLoadingNode: Equatable, Hashable {
             }
         }
 
-        // This the point where we flatten the enabled traits and resolve the recursive traits
-        var recursiveEnabledTraits = enabledTraits ?? []
-
         // We have to enable all default traits if no traits are enabled or the defaults are explicitly enabled
-        let areDefaultsEnabled = enabledTraits?.contains("defaults") ?? false
         if enabledTraits == nil || areDefaultsEnabled {
             recursiveEnabledTraits.formUnion(self.manifest.traits.lazy.filter { $0.isDefault }.map { $0.name })
         }
