@@ -11,16 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import PackageFingerprint
-@testable import PackageGraph
-import PackageLoading
-import PackageModel
-import PackageRegistry
-import PackageSigning
-import SourceControl
-import SPMBuildCore
 import SPMTestSupport
-@testable import Workspace
+import Workspace
 import XCTest
 
 final class WorkspaceReloadTests: XCTestCase {
