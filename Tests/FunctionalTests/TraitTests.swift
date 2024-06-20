@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 #if compiler(>=6.0)
 import DriverSupport
-import SPMTestSupport
+import _InternalTestSupport
 import PackageModel
 import XCTest
 
