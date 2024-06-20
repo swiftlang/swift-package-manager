@@ -16,9 +16,9 @@ import PackageModel
 import XCTest
 
 final class TraitTests: XCTestCase {
-    func testTraits_whenNoFlagPassed() throws {
-        try fixture(name: "Traits") { fixturePath in
-            let (stdout, _) = try executeSwiftRun(fixturePath.appending("Example"), "Example")
+    func testTraits_whenNoFlagPassed() async throws {
+        try await fixture(name: "Traits") { fixturePath in
+            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example")
             XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
