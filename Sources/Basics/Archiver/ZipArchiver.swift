@@ -85,7 +85,7 @@ public struct ZipArchiver: Archiver, Cancellable {
             let process = AsyncProcess(
                 // FIXME: are these the right arguments?
                 arguments: ["tar.exe", "-a", "-c", "-f", destinationPath.pathString, directory.basename],
-                workingDirectory: directory.parentDirectory.underlying
+                workingDirectory: directory.parentDirectory
             )
             #else
             // This is to work around `swift package-registry publish` tool failing on

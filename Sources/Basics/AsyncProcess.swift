@@ -12,6 +12,10 @@ import _Concurrency
 import Dispatch
 import Foundation
 
+#if os(Windows)
+import TSCLibc
+#endif
+
 #if os(Linux)
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly
@@ -573,10 +577,10 @@ package final class AsyncProcess {
         let group = DispatchGroup()
 
         var stdout: [UInt8] = []
-        let stdoutLock = Lock()
+        let stdoutLock = NSLock()
 
         var stderr: [UInt8] = []
-        let stderrLock = Lock()
+        let stderrLock = NSLock()
 
         if outputRedirection.redirectsOutput {
             let stdoutPipe = Pipe()
