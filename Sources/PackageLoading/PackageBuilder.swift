@@ -32,7 +32,7 @@ public enum ModuleError: Swift.Error {
     case duplicateModule(moduleName: String, packages: [PackageIdentity])
 
     /// The referenced target could not be found.
-    case moduleNotFound(String, TargetDescription.TargetType, shouldSuggestRelaxedSourceDir: Bool)
+    case moduleNotFound(String, TargetDescription.TargetKind, shouldSuggestRelaxedSourceDir: Bool)
 
     /// The artifact for the binary target could not be found.
     case artifactNotFound(moduleName: String, expectedArtifactName: String)
@@ -634,7 +634,7 @@ public final class PackageBuilder {
             let snippetDependencies = targets
                 .filter { $0.type == .library && productTargets.contains($0.name) }
                 .map { Module.Dependency.module($0, conditions: []) }
-            snippetTargets = try createSnippetTargets(dependencies: snippetDependencies)
+            snippetTargets = try createSnippetModules(dependencies: snippetDependencies)
         } else {
             snippetTargets = []
         }
@@ -964,18 +964,18 @@ public final class PackageBuilder {
             )
         }
 
-        /// Determine the target's type, or leave nil to check the source directory.
-        let targetType: Module.Kind
+        /// Determine the module's kind, or leave nil to check the source directory.
+        let moduleKind: Module.Kind
         switch potentialModule.type {
         case .test:
-            targetType = .test
+            moduleKind = .test
         case .executable:
-            targetType = .executable
+            moduleKind = .executable
         case .macro:
-            targetType = .macro
+            moduleKind = .macro
         default:
-            targetType = sources.computeTargetType()
-            if targetType == .executable && self.manifest.toolsVersion >= .v5_4 && self
+            moduleKind = sources.computeModuleKind()
+            if moduleKind == .executable && self.manifest.toolsVersion >= .v5_4 && self
                 .warnAboutImplicitExecutableTargets
             {
                 self.observabilityScope
@@ -990,7 +990,7 @@ public final class PackageBuilder {
             return try SwiftModule(
                 name: potentialModule.name,
                 potentialBundleName: potentialBundleName,
-                type: targetType,
+                type: moduleKind,
                 path: potentialModule.path,
                 sources: sources,
                 resources: resources,
@@ -1019,7 +1019,7 @@ public final class PackageBuilder {
                     fileSystem: self.fileSystem
                 )
                 moduleMapType = moduleMapGenerator.determineModuleMapType(observabilityScope: self.observabilityScope)
-            } else if targetType == .library, self.manifest.toolsVersion >= .v5_5 {
+            } else if moduleKind == .library, self.manifest.toolsVersion >= .v5_5 {
                 // If this clang target is a library, it must contain "include" directory.
                 throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
             } else {
@@ -1038,7 +1038,7 @@ public final class PackageBuilder {
                 includeDir: publicHeadersPath,
                 moduleMapType: moduleMapType,
                 headers: headers,
-                type: targetType,
+                type: moduleKind,
                 path: potentialModule.path,
                 sources: sources,
                 resources: resources,
@@ -1328,7 +1328,7 @@ public final class PackageBuilder {
     }
 
     /// Collects the products defined by a package.
-    private func constructProducts(_ targets: [Module]) throws -> [Product] {
+    private func constructProducts(_ modules: [Module]) throws -> [Product] {
         var products = OrderedCollections.OrderedSet<KeyedPair<Product, String>>()
 
         /// Helper method to append to products array.
@@ -1339,28 +1339,28 @@ public final class PackageBuilder {
             }
         }
 
-        // Collect all test targets.
-        let testModules = targets.filter { target in
-            guard target.type == .test else { return false }
+        // Collect all test modules.
+        let testModules = modules.filter { module in
+            guard module.type == .test else { return false }
             #if os(Linux)
             // FIXME: Ignore C language test targets on linux for now.
             if module is ClangModule {
                 self.observabilityScope
-                    .emit(.unsupportedCTestTarget(package: self.identity.description, module: module.name))
+                    .emit(.unsupportedCTestTarget(package: self.identity.description, target: module.name))
                 return false
             }
             #endif
             return true
         }
 
-        // If enabled, create one test product for each test target.
+        // If enabled, create one test product for each test module.
         if self.shouldCreateMultipleTestProducts {
-            for testTarget in testModules {
+            for testModule in testModules {
                 let product = try Product(
                     package: self.identity,
-                    name: testTarget.name,
+                    name: testModule.name,
                     type: .test,
-                    modules: [testTarget]
+                    modules: [testModule]
                 )
                 append(product)
             }
@@ -1384,11 +1384,11 @@ public final class PackageBuilder {
             append(product)
         }
 
-        // Map containing targets mapped to their names.
-        let modulesMap = Dictionary(targets.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
+        // Map containing modules mapped to their names.
+        let modulesMap = Dictionary(modules.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
 
         /// Helper method to get targets from target names.
-        func modulesFrom(targetNames names: [String], product: String) throws -> [Module] {
+        func modulesFrom(moduleNames names: [String], product: String) throws -> [Module] {
             // Get targets from target names.
             try names.map { targetName in
                 // Ensure we have this target.
@@ -1412,11 +1412,11 @@ public final class PackageBuilder {
                 throw Product.Error.emptyName
             }
 
-            let targets = try modulesFrom(targetNames: product.targets, product: product.name)
+            let modules = try modulesFrom(moduleNames: product.targets, product: product.name)
             // Perform special validations if this product is exporting
             // a system library target.
-            if targets.contains(where: { $0 is SystemLibraryModule }) {
-                if product.type != .library(.automatic) || targets.count != 1 {
+            if modules.contains(where: { $0 is SystemLibraryModule }) {
+                if product.type != .library(.automatic) || modules.count != 1 {
                     self.observabilityScope.emit(.systemPackageProductValidation(product: product.name))
                     continue
                 }
@@ -1425,22 +1425,22 @@ public final class PackageBuilder {
             // Do some validation based on the product type.
             switch product.type {
             case .library:
-                guard self.validateLibraryProduct(product, with: targets) else {
+                guard self.validateLibraryProduct(product, with: modules) else {
                     continue
                 }
             case .test, .macro:
                 break
             case .executable, .snippet:
-                guard self.validateExecutableProduct(product, with: targets) else {
+                guard self.validateExecutableProduct(product, with: modules) else {
                     continue
                 }
             case .plugin:
-                guard self.validatePluginProduct(product, with: targets) else {
+                guard self.validatePluginProduct(product, with: modules) else {
                     continue
                 }
             }
 
-            try append(Product(package: self.identity, name: product.name, type: product.type, modules: targets))
+            try append(Product(package: self.identity, name: product.name, type: product.type, modules: modules))
         }
 
         // Add implicit executables - for root packages and for dependency plugins.
@@ -1448,7 +1448,7 @@ public final class PackageBuilder {
         // Compute the list of targets which are being used in an
         // executable product so we don't create implicit executables
         // for them.
-        let explicitProductsTargets = Set(self.manifest.products.flatMap { product -> [String] in
+        let explicitProductsModules = Set(self.manifest.products.flatMap { product -> [String] in
             switch product.type {
             case .library, .plugin, .test, .macro:
                 return []
@@ -1462,36 +1462,36 @@ public final class PackageBuilder {
         }
 
         let implicitPlugInExecutables = Set(
-            targets.lazy
+            modules.lazy
                 .filter { $0.type == .plugin }
                 .flatMap(\.dependencies)
                 .map(\.name)
         )
 
-        for target in targets where target.type == .executable {
-            if self.manifest.packageKind.isRoot && explicitProductsTargets.contains(target.name) {
-                // If there is already an executable target with this name, skip generating a product for it
+        for module in modules where module.type == .executable {
+            if self.manifest.packageKind.isRoot && explicitProductsModules.contains(module.name) {
+                // If there is already an executable module with this name, skip generating a product for it
                 // (This shortcut only works for the root manifest, because for dependencies,
                 // products that correspond to plug‐ins may have been culled during resolution.)
                 continue
-            } else if let product = productMap[target.name] {
+            } else if let product = productMap[module.name] {
                 // If there is already a product with this name skip generating a product for it,
                 // but warn if that product is not executable
                 if product.type != .executable {
                     self.observabilityScope
                         .emit(
-                            warning: "The target named '\(target.name)' was identified as an executable target but a non-executable product with this name already exists."
+                            warning: "The target named '\(module.name)' was identified as an executable target but a non-executable product with this name already exists."
                         )
                 }
                 continue
             } else {
-                if self.manifest.packageKind.isRoot || implicitPlugInExecutables.contains(target.name) {
+                if self.manifest.packageKind.isRoot || implicitPlugInExecutables.contains(module.name) {
                     // Generate an implicit product for the executable target
                     let product = try Product(
                         package: self.identity,
-                        name: target.name,
+                        name: module.name,
                         type: .executable,
-                        modules: [target]
+                        modules: [module]
                     )
                     append(product)
                 }
@@ -1501,7 +1501,7 @@ public final class PackageBuilder {
         // Create a special REPL product that contains all the library targets.
 
         if self.createREPLProduct {
-            let libraryTargets = targets.filter { $0.type == .library }
+            let libraryTargets = modules.filter { $0.type == .library }
             if libraryTargets.isEmpty {
                 self.observabilityScope.emit(.noLibraryTargetsForREPL)
             } else {
@@ -1516,13 +1516,13 @@ public final class PackageBuilder {
         }
 
         // Create implicit snippet products
-        try targets
+        try modules
             .filter { $0.type == .snippet }
             .map { try Product(package: self.identity, name: $0.name, type: .snippet, modules: [$0]) }
             .forEach(append)
 
         // Create implicit macro products
-        try targets
+        try modules
             .filter { $0.type == .macro }
             .map { try Product(package: self.identity, name: $0.name, type: .macro, modules: [$0]) }
             .forEach(append)
@@ -1599,7 +1599,7 @@ public final class PackageBuilder {
     }
 
     /// Returns the first suggested predefined source directory for a given target type.
-    public static func suggestedPredefinedSourceDirectory(type: TargetDescription.TargetType) -> String {
+    public static func suggestedPredefinedSourceDirectory(type: TargetDescription.TargetKind) -> String {
         // These are static constants, safe to access by index; the first choice is preferred.
         switch type {
         case .test:
@@ -1624,28 +1624,28 @@ extension PackageBuilder {
     }
 }
 
-/// We create this structure after scanning the filesystem for potential targets.
+/// We create this structure after scanning the filesystem for potential modules.
 private struct PotentialModule: Hashable {
-    /// Name of the target.
+    /// Name of the module.
     let name: String
 
-    /// The path of the target.
+    /// The path of the module.
     let path: AbsolutePath
 
-    /// If this should be a test target.
+    /// If this should be a test module.
     var isTest: Bool {
         self.type == .test
     }
 
-    /// The target type.
-    let type: TargetDescription.TargetType
+    /// The module type.
+    let type: TargetDescription.TargetKind
 
     /// If true, access to package declarations from other modules is allowed.
     let packageAccess: Bool
 }
 
 extension Manifest {
-    /// Returns the names of all the visible targets in the manifest.
+    /// Returns the names of all the visible modules in the manifest.
     fileprivate func visibleModuleNames(for productFilter: ProductFilter) -> Set<String> {
         let names = targetsRequired(for: productFilter).flatMap { target in
             [target.name] + target.dependencies.compactMap {
@@ -1684,8 +1684,8 @@ extension Sources {
         self.hasSwiftSources && self.hasClangSources
     }
 
-    /// Determine target type based on the sources.
-    fileprivate func computeTargetType() -> Module.Kind {
+    /// Determine module type based on the sources.
+    fileprivate func computeModuleKind() -> Module.Kind {
         let isLibrary = !relativePaths.contains { path in
             let file = path.basename.lowercased()
             // Look for a main.xxx file avoiding cases like main.xxx.xxx
@@ -1709,7 +1709,7 @@ extension Module.Dependency {
 // MARK: - Snippets
 
 extension PackageBuilder {
-    private func createSnippetTargets(dependencies: [Module.Dependency]) throws -> [Module] {
+    private func createSnippetModules(dependencies: [Module.Dependency]) throws -> [Module] {
         let snippetsDirectory = self.packagePath.appending("Snippets")
         guard self.fileSystem.isDirectory(snippetsDirectory) else {
             return []

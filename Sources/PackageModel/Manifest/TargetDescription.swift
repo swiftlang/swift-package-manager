@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// The description of an individual target.
+/// The description of an individual module.
 public struct TargetDescription: Hashable, Encodable, Sendable {
     /// The target type.
-    public enum TargetType: String, Hashable, Encodable, Sendable {
+    public enum TargetKind: String, Hashable, Encodable, Sendable {
         case regular
         case executable
         case test
@@ -110,7 +110,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
     public let publicHeadersPath: String?
 
     /// The type of target.
-    public let type: TargetType
+    public let type: TargetKind
 
     /// The pkg-config name of a system library target.
     public let pkgConfig: String?
@@ -180,7 +180,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         sources: [String]? = nil,
         resources: [Resource] = [],
         publicHeadersPath: String? = nil,
-        type: TargetType = .regular,
+        type: TargetKind = .regular,
         packageAccess: Bool = true,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
