@@ -14,7 +14,7 @@ import XCTest
 
 import PackageGraph
 @testable import PackageModel
-import InternalTestSupport
+import _InternalTestSupport
 
 private func XCTAssertEqualTargetIDs(
     _ lhs: [ResolvedModule],

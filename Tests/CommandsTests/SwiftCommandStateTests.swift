@@ -19,7 +19,7 @@
 import func PackageGraph.loadModulesGraph
 
 @testable import PackageModel
-import InternalTestSupport
+import _InternalTestSupport
 import XCTest
 
 import enum TSCBasic.ProcessEnv

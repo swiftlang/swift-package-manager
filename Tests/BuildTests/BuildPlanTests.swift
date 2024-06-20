@@ -26,7 +26,7 @@ import PackageLoading
 @testable import PackageModel
 
 import SPMBuildCore
-import InternalTestSupport
+import _InternalTestSupport
 import SwiftDriver
 import Workspace
 import XCTest

@@ -16,7 +16,7 @@ import Basics
 @testable import PackageGraph
 
 import PackageModel
-import InternalTestSupport
+import _InternalTestSupport
 import XCTest
 
 import struct TSCBasic.ByteString

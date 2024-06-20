@@ -13,7 +13,7 @@
 import Basics
 import PackageModel
 import SourceControl
-import InternalTestSupport
+import _InternalTestSupport
 import XCTest
 
 final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {

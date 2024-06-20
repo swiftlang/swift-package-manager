@@ -22,19 +22,19 @@ import class PackageModel.Manifest
 import struct PackageModel.TargetDescription
 import enum PackageModel.ProductType
 import struct SPMBuildCore.BuildParameters
-import func InternalTestSupport.loadPackageGraph
+import func _InternalTestSupport.loadPackageGraph
 
-import func InternalTestSupport.embeddedCxxInteropPackageGraph
-import func InternalTestSupport.macrosPackageGraph
-import func InternalTestSupport.macrosTestsPackageGraph
-import func InternalTestSupport.mockBuildParameters
-import func InternalTestSupport.mockBuildPlan
-import func InternalTestSupport.toolsExplicitLibrariesGraph
-import func InternalTestSupport.trivialPackageGraph
+import func _InternalTestSupport.embeddedCxxInteropPackageGraph
+import func _InternalTestSupport.macrosPackageGraph
+import func _InternalTestSupport.macrosTestsPackageGraph
+import func _InternalTestSupport.mockBuildParameters
+import func _InternalTestSupport.mockBuildPlan
+import func _InternalTestSupport.toolsExplicitLibrariesGraph
+import func _InternalTestSupport.trivialPackageGraph
 
-import struct InternalTestSupport.BuildPlanResult
-import func InternalTestSupport.XCTAssertMatch
-import func InternalTestSupport.XCTAssertNoDiagnostics
+import struct _InternalTestSupport.BuildPlanResult
+import func _InternalTestSupport.XCTAssertMatch
+import func _InternalTestSupport.XCTAssertNoDiagnostics
 import class TSCBasic.InMemoryFileSystem
 
 import XCTest

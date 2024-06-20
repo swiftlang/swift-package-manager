@@ -14,7 +14,7 @@ import XCTest
 
 import Basics
 @testable import PackageSigning
-import InternalTestSupport
+import _InternalTestSupport
 import X509
 
 final class SigningEntityTests: XCTestCase {

@@ -12,7 +12,7 @@
 
 import Basics
 import SourceControl
-import InternalTestSupport
+import _InternalTestSupport
 import XCTest
 
 class InMemoryGitRepositoryTests: XCTestCase {

@@ -19,7 +19,7 @@ import PackageRegistry
 import PackageSigning
 import SourceControl
 import SPMBuildCore
-import InternalTestSupport
+import _InternalTestSupport
 @testable import Workspace
 import XCTest
 

@@ -589,8 +589,8 @@ let package = Package(
         // MARK: Additional Test Dependencies
 
         .target(
-            /** SwiftPM test support library */
-            name: "InternalTestSupport",
+            /** SwiftPM internal test suite support library */
+            name: "_InternalTestSupport",
             dependencies: [
                 "Basics",
                 "Build",
@@ -618,13 +618,13 @@ let package = Package(
             name: "SourceKitLSPAPITests",
             dependencies: [
                 "SourceKitLSPAPI",
-                "InternalTestSupport",
+                "_InternalTestSupport",
             ]
         ),
 
         .testTarget(
             name: "BasicsTests",
-            dependencies: ["Basics", "InternalTestSupport", "tsan_utils"],
+            dependencies: ["Basics", "_InternalTestSupport", "tsan_utils"],
             exclude: [
                 "Archiver/Inputs/archive.tar.gz",
                 "Archiver/Inputs/archive.zip",
@@ -634,15 +634,15 @@ let package = Package(
         ),
         .testTarget(
             name: "BuildTests",
-            dependencies: ["Build", "PackageModel", "InternalTestSupport"]
+            dependencies: ["Build", "PackageModel", "_InternalTestSupport"]
         ),
         .testTarget(
             name: "LLBuildManifestTests",
-            dependencies: ["Basics", "LLBuildManifest", "InternalTestSupport"]
+            dependencies: ["Basics", "LLBuildManifest", "_InternalTestSupport"]
         ),
         .testTarget(
             name: "WorkspaceTests",
-            dependencies: ["Workspace", "InternalTestSupport"]
+            dependencies: ["Workspace", "_InternalTestSupport"]
         ),
         .testTarget(
             name: "PackageDescriptionTests",
@@ -650,32 +650,32 @@ let package = Package(
         ),
         .testTarget(
             name: "SPMBuildCoreTests",
-            dependencies: ["SPMBuildCore", "InternalTestSupport"]
+            dependencies: ["SPMBuildCore", "_InternalTestSupport"]
         ),
         .testTarget(
             name: "PackageLoadingTests",
-            dependencies: ["PackageLoading", "InternalTestSupport"],
+            dependencies: ["PackageLoading", "_InternalTestSupport"],
             exclude: ["Inputs", "pkgconfigInputs"]
         ),
         .testTarget(
             name: "PackageModelTests",
-            dependencies: ["PackageModel", "InternalTestSupport"]
+            dependencies: ["PackageModel", "_InternalTestSupport"]
         ),
         .testTarget(
             name: "PackageModelSyntaxTests",
             dependencies: [
                 "PackageModelSyntax",
-                "InternalTestSupport",
+                "_InternalTestSupport",
                 .product(name: "SwiftIDEUtils", package: "swift-syntax"),
             ]
         ),
         .testTarget(
             name: "PackageGraphTests",
-            dependencies: ["PackageGraph", "InternalTestSupport"]
+            dependencies: ["PackageGraph", "_InternalTestSupport"]
         ),
         .testTarget(
             name: "PackageGraphPerformanceTests",
-            dependencies: ["PackageGraph", "InternalTestSupport"],
+            dependencies: ["PackageGraph", "_InternalTestSupport"],
             exclude: [
                 "Inputs/PerfectHTTPServer.json",
                 "Inputs/ZewoHTTPServer.json",
@@ -685,44 +685,44 @@ let package = Package(
         ),
         .testTarget(
             name: "PackageCollectionsModelTests",
-            dependencies: ["PackageCollectionsModel", "InternalTestSupport"]
+            dependencies: ["PackageCollectionsModel", "_InternalTestSupport"]
         ),
         .testTarget(
             name: "PackageCollectionsSigningTests",
-            dependencies: ["PackageCollectionsSigning", "InternalTestSupport"]
+            dependencies: ["PackageCollectionsSigning", "_InternalTestSupport"]
         ),
         .testTarget(
             name: "PackageCollectionsTests",
-            dependencies: ["PackageCollections", "InternalTestSupport", "tsan_utils"]
+            dependencies: ["PackageCollections", "_InternalTestSupport", "tsan_utils"]
         ),
         .testTarget(
             name: "PackageFingerprintTests",
-            dependencies: ["PackageFingerprint", "InternalTestSupport"]
+            dependencies: ["PackageFingerprint", "_InternalTestSupport"]
         ),
         .testTarget(
             name: "PackagePluginAPITests",
-            dependencies: ["PackagePlugin", "InternalTestSupport"]
+            dependencies: ["PackagePlugin", "_InternalTestSupport"]
         ),
         .testTarget(
             name: "PackageRegistryTests",
-            dependencies: ["InternalTestSupport", "PackageRegistry"]
+            dependencies: ["_InternalTestSupport", "PackageRegistry"]
         ),
         .testTarget(
             name: "PackageSigningTests",
-            dependencies: ["InternalTestSupport", "PackageSigning"]
+            dependencies: ["_InternalTestSupport", "PackageSigning"]
         ),
         .testTarget(
             name: "QueryEngineTests",
-            dependencies: ["QueryEngine", "InternalTestSupport"]
+            dependencies: ["QueryEngine", "_InternalTestSupport"]
         ),
         .testTarget(
             name: "SourceControlTests",
-            dependencies: ["SourceControl", "InternalTestSupport"],
+            dependencies: ["SourceControl", "_InternalTestSupport"],
             exclude: ["Inputs/TestRepo.tgz"]
         ),
         .testTarget(
             name: "XCBuildSupportTests",
-            dependencies: ["XCBuildSupport", "InternalTestSupport"],
+            dependencies: ["XCBuildSupport", "_InternalTestSupport"],
             exclude: ["Inputs/Foo.pc"]
         ),
         // Examples (These are built to ensure they stay up to date with the API.)
@@ -743,7 +743,7 @@ package.targets.append(contentsOf: [
         name: "FunctionalPerformanceTests",
         dependencies: [
             "swift-package-manager",
-            "InternalTestSupport",
+            "_InternalTestSupport",
         ]
     ),
 ])
@@ -757,7 +757,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
             dependencies: [
                 "swift-package-manager",
                 "PackageModel",
-                "InternalTestSupport",
+                "_InternalTestSupport",
             ]
         ),
 
@@ -779,7 +779,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "PackageModelSyntax",
                 "PackageRegistryCommand",
                 "SourceControl",
-                "InternalTestSupport",
+                "_InternalTestSupport",
                 "Workspace",
                 "dummy-swiftc",
             ]

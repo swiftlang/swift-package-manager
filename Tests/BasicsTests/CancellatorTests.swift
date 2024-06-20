@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
-import InternalTestSupport
+import _InternalTestSupport
 import XCTest
 
 import class TSCBasic.Process

@@ -17,7 +17,7 @@ import SourceControl
 
 import struct TSCUtility.Version
 
-import InternalTestSupport
+import _InternalTestSupport
 
 import PackageModel
 

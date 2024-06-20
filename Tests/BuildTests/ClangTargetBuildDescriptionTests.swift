@@ -15,7 +15,7 @@ import Basics
 import PackageGraph
 import PackageModel
 import SPMBuildCore
-import InternalTestSupport
+import _InternalTestSupport
 import XCTest
 
 final class ClangTargetBuildDescriptionTests: XCTestCase {

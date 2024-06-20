@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import InternalTestSupport
+import _InternalTestSupport
 import XCTest
 
 @testable import PackageCollectionsModel

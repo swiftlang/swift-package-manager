@@ -13,7 +13,7 @@
 import Basics
 import Commands
 import PackageModel
-import InternalTestSupport
+import _InternalTestSupport
 import Workspace
 import XCTest
 

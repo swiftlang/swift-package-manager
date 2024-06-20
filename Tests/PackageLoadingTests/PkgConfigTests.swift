@@ -13,7 +13,7 @@
 import Basics
 @testable import PackageLoading
 import PackageModel
-import InternalTestSupport
+import _InternalTestSupport
 import XCTest
 
 import func TSCTestSupport.withCustomEnv

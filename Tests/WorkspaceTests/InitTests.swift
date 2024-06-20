@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import InternalTestSupport
+import _InternalTestSupport
 import PackageModel
 import Workspace
 import XCTest

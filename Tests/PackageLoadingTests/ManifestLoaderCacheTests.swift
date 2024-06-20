@@ -13,7 +13,7 @@
 @testable import Basics
 @testable import PackageLoading
 import PackageModel
-import InternalTestSupport
+import _InternalTestSupport
 import XCTest
 
 import class TSCBasic.InMemoryFileSystem

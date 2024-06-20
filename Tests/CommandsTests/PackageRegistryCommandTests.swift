@@ -18,7 +18,7 @@ import PackageModel
 import PackageRegistry
 @testable import PackageRegistryCommand
 import PackageSigning
-import InternalTestSupport
+import _InternalTestSupport
 import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
 import Workspace
 import XCTest

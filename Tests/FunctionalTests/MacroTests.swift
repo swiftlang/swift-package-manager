@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import DriverSupport
-import InternalTestSupport
+import _InternalTestSupport
 import PackageModel
 import XCTest
 

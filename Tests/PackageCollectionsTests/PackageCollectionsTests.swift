@@ -12,7 +12,7 @@
 
 import Foundation
 import XCTest
-import InternalTestSupport
+import _InternalTestSupport
 
 import Basics
 @testable import PackageCollections

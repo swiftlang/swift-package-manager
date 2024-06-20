@@ -13,7 +13,7 @@
 import Basics
 @testable import PackageCollections
 @testable import PackageModel
-import InternalTestSupport
+import _InternalTestSupport
 import XCTest
 
 final class PackageCollectionsModelTests: XCTestCase {

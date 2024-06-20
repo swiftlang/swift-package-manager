@@ -12,7 +12,7 @@
 
 @testable import Basics
 import PackageModel
-import InternalTestSupport
+import _InternalTestSupport
 @testable import SourceControl
 import XCTest
 

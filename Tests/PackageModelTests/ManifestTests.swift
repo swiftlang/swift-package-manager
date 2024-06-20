@@ -12,7 +12,7 @@
 
 import XCTest
 import PackageModel
-import InternalTestSupport
+import _InternalTestSupport
 
 class ManifestTests: XCTestCase {
     func testRequiredTargets() throws {

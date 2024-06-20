@@ -13,7 +13,7 @@
 import Build
 import Foundation
 import LLBuildManifest
-import InternalTestSupport
+import _InternalTestSupport
 import TSCBasic
 import XCTest
 import class Basics.ObservabilitySystem

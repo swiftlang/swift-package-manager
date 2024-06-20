@@ -18,7 +18,7 @@ import PackageGraph
 
 import PackageModel
 import SourceKitLSPAPI
-import InternalTestSupport
+import _InternalTestSupport
 import XCTest
 
 final class SourceKitLSPAPITests: XCTestCase {

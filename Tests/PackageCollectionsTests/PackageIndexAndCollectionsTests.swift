@@ -14,7 +14,7 @@ import Basics
 import Foundation
 @testable import PackageCollections
 import PackageModel
-import InternalTestSupport
+import _InternalTestSupport
 import XCTest
 
 import struct TSCUtility.Version
