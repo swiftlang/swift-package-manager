@@ -638,7 +638,7 @@ extension MappablePackageDependency {
                     path: path
                 ),
                 productFilter: .everything,
-                traits: Set(seed.traits?.map { PackageDependency.Trait.init($0) } ?? [])
+                traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) }
             )
         case .sourceControl(let name, let location, let requirement):
             self.init(
@@ -649,7 +649,7 @@ extension MappablePackageDependency {
                     requirement: .init(requirement)
                 ),
                 productFilter: .everything,
-                traits: Set(seed.traits?.map { PackageDependency.Trait.init($0) } ?? [])
+                traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) }
             )
         case .registry(let id, let requirement):
             self.init(
@@ -659,7 +659,7 @@ extension MappablePackageDependency {
                     requirement: .init(requirement)
                 ),
                 productFilter: .everything,
-                traits: Set(seed.traits?.map { PackageDependency.Trait.init($0) } ?? [])
+                traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) }
             )
         }
     }
