@@ -12,9 +12,7 @@
 
 import Basics
 
-import struct TSCUtility.PolymorphicCodableArray
-
-public class Product: Codable {
+public class Product {
     /// The name of the product.
     public let name: String
 
@@ -28,7 +26,6 @@ public class Product: Codable {
     ///
     /// This is never empty, and is only the targets which are required to be in
     /// the product, but not necessarily their transitive dependencies.
-    @PolymorphicCodableArray
     public var modules: [Module]
 
     /// The path to test entry point file.
@@ -54,7 +51,7 @@ public class Product: Codable {
         self.name = name
         self.type = type
         self.identity = package.description.lowercased() + "_" + name
-        self._modules = .init(wrappedValue: modules)
+        self.modules = modules
         self.testEntryPointPath = testEntryPointPath
     }
 }

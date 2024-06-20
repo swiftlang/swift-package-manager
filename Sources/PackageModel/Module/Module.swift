@@ -12,26 +12,14 @@
 
 import Basics
 
-import protocol TSCUtility.PolymorphicCodableProtocol
-
 @available(*, deprecated, renamed: "Module")
 public typealias Target = Module
 
-public class Module: PolymorphicCodableProtocol {
+public class Module {
     /// Description of the module type used in `swift package describe` output. Preserved for backwards compatibility.
     public class var typeDescription: String { fatalError("implement in a subclass") }
-
-    public static var implementations: [PolymorphicCodableProtocol.Type] = [
-        SwiftModule.self,
-        ClangModule.self,
-        SystemLibraryModule.self,
-        BinaryModule.self,
-        PluginModule.self,
-        ProvidedLibraryModule.self,
-    ]
-
     /// The module kind.
-    public enum Kind: String, Codable {
+    public enum Kind: String {
         case executable
         case library
         case systemModule = "system-target"
@@ -45,13 +33,13 @@ public class Module: PolymorphicCodableProtocol {
 
     /// A group a module belongs to that allows customizing access boundaries. A module is treated as
     /// a client outside of the package if `excluded`, inside the package boundary if `package`.
-    public enum Group: Codable, Equatable {
+    public enum Group: Equatable {
         case package
         case excluded
     }
 
     /// A reference to a product from a module dependency.
-    public struct ProductReference: Codable {
+    public struct ProductReference {
         /// The name of the product dependency.
         public let name: String
 
@@ -285,71 +273,6 @@ public class Module: PolymorphicCodableProtocol {
         self.buildSettingsDescription = buildSettingsDescription
         self.pluginUsages = pluginUsages
         self.usesUnsafeFlags = usesUnsafeFlags
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case name
-        case potentialBundleName
-        case defaultLocalization
-        case platforms
-        case type
-        case path
-        case sources
-        case resources
-        case ignored
-        case others
-        case packageAccess
-        case buildSettings
-        case buildSettingsDescription
-        case pluginUsages
-        case usesUnsafeFlags
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-
-        // FIXME: dependencies property is skipped on purpose as it points to
-        // the actual module dependency object.
-        try container.encode(name, forKey: .name)
-        try container.encode(potentialBundleName, forKey: .potentialBundleName)
-        try container.encode(type, forKey: .type)
-        try container.encode(path, forKey: .path)
-        try container.encode(sources, forKey: .sources)
-        try container.encode(resources, forKey: .resources)
-        try container.encode(ignored, forKey: .ignored)
-        try container.encode(others, forKey: .others)
-        try container.encode(packageAccess, forKey: .packageAccess)
-        try container.encode(buildSettings, forKey: .buildSettings)
-        try container.encode(buildSettingsDescription, forKey: .buildSettingsDescription)
-        // FIXME: pluginUsages property is skipped on purpose as it points to
-        // the actual module dependency object.
-        try container.encode(usesUnsafeFlags, forKey: .usesUnsafeFlags)
-    }
-
-    required public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.name = try container.decode(String.self, forKey: .name)
-        self.potentialBundleName = try container.decodeIfPresent(String.self, forKey: .potentialBundleName)
-        self.type = try container.decode(Kind.self, forKey: .type)
-        self.path = try container.decode(AbsolutePath.self, forKey: .path)
-        self.sources = try container.decode(Sources.self, forKey: .sources)
-        self.resources = try container.decode([Resource].self, forKey: .resources)
-        self.ignored = try container.decode([AbsolutePath].self, forKey: .ignored)
-        self.others = try container.decode([AbsolutePath].self, forKey: .others)
-        // FIXME: dependencies property is skipped on purpose as it points to
-        // the actual module dependency object.
-        self.dependencies = []
-        self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
-        self.packageAccess = try container.decode(Bool.self, forKey: .packageAccess)
-        self.buildSettings = try container.decode(BuildSettings.AssignmentTable.self, forKey: .buildSettings)
-        self.buildSettingsDescription = try container.decode(
-            [TargetBuildSettingDescription.Setting].self,
-            forKey: .buildSettingsDescription
-        )
-        // FIXME: pluginUsages property is skipped on purpose as it points to
-        // the actual module dependency object.
-        self.pluginUsages = []
-        self.usesUnsafeFlags = try container.decode(Bool.self, forKey: .usesUnsafeFlags)
     }
 
     @_spi(SwiftPMInternal)

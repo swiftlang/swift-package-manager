@@ -14,7 +14,6 @@ import Basics
 import struct Foundation.URL
 
 import enum TSCUtility.PackageLocation
-import struct TSCUtility.PolymorphicCodableArray
 import struct TSCUtility.Version
 
 /// The basic package representation.
@@ -45,7 +44,7 @@ import struct TSCUtility.Version
 /// 5. A loaded package, as in #4, for which the targets have also been
 /// loaded. There is not currently a data structure for this, but it is the
 /// result after `PackageLoading.transmute()`.
-public final class Package: Encodable {
+public final class Package {
     /// The identity of the package.
     public let identity: PackageIdentity
 
@@ -56,7 +55,6 @@ public final class Package: Encodable {
     public let path: AbsolutePath
 
     /// The targets contained in the package.
-    @PolymorphicCodableArray
     public var modules: [Module]
 
     /// The products produced by the package.
@@ -84,7 +82,7 @@ public final class Package: Encodable {
         self.identity = identity
         self.manifest = manifest
         self.path = path
-        self._modules = .init(wrappedValue: targets)
+        self.modules = targets
         self.products = products
         self.targetSearchPath = targetSearchPath
         self.testTargetSearchPath = testTargetSearchPath

@@ -53,36 +53,7 @@ public final class BinaryModule: Module {
         )
     }
 
-    private enum CodingKeys: String, CodingKey {
-        case kind
-        case origin
-        case artifactSource // backwards compatibility 2/2021
-    }
-
-    public override func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.origin, forKey: .origin)
-        try container.encode(self.kind, forKey: .kind)
-    }
-
-    required public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        // backwards compatibility 2/2021
-        if !container.contains(.kind) {
-            self.kind = .xcframework
-        } else {
-            self.kind = try container.decode(Kind.self, forKey: .kind)
-        }
-        // backwards compatibility 2/2021
-        if container.contains(.artifactSource)  {
-            self.origin = try container.decode(Origin.self, forKey: .artifactSource)
-        } else {
-            self.origin = try container.decode(Origin.self, forKey: .origin)
-        }
-        try super.init(from: decoder)
-    }
-
-    public enum Kind: String, RawRepresentable, Codable, CaseIterable {
+    public enum Kind: String, RawRepresentable, CaseIterable {
         case xcframework
         case artifactsArchive
         case unknown // for non-downloaded artifacts
@@ -104,42 +75,12 @@ public final class BinaryModule: Module {
         return self.kind == .artifactsArchive
     }
 
-    public enum Origin: Equatable, Codable {
+    public enum Origin: Equatable {
 
         /// Represents an artifact that was downloaded from a remote URL.
         case remote(url: String)
 
         /// Represents an artifact that was available locally.
         case local
-
-        private enum CodingKeys: String, CodingKey {
-            case remote, local
-        }
-
-        public func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            switch self {
-            case .remote(let a1):
-                var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .remote)
-                try unkeyedContainer.encode(a1)
-            case .local:
-                try container.encodeNil(forKey: .local)
-            }
-        }
-
-        public init(from decoder: Decoder) throws {
-            let values = try decoder.container(keyedBy: CodingKeys.self)
-            guard let key = values.allKeys.first(where: values.contains) else {
-                throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
-            }
-            switch key {
-            case .remote:
-                var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-                let a1 = try unkeyedValues.decode(String.self)
-                self = .remote(url: a1)
-            case .local:
-                self = .local
-            }
-        }
     }
 }
