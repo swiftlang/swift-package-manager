@@ -53,7 +53,7 @@ extension Package {
         /// The dependencies traits configuration.
         @_spi(ExperimentalTraits)
         @available(_PackageDescription, introduced: 999.0)
-        public let traits: Set<Trait>?
+        public let traits: Set<Trait>
 
         /// The name of the dependency.
         ///
@@ -145,7 +145,7 @@ extension Package {
 
         init(kind: Kind, traits: Set<Trait>?) {
             self.kind = kind
-            self.traits = traits
+            self.traits = traits ?? [.defaults]
         }
 
         convenience init(
@@ -241,8 +241,8 @@ extension Package.Dependency {
     /// packages.
     ///
     /// - Parameters:
-    ///   - name: The name of the Swift package or `nil` to deduce the name from path.
-    ///   - path: The local path to the package.
+    ///   - name: The name of the Swift package.
+    ///   - path: The file system path to the package.
     ///
     /// - Returns: A package dependency.
     @available(_PackageDescription, introduced: 5.2)
@@ -261,8 +261,8 @@ extension Package.Dependency {
     /// packages.
     ///
     /// - Parameters:
-    ///   - name: The name of the Swift package or `nil` to deduce the name from path.
-    ///   - path: The local path to the package.
+    ///   - name: The name of the Swift package.
+    ///   - path: The file system path to the package.
     ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
     ///
     /// - Returns: A package dependency.

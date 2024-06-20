@@ -1108,7 +1108,9 @@ extension Workspace {
                     additionalFileRules: [],
                     binaryArtifacts: binaryArtifacts,
                     fileSystem: self.fileSystem,
-                    observabilityScope: observabilityScope
+                    observabilityScope: observabilityScope,
+                    // For now we enable all traits
+                    enabledTraits: Set(manifest.traits.map { $0.name })
                 )
                 return try builder.construct()
             }
@@ -1119,7 +1121,7 @@ extension Workspace {
     public func loadPluginImports(
         packageGraph: ModulesGraph
     ) async throws -> [PackageIdentity: [String: [String]]] {
-        let pluginTargets = packageGraph.allTargets.filter { $0.type == .plugin }
+        let pluginTargets = packageGraph.allModules.filter { $0.type == .plugin }
         let scanner = SwiftcImportScanner(
             swiftCompilerEnvironment: hostToolchain.swiftCompilerEnvironment,
             swiftCompilerFlags: self.hostToolchain
@@ -1188,7 +1190,9 @@ extension Workspace {
                     shouldCreateMultipleTestProducts: self.configuration.shouldCreateMultipleTestProducts,
                     createREPLProduct: self.configuration.createREPLProduct,
                     fileSystem: self.fileSystem,
-                    observabilityScope: observabilityScope
+                    observabilityScope: observabilityScope,
+                    // For now we enable all traits
+                    enabledTraits: Set(manifest.traits.map { $0.name })
                 )
                 return try builder.construct()
             }

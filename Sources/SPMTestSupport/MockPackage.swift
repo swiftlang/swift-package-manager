@@ -22,6 +22,7 @@ public struct MockPackage {
     public let products: [MockProduct]
     public let dependencies: [MockDependency]
     public let versions: [String?]
+    package let traits: Set<TraitDescription>
     /// Provides revision identifier for the given version. A random identifier might be assigned if this is nil.
     public let revisionProvider: ((String) -> String)?
     // FIXME: This should be per-version.
@@ -34,6 +35,7 @@ public struct MockPackage {
         targets: [MockTarget],
         products: [MockProduct] = [],
         dependencies: [MockDependency] = [],
+        traits: Set<TraitDescription> = [],
         versions: [String?] = [],
         revisionProvider: ((String) -> String)? = nil,
         toolsVersion: ToolsVersion? = nil
@@ -45,6 +47,7 @@ public struct MockPackage {
         self.targets = targets
         self.products = products
         self.dependencies = dependencies
+        self.traits = traits
         self.versions = versions
         self.revisionProvider = revisionProvider
         self.toolsVersion = toolsVersion
@@ -57,6 +60,7 @@ public struct MockPackage {
         targets: [MockTarget],
         products: [MockProduct],
         dependencies: [MockDependency] = [],
+        traits: Set<TraitDescription> = [],
         versions: [String?] = [],
         revisionProvider: ((String) -> String)? = nil,
         toolsVersion: ToolsVersion? = nil
@@ -67,6 +71,7 @@ public struct MockPackage {
         self.targets = targets
         self.products = products
         self.dependencies = dependencies
+        self.traits = traits
         self.versions = versions
         self.revisionProvider = revisionProvider
         self.toolsVersion = toolsVersion
@@ -81,6 +86,7 @@ public struct MockPackage {
         targets: [MockTarget],
         products: [MockProduct],
         dependencies: [MockDependency] = [],
+        traits: Set<TraitDescription> = [],
         versions: [String?] = [],
         revisionProvider: ((String) -> String)? = nil,
         toolsVersion: ToolsVersion? = nil
@@ -95,6 +101,7 @@ public struct MockPackage {
         self.targets = targets
         self.products = products
         self.dependencies = dependencies
+        self.traits = traits
         self.versions = versions
         self.revisionProvider = revisionProvider
         self.toolsVersion = toolsVersion
@@ -107,7 +114,7 @@ public struct MockPackage {
                 try MockTarget(name: name),
             ],
             products: [
-                MockProduct(name: name, targets: [name]),
+                MockProduct(name: name, modules: [name]),
             ],
             versions: ["1.0.0"]
         )

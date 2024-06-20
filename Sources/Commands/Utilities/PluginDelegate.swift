@@ -23,10 +23,10 @@ import struct Basics.AsyncProcessResult
 
 final class PluginDelegate: PluginInvocationDelegate {
     let swiftCommandState: SwiftCommandState
-    let plugin: PluginTarget
+    let plugin: PluginModule
     var lineBufferedOutput: Data
 
-    init(swiftCommandState: SwiftCommandState, plugin: PluginTarget) {
+    init(swiftCommandState: SwiftCommandState, plugin: PluginModule) {
         self.swiftCommandState = swiftCommandState
         self.plugin = plugin
         self.lineBufferedOutput = Data()
@@ -385,7 +385,7 @@ final class PluginDelegate: PluginInvocationDelegate {
 
         // Find the target in the build operation's package graph; it's an error if we don't find it.
         let packageGraph = try buildSystem.getPackageGraph()
-        guard let target = packageGraph.target(for: targetName) else {
+        guard let target = packageGraph.module(for: targetName) else {
             throw StringError("could not find a target named “\(targetName)”")
         }
 
@@ -430,7 +430,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         guard let package = packageGraph.package(for: target) else {
             throw StringError("could not determine the package for target “\(target.name)”")
         }
-        let outputDir = try buildParameters.dataPath.appending(
+        let outputDir = buildParameters.dataPath.appending(
             components: "extracted-symbols",
             package.identity.description,
             target.name

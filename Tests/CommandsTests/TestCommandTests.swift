@@ -212,7 +212,7 @@ final class TestCommandTests: CommandsTestCase {
 
         // should emit when LinuxMain is not present
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            try localFileSystem.writeFileContents(fixturePath.appending(components: "Tests", SwiftTarget.defaultTestEntryPointName), bytes: "fatalError(\"boom\")")
+            try localFileSystem.writeFileContents(fixturePath.appending(components: "Tests", SwiftModule.defaultTestEntryPointName), bytes: "fatalError(\"boom\")")
             let (_, stderr) = try await SwiftPM.Test.execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
             XCTAssertMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
         }
@@ -224,7 +224,7 @@ final class TestCommandTests: CommandsTestCase {
         }
         // should not emit when LinuxMain is present
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            try localFileSystem.writeFileContents(fixturePath.appending(components: "Tests", SwiftTarget.defaultTestEntryPointName), bytes: "fatalError(\"boom\")")
+            try localFileSystem.writeFileContents(fixturePath.appending(components: "Tests", SwiftModule.defaultTestEntryPointName), bytes: "fatalError(\"boom\")")
             let (_, stderr) = try await SwiftPM.Test.execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
             XCTAssertNoMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
         }

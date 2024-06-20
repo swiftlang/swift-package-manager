@@ -10,7 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-public final class PluginTarget: Target {
+@available(*, deprecated, renamed: "PluginModule")
+public typealias PluginTarget = PluginModule
+
+public final class PluginModule: Module {
+    /// Description of the module type used in `swift package describe` output. Preserved for backwards compatibility.
+    public override class var typeDescription: String { "PluginTarget" }
 
     /// Declared capability of the plugin.
     public let capability: PluginCapability
@@ -23,7 +28,7 @@ public final class PluginTarget: Target {
         sources: Sources,
         apiVersion: ToolsVersion,
         pluginCapability: PluginCapability,
-        dependencies: [Target.Dependency] = [],
+        dependencies: [Module.Dependency] = [],
         packageAccess: Bool
     ) {
         self.capability = pluginCapability
@@ -41,62 +46,11 @@ public final class PluginTarget: Target {
             usesUnsafeFlags: false
         )
     }
-
-    private enum CodingKeys: String, CodingKey {
-        case capability
-        case apiVersion
-    }
-
-    public override func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.capability, forKey: .capability)
-        try container.encode(self.apiVersion, forKey: .apiVersion)
-        try super.encode(to: encoder)
-    }
-
-    required public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.capability = try container.decode(PluginCapability.self, forKey: .capability)
-        self.apiVersion = try container.decode(ToolsVersion.self, forKey: .apiVersion)
-        try super.init(from: decoder)
-    }
 }
 
-public enum PluginCapability: Hashable, Codable {
+public enum PluginCapability: Hashable {
     case buildTool
     case command(intent: PluginCommandIntent, permissions: [PluginPermission])
-
-    private enum CodingKeys: String, CodingKey {
-        case buildTool, command
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .buildTool:
-            try container.encodeNil(forKey: .buildTool)
-        case .command(let a1, let a2):
-            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .command)
-            try unkeyedContainer.encode(a1)
-            try unkeyedContainer.encode(a2)
-        }
-    }
-
-    public init(from decoder: Decoder) throws {
-        let values = try decoder.container(keyedBy: CodingKeys.self)
-        guard let key = values.allKeys.first(where: values.contains) else {
-            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
-        }
-        switch key {
-        case .buildTool:
-            self = .buildTool
-        case .command:
-            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-            let a1 = try unkeyedValues.decode(PluginCommandIntent.self)
-            let a2 = try unkeyedValues.decode([PluginPermission].self)
-            self = .command(intent: a1, permissions: a2)
-        }
-    }
 
     public init(from desc: TargetDescription.PluginCapability) {
         switch desc {
@@ -108,7 +62,7 @@ public enum PluginCapability: Hashable, Codable {
     }
 }
 
-public enum PluginCommandIntent: Hashable, Codable {
+public enum PluginCommandIntent: Hashable {
     case documentationGeneration
     case sourceCodeFormatting
     case custom(verb: String, description: String)
@@ -125,7 +79,7 @@ public enum PluginCommandIntent: Hashable, Codable {
     }
 }
 
-public enum PluginNetworkPermissionScope: Hashable, Codable {
+public enum PluginNetworkPermissionScope: Hashable {
     case none
     case local(ports: [Int])
     case all(ports: [Int])
@@ -161,7 +115,7 @@ public enum PluginNetworkPermissionScope: Hashable, Codable {
     }
 }
 
-public enum PluginPermission: Hashable, Codable {
+public enum PluginPermission: Hashable {
     case allowNetworkConnections(scope: PluginNetworkPermissionScope, reason: String)
     case writeToPackageDirectory(reason: String)
 

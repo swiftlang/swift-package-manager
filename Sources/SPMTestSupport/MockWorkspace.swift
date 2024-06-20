@@ -223,7 +223,7 @@ public final class MockWorkspace {
                 registryAlternativeURLs = alternativeURLs
             }
 
-            // Create targets on disk.
+            // Create modules on disk.
             let packageToolsVersion = package.toolsVersion ?? .current
             if let specifier = sourceControlSpecifier {
                 let repository = self.repositoryProvider.specifierMap[specifier] ?? .init(path: packagePath, fs: self.fileSystem)
@@ -264,8 +264,9 @@ public final class MockWorkspace {
                     version: v,
                     toolsVersion: packageToolsVersion,
                     dependencies: package.dependencies.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) },
-                    products: package.products.map { try ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.targets) },
-                    targets: try package.targets.map { try $0.convert(identityResolver: self.identityResolver) }
+                    products: package.products.map { try ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.modules) },
+                    targets: try package.targets.map { try $0.convert(identityResolver: self.identityResolver) },
+                    traits: package.traits
                 )
             }
 

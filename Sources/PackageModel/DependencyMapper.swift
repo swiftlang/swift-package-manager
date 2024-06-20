@@ -133,18 +133,31 @@ public struct MappablePackageDependency {
     public let parentPackagePath: AbsolutePath
     public let kind: Kind
     public let productFilter: ProductFilter
-    public let traits: Set<PackageDependency.Trait>
+    package let traits: Set<PackageDependency.Trait>?
 
-    public init(
+    package init(
         parentPackagePath: AbsolutePath,
         kind: Kind,
         productFilter: ProductFilter,
-        traits: Set<PackageDependency.Trait>
+        traits: Set<PackageDependency.Trait>?
     ) {
         self.parentPackagePath = parentPackagePath
         self.kind = kind
         self.productFilter = productFilter
         self.traits = traits
+    }
+
+    public init(
+        parentPackagePath: AbsolutePath,
+        kind: Kind,
+        productFilter: ProductFilter
+    ) {
+        self.init(
+            parentPackagePath: parentPackagePath,
+            kind: kind,
+            productFilter: productFilter,
+            traits: nil
+        )
     }
 
     public enum Kind {

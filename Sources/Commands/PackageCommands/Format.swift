@@ -60,7 +60,7 @@ extension SwiftPackageCommand {
                 : swiftFormatFlags
 
             // Process each target in the root package.
-            let paths = package.targets.flatMap { target in
+            let paths = package.modules.flatMap { target in
                 target.sources.paths.filter { file in
                     file.extension == SupportedLanguageExtension.swift.rawValue
                 }

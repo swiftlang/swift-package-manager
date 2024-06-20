@@ -62,7 +62,7 @@ public struct PkgConfigResult {
 
 /// Get pkgConfig result for a system library target.
 public func pkgConfigArgs(
-    for target: SystemLibraryTarget,
+    for target: SystemLibraryModule,
     pkgConfigDirectories: [AbsolutePath],
     sdkRootPath: AbsolutePath? = nil,
     brewPrefix: AbsolutePath? = .none,
@@ -334,7 +334,7 @@ extension ObservabilityMetadata {
     public static func pkgConfig(pcFile: String, targetName: String) -> Self {
         var metadata = ObservabilityMetadata()
         metadata.pcFile = "\(pcFile).pc"
-        metadata.targetName = targetName
+        metadata.moduleName = targetName
         return metadata
     }
 }

@@ -46,12 +46,12 @@ public final class PackageGraphResult {
         XCTAssertEqual(graph.packages.map {$0.identity }.sorted(), packages.sorted(), file: file, line: line)
     }
 
-    public func check(targets: String..., file: StaticString = #file, line: UInt = #line) {
+    public func check(modules: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(
-            graph.allTargets
+            graph.allModules
                 .filter { $0.type != .test }
                 .map { $0.name }
-                .sorted(), targets.sorted(), file: file, line: line)
+                .sorted(), modules.sorted(), file: file, line: line)
     }
 
     public func check(products: String..., file: StaticString = #file, line: UInt = #line) {
@@ -59,7 +59,7 @@ public final class PackageGraphResult {
     }
 
     public func check(reachableTargets: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(Set(graph.reachableTargets.map { $0.name }), Set(reachableTargets), file: file, line: line)
+        XCTAssertEqual(Set(graph.reachableModules.map { $0.name }), Set(reachableTargets), file: file, line: line)
     }
 
     public func check(reachableProducts: String..., file: StaticString = #file, line: UInt = #line) {
@@ -93,7 +93,7 @@ public final class PackageGraphResult {
         line: UInt = #line,
         body: (ResolvedTargetResult) -> Void
     ) {
-        let target = graph.target(for: name, destination: destination)
+        let target = graph.module(for: name, destination: destination)
 
         guard let target else {
             return XCTFail("Target \(name) not found", file: file, line: line)
@@ -108,7 +108,7 @@ public final class PackageGraphResult {
         line: UInt = #line,
         body: ([ResolvedTargetResult]) throws -> Void
     ) rethrows {
-        try body(graph.allTargets.filter { $0.name == name }.map(ResolvedTargetResult.init))
+        try body(graph.allModules.filter { $0.name == name }.map(ResolvedTargetResult.init))
     }
 
     public func checkProduct(
@@ -127,9 +127,21 @@ public final class PackageGraphResult {
         body(ResolvedProductResult(product))
     }
 
+    package func checkPackage(
+        _ name: String,
+        file: StaticString = #file,
+        line: UInt = #line,
+        body: (ResolvedPackage) -> Void
+    ) {
+        guard let package = find(package: .init(stringLiteral: name)) else {
+            return XCTFail("Product \(name) not found", file: file, line: line)
+        }
+        body(package)
+    }
+
     public func check(testModules: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(
-            graph.allTargets
+            graph.allModules
                 .filter{ $0.type == .test }
                 .map{ $0.name }
                 .sorted(), testModules.sorted(), file: file, line: line)
@@ -140,17 +152,17 @@ public final class PackageGraphResult {
     }
 
     private func reachableBuildTargets(in environment: BuildEnvironment) throws -> IdentifiableSet<ResolvedModule> {
-        let inputTargets = graph.inputPackages.lazy.flatMap { $0.targets }
+        let inputTargets = graph.inputPackages.lazy.flatMap { $0.modules }
         let recursiveBuildTargetDependencies = try inputTargets
             .flatMap { try $0.recursiveDependencies(satisfying: environment) }
-            .compactMap { $0.target }
+            .compactMap { $0.module }
         return IdentifiableSet(inputTargets).union(recursiveBuildTargetDependencies)
     }
 
     private func reachableBuildProducts(in environment: BuildEnvironment) throws -> IdentifiableSet<ResolvedProduct> {
         let recursiveBuildProductDependencies = try graph.inputPackages
             .lazy
-            .flatMap { $0.targets }
+            .flatMap { $0.modules }
             .flatMap { try $0.recursiveDependencies(satisfying: environment) }
             .compactMap { $0.product }
         return IdentifiableSet(graph.inputPackages.flatMap { $0.products }).union(recursiveBuildProductDependencies)
@@ -184,7 +196,7 @@ public final class ResolvedTargetResult {
         body(ResolvedTargetDependencyResult(dependency))
     }
 
-    public func check(type: Target.Kind, file: StaticString = #file, line: UInt = #line) {
+    public func check(type: Module.Kind, file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(type, target.type, file: file, line: line)
     }
 
@@ -217,6 +229,19 @@ public final class ResolvedTargetResult {
         XCTAssertEqual(platform.options, options, file: file, line: line)
     }
 
+    package func checkBuildSetting(
+        declaration: BuildSettings.Declaration,
+        assignments: Set<BuildSettings.Assignment>?,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) {
+        XCTAssertEqual(
+            target.underlying.buildSettings.assignments[declaration].flatMap { Set($0) },
+            assignments,
+            file: file,
+            line: line
+        )
+    }
     public func check(buildTriple: BuildTriple, file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(self.target.buildTriple, buildTriple, file: file, line: line)
     }
@@ -246,7 +271,7 @@ public final class ResolvedTargetDependencyResult {
         line: UInt = #line,
         body: (ResolvedTargetResult) -> Void
     ) {
-        guard case let .target(target, _) = self.dependency else {
+        guard case let .module(target, _) = self.dependency else {
             return XCTFail("Dependency \(dependency) is not a target", file: file, line: line)
         }
         body(ResolvedTargetResult(target))
@@ -271,8 +296,8 @@ public final class ResolvedProductResult {
         self.product = product
     }
 
-    public func check(targets: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(Set(targets), Set(product.targets.map({ $0.name })), file: file, line: line)
+    public func check(modules: String..., file: StaticString = #file, line: UInt = #line) {
+        XCTAssertEqual(Set(modules), Set(product.modules.map({ $0.name })), file: file, line: line)
     }
 
     public func check(type: ProductType, file: StaticString = #file, line: UInt = #line) {
@@ -308,7 +333,7 @@ public final class ResolvedProductResult {
         line: UInt = #line,
         body: (ResolvedTargetResult) -> Void
     ) {
-        guard let target = product.targets.first(where: { $0.name == name }) else {
+        guard let target = product.modules.first(where: { $0.name == name }) else {
             return XCTFail("Target \(name) not found", file: file, line: line)
         }
         body(ResolvedTargetResult(target))
@@ -318,7 +343,7 @@ public final class ResolvedProductResult {
 extension ResolvedModule.Dependency {
     public var name: String {
         switch self {
-        case .target(let target, _):
+        case .module(let target, _):
             return target.name
         case .product(let product, _):
             return product.name

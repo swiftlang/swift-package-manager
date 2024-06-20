@@ -12,8 +12,11 @@
 
 import struct Basics.AbsolutePath
 
-/// Represents a target library that comes from a toolchain in prebuilt form.
-public final class ProvidedLibraryTarget: Target {
+@available(*, deprecated, renamed: "ProvidedLibraryModule")
+public typealias ProvidedLibraryTarget = ProvidedLibraryModule
+
+/// Represents a library module that comes from a toolchain in prebuilt form.
+public final class ProvidedLibraryModule: Module {
     public init(
         name: String,
         path: AbsolutePath
@@ -31,14 +34,5 @@ public final class ProvidedLibraryTarget: Target {
             pluginUsages: [],
             usesUnsafeFlags: false
         )
-    }
-
-
-    public override func encode(to encoder: Encoder) throws {
-        try super.encode(to: encoder)
-    }
-
-    required public init(from decoder: Decoder) throws {
-        try super.init(from: decoder)
     }
 }
