@@ -40,7 +40,7 @@ public struct ResolvedPackage {
     public let products: [ResolvedProduct]
 
     /// The enabled traits of this package.
-    public let enabledTraits: Set<String>
+    package let enabledTraits: Set<String>
 
     /// The dependencies of the package.
     public let dependencies: [PackageIdentity]

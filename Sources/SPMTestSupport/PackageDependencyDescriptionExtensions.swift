@@ -16,7 +16,7 @@ import PackageModel
 
 import struct TSCUtility.Version
 
-public extension PackageDependency {
+package extension PackageDependency {
     static func fileSystem(
         identity: PackageIdentity? = nil,
         deprecatedName: String? = nil,

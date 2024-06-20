@@ -30,7 +30,7 @@ public struct GraphLoadingNode: Equatable, Hashable {
     public let productFilter: ProductFilter
 
     /// The enabled traits for this package.
-    public var enabledTraits: Set<String>
+    package var enabledTraits: Set<String>
 
     public init(
         identity: PackageIdentity,

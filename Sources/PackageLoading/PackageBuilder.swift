@@ -177,7 +177,7 @@ extension ModuleError: CustomStringConvertible {
             """
         case .invalidTrait(let package, let trait):
             return """
-            Tried to enable invalid trait "\(trait)" for package \(package)
+            Trait '"\(trait)"' is not declared by package '\(package)'.
             """
         }
     }
