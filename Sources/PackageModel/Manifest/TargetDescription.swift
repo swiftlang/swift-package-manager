@@ -12,7 +12,10 @@
 
 /// The description of an individual module.
 public struct TargetDescription: Hashable, Encodable, Sendable {
-    /// The target type.
+    @available(*, deprecated, renamed: "TargetKind")
+    public typealias TargetType = TargetKind
+
+    /// The target kind.
     public enum TargetKind: String, Hashable, Encodable, Sendable {
         case regular
         case executable
