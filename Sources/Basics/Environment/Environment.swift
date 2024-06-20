@@ -309,7 +309,7 @@ extension Environment: CustomStringConvertible {
     public var description: String {
         let body = self
             .sorted { $0.key < $1.key }
-            .map { #""\#($0.rawValue)"="\#($1)""# }
+            .map { "\"\($0.rawValue)=\($1)\"" }
             .joined(separator: ", ")
         return "[\(body)]"
     }
