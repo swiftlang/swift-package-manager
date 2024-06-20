@@ -53,7 +53,7 @@ extension Package {
         /// The dependencies traits configuration.
         @_spi(ExperimentalTraits)
         @available(_PackageDescription, introduced: 999.0)
-        public let traits: Set<Trait>?
+        public let traits: Set<Trait>
 
         /// The name of the dependency.
         ///
@@ -145,7 +145,7 @@ extension Package {
 
         init(kind: Kind, traits: Set<Trait>?) {
             self.kind = kind
-            self.traits = traits
+            self.traits = traits ?? [.defaults]
         }
 
         convenience init(

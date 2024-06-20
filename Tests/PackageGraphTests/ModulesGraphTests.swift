@@ -2899,6 +2899,410 @@ final class ModulesGraphTests: XCTestCase {
             )
         }
     }
+
+    func testTraits_whenSingleManifest_andDefaultTrait() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/Foo/Sources/Foo/source.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    toolsVersion: .v5_9,
+                    targets: [
+                        TargetDescription(
+                            name: "Foo"
+                        ),
+                    ],
+                    traits: [
+                        .init(name: "Trait1", isDefault: true),
+                        "Trait1",
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertEqual(observability.diagnostics.count, 0)
+
+        PackageGraphTester(graph) { result in
+            result.checkPackage("Foo") { package in
+                XCTAssertEqual(package.enabledTraits, ["Trait1"])
+            }
+        }
+    }
+
+    func testTraits_whenTraitEnablesOtherTraits() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/Foo/Sources/Foo/source.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    toolsVersion: .v5_9,
+                    targets: [
+                        TargetDescription(
+                            name: "Foo"
+                        ),
+                    ],
+                    traits: [
+                        .init(name: "Trait1", isDefault: true, enabledTraits: ["Trait2"]),
+                        .init(name: "Trait2", enabledTraits: ["Trait3", "Trait4"]),
+                        "Trait3",
+                        .init(name: "Trait4", enabledTraits: ["Trait5"]),
+                        "Trait5",
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertEqual(observability.diagnostics.count, 0)
+
+        PackageGraphTester(graph) { result in
+            result.checkPackage("Foo") { package in
+                XCTAssertEqual(package.enabledTraits, ["Trait1", "Trait2", "Trait3", "Trait4", "Trait5"])
+            }
+        }
+    }
+
+    func testTraits_whenDependencyTraitEnabled() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/Package1/Sources/Package1Target1/source.swift",
+                                    "/Package2/Sources/Package2Target1/source.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Package1",
+                    path: "/Package1",
+                    toolsVersion: .v5_9,
+                    dependencies: [
+                        .localSourceControl(
+                            path: "/Package2",
+                            requirement: .upToNextMajor(from: "1.0.0"),
+                            traits: ["Package2Trait1"]
+                        )
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "Package1Target1",
+                            dependencies: [
+                                .product(name: "Package2Target1", package: "Package2")
+                            ]
+                        ),
+                    ],
+                    traits: [
+                        .init(name: "Package1Trait1", isDefault: true),
+                        "Package1Trait1",
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "Package2",
+                    path: "/Package2",
+                    toolsVersion: .v5_9,
+                    products: [
+                        .init(
+                            name: "Package2Target1",
+                            type: .library(.automatic),
+                            targets: ["Package2Target1"]
+                        )
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "Package2Target1"
+                        ),
+                    ],
+                    traits: [
+                        "Package2Trait1"
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertEqual(observability.diagnostics.count, 0)
+
+        PackageGraphTester(graph) { result in
+            result.checkPackage("Package1") { package in
+                XCTAssertEqual(package.enabledTraits, ["Package1Trait1"])
+                XCTAssertEqual(package.dependencies.count, 1)
+            }
+            result.checkPackage("Package2") { package in
+                XCTAssertEqual(package.enabledTraits, ["Package2Trait1"])
+            }
+        }
+    }
+
+    func testTraits_whenTraitEnablesDependencyTrait() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/Package1/Sources/Package1Target1/source.swift",
+                                    "/Package2/Sources/Package2Target1/source.swift"
+        )
+
+        let manifests = try [
+            Manifest.createRootManifest(
+                displayName: "Package1",
+                path: "/Package1",
+                toolsVersion: .v5_9,
+                dependencies: [
+                    .localSourceControl(
+                        path: "/Package2",
+                        requirement: .upToNextMajor(from: "1.0.0"),
+                        traits: .init([.init(name: "Package2Trait1", condition: .init(traits: ["Package1Trait1"]))])
+                    )
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "Package1Target1",
+                        dependencies: [
+                            .product(name: "Package2Target1", package: "Package2")
+                        ]
+                    ),
+                ],
+                traits: [
+                    .init(name: "Package1Trait1", isDefault: true)
+                ]
+            ),
+            Manifest.createFileSystemManifest(
+                displayName: "Package2",
+                path: "/Package2",
+                toolsVersion: .v5_9,
+                products: [
+                    .init(
+                        name: "Package2Target1",
+                        type: .library(.automatic),
+                        targets: ["Package2Target1"]
+                    )
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "Package2Target1"
+                    ),
+                ],
+                traits: [
+                    "Package2Trait1"
+                ]
+            ),
+        ]
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: manifests,
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertEqual(observability.diagnostics.count, 0)
+
+        PackageGraphTester(graph) { result in
+            result.checkPackage("Package1") { package in
+                XCTAssertEqual(package.enabledTraits, ["Package1Trait1"])
+                XCTAssertEqual(package.dependencies.count, 1)
+            }
+            result.checkPackage("Package2") { package in
+                XCTAssertEqual(package.enabledTraits, ["Package2Trait1"])
+            }
+        }
+    }
+
+    func testTraits_whenComplex() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/Package1/Sources/Package1Target1/source.swift",
+                                    "/Package2/Sources/Package2Target1/source.swift",
+                                    "/Package3/Sources/Package3Target1/source.swift",
+                                    "/Package4/Sources/Package4Target1/source.swift",
+                                    "/Package5/Sources/Package5Target1/source.swift"
+        )
+
+        let manifests = try [
+            Manifest.createRootManifest(
+                displayName: "Package1",
+                path: "/Package1",
+                toolsVersion: .v5_9,
+                dependencies: [
+                    .localSourceControl(
+                        path: "/Package2",
+                        requirement: .upToNextMajor(from: "1.0.0"),
+                        traits: .init([.init(name: "Package2Trait1", condition: .init(traits: ["Package1Trait1"]))])
+                    ),
+                    .localSourceControl(
+                        path: "/Package4",
+                        requirement: .upToNextMajor(from: "1.0.0"),
+                        traits: .init(["Package4Trait2"])
+                    ),
+                    .localSourceControl(
+                        path: "/Package5",
+                        requirement: .upToNextMajor(from: "1.0.0")
+                    )
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "Package1Target1",
+                        dependencies: [
+                            .product(name: "Package2Target1", package: "Package2"),
+                            .product(name: "Package4Target1", package: "Package4"),
+                            .product(name: "Package5Target1", package: "Package5", condition: .init(traits: ["Package1Trait2"]))
+                        ],
+                        settings: [
+                            .init(
+                                tool: .swift,
+                                kind: .define("TEST_DEFINE"),
+                                condition: .init(traits: ["Package1Trait1"])
+                            )
+                        ]
+                    ),
+                ],
+                traits: [
+                    .init(name: "Package1Trait1", isDefault: true),
+                    .init(name: "Package1Trait2", isDefault: true),
+                ]
+            ),
+            Manifest.createFileSystemManifest(
+                displayName: "Package2",
+                path: "/Package2",
+                toolsVersion: .v5_9,
+                dependencies: [
+                    .localSourceControl(
+                        path: "/Package3",
+                        requirement: .upToNextMajor(from: "1.0.0"),
+                        traits: .init([.init(name: "Package3Trait1", condition: .init(traits: ["Package2Trait1"]))])
+                    )
+                ],
+                products: [
+                    .init(
+                        name: "Package2Target1",
+                        type: .library(.automatic),
+                        targets: ["Package2Target1"]
+                    )
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "Package2Target1",
+                        dependencies: [
+                            .product(name: "Package3Target1", package: "Package3")
+                        ]
+                    ),
+                ],
+                traits: [
+                    "Package2Trait1"
+                ]
+            ),
+            Manifest.createFileSystemManifest(
+                displayName: "Package3",
+                path: "/Package3",
+                toolsVersion: .v5_9,
+                dependencies: [
+                    .localSourceControl(
+                        path: "/Package4",
+                        requirement: .upToNextMajor(from: "1.0.0"),
+                        traits: .init([.init(name: "Package4Trait1", condition: .init(traits: ["Package3Trait1"]))])
+                    )
+                ],
+                products: [
+                    .init(
+                        name: "Package3Target1",
+                        type: .library(.automatic),
+                        targets: ["Package3Target1"]
+                    )
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "Package3Target1",
+                        dependencies: [
+                            .product(name: "Package4Target1", package: "Package4")
+                        ]
+                    ),
+                ],
+                traits: [
+                    "Package3Trait1"
+                ]
+            ),
+            Manifest.createFileSystemManifest(
+                displayName: "Package4",
+                path: "/Package4",
+                toolsVersion: .v5_9,
+                products: [
+                    .init(
+                        name: "Package4Target1",
+                        type: .library(.automatic),
+                        targets: ["Package4Target1"]
+                    )
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "Package4Target1"
+                    ),
+                ],
+                traits: [
+                    "Package4Trait1",
+                    "Package4Trait2",
+                ]
+            ),
+            Manifest.createFileSystemManifest(
+                displayName: "Package5",
+                path: "/Package5",
+                toolsVersion: .v5_9,
+                products: [
+                    .init(
+                        name: "Package5Target1",
+                        type: .library(.automatic),
+                        targets: ["Package5Target1"]
+                    )
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "Package5Target1"
+                    ),
+                ]
+            ),
+        ]
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: manifests,
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertEqual(observability.diagnostics.count, 0)
+
+        PackageGraphTester(graph) { result in
+            result.checkPackage("Package1") { package in
+                XCTAssertEqual(package.enabledTraits, ["Package1Trait1", "Package1Trait2"])
+                XCTAssertEqual(package.dependencies.count, 3)
+            }
+            result.checkTarget("Package1Target1") { target in
+                target.check(dependencies: "Package2Target1", "Package4Target1", "Package5Target1")
+                target.checkBuildSetting(
+                    declaration: .SWIFT_ACTIVE_COMPILATION_CONDITIONS,
+                    assignments: [
+                        .init(values: ["TEST_DEFINE"], conditions: [.traits(.init(traits: ["Package1Trait1"]))]),
+                        .init(values: ["Package1Trait2"]),
+                        .init(values: ["Package1Trait1"]),
+                    ]
+                )
+            }
+            result.checkPackage("Package2") { package in
+                XCTAssertEqual(package.enabledTraits, ["Package2Trait1"])
+            }
+            result.checkPackage("Package3") { package in
+                XCTAssertEqual(package.enabledTraits, ["Package3Trait1"])
+            }
+            result.checkPackage("Package4") { package in
+                XCTAssertEqual(package.enabledTraits, ["Package4Trait1", "Package4Trait2"])
+            }
+        }
+    }
 }
 
 
