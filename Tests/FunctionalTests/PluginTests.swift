@@ -522,7 +522,7 @@ final class PluginTests: XCTestCase {
                     guard let module = package.modules.first(where: { $0.underlying.name == name }) else {
                         return XCTFail("There is no target named ‘\(name)’")
                     }
-                    XCTAssertTrue(module.type != .plugin, "Target \(target) is a plugin")
+                    XCTAssertTrue(module.type != .plugin, "Target \(module) is a plugin")
                     modules.append(module)
                 }
 
