@@ -251,12 +251,22 @@ internal struct PluginContextDeserializer {
         }
         let products = try wirePackage.productIds.map { try self.product(for: $0) }
         let targets = try wirePackage.targetIds.map { try self.target(for: $0) }
+        let origin: PackageOrigin = switch wirePackage.origin {
+            case .root:
+                .root
+            case .local(let pathId):
+                try .local(path: url(for: pathId).path)
+            case .repository(let url, let displayVersion, let scmRevision):
+                .repository(url: url, displayVersion: displayVersion, scmRevision: scmRevision)
+            case .registry(let identity, let displayVersion):
+                .registry(identity: identity, displayVersion: displayVersion)
+        }
         let package = Package(
             id: wirePackage.identity,
             displayName: wirePackage.displayName,
             directory: Path(url: directory),
             directoryURL: directory,
-            origin: .root,
+            origin:  origin,
             toolsVersion: toolsVersion,
             dependencies: dependencies,
             products: products,

@@ -21,6 +21,8 @@ import TSCBasic
 import TSCUtility
 import Workspace
 
+extension AddTarget.TestHarness: ExpressibleByArgument { }
+
 extension SwiftPackageCommand {
     struct AddTarget: SwiftCommand {
         /// The type of target that can be specified on the command line.
@@ -57,6 +59,9 @@ extension SwiftPackageCommand {
 
         @Option(help: "The checksum for a remote binary target")
         var checksum: String?
+
+        @Option(help: "The testing library to use when generating test targets, which can be one of 'xctest', 'swift-testing', or 'none'")
+        var testingLibrary: PackageModelSyntax.AddTarget.TestHarness = .default
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
             let workspace = try swiftCommandState.getActiveWorkspace()
@@ -110,6 +115,7 @@ extension SwiftPackageCommand {
             let editResult = try PackageModelSyntax.AddTarget.addTarget(
                 target,
                 to: manifestSyntax,
+                configuration: .init(testHarness: testingLibrary),
                 installedSwiftPMConfiguration: swiftCommandState
                   .getHostToolchain()
                   .installedSwiftPMConfiguration

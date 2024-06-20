@@ -12,9 +12,7 @@
 
 import ArgumentParser
 import Basics
-
 import CoreCommands
-
 import PackageModel
 
 import class TSCBasic.Process

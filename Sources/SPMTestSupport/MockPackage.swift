@@ -14,26 +14,28 @@ import Basics
 import Foundation
 import PackageModel
 
-package struct MockPackage {
-    package let name: String
-    package let platforms: [PlatformDescription]
-    package let location: Location
-    package let targets: [MockTarget]
-    package let products: [MockProduct]
-    package let dependencies: [MockDependency]
-    package let versions: [String?]
+public struct MockPackage {
+    public let name: String
+    public let platforms: [PlatformDescription]
+    public let location: Location
+    public let targets: [MockTarget]
+    public let products: [MockProduct]
+    public let dependencies: [MockDependency]
+    public let versions: [String?]
+    package let traits: Set<TraitDescription>
     /// Provides revision identifier for the given version. A random identifier might be assigned if this is nil.
-    package let revisionProvider: ((String) -> String)?
+    public let revisionProvider: ((String) -> String)?
     // FIXME: This should be per-version.
-    package let toolsVersion: ToolsVersion?
+    public let toolsVersion: ToolsVersion?
 
-    package init(
+    public init(
         name: String,
         platforms: [PlatformDescription] = [],
         path: String? = nil,
         targets: [MockTarget],
         products: [MockProduct] = [],
         dependencies: [MockDependency] = [],
+        traits: Set<TraitDescription> = [],
         versions: [String?] = [],
         revisionProvider: ((String) -> String)? = nil,
         toolsVersion: ToolsVersion? = nil
@@ -45,18 +47,20 @@ package struct MockPackage {
         self.targets = targets
         self.products = products
         self.dependencies = dependencies
+        self.traits = traits
         self.versions = versions
         self.revisionProvider = revisionProvider
         self.toolsVersion = toolsVersion
     }
 
-    package init(
+    public init(
         name: String,
         platforms: [PlatformDescription] = [],
         url: String,
         targets: [MockTarget],
         products: [MockProduct],
         dependencies: [MockDependency] = [],
+        traits: Set<TraitDescription> = [],
         versions: [String?] = [],
         revisionProvider: ((String) -> String)? = nil,
         toolsVersion: ToolsVersion? = nil
@@ -67,12 +71,13 @@ package struct MockPackage {
         self.targets = targets
         self.products = products
         self.dependencies = dependencies
+        self.traits = traits
         self.versions = versions
         self.revisionProvider = revisionProvider
         self.toolsVersion = toolsVersion
     }
 
-    package init(
+    public init(
         name: String,
         platforms: [PlatformDescription] = [],
         identity: String,
@@ -81,6 +86,7 @@ package struct MockPackage {
         targets: [MockTarget],
         products: [MockProduct],
         dependencies: [MockDependency] = [],
+        traits: Set<TraitDescription> = [],
         versions: [String?] = [],
         revisionProvider: ((String) -> String)? = nil,
         toolsVersion: ToolsVersion? = nil
@@ -95,12 +101,13 @@ package struct MockPackage {
         self.targets = targets
         self.products = products
         self.dependencies = dependencies
+        self.traits = traits
         self.versions = versions
         self.revisionProvider = revisionProvider
         self.toolsVersion = toolsVersion
     }
 
-    package static func genericPackage(named name: String) throws -> MockPackage {
+    public static func genericPackage(named name: String) throws -> MockPackage {
         return MockPackage(
             name: name,
             targets: [
@@ -113,7 +120,7 @@ package struct MockPackage {
         )
     }
 
-    package enum Location {
+    public enum Location {
         case fileSystem(path: RelativePath)
         case sourceControl(url: SourceControlURL)
         case registry(identity: PackageIdentity, alternativeURLs: [URL]?, metadata: RegistryReleaseMetadata?)

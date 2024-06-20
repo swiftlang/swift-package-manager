@@ -11,7 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
+@_spi(SwiftPMInternal)
 @testable import PackageModel
+
 import func TSCBasic.withTemporaryFile
 import XCTest
 
@@ -60,9 +63,9 @@ final class PackageModelTests: XCTestCase {
         let triple = try Triple("x86_64-unknown-linux-android")
         let fileSystem = InMemoryFileSystem()
         let sdkDir = AbsolutePath("/some/path/to/an/SDK.sdk")
-        try fileSystem.createDirectory(sdkDir)
+        try fileSystem.createDirectory(sdkDir, recursive: true)
         let toolchainPath = AbsolutePath("/some/path/to/a/toolchain.xctoolchain")
-        try fileSystem.createDirectory(toolchainPath)
+        try fileSystem.createDirectory(toolchainPath, recursive: true)
 
         let swiftSDK = SwiftSDK(
             targetTriple: triple,

@@ -12,10 +12,7 @@
 
 import Basics
 @testable import Commands
-
-@testable 
-import CoreCommands
-
+@testable import CoreCommands
 import PackageGraph
 import PackageLoading
 import PackageModel
@@ -664,4 +661,21 @@ final class BuildCommandTests: CommandsTestCase {
         }
     }
 #endif
+
+    func testCodeCoverage() throws {
+        // Test that no codecov directory is created if not specified when building.
+        try fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
+            let buildResult = try self.build(["--build-tests"], packagePath: path, cleanAfterward: false)
+            XCTAssertThrowsError(try SwiftPM.Test.execute(["--skip-build", "--enable-code-coverage"], packagePath: path))
+        }
+
+        // Test that enabling code coverage during building produces the expected folder.
+        try fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
+            let buildResult = try self.build(["--build-tests", "--enable-code-coverage"], packagePath: path, cleanAfterward: false)
+            try SwiftPM.Test.execute(["--skip-build", "--enable-code-coverage"], packagePath: path)
+            let codeCovPath = buildResult.binPath.appending("codecov")
+            let codeCovFiles = try localFileSystem.getDirectoryContents(codeCovPath)
+            XCTAssertGreaterThan(codeCovFiles.count, 0)
+        }
+    }
 }

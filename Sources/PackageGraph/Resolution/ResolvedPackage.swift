@@ -34,13 +34,16 @@ public struct ResolvedPackage {
     public let underlying: Package
 
     /// The targets contained in the package.
-    public let targets: [ResolvedModule]
+    public let targets: IdentifiableSet<ResolvedModule>
 
     /// The products produced by the package.
     public let products: [ResolvedProduct]
 
+    /// The enabled traits of this package.
+    package let enabledTraits: Set<String>
+
     /// The dependencies of the package.
-    public let dependencies: [ResolvedPackage]
+    public let dependencies: [PackageIdentity]
 
     /// The default localization for resources.
     public let defaultLocalization: String?
@@ -57,8 +60,9 @@ public struct ResolvedPackage {
         underlying: Package,
         defaultLocalization: String?,
         supportedPlatforms: [SupportedPlatform],
-        dependencies: [ResolvedPackage],
-        targets: [ResolvedModule],
+        dependencies: [PackageIdentity],
+        enabledTraits: Set<String>,
+        targets: IdentifiableSet<ResolvedModule>,
         products: [ResolvedProduct],
         registryMetadata: RegistryReleaseMetadata?,
         platformVersionProvider: PlatformVersionProvider
@@ -71,6 +75,7 @@ public struct ResolvedPackage {
         self.supportedPlatforms = supportedPlatforms
         self.registryMetadata = registryMetadata
         self.platformVersionProvider = platformVersionProvider
+        self.enabledTraits = enabledTraits
     }
 
     public func getSupportedPlatform(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {

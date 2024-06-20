@@ -21,7 +21,10 @@ import func TSCTestSupport.withCustomEnv
 
 @available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)
 final class ManifestLoaderCacheTests: XCTestCase {
+
     func testDBCaching() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         try await testWithTemporaryDirectory { path in
             let fileSystem = localFileSystem
             let observability = ObservabilitySystem.makeForTesting()
@@ -116,6 +119,8 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testInMemoryCaching() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         let fileSystem = InMemoryFileSystem()
         let observability = ObservabilitySystem.makeForTesting()
 
@@ -205,6 +210,8 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testContentBasedCaching() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         try await testWithTemporaryDirectory { path in
             let manifest = """
                 import PackageDescription
@@ -264,6 +271,8 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testCacheInvalidationOnEnv() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         try await testWithTemporaryDirectory { path in
             let fileSystem = InMemoryFileSystem()
             let observability = ObservabilitySystem.makeForTesting()
@@ -329,6 +338,8 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testCacheDoNotInvalidationExpectedEnv() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         try await testWithTemporaryDirectory { path in
             let fileSystem = InMemoryFileSystem()
             let observability = ObservabilitySystem.makeForTesting()
@@ -414,6 +425,8 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testInMemoryCacheHappyCase() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         let content = """
             import PackageDescription
             let package = Package(

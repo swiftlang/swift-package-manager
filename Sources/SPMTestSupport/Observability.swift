@@ -19,39 +19,39 @@ import struct TSCBasic.StringError
 import TSCTestSupport
 
 extension ObservabilitySystem {
-    package static func makeForTesting(verbose: Bool = true) -> TestingObservability {
+    public static func makeForTesting(verbose: Bool = true) -> TestingObservability {
         let collector = TestingObservability.Collector(verbose: verbose)
         let observabilitySystem = ObservabilitySystem(collector)
         return TestingObservability(collector: collector, topScope: observabilitySystem.topScope)
     }
 }
 
-package struct TestingObservability {
+public struct TestingObservability {
     private let collector: Collector
-    package let topScope: ObservabilityScope
+    public let topScope: ObservabilityScope
 
     fileprivate init(collector: Collector, topScope: ObservabilityScope) {
         self.collector = collector
         self.topScope = topScope
     }
 
-    package var diagnostics: [Basics.Diagnostic] {
+    public var diagnostics: [Basics.Diagnostic] {
         self.collector.diagnostics.get()
     }
 
-    package var errors: [Basics.Diagnostic] {
+    public var errors: [Basics.Diagnostic] {
         self.diagnostics.filter { $0.severity == .error }
     }
 
-    package var warnings: [Basics.Diagnostic] {
+    public var warnings: [Basics.Diagnostic] {
         self.diagnostics.filter { $0.severity == .warning }
     }
 
-    package var hasErrorDiagnostics: Bool {
+    public var hasErrorDiagnostics: Bool {
         self.collector.hasErrors
     }
 
-    package var hasWarningDiagnostics: Bool {
+    public var hasWarningDiagnostics: Bool {
         self.collector.hasWarnings
     }
 
@@ -89,7 +89,7 @@ package struct TestingObservability {
     }
 }
 
-package func XCTAssertNoDiagnostics(
+public func XCTAssertNoDiagnostics(
     _ diagnostics: [Basics.Diagnostic],
     problemsOnly: Bool = true,
     file: StaticString = #file,
@@ -101,7 +101,7 @@ package func XCTAssertNoDiagnostics(
     XCTFail("Found unexpected diagnostics: \n\(description)", file: file, line: line)
 }
 
-package func testDiagnostics(
+public func testDiagnostics(
     _ diagnostics: [Basics.Diagnostic],
     problemsOnly: Bool = true,
     file: StaticString = #file,
@@ -117,7 +117,7 @@ package func testDiagnostics(
     )
 }
 
-package func testDiagnostics(
+public func testDiagnostics(
     _ diagnostics: [Basics.Diagnostic],
     minSeverity: Basics.Diagnostic.Severity,
     file: StaticString = #file,
@@ -138,7 +138,7 @@ package func testDiagnostics(
     }
 }
 
-package func testPartialDiagnostics(
+public func testPartialDiagnostics(
     _ diagnostics: [Basics.Diagnostic],
     minSeverity: Basics.Diagnostic.Severity,
     file: StaticString = #file,
@@ -156,7 +156,7 @@ package func testPartialDiagnostics(
 }
 
 /// Helper to check diagnostics in the engine.
-package class DiagnosticsTestResult {
+public class DiagnosticsTestResult {
     fileprivate var uncheckedDiagnostics: [Basics.Diagnostic]
 
     init(_ diagnostics: [Basics.Diagnostic]) {
@@ -164,7 +164,7 @@ package class DiagnosticsTestResult {
     }
 
     @discardableResult
-    package func check(
+    public func check(
         diagnostic message: StringPattern,
         severity: Basics.Diagnostic.Severity,
         //metadata: ObservabilityMetadata? = .none,
@@ -188,7 +188,7 @@ package class DiagnosticsTestResult {
     }
 
     @discardableResult
-    package func checkUnordered(
+    public func checkUnordered(
         diagnostic diagnosticPattern: StringPattern,
         severity: Basics.Diagnostic.Severity,
         //metadata: ObservabilityMetadata? = .none,

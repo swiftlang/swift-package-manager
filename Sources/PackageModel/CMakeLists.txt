@@ -25,6 +25,7 @@ add_library(PackageModel
   Manifest/SystemPackageProviderDescription.swift
   Manifest/TargetBuildSettingDescription.swift
   Manifest/TargetDescription.swift
+  Manifest/TraitDescription.swift
   ManifestSourceGeneration.swift
   MinimumDeploymentTarget.swift
   ModuleMapType.swift
@@ -51,6 +52,7 @@ add_library(PackageModel
   Target/BinaryTarget.swift
   Target/ClangTarget.swift
   Target/PluginTarget.swift
+  Target/ProvidedLibraryTarget.swift
   Target/SwiftTarget.swift
   Target/SystemLibraryTarget.swift
   Target/Target.swift

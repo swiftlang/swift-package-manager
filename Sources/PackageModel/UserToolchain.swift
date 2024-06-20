@@ -86,11 +86,9 @@ public final class UserToolchain: Toolchain {
 
     private let environment: EnvironmentVariables
 
-    public let isSwiftDevelopmentToolchain: Bool
-
     public let installedSwiftPMConfiguration: InstalledSwiftPMConfiguration
 
-    public let providedLibraries: [LibraryMetadata]
+    public let providedLibraries: [ProvidedLibrary]
 
     /// Returns the runtime library for the given sanitizer.
     public func runtimeLibrary(for sanitizer: Sanitizer) throws -> AbsolutePath {
@@ -530,7 +528,7 @@ public final class UserToolchain: Toolchain {
         searchStrategy: SearchStrategy = .default,
         customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil,
         customInstalledSwiftPMConfiguration: InstalledSwiftPMConfiguration? = nil,
-        customProvidedLibraries: [LibraryMetadata]? = nil,
+        customProvidedLibraries: [ProvidedLibrary]? = nil,
         fileSystem: any FileSystem = localFileSystem
     ) throws {
         self.swiftSDK = swiftSDK
@@ -551,29 +549,13 @@ public final class UserToolchain: Toolchain {
 
         let swiftCompilers = try UserToolchain.determineSwiftCompilers(
             binDirectories: swiftSDK.toolset.rootPaths,
-            useXcrun: useXcrun,
+            useXcrun: self.useXcrun,
             environment: environment,
-            searchPaths: envSearchPaths,
+            searchPaths: self.envSearchPaths,
             fileSystem: fileSystem
         )
         self.swiftCompilerPath = swiftCompilers.compile
         self.architectures = swiftSDK.architectures
-
-        #if canImport(Darwin)
-        let toolchainPlistPath = self.swiftCompilerPath.parentDirectory.parentDirectory.parentDirectory
-            .appending(component: "Info.plist")
-        if fileSystem.exists(toolchainPlistPath), let toolchainPlist = try? NSDictionary(
-            contentsOf: URL(fileURLWithPath: toolchainPlistPath.pathString),
-            error: ()
-        ), let overrideBuildSettings = toolchainPlist["OverrideBuildSettings"] as? NSDictionary,
-        let isSwiftDevelopmentToolchainStringValue = overrideBuildSettings["SWIFT_DEVELOPMENT_TOOLCHAIN"] as? String {
-            self.isSwiftDevelopmentToolchain = isSwiftDevelopmentToolchainStringValue == "YES"
-        } else {
-            self.isSwiftDevelopmentToolchain = false
-        }
-        #else
-        self.isSwiftDevelopmentToolchain = false
-        #endif
 
         if let customInstalledSwiftPMConfiguration {
             self.installedSwiftPMConfiguration = customInstalledSwiftPMConfiguration
@@ -596,7 +578,15 @@ public final class UserToolchain: Toolchain {
             self.providedLibraries = try Self.loadJSONResource(
                 config: path,
                 type: [LibraryMetadata].self,
-                default: [])
+                default: []
+            ).map {
+                .init(
+                    location: path.parentDirectory.appending(component: $0.productName),
+                    metadata: $0
+                )
+            }.filter {
+                localFileSystem.isDirectory($0.location)
+            }
         }
 
         // Use the triple from Swift SDK or compute the host triple using swiftc.
@@ -923,16 +913,6 @@ public final class UserToolchain: Toolchain {
 
     public var xctestPath: AbsolutePath? {
         configuration.xctestPath
-    }
-
-    private let _swiftPluginServerPath = ThreadSafeBox<AbsolutePath?>()
-
-    public var swiftPluginServerPath: AbsolutePath? {
-        get throws {
-            try _swiftPluginServerPath.memoize {
-                return try Self.derivePluginServerPath(triple: self.targetTriple)
-            }
-        }
     }
 
     private static func loadJSONResource<T: Decodable>(

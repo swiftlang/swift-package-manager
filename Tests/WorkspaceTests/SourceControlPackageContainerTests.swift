@@ -190,9 +190,10 @@ private let v1: Version = "1.0.0"
 private let v2: Version = "2.0.0"
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
 
-class SourceControlPackageContainerTests: XCTestCase {
+final class SourceControlPackageContainerTests: XCTestCase {
     func testVprefixVersions() async throws {
         let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
 
         let repoPath = AbsolutePath.root
         let filePath = repoPath.appending("Package.swift")
@@ -222,7 +223,9 @@ class SourceControlPackageContainerTests: XCTestCase {
 
         let provider = try Workspace._init(
             fileSystem: fs,
+            environment: .mockEnvironment,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
+            customHostToolchain: .mockHostToolchain(fs),
             customManifestLoader: MockManifestLoader(manifests: [:]),
             customRepositoryManager: repositoryManager
         )
@@ -235,6 +238,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
     func testVersions() async throws {
         let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
 
         let repoPath = AbsolutePath.root
         let filePath = repoPath.appending("Package.swift")
@@ -275,8 +279,10 @@ class SourceControlPackageContainerTests: XCTestCase {
         func createProvider(_ currentToolsVersion: ToolsVersion) throws -> PackageContainerProvider {
             return try Workspace._init(
                 fileSystem: fs,
+                environment: .mockEnvironment,
                 location: .init(forRootPackage: repoPath, fileSystem: fs),
                 customToolsVersion: currentToolsVersion,
+                customHostToolchain: .mockHostToolchain(fs),
                 customManifestLoader: MockManifestLoader(manifests: [:]),
                 customRepositoryManager: repositoryManager
             )
@@ -328,6 +334,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
     func testPreReleaseVersions() async throws {
         let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
 
         let repoPath = AbsolutePath.root
         let filePath = repoPath.appending("Package.swift")
@@ -359,7 +366,9 @@ class SourceControlPackageContainerTests: XCTestCase {
 
         let provider = try Workspace._init(
             fileSystem: fs,
+            environment: .mockEnvironment,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
+            customHostToolchain: .mockHostToolchain(fs),
             customManifestLoader: MockManifestLoader(manifests: [:]),
             customRepositoryManager: repositoryManager
         )
@@ -372,6 +381,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
     func testSimultaneousVersions() async throws {
         let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
 
         let repoPath = AbsolutePath.root
         let filePath = repoPath.appending("Package.swift")
@@ -408,7 +418,9 @@ class SourceControlPackageContainerTests: XCTestCase {
 
         let provider = try Workspace._init(
             fileSystem: fs,
+            environment: .mockEnvironment,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
+            customHostToolchain: .mockHostToolchain(fs),
             customManifestLoader: MockManifestLoader(manifests: [:]),
             customRepositoryManager: repositoryManager
         )
@@ -592,6 +604,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             )
             let containerProvider = try Workspace._init(
                 fileSystem: localFileSystem,
+                environment: .process(),
                 location: .init(forRootPackage: packageDir, fileSystem: localFileSystem),
                 customManifestLoader: MockManifestLoader(manifests: [.init(url: packageDir.pathString, version: nil): manifest]),
                 customRepositoryManager: repositoryManager
@@ -644,6 +657,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
             let containerProvider = try Workspace._init(
                 fileSystem: localFileSystem,
+                environment: .process(),
                 location: .init(forRootPackage: packageDirectory, fileSystem: localFileSystem),
                 customManifestLoader: MockManifestLoader(
                     manifests: [
@@ -755,6 +769,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             )
             let containerProvider = try Workspace._init(
                 fileSystem: localFileSystem,
+                environment: .process(),
                 location: .init(forRootPackage: packageDirectory, fileSystem: localFileSystem),
                 customManifestLoader: MockManifestLoader(
                     manifests: [.init(url: packageDirectory.pathString, version: Version(1, 0, 0)): manifest]

@@ -22,10 +22,10 @@ import XCTest
 
 import struct TSCUtility.Version
 
-class RegistryPackageContainerTests: XCTestCase {
-
+final class RegistryPackageContainerTests: XCTestCase {
     func testToolsVersionCompatibleVersions() async throws {
         let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
 
         let packageIdentity = PackageIdentity.plain("org.foo")
         let packageVersion = Version("1.0.0")
@@ -86,8 +86,10 @@ class RegistryPackageContainerTests: XCTestCase {
 
             return try Workspace._init(
                 fileSystem: fs,
+                environment: .mockEnvironment,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,
+                customHostToolchain: .mockHostToolchain(fs),
                 customManifestLoader: MockManifestLoader(manifests: [:]),
                 customRegistryClient: registryClient
             )
@@ -120,6 +122,7 @@ class RegistryPackageContainerTests: XCTestCase {
 
     func testAlternateManifests() async throws {
         let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
 
         let packageIdentity = PackageIdentity.plain("org.foo")
         let packageVersion = Version("1.0.0")
@@ -151,8 +154,10 @@ class RegistryPackageContainerTests: XCTestCase {
 
             return try Workspace._init(
                 fileSystem: fs,
+                environment: .mockEnvironment,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,
+                customHostToolchain: .mockHostToolchain(fs),
                 customManifestLoader: MockManifestLoader(manifests: [:]),
                 customRegistryClient: registryClient
             )
@@ -206,6 +211,7 @@ class RegistryPackageContainerTests: XCTestCase {
 
     func testLoadManifest() async throws {
         let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
 
         let packageIdentity = PackageIdentity.plain("org.foo")
         let packageVersion = Version("1.0.0")
@@ -244,8 +250,10 @@ class RegistryPackageContainerTests: XCTestCase {
 
             return try Workspace._init(
                 fileSystem: fs,
+                environment: .mockEnvironment,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,
+                customHostToolchain: .mockHostToolchain(fs),
                 customManifestLoader: MockManifestLoader(),
                 customRegistryClient: registryClient
             )

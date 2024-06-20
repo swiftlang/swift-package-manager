@@ -22,16 +22,19 @@ import func PackageGraph.loadModulesGraph
 
 import class PackageModel.Manifest
 import struct PackageModel.ProductDescription
+import enum PackageModel.ProductType
 import struct PackageModel.TargetDescription
 import protocol TSCBasic.FileSystem
 
-package typealias MockPackageGraph = (
+@_spi(SwiftPMInternal)
+public typealias MockPackageGraph = (
     graph: ModulesGraph,
     fileSystem: any FileSystem,
     observabilityScope: ObservabilityScope
 )
 
-package func macrosPackageGraph() throws -> MockPackageGraph {
+@_spi(SwiftPMInternal)
+public func macrosPackageGraph() throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(emptyFiles:
         "/swift-firmware/Sources/Core/source.swift",
         "/swift-firmware/Sources/HAL/source.swift",
@@ -129,11 +132,14 @@ package func macrosPackageGraph() throws -> MockPackageGraph {
     return (graph, fs, observability.topScope)
 }
 
-package func macrosTestsPackageGraph() throws -> MockPackageGraph {
+@_spi(SwiftPMInternal)
+public func macrosTestsPackageGraph() throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(emptyFiles:
+        "/swift-mmio/Plugins/MMIOPlugin/source.swift",
         "/swift-mmio/Sources/MMIO/source.swift",
         "/swift-mmio/Sources/MMIOMacros/source.swift",
         "/swift-mmio/Sources/MMIOMacrosTests/source.swift",
+        "/swift-mmio/Sources/MMIOMacro+PluginTests/source.swift",
         "/swift-syntax/Sources/SwiftSyntax/source.swift",
         "/swift-syntax/Sources/SwiftSyntaxMacrosTestSupport/source.swift",
         "/swift-syntax/Sources/SwiftSyntaxMacros/source.swift",
@@ -160,6 +166,11 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
                         name: "MMIO",
                         type: .library(.automatic),
                         targets: ["MMIO"]
+                    ),
+                    ProductDescription(
+                        name: "MMIOPlugin",
+                        type: .plugin,
+                        targets: ["MMIOPlugin"]
                     )
                 ],
                 targets: [
@@ -176,10 +187,23 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
                         type: .macro
                     ),
                     TargetDescription(
+                        name: "MMIOPlugin",
+                        type: .plugin,
+                        pluginCapability: .buildTool
+                    ),
+                    TargetDescription(
                         name: "MMIOMacrosTests",
                         dependencies: [
                             .target(name: "MMIOMacros"),
                             .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax")
+                        ],
+                        type: .test
+                    ),
+                    TargetDescription(
+                        name: "MMIOMacro+PluginTests",
+                        dependencies: [
+                            .target(name: "MMIOPlugin"),
+                            .target(name: "MMIOMacros")
                         ],
                         type: .test
                     )
@@ -258,7 +282,8 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
     return (graph, fs, observability.topScope)
 }
 
-package func trivialPackageGraph(pkgRootPath: AbsolutePath) throws -> MockPackageGraph {
+@_spi(SwiftPMInternal)
+public func trivialPackageGraph() throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(
         emptyFiles:
         "/Pkg/Sources/app/main.swift",
@@ -288,7 +313,8 @@ package func trivialPackageGraph(pkgRootPath: AbsolutePath) throws -> MockPackag
     return (graph, fs, observability.topScope)
 }
 
-package func embeddedCxxInteropPackageGraph(pkgRootPath: AbsolutePath) throws -> MockPackageGraph {
+@_spi(SwiftPMInternal)
+public func embeddedCxxInteropPackageGraph() throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(
         emptyFiles:
         "/Pkg/Sources/app/main.swift",
@@ -325,6 +351,70 @@ package func embeddedCxxInteropPackageGraph(pkgRootPath: AbsolutePath) throws ->
         ],
         observabilityScope: observability.topScope
     )
+    XCTAssertNoDiagnostics(observability.diagnostics)
+
+    return (graph, fs, observability.topScope)
+}
+
+@_spi(SwiftPMInternal)
+public func toolsExplicitLibrariesGraph(linkage: ProductType.LibraryType) throws -> MockPackageGraph {
+    let fs = InMemoryFileSystem(emptyFiles:
+        "/swift-mmio/Sources/MMIOMacros/source.swift",
+        "/swift-mmio/Sources/MMIOMacrosTests/source.swift",
+        "/swift-syntax/Sources/SwiftSyntax/source.swift"
+    )
+
+    let observability = ObservabilitySystem.makeForTesting()
+    let graph = try loadModulesGraph(
+        fileSystem: fs,
+        manifests: [
+            Manifest.createRootManifest(
+                displayName: "swift-mmio",
+                path: "/swift-mmio",
+                dependencies: [
+                    .localSourceControl(
+                        path: "/swift-syntax",
+                        requirement: .upToNextMajor(from: "1.0.0")
+                    )
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "MMIOMacros",
+                        dependencies: [
+                            .product(name: "SwiftSyntax", package: "swift-syntax"),
+                        ],
+                        type: .macro
+                    ),
+                    TargetDescription(
+                        name: "MMIOMacrosTests",
+                        dependencies: [
+                            .target(name: "MMIOMacros"),
+                        ],
+                        type: .test
+                    )
+                ]
+            ),
+            Manifest.createFileSystemManifest(
+                displayName: "swift-syntax",
+                path: "/swift-syntax",
+                products: [
+                    ProductDescription(
+                        name: "SwiftSyntax",
+                        type: .library(linkage),
+                        targets: ["SwiftSyntax"]
+                    ),
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "SwiftSyntax",
+                        dependencies: []
+                    ),
+                ]
+            ),
+        ],
+        observabilityScope: observability.topScope
+    )
+
     XCTAssertNoDiagnostics(observability.diagnostics)
 
     return (graph, fs, observability.topScope)

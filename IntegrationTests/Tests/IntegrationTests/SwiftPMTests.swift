@@ -53,6 +53,9 @@ final class SwiftPMTests: XCTestCase {
         #if !os(macOS)
         try XCTSkip("Test requires macOS")
         #endif
+        #if swift(<6.0)
+        try XCTSkipIf(true, "Skipping because test requires at least Swift 6.0")
+        #endif
 
         try withTemporaryDirectory { tmpDir in
             let packagePath = tmpDir.appending(component: "foo")

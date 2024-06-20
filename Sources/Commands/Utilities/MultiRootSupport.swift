@@ -21,7 +21,7 @@ import class PackageModel.Manifest
 /// A bare minimum loader for Xcode workspaces.
 ///
 /// Warning: This is only useful for debugging workspaces that contain Swift packages.
-package struct XcodeWorkspaceLoader: WorkspaceLoader {
+public struct XcodeWorkspaceLoader: WorkspaceLoader {
 
     /// The parsed location.
     private struct Location {
@@ -38,13 +38,13 @@ package struct XcodeWorkspaceLoader: WorkspaceLoader {
     private let fileSystem: FileSystem
     private let observabilityScope: ObservabilityScope
 
-    package init(fileSystem: FileSystem, observabilityScope: ObservabilityScope) {
+    public init(fileSystem: FileSystem, observabilityScope: ObservabilityScope) {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
     }
 
     /// Load the given workspace and return the file ref paths from it.
-    package func load(workspace: AbsolutePath) throws -> [AbsolutePath] {
+    public func load(workspace: AbsolutePath) throws -> [AbsolutePath] {
         let path = workspace.appending("contents.xcworkspacedata")
         let contents: Data = try self.fileSystem.readFileContents(path)
 

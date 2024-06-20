@@ -354,7 +354,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         let revision: Revision
         var version: Version?
         switch boundVersion {
-        case .version(let v):
+        case .version(let v, _):
             guard let tag = try self.knownVersions()[v] else {
                 throw StringError("unknown tag \(v)")
             }

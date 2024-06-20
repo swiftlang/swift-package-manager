@@ -12,10 +12,7 @@
 
 @testable import Basics
 @testable import Build
-
-@testable 
-import CoreCommands
-
+@testable import CoreCommands
 @testable import Commands
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
@@ -25,6 +22,7 @@ import func PackageGraph.loadModulesGraph
 import SPMTestSupport
 import XCTest
 
+import enum TSCBasic.ProcessEnv
 import class TSCBasic.BufferedOutputByteStream
 import protocol TSCBasic.OutputByteStream
 import var TSCBasic.stderrStream
@@ -323,19 +321,23 @@ final class SwiftCommandStateTests: CommandsTestCase {
     }
 
     func testToolchainArgument() throws {
+        let customTargetToolchain = AbsolutePath("/path/to/toolchain")
+        let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
+        let hostArPath = AbsolutePath("/usr/bin/ar")
+        let targetSwiftcPath = customTargetToolchain.appending(components: ["usr", "bin" , "swiftc"])
+        let targetArPath = customTargetToolchain.appending(components: ["usr", "bin", "llvm-ar"])
+
         let fs = InMemoryFileSystem(emptyFiles: [
             "/Pkg/Sources/exe/main.swift",
-            "/path/to/toolchain/usr/bin/swiftc",
-            "/path/to/toolchain/usr/bin/llvm-ar",
+            hostSwiftcPath.pathString,
+            hostArPath.pathString,
+            targetSwiftcPath.pathString,
+            targetArPath.pathString
         ])
 
-        let customTargetToolchain = AbsolutePath("/path/to/toolchain")
-        try fs.createDirectory(customTargetToolchain, recursive: true)
-        
-        let swiftcPath = customTargetToolchain.appending(components: ["usr", "bin" , "swiftc"])
-        let arPath = customTargetToolchain.appending(components: ["usr", "bin", "llvm-ar"])
-        try fs.updatePermissions(swiftcPath, isExecutable: true)
-        try fs.updatePermissions(arPath, isExecutable: true)
+        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath,] {
+            try fs.updatePermissions(path, isExecutable: true)
+        }
 
         let observer = ObservabilitySystem.makeForTesting()
         let graph = try loadModulesGraph(
@@ -356,10 +358,15 @@ final class SwiftCommandStateTests: CommandsTestCase {
                 "--triple", "x86_64-unknown-linux-gnu",
             ]
         )
-        let swiftCommandState = try SwiftCommandState.makeMockState(options: options, fileSystem: fs)
+        let swiftCommandState = try SwiftCommandState.makeMockState(
+            options: options,
+            fileSystem: fs,
+            environment: ["PATH": "/usr/bin"]
+        )
+        XCTAssertEqual(swiftCommandState.originalWorkingDirectory, fs.currentWorkingDirectory)
         XCTAssertEqual(
             try swiftCommandState.getTargetToolchain().swiftCompilerPath,
-            swiftcPath
+            targetSwiftcPath
         )
         XCTAssertEqual(
             try swiftCommandState.getTargetToolchain().swiftSDK.toolset.knownTools[.swiftCompiler]?.path,
@@ -383,7 +390,8 @@ extension SwiftCommandState {
     static func makeMockState(
         outputStream: OutputByteStream = stderrStream,
         options: GlobalOptions,
-        fileSystem: any FileSystem = localFileSystem
+        fileSystem: any FileSystem = localFileSystem,
+        environment: EnvironmentVariables = .process()
     ) throws -> SwiftCommandState {
         return try SwiftCommandState(
             outputStream: outputStream,
@@ -403,7 +411,9 @@ extension SwiftCommandState {
                     observabilityScope: $1
                 )
             },
-            fileSystem: fileSystem
+            hostTriple: .arm64Linux,
+            fileSystem: fileSystem,
+            environment: environment
         )
     }
 }

@@ -11,7 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
+
+@_spi(SwiftPMInternal)
 @testable import PackageModel
+
 @testable import SPMBuildCore
 import XCTest
 

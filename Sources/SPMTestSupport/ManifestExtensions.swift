@@ -17,7 +17,7 @@ import PackageModel
 import struct TSCUtility.Version
 
 extension Manifest {
-    package static func createRootManifest(
+    public static func createRootManifest(
         displayName: String,
         path: AbsolutePath = .root,
         defaultLocalization: String? = nil,
@@ -31,7 +31,8 @@ extension Manifest {
         swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
-        targets: [TargetDescription] = []
+        targets: [TargetDescription] = [],
+        traits: Set<TraitDescription> = []
     ) -> Manifest {
         Self.createManifest(
             displayName: displayName,
@@ -49,11 +50,12 @@ extension Manifest {
             swiftLanguageVersions: swiftLanguageVersions,
             dependencies: dependencies,
             products: products,
-            targets: targets
+            targets: targets,
+            traits: traits
         )
     }
 
-    package static func createFileSystemManifest(
+    public static func createFileSystemManifest(
         displayName: String,
         path: AbsolutePath,
         defaultLocalization: String? = nil,
@@ -67,7 +69,8 @@ extension Manifest {
         swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
-        targets: [TargetDescription] = []
+        targets: [TargetDescription] = [],
+        traits: Set<TraitDescription> = []
     ) -> Manifest {
         Self.createManifest(
             displayName: displayName,
@@ -85,11 +88,12 @@ extension Manifest {
             swiftLanguageVersions: swiftLanguageVersions,
             dependencies: dependencies,
             products: products,
-            targets: targets
+            targets: targets,
+            traits: traits
         )
     }
 
-    package static func createLocalSourceControlManifest(
+    public static func createLocalSourceControlManifest(
         displayName: String,
         path: AbsolutePath,
         defaultLocalization: String? = nil,
@@ -125,7 +129,7 @@ extension Manifest {
         )
     }
 
-    package static func createRemoteSourceControlManifest(
+    public static func createRemoteSourceControlManifest(
         displayName: String,
         url: SourceControlURL,
         path: AbsolutePath,
@@ -162,7 +166,7 @@ extension Manifest {
         )
     }
 
-    package static func createRegistryManifest(
+    public static func createRegistryManifest(
         displayName: String,
         identity: PackageIdentity,
         path: AbsolutePath = .root,
@@ -199,7 +203,7 @@ extension Manifest {
         )
     }
 
-    package static func createManifest(
+    public static func createManifest(
         displayName: String,
         path: AbsolutePath = .root,
         packageKind: PackageReference.Kind,
@@ -215,7 +219,8 @@ extension Manifest {
         swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
-        targets: [TargetDescription] = []
+        targets: [TargetDescription] = [],
+        traits: Set<TraitDescription> = []
     ) -> Manifest {
         return Manifest(
             displayName: displayName,
@@ -234,11 +239,12 @@ extension Manifest {
             swiftLanguageVersions: swiftLanguageVersions,
             dependencies: dependencies,
             products: products,
-            targets: targets
+            targets: targets,
+            traits: traits
         )
     }
 
-    package func with(location: String) -> Manifest {
+    public func with(location: String) -> Manifest {
         Manifest(
             displayName: self.displayName,
             path: self.path,
@@ -256,7 +262,8 @@ extension Manifest {
             swiftLanguageVersions: self.swiftLanguageVersions,
             dependencies: self.dependencies,
             products: self.products,
-            targets: self.targets
+            targets: self.targets,
+            traits: self.traits
         )
     }
 }

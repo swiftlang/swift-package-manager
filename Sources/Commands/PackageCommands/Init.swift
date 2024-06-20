@@ -13,6 +13,7 @@
 import ArgumentParser
 import Basics
 
+@_spi(SwiftPMInternal)
 import CoreCommands
 
 import Workspace
@@ -20,7 +21,7 @@ import SPMBuildCore
 
 extension SwiftPackageCommand {
     struct Init: SwiftCommand {
-        package static let configuration = CommandConfiguration(
+        public static let configuration = CommandConfiguration(
             abstract: "Initialize a new package")
 
         @OptionGroup(visibility: .hidden)
@@ -79,7 +80,7 @@ extension SwiftPackageCommand {
     }
 }
 
-#if swift(<6.0)
+#if compiler(<6.0)
 extension InitPackage.PackageType: ExpressibleByArgument {}
 #else
 extension InitPackage.PackageType: @retroactive ExpressibleByArgument {}

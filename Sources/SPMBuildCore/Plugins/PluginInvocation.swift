@@ -43,6 +43,7 @@ extension PluginTarget {
         pkgConfigDirectories: [AbsolutePath],
         sdkRootPath: AbsolutePath?,
         fileSystem: FileSystem,
+        modulesGraph: ModulesGraph,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         delegate: PluginInvocationDelegate
@@ -62,6 +63,7 @@ extension PluginTarget {
                 pkgConfigDirectories: pkgConfigDirectories,
                 sdkRootPath: sdkRootPath,
                 fileSystem: fileSystem,
+                modulesGraph: modulesGraph,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
                 delegate: delegate,
@@ -107,6 +109,7 @@ extension PluginTarget {
         pkgConfigDirectories: [AbsolutePath],
         sdkRootPath: AbsolutePath?,
         fileSystem: FileSystem,
+        modulesGraph: ModulesGraph,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         delegate: PluginInvocationDelegate,
@@ -125,6 +128,7 @@ extension PluginTarget {
         do {
             var serializer = PluginContextSerializer(
                 fileSystem: fileSystem,
+                modulesGraph: modulesGraph,
                 buildEnvironment: buildEnvironment,
                 pkgConfigDirectories: pkgConfigDirectories,
                 sdkRootPath: sdkRootPath
@@ -448,7 +452,7 @@ extension ModulesGraph {
                 let toolPaths = accessibleTools.values.map { $0.path }.sorted()
 
                 // Assign a plugin working directory based on the package, target, and plugin.
-                let pluginOutputDir = outputDir.appending(components: package.identity.description, target.name, pluginTarget.name)
+                let pluginOutputDir = outputDir.appending(components: package.identity.description, target.name, target.buildTriple.rawValue, pluginTarget.name)
 
                 // Determine the set of directories under which plugins are allowed to write. We always include just the output directory, and for now there is no possibility of opting into others.
                 let writableDirectories = [outputDir]
@@ -571,6 +575,7 @@ extension ModulesGraph {
                     pkgConfigDirectories: pkgConfigDirectories,
                     sdkRootPath: buildParameters.toolchain.sdkRootPath,
                     fileSystem: fileSystem,
+                    modulesGraph: self,
                     observabilityScope: observabilityScope,
                     callbackQueue: delegateQueue,
                     delegate: delegate,
@@ -592,9 +597,7 @@ extension ModulesGraph {
             }
 
             // Associate the list of results with the target. The list will have one entry for each plugin used by the target.
-            var targetID = target.id
-            targetID.buildTriple = .destination
-            pluginResultsByTarget[targetID] = (target, buildToolPluginResults)
+            pluginResultsByTarget[target.id] = (target, buildToolPluginResults)
         }
         return pluginResultsByTarget
     }
@@ -672,7 +675,7 @@ public extension PluginTarget {
                 executableOrBinaryTarget = target
             case .product(let productRef, _):
                 guard
-                    let product = packageGraph.allProducts.first(where: { $0.name == productRef.name }),
+                    let product = packageGraph.product(for: productRef.name, destination: .tools),
                     let executableTarget = product.targets.map({ $0.underlying }).executables.spm_only
                 else {
                     throw StringError("no product named \(productRef.name)")

@@ -15,21 +15,28 @@ import Foundation
 import PackageLoading
 import PackageModel
 
-package typealias SourceControlRequirement = PackageDependency.SourceControl.Requirement
-package typealias RegistryRequirement = PackageDependency.Registry.Requirement
+public typealias SourceControlRequirement = PackageDependency.SourceControl.Requirement
+public typealias RegistryRequirement = PackageDependency.Registry.Requirement
 
-package struct MockDependency {
-    package let deprecatedName: String?
-    package let location: Location
-    package let products: ProductFilter
+public struct MockDependency {
+    public let deprecatedName: String?
+    public let location: Location
+    public let products: ProductFilter
+    package let traits: Set<PackageDependency.Trait>
 
-    init(deprecatedName: String? = nil, location: Location, products: ProductFilter = .everything) {
+    init(
+        deprecatedName: String? = nil,
+        location: Location,
+        products: ProductFilter = .everything,
+        traits: Set<PackageDependency.Trait> = []
+    ) {
         self.deprecatedName = deprecatedName
         self.location = location
         self.products = products
+        self.traits = traits
     }
 
-    package func convert(baseURL: AbsolutePath, identityResolver: IdentityResolver) throws -> PackageDependency {
+    public func convert(baseURL: AbsolutePath, identityResolver: IdentityResolver) throws -> PackageDependency {
         switch self.location {
         case .fileSystem(let path):
             let absolutePath = baseURL.appending(path)
@@ -74,7 +81,8 @@ package struct MockDependency {
                 return .registry(
                     identity: identity,
                     requirement: requirement,
-                    productFilter: self.products
+                    productFilter: self.products,
+                    traits: self.traits
                 )
 
             } else {
@@ -95,7 +103,8 @@ package struct MockDependency {
                 return .registry(
                     identity: identity,
                     requirement: _requirement,
-                    productFilter: self.products
+                    productFilter: self.products,
+                    traits: self.traits
                 )
             } else {
                 let mappedURL = SourceControlURL(mappedLocation)
@@ -119,39 +128,39 @@ package struct MockDependency {
         
     }
 
-    package static func fileSystem(path: String, products: ProductFilter = .everything) -> MockDependency {
+    public static func fileSystem(path: String, products: ProductFilter = .everything) -> MockDependency {
         try! MockDependency(location: .fileSystem(path: RelativePath(validating: path)), products: products)
     }
 
-    package static func sourceControl(path: String, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
+    public static func sourceControl(path: String, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
         try! .sourceControl(path: RelativePath(validating: path), requirement: requirement, products: products)
     }
 
-    package static func sourceControl(path: RelativePath, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
+    public static func sourceControl(path: RelativePath, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
         MockDependency(location: .localSourceControl(path: path, requirement: requirement), products: products)
     }
 
-    package static func sourceControlWithDeprecatedName(name: String, path: String, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
+    public static func sourceControlWithDeprecatedName(name: String, path: String, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
         try! MockDependency(deprecatedName: name, location: .localSourceControl(path: RelativePath(validating: path), requirement: requirement), products: products)
     }
 
-    package static func sourceControl(url: String, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
+    public static func sourceControl(url: String, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
         .sourceControl(url: SourceControlURL(url), requirement: requirement, products: products)
     }
 
-    package static func sourceControl(url: SourceControlURL, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
+    public static func sourceControl(url: SourceControlURL, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
         MockDependency(location: .remoteSourceControl(url: url, requirement: requirement), products: products)
     }
 
-    package static func registry(identity: String, requirement: RegistryRequirement, products: ProductFilter = .everything) -> MockDependency {
+    public static func registry(identity: String, requirement: RegistryRequirement, products: ProductFilter = .everything) -> MockDependency {
         .registry(identity: .plain(identity), requirement: requirement)
     }
 
-    package static func registry(identity: PackageIdentity, requirement: RegistryRequirement, products: ProductFilter = .everything) -> MockDependency {
+    public static func registry(identity: PackageIdentity, requirement: RegistryRequirement, products: ProductFilter = .everything) -> MockDependency {
         MockDependency(location: .registry(identity: identity, requirement: requirement), products: products)
     }
 
-    package enum Location {
+    public enum Location {
         case fileSystem(path: RelativePath)
         case localSourceControl(path: RelativePath, requirement: SourceControlRequirement)
         case remoteSourceControl(url: SourceControlURL, requirement: SourceControlRequirement)

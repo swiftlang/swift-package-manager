@@ -20,6 +20,7 @@ import PackageGraph
 import PackageModel
 import struct SPMBuildCore.BuildParameters
 
+@_spi(SwiftPMInternal)
 import SPMTestSupport
 
 import XCTest
@@ -49,13 +50,11 @@ final class LLBuildManifestBuilderTests: XCTestCase {
 
         // macOS, release build
 
-        var buildParameters = mockBuildParameters(environment: BuildEnvironment(
-            platform: .macOS,
-            configuration: .release
-        ))
-        var plan = try BuildPlan(
-            destinationBuildParameters: buildParameters,
-            toolsBuildParameters: buildParameters,
+        var plan = try mockBuildPlan(
+            environment: BuildEnvironment(
+                platform: .macOS,
+                configuration: .release
+            ),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -72,9 +71,9 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         try llbuild.createProductCommand(buildProduct)
 
         var basicReleaseCommandNames = [
-            AbsolutePath("/path/to/build/\(buildParameters.triple)/release/exe.product/Objects.LinkFileList").pathString,
-            "<exe-release.exe>",
-            "C.exe-release.exe",
+            AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/release/exe.product/Objects.LinkFileList").pathString,
+            "<exe-\(plan.destinationBuildParameters.triple)-release.exe>",
+            "C.exe-\(plan.destinationBuildParameters.triple)-release.exe",
         ]
 
         XCTAssertEqual(
@@ -84,13 +83,11 @@ final class LLBuildManifestBuilderTests: XCTestCase {
 
         // macOS, debug build
 
-        buildParameters = mockBuildParameters(environment: BuildEnvironment(
-            platform: .macOS,
-            configuration: .debug
-        ))
-        plan = try BuildPlan(
-            destinationBuildParameters: buildParameters,
-            toolsBuildParameters: buildParameters,
+        plan = try mockBuildPlan(
+            environment: BuildEnvironment(
+                platform: .macOS,
+                configuration: .debug
+            ),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -102,17 +99,17 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
         try llbuild.createProductCommand(buildProduct)
 
-        let entitlementsCommandName = "C.exe-debug.exe-entitlements"
+        let entitlementsCommandName = "C.exe-\(plan.destinationBuildParameters.triple)-debug.exe-entitlements"
         var basicDebugCommandNames = [
-            AbsolutePath("/path/to/build/\(buildParameters.triple)/debug/exe.product/Objects.LinkFileList").pathString,
-            "<exe-debug.exe>",
-            "C.exe-debug.exe",
+            AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe.product/Objects.LinkFileList").pathString,
+            "<exe-\(plan.destinationBuildParameters.triple)-debug.exe>",
+            "C.exe-\(plan.destinationBuildParameters.triple)-debug.exe",
         ]
 
         XCTAssertEqual(
             llbuild.manifest.commands.map(\.key).sorted(),
             (basicDebugCommandNames + [
-                AbsolutePath("/path/to/build/\(buildParameters.triple)/debug/exe-entitlement.plist").pathString,
+                AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe-entitlement.plist").pathString,
                 entitlementsCommandName,
             ]).sorted()
         )
@@ -125,26 +122,24 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         XCTAssertEqual(
             entitlementsCommand.inputs,
             [
-                .file("/path/to/build/\(buildParameters.triple)/debug/exe", isMutated: true),
-                .file("/path/to/build/\(buildParameters.triple)/debug/exe-entitlement.plist"),
+                .file("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe", isMutated: true),
+                .file("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe-entitlement.plist"),
             ]
         )
         XCTAssertEqual(
             entitlementsCommand.outputs,
             [
-                .virtual("exe-debug.exe-CodeSigning"),
+                .virtual("exe-\(plan.destinationBuildParameters.triple)-debug.exe-CodeSigning"),
             ]
         )
 
         // Linux, release build
 
-        buildParameters = mockBuildParameters(environment: BuildEnvironment(
-            platform: .linux,
-            configuration: .release
-        ))
-        plan = try BuildPlan(
-            destinationBuildParameters: buildParameters,
-            toolsBuildParameters: buildParameters,
+        plan = try mockBuildPlan(
+            environment: BuildEnvironment(
+                platform: .linux,
+                configuration: .release
+            ),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -157,9 +152,9 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         try llbuild.createProductCommand(buildProduct)
 
         basicReleaseCommandNames = [
-            AbsolutePath("/path/to/build/\(buildParameters.triple)/release/exe.product/Objects.LinkFileList").pathString,
-            "<exe-release.exe>",
-            "C.exe-release.exe",
+            AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/release/exe.product/Objects.LinkFileList").pathString,
+            "<exe-\(plan.destinationBuildParameters.triple)-release.exe>",
+            "C.exe-\(plan.destinationBuildParameters.triple)-release.exe",
         ]
 
         XCTAssertEqual(
@@ -169,13 +164,11 @@ final class LLBuildManifestBuilderTests: XCTestCase {
 
         // Linux, debug build
 
-        buildParameters = mockBuildParameters(environment: BuildEnvironment(
-            platform: .linux,
-            configuration: .debug
-        ))
-        plan = try BuildPlan(
-            destinationBuildParameters: buildParameters,
-            toolsBuildParameters: buildParameters,
+        plan = try mockBuildPlan(
+            environment: BuildEnvironment(
+                platform: .linux,
+                configuration: .debug
+            ),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -188,9 +181,9 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         try llbuild.createProductCommand(buildProduct)
 
         basicDebugCommandNames = [
-            AbsolutePath("/path/to/build/\(buildParameters.triple)/debug/exe.product/Objects.LinkFileList").pathString,
-            "<exe-debug.exe>",
-            "C.exe-debug.exe",
+            AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe.product/Objects.LinkFileList").pathString,
+            "<exe-\(plan.destinationBuildParameters.triple)-debug.exe>",
+            "C.exe-\(plan.destinationBuildParameters.triple)-debug.exe",
         ]
 
         XCTAssertEqual(
@@ -206,8 +199,15 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         let toolsTriple = Triple.arm64Linux
 
         let plan = try BuildPlan(
-            destinationBuildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, triple: productsTriple),
-            toolsBuildParameters: mockBuildParameters(triple: toolsTriple),
+            destinationBuildParameters: mockBuildParameters(
+                destination: .target,
+                shouldLinkStaticSwiftStdlib: true,
+                triple: productsTriple
+            ),
+            toolsBuildParameters: mockBuildParameters(
+                destination: .host,
+                triple: toolsTriple
+            ),
             graph: graph,
             fileSystem: fs,
             observabilityScope: scope
@@ -216,6 +216,6 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         let builder = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: scope)
         let manifest = try builder.generateManifest(at: "/manifest")
 
-        XCTAssertNotNil(manifest.commands["C.SwiftSyntax-debug-tool.module"])
+        XCTAssertNotNil(manifest.commands["C.SwiftSyntax-aarch64-unknown-linux-gnu-debug-tool.module"])
     }
 }

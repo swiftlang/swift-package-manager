@@ -490,6 +490,10 @@ public final class InMemoryFileSystem: FileSystem {
 
         return try fileQueue.sync(flags: type == .exclusive ? .barrier : .init() , execute: body)
     }
+    
+    public func withLock<T>(on path: TSCBasic.AbsolutePath, type: FileLock.LockType, blocking: Bool, _ body: () throws -> T) throws -> T {
+        try self.withLock(on: path, type: type, body)
+    }
 }
 
 // Internal state of `InMemoryFileSystem` is protected with a lock in all of its `public` methods.

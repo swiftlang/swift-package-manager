@@ -178,7 +178,9 @@ final class PluginTests: XCTestCase {
         }
     }
 
-    func testBuildToolWithoutOutputs() throws {
+    func testBuildToolWithoutOutputs() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -224,7 +226,7 @@ final class PluginTests: XCTestCase {
 
         try testWithTemporaryDirectory { tmpPath in
             let packageDir = tmpPath.appending(components: "MyPackage")
-            let pathOfGeneratedFile = packageDir.appending(components: [".build", "plugins", "outputs", "mypackage", "SomeTarget", "Plugin", "best.txt"])
+            let pathOfGeneratedFile = packageDir.appending(components: [".build", "plugins", "outputs", "mypackage", "SomeTarget", "destination", "Plugin", "best.txt"])
 
             try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v5_9)
             let (_, stderr) = try executeSwiftBuild(packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
@@ -445,7 +447,6 @@ final class PluginTests: XCTestCase {
             // Load the package graph.
             let packageGraph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
-                availableLibraries: [], // assume no provided libraries for testing.
                 observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -549,6 +550,7 @@ final class PluginTests: XCTestCase {
                         pkgConfigDirectories: [],
                         sdkRootPath: nil,
                         fileSystem: localFileSystem,
+                        modulesGraph: packageGraph,
                         observabilityScope: observability.topScope,
                         callbackQueue: delegateQueue,
                         delegate: delegate,
@@ -632,7 +634,6 @@ final class PluginTests: XCTestCase {
             // Load the package graph.
             let packageGraph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
-                availableLibraries: [], // assume no provided libraries for testing.
                 observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -730,7 +731,6 @@ final class PluginTests: XCTestCase {
             // Load the package graph.
             let packageGraph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
-                availableLibraries: [], // assume no provided libraries for testing.
                 observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -828,6 +828,7 @@ final class PluginTests: XCTestCase {
                             pkgConfigDirectories: [],
                             sdkRootPath: try UserToolchain.default.sdkRootPath,
                             fileSystem: localFileSystem,
+                            modulesGraph: packageGraph,
                             observabilityScope: observability.topScope,
                             callbackQueue: delegateQueue,
                             delegate: delegate
@@ -1046,7 +1047,6 @@ final class PluginTests: XCTestCase {
             // Load the package graph.
             let packageGraph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
-                availableLibraries: [], // assume no provided libraries for testing.
                 observabilityScope: observability.topScope
             )
             XCTAssert(packageGraph.packages.count == 4, "\(packageGraph.packages)")
@@ -1159,7 +1159,9 @@ final class PluginTests: XCTestCase {
         }
     }
 
-    func testURLBasedPluginAPI() throws {
+    func testURLBasedPluginAPI() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -1169,7 +1171,9 @@ final class PluginTests: XCTestCase {
         }
     }
 
-    func testDependentPlugins() throws {
+    func testDependentPlugins() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
         try fixture(name: "Miscellaneous/Plugins/DependentPlugins") { fixturePath in

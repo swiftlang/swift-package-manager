@@ -93,7 +93,7 @@ extension LLBuildManifestBuilder {
         let additionalInputs = try addBuildToolPlugins(.clang(target))
 
         // Create a phony node to represent the entire target.
-        let targetName = target.target.getLLBuildTargetName(buildParameters: target.buildParameters)
+        let targetName = target.llbuildTargetName
         let output: Node = .virtual(targetName)
 
         self.manifest.addNode(output, toTarget: targetName)
@@ -109,5 +109,16 @@ extension LLBuildManifestBuilder {
             }
             self.addNode(output, toTarget: .test)
         }
+    }
+
+    /// Create a llbuild target for a Clang target preparation
+    func createClangPrepareCommand(
+        _ target: ClangTargetBuildDescription
+    ) throws {
+        // Create the node for the target so you can --target it.
+        // It is a no-op for index preparation.
+        let targetName = target.llbuildTargetName
+        let output: Node = .virtual(targetName)
+        self.manifest.addNode(output, toTarget: targetName)
     }
 }

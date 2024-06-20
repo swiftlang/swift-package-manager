@@ -23,7 +23,7 @@ public final class SwiftTarget: Target {
     }
 
     public init(name: String, dependencies: [Target.Dependency], packageAccess: Bool, testDiscoverySrc: Sources) {
-        self.swiftVersion = .v5
+        self.declaredSwiftVersions = []
 
         super.init(
             name: name,
@@ -39,8 +39,8 @@ public final class SwiftTarget: Target {
         )
     }
 
-    /// The swift version of this target.
-    public let swiftVersion: SwiftLanguageVersion
+    /// The list of swift versions declared by the manifest.
+    public let declaredSwiftVersions: [SwiftLanguageVersion]
 
     public init(
         name: String,
@@ -53,13 +53,13 @@ public final class SwiftTarget: Target {
         others: [AbsolutePath] = [],
         dependencies: [Target.Dependency] = [],
         packageAccess: Bool,
-        swiftVersion: SwiftLanguageVersion,
+        declaredSwiftVersions: [SwiftLanguageVersion] = [],
         buildSettings: BuildSettings.AssignmentTable = .init(),
         buildSettingsDescription: [TargetBuildSettingDescription.Setting] = [],
         pluginUsages: [PluginUsage] = [],
         usesUnsafeFlags: Bool
     ) {
-        self.swiftVersion = swiftVersion
+        self.declaredSwiftVersions = declaredSwiftVersions
         super.init(
             name: name,
             potentialBundleName: potentialBundleName,
@@ -79,7 +79,12 @@ public final class SwiftTarget: Target {
     }
 
     /// Create an executable Swift target from test entry point file.
-    public init(name: String, dependencies: [Target.Dependency], packageAccess: Bool, testEntryPointPath: AbsolutePath) {
+    public init(
+        name: String,
+        dependencies: [Target.Dependency],
+        packageAccess: Bool,
+        testEntryPointPath: AbsolutePath
+    ) {
         // Look for the first swift test target and use the same swift version
         // for linux main target. This will need to change if we move to a model
         // where we allow per target swift language version build settings.
@@ -88,11 +93,23 @@ public final class SwiftTarget: Target {
             return target.type == .test
         }.flatMap { $0.target as? SwiftTarget }
 
-        // FIXME: This is not very correct but doesn't matter much in practice.
         // We need to select the latest Swift language version that can
         // satisfy the current tools version but there is not a good way to
         // do that currently.
-        self.swiftVersion = swiftTestTarget?.swiftVersion ?? SwiftLanguageVersion(string: String(SwiftVersion.current.major)) ?? .v4
+        var buildSettings: BuildSettings.AssignmentTable = .init()
+        do {
+            let toolsSwiftVersion = swiftTestTarget?.buildSettings.assignments[.SWIFT_VERSION]?
+                .filter(\.default)
+                .filter(\.conditions.isEmpty)
+                .flatMap(\.values)
+
+            var versionAssignment = BuildSettings.Assignment()
+            versionAssignment.values = toolsSwiftVersion ?? [String(SwiftVersion.current.major)]
+
+            buildSettings.add(versionAssignment, for: .SWIFT_VERSION)
+        }
+
+        self.declaredSwiftVersions = []
         let sources = Sources(paths: [testEntryPointPath], root: testEntryPointPath.parentDirectory)
 
         super.init(
@@ -102,27 +119,11 @@ public final class SwiftTarget: Target {
             sources: sources,
             dependencies: dependencies,
             packageAccess: packageAccess,
-            buildSettings: .init(),
+            buildSettings: buildSettings,
             buildSettingsDescription: [],
             pluginUsages: [],
             usesUnsafeFlags: false
         )
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case swiftVersion
-    }
-
-    public override func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(swiftVersion, forKey: .swiftVersion)
-        try super.encode(to: encoder)
-    }
-
-    required public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.swiftVersion = try container.decode(SwiftLanguageVersion.self, forKey: .swiftVersion)
-        try super.init(from: decoder)
     }
 
     public var supportsTestableExecutablesFeature: Bool {

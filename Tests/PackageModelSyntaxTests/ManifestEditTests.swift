@@ -72,7 +72,8 @@ class ManifestEditTests: XCTestCase {
             identity: PackageIdentity(url: swiftSystemURL),
             nameForTargetDependencyResolutionOnly: nil,
             url: swiftSystemURL,
-            requirement: .branch("main"), productFilter: .nothing
+            requirement: .branch("main"), productFilter: .nothing,
+            traits: []
         )
 
     func testAddPackageDependencyExistingComma() throws {
@@ -99,7 +100,8 @@ class ManifestEditTests: XCTestCase {
                         identity: PackageIdentity(url: Self.swiftSystemURL),
                         nameForTargetDependencyResolutionOnly: nil,
                         url: Self.swiftSystemURL,
-                        requirement: .branch("main"), productFilter: .nothing
+                        requirement: .branch("main"), productFilter: .nothing,
+                        traits:[]
                     ),
                     to: manifest
                 )
@@ -131,7 +133,8 @@ class ManifestEditTests: XCTestCase {
                         nameForTargetDependencyResolutionOnly: nil,
                         url: Self.swiftSystemURL,
                         requirement: .exact("510.0.0"),
-                        productFilter: .nothing
+                        productFilter: .nothing,
+                        traits: []
                     ),
                     to: manifest
                 )
@@ -165,7 +168,8 @@ class ManifestEditTests: XCTestCase {
                         nameForTargetDependencyResolutionOnly: nil,
                         url: Self.swiftSystemURL,
                         requirement: .range(versionRange),
-                        productFilter: .nothing
+                        productFilter: .nothing,
+                        traits: []
                     ),
                     to: manifest
                 )
@@ -194,7 +198,8 @@ class ManifestEditTests: XCTestCase {
                         nameForTargetDependencyResolutionOnly: nil,
                         url: Self.swiftSystemURL,
                         requirement: .range(versionRange),
-                        productFilter: .nothing
+                        productFilter: .nothing,
+                        traits: []
                     ),
                     to: manifest
                 )
@@ -223,7 +228,8 @@ class ManifestEditTests: XCTestCase {
                         nameForTargetDependencyResolutionOnly: nil,
                         url: Self.swiftSystemURL,
                         requirement: .range(Version(508,0,0)..<Version(510,0,0)),
-                        productFilter: .nothing
+                        productFilter: .nothing,
+                        traits: []
                     ),
                 to: manifest
             )
@@ -564,6 +570,93 @@ class ManifestEditTests: XCTestCase {
         }
     }
 
+    func testAddSwiftTestingTestTarget() throws {
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages"
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                dependencies: [
+                    .package(url: "https://github.com/apple/swift-testing.git", from: "0.8.0"),
+                ],
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [ .product(name: "Testing", package: "swift-testing") ]
+                    ),
+                ]
+            )
+            """,
+            expectedAuxiliarySources: [
+                RelativePath("Tests/MyTest/MyTest.swift") : """
+                import Testing
+
+                @Suite
+                struct MyTestTests {
+                    @Test("MyTest tests")
+                    func example() {
+                        #expect(42 == 17 + 25)
+                    }
+                }
+                """
+            ]) { manifest in
+            try AddTarget.addTarget(
+                TargetDescription(
+                    name: "MyTest",
+                    type: .test
+                ),
+                to: manifest,
+                configuration: .init(
+                    testHarness: .swiftTesting
+                )
+            )
+        }
+    }
+
+    func testAddTargetDependency() throws {
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                dependencies: [
+                    .package(url: "https://github.com/apple/swift-testing.git", from: "0.8.0"),
+                ],
+                targets: [
+                    .testTarget(
+                        name: "MyTest"
+                    ),
+                ]
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                dependencies: [
+                    .package(url: "https://github.com/apple/swift-testing.git", from: "0.8.0"),
+                ],
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                            .product(name: "Testing", package: "swift-testing"),
+                        ]
+                    ),
+                ]
+            )
+            """) { manifest in
+            try AddTargetDependency.addTargetDependency(
+                .product(name: "Testing", package: "swift-testing"),
+                targetName: "MyTest",
+                to: manifest
+            )
+        }
+    }
 }
 
 

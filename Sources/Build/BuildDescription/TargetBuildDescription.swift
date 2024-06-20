@@ -17,12 +17,12 @@ import struct PackageModel.ToolsVersion
 import struct SPMBuildCore.BuildToolPluginInvocationResult
 import struct SPMBuildCore.BuildParameters
 
-package enum BuildDescriptionError: Swift.Error {
+public enum BuildDescriptionError: Swift.Error {
     case requestedFileNotPartOfTarget(targetName: String, requestedFilePath: AbsolutePath)
 }
 
 /// A target description which can either be for a Swift or Clang target.
-package enum TargetBuildDescription {
+public enum TargetBuildDescription {
     /// Swift target description.
     case swift(SwiftTargetBuildDescription)
 
@@ -101,7 +101,7 @@ package enum TargetBuildDescription {
     var buildParameters: BuildParameters {
         switch self {
         case .swift(let swiftTargetBuildDescription):
-            return swiftTargetBuildDescription.defaultBuildParameters
+            return swiftTargetBuildDescription.buildParameters
         case .clang(let clangTargetBuildDescription):
             return clangTargetBuildDescription.buildParameters
         }
@@ -113,6 +113,15 @@ package enum TargetBuildDescription {
             return swiftTargetBuildDescription.toolsVersion
         case .clang(let clangTargetBuildDescription):
             return clangTargetBuildDescription.toolsVersion
+        }
+    }
+
+    /// Determines the arguments needed to run `swift-symbolgraph-extract` for
+    /// this module.
+    package func symbolGraphExtractArguments() throws -> [String] {
+        switch self {
+        case .swift(let target): try target.symbolGraphExtractArguments()
+        case .clang(let target): try target.symbolGraphExtractArguments()
         }
     }
 }

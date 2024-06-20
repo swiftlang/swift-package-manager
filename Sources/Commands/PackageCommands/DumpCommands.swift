@@ -12,14 +12,9 @@
 
 import ArgumentParser
 import Basics
-
 import CoreCommands
-
 import Foundation
 import PackageModel
-
-import SPMBuildCore
-
 import XCBuildSupport
 
 struct DumpSymbolGraph: SwiftCommand {
@@ -77,6 +72,7 @@ struct DumpSymbolGraph: SwiftCommand {
             let result = try symbolGraphExtractor.extractSymbolGraph(
                 module: target,
                 buildPlan: buildPlan,
+                buildParameters: buildPlan.destinationBuildParameters,
                 outputRedirection: .collect(redirectStderr: true),
                 outputDirectory: symbolGraphDirectory,
                 verboseOutput: swiftCommandState.logLevel <= .info

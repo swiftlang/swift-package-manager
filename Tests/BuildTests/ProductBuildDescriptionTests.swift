@@ -63,7 +63,7 @@ final class ProductBuildDescriptionTests: XCTestCase {
             package: package,
             product: product,
             toolsVersion: .v5_9,
-            buildParameters: mockBuildParameters(environment: .init(platform: .macOS)),
+            buildParameters: mockBuildParameters(destination: .target, environment: .init(platform: .macOS)),
             fileSystem: fs,
             observabilityScope: observability.topScope
         )

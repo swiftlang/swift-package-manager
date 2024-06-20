@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
-
 import CoreCommands
 
 import var TSCBasic.stdoutStream
@@ -19,6 +18,7 @@ import var TSCBasic.stdoutStream
 extension SwiftPackageCommand {
     struct CompletionCommand: SwiftCommand {
         static let configuration = CommandConfiguration(
+            commandName: "completion-tool",
             abstract: "Completion command (for shell completions)"
         )
 
@@ -68,6 +68,7 @@ extension SwiftPackageCommand {
                 // command's result output goes on stdout
                 // ie "swift package list-dependencies" should output to stdout
                 ShowDependencies.dumpDependenciesOf(
+                    graph: graph,
                     rootPackage: graph.rootPackages[graph.rootPackages.startIndex],
                     mode: .flatlist,
                     on: TSCBasic.stdoutStream

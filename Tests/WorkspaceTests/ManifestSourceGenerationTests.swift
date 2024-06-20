@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -33,8 +33,7 @@ extension String {
     }
 }
 
-class ManifestSourceGenerationTests: XCTestCase {
-
+final class ManifestSourceGenerationTests: XCTestCase {
     /// Private function that writes the contents of a package manifest to a temporary package directory and then loads it, then serializes the loaded manifest back out again and loads it once again, after which it compares that no information was lost. Return the source of the newly generated manifest.
     @discardableResult
     private func testManifestWritingRoundTrip(
@@ -591,6 +590,7 @@ class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testManifestGenerationWithSwiftLanguageVersion() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
             path: "/pkg",

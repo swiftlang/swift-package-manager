@@ -12,8 +12,8 @@
 
 import Basics
 
-package struct Node: Hashable, Codable {
-    package enum Kind: String, Hashable, Codable {
+public struct Node: Hashable, Codable {
+    public enum Kind: String, Hashable, Codable {
         case virtual
         case file
         case directory
@@ -26,10 +26,10 @@ package struct Node: Hashable, Codable {
     }
 
     /// The name used to identify the node.
-    package var name: String
+    public var name: String
 
     /// The kind of node.
-    package var kind: Kind
+    public var kind: Kind
 
     let attributes: Attributes?
 
@@ -40,12 +40,12 @@ package struct Node: Hashable, Codable {
     }
     
     /// Extracts `name` property if this node was constructed as `Node//virtual`.
-    package var extractedVirtualNodeName: String {
+    public var extractedVirtualNodeName: String {
         precondition(kind == .virtual)
         return String(self.name.dropFirst().dropLast())
     }
 
-    package static func virtual(_ name: String, isCommandTimestamp: Bool = false) -> Node {
+    public static func virtual(_ name: String, isCommandTimestamp: Bool = false) -> Node {
         precondition(name.first != "<" && name.last != ">", "<> will be inserted automatically")
         return Node(
             name: "<" + name + ">",
@@ -54,11 +54,11 @@ package struct Node: Hashable, Codable {
         )
     }
 
-    package static func file(_ name: AbsolutePath) -> Node {
+    public static func file(_ name: AbsolutePath) -> Node {
         Node(name: name.pathString, kind: .file)
     }
 
-    package static func file(_ name: AbsolutePath, isMutated: Bool) -> Node {
+    public static func file(_ name: AbsolutePath, isMutated: Bool) -> Node {
         Node(
             name: name.pathString,
             kind: .file,
@@ -66,25 +66,25 @@ package struct Node: Hashable, Codable {
         )
     }
 
-    package static func directory(_ name: AbsolutePath) -> Node {
+    public static func directory(_ name: AbsolutePath) -> Node {
         Node(name: name.pathString, kind: .directory)
     }
 
-    package static func directoryStructure(_ name: AbsolutePath) -> Node {
+    public static func directoryStructure(_ name: AbsolutePath) -> Node {
         Node(name: name.pathString, kind: .directoryStructure)
     }
 }
 
 extension Array where Element == Node {
-    package mutating func append(file path: AbsolutePath) {
+    public mutating func append(file path: AbsolutePath) {
         self.append(.file(path))
     }
 
-    package mutating func append(directory path: AbsolutePath) {
+    public mutating func append(directory path: AbsolutePath) {
         self.append(.directory(path))
     }
 
-    package mutating func append(directoryStructure path: AbsolutePath) {
+    public mutating func append(directoryStructure path: AbsolutePath) {
         self.append(.directoryStructure(path))
     }
 }

@@ -22,7 +22,7 @@ enum PackageGraphError: Swift.Error {
     case noModules(Package)
 
     /// The package dependency declaration has cycle in it.
-    case cycleDetected((path: [Manifest], cycle: [Manifest]))
+    case dependencyCycleDetected(path: [Manifest], cycle: Manifest)
 
     /// The product dependency not found.
     case productDependencyNotFound(
@@ -89,9 +89,8 @@ public struct ModulesGraph {
     /// The root packages.
     public let rootPackages: IdentifiableSet<ResolvedPackage>
 
-    /// The complete list of contained packages, in topological order starting
-    /// with the root packages.
-    public let packages: [ResolvedPackage]
+    /// The complete set of contained packages.
+    public let packages: IdentifiableSet<ResolvedPackage>
 
     /// The list of all targets reachable from root targets.
     public private(set) var reachableTargets: IdentifiableSet<ResolvedModule>
@@ -101,6 +100,14 @@ public struct ModulesGraph {
 
     /// Returns all the targets in the graph, regardless if they are reachable from the root targets or not.
     public private(set) var allTargets: IdentifiableSet<ResolvedModule>
+
+    /// Returns all targets within the module graph in topological order, starting with low-level targets (that have no
+    /// dependencies).
+    package var allTargetsInTopologicalOrder: [ResolvedModule] {
+        get throws {
+            try topologicalSort(Array(allTargets)) { $0.dependencies.compactMap { $0.target } }.reversed()
+        }
+    }
 
     /// Returns all the products in the graph, regardless if they are reachable from the root targets or not.
     public private(set) var allProducts: IdentifiableSet<ResolvedProduct>
@@ -139,17 +146,82 @@ public struct ModulesGraph {
         return self.rootPackages.contains(id: package.id)
     }
 
-    private var modulesToPackages: [ResolvedModule.ID: ResolvedPackage]
-    /// Returns the package that contains the module, or nil if the module isn't in the graph.
-    public func package(for module: ResolvedModule) -> ResolvedPackage? {
-        return self.modulesToPackages[module.id]
+    /// Returns the package  based on the given identity, or nil if the package isn't in the graph.
+    public func package(for identity: PackageIdentity) -> ResolvedPackage? {
+        packages[identity]
     }
 
+    /// Returns the package that contains the module, or nil if the module isn't in the graph.
+    public func package(for module: ResolvedModule) -> ResolvedPackage? {
+        self.package(for: module.packageIdentity)
+    }
 
-    private var productsToPackages: [ResolvedProduct.ID: ResolvedPackage]
     /// Returns the package that contains the product, or nil if the product isn't in the graph.
     public func package(for product: ResolvedProduct) -> ResolvedPackage? {
-        return self.productsToPackages[product.id]
+        self.package(for: product.packageIdentity)
+    }
+
+    /// Returns all of the packages that the given package depends on directly.
+    public func directDependencies(for package: ResolvedPackage) -> [ResolvedPackage] {
+        package.dependencies.compactMap { self.package(for: $0) }
+    }
+
+    /// Find a product given a name and an optional destination. If a destination is not specified
+    /// this method uses `.destination` and falls back to `.tools` for macros, plugins, and tests.
+    public func product(for name: String, destination: BuildTriple? = .none) -> ResolvedProduct? {
+        func findProduct(name: String, destination: BuildTriple) -> ResolvedProduct? {
+            self.allProducts.first { $0.name == name && $0.buildTriple == destination }
+        }
+
+        if let destination {
+            return findProduct(name: name, destination: destination)
+        }
+
+        if let product = findProduct(name: name, destination: .destination) {
+            return product
+        }
+
+        // It's possible to request a build of a macro, a plugin, or a test via `swift build`
+        // which won't have the right destination set because it's impossible to indicate it.
+        //
+        // Same happens with `--test-product` - if one of the test targets directly references
+        // a macro then all if its targets and the product itself become `host`.
+        if let toolsProduct = findProduct(name: name, destination: .tools),
+            toolsProduct.type == .macro || toolsProduct.type == .plugin || toolsProduct.type == .test
+        {
+            return toolsProduct
+        }
+
+        return nil
+    }
+
+    /// Find a target given a name and an optional destination. If a destination is not specified
+    /// this method uses `.destination` and falls back to `.tools` for macros, plugins, and tests.
+    public func target(for name: String, destination: BuildTriple? = .none) -> ResolvedModule? {
+        func findModule(name: String, destination: BuildTriple) -> ResolvedModule? {
+            self.allTargets.first { $0.name == name && $0.buildTriple == destination }
+        }
+
+        if let destination {
+            return findModule(name: name, destination: destination)
+        }
+
+        if let module = findModule(name: name, destination: .destination) {
+            return module
+        }
+
+        // It's possible to request a build of a macro, a plugin or a test via `swift build`
+        // which won't have the right destination set because it's impossible to indicate it.
+        //
+        // Same happens with `--test-product` - if one of the test targets directly references
+        // a macro then all if its targets and the product itself become `host`.
+        if let toolsModule = findModule(name: name, destination: .tools),
+            toolsModule.type == .macro || toolsModule.type == .plugin || toolsModule.type == .test
+        {
+            return toolsModule
+        }
+
+        return nil
     }
 
     /// All root and root dependency packages provided as input to the graph.
@@ -162,6 +234,7 @@ public struct ModulesGraph {
     public init(
         rootPackages: [ResolvedPackage],
         rootDependencies: [ResolvedPackage] = [],
+        packages: IdentifiableSet<ResolvedPackage>,
         dependencies requiredDependencies: [PackageReference],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]]
     ) throws {
@@ -169,22 +242,7 @@ public struct ModulesGraph {
         self.requiredDependencies = requiredDependencies
         self.inputPackages = rootPackages + rootDependencies
         self.binaryArtifacts = binaryArtifacts
-        self.packages = try topologicalSort(inputPackages, successors: { $0.dependencies })
-        let identitiesToPackages = self.packages.spm_createDictionary { ($0.identity, $0) }
-
-        // Create a mapping from targets to the packages that define them.  Here
-        // we include all targets, including tests in non-root packages, since
-        // this is intended for lookup and not traversal.
-        var modulesToPackages = self.packages.reduce(into: [:], { partial, package in
-            package.targets.forEach { partial[$0.id] = package }
-        })
-
-        // Create a mapping from products to the packages that define them.  Here
-        // we include all products, including tests in non-root packages, since
-        // this is intended for lookup and not traversal.
-        var productsToPackages = packages.reduce(into: [:], { partial, package in
-            package.products.forEach { partial[$0.id] = package }
-        })
+        self.packages = packages
 
         var allTargets = IdentifiableSet<ResolvedModule>()
         var allProducts = IdentifiableSet<ResolvedProduct>()
@@ -207,11 +265,40 @@ public struct ModulesGraph {
                         switch dependency {
                         case .target(let targetDependency, _):
                             allTargets.insert(targetDependency)
-                            modulesToPackages[targetDependency.id] = package
                         case .product(let productDependency, _):
                             allProducts.insert(productDependency)
-                            productsToPackages[productDependency.id] =
-                                identitiesToPackages[productDependency.packageIdentity]
+                        }
+                    }
+                }
+
+                // Create a new executable product if plugin depends on an executable target.
+                // This is necessary, even though PackageBuilder creates one already, because
+                // that product is going to be built for `destination`, and this one has to
+                // be built for `tools`.
+                if target.underlying is PluginTarget {
+                    for dependency in target.dependencies {
+                        switch dependency {
+                        case .product(_, conditions: _):
+                            break
+
+                        case .target(let target, conditions: _):
+                            if target.type != .executable {
+                                continue
+                            }
+
+                            var product = try ResolvedProduct(
+                                packageIdentity: target.packageIdentity,
+                                product: .init(
+                                    package: target.packageIdentity,
+                                    name: target.name,
+                                    type: .executable,
+                                    targets: [target.underlying]
+                                ),
+                                targets: IdentifiableSet([target])
+                            )
+                            product.buildTriple = .tools
+
+                            allProducts.insert(product)
                         }
                     }
                 }
@@ -226,9 +313,6 @@ public struct ModulesGraph {
             }
         }
 
-        self.modulesToPackages = modulesToPackages
-        self.productsToPackages = productsToPackages
-
         // Compute the reachable targets and products.
         let inputTargets = self.inputPackages.flatMap { $0.targets }
         let inputProducts = self.inputPackages.flatMap { $0.products }
@@ -239,41 +323,6 @@ public struct ModulesGraph {
         self.rootPackages = rootPackages
         self.allTargets = allTargets
         self.allProducts = allProducts
-    }
-
-    package mutating func updateBuildTripleRecursively(_ buildTriple: BuildTriple) throws {
-        self.reachableTargets = IdentifiableSet(self.reachableTargets.map {
-            var target = $0
-            target.buildTriple = buildTriple
-            return target
-        })
-        self.reachableProducts = IdentifiableSet(self.reachableProducts.map {
-            var product = $0
-            product.buildTriple = buildTriple
-            return product
-        })
-
-        self.allTargets = IdentifiableSet(self.allTargets.map {
-            var target = $0
-            target.buildTriple = buildTriple
-            return target
-        })
-        self.allProducts = IdentifiableSet(self.allProducts.map {
-            var product = $0
-            product.buildTriple = buildTriple
-            return product
-        })
-
-        self.modulesToPackages = .init(self.modulesToPackages.map {
-            var target = $0
-            target.buildTriple = buildTriple
-            return (target, $1)
-        }, uniquingKeysWith: { $1 })
-        self.productsToPackages = .init(self.productsToPackages.map {
-            var product = $0
-            product.buildTriple = buildTriple
-            return (product, $1)
-        }, uniquingKeysWith: { $1 })
     }
 
     /// Computes a map from each executable target in any of the root packages to the corresponding test targets.
@@ -316,10 +365,10 @@ extension PackageGraphError: CustomStringConvertible {
         case .noModules(let package):
             return "package '\(package)' contains no products"
 
-        case .cycleDetected(let cycle):
-            return "cyclic dependency declaration found: " +
-            (cycle.path + cycle.cycle).map({ $0.displayName }).joined(separator: " -> ") +
-            " -> " + cycle.cycle[0].displayName
+        case .dependencyCycleDetected(let path, let package):
+            return "cyclic dependency between packages " +
+            (path.map({ $0.displayName }).joined(separator: " -> ")) +
+            " -> \(package.displayName) requires tools-version 6.0 or later"
 
         case .productDependencyNotFound(let package, let targetName, let dependencyProductName, let dependencyPackageName, let dependencyProductInDecl, let similarProductName, let packageContainingSimilarProduct):
             if dependencyProductInDecl {
@@ -367,8 +416,7 @@ extension PackageGraphError: CustomStringConvertible {
                 }
                 return description
             }
-
-            return "multiple products named '\(product)' in: \(packagesDescriptions.joined(separator: ", "))"
+            return "multiple packages (\(packagesDescriptions.joined(separator: ", "))) declare products with a conflicting name: '\(product)’; product names need to be unique across the package graph"
         case .multipleModuleAliases(let target, let product, let package, let aliases):
             return "multiple aliases: ['\(aliases.joined(separator: "', '"))'] found for target '\(target)' in product '\(product)' from package '\(package)'"
         case .unsupportedPluginDependency(let targetName, let dependencyName, let dependencyType,  let dependencyPackage):
@@ -488,7 +536,6 @@ public func loadModulesGraph(
         shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
         createREPLProduct: createREPLProduct,
         customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
-        availableLibraries: [],
         fileSystem: fileSystem,
         observabilityScope: observabilityScope
     )

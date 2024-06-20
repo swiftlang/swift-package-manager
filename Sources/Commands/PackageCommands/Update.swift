@@ -11,9 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
-
 import CoreCommands
-
 import Dispatch
 import PackageModel
 import PackageGraph
@@ -73,7 +71,7 @@ extension SwiftPackageCommand {
                 case .removed:
                     report += "\n"
                     report += "- \(package.identity) \(currentVersion)"
-                case .unchanged:
+                case .unchanged, .usesLibrary:
                     continue
                 }
             }

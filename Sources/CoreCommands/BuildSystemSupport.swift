@@ -11,9 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Build
-
 import SPMBuildCore
-
 import XCBuildSupport
 
 import class Basics.ObservabilityScope
@@ -51,6 +49,7 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
                 workDirectory: try self.swiftCommandState.getActiveWorkspace().location.pluginWorkingDirectory,
                 disableSandbox: self.swiftCommandState.shouldDisableSandbox
             ),
+            scratchDirectory: self.swiftCommandState.scratchDirectory,
             additionalFileRules: FileRuleDescription.swiftpmFileTypes,
             pkgConfigDirectories: self.swiftCommandState.options.locations.pkgConfigDirectories,
             dependenciesByRootPackageIdentity: rootPackageInfo.dependencies,
@@ -91,7 +90,7 @@ private struct XcodeBuildSystemFactory: BuildSystemFactory {
 }
 
 extension SwiftCommandState {
-    package var defaultBuildSystemProvider: BuildSystemProvider {
+    public var defaultBuildSystemProvider: BuildSystemProvider {
         .init(providers: [
             .native: NativeBuildSystemFactory(swiftCommandState: self),
             .xcode: XcodeBuildSystemFactory(swiftCommandState: self)

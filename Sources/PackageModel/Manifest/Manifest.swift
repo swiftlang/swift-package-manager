@@ -80,6 +80,9 @@ public final class Manifest: Sendable {
     /// The products declared in the manifest.
     public let products: [ProductDescription]
 
+    /// The set of traits of this package.
+    public let traits: Set<TraitDescription>
+
     /// The C language standard flag.
     public let cLanguageStandard: String?
 
@@ -118,7 +121,8 @@ public final class Manifest: Sendable {
         swiftLanguageVersions: [SwiftLanguageVersion]?,
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
-        targets: [TargetDescription] = []
+        targets: [TargetDescription] = [],
+        traits: Set<TraitDescription>
     ) {
         self.displayName = displayName
         self.path = path
@@ -138,6 +142,7 @@ public final class Manifest: Sendable {
         self.products = products
         self.targets = targets
         self.targetMap = Dictionary(targets.lazy.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
+        self.traits = traits
     }
 
     /// Returns the targets required for a particular product filter.
@@ -552,5 +557,53 @@ extension Manifest: Encodable {
         try container.encode(self.targets, forKey: .targets)
         try container.encode(self.platforms, forKey: .platforms)
         try container.encode(self.packageKind, forKey: .packageKind)
+    }
+}
+
+extension Manifest {
+    package static func forProvidedLibrary(
+        fileSystem: FileSystem,
+        package: PackageReference,
+        libraryPath: AbsolutePath,
+        version: Version
+    ) throws -> Manifest {
+        let names = try fileSystem.getDirectoryContents(libraryPath).filter {
+            $0.hasSuffix("swiftmodule")
+        }.map {
+            let components = $0.split(separator: ".")
+            return String(components[0])
+        }
+
+        let products: [ProductDescription] = try names.map {
+            try .init(name: $0, type: .library(.automatic), targets: [$0])
+        }
+
+        let targets: [TargetDescription] = try names.map {
+            try .init(
+                name: $0,
+                path: libraryPath.pathString,
+                type: .providedLibrary
+            )
+        }
+
+        return .init(
+            displayName: package.identity.description,
+            path: libraryPath.appending(component: "provided-library.json"),
+            packageKind: package.kind,
+            packageLocation: package.locationString,
+            defaultLocalization: nil,
+            platforms: [],
+            version: version,
+            revision: nil,
+            toolsVersion: .v6_0,
+            pkgConfig: nil,
+            providers: nil,
+            cLanguageStandard: nil,
+            cxxLanguageStandard: nil,
+            swiftLanguageVersions: nil,
+            products: products,
+            targets: targets,
+            traits: []
+        )
     }
 }

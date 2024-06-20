@@ -21,12 +21,21 @@ import struct Basics.Triple
 import enum PackageGraph.BuildTriple
 import class PackageModel.Manifest
 import struct PackageModel.TargetDescription
+import enum PackageModel.ProductType
+import struct SPMBuildCore.BuildParameters
 import func SPMTestSupport.loadPackageGraph
 
+@_spi(SwiftPMInternal)
 import func SPMTestSupport.embeddedCxxInteropPackageGraph
+
+@_spi(SwiftPMInternal)
 import func SPMTestSupport.macrosPackageGraph
 import func SPMTestSupport.macrosTestsPackageGraph
 import func SPMTestSupport.mockBuildParameters
+import func SPMTestSupport.mockBuildPlan
+import func SPMTestSupport.toolsExplicitLibrariesGraph
+
+@_spi(SwiftPMInternal)
 import func SPMTestSupport.trivialPackageGraph
 
 import struct SPMTestSupport.BuildPlanResult
@@ -37,14 +46,18 @@ import XCTest
 
 final class CrossCompilationBuildPlanTests: XCTestCase {
     func testEmbeddedWasmTarget() throws {
-        var (graph, fs, observabilityScope) = try trivialPackageGraph(pkgRootPath: "/Pkg")
+        var (graph, fs, observabilityScope) = try trivialPackageGraph()
 
         let triple = try Triple("wasm32-unknown-none-wasm")
-        var parameters = mockBuildParameters(triple: triple)
-        parameters.linkingParameters.shouldLinkStaticSwiftStdlib = true
-        var result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: parameters,
+
+        let linkingParameters = BuildParameters.Linking(
+            shouldLinkStaticSwiftStdlib: true
+        )
+
+        var result = try BuildPlanResult(plan: mockBuildPlan(
+            triple: triple,
             graph: graph,
+            linkingParameters: linkingParameters,
             fileSystem: fs,
             observabilityScope: observabilityScope
         ))
@@ -68,11 +81,12 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
             ]
         )
 
-        (graph, fs, observabilityScope) = try embeddedCxxInteropPackageGraph(pkgRootPath: "/Pkg")
+        (graph, fs, observabilityScope) = try embeddedCxxInteropPackageGraph()
 
-        result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: parameters,
+        result = try BuildPlanResult(plan: mockBuildPlan(
+            triple: triple,
             graph: graph,
+            linkingParameters: linkingParameters,
             fileSystem: fs,
             observabilityScope: observabilityScope
         ))
@@ -98,17 +112,16 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
     }
 
     func testWasmTargetRelease() throws {
-        let pkgPath = AbsolutePath("/Pkg")
+        let (graph, fs, observabilityScope) = try trivialPackageGraph()
 
-        let (graph, fs, observabilityScope) = try trivialPackageGraph(pkgRootPath: pkgPath)
-
-        var parameters = mockBuildParameters(
-            config: .release, triple: .wasi, linkerDeadStrip: true
-        )
-        parameters.linkingParameters.shouldLinkStaticSwiftStdlib = true
-        let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: parameters,
+        let result = try BuildPlanResult(plan: mockBuildPlan(
+            config: .release,
+            triple: .wasi,
             graph: graph,
+            linkingParameters: .init(
+                linkerDeadStrip: true,
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observabilityScope
         ))
@@ -133,13 +146,14 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
     func testWASITarget() throws {
         let pkgPath = AbsolutePath("/Pkg")
 
-        let (graph, fs, observabilityScope) = try trivialPackageGraph(pkgRootPath: pkgPath)
+        let (graph, fs, observabilityScope) = try trivialPackageGraph()
 
-        var parameters = mockBuildParameters(triple: .wasi)
-        parameters.linkingParameters.shouldLinkStaticSwiftStdlib = true
-        let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: parameters,
+        let result = try BuildPlanResult(plan: mockBuildPlan(
+            triple: .wasi,
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observabilityScope
         ))
@@ -221,8 +235,15 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         let destinationTriple = Triple.arm64Linux
         let toolsTriple = Triple.x86_64MacOS
         let plan = try BuildPlan(
-            destinationBuildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, triple: destinationTriple),
-            toolsBuildParameters: mockBuildParameters(triple: toolsTriple),
+            destinationBuildParameters: mockBuildParameters(
+                destination: .target,
+                shouldLinkStaticSwiftStdlib: true,
+                triple: destinationTriple
+            ),
+            toolsBuildParameters: mockBuildParameters(
+                destination: .host,
+                triple: toolsTriple
+            ),
             graph: graph,
             fileSystem: fs,
             observabilityScope: scope
@@ -266,15 +287,22 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         let destinationTriple = Triple.arm64Linux
         let toolsTriple = Triple.x86_64MacOS
         let plan = try BuildPlan(
-            destinationBuildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, triple: destinationTriple),
-            toolsBuildParameters: mockBuildParameters(triple: toolsTriple),
+            destinationBuildParameters: mockBuildParameters(
+                destination: .target,
+                shouldLinkStaticSwiftStdlib: true,
+                triple: destinationTriple
+            ),
+            toolsBuildParameters: mockBuildParameters(
+                destination: .host,
+                triple: toolsTriple
+            ),
             graph: graph,
             fileSystem: fs,
             observabilityScope: scope
         )
         let result = try BuildPlanResult(plan: plan)
         result.checkProductsCount(2)
-        result.checkTargetsCount(15)
+        result.checkTargetsCount(16)
 
         XCTAssertTrue(try result.allTargets(named: "SwiftSyntax")
             .map { try $0.swiftTarget() }
@@ -305,6 +333,54 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
                 "-Xfrontend", .contains(toolsTriple.tripleString)
             ]
         )
+    }
+
+    func testToolsExplicitLibraries() throws {
+        let destinationTriple = Triple.arm64Linux
+        let toolsTriple = Triple.x86_64MacOS
+
+        for (linkage, productFileName) in [(ProductType.LibraryType.static, "libSwiftSyntax-tool.a"), (.dynamic, "libSwiftSyntax-tool.dylib")] {
+            let (graph, fs, scope) = try toolsExplicitLibrariesGraph(linkage: linkage)
+            let plan = try BuildPlan(
+                destinationBuildParameters: mockBuildParameters(
+                    destination: .target,
+                    shouldLinkStaticSwiftStdlib: true,
+                    triple: destinationTriple
+                ),
+                toolsBuildParameters: mockBuildParameters(
+                    destination: .host,
+                    triple: toolsTriple
+                ),
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: scope
+            )
+            let result = try BuildPlanResult(plan: plan)
+            result.checkProductsCount(4)
+            result.checkTargetsCount(6)
+
+            XCTAssertTrue(try result.allTargets(named: "SwiftSyntax")
+                .map { try $0.swiftTarget() }
+                .contains { $0.target.buildTriple == .tools })
+
+            try result.check(buildTriple: .tools, triple: toolsTriple, for: "swift-mmioPackageTests")
+            try result.check(buildTriple: .tools, triple: toolsTriple, for: "swift-mmioPackageDiscoveredTests")
+            try result.check(buildTriple: .tools, triple: toolsTriple, for: "MMIOMacros")
+            try result.check(buildTriple: .tools, triple: toolsTriple, for: "MMIOMacrosTests")
+
+            let macroProducts = result.allProducts(named: "MMIOMacros")
+            XCTAssertEqual(macroProducts.count, 1)
+            let macroProduct = try XCTUnwrap(macroProducts.first)
+            XCTAssertEqual(macroProduct.buildParameters.triple, toolsTriple)
+
+            let swiftSyntaxProducts = result.allProducts(named: "SwiftSyntax")
+            XCTAssertEqual(swiftSyntaxProducts.count, 2)
+            let swiftSyntaxToolsProduct = try XCTUnwrap(swiftSyntaxProducts.first { $0.product.buildTriple == .tools })
+            let archiveArguments = try swiftSyntaxToolsProduct.archiveArguments()
+
+            // Verify that produced library file has a correct name
+            XCTAssertMatch(archiveArguments, [.contains(productFileName)])
+        }
     }
 }
 

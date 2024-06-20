@@ -529,6 +529,12 @@ let package = Package(
         ),
         .executableTarget(
             /** Interacts with Swift SDKs used for cross-compilation */
+            name: "swift-sdk",
+            dependencies: ["Commands", "SwiftSDKCommand"],
+            exclude: ["CMakeLists.txt"]
+        ),
+        .executableTarget(
+            /** Deprecated command superseded by `swift-sdk` */
             name: "swift-experimental-sdk",
             dependencies: ["Commands", "SwiftSDKCommand"],
             exclude: ["CMakeLists.txt"]
@@ -719,6 +725,12 @@ let package = Package(
             dependencies: ["XCBuildSupport", "SPMTestSupport"],
             exclude: ["Inputs/Foo.pc"]
         ),
+        // Examples (These are built to ensure they stay up to date with the API.)
+        .executableTarget(
+            name: "package-info",
+            dependencies: ["Workspace"],
+            path: "Examples/package-info/Sources/package-info"
+        )
     ],
     swiftLanguageVersions: [.v5]
 )
@@ -764,6 +776,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "Build",
                 "Commands",
                 "PackageModel",
+                "PackageModelSyntax",
                 "PackageRegistryCommand",
                 "SourceControl",
                 "SPMTestSupport",
@@ -814,9 +827,9 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/apple/swift-driver.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
         .package(url: "https://github.com/apple/swift-syntax.git", branch: relatedDependenciesBranch),
-        .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
-        .package(url: "https://github.com/apple/swift-collections.git", .upToNextMinor(from: "1.0.1")),
-        .package(url: "https://github.com/apple/swift-certificates.git", .upToNextMinor(from: "1.0.1")),
+        .package(url: "https://github.com/apple/swift-system.git", "1.1.1" ..< "1.4.0"),
+        .package(url: "https://github.com/apple/swift-collections.git", "1.0.1" ..< "1.2.0"),
+        .package(url: "https://github.com/apple/swift-certificates.git", "1.0.1" ..< "1.4.0"),
     ]
 } else {
     package.dependencies += [

@@ -17,6 +17,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
@@ -28,25 +29,22 @@ import DriverSupport
 import struct TSCBasic.ByteString
 
 /// Target description for a Swift target.
-package final class SwiftTargetBuildDescription {
+public final class SwiftTargetBuildDescription {
     /// The package this target belongs to.
-    package let package: ResolvedPackage
+    public let package: ResolvedPackage
 
     /// The target described by this target.
-    package let target: ResolvedModule
+    public let target: ResolvedModule
 
     private let swiftTarget: SwiftTarget
 
     /// The tools version of the package that declared the target.  This can
     /// can be used to conditionalize semantically significant changes in how
     /// a target is built.
-    package let toolsVersion: ToolsVersion
+    public let toolsVersion: ToolsVersion
 
     /// The build parameters for this target.
-    let defaultBuildParameters: BuildParameters
-
-    /// The build parameters for build tools.
-    let toolsBuildParameters: BuildParameters
+    let buildParameters: BuildParameters
 
     /// Path to the temporary directory for this target.
     let tempsPath: AbsolutePath
@@ -65,9 +63,10 @@ package final class SwiftTargetBuildDescription {
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
         if let bundleName = target.underlying.potentialBundleName, needsResourceBundle {
-            return self.defaultBuildParameters.bundlePath(named: bundleName)
+            let suffix = self.buildParameters.suffix
+            return self.buildParameters.bundlePath(named: bundleName + suffix)
         } else {
-            return .none
+            return nil
         }
     }
 
@@ -75,32 +74,35 @@ package final class SwiftTargetBuildDescription {
         return resources.filter { $0.rule != .embedInCode }.isEmpty == false
     }
 
-    private var needsResourceEmbedding: Bool {
-        return resources.filter { $0.rule == .embedInCode }.isEmpty == false
+    var resourceFilesToEmbed: [AbsolutePath] {
+        return resources.filter { $0.rule == .embedInCode }.map { $0.path }
     }
 
+    /// The path to Swift source file embedding resource contents if needed.
+    private(set) var resourcesEmbeddingSource: AbsolutePath?
+
     /// The list of all source files in the target, including the derived ones.
-    package var sources: [AbsolutePath] {
+    public var sources: [AbsolutePath] {
         self.target.sources.paths + self.derivedSources.paths + self.pluginDerivedSources.paths
     }
 
-    package var sourcesFileListPath: AbsolutePath {
+    public var sourcesFileListPath: AbsolutePath {
         self.tempsPath.appending(component: "sources")
     }
 
     /// The list of all resource files in the target, including the derived ones.
-    package var resources: [Resource] {
+    public var resources: [Resource] {
         self.target.underlying.resources + self.pluginDerivedResources
     }
 
     /// The objects in this target, containing either machine code or bitcode
     /// depending on the build parameters used.
-    package var objects: [AbsolutePath] {
+    public var objects: [AbsolutePath] {
         get throws {
             let relativeSources = self.target.sources.relativePaths
                 + self.derivedSources.relativePaths
                 + self.pluginDerivedSources.relativePaths
-            let ltoEnabled = self.defaultBuildParameters.linkingParameters.linkTimeOptimizationMode != nil
+            let ltoEnabled = self.buildParameters.linkingParameters.linkTimeOptimizationMode != nil
             let objectFileExtension = ltoEnabled ? "bc" : "o"
             return try relativeSources.map {
                 try AbsolutePath(
@@ -111,14 +113,14 @@ package final class SwiftTargetBuildDescription {
     }
 
     var modulesPath: AbsolutePath {
-        let suffix = self.defaultBuildParameters.suffix(triple: self.target.buildTriple)
-        return self.defaultBuildParameters.buildPath.appending(component: "Modules\(suffix)")
+        let suffix = self.buildParameters.suffix
+        return self.buildParameters.buildPath.appending(component: "Modules\(suffix)")
     }
 
     /// The path to the swiftmodule file after compilation.
-    public var moduleOutputPath: AbsolutePath { // note: needs to be `public` because of sourcekit-lsp
+    public var moduleOutputPath: AbsolutePath { // note: needs to be public because of sourcekit-lsp
         // If we're an executable and we're not allowing test targets to link against us, we hide the module.
-        let triple = defaultBuildParameters.triple
+        let triple = buildParameters.triple
         let allowLinkingAgainstExecutables = (triple.isDarwin() || triple.isLinux() || triple.isWindows()) && self.toolsVersion >= .v5_5
         let dirPath = (target.type == .executable && !allowLinkingAgainstExecutables) ? self.tempsPath : self.modulesPath
         return dirPath.appending(component: "\(self.target.c99name).swiftmodule")
@@ -137,7 +139,7 @@ package final class SwiftTargetBuildDescription {
     }
 
     /// Path to the resource Info.plist file, if generated.
-    package private(set) var resourceBundleInfoPlistPath: AbsolutePath?
+    public private(set) var resourceBundleInfoPlistPath: AbsolutePath?
 
     /// Paths to the binary libraries the target depends on.
     var libraryBinaryPaths: Set<AbsolutePath> = []
@@ -145,14 +147,9 @@ package final class SwiftTargetBuildDescription {
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
     var additionalFlags: [String] = []
 
-    /// The swift version for this target.
-    var swiftVersion: SwiftLanguageVersion {
-        self.swiftTarget.swiftVersion
-    }
-
     /// Describes the purpose of a test target, including any special roles such as containing a list of discovered
     /// tests or serving as the manifest target which contains the main entry point.
-    package enum TestTargetRole {
+    public enum TestTargetRole {
         /// An ordinary test target, defined explicitly in a package, containing test code.
         case `default`
 
@@ -167,10 +164,10 @@ package final class SwiftTargetBuildDescription {
         case entryPoint(isSynthesized: Bool)
     }
 
-    package let testTargetRole: TestTargetRole?
+    public let testTargetRole: TestTargetRole?
 
     /// If this target is a test target.
-    package var isTestTarget: Bool {
+    public var isTestTarget: Bool {
         self.testTargetRole != nil
     }
 
@@ -232,13 +229,13 @@ package final class SwiftTargetBuildDescription {
     private(set) var moduleMap: AbsolutePath?
 
     /// The results of applying any build tool plugins to this target.
-    package let buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
+    public let buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
 
     /// The results of running any prebuild commands for this target.
-    package let prebuildCommandResults: [PrebuildCommandResult]
+    public let prebuildCommandResults: [PrebuildCommandResult]
 
     /// Any macro products that this target requires to build.
-    package let requiredMacroProducts: [ResolvedProduct]
+    public let requiredMacroProducts: [ProductBuildDescription]
 
     /// ObservabilityScope with which to emit diagnostics
     private let observabilityScope: ObservabilityScope
@@ -255,11 +252,10 @@ package final class SwiftTargetBuildDescription {
         target: ResolvedModule,
         toolsVersion: ToolsVersion,
         additionalFileRules: [FileRuleDescription] = [],
-        destinationBuildParameters: BuildParameters,
-        toolsBuildParameters: BuildParameters,
+        buildParameters: BuildParameters,
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult] = [],
         prebuildCommandResults: [PrebuildCommandResult] = [],
-        requiredMacroProducts: [ResolvedProduct] = [],
+        requiredMacroProducts: [ProductBuildDescription] = [],
         testTargetRole: TestTargetRole? = nil,
         shouldGenerateTestObservation: Bool = false,
         shouldDisableSandbox: Bool,
@@ -274,8 +270,7 @@ package final class SwiftTargetBuildDescription {
         self.package = package
         self.target = target
         self.toolsVersion = toolsVersion
-        self.defaultBuildParameters = destinationBuildParameters
-        self.toolsBuildParameters = toolsBuildParameters
+        self.buildParameters = buildParameters
 
         // Unless mentioned explicitly, use the target type to determine if this is a test target.
         if let testTargetRole {
@@ -286,7 +281,7 @@ package final class SwiftTargetBuildDescription {
             self.testTargetRole = nil
         }
 
-        self.tempsPath = target.tempsPath(destinationBuildParameters)
+        self.tempsPath = target.tempsPath(self.buildParameters)
         self.derivedSources = Sources(paths: [], root: self.tempsPath.appending("DerivedSources"))
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
@@ -300,7 +295,7 @@ package final class SwiftTargetBuildDescription {
             target: target,
             toolsVersion: toolsVersion,
             additionalFileRules: additionalFileRules,
-            buildParameters: destinationBuildParameters,
+            buildParameters: self.buildParameters,
             buildToolPluginInvocationResults: buildToolPluginInvocationResults,
             prebuildCommandResults: prebuildCommandResults,
             observabilityScope: observabilityScope
@@ -320,7 +315,10 @@ package final class SwiftTargetBuildDescription {
             }
         }
 
-        try self.generateResourceEmbeddingCode()
+        if !resourceFilesToEmbed.isEmpty {
+            resourcesEmbeddingSource = try addResourceEmbeddingSource()
+        }
+
         try self.generateTestObservation()
     }
 
@@ -338,45 +336,23 @@ package final class SwiftTargetBuildDescription {
         }
 
         guard 
-            self.defaultBuildParameters.triple.isDarwin() &&
-            self.defaultBuildParameters.testingParameters.experimentalTestOutput
+            self.buildParameters.triple.isDarwin() &&
+            self.buildParameters.testingParameters.experimentalTestOutput
         else {
             return
         }
 
-        let content = generateTestObservationCode(buildParameters: self.defaultBuildParameters)
+        let content = generateTestObservationCode(buildParameters: self.buildParameters)
 
         // FIXME: We should generate this file during the actual build.
         self.derivedSources.relativePaths.append(subpath)
         try self.fileSystem.writeIfChanged(path: path, string: content)
     }
 
-    // FIXME: This will not work well for large files, as we will store the entire contents, plus its byte array
-    // representation in memory and also `writeIfChanged()` will read the entire generated file again.
-    private func generateResourceEmbeddingCode() throws {
-        guard needsResourceEmbedding else { return }
-
-        var content =
-            """
-            struct PackageResources {
-
-            """
-
-        try resources.forEach {
-            guard $0.rule == .embedInCode else { return }
-
-            let variableName = $0.path.basename.spm_mangledToC99ExtendedIdentifier()
-            let fileContent = try Data(contentsOf: URL(fileURLWithPath: $0.path.pathString)).map { String($0) }.joined(separator: ",")
-
-            content += "static let \(variableName): [UInt8] = [\(fileContent)]\n"
-        }
-
-        content += "}"
-
+    private func addResourceEmbeddingSource() throws -> AbsolutePath {
         let subpath = try RelativePath(validating: "embedded_resources.swift")
         self.derivedSources.relativePaths.append(subpath)
-        let path = self.derivedSources.root.appending(subpath)
-        try self.fileSystem.writeIfChanged(path: path, string: content)
+        return self.derivedSources.root.appending(subpath)
     }
 
     /// Generate the resource bundle accessor, if appropriate.
@@ -385,7 +361,7 @@ package final class SwiftTargetBuildDescription {
         guard let bundlePath else { return }
 
         let mainPathSubstitution: String
-        if self.defaultBuildParameters.triple.isWASI() {
+        if self.buildParameters.triple.isWASI() {
             // We prefer compile-time evaluation of the bundle path here for WASI. There's no benefit in evaluating this
             // at runtime, especially as `Bundle` support in WASI Foundation is partial. We expect all resource paths to
             // evaluate to `/\(resourceBundleName)/\(resourcePath)`, which allows us to pass this path to JS APIs like
@@ -437,42 +413,23 @@ package final class SwiftTargetBuildDescription {
 
         #if BUILD_MACROS_AS_DYLIBS
         self.requiredMacroProducts.forEach { macro in
-            args += ["-Xfrontend", "-load-plugin-library", "-Xfrontend", self.toolsBuildParameters.binaryPath(for: macro).pathString]
+            args += ["-Xfrontend", "-load-plugin-library", "-Xfrontend", macro.binaryPath.pathString]
         }
         #else
         try self.requiredMacroProducts.forEach { macro in
-            if let macroTarget = macro.targets.first {
-                let executablePath = try self.toolsBuildParameters.binaryPath(for: macro).pathString
+            if let macroTarget = macro.product.targets.first {
+                let executablePath = try macro.binaryPath.pathString
                 args += ["-Xfrontend", "-load-plugin-executable", "-Xfrontend", "\(executablePath)#\(macroTarget.c99name)"]
             } else {
-                throw InternalError("macro product \(macro.name) has no targets") // earlier validation should normally catch this
+                throw InternalError("macro product \(macro.product.name) has no targets") // earlier validation should normally catch this
             }
         }
         #endif
 
-        // If we're using an OSS toolchain, add the required arguments bringing in the plugin server from the default toolchain if available.
-        if self.defaultBuildParameters.toolchain.isSwiftDevelopmentToolchain, 
-            DriverSupport.checkSupportedFrontendFlags(
-                flags: ["-external-plugin-path"],
-                toolchain: self.defaultBuildParameters.toolchain,
-                fileSystem: self.fileSystem
-            ), 
-            let pluginServer = try self.defaultBuildParameters.toolchain.swiftPluginServerPath
-        {
-            let toolchainUsrPath = pluginServer.parentDirectory.parentDirectory
-            let pluginPathComponents = ["lib", "swift", "host", "plugins"]
-
-            let pluginPath = toolchainUsrPath.appending(components: pluginPathComponents)
-            args += ["-Xfrontend", "-external-plugin-path", "-Xfrontend", "\(pluginPath)#\(pluginServer.pathString)"]
-
-            let localPluginPath = toolchainUsrPath.appending(components: ["local"] + pluginPathComponents)
-            args += ["-Xfrontend", "-external-plugin-path", "-Xfrontend", "\(localPluginPath)#\(pluginServer.pathString)"]
-        }
-
         if self.shouldDisableSandbox {
             let toolchainSupportsDisablingSandbox = DriverSupport.checkSupportedFrontendFlags(
                 flags: ["-disable-sandbox"],
-                toolchain: self.defaultBuildParameters.toolchain,
+                toolchain: self.buildParameters.toolchain,
                 fileSystem: fileSystem
             )
             if toolchainSupportsDisablingSandbox {
@@ -489,12 +446,12 @@ package final class SwiftTargetBuildDescription {
     }
 
     /// The arguments needed to compile this target.
-    package func compileArguments() throws -> [String] {
+    public func compileArguments() throws -> [String] {
         var args = [String]()
-        args += try self.defaultBuildParameters.tripleArgs(for: self.target)
+        args += try self.buildParameters.tripleArgs(for: self.target)
 
         // pass `-v` during verbose builds.
-        if self.defaultBuildParameters.outputParameters.isVerbose {
+        if self.buildParameters.outputParameters.isVerbose {
             args += ["-v"]
         }
 
@@ -502,22 +459,22 @@ package final class SwiftTargetBuildDescription {
         //
         // Technically, it should be enabled whenever WMO is off but we
         // don't currently make that distinction in SwiftPM
-        switch self.defaultBuildParameters.configuration {
+        switch self.buildParameters.configuration {
         case .debug:
             args += ["-enable-batch-mode"]
         case .release: break
         }
 
-        args += self.defaultBuildParameters.indexStoreArguments(for: self.target)
+        args += self.buildParameters.indexStoreArguments(for: self.target)
         args += self.optimizationArguments
         args += self.testingArguments
 
-        args += ["-j\(self.defaultBuildParameters.workers)"]
+        args += ["-j\(self.buildParameters.workers)"]
         args += self.activeCompilationConditions
         args += self.additionalFlags
         args += try self.moduleCacheArgs
         args += self.stdlibArguments
-        args += self.defaultBuildParameters.sanitizers.compileSwiftFlags()
+        args += self.buildParameters.sanitizers.compileSwiftFlags()
         args += ["-parseable-output"]
 
         // If we're compiling the main module of an executable other than the one that
@@ -537,8 +494,8 @@ package final class SwiftTargetBuildDescription {
             // we can rename the symbol unconditionally.
             // No `-` for these flags because the set of Strings in driver.supportedFrontendFlags do
             // not have a leading `-`
-            if self.defaultBuildParameters.driverParameters.canRenameEntrypointFunctionName,
-               self.defaultBuildParameters.linkerFlagsForRenamingMainFunction(of: self.target) != nil
+            if self.buildParameters.driverParameters.canRenameEntrypointFunctionName,
+               self.buildParameters.linkerFlagsForRenamingMainFunction(of: self.target) != nil
             {
                 args += ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "\(self.target.c99name)_main"]
             }
@@ -551,7 +508,7 @@ package final class SwiftTargetBuildDescription {
 
         // Only add the build path to the framework search path if there are binary frameworks to link against.
         if !self.libraryBinaryPaths.isEmpty {
-            args += ["-F", self.defaultBuildParameters.buildPath.pathString]
+            args += ["-F", self.buildParameters.buildPath.pathString]
         }
 
         // Emit the ObjC compatibility header if enabled.
@@ -560,57 +517,47 @@ package final class SwiftTargetBuildDescription {
         }
 
         // Add arguments needed for code coverage if it is enabled.
-        if self.defaultBuildParameters.testingParameters.enableCodeCoverage {
+        if self.buildParameters.testingParameters.enableCodeCoverage {
             args += ["-profile-coverage-mapping", "-profile-generate"]
         }
 
         // Add arguments to colorize output if stdout is tty
-        if self.defaultBuildParameters.outputParameters.isColorized {
+        if self.buildParameters.outputParameters.isColorized {
             args += ["-color-diagnostics"]
         }
 
-        // If this is a generated test discovery target or a test entry point, it might import a test
-        // target that is built with C++ interop enabled. In that case, the test
-        // discovery target must enable C++ interop as well
-        switch testTargetRole {
-        case .discovery, .entryPoint:
-            for dependency in try self.target.recursiveTargetDependencies() {
-                let dependencyScope = self.defaultBuildParameters.createScope(for: dependency)
-                let dependencySwiftFlags = dependencyScope.evaluate(.OTHER_SWIFT_FLAGS)
-                if let interopModeFlag = dependencySwiftFlags.first(where: { $0.hasPrefix("-cxx-interoperability-mode=") }) {
-                    args += [interopModeFlag]
-                    if interopModeFlag != "-cxx-interoperability-mode=off" {
-                        if let cxxStandard = self.package.manifest.cxxLanguageStandard {
-                            args += ["-Xcc", "-std=\(cxxStandard)"]
-                        }
-                    }
-                    break
-                }
-            }
-        default: break
-        }
+        args += try self.cxxInteroperabilityModeArguments(
+            propagateFromCurrentModuleOtherSwiftFlags: false)
 
         // Add arguments from declared build settings.
         args += try self.buildSettingsFlags()
 
-        // Fallback to package wide setting if there is no target specific version.
-        if args.firstIndex(of: "-swift-version") == nil {
-            args += ["-swift-version", self.swiftVersion.rawValue]
-        }
-
         // Add the output for the `.swiftinterface`, if requested or if library evolution has been enabled some other
         // way.
-        if self.defaultBuildParameters.driverParameters.enableParseableModuleInterfaces || args.contains("-enable-library-evolution") {
+        if self.buildParameters.driverParameters.enableParseableModuleInterfaces || args.contains("-enable-library-evolution") {
             args += ["-emit-module-interface-path", self.parseableModuleInterfaceOutputPath.pathString]
         }
 
-        args += self.defaultBuildParameters.toolchain.extraFlags.swiftCompilerFlags
-        // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
-        args += self.defaultBuildParameters.flags.swiftCompilerFlags
+        if self.buildParameters.prepareForIndexing {
+            if !args.contains("-enable-testing") {
+                // enable-testing needs the non-exportable-decls
+                args += ["-Xfrontend", "-experimental-skip-non-exportable-decls"]
+            }
+            args += [
+                "-Xfrontend", "-experimental-skip-all-function-bodies",
+                "-Xfrontend", "-experimental-lazy-typecheck",
+                "-Xfrontend", "-experimental-allow-module-with-compiler-errors",
+                "-Xfrontend", "-empty-abi-descriptor"
+            ]
+        }
 
-        args += self.defaultBuildParameters.toolchain.extraFlags.cCompilerFlags.asSwiftcCCompilerFlags()
+        args += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
+        // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
+        args += self.buildParameters.flags.swiftCompilerFlags
+
+        args += self.buildParameters.toolchain.extraFlags.cCompilerFlags.asSwiftcCCompilerFlags()
         // User arguments (from -Xcc) should follow generated arguments to allow user overrides
-        args += self.defaultBuildParameters.flags.cCompilerFlags.asSwiftcCCompilerFlags()
+        args += self.buildParameters.flags.cCompilerFlags.asSwiftcCCompilerFlags()
 
         // TODO: Pass -Xcxx flags to swiftc (#6491)
         // Uncomment when downstream support arrives.
@@ -619,7 +566,7 @@ package final class SwiftTargetBuildDescription {
         // args += self.buildParameters.flags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
 
         // Enable the correct LTO mode if requested.
-        switch self.defaultBuildParameters.linkingParameters.linkTimeOptimizationMode {
+        switch self.buildParameters.linkingParameters.linkTimeOptimizationMode {
         case nil:
             break
         case .full:
@@ -629,7 +576,7 @@ package final class SwiftTargetBuildDescription {
         }
 
         // Pass default include paths from the toolchain.
-        for includeSearchPath in self.defaultBuildParameters.toolchain.includeSearchPaths {
+        for includeSearchPath in self.buildParameters.toolchain.includeSearchPaths {
             args += ["-I", includeSearchPath.pathString]
         }
 
@@ -643,20 +590,25 @@ package final class SwiftTargetBuildDescription {
         }
 
         // Pass `-user-module-version` for versioned packages that aren't pre-releases.
-        if let version = package.manifest.version, version.prereleaseIdentifiers.isEmpty, version.buildMetadataIdentifiers.isEmpty, toolsVersion >= .vNext {
+        if
+          let version = package.manifest.version, 
+          version.prereleaseIdentifiers.isEmpty &&
+          version.buildMetadataIdentifiers.isEmpty &&
+          toolsVersion >= .v6_0
+        {
             args += ["-user-module-version", version.description]
         }
 
         args += self.package.packageNameArgument(
             target: self.target,
-            isPackageNameSupported: self.defaultBuildParameters.driverParameters.isPackageAccessModifierSupported
+            isPackageNameSupported: self.buildParameters.driverParameters.isPackageAccessModifierSupported
         )
         args += try self.macroArguments()
         
         // rdar://117578677
         // Pass -fno-omit-frame-pointer to support backtraces
         // this can be removed once the backtracer uses DWARF instead of frame pointers
-        if let omitFramePointers = self.defaultBuildParameters.debuggingParameters.omitFramePointers {
+        if let omitFramePointers = self.buildParameters.debuggingParameters.omitFramePointers {
             if omitFramePointers {
                 args += ["-Xcc", "-fomit-frame-pointer"]
             } else {
@@ -666,19 +618,96 @@ package final class SwiftTargetBuildDescription {
 
         return args
     }
+    
+    /// Determines the arguments needed to run `swift-symbolgraph-extract` for
+    /// this module.
+    package func symbolGraphExtractArguments() throws -> [String] {
+        var args = [String]()
+        args += try self.cxxInteroperabilityModeArguments(
+            propagateFromCurrentModuleOtherSwiftFlags: true)
+
+        args += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
+
+        // Include search paths determined during planning
+        args += self.additionalFlags
+        // FIXME: only pass paths to the actual dependencies of the module
+        // Include search paths for swift module dependencies.
+        args += ["-I", self.modulesPath.pathString]
+
+        // FIXME: Only include valid args
+        // This condition should instead only include args which are known to be
+        // compatible instead of filtering out specific unknown args.
+        //
+        // swift-symbolgraph-extract does not support parsing `-use-ld=lld` and
+        // will silently error failing the operation.
+        args = args.filter { !$0.starts(with: "-use-ld=") }
+        return args
+    }
+
+    // FIXME: this function should operation on a strongly typed buildSetting
+    // Move logic from PackageBuilder here.
+    /// Determines the arguments needed for cxx interop for this module.
+    func cxxInteroperabilityModeArguments(
+        // FIXME: Remove argument
+        // This argument is added as a stop gap to support generating arguments
+        // for tools which currently don't leverage "OTHER_SWIFT_FLAGS". In the
+        // fullness of time this function should operate on a strongly typed
+        // "interopMode" property of SwiftTargetBuildDescription instead of
+        // digging through "OTHER_SWIFT_FLAGS" manually.
+        propagateFromCurrentModuleOtherSwiftFlags: Bool
+    ) throws -> [String] {
+        func cxxInteroperabilityModeAndStandard(
+            for module: ResolvedModule
+        ) -> [String]? {
+            let scope = self.buildParameters.createScope(for: module)
+            let flags = scope.evaluate(.OTHER_SWIFT_FLAGS)
+            let mode = flags.first { $0.hasPrefix("-cxx-interoperability-mode=") }
+            guard let mode else { return nil }
+            // FIXME: Use a stored self.cxxLanguageStandard property
+            // It definitely should _never_ reach back into the manifest
+            if let cxxStandard = self.package.manifest.cxxLanguageStandard {
+                return [mode, "-Xcc", "-std=\(cxxStandard)"]
+            } else {
+                return [mode]
+            }
+        }
+
+        if propagateFromCurrentModuleOtherSwiftFlags {
+            // Look for cxx interop mode in the current module, if set exit early,
+            // the flag is already present.
+            if let args = cxxInteroperabilityModeAndStandard(for: self.target) {
+                return args
+            }
+        }
+
+        // Implicitly propagate cxx interop flags for generated test targets.
+        // If the current module doesn't have cxx interop mode set, search
+        // through the module's dependencies looking for the a module that
+        // enables cxx interop and copy it's flag.
+        switch self.testTargetRole {
+        case .discovery, .entryPoint:
+            for module in try self.target.recursiveTargetDependencies() {
+                if let args = cxxInteroperabilityModeAndStandard(for: module) {
+                    return args
+                }
+            }
+        default: break
+        }
+        return []
+    }
 
     /// When `scanInvocation` argument is set to `true`, omit the side-effect producing arguments
     /// such as emitting a module or supplementary outputs.
-    package func emitCommandLine(scanInvocation: Bool = false) throws -> [String] {
+    public func emitCommandLine(scanInvocation: Bool = false) throws -> [String] {
         var result: [String] = []
-        result.append(self.defaultBuildParameters.toolchain.swiftCompilerPath.pathString)
+        result.append(self.buildParameters.toolchain.swiftCompilerPath.pathString)
 
         result.append("-module-name")
         result.append(self.target.c99name)
         result.append(
             contentsOf: self.package.packageNameArgument(
                 target: self.target,
-                isPackageNameSupported: self.defaultBuildParameters.driverParameters.isPackageAccessModifierSupported
+                isPackageNameSupported: self.buildParameters.driverParameters.isPackageAccessModifierSupported
             )
         )
         if !scanInvocation {
@@ -694,7 +723,7 @@ package final class SwiftTargetBuildDescription {
             result.append(try self.writeOutputFileMap().pathString)
         }
 
-        if self.defaultBuildParameters.useWholeModuleOptimization {
+        if self.buildParameters.useWholeModuleOptimization {
             result.append("-whole-module-optimization")
             result.append("-num-threads")
             result.append(String(ProcessInfo.processInfo.activeProcessorCount))
@@ -714,7 +743,7 @@ package final class SwiftTargetBuildDescription {
 
     /// Returns true if ObjC compatibility header should be emitted.
     private var shouldEmitObjCCompatibilityHeader: Bool {
-        self.defaultBuildParameters.triple.isDarwin() && self.target.type == .library
+        self.buildParameters.triple.isDarwin() && self.target.type == .library
     }
 
     func writeOutputFileMap() throws -> AbsolutePath {
@@ -728,7 +757,7 @@ package final class SwiftTargetBuildDescription {
 
             """#
 
-        if self.defaultBuildParameters.useWholeModuleOptimization {
+        if self.buildParameters.useWholeModuleOptimization {
             let moduleName = self.target.c99name
             content +=
                 #"""
@@ -759,7 +788,7 @@ package final class SwiftTargetBuildDescription {
         // Write out the entries for each source file.
         let sources = self.sources
         let objects = try self.objects
-        let ltoEnabled = self.defaultBuildParameters.linkingParameters.linkTimeOptimizationMode != nil
+        let ltoEnabled = self.buildParameters.linkingParameters.linkTimeOptimizationMode != nil
         let objectKey = ltoEnabled ? "llvm-bc" : "object"
 
         for idx in 0..<sources.count {
@@ -776,7 +805,7 @@ package final class SwiftTargetBuildDescription {
 
                 """#
 
-            if !self.defaultBuildParameters.useWholeModuleOptimization {
+            if !self.buildParameters.useWholeModuleOptimization {
                 let depsPath = self.tempsPath.appending(component: sourceFileName + ".d")
                 content +=
                     #"""
@@ -835,8 +864,11 @@ package final class SwiftTargetBuildDescription {
 
     /// Returns the build flags from the declared build settings.
     private func buildSettingsFlags() throws -> [String] {
-        let scope = self.defaultBuildParameters.createScope(for: self.target)
+        let scope = self.buildParameters.createScope(for: self.target)
         var flags: [String] = []
+
+        // A custom swift version.
+        flags += scope.evaluate(.SWIFT_VERSION).flatMap { ["-swift-version", $0] }
 
         // Swift defines.
         let swiftDefines = scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS)
@@ -874,7 +906,7 @@ package final class SwiftTargetBuildDescription {
     private var activeCompilationConditions: [String] {
         var compilationConditions = ["-DSWIFT_PACKAGE"]
 
-        switch self.defaultBuildParameters.configuration {
+        switch self.buildParameters.configuration {
         case .debug:
             compilationConditions += ["-DDEBUG"]
         case .release:
@@ -886,7 +918,7 @@ package final class SwiftTargetBuildDescription {
 
     /// Optimization arguments according to the build configuration.
     private var optimizationArguments: [String] {
-        switch self.defaultBuildParameters.configuration {
+        switch self.buildParameters.configuration {
         case .debug:
             return ["-Onone"]
         case .release:
@@ -900,7 +932,7 @@ package final class SwiftTargetBuildDescription {
             // test targets must be built with -enable-testing
             // since its required for test discovery (the non objective-c reflection kind)
             return ["-enable-testing"]
-        } else if self.defaultBuildParameters.testingParameters.enableTestability {
+        } else if self.buildParameters.testingParameters.enableTestability {
             return ["-enable-testing"]
         } else {
             return []
@@ -910,20 +942,20 @@ package final class SwiftTargetBuildDescription {
     /// Module cache arguments.
     private var moduleCacheArgs: [String] {
         get throws {
-            ["-module-cache-path", try self.defaultBuildParameters.moduleCache.pathString]
+            ["-module-cache-path", try self.buildParameters.moduleCache.pathString]
         }
     }
 
     private var stdlibArguments: [String] {
         var arguments: [String] = []
 
-        let isLinkingStaticStdlib = self.defaultBuildParameters.linkingParameters.shouldLinkStaticSwiftStdlib
-            && self.defaultBuildParameters.triple.isSupportingStaticStdlib
+        let isLinkingStaticStdlib = self.buildParameters.linkingParameters.shouldLinkStaticSwiftStdlib
+            && self.buildParameters.triple.isSupportingStaticStdlib
         if isLinkingStaticStdlib {
             arguments += ["-static-stdlib"]
         }
 
-        if let resourcesPath = self.defaultBuildParameters.toolchain.swiftResourcesPath(isStatic: isLinkingStaticStdlib) {
+        if let resourcesPath = self.buildParameters.toolchain.swiftResourcesPath(isStatic: isLinkingStaticStdlib) {
             arguments += ["-resource-dir", "\(resourcesPath)"]
         }
 

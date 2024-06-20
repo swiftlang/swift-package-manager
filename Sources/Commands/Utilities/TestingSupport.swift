@@ -11,9 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-
 import CoreCommands
-
 import PackageModel
 import SPMBuildCore
 import Workspace
@@ -122,8 +120,9 @@ enum TestingSupport {
                     shouldSkipBuilding: shouldSkipBuilding,
                     experimentalTestOutput: experimentalTestOutput,
                     library: .xctest
-                ),
-                sanitizers: sanitizers
+                ).productsBuildParameters,
+                sanitizers: sanitizers,
+                library: .xctest
             )
 
             try TSCBasic.Process.checkNonZeroExit(arguments: args, environment: env)
@@ -137,8 +136,9 @@ enum TestingSupport {
                 enableCodeCoverage: enableCodeCoverage,
                 shouldSkipBuilding: shouldSkipBuilding,
                 library: .xctest
-            ),
-            sanitizers: sanitizers
+            ).productsBuildParameters,
+            sanitizers: sanitizers,
+            library: .xctest
         )
         args = [path.description, "--dump-tests-json"]
         let data = try Process.checkNonZeroExit(arguments: args, environment: env)
@@ -151,7 +151,8 @@ enum TestingSupport {
     static func constructTestEnvironment(
         toolchain: UserToolchain,
         destinationBuildParameters buildParameters: BuildParameters,
-        sanitizers: [Sanitizer]
+        sanitizers: [Sanitizer],
+        library: BuildParameters.Testing.Library
     ) throws -> EnvironmentVariables {
         var env = EnvironmentVariables.process()
 
@@ -162,6 +163,10 @@ enum TestingSupport {
         if !stdoutStream.isTTY || !stderrStream.isTTY {
             env["NO_COLOR"] = "1"
         }
+
+        // Set an environment variable to indicate which library's test product
+        // is being executed.
+        env["SWIFT_PM_TEST_LIBRARY"] = String(describing: library)
 
         // Add the code coverage related variables.
         if buildParameters.testingParameters.enableCodeCoverage {
@@ -218,8 +223,35 @@ extension SwiftCommandState {
         shouldSkipBuilding: Bool = false,
         experimentalTestOutput: Bool = false,
         library: BuildParameters.Testing.Library
-    ) throws -> BuildParameters {
-        var parameters = try self.productsBuildParameters
+    ) throws -> (productsBuildParameters: BuildParameters, toolsBuildParameters: BuildParameters) {
+        let productsBuildParameters = buildParametersForTest(
+            modifying: try productsBuildParameters,
+            enableCodeCoverage: enableCodeCoverage,
+            enableTestability: enableTestability,
+            shouldSkipBuilding: shouldSkipBuilding,
+            experimentalTestOutput: experimentalTestOutput,
+            library: library
+        )
+        let toolsBuildParameters = buildParametersForTest(
+            modifying: try toolsBuildParameters,
+            enableCodeCoverage: enableCodeCoverage,
+            enableTestability: enableTestability,
+            shouldSkipBuilding: shouldSkipBuilding,
+            experimentalTestOutput: experimentalTestOutput,
+            library: library
+        )
+        return (productsBuildParameters, toolsBuildParameters)
+    }
+
+    private func buildParametersForTest(
+        modifying parameters: BuildParameters,
+        enableCodeCoverage: Bool,
+        enableTestability: Bool?,
+        shouldSkipBuilding: Bool,
+        experimentalTestOutput: Bool,
+        library: BuildParameters.Testing.Library
+    ) -> BuildParameters {
+        var parameters = parameters
 
         var explicitlyEnabledDiscovery = false
         var explicitlySpecifiedPath: AbsolutePath?

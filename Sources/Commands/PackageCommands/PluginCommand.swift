@@ -12,11 +12,7 @@
 
 import ArgumentParser
 import Basics
-
 import CoreCommands
-
-import SPMBuildCore
-
 import Dispatch
 
 import PackageGraph
@@ -321,30 +317,27 @@ struct PluginCommand: SwiftCommand {
         let toolSearchDirs = [try swiftCommandState.getTargetToolchain().swiftCompilerPath.parentDirectory]
             + getEnvSearchPaths(pathString: ProcessEnv.path, currentWorkingDirectory: .none)
 
-        var buildToolsGraph = packageGraph
-        try buildToolsGraph.updateBuildTripleRecursively(.tools)
-
         let buildParameters = try swiftCommandState.toolsBuildParameters
         // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
         let buildSystem = try swiftCommandState.createBuildSystem(
             explicitBuildSystem: .native,
             cacheBuildManifest: false,
-            // Force all dependencies to be built for the host, to work around the fact that BuildOperation.plan
-            // knows to compile build tool plugin dependencies for the host but does not do the same for command
-            // plugins.
-            productsBuildParameters: buildParameters,
-            packageGraphLoader: { buildToolsGraph }
+            productsBuildParameters: swiftCommandState.productsBuildParameters,
+            toolsBuildParameters: buildParameters,
+            packageGraphLoader: { packageGraph }
         )
 
         let accessibleTools = try plugin.processAccessibleTools(
-            packageGraph: buildToolsGraph,
+            packageGraph: packageGraph,
             fileSystem: swiftCommandState.fileSystem,
             environment: buildParameters.buildEnvironment,
             for: try pluginScriptRunner.hostTriple
         ) { name, _ in
             // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies are not supported within a package, so if the tool happens to be from the same package, we instead find the executable that corresponds to the product. There is always one, because of autogeneration of implicit executables with the same name as the target if there isn't an explicit one.
-            try buildSystem.build(subset: .product(name))
-            if let builtTool = try buildSystem.buildPlan.buildProducts.first(where: { $0.product.name == name }) {
+            try buildSystem.build(subset: .product(name, for: .host))
+            if let builtTool = try buildSystem.buildPlan.buildProducts.first(where: {
+                $0.product.name == name && $0.buildParameters.destination == .host
+            }) {
                 return try builtTool.binaryPath
             } else {
                 return nil
@@ -371,6 +364,7 @@ struct PluginCommand: SwiftCommand {
             pkgConfigDirectories: swiftCommandState.options.locations.pkgConfigDirectories,
             sdkRootPath: buildParameters.toolchain.sdkRootPath,
             fileSystem: swiftCommandState.fileSystem,
+            modulesGraph: packageGraph,
             observabilityScope: swiftCommandState.observabilityScope,
             callbackQueue: delegateQueue,
             delegate: pluginDelegate,
@@ -382,10 +376,17 @@ struct PluginCommand: SwiftCommand {
 
     static func availableCommandPlugins(in graph: ModulesGraph, limitedTo packageIdentity: String?) -> [PluginTarget] {
         // All targets from plugin products of direct dependencies are "available".
-        let directDependencyPackages = graph.rootPackages.flatMap { $0.dependencies }.filter { $0.matching(identity: packageIdentity) }
+        let directDependencyPackages = graph.rootPackages.flatMap {
+            $0.dependencies
+        }.filter {
+            $0.matching(identity: packageIdentity)
+        }.compactMap {
+            graph.package(for: $0)
+        }
+
         let directDependencyPluginTargets = directDependencyPackages.flatMap { $0.products.filter { $0.type == .plugin } }.flatMap { $0.targets }
         // As well as any plugin targets in root packages.
-        let rootPackageTargets = graph.rootPackages.filter { $0.matching(identity: packageIdentity) }.flatMap { $0.targets }
+        let rootPackageTargets = graph.rootPackages.filter { $0.identity.matching(identity: packageIdentity) }.flatMap { $0.targets }
         return (directDependencyPluginTargets + rootPackageTargets).compactMap { $0.underlying as? PluginTarget }.filter {
             switch $0.capability {
             case .buildTool: return false
@@ -469,10 +470,10 @@ extension SandboxNetworkPermission {
     }
 }
 
-extension ResolvedPackage {
+extension PackageIdentity {
     fileprivate func matching(identity: String?) -> Bool {
         if let identity {
-            return self.identity == .plain(identity)
+            return self == .plain(identity)
         } else {
             return true
         }

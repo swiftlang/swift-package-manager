@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+@_spi(SwiftPMInternal)
 @testable import PackageModel
 import SPMTestSupport
 import XCTest
@@ -364,7 +365,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         ])
     }
 
-    func testTargetSDKDeriviation() async throws {
+    func testTargetSDKDerivation() async throws {
         let toolsetRootPath = AbsolutePath("/path/to/toolpath")
         let (fileSystem, bundles, swiftSDKsDirectory) = try generateTestFileSystem(
             bundleArtifacts: [
@@ -373,7 +374,7 @@ final class SwiftSDKBundleTests: XCTestCase {
             ]
         )
         let system = ObservabilitySystem.makeForTesting()
-        let hostSwiftSDK = try SwiftSDK.hostSwiftSDK()
+        let hostSwiftSDK = try SwiftSDK.hostSwiftSDK(environment: .empty())
         let hostTriple = try! Triple("arm64-apple-macosx14.0")
         let archiver = MockArchiver()
         let store = SwiftSDKBundleStore(
@@ -445,6 +446,10 @@ final class SwiftSDKBundleTests: XCTestCase {
             )
             XCTAssertEqual(targetSwiftSDK.architectures, archs)
             XCTAssertEqual(targetSwiftSDK.pathsConfiguration.sdkRootPath, customCompileSDK)
+            XCTAssertEqual(
+                targetSwiftSDK.toolset.rootPaths,
+                [customCompileToolchain.appending(components: ["usr", "bin"])] + hostSwiftSDK.toolset.rootPaths
+            )
         }
     }
 }
