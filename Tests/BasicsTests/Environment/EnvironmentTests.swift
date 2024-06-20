@@ -47,7 +47,7 @@ final class EnvironmentTests: XCTestCase {
     }
 
     func path(_ components: String...) -> String {
-        components.joined(separator: Environment.pathValueDelimiter)
+        components.joined(separator: Environment.pathEntryDelimiter)
     }
 
     func test_prependPath() {
@@ -86,11 +86,11 @@ final class EnvironmentTests: XCTestCase {
         XCTAssertEqual(environment[key], path("/bin", "/usr/bin", "/usr/local/bin"))
     }
 
-    func test_pathValueDelimiter() {
+    func test_pathEntryDelimiter() {
         #if os(Windows)
-        XCTAssertEqual(Environment.pathValueDelimiter, ";")
+        XCTAssertEqual(Environment.pathEntryDelimiter, ";")
         #else
-        XCTAssertEqual(Environment.pathValueDelimiter, ":")
+        XCTAssertEqual(Environment.pathEntryDelimiter, ":")
         #endif
     }
 

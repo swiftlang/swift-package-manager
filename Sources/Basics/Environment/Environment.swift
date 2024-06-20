@@ -12,10 +12,15 @@
 
 import Foundation
 
-#if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import TSCclibc
+#if canImport(Glibc)
+import Glibc
+#elseif canImport(Musl)
+import Musl
+#elseif os(Windows)
+import CRT
+import WinSDK
 #else
-import TSCclibc
+import Darwin.C
 #endif
 
 // FIXME: Use Synchronization.Mutex when available
@@ -79,7 +84,7 @@ extension Environment {
     package mutating func prependPath(key: EnvironmentKey, value: String) {
         guard !value.isEmpty else { return }
         if let existing = self[key] {
-            self[key] = "\(value)\(Self.pathValueDelimiter)\(existing)"
+            self[key] = "\(value)\(Self.pathEntryDelimiter)\(existing)"
         } else {
             self[key] = value
         }
@@ -88,13 +93,13 @@ extension Environment {
     package mutating func appendPath(key: EnvironmentKey, value: String) {
         guard !value.isEmpty else { return }
         if let existing = self[key] {
-            self[key] = "\(existing)\(Self.pathValueDelimiter)\(value)"
+            self[key] = "\(existing)\(Self.pathEntryDelimiter)\(value)"
         } else {
             self[key] = value
         }
     }
 
-    package static var pathValueDelimiter: String {
+    package static var pathEntryDelimiter: String {
         #if os(Windows)
         ";"
         #else
@@ -195,8 +200,32 @@ extension Environment {
     ///
     /// > Important: This operation is _not_ concurrency safe.
     package static func set(key: EnvironmentKey, value: String?) throws {
+        #if os(Windows)
+        func SetEnvironmentVariableW(_ key: String, _ value: String?) -> Bool {
+            key.withCString(encodedAs: UTF16.self) { key in
+                if let value {
+                    value.withCString(encodedAs: UTF16.self) { value in
+                        SetEnvironmentVariableW(key, value)
+                    }
+                } else {
+                    SetEnvironmentVariableW(key, nil)
+                }
+            }
+        }
+        #endif
+
+        // Invalidate cached value after mutating the global environment.
+        // This is potentially overly safe because we may not need to invalidate
+        // the cache if the mutation fails. However this approach is easier to
+        // read and reason about.
+        defer { Self._cachedCurrent.withLock { $0 = nil } }
         if let value = value {
             #if os(Windows)
+            guard SetEnvironmentVariableW(key.rawValue, value) else {
+                throw UpdateEnvironmentError(
+                    function: "SetEnvironmentVariableW",
+                    code: Int32(GetLastError()))
+            }
             guard _putenv("\(key)=\(value)") == 0 else {
                 throw UpdateEnvironmentError(
                     function: "_putenv",
@@ -211,6 +240,11 @@ extension Environment {
             #endif
         } else {
             #if os(Windows)
+            guard SetEnvironmentVariableW(key.rawValue, nil) else {
+                throw UpdateEnvironmentError(
+                    function: "SetEnvironmentVariableW",
+                    code: Int32(GetLastError()))
+            }
             guard _putenv("\(key)=") == 0 else {
                 throw UpdateEnvironmentError(
                     function: "_putenv",
@@ -224,7 +258,6 @@ extension Environment {
             }
             #endif
         }
-        Self._cachedCurrent.withLock { $0 = nil }
     }
 }
 
@@ -254,9 +287,6 @@ extension Environment: Collection {
         var underlying: Dictionary<EnvironmentKey, String>.Index
     }
     public typealias Element = (key: EnvironmentKey, value: String)
-    // FIXME: Remove after upgrading past Swift 5.9
-    // Required to be explicitly spelled out on older Swift compilers.
-    public typealias Iterator = IndexingIterator<Self>
 
     public var startIndex: Index {
         Index(underlying: self.storage.startIndex)
@@ -266,8 +296,8 @@ extension Environment: Collection {
         Index(underlying: self.storage.endIndex)
     }
 
-    public subscript(index: Index) -> Iterator.Element {
-        get { self.storage[index.underlying] }
+    public subscript(index: Index) -> Element {
+        self.storage[index.underlying]
     }
 
     public func index(after index: Self.Index) -> Self.Index {
@@ -277,23 +307,11 @@ extension Environment: Collection {
 
 extension Environment: CustomStringConvertible {
     public var description: String {
-        var description = "["
-        let sorted = self.sorted { $0.key < $1.key }
-        var first = true
-        for (key, value) in sorted {
-            if first {
-                first = false
-            } else {
-                description.append(", ")
-            }
-            description.append("\"")
-            description.append(key.rawValue)
-            description.append("=")
-            description.append(value)
-            description.append("\"")
-        }
-        description.append("]")
-        return description
+        let body = self
+            .sorted { $0.key < $1.key }
+            .map { #""\#($0.rawValue)"="\#($1)""# }
+            .joined(separator: ", ")
+        return "[\(body)]"
     }
 }
 
