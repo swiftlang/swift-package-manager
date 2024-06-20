@@ -2428,7 +2428,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let toolsVersion: ToolsVersion = if isPackageAccessModifierSupported { .v5_9 } else { .v5 }
-        let mainTargetType: TargetDescription.TargetType = if toolsVersion >= .v5_9 { .executable } else { .regular }
+        let mainTargetType: TargetDescription.TargetKind = if toolsVersion >= .v5_9 { .executable } else { .regular }
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadModulesGraph(
             fileSystem: fs,

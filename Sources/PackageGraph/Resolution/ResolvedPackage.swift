@@ -13,7 +13,7 @@
 import Basics
 import PackageModel
 
-/// A fully resolved package. Contains resolved targets, products and dependencies of the package.
+/// A fully resolved package. Contains resolved modules, products and dependencies of the package.
 public struct ResolvedPackage {
     // The identity of the package.
     public var identity: PackageIdentity {
@@ -33,8 +33,8 @@ public struct ResolvedPackage {
     /// The underlying package reference.
     public let underlying: Package
 
-    /// The targets contained in the package.
-    public let targets: IdentifiableSet<ResolvedModule>
+    /// The modules contained in the package.
+    public let modules: IdentifiableSet<ResolvedModule>
 
     /// The products produced by the package.
     public let products: [ResolvedProduct]
@@ -45,7 +45,7 @@ public struct ResolvedPackage {
     /// The default localization for resources.
     public let defaultLocalization: String?
 
-    /// The list of platforms that are supported by this target.
+    /// The list of platforms that are supported by this package.
     public let supportedPlatforms: [SupportedPlatform]
 
     /// If the given package's source is a registry release, this provides additional metadata and signature information.
@@ -58,14 +58,14 @@ public struct ResolvedPackage {
         defaultLocalization: String?,
         supportedPlatforms: [SupportedPlatform],
         dependencies: [PackageIdentity],
-        targets: IdentifiableSet<ResolvedModule>,
+        modules: IdentifiableSet<ResolvedModule>,
         products: [ResolvedProduct],
         registryMetadata: RegistryReleaseMetadata?,
         platformVersionProvider: PlatformVersionProvider
     ) {
         self.underlying = underlying
         self.products = products
-        self.targets = targets
+        self.modules = modules
         self.dependencies = dependencies
         self.defaultLocalization = defaultLocalization
         self.supportedPlatforms = supportedPlatforms

@@ -190,7 +190,7 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         )
     }
     
-    /// Verifies that two targets with the same name but different triples don't share same build manifest keys.
+    /// Verifies that two modules with the same name but different triples don't share same build manifest keys.
     func testToolsBuildTriple() throws {
         let (graph, fs, scope) = try macrosPackageGraph()
         let productsTriple = Triple.x86_64MacOS

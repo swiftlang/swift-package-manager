@@ -55,7 +55,7 @@ public final class Package {
     public let path: AbsolutePath
 
     /// The targets contained in the package.
-    public var targets: [Target]
+    public var modules: [Module]
 
     /// The products produced by the package.
     public let products: [Product]
@@ -74,7 +74,7 @@ public final class Package {
         identity: PackageIdentity,
         manifest: Manifest,
         path: AbsolutePath,
-        targets: [Target],
+        targets: [Module],
         products: [Product],
         targetSearchPath: AbsolutePath,
         testTargetSearchPath: AbsolutePath
@@ -82,7 +82,7 @@ public final class Package {
         self.identity = identity
         self.manifest = manifest
         self.path = path
-        self.targets = targets
+        self.modules = targets
         self.products = products
         self.targetSearchPath = targetSearchPath
         self.testTargetSearchPath = testTargetSearchPath

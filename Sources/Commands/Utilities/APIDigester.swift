@@ -316,8 +316,8 @@ extension ModulesGraph {
         self.rootPackages
             .flatMap(\.products)
             .filter { $0.type.isLibrary }
-            .flatMap(\.targets)
-            .filter { $0.underlying is SwiftTarget }
+            .flatMap(\.modules)
+            .filter { $0.underlying is SwiftModule }
             .map { $0.c99name }
     }
 }

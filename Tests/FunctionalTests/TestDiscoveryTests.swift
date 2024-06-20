@@ -73,7 +73,7 @@ class TestDiscoveryTests: XCTestCase {
         #if os(macOS)
         try XCTSkipIf(true)
         #endif
-        try SwiftTarget.testEntryPointNames.forEach { name in
+        try SwiftModule.testEntryPointNames.forEach { name in
             try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 let random = UUID().uuidString
                 let manifestPath = fixturePath.appending(components: "Tests", name)
@@ -93,7 +93,7 @@ class TestDiscoveryTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
         try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            let manifestPath = fixturePath.appending(components: "Tests", SwiftTarget.defaultTestEntryPointName)
+            let manifestPath = fixturePath.appending(components: "Tests", SwiftModule.defaultTestEntryPointName)
             try localFileSystem.writeFileContents(manifestPath, string: "fatalError(\"should not be called\")")
             let (stdout, stderr) = try executeSwiftTest(fixturePath, extraArgs: ["--enable-test-discovery"])
             // in "swift test" build output goes to stderr

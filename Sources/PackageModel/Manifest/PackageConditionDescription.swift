@@ -22,7 +22,7 @@ public struct PackageConditionDescription: Codable, Hashable, Sendable {
     }
 }
 
-/// One of possible conditions used in package manifests to restrict targets from being built for certain platforms or
+/// One of possible conditions used in package manifests to restrict modules from being built for certain platforms or
 /// build configurations.
 public enum PackageCondition: Hashable, Sendable {
     case platforms(PlatformsCondition)

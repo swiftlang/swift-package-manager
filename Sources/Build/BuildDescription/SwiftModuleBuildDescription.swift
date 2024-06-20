@@ -28,15 +28,18 @@ import DriverSupport
 
 import struct TSCBasic.ByteString
 
-/// Target description for a Swift target.
-public final class SwiftTargetBuildDescription {
+@available(*, deprecated, renamed: "SwiftModuleBuildDescription")
+public typealias SwiftTargetBuildDescription = SwiftModuleBuildDescription
+
+/// Build description for a Swift module.
+public final class SwiftModuleBuildDescription {
     /// The package this target belongs to.
     public let package: ResolvedPackage
 
     /// The target described by this target.
     public let target: ResolvedModule
 
-    private let swiftTarget: SwiftTarget
+    private let swiftTarget: SwiftModule
 
     /// The tools version of the package that declared the target.  This can
     /// can be used to conditionalize semantically significant changes in how
@@ -262,7 +265,7 @@ public final class SwiftTargetBuildDescription {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
-        guard let swiftTarget = target.underlying as? SwiftTarget else {
+        guard let swiftTarget = target.underlying as? SwiftModule else {
             throw InternalError("underlying target type mismatch \(target)")
         }
 
@@ -417,7 +420,7 @@ public final class SwiftTargetBuildDescription {
         }
         #else
         try self.requiredMacroProducts.forEach { macro in
-            if let macroTarget = macro.product.targets.first {
+            if let macroTarget = macro.product.modules.first {
                 let executablePath = try macro.binaryPath.pathString
                 args += ["-Xfrontend", "-load-plugin-executable", "-Xfrontend", "\(executablePath)#\(macroTarget.c99name)"]
             } else {
@@ -485,7 +488,7 @@ public final class SwiftTargetBuildDescription {
         // when we link the executable, we will ask the linker to rename the entry point
         // symbol to just `_main` again (or if the linker doesn't support it, we'll
         // generate a source containing a redirect).
-        if (self.target.underlying as? SwiftTarget)?.supportsTestableExecutablesFeature == true
+        if (self.target.underlying as? SwiftModule)?.supportsTestableExecutablesFeature == true
             && !self.isTestTarget && self.toolsVersion >= .v5_5
         {
             // We only do this if the linker supports it, as indicated by whether we
@@ -686,7 +689,7 @@ public final class SwiftTargetBuildDescription {
         // enables cxx interop and copy it's flag.
         switch self.testTargetRole {
         case .discovery, .entryPoint:
-            for module in try self.target.recursiveTargetDependencies() {
+            for module in try self.target.recursiveModuleDependencies() {
                 if let args = cxxInteroperabilityModeAndStandard(for: module) {
                     return args
                 }
@@ -894,7 +897,7 @@ public final class SwiftTargetBuildDescription {
 
         // Include path for the toolchain's copy of SwiftSyntax.
         #if BUILD_MACROS_AS_DYLIBS
-        if target.type == .macro {
+        if module.type == .macro {
             flags += try ["-I", self.defaultBuildParameters.toolchain.hostLibDir.pathString]
         }
         #endif

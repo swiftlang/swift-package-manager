@@ -19,9 +19,8 @@ private import SPMBuildCore
 
 // FIXME: should import these module with `private` or `internal` access control
 import class Build.BuildPlan
-import class Build.ClangTargetBuildDescription
-import class Build.SwiftTargetBuildDescription
-
+import class Build.ClangModuleBuildDescription
+import class Build.SwiftModuleBuildDescription
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ModulesGraph
 import enum PackageGraph.BuildTriple
@@ -43,10 +42,10 @@ public protocol BuildTarget {
 }
 
 private struct WrappedClangTargetBuildDescription: BuildTarget {
-    private let description: ClangTargetBuildDescription
+    private let description: ClangModuleBuildDescription
     let isPartOfRootPackage: Bool
 
-    init(description: ClangTargetBuildDescription, isPartOfRootPackage: Bool) {
+    init(description: ClangModuleBuildDescription, isPartOfRootPackage: Bool) {
         self.description = description
         self.isPartOfRootPackage = isPartOfRootPackage
     }
@@ -72,10 +71,10 @@ private struct WrappedClangTargetBuildDescription: BuildTarget {
 }
 
 private struct WrappedSwiftTargetBuildDescription: BuildTarget {
-    private let description: SwiftTargetBuildDescription
+    private let description: SwiftModuleBuildDescription
     let isPartOfRootPackage: Bool
 
-    init(description: SwiftTargetBuildDescription, isPartOfRootPackage: Bool) {
+    init(description: SwiftModuleBuildDescription, isPartOfRootPackage: Bool) {
         self.description = description
         self.isPartOfRootPackage = isPartOfRootPackage
     }
@@ -144,7 +143,7 @@ public struct BuildDescription {
     /// Returns all targets within the module graph in topological order, starting with low-level targets (that have no
     /// dependencies).
     public func allTargetsInTopologicalOrder(in modulesGraph: ModulesGraph) throws -> [BuildTarget] {
-        try modulesGraph.allTargetsInTopologicalOrder.compactMap {
+        try modulesGraph.allModulesInTopologicalOrder.compactMap {
             getBuildTarget(for: $0, in: modulesGraph)
         }
     }
