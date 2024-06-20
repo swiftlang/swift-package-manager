@@ -132,7 +132,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
             // Write one file for each test module.
             //
             // We could write everything in one file but that can easily run into type conflicts due
-            // in complex packages with large number of test targets.
+            // in complex packages with large number of test modules.
             for file in outputs where file != mainFile {
                 // FIXME: This is relying on implementation detail of the output but passing the
                 // the context all the way through is not worth it right now.

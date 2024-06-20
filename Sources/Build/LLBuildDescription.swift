@@ -58,7 +58,7 @@ public struct BuildDescription: Codable {
     public let builtTestProducts: [BuiltTestProduct]
 
     /// Distilled information about any plugins defined in the package.
-    let pluginDescriptions: [PluginDescription]
+    let pluginDescriptions: [PluginBuildDescription]
 
     public init(
         plan: BuildPlan,
@@ -68,7 +68,7 @@ public struct BuildDescription: Codable {
         testEntryPointCommands: [LLBuildManifest.CmdName: TestEntryPointTool],
         copyCommands: [LLBuildManifest.CmdName: CopyTool],
         writeCommands: [LLBuildManifest.CmdName: WriteAuxiliaryFile],
-        pluginDescriptions: [PluginDescription]
+        pluginDescriptions: [PluginBuildDescription]
     ) throws {
         self.swiftCommands = swiftCommands
         self.swiftFrontendCommands = swiftFrontendCommands
@@ -83,7 +83,7 @@ public struct BuildDescription: Codable {
                 let deps = try targetBuildDescription.target.recursiveDependencies(
                     satisfying: targetBuildDescription.buildParameters.buildEnvironment
                 )
-                .compactMap(\.target).map(\.c99name)
+                .compactMap(\.module).map(\.c99name)
                 partial[targetBuildDescription.target.c99name] = deps
             }
         var targetCommandLines: [TargetName: [CommandLineFlag]] = [:]
@@ -103,7 +103,7 @@ public struct BuildDescription: Codable {
         }
         generatedSourceTargets.append(
             contentsOf: plan.pluginDescriptions
-                .map(\.targetC99Name)
+                .map(\.moduleC99Name)
         )
         self.swiftTargetScanArgs = targetCommandLines
         self.generatedSourceTargetSet = Set(generatedSourceTargets)

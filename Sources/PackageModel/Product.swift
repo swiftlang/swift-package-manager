@@ -26,7 +26,7 @@ public class Product {
     ///
     /// This is never empty, and is only the targets which are required to be in
     /// the product, but not necessarily their transitive dependencies.
-    public var targets: [Target]
+    public var modules: [Module]
 
     /// The path to test entry point file.
     public let testEntryPointPath: AbsolutePath?
@@ -34,12 +34,12 @@ public class Product {
     /// The suffix for REPL product name.
     public static let replProductSuffix: String = "__REPL"
 
-    public init(package: PackageIdentity, name: String, type: ProductType, targets: [Target], testEntryPointPath: AbsolutePath? = nil) throws {
-        guard !targets.isEmpty else {
+    public init(package: PackageIdentity, name: String, type: ProductType, modules: [Module], testEntryPointPath: AbsolutePath? = nil) throws {
+        guard !modules.isEmpty else {
             throw InternalError("Targets cannot be empty")
         }
         if type == .executable {
-            guard targets.executables.count == 1 else {
+            guard modules.executables.count == 1 else {
                 throw InternalError("Executable products should have exactly one executable target.")
             }
         }
@@ -51,7 +51,7 @@ public class Product {
         self.name = name
         self.type = type
         self.identity = package.description.lowercased() + "_" + name
-        self.targets = targets
+        self.modules = modules
         self.testEntryPointPath = testEntryPointPath
     }
 }
