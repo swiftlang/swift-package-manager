@@ -1413,7 +1413,7 @@ extension AsyncProcessResult.Error: CustomStringConvertible {
                 str.append(contentsOf: "terminated(\(code)): ")
 #if os(Windows)
             case .abnormal(let exception):
-                stream.append(contentsOf: "abnormal(\(exception)): ")
+                str.append(contentsOf: "abnormal(\(exception)): ")
 #else
             case .signalled(let signal):
                 str.append(contentsOf: "signalled(\(signal)): ")
