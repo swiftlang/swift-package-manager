@@ -406,7 +406,7 @@ package final class AsyncProcess {
         // From here on out, the program is an executable name, i.e. it doesn't contain a "/"
         let lookup: () -> AbsolutePath? = {
             let envSearchPaths = getEnvSearchPaths(
-                pathString: Environment.current.path,
+                pathString: Environment.current[.path],
                 currentWorkingDirectory: cwdOpt
             )
             let value = lookupExecutablePath(

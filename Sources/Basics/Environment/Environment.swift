@@ -84,10 +84,6 @@ extension [String: String] {
 // MARK: - Path Modification
 
 extension Environment {
-    var path: String? {
-        self["PATH"]
-    }
-
     package mutating func prependPath(key: EnvironmentKey, value: String) {
         guard !value.isEmpty else { return }
         if let existing = self[key] {
