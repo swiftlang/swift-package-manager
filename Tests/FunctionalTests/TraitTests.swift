@@ -32,9 +32,9 @@ final class TraitTests: XCTestCase {
         }
     }
 
-    func testTraits_whenTraitUnification() throws {
-        try fixture(name: "Traits") { fixturePath in
-            let (stdout, _) = try executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "defaults,Package9,Package10"])
+    func testTraits_whenTraitUnification() async throws {
+        try await fixture(name: "Traits") { fixturePath in
+            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "defaults,Package9,Package10"])
             XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -52,9 +52,9 @@ final class TraitTests: XCTestCase {
         }
     }
 
-    func testTraits_whenTraitUnification_whenSecondTraitNotEnabled() throws {
-        try fixture(name: "Traits") { fixturePath in
-            let (stdout, _) = try executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "defaults,Package9"])
+    func testTraits_whenTraitUnification_whenSecondTraitNotEnabled() async throws {
+        try await fixture(name: "Traits") { fixturePath in
+            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "defaults,Package9"])
             XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -70,9 +70,9 @@ final class TraitTests: XCTestCase {
         }
     }
 
-    func testTraits_whenIndividualTraitsEnabled_andDefaultTraits() throws {
-        try fixture(name: "Traits") { fixturePath in
-            let (stdout, _) = try executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "defaults,Package5,Package7,BuildCondition3"])
+    func testTraits_whenIndividualTraitsEnabled_andDefaultTraits() async throws {
+        try await fixture(name: "Traits") { fixturePath in
+            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "defaults,Package5,Package7,BuildCondition3"])
             XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -89,9 +89,9 @@ final class TraitTests: XCTestCase {
         }
     }
 
-    func testTraits_whenDefaultTraitsDisabled() throws {
-        try fixture(name: "Traits") { fixturePath in
-            let (stdout, _) = try executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-disable-default-traits"])
+    func testTraits_whenDefaultTraitsDisabled() async throws {
+        try await fixture(name: "Traits") { fixturePath in
+            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-disable-default-traits"])
             XCTAssertEqual(stdout, """
             DEFINE1 disabled
             DEFINE2 disabled
@@ -101,9 +101,9 @@ final class TraitTests: XCTestCase {
         }
     }
 
-    func testTraits_whenIndividualTraitsEnabled_andDefaultTraitsDisabled() throws {
-        try fixture(name: "Traits") { fixturePath in
-            let (stdout, _) = try executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "Package5,Package7"])
+    func testTraits_whenIndividualTraitsEnabled_andDefaultTraitsDisabled() async throws {
+        try await fixture(name: "Traits") { fixturePath in
+            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "Package5,Package7"])
             XCTAssertEqual(stdout, """
             Package5Library1 trait1 enabled
             Package6Library1 trait1 enabled
@@ -116,9 +116,9 @@ final class TraitTests: XCTestCase {
         }
     }
 
-    func testTraits_whenAllTraitsEnabled() throws {
-        try fixture(name: "Traits") { fixturePath in
-            let (stdout, _) = try executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-enable-all-traits"])
+    func testTraits_whenAllTraitsEnabled() async throws {
+        try await fixture(name: "Traits") { fixturePath in
+            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-enable-all-traits"])
             XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -139,9 +139,9 @@ final class TraitTests: XCTestCase {
         }
     }
 
-    func testTraits_whenAllTraitsEnabled_andDefaultTraitsDisabled() throws {
-        try fixture(name: "Traits") { fixturePath in
-            let (stdout, _) = try executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-enable-all-traits", "--experimental-disable-default-traits"])
+    func testTraits_whenAllTraitsEnabled_andDefaultTraitsDisabled() async throws {
+        try await fixture(name: "Traits") { fixturePath in
+            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-enable-all-traits", "--experimental-disable-default-traits"])
             XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -161,6 +161,5 @@ final class TraitTests: XCTestCase {
             """)
         }
     }
-
 }
 #endif
