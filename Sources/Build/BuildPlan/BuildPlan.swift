@@ -25,8 +25,6 @@ import SPMBuildCore
 import SwiftDriver
 #endif
 
-import enum TSCBasic.ProcessEnv
-
 import enum TSCUtility.Diagnostics
 import var TSCUtility.verbosity
 
@@ -95,7 +93,7 @@ extension BuildParameters {
         get throws {
             // FIXME: We use this hack to let swiftpm's functional test use shared
             // cache so it doesn't become painfully slow.
-            if let path = ProcessEnv.block["SWIFTPM_TESTS_MODULECACHE"] {
+            if let path = Environment.current["SWIFTPM_TESTS_MODULECACHE"] {
                 return try AbsolutePath(validating: path)
             }
             return buildPath.appending("ModuleCache")

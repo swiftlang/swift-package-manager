@@ -16,7 +16,6 @@ import SPMTestSupport
 import XCTest
 
 import class TSCBasic.Process
-import enum TSCBasic.ProcessEnv
 
 private let sdkCommandDeprecationWarning = """
     warning: `swift experimental-sdk` command is deprecated and will be removed in a future version of SwiftPM. Use \

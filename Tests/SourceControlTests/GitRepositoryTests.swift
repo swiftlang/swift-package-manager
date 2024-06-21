@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(ProcessEnvironmentBlockShim)
 import Basics
 @testable import SourceControl
 import SPMTestSupport
@@ -25,11 +26,11 @@ class GitRepositoryTests: XCTestCase {
 
     override func setUp() {
         // needed for submodule tests
-        Git.environment = ["GIT_ALLOW_PROTOCOL": "file"]
+        Git.environmentBlock = ["GIT_ALLOW_PROTOCOL": "file"]
     }
 
     override func tearDown() {
-        Git.environment = ProcessInfo.processInfo.environment
+        Git.environmentBlock = .init(Environment.current)
     }
 
     /// Test the basic provider functions.
@@ -197,7 +198,7 @@ class GitRepositoryTests: XCTestCase {
 
             try Process.checkNonZeroExit(
                 args: Git.tool, "-C", repoPath.pathString, "submodule", "add", testRepoPath.pathString,
-                environment: Git.environment
+                environment: .init(Git.environmentBlock)
             )
             let repo = GitRepository(path: repoPath)
             try repo.stageEverything()
@@ -613,7 +614,7 @@ class GitRepositoryTests: XCTestCase {
             try foo.checkout(newBranch: "submodule")
             try Process.checkNonZeroExit(
                 args: Git.tool, "-C", fooPath.pathString, "submodule", "add", barPath.pathString, "bar",
-                environment: Git.environment
+                environment: .init(Git.environmentBlock)
             )
 
             try foo.stageEverything()
@@ -635,7 +636,7 @@ class GitRepositoryTests: XCTestCase {
             // Add a submodule too to check for recursive submodules.
             try Process.checkNonZeroExit(
                 args: Git.tool, "-C", barPath.pathString, "submodule", "add", bazPath.pathString, "baz",
-                environment: Git.environment
+                environment: .init(Git.environmentBlock)
             )
 
             try bar.stageEverything()

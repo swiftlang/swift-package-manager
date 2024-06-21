@@ -98,17 +98,14 @@ final class IncrementalBuildTests: XCTestCase {
     func testBuildManifestCaching() throws {
         try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
         try fixture(name: "ValidLayouts/SingleModule/Library") { fixturePath in
-            @discardableResult
-            func build() throws -> String {
-                return try executeSwiftBuild(fixturePath).stdout
-            }
+            let build = { try executeSwiftBuild(fixturePath).stdout }
 
             // Perform a full build.
             let log1 = try build()
             XCTAssertMatch(log1, .contains("Compiling Library"))
 
             // Ensure manifest caching kicks in.
-            let log2 =  try build()
+            let log2 = try build()
             XCTAssertMatch(log2, .contains("Planning build"))
 
             // Check that we're not re-planning when nothing has changed.
@@ -154,7 +151,7 @@ final class IncrementalBuildTests: XCTestCase {
         try fixture(name: "ValidLayouts/SingleModule/Library") { fixturePath in
             let dummySwiftcPath = SwiftPM.xctestBinaryPath(for: "dummy-swiftc")
             let swiftCompilerPath = try UserToolchain.default.swiftCompilerPath
-            let environment = [
+            let environment: Environment = [
                 "SWIFT_EXEC": dummySwiftcPath.pathString,
                 "SWIFT_ORIGINAL_PATH": swiftCompilerPath.pathString
             ]

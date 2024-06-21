@@ -23,7 +23,6 @@ import Foundation
 import class TSCBasic.DiagnosticsEngine
 import protocol TSCBasic.OutputByteStream
 import class TSCBasic.Process
-import enum TSCBasic.ProcessEnv
 import struct TSCBasic.RegEx
 
 import enum TSCUtility.Diagnostics
@@ -227,7 +226,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 let resolver = try ArgsResolver(fileSystem: localFileSystem)
                 let executor = SPMSwiftDriverExecutor(resolver: resolver,
                                                       fileSystem: localFileSystem,
-                                                      env: ProcessEnv.vars)
+                                                      env: Environment.current)
 
                 let consumeDiagnostics: DiagnosticsEngine = DiagnosticsEngine(handlers: [])
                 var driver = try Driver(args: commandLine,
@@ -465,7 +464,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 self.preparationStepName = preparationStepName
                 self.progressTracker = progressTracker
             }
-            func willCompilePlugin(commandLine: [String], environment: EnvironmentVariables) {
+            func willCompilePlugin(commandLine: [String], environment: [String: String]) {
                 self.progressTracker?.preparationStepStarted(preparationStepName)
             }
             func didCompilePlugin(result: PluginCompilationResult) {

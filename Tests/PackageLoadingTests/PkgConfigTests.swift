@@ -16,8 +16,6 @@ import PackageModel
 import SPMTestSupport
 import XCTest
 
-import func TSCTestSupport.withCustomEnv
-
 extension SystemLibraryModule {
     convenience init(pkgConfig: String, providers: [SystemPackageProviderDescription] = []) {
         self.init(
@@ -88,7 +86,7 @@ class PkgConfigTests: XCTestCase {
 
     func testEnvVar() throws {
         // Pc file.
-        try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
+        try Environment.makeCustom(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             for result in try pkgConfigArgs(
                 for: SystemLibraryModule(pkgConfig: "Foo"),
                 pkgConfigDirectories: [],
@@ -105,7 +103,7 @@ class PkgConfigTests: XCTestCase {
         }
 
         // Pc file with prohibited flags.
-        try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
+        try Environment.makeCustom(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             for result in try pkgConfigArgs(
                 for: SystemLibraryModule(pkgConfig: "Bar"),
                 pkgConfigDirectories: [],
@@ -127,7 +125,7 @@ class PkgConfigTests: XCTestCase {
         }
 
         // Pc file with -framework Framework flag.
-        try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
+        try Environment.makeCustom(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             for result in try pkgConfigArgs(
                 for: SystemLibraryModule(pkgConfig: "Framework"),
                 pkgConfigDirectories: [],

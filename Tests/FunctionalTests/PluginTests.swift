@@ -467,7 +467,7 @@ class PluginTests: XCTestCase {
                     self.delegateQueue = delegateQueue
                 }
                 
-                func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables) {
+                func pluginCompilationStarted(commandLine: [String], environment: [String: String]) {
                 }
                 
                 func pluginCompilationEnded(result: PluginCompilationResult) {
@@ -516,7 +516,7 @@ class PluginTests: XCTestCase {
                 XCTAssertTrue(plugin.type == .plugin, "Target \(plugin) isn’t a plugin")
 
                 // Find the named input targets to the plugin.
-                var targets: [ResolvedTarget] = []
+                var targets: [ResolvedModule] = []
                 for targetName in targetNames {
                     guard let target = package.modules.first(where: { $0.underlying.name == targetName }) else {
                         return XCTFail("There is no target named ‘\(targetName)’")
@@ -756,7 +756,7 @@ class PluginTests: XCTestCase {
                     self.delegateQueue = delegateQueue
                 }
                 
-                func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables) {
+                func pluginCompilationStarted(commandLine: [String], environment: [String: String]) {
                 }
                 
                 func pluginCompilationEnded(result: PluginCompilationResult) {

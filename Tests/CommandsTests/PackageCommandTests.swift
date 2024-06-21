@@ -33,7 +33,7 @@ final class PackageCommandTests: CommandsTestCase {
     private func execute(
         _ args: [String] = [],
         packagePath: AbsolutePath? = nil,
-        env: EnvironmentVariables? = nil
+        env: Environment? = nil
     ) throws -> (stdout: String, stderr: String) {
         var environment = env ?? [:]
         // don't ignore local packages when caching
@@ -635,7 +635,7 @@ final class PackageCommandTests: CommandsTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [manifestA, manifestB, manifestC, manifestD],
             observabilityScope: observability.topScope
@@ -1839,7 +1839,7 @@ final class PackageCommandTests: CommandsTestCase {
                 </dict>
                 """
             )
-            let environment = EnvironmentVariables.process()
+            let environment = Environment.current
             let hostTriple = try UserToolchain(
                 swiftSDK: .hostSwiftSDK(environment: environment),
                 environment: environment

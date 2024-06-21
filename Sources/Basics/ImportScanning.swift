@@ -22,17 +22,17 @@ private struct Imports: Decodable {
     let imports: [String]
 }
 
-public protocol ImportScanner {
+package protocol ImportScanner {
     func scanImports(_ filePathToScan: AbsolutePath) async throws -> [String]
 }
 
 public struct SwiftcImportScanner: ImportScanner {
-    private let swiftCompilerEnvironment: EnvironmentVariables
+    private let swiftCompilerEnvironment: Environment
     private let swiftCompilerFlags: [String]
     private let swiftCompilerPath: AbsolutePath
 
-    public init(
-        swiftCompilerEnvironment: EnvironmentVariables,
+    package init(
+        swiftCompilerEnvironment: Environment,
         swiftCompilerFlags: [String],
         swiftCompilerPath: AbsolutePath
     ) {

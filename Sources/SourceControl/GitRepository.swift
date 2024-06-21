@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(ProcessEnvironmentBlockShim)
 import Basics
 import Dispatch
 import class Foundation.NSLock
@@ -20,7 +21,6 @@ import struct TSCBasic.FileInfo
 import enum TSCBasic.FileMode
 import struct TSCBasic.FileSystemError
 import class TSCBasic.Process
-import enum TSCBasic.ProcessEnv
 import struct TSCBasic.ProcessResult
 import struct TSCBasic.RegEx
 
@@ -42,7 +42,7 @@ private struct GitShellHelper {
     /// output as a string.
     func run(
         _ args: [String],
-        environment: EnvironmentVariables = Git.environment,
+        environment: Environment = .init(Git.environmentBlock),
         outputRedirection: TSCBasic.Process.OutputRedirection = .collect
     ) throws -> String {
         let process = TSCBasic.Process(
@@ -68,7 +68,7 @@ private struct GitShellHelper {
             // Handle a failure to even launch the Git tool by synthesizing a result that we can wrap an error around.
             let result = ProcessResult(
                 arguments: process.arguments,
-                environment: process.environment,
+                environmentBlock: process.environmentBlock,
                 exitStatus: .terminated(code: -1),
                 output: .failure(error),
                 stderrOutput: .failure(error)
@@ -97,7 +97,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     @discardableResult
     private func callGit(
         _ args: [String],
-        environment: EnvironmentVariables = Git.environment,
+        environment: Environment = .init(Git.environmentBlock),
         repository: RepositorySpecifier,
         failureMessage: String = "",
         progress: FetchProgress.Handler? = nil
@@ -119,7 +119,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             } catch let error as GitShellError {
                 let result = ProcessResult(
                     arguments: error.result.arguments,
-                    environment: error.result.environment,
+                    environmentBlock: error.result.environmentBlock,
                     exitStatus: error.result.exitStatus,
                     output: .success(stdoutBytes),
                     stderrOutput: .success(stderrBytes)
@@ -138,7 +138,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     @discardableResult
     private func callGit(
         _ args: String...,
-        environment: EnvironmentVariables = Git.environment,
+        environment: Environment = .init(Git.environmentBlock),
         repository: RepositorySpecifier,
         failureMessage: String = "",
         progress: FetchProgress.Handler? = nil
@@ -440,7 +440,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     @discardableResult
     private func callGit(
         _ args: String...,
-        environment: EnvironmentVariables = Git.environment,
+        environment: Environment = .init(Git.environmentBlock),
         failureMessage: String = "",
         progress: FetchProgress.Handler? = nil
     ) throws -> String {
@@ -461,11 +461,10 @@ public final class GitRepository: Repository, WorkingCheckout {
             } catch let error as GitShellError {
                 let result = ProcessResult(
                     arguments: error.result.arguments,
-                    environment: error.result.environment,
+                    environment: .init(error.result.environmentBlock),
                     exitStatus: error.result.exitStatus,
                     output: .success(stdoutBytes),
-                    stderrOutput: .success(stderrBytes)
-                )
+                    stderrOutput: .success(stderrBytes))
                 throw GitRepositoryError(path: self.path, message: failureMessage, result: result)
             }
         } else {

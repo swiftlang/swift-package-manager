@@ -18,7 +18,6 @@ import SPMBuildCore
 
 import struct TSCBasic.ByteString
 import struct TSCBasic.ProcessResult
-import enum TSCBasic.ProcessEnv
 import class TSCBasic.Process
 
 import struct TSCUtility.SerializedDiagnostics
@@ -209,7 +208,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         #endif
 
         // Honor any module cache override that's set in the environment.
-        let moduleCachePath = ProcessEnv.block["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.block["SWIFTPM_TESTS_MODULECACHE"]
+        let moduleCachePath = Environment.current["SWIFTPM_MODULECACHE_OVERRIDE"] ?? Environment.current["SWIFTPM_TESTS_MODULECACHE"]
         if let moduleCachePath {
             commandLine += ["-module-cache-path", moduleCachePath]
         }
@@ -271,7 +270,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         /// Persisted information about the last time the compiler was invoked.
         struct PersistedCompilationState: Codable {
             var commandLine: [String]
-            var environment: EnvironmentVariables
+            var environment: Environment
             var inputHash: String?
             var output: String
             var result: Result
@@ -339,8 +338,8 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         }
 
         // Otherwise we need to recompile. We start by telling the delegate.
-        delegate.willCompilePlugin(commandLine: commandLine, environment: environment)
-        
+        delegate.willCompilePlugin(commandLine: commandLine, environment: .init(environment))
+
         // Clean up any old files to avoid confusion if the compiler can't be invoked.
         do {
             try fileSystem.removeFileTree(execFilePath)
