@@ -324,6 +324,8 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                     cacheBuildManifest: false,
                     packageGraphLoader: packageGraphLoader,
                     scratchDirectory: scratchDirectory,
+                    // When bootrapping no special trait build configuration is used
+                    traitConfiguration: nil,
                     additionalFileRules: [],
                     pkgConfigDirectories: [],
                     dependenciesByRootPackageIdentity: [:],

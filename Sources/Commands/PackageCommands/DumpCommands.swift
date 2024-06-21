@@ -47,7 +47,12 @@ struct DumpSymbolGraph: SwiftCommand {
         // Build the current package.
         //
         // We turn build manifest caching off because we need the build plan.
-        let buildSystem = try swiftCommandState.createBuildSystem(explicitBuildSystem: .native, cacheBuildManifest: false)
+        let buildSystem = try swiftCommandState.createBuildSystem(
+            explicitBuildSystem: .native,
+            // We are enabling all traits for dumping the symbol graph.
+            traitConfiguration: .init(enableAllTraits: true),
+            cacheBuildManifest: false
+        )
         try buildSystem.build()
 
         // Configure the symbol graph extractor.
