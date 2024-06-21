@@ -6,7 +6,7 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import _Concurrency
 import Dispatch
@@ -46,20 +46,21 @@ package struct AsyncProcessResult: CustomStringConvertible, Sendable {
         /// The process had a non zero exit.
         case nonZeroExit(AsyncProcessResult)
 
-        /// The process failed with a `SystemError` (this is used to still provide context on the process that was launched).
+        /// The process failed with a `SystemError` (this is used to still provide context on the process that was
+        /// launched).
         case systemError(arguments: [String], underlyingError: Swift.Error)
     }
 
     package enum ExitStatus: Equatable, Sendable {
         /// The process was terminated normally with a exit code.
         case terminated(code: Int32)
-#if os(Windows)
+        #if os(Windows)
         /// The process was terminated abnormally.
         case abnormal(exception: UInt32)
-#else
+        #else
         /// The process was terminated due to a signal.
         case signalled(signal: Int32)
-#endif
+        #endif
     }
 
     /// The arguments with which the process was launched.
@@ -69,8 +70,8 @@ package struct AsyncProcessResult: CustomStringConvertible, Sendable {
     package let environmentBlock: ProcessEnvironmentBlock
 
     @available(*, deprecated, renamed: "env")
-    package var environment: [String:String] {
-        Dictionary<String, String>(uniqueKeysWithValues: self.environmentBlock.map { ($0.key.value, $0.value) })
+    package var environment: [String: String] {
+        [String: String](uniqueKeysWithValues: self.environmentBlock.map { ($0.key.value, $0.value) })
     }
 
     /// The exit status of the process.
@@ -96,27 +97,33 @@ package struct AsyncProcessResult: CustomStringConvertible, Sendable {
         stderrOutput: Result<[UInt8], Swift.Error>
     ) {
         let exitStatus: ExitStatus
-      #if os(Windows)
+        #if os(Windows)
         if normal {
             exitStatus = .terminated(code: exitStatusCode)
         } else {
             exitStatus = .abnormal(exception: UInt32(exitStatusCode))
         }
-      #else
+        #else
         if WIFSIGNALED(exitStatusCode) {
             exitStatus = .signalled(signal: WTERMSIG(exitStatusCode))
         } else {
             precondition(WIFEXITED(exitStatusCode), "unexpected exit status \(exitStatusCode)")
             exitStatus = .terminated(code: WEXITSTATUS(exitStatusCode))
         }
-      #endif
-        self.init(arguments: arguments, environmentBlock: environmentBlock, exitStatus: exitStatus, output: output, stderrOutput: stderrOutput)
+        #endif
+        self.init(
+            arguments: arguments,
+            environmentBlock: environmentBlock,
+            exitStatus: exitStatus,
+            output: output,
+            stderrOutput: stderrOutput
+        )
     }
 
     @available(*, deprecated, message: "use `init(arguments:environmentBlock:exitStatusCode:output:stderrOutput:)`")
     package init(
         arguments: [String],
-        environment: [String:String],
+        environment: [String: String],
         exitStatusCode: Int32,
         normal: Bool,
         output: Result<[UInt8], Swift.Error>,
@@ -150,7 +157,7 @@ package struct AsyncProcessResult: CustomStringConvertible, Sendable {
     @available(*, deprecated, message: "use `init(arguments:environmentBlock:exitStatus:output:stderrOutput:)`")
     package init(
         arguments: [String],
-        environment: [String:String],
+        environment: [String: String],
         exitStatus: ExitStatus,
         output: Result<[UInt8], Swift.Error>,
         stderrOutput: Result<[UInt8], Swift.Error>
@@ -166,20 +173,20 @@ package struct AsyncProcessResult: CustomStringConvertible, Sendable {
 
     /// Converts stdout output bytes to string, assuming they're UTF8.
     package func utf8Output() throws -> String {
-        return String(decoding: try output.get(), as: Unicode.UTF8.self)
+        try String(decoding: output.get(), as: Unicode.UTF8.self)
     }
 
     /// Converts stderr output bytes to string, assuming they're UTF8.
     package func utf8stderrOutput() throws -> String {
-        return String(decoding: try stderrOutput.get(), as: Unicode.UTF8.self)
+        try String(decoding: stderrOutput.get(), as: Unicode.UTF8.self)
     }
 
     package var description: String {
-        return """
-            <AsyncProcessResult: exit: \(exitStatus), output:
-             \((try? utf8Output()) ?? "")
-            >
-            """
+        """
+        <AsyncProcessResult: exit: \(exitStatus), output:
+         \((try? utf8Output()) ?? "")
+        >
+        """
     }
 }
 
@@ -224,35 +231,35 @@ package final class AsyncProcess {
 
         /// Default stream OutputRedirection that defaults to not redirect stderr. Provided for API compatibility.
         package static func stream(stdout: @escaping OutputClosure, stderr: @escaping OutputClosure) -> Self {
-            return .stream(stdout: stdout, stderr: stderr, redirectStderr: false)
+            .stream(stdout: stdout, stderr: stderr, redirectStderr: false)
         }
 
         package var redirectsOutput: Bool {
             switch self {
             case .none:
-                return false
+                false
             case .collect, .stream:
-                return true
+                true
             }
         }
 
         package var outputClosures: (stdoutClosure: OutputClosure, stderrClosure: OutputClosure)? {
             switch self {
-            case let .stream(stdoutClosure, stderrClosure, _):
-                return (stdoutClosure: stdoutClosure, stderrClosure: stderrClosure)
+            case .stream(let stdoutClosure, let stderrClosure, _):
+                (stdoutClosure: stdoutClosure, stderrClosure: stderrClosure)
             case .collect, .none:
-                return nil
+                nil
             }
         }
 
         package var redirectStderr: Bool {
             switch self {
-            case let .collect(redirectStderr):
-                return redirectStderr
-            case let .stream(_, _, redirectStderr):
-                return redirectStderr
+            case .collect(let redirectStderr):
+                redirectStderr
+            case .stream(_, _, let redirectStderr):
+                redirectStderr
             default:
-                return false
+                false
             }
         }
     }
@@ -267,11 +274,11 @@ package final class AsyncProcess {
     }
 
     /// Typealias for process id type.
-  #if !os(Windows)
+    #if !os(Windows)
     package typealias ProcessID = pid_t
-  #else
+    #else
     package typealias ProcessID = DWORD
-  #endif
+    #endif
 
     /// Typealias for stdout/stderr output closure.
     package typealias OutputClosure = ([UInt8]) -> Void
@@ -283,7 +290,11 @@ package final class AsyncProcess {
     private static let loggingHandlerLock = NSLock()
 
     /// Global logging handler. Use with care! preferably use instance level instead of setting one globally.
-    @available(*, deprecated, message: "use instance level `loggingHandler` passed via `init` instead of setting one globally.")
+    @available(
+        *,
+        deprecated,
+        message: "use instance level `loggingHandler` passed via `init` instead of setting one globally."
+    )
     package static var loggingHandler: LoggingHandler? {
         get {
             Self.loggingHandlerLock.withLock {
@@ -300,7 +311,7 @@ package final class AsyncProcess {
 
     /// The current environment.
     @available(*, deprecated, message: "use ProcessEnv.vars instead")
-    static package var env: [String: String] {
+    package static var env: [String: String] {
         ProcessEnv.vars
     }
 
@@ -309,8 +320,8 @@ package final class AsyncProcess {
 
     /// The environment with which the process was executed.
     @available(*, deprecated, message: "use `environmentBlock` instead")
-    package var environment: [String:String] {
-        Dictionary<String, String>(uniqueKeysWithValues: environmentBlock.map { ($0.key.value, $0.value) })
+    package var environment: [String: String] {
+        [String: String](uniqueKeysWithValues: self.environmentBlock.map { ($0.key.value, $0.value) })
     }
 
     package let environmentBlock: ProcessEnvironmentBlock
@@ -319,14 +330,14 @@ package final class AsyncProcess {
     package let workingDirectory: AbsolutePath?
 
     /// The process id of the spawned process, available after the process is launched.
-  #if os(Windows)
+    #if os(Windows)
     private var _process: Foundation.Process?
     package var processID: ProcessID {
-        return DWORD(_process?.processIdentifier ?? 0)
+        DWORD(self._process?.processIdentifier ?? 0)
     }
-  #else
+    #else
     package private(set) var processID = ProcessID()
-  #endif
+    #endif
 
     // process execution mutable state
     private var state: State = .idle
@@ -339,12 +350,12 @@ package final class AsyncProcess {
     /// This will block while the process is awaiting result
     @available(*, deprecated, message: "use waitUntilExit instead")
     package var result: AsyncProcessResult? {
-        return self.stateLock.withLock {
+        self.stateLock.withLock {
             switch self.state {
             case .complete(let result):
-                return result
+                result
             default:
-                return nil
+                nil
             }
         }
     }
@@ -354,8 +365,8 @@ package final class AsyncProcess {
     private let launchedLock = NSLock()
 
     package var launched: Bool {
-        return self.launchedLock.withLock {
-            return self._launched
+        self.launchedLock.withLock {
+            self._launched
         }
     }
 
@@ -402,10 +413,14 @@ package final class AsyncProcess {
 
     @_disfavoredOverload
     @available(macOS 10.15, *)
-    @available(*, deprecated, renamed: "init(arguments:environmentBlock:workingDirectory:outputRedirection:startNewProcessGroup:loggingHandler:)")
+    @available(
+        *,
+        deprecated,
+        renamed: "init(arguments:environmentBlock:workingDirectory:outputRedirection:startNewProcessGroup:loggingHandler:)"
+    )
     package convenience init(
         arguments: [String],
-        environment: [String:String] = ProcessEnv.vars,
+        environment: [String: String] = ProcessEnv.vars,
         workingDirectory: AbsolutePath,
         outputRedirection: OutputRedirection = .collect,
         startNewProcessGroup: Bool = true,
@@ -432,7 +447,13 @@ package final class AsyncProcess {
     ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
     ///     continue running even if the parent is killed or interrupted. Default value is true.
     ///   - loggingHandler: Handler for logging messages
-    package init(arguments: [String], environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block, outputRedirection: OutputRedirection = .collect, startNewProcessGroup: Bool = true, loggingHandler: LoggingHandler? = .none) {
+    package init(
+        arguments: [String],
+        environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
+        outputRedirection: OutputRedirection = .collect,
+        startNewProcessGroup: Bool = true,
+        loggingHandler: LoggingHandler? = .none
+    ) {
         self.arguments = arguments
         self.environmentBlock = environmentBlock
         self.workingDirectory = nil
@@ -442,10 +463,14 @@ package final class AsyncProcess {
     }
 
     @_disfavoredOverload
-    @available(*, deprecated, renamed: "init(arguments:environmentBlock:outputRedirection:startNewProcessGroup:loggingHandler:)")
+    @available(
+        *,
+        deprecated,
+        renamed: "init(arguments:environmentBlock:outputRedirection:startNewProcessGroup:loggingHandler:)"
+    )
     package convenience init(
         arguments: [String],
-        environment: [String:String] = ProcessEnv.vars,
+        environment: [String: String] = ProcessEnv.vars,
         outputRedirection: OutputRedirection = .collect,
         startNewProcessGroup: Bool = true,
         loggingHandler: LoggingHandler? = .none
@@ -543,7 +568,10 @@ package final class AsyncProcess {
     /// automatically.
     @discardableResult
     package func launch() throws -> WritableByteStream {
-        precondition(arguments.count > 0 && !arguments[0].isEmpty, "Need at least one argument to launch the process.")
+        precondition(
+            self.arguments.count > 0 && !self.arguments[0].isEmpty,
+            "Need at least one argument to launch the process."
+        )
 
         self.launchedLock.withLock {
             precondition(!self._launched, "It is not allowed to launch the same process object again.")
@@ -552,24 +580,28 @@ package final class AsyncProcess {
 
         // Print the arguments if we are verbose.
         if let loggingHandler = self.loggingHandler {
-            loggingHandler(arguments.map({ $0.spm_shellEscaped() }).joined(separator: " "))
+            loggingHandler(self.arguments.map { $0.spm_shellEscaped() }.joined(separator: " "))
         }
 
         // Look for executable.
-        let executable = arguments[0]
+        let executable = self.arguments[0]
         guard let executablePath = AsyncProcess.findExecutable(executable, workingDirectory: workingDirectory) else {
             throw AsyncProcess.Error.missingExecutableProgram(program: executable)
         }
 
-    #if os(Windows)
+        #if os(Windows)
         let process = Foundation.Process()
-        _process = process
-        process.arguments = Array(arguments.dropFirst()) // Avoid including the executable URL twice.
+        self._process = process
+        process.arguments = Array(self.arguments.dropFirst()) // Avoid including the executable URL twice.
         if let workingDirectory {
             process.currentDirectoryURL = workingDirectory.asURL
         }
         process.executableURL = executablePath.asURL
-        process.environment = Dictionary<String, String>(uniqueKeysWithValues: environmentBlock.map { ($0.key.value, $0.value) })
+        process
+            .environment = [String: String](
+                uniqueKeysWithValues: self.environmentBlock
+                    .map { ($0.key.value, $0.value) }
+            )
 
         let stdinPipe = Pipe()
         process.standardInput = stdinPipe
@@ -582,18 +614,18 @@ package final class AsyncProcess {
         var stderr: [UInt8] = []
         let stderrLock = NSLock()
 
-        if outputRedirection.redirectsOutput {
+        if self.outputRedirection.redirectsOutput {
             let stdoutPipe = Pipe()
             let stderrPipe = Pipe()
 
             group.enter()
-            stdoutPipe.fileHandleForReading.readabilityHandler = { (fh : FileHandle) -> Void in
+            stdoutPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
                 let data = fh.availableData
-                if (data.count == 0) {
+                if data.count == 0 {
                     stdoutPipe.fileHandleForReading.readabilityHandler = nil
                     group.leave()
                 } else {
-                    let contents = data.withUnsafeBytes { Array<UInt8>($0) }
+                    let contents = data.withUnsafeBytes { [UInt8]($0) }
                     self.outputRedirection.outputClosures?.stdoutClosure(contents)
                     stdoutLock.withLock {
                         stdout += contents
@@ -602,13 +634,13 @@ package final class AsyncProcess {
             }
 
             group.enter()
-            stderrPipe.fileHandleForReading.readabilityHandler = { (fh : FileHandle) -> Void in
+            stderrPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
                 let data = fh.availableData
-                if (data.count == 0) {
+                if data.count == 0 {
                     stderrPipe.fileHandleForReading.readabilityHandler = nil
                     group.leave()
                 } else {
-                    let contents = data.withUnsafeBytes { Array<UInt8>($0) }
+                    let contents = data.withUnsafeBytes { [UInt8]($0) }
                     self.outputRedirection.outputClosures?.stderrClosure(contents)
                     stderrLock.withLock {
                         stderr += contents
@@ -636,13 +668,13 @@ package final class AsyncProcess {
 
         try process.run()
         return stdinPipe.fileHandleForWriting
-    #elseif (!canImport(Darwin) || os(macOS))
+        #elseif(!canImport(Darwin) || os(macOS))
         // Initialize the spawn attributes.
-      #if canImport(Darwin) || os(Android) || os(OpenBSD)
+        #if canImport(Darwin) || os(Android) || os(OpenBSD)
         var attributes: posix_spawnattr_t? = nil
-      #else
+        #else
         var attributes = posix_spawnattr_t()
-      #endif
+        #endif
         posix_spawnattr_init(&attributes)
         defer { posix_spawnattr_destroy(&attributes) }
 
@@ -652,13 +684,13 @@ package final class AsyncProcess {
         posix_spawnattr_setsigmask(&attributes, &noSignals)
 
         // Reset all signals to default behavior.
-      #if canImport(Darwin)
+        #if canImport(Darwin)
         var mostSignals = sigset_t()
         sigfillset(&mostSignals)
         sigdelset(&mostSignals, SIGKILL)
         sigdelset(&mostSignals, SIGSTOP)
         posix_spawnattr_setsigdefault(&attributes, &mostSignals)
-      #else
+        #else
         // On Linux, this can only be used to reset signals that are legal to
         // modify, so we have to take care about the set we use.
         var mostSignals = sigset_t()
@@ -670,11 +702,11 @@ package final class AsyncProcess {
             sigaddset(&mostSignals, i)
         }
         posix_spawnattr_setsigdefault(&attributes, &mostSignals)
-      #endif
+        #endif
 
         // Set the attribute flags.
         var flags = POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSIGDEF
-        if startNewProcessGroup {
+        if self.startNewProcessGroup {
             // Establish a separate process group.
             flags |= POSIX_SPAWN_SETPGROUP
             posix_spawnattr_setpgroup(&attributes, 0)
@@ -683,31 +715,31 @@ package final class AsyncProcess {
         posix_spawnattr_setflags(&attributes, Int16(flags))
 
         // Setup the file actions.
-      #if canImport(Darwin) || os(Android) || os(OpenBSD)
+        #if canImport(Darwin) || os(Android) || os(OpenBSD)
         var fileActions: posix_spawn_file_actions_t? = nil
-      #else
+        #else
         var fileActions = posix_spawn_file_actions_t()
-      #endif
+        #endif
         posix_spawn_file_actions_init(&fileActions)
         defer { posix_spawn_file_actions_destroy(&fileActions) }
 
         if let workingDirectory = workingDirectory?.pathString {
-          #if canImport(Darwin)
+            #if canImport(Darwin)
             // The only way to set a workingDirectory is using an availability-gated initializer, so we don't need
             // to handle the case where the posix_spawn_file_actions_addchdir_np method is unavailable. This check only
             // exists here to make the compiler happy.
             if #available(macOS 10.15, *) {
                 posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
             }
-          #elseif os(Linux)
+            #elseif os(Linux)
             guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
                 throw AsyncProcess.Error.workingDirectoryNotSupported
             }
 
             SPM_posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
-          #else
+            #else
             throw AsyncProcess.Error.workingDirectoryNotSupported
-          #endif
+            #endif
         }
 
         var stdinPipe: [Int32] = [-1, -1]
@@ -727,7 +759,7 @@ package final class AsyncProcess {
 
         var outputPipe: [Int32] = [-1, -1]
         var stderrPipe: [Int32] = [-1, -1]
-        if outputRedirection.redirectsOutput {
+        if self.outputRedirection.redirectsOutput {
             // Open the pipe.
             try open(pipe: &outputPipe)
 
@@ -738,7 +770,7 @@ package final class AsyncProcess {
             posix_spawn_file_actions_addclose(&fileActions, outputPipe[0])
             posix_spawn_file_actions_addclose(&fileActions, outputPipe[1])
 
-            if outputRedirection.redirectStderr {
+            if self.outputRedirection.redirectStderr {
                 // If merged was requested, send stderr to stdout.
                 posix_spawn_file_actions_adddup2(&fileActions, 1, 2)
             } else {
@@ -755,16 +787,16 @@ package final class AsyncProcess {
             posix_spawn_file_actions_adddup2(&fileActions, 2, 2)
         }
 
-        var resolvedArgs = arguments
+        var resolvedArgs = self.arguments
         if workingDirectory != nil {
             resolvedArgs[0] = executablePath.pathString
         }
         let argv = CStringArray(resolvedArgs)
-        let env = CStringArray(environment.map({ "\($0.0)=\($0.1)" }))
-        let rv = posix_spawnp(&processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray)
+        let env = CStringArray(environment.map { "\($0.0)=\($0.1)" })
+        let rv = posix_spawnp(&self.processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray)
 
         guard rv == 0 else {
-            throw SystemError.posix_spawn(rv, arguments)
+            throw SystemError.posix_spawn(rv, self.arguments)
         }
 
         do {
@@ -772,7 +804,7 @@ package final class AsyncProcess {
             try close(fd: stdinPipe[0])
 
             let group = DispatchGroup()
-            if !outputRedirection.redirectsOutput {
+            if !self.outputRedirection.redirectsOutput {
                 // no stdout or stderr in this case
                 self.stateLock.withLock {
                     self.state = .outputReady(stdout: .success([]), stderr: .success([]))
@@ -781,7 +813,7 @@ package final class AsyncProcess {
                 var pending: Result<[UInt8], Swift.Error>?
                 let pendingLock = NSLock()
 
-                let outputClosures = outputRedirection.outputClosures
+                let outputClosures = self.outputRedirection.outputClosures
 
                 // Close the local write end of the output pipe.
                 try close(fd: outputPipe[1])
@@ -789,13 +821,16 @@ package final class AsyncProcess {
                 // Create a thread and start reading the output on it.
                 group.enter()
                 let stdoutThread = Thread { [weak self] in
-                    if let readResult = self?.readOutput(onFD: outputPipe[0], outputClosure: outputClosures?.stdoutClosure) {
+                    if let readResult = self?.readOutput(
+                        onFD: outputPipe[0],
+                        outputClosure: outputClosures?.stdoutClosure
+                    ) {
                         pendingLock.withLock {
                             if let stderrResult = pending {
                                 self?.stateLock.withLock {
                                     self?.state = .outputReady(stdout: readResult, stderr: stderrResult)
                                 }
-                            } else  {
+                            } else {
                                 pending = readResult
                             }
                         }
@@ -811,14 +846,17 @@ package final class AsyncProcess {
 
                 // Only schedule a thread for stderr if no redirect was requested.
                 var stderrThread: Thread? = nil
-                if !outputRedirection.redirectStderr {
+                if !self.outputRedirection.redirectStderr {
                     // Close the local write end of the stderr pipe.
                     try close(fd: stderrPipe[1])
 
                     // Create a thread and start reading the stderr output on it.
                     group.enter()
                     stderrThread = Thread { [weak self] in
-                        if let readResult = self?.readOutput(onFD: stderrPipe[0], outputClosure: outputClosures?.stderrClosure) {
+                        if let readResult = self?.readOutput(
+                            onFD: stderrPipe[0],
+                            outputClosure: outputClosures?.stderrClosure
+                        ) {
                             pendingLock.withLock {
                                 if let stdoutResult = pending {
                                     self?.stateLock.withLock {
@@ -839,7 +877,7 @@ package final class AsyncProcess {
                     }
                 } else {
                     pendingLock.withLock {
-                        pending = .success([])  // no stderr in this case
+                        pending = .success([]) // no stderr in this case
                     }
                 }
 
@@ -854,11 +892,11 @@ package final class AsyncProcess {
 
             return stdinStream
         } catch {
-            throw AsyncProcessResult.Error.systemError(arguments: arguments, underlyingError: error)
+            throw AsyncProcessResult.Error.systemError(arguments: self.arguments, underlyingError: error)
         }
-    #else
+        #else
         preconditionFailure("Process spawning is not available")
-    #endif // POSIX implementation
+        #endif // POSIX implementation
     }
 
     /// Executes the process I/O state machine, returning the result when finished.
@@ -878,8 +916,8 @@ package final class AsyncProcess {
     package func waitUntilExit() throws -> AsyncProcessResult {
         let group = DispatchGroup()
         group.enter()
-        var processResult : Result<AsyncProcessResult, Swift.Error>?
-        self.waitUntilExit() { result in
+        var processResult: Result<AsyncProcessResult, Swift.Error>?
+        self.waitUntilExit { result in
             processResult = result
             group.leave()
         }
@@ -908,23 +946,23 @@ package final class AsyncProcess {
         case .outputReady(let stdoutResult, let stderrResult):
             defer { self.stateLock.unlock() }
             // Wait until process finishes execution.
-          #if os(Windows)
-            precondition(_process != nil, "The process is not yet launched.")
-            let p = _process!
+            #if os(Windows)
+            precondition(self._process != nil, "The process is not yet launched.")
+            let p = self._process!
             p.waitUntilExit()
             let exitStatusCode = p.terminationStatus
             let normalExit = p.terminationReason == .exit
-          #else
+            #else
             var exitStatusCode: Int32 = 0
             var result = waitpid(processID, &exitStatusCode, 0)
             while result == -1 && errno == EINTR {
-                result = waitpid(processID, &exitStatusCode, 0)
+                result = waitpid(self.processID, &exitStatusCode, 0)
             }
             if result == -1 {
                 self.state = .failed(SystemError.waitpid(errno))
             }
             let normalExit = !WIFSIGNALED(result)
-          #endif
+            #endif
 
             // Construct the result.
             let executionResult = AsyncProcessResult(
@@ -942,7 +980,7 @@ package final class AsyncProcess {
         }
     }
 
-  #if !os(Windows)
+    #if !os(Windows)
     /// Reads the given fd and returns its result.
     ///
     /// Closes the fd before returning.
@@ -956,7 +994,7 @@ package final class AsyncProcess {
         loop: while true {
             let n = read(fd, &buf, N)
             switch n {
-            case  -1:
+            case -1:
                 if errno == EINTR {
                     continue
                 } else {
@@ -974,8 +1012,8 @@ package final class AsyncProcess {
                 close(fd)
                 break loop
             default:
-                let data = buf[0..<n]
-                if let outputClosure = outputClosure {
+                let data = buf[0 ..< n]
+                if let outputClosure {
                     outputClosure(Array(data))
                 } else {
                     out += data
@@ -985,22 +1023,22 @@ package final class AsyncProcess {
         // Construct the output result.
         return error.map(Result.failure) ?? .success(out)
     }
-  #endif
+    #endif
 
     /// Send a signal to the process.
     ///
     /// Note: This will signal all processes in the process group.
     package func signal(_ signal: Int32) {
-      #if os(Windows)
+        #if os(Windows)
         if signal == SIGINT {
-            _process?.interrupt()
+            self._process?.interrupt()
         } else {
-            _process?.terminate()
+            self._process?.terminate()
         }
-      #else
+        #else
         assert(self.launched, "The process is not yet launched.")
-        kill(startNewProcessGroup ? -processID : processID, signal)
-      #endif
+        kill(self.startNewProcessGroup ? -self.processID : self.processID, signal)
+        #endif
     }
 }
 
@@ -1012,7 +1050,7 @@ extension AsyncProcess {
     ///   - environment: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
-    static package func popen(
+    package static func popen(
         arguments: [String],
         environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
         loggingHandler: LoggingHandler? = .none
@@ -1030,12 +1068,12 @@ extension AsyncProcess {
     @_disfavoredOverload
     @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
     @available(*, deprecated, renamed: "popen(arguments:environmentBlock:loggingHandler:)")
-    static package func popen(
+    package static func popen(
         arguments: [String],
-        environment: [String:String] = ProcessEnv.vars,
+        environment: [String: String] = ProcessEnv.vars,
         loggingHandler: LoggingHandler? = .none
     ) async throws -> AsyncProcessResult {
-        try await popen(arguments: arguments, environmentBlock: .init(environment), loggingHandler: loggingHandler)
+        try await self.popen(arguments: arguments, environmentBlock: .init(environment), loggingHandler: loggingHandler)
     }
 
     /// Execute a subprocess and returns the result when it finishes execution
@@ -1045,23 +1083,23 @@ extension AsyncProcess {
     ///   - environment: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
-    static package func popen(
+    package static func popen(
         args: String...,
         environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
         loggingHandler: LoggingHandler? = .none
     ) async throws -> AsyncProcessResult {
-        try await popen(arguments: args, environmentBlock: environmentBlock, loggingHandler: loggingHandler)
+        try await self.popen(arguments: args, environmentBlock: environmentBlock, loggingHandler: loggingHandler)
     }
 
     @_disfavoredOverload
     @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
     @available(*, deprecated, renamed: "popen(args:environmentBlock:loggingHandler:)")
-    static package func popen(
+    package static func popen(
         args: String...,
         environment: [String: String] = ProcessEnv.vars,
         loggingHandler: LoggingHandler? = .none
     ) async throws -> AsyncProcessResult {
-        try await popen(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
+        try await self.popen(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
     }
 
     /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
@@ -1073,12 +1111,16 @@ extension AsyncProcess {
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process output (stdout + stderr).
     @discardableResult
-    static package func checkNonZeroExit(
+    package static func checkNonZeroExit(
         arguments: [String],
         environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
         loggingHandler: LoggingHandler? = .none
     ) async throws -> String {
-        let result = try await popen(arguments: arguments, environmentBlock: environmentBlock, loggingHandler: loggingHandler)
+        let result = try await popen(
+            arguments: arguments,
+            environmentBlock: environmentBlock,
+            loggingHandler: loggingHandler
+        )
         // Throw if there was a non zero termination.
         guard result.exitStatus == .terminated(code: 0) else {
             throw AsyncProcessResult.Error.nonZeroExit(result)
@@ -1090,12 +1132,16 @@ extension AsyncProcess {
     @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
     @available(*, deprecated, renamed: "checkNonZeroExit(arguments:environmentBlock:loggingHandler:)")
     @discardableResult
-    static package func checkNonZeroExit(
+    package static func checkNonZeroExit(
         arguments: [String],
         environment: [String: String] = ProcessEnv.vars,
         loggingHandler: LoggingHandler? = .none
     ) async throws -> String {
-        try await checkNonZeroExit(arguments: arguments, environmentBlock: .init(environment), loggingHandler: loggingHandler)
+        try await self.checkNonZeroExit(
+            arguments: arguments,
+            environmentBlock: .init(environment),
+            loggingHandler: loggingHandler
+        )
     }
 
     /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
@@ -1107,24 +1153,32 @@ extension AsyncProcess {
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process output (stdout + stderr).
     @discardableResult
-    static package func checkNonZeroExit(
+    package static func checkNonZeroExit(
         args: String...,
         environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
         loggingHandler: LoggingHandler? = .none
     ) async throws -> String {
-        try await checkNonZeroExit(arguments: args, environmentBlock: environmentBlock, loggingHandler: loggingHandler)
+        try await self.checkNonZeroExit(
+            arguments: args,
+            environmentBlock: environmentBlock,
+            loggingHandler: loggingHandler
+        )
     }
 
     @_disfavoredOverload
     @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
     @available(*, deprecated, renamed: "checkNonZeroExit(args:environmentBlock:loggingHandler:)")
     @discardableResult
-    static package func checkNonZeroExit(
+    package static func checkNonZeroExit(
         args: String...,
         environment: [String: String] = ProcessEnv.vars,
         loggingHandler: LoggingHandler? = .none
     ) async throws -> String {
-        try await checkNonZeroExit(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
+        try await self.checkNonZeroExit(
+            arguments: args,
+            environmentBlock: .init(environment),
+            loggingHandler: loggingHandler
+        )
     }
 }
 
@@ -1139,7 +1193,7 @@ extension AsyncProcess {
     ///   - queue: Queue to use for callbacks
     ///   - completion: A completion handler to return the process result
     @available(*, noasync)
-    static package func popen(
+    package static func popen(
         arguments: [String],
         environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
         loggingHandler: LoggingHandler? = .none,
@@ -1167,14 +1221,14 @@ extension AsyncProcess {
 
     @_disfavoredOverload
     @available(*, deprecated, renamed: "popen(arguments:environmentBlock:loggingHandler:queue:completion:)")
-    static package func popen(
+    package static func popen(
         arguments: [String],
-        environment: [String:String] = ProcessEnv.vars,
+        environment: [String: String] = ProcessEnv.vars,
         loggingHandler: LoggingHandler? = .none,
         queue: DispatchQueue? = nil,
         completion: @escaping (Result<AsyncProcessResult, Swift.Error>) -> Void
     ) {
-        popen(
+        self.popen(
             arguments: arguments,
             environmentBlock: .init(environment),
             loggingHandler: loggingHandler,
@@ -1193,7 +1247,7 @@ extension AsyncProcess {
     /// - Returns: The process result.
     @available(*, noasync)
     @discardableResult
-    static package func popen(
+    package static func popen(
         arguments: [String],
         environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
         loggingHandler: LoggingHandler? = .none
@@ -1211,12 +1265,12 @@ extension AsyncProcess {
     @_disfavoredOverload
     @available(*, deprecated, renamed: "popen(arguments:environmentBlock:loggingHandler:)")
     @discardableResult
-    static package func popen(
+    package static func popen(
         arguments: [String],
-        environment: [String:String] = ProcessEnv.vars,
+        environment: [String: String] = ProcessEnv.vars,
         loggingHandler: LoggingHandler? = .none
     ) throws -> AsyncProcessResult {
-        try popen(arguments: arguments, environmentBlock: .init(environment), loggingHandler: loggingHandler)
+        try self.popen(arguments: arguments, environmentBlock: .init(environment), loggingHandler: loggingHandler)
     }
 
     /// Execute a subprocess and block until it finishes execution
@@ -1229,23 +1283,23 @@ extension AsyncProcess {
     /// - Returns: The process result.
     @available(*, noasync)
     @discardableResult
-    static package func popen(
+    package static func popen(
         args: String...,
         environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
         loggingHandler: LoggingHandler? = .none
     ) throws -> AsyncProcessResult {
-        return try AsyncProcess.popen(arguments: args, environmentBlock: environmentBlock, loggingHandler: loggingHandler)
+        try AsyncProcess.popen(arguments: args, environmentBlock: environmentBlock, loggingHandler: loggingHandler)
     }
 
     @_disfavoredOverload
     @available(*, deprecated, renamed: "popen(args:environmentBlock:loggingHandler:)")
     @discardableResult
-    static package func popen(
+    package static func popen(
         args: String...,
-        environment: [String:String] = ProcessEnv.vars,
+        environment: [String: String] = ProcessEnv.vars,
         loggingHandler: LoggingHandler? = .none
     ) throws -> AsyncProcessResult {
-        return try AsyncProcess.popen(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
+        try AsyncProcess.popen(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
     }
 
     /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
@@ -1258,7 +1312,7 @@ extension AsyncProcess {
     /// - Returns: The process output (stdout + stderr).
     @available(*, noasync)
     @discardableResult
-    static package func checkNonZeroExit(
+    package static func checkNonZeroExit(
         arguments: [String],
         environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
         loggingHandler: LoggingHandler? = .none
@@ -1281,12 +1335,16 @@ extension AsyncProcess {
     @_disfavoredOverload
     @available(*, deprecated, renamed: "checkNonZeroExit(arguments:environmentBlock:loggingHandler:)")
     @discardableResult
-    static package func checkNonZeroExit(
+    package static func checkNonZeroExit(
         arguments: [String],
-        environment: [String:String] = ProcessEnv.vars,
+        environment: [String: String] = ProcessEnv.vars,
         loggingHandler: LoggingHandler? = .none
     ) throws -> String {
-        try checkNonZeroExit(arguments: arguments, environmentBlock: .init(environment), loggingHandler: loggingHandler)
+        try self.checkNonZeroExit(
+            arguments: arguments,
+            environmentBlock: .init(environment),
+            loggingHandler: loggingHandler
+        )
     }
 
     /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
@@ -1299,23 +1357,23 @@ extension AsyncProcess {
     /// - Returns: The process output (stdout + stderr).
     @available(*, noasync)
     @discardableResult
-    static package func checkNonZeroExit(
+    package static func checkNonZeroExit(
         args: String...,
         environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
         loggingHandler: LoggingHandler? = .none
     ) throws -> String {
-        return try checkNonZeroExit(arguments: args, environmentBlock: environmentBlock, loggingHandler: loggingHandler)
+        try self.checkNonZeroExit(arguments: args, environmentBlock: environmentBlock, loggingHandler: loggingHandler)
     }
 
     @_disfavoredOverload
     @available(*, deprecated, renamed: "checkNonZeroExit(args:environmentBlock:loggingHandler:)")
     @discardableResult
-    static package func checkNonZeroExit(
+    package static func checkNonZeroExit(
         args: String...,
-        environment: [String:String] = ProcessEnv.vars,
+        environment: [String: String] = ProcessEnv.vars,
         loggingHandler: LoggingHandler? = .none
     ) throws -> String {
-        try checkNonZeroExit(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
+        try self.checkNonZeroExit(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
     }
 }
 
@@ -1339,23 +1397,23 @@ private typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_
 #endif
 
 private func WIFEXITED(_ status: Int32) -> Bool {
-    return _WSTATUS(status) == 0
+    _WSTATUS(status) == 0
 }
 
 private func _WSTATUS(_ status: Int32) -> Int32 {
-    return status & 0x7f
+    status & 0x7F
 }
 
 private func WIFSIGNALED(_ status: Int32) -> Bool {
-    return (_WSTATUS(status) != 0) && (_WSTATUS(status) != 0x7f)
+    (_WSTATUS(status) != 0) && (_WSTATUS(status) != 0x7F)
 }
 
 private func WEXITSTATUS(_ status: Int32) -> Int32 {
-    return (status >> 8) & 0xff
+    (status >> 8) & 0xFF
 }
 
 private func WTERMSIG(_ status: Int32) -> Int32 {
-    return status & 0x7f
+    status & 0x7F
 }
 
 /// Open the given pipe.
@@ -1382,18 +1440,18 @@ extension AsyncProcess.Error: CustomStringConvertible {
     package var description: String {
         switch self {
         case .missingExecutableProgram(let program):
-            return "could not find executable for '\(program)'"
+            "could not find executable for '\(program)'"
         case .workingDirectoryNotSupported:
-            return "workingDirectory is not supported in this platform"
+            "workingDirectory is not supported in this platform"
         case .stdinUnavailable:
-            return "could not open stdin on this platform"
+            "could not open stdin on this platform"
         }
     }
 }
 
 extension AsyncProcess.Error: CustomNSError {
-    package var errorUserInfo: [String : Any] {
-        return [NSLocalizedDescriptionKey: self.description]
+    package var errorUserInfo: [String: Any] {
+        [NSLocalizedDescriptionKey: self.description]
     }
 }
 
@@ -1411,22 +1469,22 @@ extension AsyncProcessResult.Error: CustomStringConvertible {
             switch result.exitStatus {
             case .terminated(let code):
                 str.append(contentsOf: "terminated(\(code)): ")
-#if os(Windows)
+            #if os(Windows)
             case .abnormal(let exception):
                 str.append(contentsOf: "abnormal(\(exception)): ")
-#else
+            #else
             case .signalled(let signal):
                 str.append(contentsOf: "signalled(\(signal)): ")
-#endif
+            #endif
             }
 
             // Strip sandbox information from arguments to keep things pretty.
             var args = result.arguments
             // This seems a little fragile.
             if args.first == "sandbox-exec", args.count > 3 {
-                args = args.suffix(from: 3).map({$0})
+                args = args.suffix(from: 3).map { $0 }
             }
-            str.append(contentsOf: args.map({ $0.spm_shellEscaped() }).joined(separator: " "))
+            str.append(contentsOf: args.map { $0.spm_shellEscaped() }.joined(separator: " "))
 
             // Include the output, if present.
             if let output = try? result.utf8Output() + result.utf8stderrOutput() {
@@ -1448,15 +1506,15 @@ extension AsyncProcessResult.Error: CustomStringConvertible {
 #if os(Windows)
 extension FileHandle: WritableByteStream {
     package var position: Int {
-        return Int(offsetInFile)
+        Int(offsetInFile)
     }
 
     package func write(_ byte: UInt8) {
-        write(Data([byte]))
+        self.write(Data([byte]))
     }
 
-    package func write<C: Collection>(_ bytes: C) where C.Element == UInt8 {
-        write(Data(bytes))
+    package func write(_ bytes: some Collection<UInt8>) {
+        self.write(Data(bytes))
     }
 
     package func flush() {
