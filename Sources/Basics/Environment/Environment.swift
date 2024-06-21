@@ -47,6 +47,7 @@ public struct Environment {
 }
 
 // MARK: - Accessors
+
 extension Environment {
     package init() {
         self.storage = .init()
@@ -59,6 +60,7 @@ extension Environment {
 }
 
 // MARK: - Conversions between Dictionary<String, String>
+
 extension Environment {
     package init(_ dictionary: [String: String]) {
         self.storage = .init()
@@ -69,7 +71,7 @@ extension Environment {
     }
 }
 
-extension Dictionary<String, String> {
+extension [String: String] {
     package init(_ environment: Environment) {
         self.init()
         let sorted = environment.sorted { $0.key < $1.key }
@@ -80,6 +82,7 @@ extension Dictionary<String, String> {
 }
 
 // MARK: - Path Modification
+
 extension Environment {
     package mutating func prependPath(key: EnvironmentKey, value: String) {
         guard !value.isEmpty else { return }
@@ -109,6 +112,7 @@ extension Environment {
 }
 
 // MARK: - Global Environment
+
 extension Environment {
     static let _cachedCurrent = Mutex<Self?>(value: nil)
 
@@ -201,7 +205,7 @@ extension Environment {
     /// > Important: This operation is _not_ concurrency safe.
     package static func set(key: EnvironmentKey, value: String?) throws {
         #if os(Windows)
-        func SetEnvironmentVariableW(_ key: String, _ value: String?) -> Bool {
+        func _SetEnvironmentVariableW(_ key: String, _ value: String?) -> Bool {
             key.withCString(encodedAs: UTF16.self) { key in
                 if let value {
                     value.withCString(encodedAs: UTF16.self) { value in
@@ -221,40 +225,46 @@ extension Environment {
         defer { Self._cachedCurrent.withLock { $0 = nil } }
         if let value = value {
             #if os(Windows)
-            guard SetEnvironmentVariableW(key.rawValue, value) else {
+            guard _SetEnvironmentVariableW(key.rawValue, value) else {
                 throw UpdateEnvironmentError(
                     function: "SetEnvironmentVariableW",
-                    code: Int32(GetLastError()))
+                    code: Int32(GetLastError())
+                )
             }
             guard _putenv("\(key)=\(value)") == 0 else {
                 throw UpdateEnvironmentError(
                     function: "_putenv",
-                    code: Int32(GetLastError()))
+                    code: Int32(GetLastError())
+                )
             }
             #else
             guard setenv(key.rawValue, value, 1) == 0 else {
                 throw UpdateEnvironmentError(
                     function: "setenv",
-                    code: errno)
+                    code: errno
+                )
             }
             #endif
         } else {
             #if os(Windows)
-            guard SetEnvironmentVariableW(key.rawValue, nil) else {
+            guard _SetEnvironmentVariableW(key.rawValue, nil) else {
                 throw UpdateEnvironmentError(
                     function: "SetEnvironmentVariableW",
-                    code: Int32(GetLastError()))
+                    code: Int32(GetLastError())
+                )
             }
             guard _putenv("\(key)=") == 0 else {
                 throw UpdateEnvironmentError(
                     function: "_putenv",
-                    code: Int32(GetLastError()))
+                    code: Int32(GetLastError())
+                )
             }
             #else
             guard unsetenv(key.rawValue) == 0 else {
                 throw UpdateEnvironmentError(
                     function: "unsetenv",
-                    code: errno)
+                    code: errno
+                )
             }
             #endif
         }
@@ -262,6 +272,7 @@ extension Environment {
 }
 
 // MARK: - Cachable Keys
+
 extension Environment {
     /// Returns a copy of `self` with known non-cacheable keys removed.
     ///
@@ -278,6 +289,7 @@ extension Environment {
 }
 
 // MARK: - Protocol Conformances
+
 extension Environment: Collection {
     public struct Index: Comparable {
         public static func < (lhs: Self, rhs: Self) -> Bool {
@@ -286,6 +298,7 @@ extension Environment: Collection {
 
         var underlying: Dictionary<EnvironmentKey, String>.Index
     }
+
     public typealias Element = (key: EnvironmentKey, value: String)
 
     public var startIndex: Index {
@@ -321,7 +334,7 @@ extension Environment: Encodable {
     }
 }
 
-extension Environment: Equatable { }
+extension Environment: Equatable {}
 
 extension Environment: ExpressibleByDictionaryLiteral {
     public typealias Key = EnvironmentKey

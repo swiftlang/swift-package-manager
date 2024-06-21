@@ -12,9 +12,9 @@
 
 import struct TSCBasic.ProcessEnvironmentBlock
 
+import struct TSCBasic.AbsolutePath
 import class TSCBasic.Process
 import struct TSCBasic.ProcessResult
-import struct TSCBasic.AbsolutePath
 
 import Dispatch
 
@@ -41,6 +41,7 @@ extension ProcessEnvironmentBlock {
 }
 
 // MARK: - Process Shims
+
 extension TSCBasic.Process {
     package convenience init(
         arguments: [String],
@@ -51,9 +52,22 @@ extension TSCBasic.Process {
         loggingHandler: LoggingHandler? = .none
     ) {
         if let workingDirectory {
-            self.init(arguments: arguments, environmentBlock: .init(environment), workingDirectory: workingDirectory, outputRedirection: outputRedirection, startNewProcessGroup: startNewProcessGroup, loggingHandler: loggingHandler)
+            self.init(
+                arguments: arguments,
+                environmentBlock: .init(environment),
+                workingDirectory: workingDirectory,
+                outputRedirection: outputRedirection,
+                startNewProcessGroup: startNewProcessGroup,
+                loggingHandler: loggingHandler
+            )
         } else {
-            self.init(arguments: arguments, environmentBlock: .init(environment), outputRedirection: outputRedirection, startNewProcessGroup: startNewProcessGroup, loggingHandler: loggingHandler)
+            self.init(
+                arguments: arguments,
+                environmentBlock: .init(environment),
+                outputRedirection: outputRedirection,
+                startNewProcessGroup: startNewProcessGroup,
+                loggingHandler: loggingHandler
+            )
         }
     }
 }
@@ -66,7 +80,13 @@ extension TSCBasic.Process {
         queue: DispatchQueue? = nil,
         completion: @escaping (Result<ProcessResult, Swift.Error>) -> Void
     ) {
-        popen(arguments: arguments, environmentBlock: .init(environment), loggingHandler: loggingHandler,queue: queue,completion: completion)
+        popen(
+            arguments: arguments,
+            environmentBlock: .init(environment),
+            loggingHandler: loggingHandler,
+            queue: queue,
+            completion: completion
+        )
     }
 
     @discardableResult
@@ -120,7 +140,11 @@ extension TSCBasic.Process {
         environment: Environment,
         loggingHandler: LoggingHandler? = nil
     ) async throws -> String {
-        try await checkNonZeroExit(arguments: arguments, environmentBlock: .init(environment), loggingHandler: loggingHandler)
+        try await checkNonZeroExit(
+            arguments: arguments,
+            environmentBlock: .init(environment),
+            loggingHandler: loggingHandler
+        )
     }
 
     @discardableResult
@@ -132,18 +156,22 @@ extension TSCBasic.Process {
         try checkNonZeroExit(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
     }
 
-
     @discardableResult
     package static func checkNonZeroExit(
         args: String...,
         environment: Environment,
         loggingHandler: LoggingHandler? = nil
     ) async throws -> String {
-        try await checkNonZeroExit(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
+        try await checkNonZeroExit(
+            arguments: args,
+            environmentBlock: .init(environment),
+            loggingHandler: loggingHandler
+        )
     }
 }
 
 // MARK: ProcessResult Shims
+
 extension ProcessResult {
     package init(
         arguments: [String],
@@ -152,6 +180,12 @@ extension ProcessResult {
         output: Result<[UInt8], Swift.Error>,
         stderrOutput: Result<[UInt8], Swift.Error>
     ) {
-        self.init(arguments: arguments, environmentBlock: .init(environment), exitStatus: exitStatus, output: output, stderrOutput: stderrOutput)
+        self.init(
+            arguments: arguments,
+            environmentBlock: .init(environment),
+            exitStatus: exitStatus,
+            output: output,
+            stderrOutput: stderrOutput
+        )
     }
 }
