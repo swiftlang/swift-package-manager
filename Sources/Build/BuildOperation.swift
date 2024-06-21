@@ -213,7 +213,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                         // return the build description that's on disk.
                         let buildDescription = try BuildDescription.load(fileSystem: self.fileSystem, path: buildDescriptionPath)
 
-                        // We need to check that the build traits enabled for the cached build operation
+                        // We need to check that the build has same traits enabled for the cached build operation
                         // match otherwise we have to re-plan.
                         if buildDescription.traitConfiguration == self.traitConfiguration {
                             return buildDescription
