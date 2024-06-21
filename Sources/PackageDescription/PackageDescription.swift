@@ -10,13 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if canImport(Glibc)
-@_implementationOnly import Glibc
-#elseif canImport(Musl)
-@_implementationOnly import Musl
-#elseif canImport(Darwin)
-@_implementationOnly import Darwin.C
-#elseif canImport(ucrt) && canImport(WinSDK)
+#if canImport(ucrt) && canImport(WinSDK)
 @_implementationOnly import ucrt
 @_implementationOnly import struct WinSDK.HANDLE
 #endif

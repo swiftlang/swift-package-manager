@@ -24,14 +24,12 @@ import SPMTestSupport
 import Workspace
 import XCTest
 
-import enum TSCBasic.ProcessEnv
-
 final class APIDiffTests: CommandsTestCase {
     @discardableResult
     private func execute(
         _ args: [String],
         packagePath: AbsolutePath? = nil,
-        env: EnvironmentVariables? = nil
+        env: Environment? = nil
     ) async throws -> (stdout: String, stderr: String) {
         var environment = env ?? [:]
         // don't ignore local packages when caching
@@ -43,7 +41,7 @@ final class APIDiffTests: CommandsTestCase {
         try skipIfApiDigesterUnsupported()
         // The following is added to separate out the integration point testing of the API
         // diff digester with SwiftPM from the functionality tests of the digester itself
-        guard ProcessEnv.block["SWIFTPM_TEST_API_DIFF_OUTPUT"] == "1" else {
+        guard Environment.current["SWIFTPM_TEST_API_DIFF_OUTPUT"] == "1" else {
             throw XCTSkip("Env var SWIFTPM_TEST_API_DIFF_OUTPUT must be set to test the output")
         }
     }

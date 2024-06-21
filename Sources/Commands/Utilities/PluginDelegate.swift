@@ -32,7 +32,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         self.lineBufferedOutput = Data()
     }
 
-    func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables) {
+    func pluginCompilationStarted(commandLine: [String], environment: [String: String]) {
     }
 
     func pluginCompilationEnded(result: PluginCompilationResult) {
@@ -161,6 +161,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         let buildSystem = try swiftCommandState.createBuildSystem(
             explicitBuildSystem: .native,
             explicitProduct: explicitProduct,
+            traitConfiguration: .init(),
             cacheBuildManifest: false,
             productsBuildParameters: buildParameters,
             outputStream: outputStream,
@@ -223,7 +224,10 @@ final class PluginDelegate: PluginInvocationDelegate {
         var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
         toolsBuildParameters.testingParameters.enableTestability = true
         toolsBuildParameters.testingParameters.enableCodeCoverage = parameters.enableCodeCoverage
-        let buildSystem = try swiftCommandState.createBuildSystem(toolsBuildParameters: toolsBuildParameters)
+        let buildSystem = try swiftCommandState.createBuildSystem(
+            traitConfiguration: .init(),
+            toolsBuildParameters: toolsBuildParameters
+        )
         try buildSystem.build(subset: .allIncludingTests)
 
         // Clean out the code coverage directory that may contain stale `profraw` files from a previous run of
@@ -381,7 +385,11 @@ final class PluginDelegate: PluginInvocationDelegate {
         // while building.
 
         // Create a build system for building the target., skipping the the cache because we need the build plan.
-        let buildSystem = try swiftCommandState.createBuildSystem(explicitBuildSystem: .native, cacheBuildManifest: false)
+        let buildSystem = try swiftCommandState.createBuildSystem(
+            explicitBuildSystem: .native,
+            traitConfiguration: .init(),
+            cacheBuildManifest: false
+        )
 
         // Find the target in the build operation's package graph; it's an error if we don't find it.
         let packageGraph = try buildSystem.getPackageGraph()

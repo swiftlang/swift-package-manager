@@ -139,6 +139,7 @@ struct APIDigesterBaselineDumper {
         // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the APIDigester. rdar://86112934
         let buildSystem = try swiftCommandState.createBuildSystem(
             explicitBuildSystem: .native,
+            traitConfiguration: .init(),
             cacheBuildManifest: false,
             productsBuildParameters: productsBuildParameters,
             toolsBuildParameters: toolsBuildParameters,

@@ -82,7 +82,7 @@ extension SwiftPM {
     public func execute(
         _ args: [String] = [],
         packagePath: AbsolutePath? = nil,
-        env: [String: String]? = nil
+        env: Environment? = nil
     ) async throws -> (stdout: String, stderr: String) {
         let result = try await executeProcess(
             args,
@@ -106,9 +106,9 @@ extension SwiftPM {
     private func executeProcess(
         _ args: [String],
         packagePath: AbsolutePath? = nil,
-        env: [String: String]? = nil
+        env: Environment? = nil
     ) async throws -> AsyncProcessResult {
-        var environment = ProcessEnv.block
+        var environment = Environment.current
 #if !os(Windows)
         environment["SDKROOT"] = nil
 #endif
@@ -129,7 +129,7 @@ extension SwiftPM {
         environment["SWIFTPM_EXEC_NAME"] = self.executableName
 
         for (key, value) in env ?? [:] {
-            environment[.init(key)] = value
+            environment[key] = value
         }
 
         var completeArgs = [xctestBinaryPath.pathString]
@@ -138,7 +138,7 @@ extension SwiftPM {
         }
         completeArgs += args
 
-        return try await AsyncProcess.popen(arguments: completeArgs, environmentBlock: environment)
+        return try await AsyncProcess.popen(arguments: completeArgs, environment: environment)
     }
 }
 

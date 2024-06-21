@@ -14,7 +14,6 @@ import Basics
 import PackageModel
 import SwiftDriver
 import class TSCBasic.Process
-import enum TSCBasic.ProcessEnv
 import struct TSCBasic.ProcessResult
 
 public enum DriverSupport {
@@ -68,7 +67,7 @@ public enum DriverSupport {
         do {
             let helpJob = try TSCBasic.Process.launchProcess(
                 arguments: [swiftcPathString, "-h"],
-                env: ProcessEnv.vars
+                env: .init(Environment.current)
             )
             let processResult = try helpJob.waitUntilExit()
             guard processResult.exitStatus == .terminated(code: 0) else {

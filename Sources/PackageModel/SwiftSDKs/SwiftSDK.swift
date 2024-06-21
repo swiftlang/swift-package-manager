@@ -14,7 +14,6 @@ import Basics
 import Foundation
 
 import class Basics.AsyncProcess
-import enum TSCBasic.ProcessEnv
 
 import struct TSCUtility.Version
 
@@ -497,7 +496,7 @@ public struct SwiftSDK: Equatable {
     public static func hostDestination(
         _ binDir: AbsolutePath? = nil,
         originalWorkingDirectory: AbsolutePath? = nil,
-        environment: [String: String]
+        environment: Environment
     ) throws -> SwiftSDK {
         try self.hostSwiftSDK(binDir, environment: environment)
     }
@@ -505,7 +504,7 @@ public struct SwiftSDK: Equatable {
     /// The Swift SDK for the host platform.
     public static func hostSwiftSDK(
         _ binDir: AbsolutePath? = nil,
-        environment: EnvironmentVariables = .process(),
+        environment: Environment = .current,
         observabilityScope: ObservabilityScope? = nil,
         fileSystem: any FileSystem = localFileSystem
     ) throws -> SwiftSDK {
@@ -575,7 +574,7 @@ public struct SwiftSDK: Equatable {
 
     /// Returns `macosx` sdk platform framework path.
     public static func sdkPlatformFrameworkPaths(
-        environment: EnvironmentVariables = .process()
+        environment: Environment = .current
     ) throws -> (fwk: AbsolutePath, lib: AbsolutePath) {
         if let path = _sdkPlatformFrameworkPath {
             return path

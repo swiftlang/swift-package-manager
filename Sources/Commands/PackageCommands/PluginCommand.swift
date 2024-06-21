@@ -19,8 +19,6 @@ import PackageGraph
 
 import PackageModel
 
-import enum TSCBasic.ProcessEnv
-
 struct PluginCommand: SwiftCommand {
     static let configuration = CommandConfiguration(
         commandName: "plugin",
@@ -315,12 +313,13 @@ struct PluginCommand: SwiftCommand {
 
         // Use the directory containing the compiler as an additional search directory, and add the $PATH.
         let toolSearchDirs = [try swiftCommandState.getTargetToolchain().swiftCompilerPath.parentDirectory]
-            + getEnvSearchPaths(pathString: ProcessEnv.path, currentWorkingDirectory: .none)
+            + getEnvSearchPaths(pathString: Environment.current[.path], currentWorkingDirectory: .none)
 
         let buildParameters = try swiftCommandState.toolsBuildParameters
         // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
         let buildSystem = try swiftCommandState.createBuildSystem(
             explicitBuildSystem: .native,
+            traitConfiguration: .init(),
             cacheBuildManifest: false,
             productsBuildParameters: swiftCommandState.productsBuildParameters,
             toolsBuildParameters: buildParameters,

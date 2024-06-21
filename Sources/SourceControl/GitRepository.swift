@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(ProcessEnvironmentBlockShim)
 import Basics
 import Dispatch
 import class Foundation.NSLock
@@ -20,7 +21,6 @@ import struct TSCBasic.FileInfo
 import enum TSCBasic.FileMode
 import struct TSCBasic.FileSystemError
 import class Basics.AsyncProcess
-import enum TSCBasic.ProcessEnv
 import struct Basics.AsyncProcessResult
 import struct TSCBasic.RegEx
 
@@ -42,7 +42,7 @@ private struct GitShellHelper {
     /// output as a string.
     func run(
         _ args: [String],
-        environment: EnvironmentVariables = Git.environment,
+        environment: Environment = .init(Git.environmentBlock),
         outputRedirection: AsyncProcess.OutputRedirection = .collect
     ) throws -> String {
         let process = AsyncProcess(
@@ -97,7 +97,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     @discardableResult
     private func callGit(
         _ args: [String],
-        environment: EnvironmentVariables = Git.environment,
+        environment: Environment = .init(Git.environmentBlock),
         repository: RepositorySpecifier,
         failureMessage: String = "",
         progress: FetchProgress.Handler? = nil
@@ -138,7 +138,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     @discardableResult
     private func callGit(
         _ args: String...,
-        environment: EnvironmentVariables = Git.environment,
+        environment: Environment = .init(Git.environmentBlock),
         repository: RepositorySpecifier,
         failureMessage: String = "",
         progress: FetchProgress.Handler? = nil
@@ -440,7 +440,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     @discardableResult
     private func callGit(
         _ args: String...,
-        environment: EnvironmentVariables = Git.environment,
+        environment: Environment = .init(Git.environmentBlock),
         failureMessage: String = "",
         progress: FetchProgress.Handler? = nil
     ) throws -> String {
@@ -464,8 +464,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                     environment: error.result.environment,
                     exitStatus: error.result.exitStatus,
                     output: .success(stdoutBytes),
-                    stderrOutput: .success(stderrBytes)
-                )
+                    stderrOutput: .success(stderrBytes))
                 throw GitRepositoryError(path: self.path, message: failureMessage, result: result)
             }
         } else {

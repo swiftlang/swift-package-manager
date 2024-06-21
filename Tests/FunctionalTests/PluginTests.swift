@@ -468,7 +468,7 @@ final class PluginTests: XCTestCase {
                     self.delegateQueue = delegateQueue
                 }
                 
-                func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables) {
+                func pluginCompilationStarted(commandLine: [String], environment: [String: String]) {
                 }
                 
                 func pluginCompilationEnded(result: PluginCompilationResult) {
@@ -757,7 +757,7 @@ final class PluginTests: XCTestCase {
                     self.delegateQueue = delegateQueue
                 }
                 
-                func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables) {
+                func pluginCompilationStarted(commandLine: [String], environment: [String: String]) {
                 }
                 
                 func pluginCompilationEnded(result: PluginCompilationResult) {

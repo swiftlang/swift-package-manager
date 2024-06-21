@@ -85,7 +85,7 @@ public func XCTAssertBuilds(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: EnvironmentVariables? = nil,
+    env: Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line
 ) async {
@@ -113,7 +113,7 @@ public func XCTAssertSwiftTest(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: EnvironmentVariables? = nil,
+    env: Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line
 ) async {
@@ -138,7 +138,7 @@ public func XCTAssertBuildFails(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: EnvironmentVariables? = nil,
+    env: Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line
 ) async -> CommandExecutionError? {

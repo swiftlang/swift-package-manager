@@ -155,13 +155,13 @@ final class IncrementalBuildTests: XCTestCase {
         try await fixture(name: "ValidLayouts/SingleModule/Library") { fixturePath in
             let dummySwiftcPath = SwiftPM.xctestBinaryPath(for: "dummy-swiftc")
             let swiftCompilerPath = try UserToolchain.default.swiftCompilerPath
-            let environment: ProcessEnvironmentBlock = [
+            let environment: Environment = [
                 "SWIFT_EXEC": dummySwiftcPath.pathString,
                 "SWIFT_ORIGINAL_PATH": swiftCompilerPath.pathString
             ]
             let sdkPathStr = try await AsyncProcess.checkNonZeroExit(
                 arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"],
-                environmentBlock: environment
+                environment: environment
             ).spm_chomp()
 
             let newSdkPathStr = "/tmp/../\(sdkPathStr)"

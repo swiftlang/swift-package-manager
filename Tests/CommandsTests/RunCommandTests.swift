@@ -16,7 +16,6 @@ import SPMTestSupport
 import XCTest
 
 import class Basics.AsyncProcess
-import enum TSCBasic.ProcessEnv
 
 final class RunCommandTests: CommandsTestCase {
     private func execute(
@@ -122,11 +121,11 @@ final class RunCommandTests: CommandsTestCase {
             let sync = DispatchGroup()
             let outputHandler = OutputHandler(sync: sync)
 
-            var environmentBlock = ProcessEnv.block
-            environmentBlock["SWIFTPM_EXEC_NAME"] = "swift-run"
+            var environment = Environment.current
+            environment["SWIFTPM_EXEC_NAME"] = "swift-run"
             let process = AsyncProcess(
                 arguments: [SwiftPM.Run.xctestBinaryPath.pathString, "--package-path", fixturePath.pathString],
-                environmentBlock: environmentBlock,
+                environment: environment,
                 outputRedirection: .stream(stdout: outputHandler.handle(bytes:), stderr: outputHandler.handle(bytes:))
             )
 

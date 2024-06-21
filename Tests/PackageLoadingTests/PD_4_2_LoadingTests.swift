@@ -20,8 +20,6 @@ import XCTest
 import class TSCBasic.InMemoryFileSystem
 import enum TSCBasic.PathValidationError
 
-import func TSCTestSupport.withCustomEnv
-
 import struct TSCUtility.Version
 
 @available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)

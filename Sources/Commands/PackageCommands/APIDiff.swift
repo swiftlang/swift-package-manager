@@ -67,6 +67,9 @@ struct APIDiff: SwiftCommand {
             help: "One or more targets to include in the API comparison. If present, only the specified targets (and any products specified using `--products`) will be compared.")
     var targets: [String] = []
 
+    @OptionGroup(visibility: .hidden)
+    package var traits: TraitOptions
+
     @Option(name: .customLong("baseline-dir"),
             help: "The path to a directory used to store API baseline files. If unspecified, a temporary directory will be used.")
     var overrideBaselineDir: AbsolutePath?
@@ -83,7 +86,11 @@ struct APIDiff: SwiftCommand {
         let baselineRevision = try repository.resolveRevision(identifier: treeish)
 
         // We turn build manifest caching off because we need the build plan.
-        let buildSystem = try swiftCommandState.createBuildSystem(explicitBuildSystem: .native, cacheBuildManifest: false)
+        let buildSystem = try swiftCommandState.createBuildSystem(
+            explicitBuildSystem: .native,
+            traitConfiguration: .init(traitOptions: self.traits),
+            cacheBuildManifest: false
+        )
 
         let packageGraph = try buildSystem.getPackageGraph()
         let modulesToDiff = try determineModulesToDiff(

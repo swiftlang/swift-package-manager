@@ -31,8 +31,6 @@ private import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
 
 import class TSCBasic.CStringArray
 import class TSCBasic.LocalFileOutputByteStream
-import enum TSCBasic.ProcessEnv
-import struct TSCBasic.ProcessEnvironmentBlock
 import enum TSCBasic.SystemError
 import class TSCBasic.Thread
 import protocol TSCBasic.WritableByteStream
@@ -67,12 +65,7 @@ package struct AsyncProcessResult: CustomStringConvertible, Sendable {
     package let arguments: [String]
 
     /// The environment with which the process was launched.
-    package let environmentBlock: ProcessEnvironmentBlock
-
-    @available(*, deprecated, renamed: "env")
-    package var environment: [String: String] {
-        [String: String](uniqueKeysWithValues: self.environmentBlock.map { ($0.key.value, $0.value) })
-    }
+    package let environment: Environment
 
     /// The exit status of the process.
     package let exitStatus: ExitStatus
@@ -90,7 +83,7 @@ package struct AsyncProcessResult: CustomStringConvertible, Sendable {
     /// See `waitpid(2)` for information on the exit status code.
     package init(
         arguments: [String],
-        environmentBlock: ProcessEnvironmentBlock,
+        environment: Environment,
         exitStatusCode: Int32,
         normal: Bool,
         output: Result<[UInt8], Swift.Error>,
@@ -113,27 +106,8 @@ package struct AsyncProcessResult: CustomStringConvertible, Sendable {
         #endif
         self.init(
             arguments: arguments,
-            environmentBlock: environmentBlock,
+            environment: environment,
             exitStatus: exitStatus,
-            output: output,
-            stderrOutput: stderrOutput
-        )
-    }
-
-    @available(*, deprecated, message: "use `init(arguments:environmentBlock:exitStatusCode:output:stderrOutput:)`")
-    package init(
-        arguments: [String],
-        environment: [String: String],
-        exitStatusCode: Int32,
-        normal: Bool,
-        output: Result<[UInt8], Swift.Error>,
-        stderrOutput: Result<[UInt8], Swift.Error>
-    ) {
-        self.init(
-            arguments: arguments,
-            environmentBlock: .init(environment),
-            exitStatusCode: exitStatusCode,
-            normal: normal,
             output: output,
             stderrOutput: stderrOutput
         )
@@ -142,33 +116,16 @@ package struct AsyncProcessResult: CustomStringConvertible, Sendable {
     /// Create an instance using an exit status and output result.
     package init(
         arguments: [String],
-        environmentBlock: ProcessEnvironmentBlock,
+        environment: Environment,
         exitStatus: ExitStatus,
         output: Result<[UInt8], Swift.Error>,
         stderrOutput: Result<[UInt8], Swift.Error>
     ) {
         self.arguments = arguments
-        self.environmentBlock = environmentBlock
+        self.environment = environment
         self.output = output
         self.stderrOutput = stderrOutput
         self.exitStatus = exitStatus
-    }
-
-    @available(*, deprecated, message: "use `init(arguments:environmentBlock:exitStatus:output:stderrOutput:)`")
-    package init(
-        arguments: [String],
-        environment: [String: String],
-        exitStatus: ExitStatus,
-        output: Result<[UInt8], Swift.Error>,
-        stderrOutput: Result<[UInt8], Swift.Error>
-    ) {
-        self.init(
-            arguments: arguments,
-            environmentBlock: .init(environment),
-            exitStatus: exitStatus,
-            output: output,
-            stderrOutput: stderrOutput
-        )
     }
 
     /// Converts stdout output bytes to string, assuming they're UTF8.
@@ -309,22 +266,10 @@ package final class AsyncProcess {
 
     package let loggingHandler: LoggingHandler?
 
-    /// The current environment.
-    @available(*, deprecated, message: "use ProcessEnv.vars instead")
-    package static var env: [String: String] {
-        ProcessEnv.vars
-    }
-
     /// The arguments to execute.
     package let arguments: [String]
 
-    /// The environment with which the process was executed.
-    @available(*, deprecated, message: "use `environmentBlock` instead")
-    package var environment: [String: String] {
-        [String: String](uniqueKeysWithValues: self.environmentBlock.map { ($0.key.value, $0.value) })
-    }
-
-    package let environmentBlock: ProcessEnvironmentBlock
+    package let environment: Environment
 
     /// The path to the directory under which to run the process.
     package let workingDirectory: AbsolutePath?
@@ -345,20 +290,6 @@ package final class AsyncProcess {
 
     private static let sharedCompletionQueue = DispatchQueue(label: "org.swift.tools-support-core.process-completion")
     private var completionQueue = AsyncProcess.sharedCompletionQueue
-
-    /// The result of the process execution. Available after process is terminated.
-    /// This will block while the process is awaiting result
-    @available(*, deprecated, message: "use waitUntilExit instead")
-    package var result: AsyncProcessResult? {
-        self.stateLock.withLock {
-            switch self.state {
-            case .complete(let result):
-                result
-            default:
-                nil
-            }
-        }
-    }
 
     // ideally we would use the state for this, but we need to access it while the waitForExit is locking state
     private var _launched = false
@@ -397,43 +328,18 @@ package final class AsyncProcess {
     ///
     package init(
         arguments: [String],
-        environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
+        environment: Environment = .current,
         workingDirectory: AbsolutePath,
         outputRedirection: OutputRedirection = .collect,
         startNewProcessGroup: Bool = true,
         loggingHandler: LoggingHandler? = .none
     ) {
         self.arguments = arguments
-        self.environmentBlock = environmentBlock
+        self.environment = environment
         self.workingDirectory = workingDirectory
         self.outputRedirection = outputRedirection
         self.startNewProcessGroup = startNewProcessGroup
         self.loggingHandler = loggingHandler ?? AsyncProcess.loggingHandler
-    }
-
-    @_disfavoredOverload
-    @available(macOS 10.15, *)
-    @available(
-        *,
-        deprecated,
-        renamed: "init(arguments:environmentBlock:workingDirectory:outputRedirection:startNewProcessGroup:loggingHandler:)"
-    )
-    package convenience init(
-        arguments: [String],
-        environment: [String: String] = ProcessEnv.vars,
-        workingDirectory: AbsolutePath,
-        outputRedirection: OutputRedirection = .collect,
-        startNewProcessGroup: Bool = true,
-        loggingHandler: LoggingHandler? = .none
-    ) {
-        self.init(
-            arguments: arguments,
-            environmentBlock: .init(environment),
-            workingDirectory: workingDirectory,
-            outputRedirection: outputRedirection,
-            startNewProcessGroup: startNewProcessGroup,
-            loggingHandler: loggingHandler
-        )
     }
 
     /// Create a new process instance.
@@ -449,66 +355,28 @@ package final class AsyncProcess {
     ///   - loggingHandler: Handler for logging messages
     package init(
         arguments: [String],
-        environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
+        environment: Environment = .current,
         outputRedirection: OutputRedirection = .collect,
         startNewProcessGroup: Bool = true,
         loggingHandler: LoggingHandler? = .none
     ) {
         self.arguments = arguments
-        self.environmentBlock = environmentBlock
+        self.environment = environment
         self.workingDirectory = nil
         self.outputRedirection = outputRedirection
         self.startNewProcessGroup = startNewProcessGroup
         self.loggingHandler = loggingHandler ?? AsyncProcess.loggingHandler
     }
 
-    @_disfavoredOverload
-    @available(
-        *,
-        deprecated,
-        renamed: "init(arguments:environmentBlock:outputRedirection:startNewProcessGroup:loggingHandler:)"
-    )
-    package convenience init(
-        arguments: [String],
-        environment: [String: String] = ProcessEnv.vars,
-        outputRedirection: OutputRedirection = .collect,
-        startNewProcessGroup: Bool = true,
-        loggingHandler: LoggingHandler? = .none
-    ) {
-        self.init(
-            arguments: arguments,
-            environmentBlock: .init(environment),
-            outputRedirection: outputRedirection,
-            startNewProcessGroup: startNewProcessGroup,
-            loggingHandler: loggingHandler
-        )
-    }
-
     package convenience init(
         args: String...,
-        environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
+        environment: Environment = .current,
         outputRedirection: OutputRedirection = .collect,
         loggingHandler: LoggingHandler? = .none
     ) {
         self.init(
             arguments: args,
-            environmentBlock: environmentBlock,
-            outputRedirection: outputRedirection,
-            loggingHandler: loggingHandler
-        )
-    }
-
-    @_disfavoredOverload
-    @available(*, deprecated, renamed: "init(args:environmentBlock:outputRedirection:loggingHandler:)")
-    package convenience init(
-        args: String...,
-        environment: [String: String] = ProcessEnv.vars,
-        outputRedirection: OutputRedirection = .collect,
-        loggingHandler: LoggingHandler? = .none
-    ) {
-        self.init(
-            arguments: args,
-            environmentBlock: .init(environment),
+            environment: environment,
             outputRedirection: outputRedirection,
             loggingHandler: loggingHandler
         )
@@ -538,7 +406,7 @@ package final class AsyncProcess {
         // From here on out, the program is an executable name, i.e. it doesn't contain a "/"
         let lookup: () -> AbsolutePath? = {
             let envSearchPaths = getEnvSearchPaths(
-                pathString: ProcessEnv.path,
+                pathString: Environment.current.path,
                 currentWorkingDirectory: cwdOpt
             )
             let value = lookupExecutablePath(
@@ -967,7 +835,7 @@ package final class AsyncProcess {
             // Construct the result.
             let executionResult = AsyncProcessResult(
                 arguments: arguments,
-                environmentBlock: environmentBlock,
+                environment: environment,
                 exitStatusCode: exitStatusCode,
                 normal: normalExit,
                 output: stdoutResult,
@@ -1052,28 +920,17 @@ extension AsyncProcess {
     ///   - loggingHandler: Handler for logging messages
     package static func popen(
         arguments: [String],
-        environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
+        environment: Environment = .current,
         loggingHandler: LoggingHandler? = .none
     ) async throws -> AsyncProcessResult {
         let process = AsyncProcess(
             arguments: arguments,
-            environmentBlock: environmentBlock,
+            environment: environment,
             outputRedirection: .collect,
             loggingHandler: loggingHandler
         )
         try process.launch()
         return try await process.waitUntilExit()
-    }
-
-    @_disfavoredOverload
-    @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
-    @available(*, deprecated, renamed: "popen(arguments:environmentBlock:loggingHandler:)")
-    package static func popen(
-        arguments: [String],
-        environment: [String: String] = ProcessEnv.vars,
-        loggingHandler: LoggingHandler? = .none
-    ) async throws -> AsyncProcessResult {
-        try await self.popen(arguments: arguments, environmentBlock: .init(environment), loggingHandler: loggingHandler)
     }
 
     /// Execute a subprocess and returns the result when it finishes execution
@@ -1085,21 +942,10 @@ extension AsyncProcess {
     ///   - loggingHandler: Handler for logging messages
     package static func popen(
         args: String...,
-        environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
+        environment: Environment = .current,
         loggingHandler: LoggingHandler? = .none
     ) async throws -> AsyncProcessResult {
-        try await self.popen(arguments: args, environmentBlock: environmentBlock, loggingHandler: loggingHandler)
-    }
-
-    @_disfavoredOverload
-    @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
-    @available(*, deprecated, renamed: "popen(args:environmentBlock:loggingHandler:)")
-    package static func popen(
-        args: String...,
-        environment: [String: String] = ProcessEnv.vars,
-        loggingHandler: LoggingHandler? = .none
-    ) async throws -> AsyncProcessResult {
-        try await self.popen(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
+        try await self.popen(arguments: args, environment: environment, loggingHandler: loggingHandler)
     }
 
     /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
@@ -1113,12 +959,12 @@ extension AsyncProcess {
     @discardableResult
     package static func checkNonZeroExit(
         arguments: [String],
-        environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
+        environment: Environment = .current,
         loggingHandler: LoggingHandler? = .none
     ) async throws -> String {
         let result = try await popen(
             arguments: arguments,
-            environmentBlock: environmentBlock,
+            environment: environment,
             loggingHandler: loggingHandler
         )
         // Throw if there was a non zero termination.
@@ -1126,22 +972,6 @@ extension AsyncProcess {
             throw AsyncProcessResult.Error.nonZeroExit(result)
         }
         return try result.utf8Output()
-    }
-
-    @_disfavoredOverload
-    @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
-    @available(*, deprecated, renamed: "checkNonZeroExit(arguments:environmentBlock:loggingHandler:)")
-    @discardableResult
-    package static func checkNonZeroExit(
-        arguments: [String],
-        environment: [String: String] = ProcessEnv.vars,
-        loggingHandler: LoggingHandler? = .none
-    ) async throws -> String {
-        try await self.checkNonZeroExit(
-            arguments: arguments,
-            environmentBlock: .init(environment),
-            loggingHandler: loggingHandler
-        )
     }
 
     /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
@@ -1155,28 +985,12 @@ extension AsyncProcess {
     @discardableResult
     package static func checkNonZeroExit(
         args: String...,
-        environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
+        environment: Environment = .current,
         loggingHandler: LoggingHandler? = .none
     ) async throws -> String {
         try await self.checkNonZeroExit(
             arguments: args,
-            environmentBlock: environmentBlock,
-            loggingHandler: loggingHandler
-        )
-    }
-
-    @_disfavoredOverload
-    @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
-    @available(*, deprecated, renamed: "checkNonZeroExit(args:environmentBlock:loggingHandler:)")
-    @discardableResult
-    package static func checkNonZeroExit(
-        args: String...,
-        environment: [String: String] = ProcessEnv.vars,
-        loggingHandler: LoggingHandler? = .none
-    ) async throws -> String {
-        try await self.checkNonZeroExit(
-            arguments: args,
-            environmentBlock: .init(environment),
+            environment: environment,
             loggingHandler: loggingHandler
         )
     }
@@ -1195,7 +1009,7 @@ extension AsyncProcess {
     @available(*, noasync)
     package static func popen(
         arguments: [String],
-        environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
+        environment: Environment = .current,
         loggingHandler: LoggingHandler? = .none,
         queue: DispatchQueue? = nil,
         completion: @escaping (Result<AsyncProcessResult, Swift.Error>) -> Void
@@ -1205,7 +1019,7 @@ extension AsyncProcess {
         do {
             let process = AsyncProcess(
                 arguments: arguments,
-                environmentBlock: environmentBlock,
+                environment: environment,
                 outputRedirection: .collect,
                 loggingHandler: loggingHandler
             )
@@ -1217,24 +1031,6 @@ extension AsyncProcess {
                 completion(.failure(error))
             }
         }
-    }
-
-    @_disfavoredOverload
-    @available(*, deprecated, renamed: "popen(arguments:environmentBlock:loggingHandler:queue:completion:)")
-    package static func popen(
-        arguments: [String],
-        environment: [String: String] = ProcessEnv.vars,
-        loggingHandler: LoggingHandler? = .none,
-        queue: DispatchQueue? = nil,
-        completion: @escaping (Result<AsyncProcessResult, Swift.Error>) -> Void
-    ) {
-        self.popen(
-            arguments: arguments,
-            environmentBlock: .init(environment),
-            loggingHandler: loggingHandler,
-            queue: queue,
-            completion: completion
-        )
     }
 
     /// Execute a subprocess and block until it finishes execution
@@ -1249,28 +1045,17 @@ extension AsyncProcess {
     @discardableResult
     package static func popen(
         arguments: [String],
-        environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
+        environment: Environment = .current,
         loggingHandler: LoggingHandler? = .none
     ) throws -> AsyncProcessResult {
         let process = AsyncProcess(
             arguments: arguments,
-            environmentBlock: environmentBlock,
+            environment: environment,
             outputRedirection: .collect,
             loggingHandler: loggingHandler
         )
         try process.launch()
         return try process.waitUntilExit()
-    }
-
-    @_disfavoredOverload
-    @available(*, deprecated, renamed: "popen(arguments:environmentBlock:loggingHandler:)")
-    @discardableResult
-    package static func popen(
-        arguments: [String],
-        environment: [String: String] = ProcessEnv.vars,
-        loggingHandler: LoggingHandler? = .none
-    ) throws -> AsyncProcessResult {
-        try self.popen(arguments: arguments, environmentBlock: .init(environment), loggingHandler: loggingHandler)
     }
 
     /// Execute a subprocess and block until it finishes execution
@@ -1285,21 +1070,10 @@ extension AsyncProcess {
     @discardableResult
     package static func popen(
         args: String...,
-        environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
+        environment: Environment = .current,
         loggingHandler: LoggingHandler? = .none
     ) throws -> AsyncProcessResult {
-        try AsyncProcess.popen(arguments: args, environmentBlock: environmentBlock, loggingHandler: loggingHandler)
-    }
-
-    @_disfavoredOverload
-    @available(*, deprecated, renamed: "popen(args:environmentBlock:loggingHandler:)")
-    @discardableResult
-    package static func popen(
-        args: String...,
-        environment: [String: String] = ProcessEnv.vars,
-        loggingHandler: LoggingHandler? = .none
-    ) throws -> AsyncProcessResult {
-        try AsyncProcess.popen(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
+        try AsyncProcess.popen(arguments: args, environment: environment, loggingHandler: loggingHandler)
     }
 
     /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
@@ -1314,12 +1088,12 @@ extension AsyncProcess {
     @discardableResult
     package static func checkNonZeroExit(
         arguments: [String],
-        environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
+        environment: Environment = .current,
         loggingHandler: LoggingHandler? = .none
     ) throws -> String {
         let process = AsyncProcess(
             arguments: arguments,
-            environmentBlock: environmentBlock,
+            environment: environment,
             outputRedirection: .collect,
             loggingHandler: loggingHandler
         )
@@ -1332,21 +1106,6 @@ extension AsyncProcess {
         return try result.utf8Output()
     }
 
-    @_disfavoredOverload
-    @available(*, deprecated, renamed: "checkNonZeroExit(arguments:environmentBlock:loggingHandler:)")
-    @discardableResult
-    package static func checkNonZeroExit(
-        arguments: [String],
-        environment: [String: String] = ProcessEnv.vars,
-        loggingHandler: LoggingHandler? = .none
-    ) throws -> String {
-        try self.checkNonZeroExit(
-            arguments: arguments,
-            environmentBlock: .init(environment),
-            loggingHandler: loggingHandler
-        )
-    }
-
     /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
     ///
     /// - Parameters:
@@ -1359,21 +1118,10 @@ extension AsyncProcess {
     @discardableResult
     package static func checkNonZeroExit(
         args: String...,
-        environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
+        environment: Environment = .current,
         loggingHandler: LoggingHandler? = .none
     ) throws -> String {
-        try self.checkNonZeroExit(arguments: args, environmentBlock: environmentBlock, loggingHandler: loggingHandler)
-    }
-
-    @_disfavoredOverload
-    @available(*, deprecated, renamed: "checkNonZeroExit(args:environmentBlock:loggingHandler:)")
-    @discardableResult
-    package static func checkNonZeroExit(
-        args: String...,
-        environment: [String: String] = ProcessEnv.vars,
-        loggingHandler: LoggingHandler? = .none
-    ) throws -> String {
-        try self.checkNonZeroExit(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
+        try self.checkNonZeroExit(arguments: args, environment: environment, loggingHandler: loggingHandler)
     }
 }
 

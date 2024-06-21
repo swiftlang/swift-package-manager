@@ -92,6 +92,7 @@ public struct TarArchiver: Archiver {
 
             let process = AsyncProcess(
                 arguments: [self.tarCommand, "acf", destinationPath.pathString, directory.basename],
+                environment: .current,
                 workingDirectory: directory.parentDirectory
             )
 
