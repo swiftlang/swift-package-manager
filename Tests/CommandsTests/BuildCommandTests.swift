@@ -33,7 +33,7 @@ final class BuildCommandTests: CommandsTestCase {
     @discardableResult
     private func execute(
         _ args: [String] = [],
-        environment: [String: String]? = nil,
+        environment: Environment? = nil,
         packagePath: AbsolutePath? = nil
     ) throws -> (stdout: String, stderr: String) {
         try SwiftPM.Build.execute(args, packagePath: packagePath, env: environment)
@@ -521,7 +521,7 @@ final class BuildCommandTests: CommandsTestCase {
             let dummySwiftcPath = SwiftPM.xctestBinaryPath(for: "dummy-swiftc")
             let swiftCompilerPath = try UserToolchain.default.swiftCompilerPath
 
-            var environment = [
+            var environment: Environment = [
                 "SWIFT_EXEC": dummySwiftcPath.pathString,
                 // Environment variables used by `dummy-swiftc.sh`
                 "SWIFT_ORIGINAL_PATH": swiftCompilerPath.pathString,
@@ -665,7 +665,7 @@ final class BuildCommandTests: CommandsTestCase {
     func testCodeCoverage() throws {
         // Test that no codecov directory is created if not specified when building.
         try fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
-            let buildResult = try self.build(["--build-tests"], packagePath: path, cleanAfterward: false)
+            _ = try self.build(["--build-tests"], packagePath: path, cleanAfterward: false)
             XCTAssertThrowsError(try SwiftPM.Test.execute(["--skip-build", "--enable-code-coverage"], packagePath: path))
         }
 

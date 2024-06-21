@@ -93,6 +93,7 @@ public struct TarArchiver: Archiver {
 
             let process = TSCBasic.Process(
                 arguments: [self.tarCommand, "acf", destinationPath.pathString, directory.basename],
+                environment: .current,
                 workingDirectory: directory.parentDirectory.underlying
             )
 

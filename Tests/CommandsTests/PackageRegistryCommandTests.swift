@@ -34,7 +34,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
     private func execute(
         _ args: [String],
         packagePath: AbsolutePath? = nil,
-        env: EnvironmentVariables? = nil
+        env: Environment? = nil
     ) throws -> (stdout: String, stderr: String) {
         var environment = env ?? [:]
         // don't ignore local packages when caching

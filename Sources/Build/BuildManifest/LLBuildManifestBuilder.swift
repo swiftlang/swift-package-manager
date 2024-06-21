@@ -23,7 +23,6 @@ import SwiftDriver
 #endif
 
 import struct TSCBasic.ByteString
-import enum TSCBasic.ProcessEnv
 import func TSCBasic.topologicalSort
 
 /// High-level interface to ``LLBuildManifest`` and ``LLBuildManifestWriter``.

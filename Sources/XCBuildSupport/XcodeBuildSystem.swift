@@ -25,7 +25,6 @@ import SPMBuildCore
 import func TSCBasic.memoize
 import protocol TSCBasic.OutputByteStream
 import class TSCBasic.Process
-import enum TSCBasic.ProcessEnv
 import func TSCBasic.withTemporaryFile
 
 import enum TSCUtility.Diagnostics
@@ -94,7 +93,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Xcode Build System")
 
-        if let xcbuildTool = ProcessEnv.block["XCBUILD_TOOL"] {
+        if let xcbuildTool = Environment.current["XCBUILD_TOOL"] {
             xcbuildPath = try AbsolutePath(validating: xcbuildTool)
         } else {
             let xcodeSelectOutput = try TSCBasic.Process.popen(args: "xcode-select", "-p").utf8Output().spm_chomp()
@@ -199,7 +198,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
 
         // We need to sanitize the environment we are passing to XCBuild because we could otherwise interfere with its
         // linked dependencies e.g. when we have a custom swift-driver dynamic library in the path.
-        var sanitizedEnvironment = ProcessEnv.vars
+        var sanitizedEnvironment = Environment.current
         sanitizedEnvironment["DYLD_LIBRARY_PATH"] = nil
 
         let process = TSCBasic.Process(

@@ -17,7 +17,6 @@ import SPMBuildCore
 import SPMLLBuild
 
 import class TSCBasic.LocalFileOutputByteStream
-import enum TSCBasic.ProcessEnv
 
 import class TSCUtility.IndexStore
 
@@ -380,7 +379,7 @@ final class PackageStructureCommand: CustomLLBuildCommand {
         var hash = Data()
         hash += try! encoder.encode(self.context.productsBuildParameters)
         hash += try! encoder.encode(self.context.toolsBuildParameters)
-        hash += try! encoder.encode(ProcessEnv.vars)
+        hash += try! encoder.encode(Environment.current)
         return [UInt8](hash)
     }
 

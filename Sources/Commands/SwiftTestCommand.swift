@@ -33,7 +33,6 @@ import Workspace
 import struct TSCBasic.ByteString
 import enum TSCBasic.JSON
 import class TSCBasic.Process
-import enum TSCBasic.ProcessEnv
 import var TSCBasic.stdoutStream
 import class TSCBasic.SynchronizedQueue
 import class TSCBasic.Thread
@@ -788,7 +787,7 @@ final class TestRunner {
     // The toolchain to use.
     private let toolchain: UserToolchain
 
-    private let testEnv: [String: String]
+    private let testEnv: Environment
 
     /// ObservabilityScope  to emit diagnostics.
     private let observabilityScope: ObservabilityScope
@@ -822,7 +821,7 @@ final class TestRunner {
         additionalArguments: [String],
         cancellator: Cancellator,
         toolchain: UserToolchain,
-        testEnv: [String: String],
+        testEnv: Environment,
         observabilityScope: ObservabilityScope,
         library: BuildParameters.Testing.Library
     ) {
@@ -971,7 +970,7 @@ final class ParallelTestRunner {
 
         // command's result output goes on stdout
         // ie "swift test" should output to stdout
-        if ProcessEnv.block["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
+        if Environment.current["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
             self.progressAnimation = ProgressAnimation.percent(
                 stream: TSCBasic.stdoutStream,
                 verbose: false,
@@ -1332,7 +1331,7 @@ extension TestCommandOptions {
 
     /// Returns the test case specifier if overridden in the env.
     private func skippedTestsOverride(fileSystem: FileSystem) -> TestCaseSpecifier? {
-        guard let override = ProcessEnv.block["_SWIFTPM_SKIP_TESTS_LIST"] else {
+        guard let override = Environment.current["_SWIFTPM_SKIP_TESTS_LIST"] else {
             return nil
         }
 

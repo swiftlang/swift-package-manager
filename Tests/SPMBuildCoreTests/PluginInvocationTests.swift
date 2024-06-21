@@ -339,14 +339,14 @@ final class PluginInvocationTests: XCTestCase {
             // Define a plugin compilation delegate that just captures the passed information.
             class Delegate: PluginScriptCompilerDelegate {
                 var commandLine: [String]? 
-                var environment: EnvironmentVariables?
+                var environment: Environment?
                 var compiledResult: PluginCompilationResult?
                 var cachedResult: PluginCompilationResult?
                 init() {
                 }
-                func willCompilePlugin(commandLine: [String], environment: EnvironmentVariables) {
+                func willCompilePlugin(commandLine: [String], environment: [String: String]) {
                     self.commandLine = commandLine
-                    self.environment = environment
+                    self.environment = .init(environment)
                 }
                 func didCompilePlugin(result: PluginCompilationResult) {
                     self.compiledResult = result
@@ -1055,7 +1055,7 @@ final class PluginInvocationTests: XCTestCase {
             /////////
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let environment = EnvironmentVariables.process()
+            let environment = Environment.current
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
                 location: try Workspace.Location(forRootPackage: packageDir, fileSystem: localFileSystem),
@@ -1248,7 +1248,7 @@ final class PluginInvocationTests: XCTestCase {
                     toolset: swiftSDK.toolset,
                     pathsConfiguration: swiftSDK.pathsConfiguration
                 ),
-                environment: .process()
+                environment: .current
             )
 
             // Create a plugin script runner for the duration of the test.

@@ -375,7 +375,7 @@ final class SwiftSDKBundleTests: XCTestCase {
             ]
         )
         let system = ObservabilitySystem.makeForTesting()
-        let hostSwiftSDK = try SwiftSDK.hostSwiftSDK(environment: .empty())
+        let hostSwiftSDK = try SwiftSDK.hostSwiftSDK(environment: [:])
         let hostTriple = try! Triple("arm64-apple-macosx14.0")
         let archiver = MockArchiver()
         let store = SwiftSDKBundleStore(

@@ -18,7 +18,6 @@ import Workspace
 import XCTest
 
 import class TSCBasic.Process
-import enum TSCBasic.ProcessEnv
 
 typealias ProcessID = TSCBasic.Process.ProcessID
 
@@ -237,7 +236,7 @@ class MiscellaneousTestCase: XCTestCase {
             )
 
             let moduleUser = fixturePath.appending("SystemModuleUserClang")
-            let env = ["PKG_CONFIG_PATH": fixturePath.pathString]
+            let env: Environment = ["PKG_CONFIG_PATH": fixturePath.pathString]
             _ = try executeSwiftBuild(moduleUser, env: env)
 
             XCTAssertFileExists(moduleUser.appending(components: ".build", triple.platformBuildPathComponent, "debug", "SystemModuleUserClang"))
@@ -416,7 +415,7 @@ class MiscellaneousTestCase: XCTestCase {
                 let (stdout, stderr) = try executeSwiftTest(fixturePath, extraArgs: ["-v"])
                 print("testTestsCanLinkAgainstExecutable failed")
                 print("ENV:\n")
-                for (k, v) in ProcessEnv.vars.sorted(by: { $0.key < $1.key }) {
+                for (k, v) in Environment.current.sorted(by: { $0.key < $1.key }) {
                     print("  \(k)=\(v)")
                 }
                 print("STDOUT:\n\(stdout)")
