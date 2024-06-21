@@ -55,6 +55,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// The path to scratch space (.build) directory.
     let scratchDirectory: AbsolutePath
 
+    /// The trait configuration for this build operation.
+    private let traitConfiguration: TraitConfiguration?
+
     /// The llbuild build system reference previously created
     /// via `createBuildSystem` call.
     private var current: (buildSystem: SPMLLBuild.BuildSystem, tracker: LLBuildProgressTracker)?
@@ -109,13 +112,49 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Map of  root package identities by target names which are declared in them.
     private let rootPackageIdentityByTargetName: [String: PackageIdentity]
 
-    public init(
+    public convenience init(
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
         cacheBuildManifest: Bool,
         packageGraphLoader: @escaping () throws -> ModulesGraph,
         pluginConfiguration: PluginConfiguration? = .none,
         scratchDirectory: AbsolutePath,
+        additionalFileRules: [FileRuleDescription],
+        pkgConfigDirectories: [AbsolutePath],
+        dependenciesByRootPackageIdentity: [PackageIdentity: [PackageIdentity]],
+        targetsByRootPackageIdentity: [PackageIdentity: [String]],
+        outputStream: OutputByteStream,
+        logLevel: Basics.Diagnostic.Severity,
+        fileSystem: Basics.FileSystem,
+        observabilityScope: ObservabilityScope
+    ) {
+        self.init(
+            productsBuildParameters: productsBuildParameters,
+            toolsBuildParameters: toolsBuildParameters,
+            cacheBuildManifest: cacheBuildManifest,
+            packageGraphLoader: packageGraphLoader,
+            pluginConfiguration: pluginConfiguration,
+            scratchDirectory: scratchDirectory,
+            traitConfiguration: nil,
+            additionalFileRules: additionalFileRules,
+            pkgConfigDirectories: pkgConfigDirectories,
+            dependenciesByRootPackageIdentity: dependenciesByRootPackageIdentity,
+            targetsByRootPackageIdentity: targetsByRootPackageIdentity,
+            outputStream: outputStream,
+            logLevel: logLevel,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+    }
+
+    package init(
+        productsBuildParameters: BuildParameters,
+        toolsBuildParameters: BuildParameters,
+        cacheBuildManifest: Bool,
+        packageGraphLoader: @escaping () throws -> ModulesGraph,
+        pluginConfiguration: PluginConfiguration? = .none,
+        scratchDirectory: AbsolutePath,
+        traitConfiguration: TraitConfiguration?,
         additionalFileRules: [FileRuleDescription],
         pkgConfigDirectories: [AbsolutePath],
         dependenciesByRootPackageIdentity: [PackageIdentity: [PackageIdentity]],
@@ -139,6 +178,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.additionalFileRules = additionalFileRules
         self.pluginConfiguration = pluginConfiguration
         self.scratchDirectory = scratchDirectory
+        self.traitConfiguration = traitConfiguration
         self.pkgConfigDirectories = pkgConfigDirectories
         self.dependenciesByRootPackageIdentity = dependenciesByRootPackageIdentity
         self.rootPackageIdentityByTargetName = (try? Dictionary<String, PackageIdentity>(throwingUniqueKeysWithValues: targetsByRootPackageIdentity.lazy.flatMap { e in e.value.map { ($0, e.key) } })) ?? [:]
@@ -171,7 +211,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                             throw InternalError("could not find build descriptor at \(buildDescriptionPath)")
                         }
                         // return the build description that's on disk.
-                        return try BuildDescription.load(fileSystem: self.fileSystem, path: buildDescriptionPath)
+                        let buildDescription = try BuildDescription.load(fileSystem: self.fileSystem, path: buildDescriptionPath)
+
+                        // We need to check that the build traits enabled for the cached build operation
+                        // match otherwise we have to re-plan.
+                        if buildDescription.traitConfiguration == self.traitConfiguration {
+                            return buildDescription
+                        }
                     }
                 } catch {
                     // since caching is an optimization, warn about failing to load the cached version
@@ -614,6 +660,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 cacheBuildManifest: false,
                 packageGraphLoader: { graph },
                 scratchDirectory: pluginsBuildParameters.dataPath,
+                traitConfiguration: self.traitConfiguration,
                 additionalFileRules: self.additionalFileRules,
                 pkgConfigDirectories: self.pkgConfigDirectories,
                 dependenciesByRootPackageIdentity: [:],
@@ -737,6 +784,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         let (buildDescription, buildManifest) = try BuildDescription.create(
             with: plan,
+            traitConfiguration: self.traitConfiguration,
             disableSandboxForPluginCommands: self.pluginConfiguration?.disableSandbox ?? false,
             fileSystem: self.fileSystem,
             observabilityScope: self.observabilityScope
@@ -906,6 +954,7 @@ extension BuildOperation {
 extension BuildDescription {
     static func create(
         with plan: BuildPlan,
+        traitConfiguration: TraitConfiguration?,
         disableSandboxForPluginCommands: Bool,
         fileSystem: Basics.FileSystem,
         observabilityScope: ObservabilityScope
@@ -932,7 +981,8 @@ extension BuildDescription {
             testEntryPointCommands: testEntryPointCommands,
             copyCommands: copyCommands,
             writeCommands: writeCommands,
-            pluginDescriptions: plan.pluginDescriptions
+            pluginDescriptions: plan.pluginDescriptions,
+            traitConfiguration: traitConfiguration
         )
         try fileSystem.createDirectory(
             plan.destinationBuildParameters.buildDescriptionPath.parentDirectory,

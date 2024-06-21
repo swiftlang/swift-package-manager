@@ -14,6 +14,7 @@ import Basics
 import Foundation
 import LLBuildManifest
 import SPMBuildCore
+import PackageGraph
 
 import struct TSCBasic.ByteString
 
@@ -60,6 +61,9 @@ public struct BuildDescription: Codable {
     /// Distilled information about any plugins defined in the package.
     let pluginDescriptions: [PluginBuildDescription]
 
+    /// The enabled traits of the root package.
+    let traitConfiguration: TraitConfiguration?
+
     public init(
         plan: BuildPlan,
         swiftCommands: [LLBuildManifest.CmdName: SwiftCompilerTool],
@@ -70,6 +74,30 @@ public struct BuildDescription: Codable {
         writeCommands: [LLBuildManifest.CmdName: WriteAuxiliaryFile],
         pluginDescriptions: [PluginBuildDescription]
     ) throws {
+        try self.init(
+            plan: plan,
+            swiftCommands: swiftCommands,
+            swiftFrontendCommands: swiftFrontendCommands,
+            testDiscoveryCommands: testDiscoveryCommands,
+            testEntryPointCommands: testEntryPointCommands,
+            copyCommands: copyCommands,
+            writeCommands: writeCommands,
+            pluginDescriptions: pluginDescriptions,
+            traitConfiguration: nil
+        )
+    }
+
+    package init(
+        plan: BuildPlan,
+        swiftCommands: [LLBuildManifest.CmdName: SwiftCompilerTool],
+        swiftFrontendCommands: [LLBuildManifest.CmdName: SwiftFrontendTool],
+        testDiscoveryCommands: [LLBuildManifest.CmdName: TestDiscoveryTool],
+        testEntryPointCommands: [LLBuildManifest.CmdName: TestEntryPointTool],
+        copyCommands: [LLBuildManifest.CmdName: CopyTool],
+        writeCommands: [LLBuildManifest.CmdName: WriteAuxiliaryFile],
+        pluginDescriptions: [PluginBuildDescription],
+        traitConfiguration: TraitConfiguration?
+    ) throws {
         self.swiftCommands = swiftCommands
         self.swiftFrontendCommands = swiftFrontendCommands
         self.testDiscoveryCommands = testDiscoveryCommands
@@ -78,6 +106,7 @@ public struct BuildDescription: Codable {
         self.writeCommands = writeCommands
         self.explicitTargetDependencyImportCheckingMode = plan.destinationBuildParameters.driverParameters
             .explicitTargetDependencyImportCheckingMode
+        self.traitConfiguration = traitConfiguration
         self.targetDependencyMap = try plan.targets
             .reduce(into: [TargetName: [TargetName]]()) { partial, targetBuildDescription in
                 let deps = try targetBuildDescription.target.recursiveDependencies(

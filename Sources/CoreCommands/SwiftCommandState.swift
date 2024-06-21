@@ -615,6 +615,24 @@ public final class SwiftCommandState {
         explicitProduct: String? = nil,
         testEntryPointPath: AbsolutePath? = nil
     ) throws -> ModulesGraph {
+        try self.loadPackageGraph(
+            explicitProduct: explicitProduct,
+            traitConfiguration: nil,
+            testEntryPointPath: testEntryPointPath
+        )
+    }
+
+    /// Fetch and load the complete package graph.
+    ///
+    /// - Parameters:
+    ///   - explicitProduct: The product specified on the command line to a “swift run” or “swift build” command. This
+    /// allows executables from dependencies to be run directly without having to hook them up to any particular target.
+    @discardableResult
+    package func loadPackageGraph(
+        explicitProduct: String? = nil,
+        traitConfiguration: TraitConfiguration? = nil,
+        testEntryPointPath: AbsolutePath? = nil
+    ) throws -> ModulesGraph {
         do {
             let workspace = try getActiveWorkspace()
 
@@ -622,6 +640,7 @@ public final class SwiftCommandState {
             let graph = try workspace.loadPackageGraph(
                 rootInput: getWorkspaceRoot(),
                 explicitProduct: explicitProduct,
+                traitConfiguration: traitConfiguration,
                 forceResolvedVersions: options.resolver.forceResolvedVersions,
                 testEntryPointPath: testEntryPointPath,
                 observabilityScope: self.observabilityScope
@@ -699,6 +718,7 @@ public final class SwiftCommandState {
     public func createBuildSystem(
         explicitBuildSystem: BuildSystemProvider.Kind? = .none,
         explicitProduct: String? = .none,
+        traitConfiguration: TraitConfiguration,
         cacheBuildManifest: Bool = true,
         shouldLinkStaticSwiftStdlib: Bool = false,
         productsBuildParameters: BuildParameters? = .none,
@@ -718,6 +738,7 @@ public final class SwiftCommandState {
         let buildSystem = try buildSystemProvider.createBuildSystem(
             kind: explicitBuildSystem ?? options.build.buildSystem,
             explicitProduct: explicitProduct,
+            traitConfiguration: traitConfiguration,
             cacheBuildManifest: cacheBuildManifest,
             productsBuildParameters: productsParameters,
             toolsBuildParameters: toolsBuildParameters,

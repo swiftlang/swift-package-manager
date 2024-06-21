@@ -37,6 +37,43 @@ extension ModulesGraph {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> ModulesGraph {
+        try Self.load(
+            root: root,
+            identityResolver: identityResolver,
+            additionalFileRules: additionalFileRules,
+            externalManifests: externalManifests,
+            requiredDependencies: requiredDependencies,
+            unsafeAllowedPackages: unsafeAllowedPackages,
+            binaryArtifacts: binaryArtifacts,
+            shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
+            createREPLProduct: createREPLProduct,
+            traitConfiguration: nil,
+            customPlatformsRegistry: customPlatformsRegistry,
+            customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
+            testEntryPointPath: testEntryPointPath,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+    }
+
+    /// Load the package graph for the given package path.
+    package static func load(
+        root: PackageGraphRoot,
+        identityResolver: IdentityResolver,
+        additionalFileRules: [FileRuleDescription] = [],
+        externalManifests: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>,
+        requiredDependencies: [PackageReference] = [],
+        unsafeAllowedPackages: Set<PackageReference> = [],
+        binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]],
+        shouldCreateMultipleTestProducts: Bool = false,
+        createREPLProduct: Bool = false,
+        traitConfiguration: TraitConfiguration? = nil,
+        customPlatformsRegistry: PlatformRegistry? = .none,
+        customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
+        testEntryPointPath: AbsolutePath? = nil,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws -> ModulesGraph {
         let observabilityScope = observabilityScope.makeChildScope(description: "Loading Package Graph")
 
         // Create a map of the manifests, keyed by their identity.
@@ -52,14 +89,24 @@ extension ModulesGraph {
         })
 
         let rootManifestNodes = try root.packages.map { identity, package in
-            // We are going to enable all default traits of the root manifests.
-            // In a future PR we make this overridable by CLI options.
-            let enabledTraits = package.manifest.traits.lazy.filter { $0.isDefault }.map { $0.name }
+            // If we have enabled traits passed then we start with those. If there are no enabled
+            // traits passed then the default traits will be used.
+            var enabledTraits = traitConfiguration?.enabledTraits
+
+            // If all traits should be enabled we just get the set of all traits of the package
+            if traitConfiguration?.enableAllTraits ?? false {
+                enabledTraits = Set(package.manifest.traits.map { $0.name })
+            }
+
             return try GraphLoadingNode(
                 identity: identity,
                 manifest: package.manifest,
                 productFilter: .everything,
-                enabledTraits: Set(enabledTraits)
+                enabledTraits: calculateEnabledTraits(
+                    identity: identity,
+                    manifest: package.manifest,
+                    explictlyEnabledTraits: enabledTraits
+                )
             )
         }
         let rootDependencyNodes = try root.dependencies.lazy.compactMap { dependency in
@@ -68,7 +115,7 @@ extension ModulesGraph {
                     identity: dependency.identity,
                     manifest: $0.manifest,
                     productFilter: dependency.productFilter,
-                    enabledTraits: dependency.traits.flatMap { Set($0.map { $0.name }) }
+                    enabledTraits: []
                 )
             }
         }
@@ -85,7 +132,7 @@ extension ModulesGraph {
                     // We are going to check the conditionally enabled traits here and enable them if
                     // required. This checks the current node and then enables the conditional
                     // dependencies of the dependency node.
-                    let enabledTraits = dependency.traits?.filter {
+                    let explictlyEnabledTraits = dependency.traits?.filter {
                         guard let conditionTraits = $0.condition?.traits else {
                             return true
                         }
@@ -97,7 +144,11 @@ extension ModulesGraph {
                                 identity: dependency.identity,
                                 manifest: manifest,
                                 productFilter: dependency.productFilter,
-                                enabledTraits: enabledTraits.flatMap { Set($0) }
+                                enabledTraits: calculateEnabledTraits(
+                                    identity: dependency.identity,
+                                    manifest: manifest,
+                                    explictlyEnabledTraits: explictlyEnabledTraits.flatMap { Set($0) }
+                                )
                             ),
                             key: dependency.identity
                         )
@@ -739,6 +790,48 @@ private func emitDuplicateProductDiagnostic(
         product: productName,
         packages: packages
     )
+}
+
+private func calculateEnabledTraits(
+    identity: PackageIdentity,
+    manifest: Manifest,
+    explictlyEnabledTraits: Set<String>?
+) throws -> Set<String> {
+    // This the point where we flatten the enabled traits and resolve the recursive traits
+    var recursiveEnabledTraits = explictlyEnabledTraits ?? []
+    let areDefaultsEnabled = recursiveEnabledTraits.remove("defaults") != nil
+
+    // We are going to calculate which traits are actually enabled for a node here. To do this
+    // we have to check if default traits should be used and then flatten all the enabled traits.
+    for trait in recursiveEnabledTraits {
+        // Check if the enabled trait is a valid trait
+        if manifest.traits.first(where: { $0.name == trait }) == nil {
+            // The enabled trait is invalid
+            throw ModuleError.invalidTrait(package: identity, trait: trait)
+        }
+    }
+
+    // We have to enable all default traits if no traits are enabled or the defaults are explicitly enabled
+    if explictlyEnabledTraits == nil || areDefaultsEnabled {
+        recursiveEnabledTraits.formUnion(manifest.traits.lazy.filter { $0.isDefault }.map { $0.name })
+    }
+
+    while true {
+        let flattendEnabledTraits = Set(manifest.traits
+            .lazy
+            .filter { recursiveEnabledTraits.contains($0.name) }
+            .map { $0.enabledTraits }
+            .joined()
+        )
+        let newRecursiveEnabledTraits = recursiveEnabledTraits.union(flattendEnabledTraits)
+        if newRecursiveEnabledTraits.count == recursiveEnabledTraits.count {
+            break
+        } else {
+            recursiveEnabledTraits = newRecursiveEnabledTraits
+        }
+    }
+
+    return recursiveEnabledTraits
 }
 
 fileprivate extension Package {

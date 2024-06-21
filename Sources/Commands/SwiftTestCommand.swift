@@ -1377,6 +1377,8 @@ private func buildTestsIfNeeded(
     testProduct: String?
 ) throws -> [BuiltTestProduct] {
     let buildSystem = try swiftCommandState.createBuildSystem(
+        // TODO: Will support traits in test in a follow up PR
+        traitConfiguration: .init(),
         productsBuildParameters: productsBuildParameters,
         toolsBuildParameters: toolsBuildParameters
     )

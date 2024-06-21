@@ -891,6 +891,29 @@ extension Workspace {
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
         observabilityScope: ObservabilityScope
     ) throws -> ModulesGraph {
+        try self.loadPackageGraph(
+            rootInput: root,
+            explicitProduct: explicitProduct,
+            traitConfiguration: nil,
+            forceResolvedVersions: forceResolvedVersions,
+            customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
+            testEntryPointPath: testEntryPointPath,
+            expectedSigningEntities: expectedSigningEntities,
+            observabilityScope: observabilityScope
+        )
+    }
+
+    @discardableResult
+    package func loadPackageGraph(
+        rootInput root: PackageGraphRootInput,
+        explicitProduct: String? = nil,
+        traitConfiguration: TraitConfiguration? = nil,
+        forceResolvedVersions: Bool = false,
+        customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
+        testEntryPointPath: AbsolutePath? = nil,
+        expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
+        observabilityScope: ObservabilityScope
+    ) throws -> ModulesGraph {
         let start = DispatchTime.now()
         self.delegate?.willLoadGraph()
         defer {
@@ -931,6 +954,7 @@ extension Workspace {
             binaryArtifacts: binaryArtifacts,
             shouldCreateMultipleTestProducts: self.configuration.shouldCreateMultipleTestProducts,
             createREPLProduct: self.configuration.createREPLProduct,
+            traitConfiguration: traitConfiguration,
             customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
             testEntryPointPath: testEntryPointPath,
             fileSystem: self.fileSystem,
@@ -952,8 +976,24 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) throws -> ModulesGraph {
         try self.loadPackageGraph(
+            rootPath: rootPath,
+            explicitProduct: explicitProduct,
+            traitConfiguration: nil,
+            observabilityScope: observabilityScope
+        )
+    }
+
+    @discardableResult
+    package func loadPackageGraph(
+        rootPath: AbsolutePath,
+        explicitProduct: String? = nil,
+        traitConfiguration: TraitConfiguration? = nil,
+        observabilityScope: ObservabilityScope
+    ) throws -> ModulesGraph {
+        try self.loadPackageGraph(
             rootInput: PackageGraphRootInput(packages: [rootPath]),
             explicitProduct: explicitProduct,
+            traitConfiguration: traitConfiguration,
             observabilityScope: observabilityScope
         )
     }
