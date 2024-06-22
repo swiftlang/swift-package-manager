@@ -173,28 +173,11 @@ public class LLBuildManifestBuilder {
 
 extension LLBuildManifestBuilder {
     private func addPackageStructureCommand() {
-        let inputs = self.plan.graph.rootPackages.flatMap { package -> [Node] in
-            var inputs = package.modules
-                .map(\.sources.root)
-                .sorted()
-                .map { Node.directoryStructure($0) }
-
-            // Add the output paths of any prebuilds that were run, so that we redo the plan if they change.
-            var derivedSourceDirPaths: [AbsolutePath] = []
-            for result in self.plan.prebuildCommandResults.values.flatMap({ $0 }) {
-                derivedSourceDirPaths.append(contentsOf: result.outputDirectories)
+        let inputs = self.plan.inputs.map {
+            switch $0 {
+            case .directoryStructure(let path): return Node.directoryStructure(path)
+            case .file(let path): return Node.file(path)
             }
-            inputs.append(contentsOf: derivedSourceDirPaths.sorted().map { Node.directoryStructure($0) })
-
-            // FIXME: Need to handle version-specific manifests.
-            inputs.append(file: package.manifest.path)
-
-            // FIXME: This won't be the location of Package.resolved for multiroot packages.
-            inputs.append(file: package.path.appending("Package.resolved"))
-
-            // FIXME: Add config file as an input
-
-            return inputs
         }
 
         let name = "PackageStructure"
@@ -214,7 +197,7 @@ extension LLBuildManifestBuilder {
 extension LLBuildManifestBuilder {
     // Creates commands for copying all binary artifacts depended on in the plan.
     private func addBinaryDependencyCommands() {
-        // Make sure we don't have multiple copy commands for each destination by mapping each destination to 
+        // Make sure we don't have multiple copy commands for each destination by mapping each destination to
         // its source binary.
         var destinations = [AbsolutePath: AbsolutePath]()
         for target in self.plan.targetMap.values {
