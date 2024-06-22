@@ -23,7 +23,7 @@ import PackageGraph
 import SPMBuildCore
 import XCBuildSupport
 
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 import var TSCBasic.stdoutStream
 
 import enum TSCUtility.Diagnostics

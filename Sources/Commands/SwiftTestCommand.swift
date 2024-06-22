@@ -32,7 +32,7 @@ import Workspace
 
 import struct TSCBasic.ByteString
 import enum TSCBasic.JSON
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 import var TSCBasic.stdoutStream
 import class TSCBasic.SynchronizedQueue
 import class TSCBasic.Thread
@@ -530,7 +530,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
         args += ["-o", productsBuildParameters.codeCovDataFile.pathString]
 
-        try TSCBasic.Process.checkNonZeroExit(arguments: args)
+        try AsyncProcess.checkNonZeroExit(arguments: args)
     }
 
     /// Exports profdata as a JSON file.
@@ -549,7 +549,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             "-instr-profile=\(productsBuildParameters.codeCovDataFile)",
             testBinary.pathString
         ]
-        let result = try TSCBasic.Process.popen(arguments: args)
+        let result = try AsyncProcess.popen(arguments: args)
 
         if result.exitStatus != .terminated(code: 0) {
             let output = try result.utf8Output() + result.utf8stderrOutput()
@@ -875,11 +875,11 @@ final class TestRunner {
                     outputHandler(output)
                 }
             }
-            let outputRedirection = Process.OutputRedirection.stream(
+            let outputRedirection = AsyncProcess.OutputRedirection.stream(
                 stdout: outputHandler,
                 stderr: outputHandler
             )
-            let process = TSCBasic.Process(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection)
+            let process = AsyncProcess(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection)
             guard let terminationKey = self.cancellator.register(process) else {
                 return false // terminating
             }

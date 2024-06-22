@@ -11,6 +11,7 @@ add_library(Basics
   Archiver/TarArchiver.swift
   Archiver/ZipArchiver.swift
   Archiver/UniversalArchiver.swift
+  AsyncProcess.swift
   AuthorizationProvider.swift
   Cancellator.swift
   Collections/ByteString+Extensions.swift

@@ -46,7 +46,7 @@ import Android
 import func TSCBasic.exec
 import class TSCBasic.FileLock
 import protocol TSCBasic.OutputByteStream
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 import enum TSCBasic.ProcessEnv
 import enum TSCBasic.ProcessLockError
 import var TSCBasic.stderrStream
@@ -372,7 +372,7 @@ public final class SwiftCommandState {
         )
 
         // set global process logging handler
-        Process.loggingHandler = { self.observabilityScope.emit(debug: $0) }
+        AsyncProcess.loggingHandler = { self.observabilityScope.emit(debug: $0) }
     }
 
     static func postprocessArgParserResult(options: GlobalOptions, observabilityScope: ObservabilityScope) throws {

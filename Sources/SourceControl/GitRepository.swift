@@ -20,8 +20,8 @@ import protocol TSCBasic.DiagnosticLocation
 import struct TSCBasic.FileInfo
 import enum TSCBasic.FileMode
 import struct TSCBasic.FileSystemError
-import class TSCBasic.Process
-import struct TSCBasic.ProcessResult
+import class Basics.AsyncProcess
+import struct Basics.AsyncProcessResult
 import struct TSCBasic.RegEx
 
 import protocol TSCUtility.DiagnosticLocationProviding
@@ -43,14 +43,14 @@ private struct GitShellHelper {
     func run(
         _ args: [String],
         environment: Environment = .init(Git.environmentBlock),
-        outputRedirection: TSCBasic.Process.OutputRedirection = .collect
+        outputRedirection: AsyncProcess.OutputRedirection = .collect
     ) throws -> String {
-        let process = TSCBasic.Process(
+        let process = AsyncProcess(
             arguments: [Git.tool] + args,
             environment: environment,
             outputRedirection: outputRedirection
         )
-        let result: ProcessResult
+        let result: AsyncProcessResult
         do {
             guard let terminationKey = self.cancellator.register(process) else {
                 throw CancellationError() // terminating
@@ -66,9 +66,9 @@ private struct GitShellHelper {
             throw error
         } catch {
             // Handle a failure to even launch the Git tool by synthesizing a result that we can wrap an error around.
-            let result = ProcessResult(
+            let result = AsyncProcessResult(
                 arguments: process.arguments,
-                environmentBlock: process.environmentBlock,
+                environment: process.environment,
                 exitStatus: .terminated(code: -1),
                 output: .failure(error),
                 stderrOutput: .failure(error)
@@ -107,7 +107,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             do {
                 // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the
                 // handler. We count on it being line-buffered.
-                let outputHandler = Process.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
+                let outputHandler = AsyncProcess.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
                     stderrBytes += $0
                     gitFetchStatusFilter($0, progress: progress)
                 })
@@ -117,9 +117,9 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
                     outputRedirection: outputHandler
                 )
             } catch let error as GitShellError {
-                let result = ProcessResult(
+                let result = AsyncProcessResult(
                     arguments: error.result.arguments,
-                    environmentBlock: error.result.environmentBlock,
+                    environment: error.result.environment,
                     exitStatus: error.result.exitStatus,
                     output: .success(stdoutBytes),
                     stderrOutput: .success(stderrBytes)
@@ -449,7 +449,7 @@ public final class GitRepository: Repository, WorkingCheckout {
             do {
                 // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the
                 // handler. We count on it being line-buffered.
-                let outputHandler = Process.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
+                let outputHandler = AsyncProcess.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
                     stderrBytes += $0
                     gitFetchStatusFilter($0, progress: progress)
                 })
@@ -459,9 +459,9 @@ public final class GitRepository: Repository, WorkingCheckout {
                     outputRedirection: outputHandler
                 )
             } catch let error as GitShellError {
-                let result = ProcessResult(
+                let result = AsyncProcessResult(
                     arguments: error.result.arguments,
-                    environment: .init(error.result.environmentBlock),
+                    environment: error.result.environment,
                     exitStatus: error.result.exitStatus,
                     output: .success(stdoutBytes),
                     stderrOutput: .success(stderrBytes))
@@ -1164,7 +1164,7 @@ extension GitFileSystemView: @unchecked Sendable {}
 // MARK: - Errors
 
 private struct GitShellError: Error {
-    let result: ProcessResult
+    let result: AsyncProcessResult
 }
 
 private enum GitInterfaceError: Swift.Error {
@@ -1178,7 +1178,7 @@ private enum GitInterfaceError: Swift.Error {
 public struct GitRepositoryError: Error, CustomStringConvertible, DiagnosticLocationProviding {
     public let path: AbsolutePath
     public let message: String
-    public let result: ProcessResult
+    package let result: AsyncProcessResult
 
     public struct Location: DiagnosticLocation {
         public let path: AbsolutePath
@@ -1202,7 +1202,7 @@ public struct GitRepositoryError: Error, CustomStringConvertible, DiagnosticLoca
 public struct GitCloneError: Error, CustomStringConvertible, DiagnosticLocationProviding {
     public let repository: RepositorySpecifier
     public let message: String
-    public let result: ProcessResult
+    package let result: AsyncProcessResult
 
     public struct Location: DiagnosticLocation {
         public let repository: RepositorySpecifier
