@@ -1578,6 +1578,22 @@ final class PackageCommandTests: CommandsTestCase {
     }
 
     func testBuildToolPluginWithStaticStdlib() async throws {
+        // Skip if the toolchain cannot compile a simple program with static stdlib.
+        do {
+            let args = try [
+                UserToolchain.default.swiftCompilerPath.pathString,
+                "-static-stdlib", "-emit-executable", "-o", "/dev/null", "-"
+            ]
+            let process = AsyncProcess(arguments: args)
+            let stdin = try process.launch()
+            stdin.write(sequence: "".utf8)
+            try stdin.close()
+            let result = try await process.waitUntilExit()
+            try XCTSkipIf(
+                result.exitStatus != .terminated(code: 0),
+                "skipping because static stdlib is not supported by the toolchain"
+            )
+        }
         try await testBuildToolPlugin(staticStdlib: true)
     }
 
