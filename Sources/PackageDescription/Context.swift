@@ -51,6 +51,6 @@ public struct GitInformation: Sendable {
     public let currentTag: String?
     /// The commit currently checked out.
     public let currentCommit: String
-    /// Whether or not there are uncommited changes in the current repository.
+    /// Whether or not there are uncommitted changes in the current repository.
     public let hasUncommittedChanges: Bool
 }
