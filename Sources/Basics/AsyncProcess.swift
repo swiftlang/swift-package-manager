@@ -467,7 +467,7 @@ package final class AsyncProcess {
         process.executableURL = executablePath.asURL
         process
             .environment = [String: String](
-                uniqueKeysWithValues: self.environmentBlock
+                uniqueKeysWithValues: self.environment
                     .map { ($0.key.value, $0.value) }
             )
 
