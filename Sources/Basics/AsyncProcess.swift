@@ -465,11 +465,7 @@ package final class AsyncProcess {
             process.currentDirectoryURL = workingDirectory.asURL
         }
         process.executableURL = executablePath.asURL
-        process
-            .environment = [String: String](
-                uniqueKeysWithValues: self.environment
-                    .map { ($0.key.value, $0.value) }
-            )
+        process.environment = .init(self.environment)
 
         let stdinPipe = Pipe()
         process.standardInput = stdinPipe
