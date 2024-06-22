@@ -26,7 +26,7 @@ import Workspace
 import func XCTest.XCTFail
 
 import struct TSCBasic.ByteString
-import struct TSCBasic.ProcessResult
+import struct Basics.AsyncProcessResult
 
 import enum TSCUtility.Git
 
@@ -245,9 +245,9 @@ public func executeSwiftBuild(
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: Environment? = nil
-) throws -> (stdout: String, stderr: String) {
+) async throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
-    return try SwiftPM.Build.execute(args, packagePath: packagePath, env: env)
+    return try await SwiftPM.Build.execute(args, packagePath: packagePath, env: env)
 }
 
 @discardableResult
@@ -260,10 +260,10 @@ public func executeSwiftRun(
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: Environment? = nil
-) throws -> (stdout: String, stderr: String) {
+) async throws -> (stdout: String, stderr: String) {
     var args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
     args.append(executable)
-    return try SwiftPM.Run.execute(args, packagePath: packagePath, env: env)
+    return try await SwiftPM.Run.execute(args, packagePath: packagePath, env: env)
 }
 
 @discardableResult
@@ -275,9 +275,9 @@ public func executeSwiftPackage(
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: Environment? = nil
-) throws -> (stdout: String, stderr: String) {
+) async throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
-    return try SwiftPM.Package.execute(args, packagePath: packagePath, env: env)
+    return try await SwiftPM.Package.execute(args, packagePath: packagePath, env: env)
 }
 
 @discardableResult
@@ -289,9 +289,9 @@ public func executeSwiftTest(
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: Environment? = nil
-) throws -> (stdout: String, stderr: String) {
+) async throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
-    return try SwiftPM.Test.execute(args, packagePath: packagePath, env: env)
+    return try await SwiftPM.Test.execute(args, packagePath: packagePath, env: env)
 }
 
 private func swiftArgs(

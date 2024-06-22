@@ -12,7 +12,7 @@
 
 import SourceControl
 
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 
 import enum TSCUtility.Git
 
@@ -26,13 +26,13 @@ package extension GitRepository {
 
     /// Returns current branch name. If HEAD is on a detached state, this returns HEAD.
     func currentBranch() throws -> String {
-        return try Process.checkNonZeroExit(
+        return try AsyncProcess.checkNonZeroExit(
             args: Git.tool, "-C", path.pathString, "rev-parse", "--abbrev-ref", "HEAD").spm_chomp()
     }
 
     /// Returns the revision for a given tag.
     func revision(forTag tag: String) throws -> String {
-        return try Process.checkNonZeroExit(
+        return try AsyncProcess.checkNonZeroExit(
             args: Git.tool, "-C", path.pathString, "rev-parse", tag).spm_chomp()
     }
 

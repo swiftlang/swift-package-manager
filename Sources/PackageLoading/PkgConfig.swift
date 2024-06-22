@@ -14,7 +14,7 @@ import Basics
 import Foundation
 import OrderedCollections
 
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 
 /// Information on an individual `pkg-config` supported package.
 public struct PkgConfig {
@@ -482,7 +482,7 @@ internal struct PCFileFinder {
     private init(pkgConfigPath: String) {
         if PCFileFinder.pkgConfigPaths == nil {
             do {
-                let searchPaths = try TSCBasic.Process.checkNonZeroExit(args:
+                let searchPaths = try AsyncProcess.checkNonZeroExit(args:
                     pkgConfigPath, "--variable", "pc_path", "pkg-config"
                 ).spm_chomp()
 

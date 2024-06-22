@@ -22,8 +22,8 @@ import SourceControl
 import Workspace
 
 import protocol TSCBasic.DiagnosticLocation
-import class TSCBasic.Process
-import struct TSCBasic.ProcessResult
+import class Basics.AsyncProcess
+import struct Basics.AsyncProcessResult
 import func TSCBasic.withTemporaryFile
 
 import enum TSCUtility.Diagnostics
@@ -256,9 +256,9 @@ public struct SwiftAPIDigester {
         }
     }
 
-    @discardableResult private func runTool(_ args: [String]) throws -> ProcessResult {
+    @discardableResult private func runTool(_ args: [String]) throws -> AsyncProcessResult {
         let arguments = [tool.pathString] + args
-        let process = TSCBasic.Process(
+        let process = AsyncProcess(
             arguments: arguments,
             outputRedirection: .collect(redirectStderr: true)
         )

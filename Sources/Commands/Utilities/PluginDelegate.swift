@@ -18,8 +18,8 @@ import SPMBuildCore
 
 import protocol TSCBasic.OutputByteStream
 import class TSCBasic.BufferedOutputByteStream
-import class TSCBasic.Process
-import struct TSCBasic.ProcessResult
+import class Basics.AsyncProcess
+import struct Basics.AsyncProcessResult
 
 final class PluginDelegate: PluginInvocationDelegate {
     let swiftCommandState: SwiftCommandState
@@ -330,7 +330,7 @@ final class PluginDelegate: PluginInvocationDelegate {
                 llvmProfCommand.append(filePath.pathString)
             }
             llvmProfCommand += ["-o", mergedCovFile.pathString]
-            try TSCBasic.Process.checkNonZeroExit(arguments: llvmProfCommand)
+            try AsyncProcess.checkNonZeroExit(arguments: llvmProfCommand)
 
             // Use `llvm-cov` to export the merged `.profdata` file contents in JSON form.
             var llvmCovCommand = [try toolchain.getLLVMCov().pathString]
@@ -340,7 +340,7 @@ final class PluginDelegate: PluginInvocationDelegate {
                 llvmCovCommand.append(product.binaryPath.pathString)
             }
             // We get the output on stdout, and have to write it to a JSON ourselves.
-            let jsonOutput = try TSCBasic.Process.checkNonZeroExit(arguments: llvmCovCommand)
+            let jsonOutput = try AsyncProcess.checkNonZeroExit(arguments: llvmCovCommand)
             let jsonCovFile = toolsBuildParameters.codeCovDataFile.parentDirectory.appending(
                 component: toolsBuildParameters.codeCovDataFile.basenameWithoutExt + ".json"
             )
@@ -448,7 +448,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         )
 
         guard result.exitStatus == .terminated(code: 0) else {
-            throw ProcessResult.Error.nonZeroExit(result)
+            throw AsyncProcessResult.Error.nonZeroExit(result)
         }
 
         // Return the results to the plugin.

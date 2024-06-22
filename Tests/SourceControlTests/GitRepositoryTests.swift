@@ -18,7 +18,7 @@ import XCTest
 
 import struct TSCBasic.FileSystemError
 import func TSCBasic.makeDirectories
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 
 import enum TSCUtility.Git
 
@@ -85,7 +85,7 @@ class GitRepositoryTests: XCTestCase {
             let revision = try repository.resolveRevision(tag: tags.first ?? "<invalid>")
             // FIXME: It would be nice if we had a deterministic hash here...
             XCTAssertEqual(revision.identifier,
-                try Process.popen(
+                try AsyncProcess.popen(
                     args: Git.tool, "-C", testRepoPath.pathString, "rev-parse", "--verify", "1.2.3").utf8Output().spm_chomp())
             if let revision = try? repository.resolveRevision(tag: "<invalid>") {
                 XCTFail("unexpected resolution of invalid tag to \(revision)")
@@ -94,7 +94,7 @@ class GitRepositoryTests: XCTestCase {
             let main = try repository.resolveRevision(identifier: "main")
 
             XCTAssertEqual(main.identifier,
-                try Process.checkNonZeroExit(
+                try AsyncProcess.checkNonZeroExit(
                     args: Git.tool, "-C", testRepoPath.pathString, "rev-parse", "--verify", "main").spm_chomp())
 
             // Check that git hashes resolve to themselves.
@@ -196,7 +196,7 @@ class GitRepositoryTests: XCTestCase {
             try makeDirectories(repoPath)
             initGitRepo(repoPath)
 
-            try Process.checkNonZeroExit(
+            try AsyncProcess.checkNonZeroExit(
                 args: Git.tool, "-C", repoPath.pathString, "submodule", "add", testRepoPath.pathString,
                 environment: .init(Git.environmentBlock)
             )
@@ -612,7 +612,7 @@ class GitRepositoryTests: XCTestCase {
 
             // Add submodule to foo and tag it as 1.0.1
             try foo.checkout(newBranch: "submodule")
-            try Process.checkNonZeroExit(
+            try AsyncProcess.checkNonZeroExit(
                 args: Git.tool, "-C", fooPath.pathString, "submodule", "add", barPath.pathString, "bar",
                 environment: .init(Git.environmentBlock)
             )
@@ -634,7 +634,7 @@ class GitRepositoryTests: XCTestCase {
             // Add something to bar.
             try localFileSystem.writeFileContents(barPath.appending("bar.txt"), bytes: "hello")
             // Add a submodule too to check for recursive submodules.
-            try Process.checkNonZeroExit(
+            try AsyncProcess.checkNonZeroExit(
                 args: Git.tool, "-C", barPath.pathString, "submodule", "add", bazPath.pathString, "baz",
                 environment: .init(Git.environmentBlock)
             )
