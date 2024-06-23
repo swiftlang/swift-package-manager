@@ -1574,6 +1574,30 @@ final class PackageCommandTests: CommandsTestCase {
     }
 
     func testBuildToolPlugin() async throws {
+        try await testBuildToolPlugin(staticStdlib: false)
+    }
+
+    func testBuildToolPluginWithStaticStdlib() async throws {
+        // Skip if the toolchain cannot compile a simple program with static stdlib.
+        do {
+            let args = try [
+                UserToolchain.default.swiftCompilerPath.pathString,
+                "-static-stdlib", "-emit-executable", "-o", "/dev/null", "-"
+            ]
+            let process = AsyncProcess(arguments: args)
+            let stdin = try process.launch()
+            stdin.write(sequence: "".utf8)
+            try stdin.close()
+            let result = try await process.waitUntilExit()
+            try XCTSkipIf(
+                result.exitStatus != .terminated(code: 0),
+                "skipping because static stdlib is not supported by the toolchain"
+            )
+        }
+        try await testBuildToolPlugin(staticStdlib: true)
+    }
+
+    func testBuildToolPlugin(staticStdlib: Bool) async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -1647,7 +1671,8 @@ final class PackageCommandTests: CommandsTestCase {
             )
 
             // Invoke it, and check the results.
-            let (stdout, stderr) = try await SwiftPM.Build.execute(packagePath: packageDir)
+            let args = staticStdlib ? ["--static-swift-stdlib"] : []
+            let (stdout, stderr) = try await SwiftPM.Build.execute(args, packagePath: packageDir)
             XCTAssert(stdout.contains("Build complete!"))
 
             // We expect a warning about `library.bar` but not about `library.foo`.
