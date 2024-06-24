@@ -524,7 +524,7 @@ extension Manifest: Encodable {
     private enum CodingKeys: CodingKey {
         case name, path, url, version, targetMap, toolsVersion,
              pkgConfig, providers, cLanguageStandard, cxxLanguageStandard, swiftLanguageVersions,
-             dependencies, products, targets, platforms, packageKind, revision,
+             dependencies, products, targets, experimentalTraits, platforms, packageKind, revision,
              defaultLocalization
     }
 
@@ -555,6 +555,7 @@ extension Manifest: Encodable {
         try container.encode(self.dependencies, forKey: .dependencies)
         try container.encode(self.products, forKey: .products)
         try container.encode(self.targets, forKey: .targets)
+        try container.encode(self.traits, forKey: .experimentalTraits)
         try container.encode(self.platforms, forKey: .platforms)
         try container.encode(self.packageKind, forKey: .packageKind)
     }
