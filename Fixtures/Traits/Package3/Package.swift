@@ -11,9 +11,10 @@ let package = Package(
         ),
     ],
     traits: [
-        Trait(name: "Package3Trait1", enabledTraits: ["Package3Trait2"]),
-        Trait(name: "Package3Trait2", enabledTraits: ["Package3Trait3"]),
-        Trait(name: "Package3Trait3", isDefault: true),
+        .default(enabledTraits: ["Package3Trait3"]),
+        .trait(name: "Package3Trait1", enabledTraits: ["Package3Trait2"]),
+        .trait(name: "Package3Trait2", enabledTraits: ["Package3Trait3"]),
+        "Package3Trait3",
     ],
     targets: [
         .target(

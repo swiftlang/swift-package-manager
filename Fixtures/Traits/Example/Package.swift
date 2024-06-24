@@ -5,15 +5,24 @@
 let package = Package(
     name: "TraitsExample",
     traits: [
-        Trait(name: "Package1", isDefault: true),
-        Trait(name: "Package2", isDefault: true),
-        Trait(name: "Package3", isDefault: true),
-        Trait(name: "Package4", isDefault: true),
+        .default(
+            enabledTraits: [
+                "Package1",
+                "Package2",
+                "Package3",
+                "Package4",
+                "BuildCondition1",
+            ]
+        ),
+        "Package1",
+        "Package2",
+        "Package3",
+        "Package4",
         "Package5",
         "Package7",
         "Package9",
         "Package10",
-        Trait(name: "BuildCondition1", isDefault: true),
+        "BuildCondition1",
         "BuildCondition2",
         "BuildCondition3",
     ],

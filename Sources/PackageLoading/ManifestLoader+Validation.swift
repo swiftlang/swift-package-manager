@@ -107,11 +107,6 @@ public struct ManifestValidator {
                 continue
             }
 
-            guard traitName.lowercased() != "default" && traitName.lowercased() != "defaults" else {
-                diagnostics.append(.defaultTraitName())
-                continue
-            }
-
             for (index, unicodeScalar) in traitName.unicodeScalars.enumerated() {
                 let properties = unicodeScalar.properties
 
@@ -368,10 +363,6 @@ extension Basics.Diagnostic {
 
     static func emptyTraitName() -> Self {
         .error("Empty strings are not allowed as trait names")
-    }
-
-    static func defaultTraitName() -> Self {
-        .error("Traits are not allowed to be named 'default' or 'defaults' to avoid confusion with default traits")
     }
 
     static func invalidFirstCharacterInTrait(firstCharater: UnicodeScalar, trait: String) -> Self {
