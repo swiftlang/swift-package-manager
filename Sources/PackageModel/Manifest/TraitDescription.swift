@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-public struct TraitDescription: Sendable, Hashable, ExpressibleByStringLiteral {
+public struct TraitDescription: Sendable, Hashable, Codable, ExpressibleByStringLiteral {
     /// The trait's canonical name.
     ///
     /// This is used when enabling the trait or when referring to it from other modifiers in the manifest.

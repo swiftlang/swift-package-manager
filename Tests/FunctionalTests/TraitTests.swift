@@ -13,6 +13,7 @@
 import DriverSupport
 import SPMTestSupport
 import PackageModel
+import TSCBasic
 import XCTest
 
 final class TraitTests: XCTestCase {
@@ -161,5 +162,17 @@ final class TraitTests: XCTestCase {
             """)
         }
     }
+
+    func testTraits_dumpPackage() async throws {
+        try await fixture(name: "Traits") { fixturePath in
+            let packageRoot = fixturePath.appending("Example")
+            let (dumpOutput, _) = try await SwiftPM.Package.execute(["dump-package"], packagePath: packageRoot)
+            let json = try JSON(bytes: ByteString(encodingAsUTF8: dumpOutput))
+            guard case let .dictionary(contents) = json else { XCTFail("unexpected result"); return }
+            guard case let .array(traits)? = contents["experimentalTraits"] else { XCTFail("unexpected result"); return }
+            XCTAssertEqual(traits.count, 11)
+        }
+    }
+
 }
 #endif
