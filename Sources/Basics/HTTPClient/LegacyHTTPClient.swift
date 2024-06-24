@@ -48,7 +48,7 @@ public final class LegacyHTTPClient: Cancellable {
     private var outstandingRequests = ThreadSafeKeyValueStore<UUID, OutstandingRequest>()
 
     // static to share across instances of the http client
-    private static var hostsErrorsLock = NSLock()
+    private static let hostsErrorsLock = NSLock()
     private static var hostsErrors = [String: [Date]]()
 
     public init(configuration: LegacyHTTPClientConfiguration = .init(), handler: Handler? = nil) {
