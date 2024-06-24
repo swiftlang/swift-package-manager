@@ -528,7 +528,7 @@ public final class UserToolchain: Toolchain {
         searchStrategy: SearchStrategy = .default,
         customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil,
         customInstalledSwiftPMConfiguration: InstalledSwiftPMConfiguration? = nil,
-        customProvidedLibraries: [ProvidedLibrary]? = nil
+        customProvidedLibraries: [ProvidedLibrary]? = nil,
         fileSystem: any FileSystem = localFileSystem
     ) throws {
         self.swiftSDK = swiftSDK
