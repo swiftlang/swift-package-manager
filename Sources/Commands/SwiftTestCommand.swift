@@ -170,6 +170,9 @@ struct TestCommandOptions: ParsableArguments {
     @Option(name: .customLong("experimental-event-stream-version"),
             help: .hidden)
     var eventStreamVersion: Int?
+
+    @OptionGroup(visibility: .hidden)
+    package var traits: TraitOptions
 }
 
 /// Tests filtering specifier, which is used to filter tests to run.
@@ -570,7 +573,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             swiftCommandState: swiftCommandState,
             productsBuildParameters: productsBuildParameters,
             toolsBuildParameters: toolsBuildParameters,
-            testProduct: self.options.sharedOptions.testProduct
+            testProduct: self.options.sharedOptions.testProduct,
+            traitConfiguration: .init(traitOptions: self.options.traits)
         )
     }
 
@@ -651,6 +655,9 @@ extension SwiftTestCommand {
         /// Which testing libraries to use (and any related options.)
         @OptionGroup()
         var testLibraryOptions: TestLibraryOptions
+
+        @OptionGroup(visibility: .hidden)
+        package var traits: TraitOptions
 
         // for deprecated passthrough from SwiftTestTool (parse will fail otherwise)
         @Flag(name: [.customLong("list-tests"), .customShort("l")], help: .hidden)
@@ -748,7 +755,8 @@ extension SwiftTestCommand {
                 swiftCommandState: swiftCommandState,
                 productsBuildParameters: productsBuildParameters,
                 toolsBuildParameters: toolsBuildParameters,
-                testProduct: self.sharedOptions.testProduct
+                testProduct: self.sharedOptions.testProduct,
+                traitConfiguration: .init(traitOptions: self.traits)
             )
         }
     }
@@ -1373,11 +1381,11 @@ private func buildTestsIfNeeded(
     swiftCommandState: SwiftCommandState,
     productsBuildParameters: BuildParameters,
     toolsBuildParameters: BuildParameters,
-    testProduct: String?
+    testProduct: String?,
+    traitConfiguration: TraitConfiguration
 ) throws -> [BuiltTestProduct] {
     let buildSystem = try swiftCommandState.createBuildSystem(
-        // TODO: Will support traits in test in a follow up PR
-        traitConfiguration: .init(),
+        traitConfiguration: traitConfiguration,
         productsBuildParameters: productsBuildParameters,
         toolsBuildParameters: toolsBuildParameters
     )
