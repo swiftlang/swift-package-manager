@@ -43,9 +43,9 @@ package struct LLBuildSystemConfiguration {
 
     let traitConfiguration: TraitConfiguration?
 
-    var manifestPath: AbsolutePath
-    var databasePath: AbsolutePath
-    var buildDescriptionPath: AbsolutePath
+    fileprivate(set) var manifestPath: AbsolutePath
+    fileprivate(set) var databasePath: AbsolutePath
+    fileprivate(set) var buildDescriptionPath: AbsolutePath
 
     let fileSystem: any Basics.FileSystem
 
@@ -79,6 +79,62 @@ package struct LLBuildSystemConfiguration {
         self.outputStream = outputStream
         self.observabilityScope = observabilityScope
     }
+
+    func buildParameters(for destination: BuildParameters.Destination) -> BuildParameters {
+        switch destination {
+        case .host: self.toolsBuildParameters
+        case .target: self.destinationBuildParameters
+        }
+    }
+
+    func buildEnvironment(for destination:  BuildParameters.Destination) -> BuildEnvironment {
+        switch destination {
+        case .host: self.toolsBuildParameters.buildEnvironment
+        case .target: self.destinationBuildParameters.buildEnvironment
+        }
+    }
+
+    func shouldSkipBuilding(for destination: BuildParameters.Destination) -> Bool {
+        switch destination {
+        case .host: self.toolsBuildParameters.shouldSkipBuilding
+        case .target: self.destinationBuildParameters.shouldSkipBuilding
+        }
+    }
+
+    func toolchain(for description: BuildParameters.Destination) -> any PackageModel.Toolchain {
+        switch description {
+        case .host: self.toolsBuildParameters.toolchain
+        case .target: self.destinationBuildParameters.toolchain
+        }
+    }
+
+    func buildPath(for description: BuildParameters.Destination) -> AbsolutePath {
+        switch description {
+        case .host: self.toolsBuildParameters.buildPath
+        case .target: self.destinationBuildParameters.buildPath
+        }
+    }
+
+    func dataPath(for description: BuildParameters.Destination) -> AbsolutePath {
+        switch description {
+        case .host: self.toolsBuildParameters.dataPath
+        case .target: self.destinationBuildParameters.dataPath
+        }
+    }
+
+    func buildDescriptionPath(for description: BuildParameters.Destination) -> AbsolutePath {
+        switch description {
+        case .host: self.toolsBuildParameters.buildDescriptionPath
+        case .target: self.destinationBuildParameters.buildDescriptionPath
+        }
+    }
+
+    func configuration(for destination: BuildParameters.Destination) -> BuildConfiguration {
+        switch destination {
+        case .host: self.toolsBuildParameters.configuration
+        case .target: self.destinationBuildParameters.configuration
+        }
+    }
 }
 
 public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem, BuildErrorAdviceProvider {
@@ -87,31 +143,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     private let config: LLBuildSystemConfiguration
 
-    /// Build parameters for products.
-    var productsBuildParameters: BuildParameters {
-        config.destinationBuildParameters
-    }
-
-    /// Build parameters for build tools: plugins and macros.
-    var toolsBuildParameters: BuildParameters {
-        config.toolsBuildParameters
-    }
-
     /// The closure for loading the package graph.
     let packageGraphLoader: () throws -> ModulesGraph
 
     /// the plugin configuration for build plugins
     let pluginConfiguration: PluginConfiguration?
-
-    /// The path to scratch space (.build) directory.
-    var scratchDirectory: AbsolutePath {
-        config.scratchDirectory
-    }
-
-    /// The trait configuration for this build operation.
-    private var traitConfiguration: TraitConfiguration? {
-        config.traitConfiguration
-    }
 
     /// The llbuild build system reference previously created
     /// via `createBuildSystem` call.
@@ -262,7 +298,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                     if try self.buildPackageStructure() {
                         // confirm the step above created the build description as expected
                         // we trust it to update the build description when needed
-                        let buildDescriptionPath = self.productsBuildParameters.buildDescriptionPath
+                        let buildDescriptionPath = self.config.buildDescriptionPath(for: .target)
                         guard self.fileSystem.exists(buildDescriptionPath) else {
                             throw InternalError("could not find build descriptor at \(buildDescriptionPath)")
                         }
@@ -271,7 +307,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
                         // We need to check that the build has same traits enabled for the cached build operation
                         // match otherwise we have to re-plan.
-                        if buildDescription.traitConfiguration == self.traitConfiguration {
+                        if buildDescription.traitConfiguration == self.config.traitConfiguration {
                             return buildDescription
                         }
                     }
@@ -307,7 +343,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Ensure the compiler supports the import-scan operation
         guard DriverSupport.checkSupportedFrontendFlags(
             flags: ["import-prescan"],
-            toolchain: self.productsBuildParameters.toolchain,
+            toolchain: self.config.toolchain(for: .target),
             fileSystem: localFileSystem
         ) else {
             return
@@ -368,7 +404,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     private func detectUnexpressedDependencies() {
         return self.detectUnexpressedDependencies(
             // Note: once we switch from the toolchain global metadata, we will have to ensure we can match the right metadata used during the build.
-            availableLibraries: self.productsBuildParameters.toolchain.providedLibraries,
+            availableLibraries: self.config.toolchain(for: .target).providedLibraries,
             targetDependencyMap: self.buildDescription.targetDependencyMap
         )
     }
@@ -395,8 +431,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         targetDependencyMap?.keys.forEach { targetName in
             let c99name = targetName.spm_mangledToC99ExtendedIdentifier()
             // Since we're analysing post-facto, we don't know which parameters are the correct ones.
-            let possibleTempsPaths = [productsBuildParameters, toolsBuildParameters].map {
-                $0.buildPath.appending(component: "\(c99name).build")
+            let possibleTempsPaths = [BuildParameters.Destination]([.target, .host]).map {
+                self.config.buildPath(for: $0).appending(component: "\(c99name).build")
             }
 
             let usedSDKDependencies: [String] = Set(possibleTempsPaths).flatMap { possibleTempsPath in
@@ -440,7 +476,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Perform a build using the given build description and subset.
     public func build(subset: BuildSubset) throws {
-        guard !self.productsBuildParameters.shouldSkipBuilding else {
+        guard !self.config.shouldSkipBuilding(for: .target) else {
             return
         }
 
@@ -468,8 +504,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return
         }
 
+        let configuration = self.config.configuration(for: .target)
         // delegate is only available after createBuildSystem is called
-        progressTracker.buildStart(configuration: self.productsBuildParameters.configuration)
+        progressTracker.buildStart(configuration: configuration)
 
         // Perform the build.
         let llbuildTarget = try computeLLBuildTargetName(for: subset)
@@ -497,8 +534,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         guard success else { throw Diagnostics.fatalError }
 
         // Create backwards-compatibility symlink to old build path.
-        let oldBuildPath = productsBuildParameters.dataPath.parentDirectory.appending(
-            component: productsBuildParameters.configuration.dirname
+        let oldBuildPath = self.config.dataPath(for: .target).parentDirectory.appending(
+            component: configuration.dirname
         )
         if self.fileSystem.exists(oldBuildPath) {
             do { try self.fileSystem.removeFileTree(oldBuildPath) }
@@ -512,7 +549,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
 
         do {
-            try self.fileSystem.createSymbolicLink(oldBuildPath, pointingAt: productsBuildParameters.buildPath, relative: true)
+            try self.fileSystem.createSymbolicLink(
+                oldBuildPath,
+                pointingAt: self.config.buildPath(for: .target),
+                relative: true
+            )
         } catch {
             self.observabilityScope.emit(
                 warning: "unable to create symbolic link at \(oldBuildPath)",
@@ -647,11 +688,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 throw Diagnostics.fatalError
             }
 
-            let buildParameters = if product.buildTriple == .tools {
-                self.toolsBuildParameters
-            } else {
-                self.productsBuildParameters
-            }
+            let buildParameters = config.buildParameters(
+                for: product.buildTriple == .tools ? .host : .target
+            )
 
             // If the product is automatic, we build the main target because automatic products
             // do not produce a binary right now.
@@ -683,11 +722,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 throw Diagnostics.fatalError
             }
 
-            let buildParameters = if target.buildTriple == .tools {
-                self.toolsBuildParameters
-            } else {
-                self.productsBuildParameters
-            }
+            let buildParameters = config.buildParameters(
+                for: target.buildTriple == .tools ? .host : .target
+            )
 
             return target.getLLBuildTargetName(buildParameters: buildParameters)
         }
@@ -700,9 +737,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let buildToolPluginInvocationResults: [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])]
         let prebuildCommandResults: [ResolvedModule.ID: [PrebuildCommandResult]]
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
-        if let pluginConfiguration, !self.productsBuildParameters.shouldSkipBuilding {
+        if let pluginConfiguration, !self.config.shouldSkipBuilding(for: .target) {
             let pluginsPerModule = graph.pluginsPerModule(
-                satisfying: self.toolsBuildParameters.buildEnvironment
+                satisfying: self.config.buildEnvironment(for: .host)
             )
 
             let pluginTools = try buildPluginTools(
@@ -715,9 +752,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 pluginsPerTarget: pluginsPerModule,
                 pluginTools: pluginTools,
                 outputDir: pluginConfiguration.workDirectory.appending("outputs"),
-                buildParameters: self.toolsBuildParameters,
+                buildParameters: self.config.toolsBuildParameters,
                 additionalFileRules: self.additionalFileRules,
-                toolSearchDirectories: [self.toolsBuildParameters.toolchain.swiftCompilerPath.parentDirectory],
+                toolSearchDirectories: [self.config.toolchain(for: .host).swiftCompilerPath.parentDirectory],
                 pkgConfigDirectories: self.pkgConfigDirectories,
                 pluginScriptRunner: pluginConfiguration.scriptRunner,
                 observabilityScope: self.observabilityScope,
@@ -803,8 +840,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         // Create the build plan based, on the graph and any information from plugins.
         let plan = try BuildPlan(
-            destinationBuildParameters: self.productsBuildParameters,
-            toolsBuildParameters: self.toolsBuildParameters,
+            destinationBuildParameters: self.config.destinationBuildParameters,
+            toolsBuildParameters: self.config.buildParameters(for: .host),
             graph: graph,
             additionalFileRules: additionalFileRules,
             buildToolPluginInvocationResults: buildToolPluginInvocationResults.mapValues(\.results),
@@ -992,31 +1029,19 @@ extension BuildOperation {
     ) throws -> [ResolvedModule.ID: [String: PluginTool]] {
         var accessibleToolsPerPlugin: [ResolvedModule.ID: [String: PluginTool]] = [:]
 
-        let buildParameters = self.toolsBuildParameters
+        var config = self.config
 
-        let manifestPath = buildParameters.dataPath.appending(
+        config.manifestPath = config.dataPath(for: .host).appending(
             components: "..", "plugin-tools.yaml"
         )
 
-        let buildDescriptionPath = buildParameters.buildPath.appending(
-            component: "plugin-tools-description.json"
-        )
+        // FIXME: It should be possible to share database between plugin tools
+        // and regular builds. To make that happen we need to refactor
+        // `buildPackageStructure` to recognize the split.
+        config.databasePath = config.scratchDirectory.appending("plugin-tools.db")
 
-        let config = LLBuildSystemConfiguration(
-            toolsBuildParameters: buildParameters,
-            destinationBuildParameters: self.productsBuildParameters,
-            scratchDirectory: self.scratchDirectory,
-            traitConfiguration: self.traitConfiguration,
-            manifestPath: manifestPath,
-            // FIXME: It should be possible to share database between plugin tools
-            // and regular builds. To make that happen we need to refactor
-            // `buildPackageStructure` to recognize the split.
-            databasePath: self.scratchDirectory.appending("plugin-tools.db"),
-            buildDescriptionPath: buildDescriptionPath,
-            fileSystem: self.fileSystem,
-            logLevel: self.config.logLevel,
-            outputStream: self.config.outputStream,
-            observabilityScope: self.observabilityScope.makeChildScope(description: "Plugin Tools Build")
+        config.buildDescriptionPath = config.buildPath(for: .host).appending(
+            component: "plugin-tools-description.json"
         )
 
         let buildPlan = try BuildPlan(
@@ -1061,13 +1086,13 @@ extension BuildOperation {
                 // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
                 let accessibleTools = try plugin.preparePluginTools(
                     fileSystem: fileSystem,
-                    environment: buildParameters.buildEnvironment,
+                    environment: config.buildEnvironment(for: .host),
                     for: hostTriple
                 ) { name, path in
                     if let result = try buildToolBuilder(name, path) {
                         return result
                     } else {
-                        return buildParameters.buildPath.appending(path)
+                        return config.buildPath(for: .host).appending(path)
                     }
                 }
 
