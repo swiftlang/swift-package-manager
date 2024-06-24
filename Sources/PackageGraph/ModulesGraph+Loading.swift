@@ -277,6 +277,22 @@ private func checkAllDependenciesAreUsed(
             }
         })
 
+        // List all dependencies of modules that are guarded by a trait.
+        let traitGuardedProductDependencies = Set(package.underlying.modules.flatMap { module in
+            module.dependencies.compactMap { moduleDependency in
+                switch moduleDependency {
+                case .product(let product, let conditions):
+                    if conditions.contains(where: { $0.traitCondition != nil }) {
+                        // This is a product dependency that was enabled by a trait
+                        return product.name
+                    }
+                    return nil
+                case .module:
+                    return nil
+                }
+            }
+        })
+
         for dependencyId in package.dependencies {
             guard let dependency = packages[dependencyId] else {
                 observabilityScope.emit(.error("Unknown package: \(dependencyId)"))
@@ -300,7 +316,16 @@ private func checkAllDependenciesAreUsed(
             if dependency.products.contains(where: \.isCommandPlugin) {
                 continue
             }
-            
+
+            // Skip this check if traits are enabled since it is valid to add a dependency just
+            // to enable traits on it. This is useful if there is a transitive dependency in the graph
+            // that can be configured by enabling traits e.g. the depdency has a trait for its logging
+            // behaviour. This allows the root package to configure traits of transitive dependencies
+            // without emitting an unused dependency warning.
+            if !dependency.enabledTraits.isEmpty {
+                continue
+            }
+
             // Make sure that any diagnostics we emit below are associated with the package.
             let packageDiagnosticsScope = observabilityScope.makeChildScope(
                 description: "Package Dependency Validation",
@@ -311,7 +336,12 @@ private func checkAllDependenciesAreUsed(
             let dependencyIsUsed = dependency.products.contains { product in
                 // Don't compare by product ID, but by product name to make sure both build triples as properties of
                 // `ResolvedProduct.ID` are allowed.
-                productDependencies.contains { $0.name == product.name }
+                let usedByPackage = productDependencies.contains { $0.name == product.name }
+                // We check if any of the products of this dependency is guarded by a trait.
+                let traitGuarded = traitGuardedProductDependencies.contains(product.name)
+
+                // If the product is either used directly or guarded by a trait we consider it as used
+                return usedByPackage || traitGuarded
             }
 
             if !dependencyIsUsed && !observabilityScope.errorsReportedInAnyScope {

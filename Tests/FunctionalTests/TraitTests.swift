@@ -18,7 +18,9 @@ import XCTest
 final class TraitTests: XCTestCase {
     func testTraits_whenNoFlagPassed() async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example")
+            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example")
+            // We expect no warnings to be produced. Specifically no unused dependency warnings.
+            XCTAssertFalse(stderr.contains("warning:"))
             XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -34,7 +36,9 @@ final class TraitTests: XCTestCase {
 
     func testTraits_whenTraitUnification() async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "defaults,Package9,Package10"])
+            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "defaults,Package9,Package10"])
+            // We expect no warnings to be produced. Specifically no unused dependency warnings.
+            XCTAssertFalse(stderr.contains("warning:"))
             XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -54,7 +58,9 @@ final class TraitTests: XCTestCase {
 
     func testTraits_whenTraitUnification_whenSecondTraitNotEnabled() async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "defaults,Package9"])
+            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "defaults,Package9"])
+            // We expect no warnings to be produced. Specifically no unused dependency warnings.
+            XCTAssertFalse(stderr.contains("warning:"))
             XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -72,7 +78,9 @@ final class TraitTests: XCTestCase {
 
     func testTraits_whenIndividualTraitsEnabled_andDefaultTraits() async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "defaults,Package5,Package7,BuildCondition3"])
+            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "defaults,Package5,Package7,BuildCondition3"])
+            // We expect no warnings to be produced. Specifically no unused dependency warnings.
+            XCTAssertFalse(stderr.contains("warning:"))
             XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -91,7 +99,9 @@ final class TraitTests: XCTestCase {
 
     func testTraits_whenDefaultTraitsDisabled() async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-disable-default-traits"])
+            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-disable-default-traits"])
+            // We expect no warnings to be produced. Specifically no unused dependency warnings.
+            XCTAssertFalse(stderr.contains("warning:"))
             XCTAssertEqual(stdout, """
             DEFINE1 disabled
             DEFINE2 disabled
@@ -103,7 +113,9 @@ final class TraitTests: XCTestCase {
 
     func testTraits_whenIndividualTraitsEnabled_andDefaultTraitsDisabled() async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "Package5,Package7"])
+            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "Package5,Package7"])
+            // We expect no warnings to be produced. Specifically no unused dependency warnings.
+            XCTAssertFalse(stderr.contains("warning:"))
             XCTAssertEqual(stdout, """
             Package5Library1 trait1 enabled
             Package6Library1 trait1 enabled
@@ -118,7 +130,9 @@ final class TraitTests: XCTestCase {
 
     func testTraits_whenAllTraitsEnabled() async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-enable-all-traits"])
+            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-enable-all-traits"])
+            // We expect no warnings to be produced. Specifically no unused dependency warnings.
+            XCTAssertFalse(stderr.contains("warning:"))
             XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -141,7 +155,9 @@ final class TraitTests: XCTestCase {
 
     func testTraits_whenAllTraitsEnabled_andDefaultTraitsDisabled() async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-enable-all-traits", "--experimental-disable-default-traits"])
+            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-enable-all-traits", "--experimental-disable-default-traits"])
+            // We expect no warnings to be produced. Specifically no unused dependency warnings.
+            XCTAssertFalse(stderr.contains("warning:"))
             XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
