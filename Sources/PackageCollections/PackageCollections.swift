@@ -341,27 +341,23 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
         // first find in storage
         let packageSearchResult = try await self.findPackage(identity: identity, location: location, collections: collections)
         // then try to get more metadata from provider (optional)
-        return await withCheckedContinuation { continuation in
-            self.metadataProvider.get(identity: packageSearchResult.package.identity, location: packageSearchResult.package.location) { result, provider in
-                switch result {
-                case .success(let basicMetadata):
-                    continuation.resume(returning: Model.PackageMetadata(
-                        package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: basicMetadata),
-                        collections: packageSearchResult.collections,
-                        provider: provider
-                    ))
-                case .failure(let error):
-                    self.observabilityScope.emit(
-                        warning: "Failed fetching information about \(identity) from \(self.metadataProvider.self)",
-                        underlyingError: error
-                    )
-                    continuation.resume(returning: Model.PackageMetadata(
-                        package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: nil),
-                        collections: packageSearchResult.collections,
-                        provider: provider
-                    ))
-                }
-            }
+        let (basicMetadata, provider) = await self.metadataProvider.get(identity: packageSearchResult.package.identity, location: packageSearchResult.package.location)
+        do {
+            return try Model.PackageMetadata(
+                package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: basicMetadata.get()),
+                collections: packageSearchResult.collections,
+                provider: provider
+            )
+        } catch {
+            self.observabilityScope.emit(
+                warning: "Failed fetching information about \(identity) from \(self.metadataProvider.self)",
+                underlyingError: error
+            )
+            return Model.PackageMetadata(
+                package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: nil),
+                collections: packageSearchResult.collections,
+                provider: provider
+            )
         }
     }
 
