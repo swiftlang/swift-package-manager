@@ -16,7 +16,7 @@ import PackageModel
 
 public struct ManifestValidator {
     static var supportedLocalBinaryDependencyExtensions: [String] {
-        ["zip"] + BinaryTarget.Kind.allCases.filter{ $0 != .unknown }.map { $0.fileExtension }
+        ["zip"] + BinaryModule.Kind.allCases.filter{ $0 != .unknown }.map { $0.fileExtension }
     }
     static var supportedRemoteBinaryDependencyExtensions: [String] {
         ["zip", "artifactbundleindex"]
@@ -398,7 +398,7 @@ extension TargetDescription {
 
 extension PackageDependency {
     fileprivate var descriptionForValidation: String {
-        var description = "'\(self.nameForTargetDependencyResolutionOnly)'"
+        var description = "'\(self.nameForModuleDependencyResolutionOnly)'"
 
         if let locationsString = {
             switch self {

@@ -12,8 +12,13 @@
 
 import Basics
 
-public class Target {
-    /// The target kind.
+@available(*, deprecated, renamed: "Module")
+public typealias Target = Module
+
+public class Module {
+    /// Description of the module type used in `swift package describe` output. Preserved for backwards compatibility.
+    public class var typeDescription: String { fatalError("implement in a subclass") }
+    /// The module kind.
     public enum Kind: String {
         case executable
         case library
@@ -26,14 +31,14 @@ public class Target {
         case providedLibrary
     }
 
-    /// A group a target belongs to that allows customizing access boundaries. A target is treated as
+    /// A group a module belongs to that allows customizing access boundaries. A module is treated as
     /// a client outside of the package if `excluded`, inside the package boundary if `package`.
     public enum Group: Equatable {
         case package
         case excluded
     }
 
-    /// A reference to a product from a target dependency.
+    /// A reference to a product from a module dependency.
     public struct ProductReference {
         /// The name of the product dependency.
         public let name: String
@@ -52,7 +57,7 @@ public class Target {
                 return package.lowercased() + "_" + name
             } else {
                 // this is hit only if this product is referenced `.byName(name)`
-                // which assumes the name of this product, its package, and its target
+                // which assumes the name of this product, its package, and its module
                 // all have the same name
                 return name.lowercased() + "_" + name
             }
@@ -66,17 +71,21 @@ public class Target {
         }
     }
 
-    /// A target dependency to a target or product.
+    /// A module dependency to a module or product.
     public enum Dependency {
         /// A dependency referencing another target, with conditions.
-        case target(_ target: Target, conditions: [PackageCondition])
+        case module(_ target: Module, conditions: [PackageCondition])
 
         /// A dependency referencing a product, with conditions.
         case product(_ product: ProductReference, conditions: [PackageCondition])
 
-        /// The target if the dependency is a target dependency.
-        public var target: Target? {
-            if case .target(let target, _) = self {
+
+        @available(*, deprecated, renamed: "module")
+        public var target: Module? { self.module }
+
+        /// The module if the dependency is a target dependency.
+        public var module: Module? {
+            if case .module(let target, _) = self {
                 return target
             } else {
                 return nil
@@ -95,7 +104,7 @@ public class Target {
         /// The dependency conditions.
         public var conditions: [PackageCondition] {
             switch self {
-            case .target(_, let conditions):
+            case .module(_, let conditions):
                 return conditions
             case .product(_, let conditions):
                 return conditions
@@ -105,7 +114,7 @@ public class Target {
         /// The name of the target or product of the dependency.
         public var name: String {
             switch self {
-            case .target(let target, _):
+            case .module(let target, _):
                 return target.name
             case .product(let product, _):
                 return product.name
@@ -113,20 +122,20 @@ public class Target {
         }
     }
 
-    /// A usage of a plugin target or product. Implemented as a dependency
+    /// A usage of a plugin module or product. Implemented as a dependency
     /// for now and added to the `dependencies` array, since they currently
     /// have exactly the same characteristics and to avoid duplicating the
     /// implementation for now.
     public typealias PluginUsage = Dependency
 
-    /// The name of the target.
+    /// The name of the module.
     ///
-    /// NOTE: This name is not the language-level target (i.e., the importable
+    /// NOTE: This name is not the language-level module (i.e., the importable
     /// name) name in many cases, instead use ``Target/c99name`` if you need uniqueness.
     public private(set) var name: String
 
-    /// Module aliases needed to build this target. The key is an original name of a
-    /// dependent target and the value is a new unique name mapped to the name
+    /// Module aliases needed to build this module. The key is an original name of a
+    /// dependent module and the value is a new unique name mapped to the name
     /// of its .swiftmodule binary.
     public private(set) var moduleAliases: [String: String]?
     /// Used to store pre-chained / pre-overriden module aliases
@@ -134,15 +143,15 @@ public class Target {
     /// Used to store aliases that should be referenced directly in source code
     public private(set) var directRefAliases: [String: [String]]?
 
-    /// Add module aliases (if applicable) for dependencies of this target.
+    /// Add module aliases (if applicable) for dependencies of this module.
     ///
-    /// For example, adding an alias `Bar` for a target name `Foo` will result in
-    /// compiling references to `Foo` in source code of this target as `Bar.swiftmodule`.
-    /// If the name argument `Foo` is the same as this target's name, this target will be
+    /// For example, adding an alias `Bar` for a module name `Foo` will result in
+    /// compiling references to `Foo` in source code of this module as `Bar.swiftmodule`.
+    /// If the name argument `Foo` is the same as this module's name, this module will be
     /// renamed as `Bar` and the resulting binary will be `Bar.swiftmodule`.
     ///
     /// - Parameters:
-    ///   - name: The original name of a dependent target or this target
+    ///   - name: The original name of a dependent module or this module
     ///   - alias: A new unique name mapped to the resulting binary name
     public func addModuleAlias(for name: String, as alias: String) {
         if moduleAliases == nil {
@@ -176,7 +185,7 @@ public class Target {
 
     @discardableResult
     public func applyAlias() -> Bool {
-        // If there's an alias for this target, rename
+        // If there's an alias for this module, rename
         if let alias = moduleAliases?[name] {
             self.name = alias
             self.c99name = alias.spm_mangledToC99ExtendedIdentifier()
@@ -185,10 +194,10 @@ public class Target {
         return false
     }
 
-    /// The dependencies of this target.
+    /// The dependencies of this module.
     public let dependencies: [Dependency]
 
-    /// The language-level target name.
+    /// The language-level module name.
     public private(set) var c99name: String
 
     /// The bundle name, if one is being generated.
@@ -200,34 +209,34 @@ public class Target {
     /// Suffix that's expected for test targets.
     public static let testModuleNameSuffix = "Tests"
 
-    /// The kind of target.
+    /// The kind of module.
     public let type: Kind
 
-    /// If true, access to package declarations from other targets is allowed.
+    /// If true, access to package declarations from other modules is allowed.
     public let packageAccess: Bool
 
-    /// The path of the target.
+    /// The path of the module.
     public let path: AbsolutePath
 
-    /// The sources for the target.
+    /// The sources for the module.
     public let sources: Sources
 
-    /// The resource files in the target.
+    /// The resource files in the module.
     public let resources: [Resource]
 
     /// Files in the target that were marked as ignored.
     public let ignored: [AbsolutePath]
 
-    /// Other kinds of files in the target.
+    /// Other kinds of files in the module.
     public let others: [AbsolutePath]
 
-    /// The build settings assignments of this target.
+    /// The build settings assignments of this module.
     public let buildSettings: BuildSettings.AssignmentTable
 
     @_spi(SwiftPMInternal)
     public let buildSettingsDescription: [TargetBuildSettingDescription.Setting]
 
-    /// The usages of package plugins by this target.
+    /// The usages of package plugins by this module.
     public let pluginUsages: [PluginUsage]
 
     /// Whether or not this target uses any custom unsafe flags.
@@ -242,7 +251,7 @@ public class Target {
         resources: [Resource] = [],
         ignored: [AbsolutePath] = [],
         others: [AbsolutePath] = [],
-        dependencies: [Target.Dependency],
+        dependencies: [Module.Dependency],
         packageAccess: Bool,
         buildSettings: BuildSettings.AssignmentTable,
         buildSettingsDescription: [TargetBuildSettingDescription.Setting],
@@ -276,28 +285,28 @@ public class Target {
     }
 }
 
-extension Target: Hashable {
+extension Module: Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(ObjectIdentifier(self))
     }
 
-    public static func == (lhs: Target, rhs: Target) -> Bool {
+    public static func == (lhs: Module, rhs: Module) -> Bool {
         ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
     }
 }
 
-extension Target: CustomStringConvertible {
+extension Module: CustomStringConvertible {
     public var description: String {
         return "<\(Swift.type(of: self)): \(name)>"
     }
 }
 
-public extension Sequence where Iterator.Element == Target {
-    var executables: [Target] {
+public extension Sequence where Iterator.Element == Module {
+    var executables: [Module] {
         return filter {
             switch $0.type {
             case .binary:
-                return ($0 as? BinaryTarget)?.containsExecutable == true
+                return ($0 as? BinaryModule)?.containsExecutable == true
             case .executable, .snippet, .macro:
                 return true
             default:

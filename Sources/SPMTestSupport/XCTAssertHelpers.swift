@@ -17,7 +17,7 @@ import class Foundation.Bundle
 import TSCTestSupport
 import XCTest
 
-import struct TSCBasic.ProcessResult
+import struct Basics.AsyncProcessResult
 
 import struct TSCUtility.Version
 
@@ -65,6 +65,18 @@ public func XCTAssertAsyncThrowsError<T>(
     }
 }
 
+package func XCTAssertAsyncNoThrow<T>(
+    _ expression: @autoclosure () async throws -> T,
+    _ message: @autoclosure () -> String = "",
+    file: StaticString = #filePath,
+    line: UInt = #line
+) async {
+    do {
+        _ = try await expression()
+    } catch {
+        XCTAssertNoThrow({ throw error }, message(), file: file, line: line)
+    }
+}
 
 public func XCTAssertBuilds(
     _ path: AbsolutePath,
@@ -73,13 +85,13 @@ public func XCTAssertBuilds(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: EnvironmentVariables? = nil,
+    env: Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line
-) {
+) async {
     for conf in configurations {
-        XCTAssertNoThrow(
-            try executeSwiftBuild(
+        await XCTAssertAsyncNoThrow(
+            try await executeSwiftBuild(
                 path,
                 configuration: conf,
                 extraArgs: extraArgs,
@@ -101,12 +113,12 @@ public func XCTAssertSwiftTest(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: EnvironmentVariables? = nil,
+    env: Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line
-) {
-    XCTAssertNoThrow(
-        try executeSwiftTest(
+) async {
+    await XCTAssertAsyncNoThrow(
+        try await executeSwiftTest(
             path,
             configuration: configuration,
             extraArgs: extraArgs,
@@ -126,12 +138,12 @@ public func XCTAssertBuildFails(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: EnvironmentVariables? = nil,
+    env: Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line
-) -> CommandExecutionError? {
+) async -> CommandExecutionError? {
     var failure: CommandExecutionError? = nil
-    XCTAssertThrowsCommandExecutionError(try executeSwiftBuild(path, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc), file: file, line: line) { error in
+    await XCTAssertThrowsCommandExecutionError(try await executeSwiftBuild(path, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc), file: file, line: line) { error in
         failure = error
     }
     return failure
@@ -181,15 +193,15 @@ package func XCTAssertAsyncNil(
 }
 
 public func XCTAssertThrowsCommandExecutionError<T>(
-    _ expression: @autoclosure () throws -> T,
+    _ expression: @autoclosure () async throws -> T,
     _ message: @autoclosure () -> String = "",
     file: StaticString = #filePath,
     line: UInt = #line,
     _ errorHandler: (_ error: CommandExecutionError) -> Void = { _ in }
-) {
-    XCTAssertThrowsError(try expression(), message(), file: file, line: line) { error in
+) async {
+    await XCTAssertAsyncThrowsError(try await expression(), message(), file: file, line: line) { error in
         guard case SwiftPMError.executionFailure(let processError, let stdout, let stderr) = error,
-              case ProcessResult.Error.nonZeroExit(let processResult) = processError,
+              case AsyncProcessResult.Error.nonZeroExit(let processResult) = processError,
               processResult.exitStatus != .terminated(code: 0) else {
             return XCTFail("Unexpected error type: \(error.interpolationDescription)", file: file, line: line)
         }
@@ -227,7 +239,7 @@ public func XCTAsyncUnwrap<T>(
 
 
 public struct CommandExecutionError: Error {
-    public let result: ProcessResult
+    package let result: AsyncProcessResult
     public let stdout: String
     public let stderr: String
 }

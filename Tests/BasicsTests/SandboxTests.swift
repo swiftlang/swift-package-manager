@@ -18,9 +18,6 @@ import XCTest
 import Darwin
 #endif
 
-import class TSCBasic.Process
-import struct TSCBasic.ProcessResult
-
 final class SandboxTest: XCTestCase {
     func testSandboxOnAllPlatforms() throws {
         try withTemporaryDirectory { path in
@@ -29,7 +26,7 @@ final class SandboxTest: XCTestCase {
 #else
             let command = try Sandbox.apply(command: ["echo", "0"], strictness: .default, writableDirectories: [])
 #endif
-            XCTAssertNoThrow(try TSCBasic.Process.checkNonZeroExit(arguments: command))
+            XCTAssertNoThrow(try AsyncProcess.checkNonZeroExit(arguments: command))
         }
     }
     
@@ -53,7 +50,7 @@ final class SandboxTest: XCTestCase {
             return confstr(_CS_DARWIN_USER_CACHE_DIR, buffer.baseAddress, Int(PATH_MAX))
         }
         let command = try Sandbox.apply(command: ["swift", "-"], strictness: .writableTemporaryDirectory, writableDirectories: [try AbsolutePath(validating: cacheDirectory)])
-        let process = Process(arguments: command)
+        let process = AsyncProcess(arguments: command)
         let stdin = try process.launch()
         stdin.write(sequence: testProgram.utf8)
         try stdin.close()
@@ -69,8 +66,8 @@ final class SandboxTest: XCTestCase {
 
         let command = try Sandbox.apply(command: ["ping", "-t", "1", "localhost"], strictness: .default, writableDirectories: [])
 
-        XCTAssertThrowsError(try TSCBasic.Process.checkNonZeroExit(arguments: command)) { error in
-            guard case ProcessResult.Error.nonZeroExit(let result) = error else {
+        XCTAssertThrowsError(try AsyncProcess.checkNonZeroExit(arguments: command)) { error in
+            guard case AsyncProcessResult.Error.nonZeroExit(let result) = error else {
                 return XCTFail("invalid error \(error)")
             }
             XCTAssertMatch(try! result.utf8stderrOutput(), .contains("Operation not permitted"))
@@ -84,7 +81,7 @@ final class SandboxTest: XCTestCase {
 
         try withTemporaryDirectory { path in
             let command = try Sandbox.apply(command: ["touch", path.appending(component: UUID().uuidString).pathString], strictness: .default, writableDirectories: [path])
-            XCTAssertNoThrow(try TSCBasic.Process.checkNonZeroExit(arguments: command))
+            XCTAssertNoThrow(try AsyncProcess.checkNonZeroExit(arguments: command))
         }
     }
 
@@ -95,8 +92,8 @@ final class SandboxTest: XCTestCase {
 
         try withTemporaryDirectory { path in
             let command = try Sandbox.apply(command: ["touch", path.appending(component: UUID().uuidString).pathString], strictness: .default, writableDirectories: [])
-            XCTAssertThrowsError(try TSCBasic.Process.checkNonZeroExit(arguments: command)) { error in
-                guard case ProcessResult.Error.nonZeroExit(let result) = error else {
+            XCTAssertThrowsError(try AsyncProcess.checkNonZeroExit(arguments: command)) { error in
+                guard case AsyncProcessResult.Error.nonZeroExit(let result) = error else {
                     return XCTFail("invalid error \(error)")
                 }
                 XCTAssertMatch(try! result.utf8stderrOutput(), .contains("Operation not permitted"))
@@ -111,11 +108,11 @@ final class SandboxTest: XCTestCase {
 
         try withTemporaryDirectory { path in
             let file = path.appending(component: UUID().uuidString)
-            XCTAssertNoThrow(try TSCBasic.Process.checkNonZeroExit(arguments: ["touch", file.pathString]))
+            XCTAssertNoThrow(try AsyncProcess.checkNonZeroExit(arguments: ["touch", file.pathString]))
 
             let command = try Sandbox.apply(command: ["rm", file.pathString], strictness: .default, writableDirectories: [])
-            XCTAssertThrowsError(try TSCBasic.Process.checkNonZeroExit(arguments: command)) { error in
-                guard case ProcessResult.Error.nonZeroExit(let result) = error else {
+            XCTAssertThrowsError(try AsyncProcess.checkNonZeroExit(arguments: command)) { error in
+                guard case AsyncProcessResult.Error.nonZeroExit(let result) = error else {
                     return XCTFail("invalid error \(error)")
                 }
                 XCTAssertMatch(try! result.utf8stderrOutput(), .contains("Operation not permitted"))
@@ -131,10 +128,10 @@ final class SandboxTest: XCTestCase {
 
         try withTemporaryDirectory { path in
             let file = path.appending(component: UUID().uuidString)
-            XCTAssertNoThrow(try TSCBasic.Process.checkNonZeroExit(arguments: ["touch", file.pathString]))
+            XCTAssertNoThrow(try AsyncProcess.checkNonZeroExit(arguments: ["touch", file.pathString]))
 
             let command = try Sandbox.apply(command: ["cat", file.pathString], strictness: .default, writableDirectories: [])
-            XCTAssertNoThrow(try TSCBasic.Process.checkNonZeroExit(arguments: command))
+            XCTAssertNoThrow(try AsyncProcess.checkNonZeroExit(arguments: command))
         }
     }
 
@@ -146,11 +143,11 @@ final class SandboxTest: XCTestCase {
 
         try withTemporaryDirectory { path in
             let file = path.appending(component: UUID().uuidString)
-            XCTAssertNoThrow(try TSCBasic.Process.checkNonZeroExit(arguments: ["touch", file.pathString]))
-            XCTAssertNoThrow(try TSCBasic.Process.checkNonZeroExit(arguments: ["chmod", "+x", file.pathString]))
+            XCTAssertNoThrow(try AsyncProcess.checkNonZeroExit(arguments: ["touch", file.pathString]))
+            XCTAssertNoThrow(try AsyncProcess.checkNonZeroExit(arguments: ["chmod", "+x", file.pathString]))
 
             let command = try Sandbox.apply(command: [file.pathString], strictness: .default, writableDirectories: [])
-            XCTAssertNoThrow(try TSCBasic.Process.checkNonZeroExit(arguments: command))
+            XCTAssertNoThrow(try AsyncProcess.checkNonZeroExit(arguments: command))
         }
     }
 
@@ -162,12 +159,12 @@ final class SandboxTest: XCTestCase {
         // Try writing to the per-user temporary directory, which is under /var/folders/.../TemporaryItems.
         let tmpFile1 = NSTemporaryDirectory() + "/" + UUID().uuidString
         let command1 = try Sandbox.apply(command: ["touch", tmpFile1], strictness: .writableTemporaryDirectory)
-        XCTAssertNoThrow(try TSCBasic.Process.checkNonZeroExit(arguments: command1))
+        XCTAssertNoThrow(try AsyncProcess.checkNonZeroExit(arguments: command1))
         try? FileManager.default.removeItem(atPath: tmpFile1)
 
         let tmpFile2 = "/tmp" + "/" + UUID().uuidString
         let command2 = try Sandbox.apply(command: ["touch", tmpFile2], strictness: .writableTemporaryDirectory)
-        XCTAssertNoThrow(try TSCBasic.Process.checkNonZeroExit(arguments: command2))
+        XCTAssertNoThrow(try AsyncProcess.checkNonZeroExit(arguments: command2))
         try? FileManager.default.removeItem(atPath: tmpFile2)
     }
 
@@ -181,14 +178,14 @@ final class SandboxTest: XCTestCase {
             let writableDir = tmpDir.appending("ShouldBeWritable")
             try localFileSystem.createDirectory(writableDir)
             let allowedCommand = try Sandbox.apply(command: ["touch", writableDir.pathString], strictness: .default, writableDirectories: [writableDir])
-            XCTAssertNoThrow(try TSCBasic.Process.checkNonZeroExit(arguments: allowedCommand))
+            XCTAssertNoThrow(try AsyncProcess.checkNonZeroExit(arguments: allowedCommand))
 
             // Check that we cannot write into a read-only directory inside a writable temporary directory.
             let readOnlyDir = writableDir.appending("ShouldBeReadOnly")
             try localFileSystem.createDirectory(readOnlyDir)
             let deniedCommand = try Sandbox.apply(command: ["touch", readOnlyDir.pathString], strictness: .writableTemporaryDirectory, readOnlyDirectories: [readOnlyDir])
-            XCTAssertThrowsError(try TSCBasic.Process.checkNonZeroExit(arguments: deniedCommand)) { error in
-                guard case ProcessResult.Error.nonZeroExit(let result) = error else {
+            XCTAssertThrowsError(try AsyncProcess.checkNonZeroExit(arguments: deniedCommand)) { error in
+                guard case AsyncProcessResult.Error.nonZeroExit(let result) = error else {
                     return XCTFail("invalid error \(error)")
                 }
                 XCTAssertMatch(try! result.utf8stderrOutput(), .contains("Operation not permitted"))
@@ -206,8 +203,8 @@ final class SandboxTest: XCTestCase {
              let readOnlyDir = tmpDir.appending("ShouldBeReadOnly")
              try localFileSystem.createDirectory(readOnlyDir)
              let deniedCommand = try Sandbox.apply(command: ["touch", readOnlyDir.pathString], strictness: .writableTemporaryDirectory, readOnlyDirectories: [readOnlyDir])
-             XCTAssertThrowsError(try TSCBasic.Process.checkNonZeroExit(arguments: deniedCommand)) { error in
-                 guard case ProcessResult.Error.nonZeroExit(let result) = error else {
+             XCTAssertThrowsError(try AsyncProcess.checkNonZeroExit(arguments: deniedCommand)) { error in
+                 guard case AsyncProcessResult.Error.nonZeroExit(let result) = error else {
                      return XCTFail("invalid error \(error)")
                  }
                  XCTAssertMatch(try! result.utf8stderrOutput(), .contains("Operation not permitted"))
@@ -217,7 +214,7 @@ final class SandboxTest: XCTestCase {
              let writableDir = readOnlyDir.appending("ShouldBeWritable")
              try localFileSystem.createDirectory(writableDir)
              let allowedCommand = try Sandbox.apply(command: ["touch", writableDir.pathString], strictness: .default, writableDirectories:[writableDir], readOnlyDirectories: [readOnlyDir])
-             XCTAssertNoThrow(try TSCBasic.Process.checkNonZeroExit(arguments: allowedCommand))
+             XCTAssertNoThrow(try AsyncProcess.checkNonZeroExit(arguments: allowedCommand))
          }
      }
 }

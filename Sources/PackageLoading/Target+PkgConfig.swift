@@ -13,7 +13,7 @@
 import Basics
 import PackageModel
 
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 import struct TSCBasic.RegEx
 
 import enum TSCUtility.Platform
@@ -62,7 +62,7 @@ public struct PkgConfigResult {
 
 /// Get pkgConfig result for a system library target.
 public func pkgConfigArgs(
-    for target: SystemLibraryTarget,
+    for target: SystemLibraryModule,
     pkgConfigDirectories: [AbsolutePath],
     sdkRootPath: AbsolutePath? = nil,
     brewPrefix: AbsolutePath? = .none,
@@ -200,7 +200,7 @@ extension SystemPackageProviderDescription {
                 // to the latest version. Instead use the version as symlinked
                 // in /usr/local/opt/(NAME)/lib/pkgconfig.
                 struct Static {
-                    static let value = { try? TSCBasic.Process.checkNonZeroExit(args: "brew", "--prefix").spm_chomp() }()
+                    static let value = { try? AsyncProcess.checkNonZeroExit(args: "brew", "--prefix").spm_chomp() }()
                 }
                 if let value = Static.value {
                     brewPrefix = value
@@ -334,7 +334,7 @@ extension ObservabilityMetadata {
     public static func pkgConfig(pcFile: String, targetName: String) -> Self {
         var metadata = ObservabilityMetadata()
         metadata.pcFile = "\(pcFile).pc"
-        metadata.targetName = targetName
+        metadata.moduleName = targetName
         return metadata
     }
 }

@@ -84,7 +84,7 @@ final class PluginInvocationTests: XCTestCase {
         PackageGraphTester(graph) { graph in
             graph.check(packages: "Foo")
             // "FooTool{Lib}" duplicated as it's present for both build tools and end products triples.
-            graph.check(targets: "Foo", "FooPlugin", "FooTool", "FooTool", "FooToolLib", "FooToolLib")
+            graph.check(modules: "Foo", "FooPlugin", "FooTool", "FooTool", "FooToolLib", "FooToolLib")
             graph.checkTarget("Foo") { target in
                 target.check(dependencies: "FooPlugin")
             }
@@ -322,7 +322,7 @@ final class PluginInvocationTests: XCTestCase {
             XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
             
             // Find the build tool plugin.
-            let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.targets.map(\.underlying).first{ $0.name == "MyPlugin" } as? PluginTarget)
+            let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.modules.map(\.underlying).first{ $0.name == "MyPlugin" } as? PluginModule)
             XCTAssertEqual(buildToolPlugin.name, "MyPlugin")
             XCTAssertEqual(buildToolPlugin.capability, .buildTool)
 
@@ -337,14 +337,14 @@ final class PluginInvocationTests: XCTestCase {
             // Define a plugin compilation delegate that just captures the passed information.
             class Delegate: PluginScriptCompilerDelegate {
                 var commandLine: [String]? 
-                var environment: EnvironmentVariables?
+                var environment: Environment?
                 var compiledResult: PluginCompilationResult?
                 var cachedResult: PluginCompilationResult?
                 init() {
                 }
-                func willCompilePlugin(commandLine: [String], environment: EnvironmentVariables) {
+                func willCompilePlugin(commandLine: [String], environment: [String: String]) {
                     self.commandLine = commandLine
-                    self.environment = environment
+                    self.environment = .init(environment)
                 }
                 func didCompilePlugin(result: PluginCompilationResult) {
                     self.compiledResult = result
@@ -890,7 +890,7 @@ final class PluginInvocationTests: XCTestCase {
             XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
 
             // Find the build tool plugin.
-            let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.targets.map(\.underlying).filter{ $0.name == "X" }.first as? PluginTarget)
+            let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.modules.map(\.underlying).filter{ $0.name == "X" }.first as? PluginModule)
             XCTAssertEqual(buildToolPlugin.name, "X")
             XCTAssertEqual(buildToolPlugin.capability, .buildTool)
 
@@ -1053,7 +1053,7 @@ final class PluginInvocationTests: XCTestCase {
             /////////
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let environment = EnvironmentVariables.process()
+            let environment = Environment.current
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
                 location: try Workspace.Location(forRootPackage: packageDir, fileSystem: localFileSystem),
@@ -1230,10 +1230,10 @@ final class PluginInvocationTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             // Find the build tool plugin.
-            let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.targets
+            let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.modules
                 .map(\.underlying)
                 .filter { $0.name == "Foo" }
-                .first as? PluginTarget)
+                .first as? PluginModule)
             XCTAssertEqual(buildToolPlugin.name, "Foo")
             XCTAssertEqual(buildToolPlugin.capability, .buildTool)
 
@@ -1246,7 +1246,7 @@ final class PluginInvocationTests: XCTestCase {
                     toolset: swiftSDK.toolset,
                     pathsConfiguration: swiftSDK.pathsConfiguration
                 ),
-                environment: .process()
+                environment: .current
             )
 
             // Create a plugin script runner for the duration of the test.

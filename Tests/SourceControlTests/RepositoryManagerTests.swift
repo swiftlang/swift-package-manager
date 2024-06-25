@@ -16,8 +16,6 @@ import SPMTestSupport
 @testable import SourceControl
 import XCTest
 
-import enum TSCBasic.ProcessEnv
-
 final class RepositoryManagerTests: XCTestCase {
     func testBasics() async throws {
         let fs = localFileSystem

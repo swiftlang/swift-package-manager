@@ -14,6 +14,7 @@ import Basics
 import Foundation
 import LLBuildManifest
 import SPMBuildCore
+import PackageGraph
 
 import struct TSCBasic.ByteString
 
@@ -58,7 +59,10 @@ public struct BuildDescription: Codable {
     public let builtTestProducts: [BuiltTestProduct]
 
     /// Distilled information about any plugins defined in the package.
-    let pluginDescriptions: [PluginDescription]
+    let pluginDescriptions: [PluginBuildDescription]
+
+    /// The enabled traits of the root package.
+    let traitConfiguration: TraitConfiguration?
 
     public init(
         plan: BuildPlan,
@@ -68,7 +72,31 @@ public struct BuildDescription: Codable {
         testEntryPointCommands: [LLBuildManifest.CmdName: TestEntryPointTool],
         copyCommands: [LLBuildManifest.CmdName: CopyTool],
         writeCommands: [LLBuildManifest.CmdName: WriteAuxiliaryFile],
-        pluginDescriptions: [PluginDescription]
+        pluginDescriptions: [PluginBuildDescription]
+    ) throws {
+        try self.init(
+            plan: plan,
+            swiftCommands: swiftCommands,
+            swiftFrontendCommands: swiftFrontendCommands,
+            testDiscoveryCommands: testDiscoveryCommands,
+            testEntryPointCommands: testEntryPointCommands,
+            copyCommands: copyCommands,
+            writeCommands: writeCommands,
+            pluginDescriptions: pluginDescriptions,
+            traitConfiguration: nil
+        )
+    }
+
+    package init(
+        plan: BuildPlan,
+        swiftCommands: [LLBuildManifest.CmdName: SwiftCompilerTool],
+        swiftFrontendCommands: [LLBuildManifest.CmdName: SwiftFrontendTool],
+        testDiscoveryCommands: [LLBuildManifest.CmdName: TestDiscoveryTool],
+        testEntryPointCommands: [LLBuildManifest.CmdName: TestEntryPointTool],
+        copyCommands: [LLBuildManifest.CmdName: CopyTool],
+        writeCommands: [LLBuildManifest.CmdName: WriteAuxiliaryFile],
+        pluginDescriptions: [PluginBuildDescription],
+        traitConfiguration: TraitConfiguration?
     ) throws {
         self.swiftCommands = swiftCommands
         self.swiftFrontendCommands = swiftFrontendCommands
@@ -78,12 +106,13 @@ public struct BuildDescription: Codable {
         self.writeCommands = writeCommands
         self.explicitTargetDependencyImportCheckingMode = plan.destinationBuildParameters.driverParameters
             .explicitTargetDependencyImportCheckingMode
+        self.traitConfiguration = traitConfiguration
         self.targetDependencyMap = try plan.targets
             .reduce(into: [TargetName: [TargetName]]()) { partial, targetBuildDescription in
                 let deps = try targetBuildDescription.target.recursiveDependencies(
                     satisfying: targetBuildDescription.buildParameters.buildEnvironment
                 )
-                .compactMap(\.target).map(\.c99name)
+                .compactMap(\.module).map(\.c99name)
                 partial[targetBuildDescription.target.c99name] = deps
             }
         var targetCommandLines: [TargetName: [CommandLineFlag]] = [:]
@@ -103,7 +132,7 @@ public struct BuildDescription: Codable {
         }
         generatedSourceTargets.append(
             contentsOf: plan.pluginDescriptions
-                .map(\.targetC99Name)
+                .map(\.moduleC99Name)
         )
         self.swiftTargetScanArgs = targetCommandLines
         self.generatedSourceTargetSet = Set(generatedSourceTargets)

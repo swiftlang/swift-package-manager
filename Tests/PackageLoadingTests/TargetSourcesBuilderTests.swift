@@ -289,7 +289,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
                     for diagnostic in diagnosticsFound {
                         XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
                         XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                        XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                        XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
                     }
                 }
             }
@@ -318,7 +318,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
                     for diagnostic in diagnosticsFound {
                         XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
                         XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                        XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                        XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
                     }
                 }
             }
@@ -365,7 +365,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
                     for diagnostic in diagnosticsFound {
                         XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
                         XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                        XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                        XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
                     }
                 }
             }
@@ -394,7 +394,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
                     for diagnostic in diagnosticsFound {
                         XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
                         XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                        XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                        XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
                     }
                 }
             }
@@ -421,7 +421,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
                     )
                     XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
                     XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                    XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                    XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
                 }
             }
         }
@@ -459,7 +459,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
                 )
                 XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
                 XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
             }
         }
     }
@@ -484,7 +484,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
                 )
                 XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
                 XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
             }
         }
     }
@@ -562,7 +562,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
                 for diagnostic in diagnosticsFound {
                     XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
                     XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                    XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                    XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
                 }
             }
         }
@@ -635,7 +635,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
                     )
                     XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
                     XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                    XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                    XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
                 }
             }
         }
@@ -657,7 +657,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
                     )
                     XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
                     XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                    XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                    XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
                 }
             }
         }
@@ -704,7 +704,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
                 for diagnostic in diagnosticsFound {
                     XCTAssertEqual(diagnostic?.metadata?.packageIdentity, builder.packageIdentity)
                     XCTAssertEqual(diagnostic?.metadata?.packageKind, builder.packageKind)
-                    XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                    XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
                 }
             }
         }
@@ -771,7 +771,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
                 for diagnostic in diagnosticsFound {
                     XCTAssertEqual(diagnostic?.metadata?.packageIdentity, builder.packageIdentity)
                     XCTAssertEqual(diagnostic?.metadata?.packageKind, builder.packageKind)
-                    XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                    XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
                 }
             }
         }
@@ -839,7 +839,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
             for diagnostic in diagnosticsFound {
                 XCTAssertEqual(diagnostic?.metadata?.packageIdentity, builder.packageIdentity)
                 XCTAssertEqual(diagnostic?.metadata?.packageKind, builder.packageKind)
-                XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
             }
         }
     }

@@ -114,7 +114,7 @@ public struct MockPackage {
                 try MockTarget(name: name),
             ],
             products: [
-                MockProduct(name: name, targets: [name]),
+                MockProduct(name: name, modules: [name]),
             ],
             versions: ["1.0.0"]
         )

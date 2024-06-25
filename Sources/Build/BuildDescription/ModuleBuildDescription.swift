@@ -21,22 +21,25 @@ public enum BuildDescriptionError: Swift.Error {
     case requestedFileNotPartOfTarget(targetName: String, requestedFilePath: AbsolutePath)
 }
 
-/// A target description which can either be for a Swift or Clang target.
-public enum TargetBuildDescription {
+@available(*, deprecated, renamed: "ModuleBuildDescription")
+public typealias TargetBuildDescription = ModuleBuildDescription
+
+/// A module build description which can either be for a Swift or Clang module.
+public enum ModuleBuildDescription {
     /// Swift target description.
-    case swift(SwiftTargetBuildDescription)
+    case swift(SwiftModuleBuildDescription)
 
     /// Clang target description.
-    case clang(ClangTargetBuildDescription)
+    case clang(ClangModuleBuildDescription)
 
     /// The objects in this target.
     var objects: [AbsolutePath] {
         get throws {
             switch self {
-            case .swift(let target):
-                return try target.objects
-            case .clang(let target):
-                return try target.objects
+            case .swift(let module):
+                return try module.objects
+            case .clang(let module):
+                return try module.objects
             }
         }
     }
@@ -44,29 +47,29 @@ public enum TargetBuildDescription {
     /// The resources in this target.
     var resources: [Resource] {
         switch self {
-        case .swift(let target):
-            return target.resources
-        case .clang(let target):
-            return target.resources
+        case .swift(let buildDescription):
+            return buildDescription.resources
+        case .clang(let buildDescription):
+            return buildDescription.resources
         }
     }
 
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
         switch self {
-        case .swift(let target):
-            return target.bundlePath
-        case .clang(let target):
-            return target.bundlePath
+        case .swift(let buildDescription):
+            return buildDescription.bundlePath
+        case .clang(let buildDescription):
+            return buildDescription.bundlePath
         }
     }
 
     var target: ResolvedModule {
         switch self {
-        case .swift(let target):
-            return target.target
-        case .clang(let target):
-            return target.target
+        case .swift(let buildDescription):
+            return buildDescription.target
+        case .clang(let buildDescription):
+            return buildDescription.target
         }
     }
 
@@ -82,37 +85,37 @@ public enum TargetBuildDescription {
 
     var resourceBundleInfoPlistPath: AbsolutePath? {
         switch self {
-        case .swift(let target):
-            return target.resourceBundleInfoPlistPath
-        case .clang(let target):
-            return target.resourceBundleInfoPlistPath
+        case .swift(let buildDescription):
+            return buildDescription.resourceBundleInfoPlistPath
+        case .clang(let buildDescription):
+            return buildDescription.resourceBundleInfoPlistPath
         }
     }
 
     var buildToolPluginInvocationResults: [BuildToolPluginInvocationResult] {
         switch self {
-        case .swift(let target):
-            return target.buildToolPluginInvocationResults
-        case .clang(let target):
-            return target.buildToolPluginInvocationResults
+        case .swift(let buildDescription):
+            return buildDescription.buildToolPluginInvocationResults
+        case .clang(let buildDescription):
+            return buildDescription.buildToolPluginInvocationResults
         }
     }
 
     var buildParameters: BuildParameters {
         switch self {
-        case .swift(let swiftTargetBuildDescription):
-            return swiftTargetBuildDescription.buildParameters
-        case .clang(let clangTargetBuildDescription):
-            return clangTargetBuildDescription.buildParameters
+        case .swift(let buildDescription):
+            return buildDescription.buildParameters
+        case .clang(let buildDescription):
+            return buildDescription.buildParameters
         }
     }
 
     var toolsVersion: ToolsVersion {
         switch self {
-        case .swift(let swiftTargetBuildDescription):
-            return swiftTargetBuildDescription.toolsVersion
-        case .clang(let clangTargetBuildDescription):
-            return clangTargetBuildDescription.toolsVersion
+        case .swift(let buildDescription):
+            return buildDescription.toolsVersion
+        case .clang(let buildDescription):
+            return buildDescription.toolsVersion
         }
     }
 
@@ -120,8 +123,8 @@ public enum TargetBuildDescription {
     /// this module.
     package func symbolGraphExtractArguments() throws -> [String] {
         switch self {
-        case .swift(let target): try target.symbolGraphExtractArguments()
-        case .clang(let target): try target.symbolGraphExtractArguments()
+        case .swift(let buildDescription): try buildDescription.symbolGraphExtractArguments()
+        case .clang(let buildDescription): try buildDescription.symbolGraphExtractArguments()
         }
     }
 }

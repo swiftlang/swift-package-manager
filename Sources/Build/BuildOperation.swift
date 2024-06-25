@@ -22,8 +22,7 @@ import Foundation
 
 import class TSCBasic.DiagnosticsEngine
 import protocol TSCBasic.OutputByteStream
-import class TSCBasic.Process
-import enum TSCBasic.ProcessEnv
+import class Basics.AsyncProcess
 import struct TSCBasic.RegEx
 
 import enum TSCUtility.Diagnostics
@@ -54,6 +53,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// The path to scratch space (.build) directory.
     let scratchDirectory: AbsolutePath
+
+    /// The trait configuration for this build operation.
+    private let traitConfiguration: TraitConfiguration?
 
     /// The llbuild build system reference previously created
     /// via `createBuildSystem` call.
@@ -109,13 +111,49 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Map of  root package identities by target names which are declared in them.
     private let rootPackageIdentityByTargetName: [String: PackageIdentity]
 
-    public init(
+    public convenience init(
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
         cacheBuildManifest: Bool,
         packageGraphLoader: @escaping () throws -> ModulesGraph,
         pluginConfiguration: PluginConfiguration? = .none,
         scratchDirectory: AbsolutePath,
+        additionalFileRules: [FileRuleDescription],
+        pkgConfigDirectories: [AbsolutePath],
+        dependenciesByRootPackageIdentity: [PackageIdentity: [PackageIdentity]],
+        targetsByRootPackageIdentity: [PackageIdentity: [String]],
+        outputStream: OutputByteStream,
+        logLevel: Basics.Diagnostic.Severity,
+        fileSystem: Basics.FileSystem,
+        observabilityScope: ObservabilityScope
+    ) {
+        self.init(
+            productsBuildParameters: productsBuildParameters,
+            toolsBuildParameters: toolsBuildParameters,
+            cacheBuildManifest: cacheBuildManifest,
+            packageGraphLoader: packageGraphLoader,
+            pluginConfiguration: pluginConfiguration,
+            scratchDirectory: scratchDirectory,
+            traitConfiguration: nil,
+            additionalFileRules: additionalFileRules,
+            pkgConfigDirectories: pkgConfigDirectories,
+            dependenciesByRootPackageIdentity: dependenciesByRootPackageIdentity,
+            targetsByRootPackageIdentity: targetsByRootPackageIdentity,
+            outputStream: outputStream,
+            logLevel: logLevel,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+    }
+
+    package init(
+        productsBuildParameters: BuildParameters,
+        toolsBuildParameters: BuildParameters,
+        cacheBuildManifest: Bool,
+        packageGraphLoader: @escaping () throws -> ModulesGraph,
+        pluginConfiguration: PluginConfiguration? = .none,
+        scratchDirectory: AbsolutePath,
+        traitConfiguration: TraitConfiguration?,
         additionalFileRules: [FileRuleDescription],
         pkgConfigDirectories: [AbsolutePath],
         dependenciesByRootPackageIdentity: [PackageIdentity: [PackageIdentity]],
@@ -139,6 +177,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.additionalFileRules = additionalFileRules
         self.pluginConfiguration = pluginConfiguration
         self.scratchDirectory = scratchDirectory
+        self.traitConfiguration = traitConfiguration
         self.pkgConfigDirectories = pkgConfigDirectories
         self.dependenciesByRootPackageIdentity = dependenciesByRootPackageIdentity
         self.rootPackageIdentityByTargetName = (try? Dictionary<String, PackageIdentity>(throwingUniqueKeysWithValues: targetsByRootPackageIdentity.lazy.flatMap { e in e.value.map { ($0, e.key) } })) ?? [:]
@@ -171,7 +210,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                             throw InternalError("could not find build descriptor at \(buildDescriptionPath)")
                         }
                         // return the build description that's on disk.
-                        return try BuildDescription.load(fileSystem: self.fileSystem, path: buildDescriptionPath)
+                        let buildDescription = try BuildDescription.load(fileSystem: self.fileSystem, path: buildDescriptionPath)
+
+                        // We need to check that the build has same traits enabled for the cached build operation
+                        // match otherwise we have to re-plan.
+                        if buildDescription.traitConfiguration == self.traitConfiguration {
+                            return buildDescription
+                        }
                     }
                 } catch {
                     // since caching is an optimization, warn about failing to load the cached version
@@ -227,7 +272,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 let resolver = try ArgsResolver(fileSystem: localFileSystem)
                 let executor = SPMSwiftDriverExecutor(resolver: resolver,
                                                       fileSystem: localFileSystem,
-                                                      env: ProcessEnv.vars)
+                                                      env: Environment.current)
 
                 let consumeDiagnostics: DiagnosticsEngine = DiagnosticsEngine(handlers: [])
                 var driver = try Driver(args: commandLine,
@@ -426,7 +471,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Figure out what, if any, plugin descriptions to compile, and whether
         // to continue building after that based on the subset.
         let allPlugins = try getBuildDescription().pluginDescriptions
-        let pluginsToCompile: [PluginDescription]
+        let pluginsToCompile: [PluginBuildDescription]
         let continueBuilding: Bool
         switch subset {
         case .allExcludingTests, .allIncludingTests:
@@ -436,7 +481,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             pluginsToCompile = allPlugins.filter{ $0.productNames.contains(productName) }
             continueBuilding = pluginsToCompile.isEmpty
         case .target(let targetName, _):
-            pluginsToCompile = allPlugins.filter{ $0.targetName == targetName }
+            pluginsToCompile = allPlugins.filter{ $0.moduleName == targetName }
             continueBuilding = pluginsToCompile.isEmpty
         }
 
@@ -453,7 +498,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     // Compiles a single plugin, emitting its output and throwing an error if it
     // fails.
-    func compilePlugin(_ plugin: PluginDescription) throws {
+    func compilePlugin(_ plugin: PluginBuildDescription) throws {
         guard let pluginConfiguration else {
             throw InternalError("unknown plugin script runner")
         }
@@ -465,7 +510,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 self.preparationStepName = preparationStepName
                 self.progressTracker = progressTracker
             }
-            func willCompilePlugin(commandLine: [String], environment: EnvironmentVariables) {
+            func willCompilePlugin(commandLine: [String], environment: [String: String]) {
                 self.progressTracker?.preparationStepStarted(preparationStepName)
             }
             func didCompilePlugin(result: PluginCompilationResult) {
@@ -497,13 +542,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             }
         }
         let delegate = Delegate(
-            preparationStepName: "Compiling plugin \(plugin.targetName)",
+            preparationStepName: "Compiling plugin \(plugin.moduleName)",
             progressTracker: self.current?.tracker
         )
         let result = try temp_await {
             pluginConfiguration.scriptRunner.compilePluginScript(
                 sourceFiles: plugin.sources.paths,
-                pluginName: plugin.targetName,
+                pluginName: plugin.moduleName,
                 toolsVersion: plugin.toolsVersion,
                 observabilityScope: self.observabilityScope,
                 callbackQueue: DispatchQueue.sharedConcurrent,
@@ -570,7 +615,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 nil
             }
 
-            let target = graph.target(
+            let target = graph.module(
                 for: targetName,
                 destination: buildTriple
             )
@@ -614,6 +659,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 cacheBuildManifest: false,
                 packageGraphLoader: { graph },
                 scratchDirectory: pluginsBuildParameters.dataPath,
+                traitConfiguration: self.traitConfiguration,
                 additionalFileRules: self.additionalFileRules,
                 pkgConfigDirectories: self.pkgConfigDirectories,
                 dependenciesByRootPackageIdentity: [:],
@@ -651,7 +697,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 for result in results {
                     let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
                         var metadata = ObservabilityMetadata()
-                        metadata.targetName = target.name
+                        metadata.moduleName = target.name
                         metadata.pluginName = result.plugin.name
                         return metadata
                     }
@@ -670,7 +716,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             }
 
             // Run any prebuild commands provided by build tool plugins. Any failure stops the build.
-            prebuildCommandResults = try graph.reachableTargets.reduce(into: [:], { partial, target in
+            prebuildCommandResults = try graph.reachableModules.reduce(into: [:], { partial, target in
                 partial[target.id] = try buildToolPluginInvocationResults[target.id].map {
                     try self.runPrebuildCommands(for: $0.results)
                 }
@@ -687,7 +733,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             subset.recursiveDependencies(for: graph, observabilityScope: observabilityScope) {
             targetsToConsider = recursiveDependencies
         } else {
-            targetsToConsider = Array(graph.reachableTargets)
+            targetsToConsider = Array(graph.reachableModules)
         }
 
         for target in targetsToConsider {
@@ -711,7 +757,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 var metadata = ObservabilityMetadata()
                 metadata.packageIdentity = package.identity
                 metadata.packageKind = package.manifest.packageKind
-                metadata.targetName = target.name
+                metadata.moduleName = target.name
                 return metadata
             }
             var warning = "found \(unhandledFiles.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
@@ -737,6 +783,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         let (buildDescription, buildManifest) = try BuildDescription.create(
             with: plan,
+            traitConfiguration: self.traitConfiguration,
             disableSandboxForPluginCommands: self.pluginConfiguration?.disableSandbox ?? false,
             fileSystem: self.fileSystem,
             observabilityScope: self.observabilityScope
@@ -824,7 +871,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 if !pluginConfiguration.disableSandbox {
                     commandLine = try Sandbox.apply(command: commandLine, fileSystem: self.fileSystem, strictness: .writableTemporaryDirectory, writableDirectories: [pluginResult.pluginOutputDirectory])
                 }
-                let processResult = try Process.popen(arguments: commandLine, environment: command.configuration.environment)
+                let processResult = try AsyncProcess.popen(arguments: commandLine, environment: command.configuration.environment)
                 let output = try processResult.utf8Output() + processResult.utf8stderrOutput()
                 if processResult.exitStatus != .terminated(code: 0) {
                     throw StringError("failed: \(command)\n\n\(output)")
@@ -906,6 +953,7 @@ extension BuildOperation {
 extension BuildDescription {
     static func create(
         with plan: BuildPlan,
+        traitConfiguration: TraitConfiguration?,
         disableSandboxForPluginCommands: Bool,
         fileSystem: Basics.FileSystem,
         observabilityScope: ObservabilityScope
@@ -932,7 +980,8 @@ extension BuildDescription {
             testEntryPointCommands: testEntryPointCommands,
             copyCommands: copyCommands,
             writeCommands: writeCommands,
-            pluginDescriptions: plan.pluginDescriptions
+            pluginDescriptions: plan.pluginDescriptions,
+            traitConfiguration: traitConfiguration
         )
         try fileSystem.createDirectory(
             plan.destinationBuildParameters.buildDescriptionPath.parentDirectory,
@@ -947,9 +996,9 @@ extension BuildSubset {
     func recursiveDependencies(for graph: ModulesGraph, observabilityScope: ObservabilityScope) throws -> [ResolvedModule]? {
         switch self {
         case .allIncludingTests:
-            return Array(graph.reachableTargets)
+            return Array(graph.reachableModules)
         case .allExcludingTests:
-            return graph.reachableTargets.filter { $0.type != .test }
+            return graph.reachableModules.filter { $0.type != .test }
         case .product(let productName, let destination):
             let buildTriple: BuildTriple? = if let destination {
                 destination == .host ? .tools : .destination
@@ -964,7 +1013,7 @@ extension BuildSubset {
                 observabilityScope.emit(error: "no product named '\(productName)'")
                 return nil
             }
-            return try product.recursiveTargetDependencies()
+            return try product.recursiveModuleDependencies()
         case .target(let targetName, let destination):
             let buildTriple: BuildTriple? = if let destination {
                 destination == .host ? .tools : .destination
@@ -972,14 +1021,14 @@ extension BuildSubset {
                 nil
             }
 
-            guard let target = graph.target(
+            guard let target = graph.module(
                 for: targetName,
                 destination: buildTriple
             ) else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 return nil
             }
-            return try target.recursiveTargetDependencies()
+            return try target.recursiveModuleDependencies()
         }
     }
 }

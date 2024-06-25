@@ -115,7 +115,7 @@ final class ModuleMapGeneration: XCTestCase {
                     diagnostic: "no include directory found for target \'Foo\'; libraries cannot be imported without public headers",
                     severity: .warning
                 )
-                XCTAssertEqual(diagnostic?.metadata?.targetName, "Foo")
+                XCTAssertEqual(diagnostic?.metadata?.moduleName, "Foo")
             }
         }
 
@@ -136,7 +136,7 @@ final class ModuleMapGeneration: XCTestCase {
                     diagnostic: "\(root.appending(components: "include", "F-o-o.h")) should be renamed to \(root.appending(components: "include", "F_o_o.h")) to be used as an umbrella header",
                     severity: .warning
                 )
-                XCTAssertEqual(diagnostic?.metadata?.targetName, "F-o-o")
+                XCTAssertEqual(diagnostic?.metadata?.moduleName, "F-o-o")
             }
         }
     }
@@ -155,7 +155,7 @@ final class ModuleMapGeneration: XCTestCase {
                     diagnostic: "target 'Foo' has invalid header layout: umbrella header found at '\(include.appending(components: "Foo", "Foo.h"))', but more than one directory exists next to its parent directory: \(include.appending(components: "Bar")); consider reducing them to one",
                     severity: .error
                 )
-                XCTAssertEqual(diagnostic?.metadata?.targetName, "Foo")
+                XCTAssertEqual(diagnostic?.metadata?.moduleName, "Foo")
             }
         }
 
@@ -170,7 +170,7 @@ final class ModuleMapGeneration: XCTestCase {
                     diagnostic: "target 'Foo' has invalid header layout: umbrella header found at '\(include.appending(components: "Foo.h"))', but directories exist next to it: \(include.appending(components: "Bar")); consider removing them",
                     severity: .error
                 )
-                XCTAssertEqual(diagnostic?.metadata?.targetName, "Foo")
+                XCTAssertEqual(diagnostic?.metadata?.moduleName, "Foo")
             }
         }
     }
