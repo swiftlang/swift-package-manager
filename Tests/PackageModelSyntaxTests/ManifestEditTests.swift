@@ -81,7 +81,7 @@ class ManifestEditTests: XCTestCase {
             let package = Package(
                 name: "packages",
                 dependencies: [
-                  .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1"),
+                  .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "510.0.1"),
                 ]
             )
             """, expectedManifest: """
@@ -89,7 +89,7 @@ class ManifestEditTests: XCTestCase {
             let package = Package(
                 name: "packages",
                 dependencies: [
-                  .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1"),
+                  .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "510.0.1"),
                   .package(url: "https://github.com/apple/swift-system.git", branch: "main"),
                 ]
             )
@@ -112,7 +112,7 @@ class ManifestEditTests: XCTestCase {
             let package = Package(
                 name: "packages",
                 dependencies: [
-                  .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1")
+                  .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "510.0.1")
                 ]
             )
             """, expectedManifest: """
@@ -120,7 +120,7 @@ class ManifestEditTests: XCTestCase {
             let package = Package(
                 name: "packages",
                 dependencies: [
-                  .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1"),
+                  .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "510.0.1"),
                   .package(url: "https://github.com/apple/swift-system.git", exact: "510.0.0"),
                 ]
             )
@@ -144,7 +144,7 @@ class ManifestEditTests: XCTestCase {
             let package = Package(
                 name: "packages",
                 dependencies: [
-                  .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1")
+                  .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "510.0.1")
                 ] + []
             )
             """, expectedManifest: """
@@ -152,7 +152,7 @@ class ManifestEditTests: XCTestCase {
             let package = Package(
                 name: "packages",
                 dependencies: [
-                  .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1"),
+                  .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "510.0.1"),
                   .package(url: "https://github.com/apple/swift-system.git", from: "510.0.0"),
                 ] + []
             )
@@ -177,13 +177,13 @@ class ManifestEditTests: XCTestCase {
             // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
-                dependencies: [ .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1") ]
+                dependencies: [ .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "510.0.1") ]
             )
             """, expectedManifest: """
             // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
-                dependencies: [ .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1"), .package(url: "https://github.com/apple/swift-system.git", from: "510.0.0"),]
+                dependencies: [ .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "510.0.1"), .package(url: "https://github.com/apple/swift-system.git", from: "510.0.0"),]
             )
             """) { manifest in
                 let versionRange = Range<Version>.upToNextMajor(from: Version(510, 0, 0))
@@ -518,7 +518,7 @@ class ManifestEditTests: XCTestCase {
             let package = Package(
                 name: "packages",
                 dependencies: [
-                    .package(url: "https://github.com/apple/swift-syntax.git", from: "600.0.0-latest"),
+                    .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0-latest"),
                 ],
                 targets: [
                     .macro(

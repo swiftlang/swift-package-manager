@@ -19,7 +19,7 @@ public struct LibraryMetadata: Decodable {
         case sourceControl(url: SourceControlURL)
     }
 
-    /// The package from which it was built (e.g., the URL https://github.com/apple/swift-syntax.git)
+    /// The package from which it was built (e.g., the URL https://github.com/swiftlang/swift-syntax.git)
     public let identities: [Identity]
     /// The version that was built (e.g., 509.0.2)
     public let version: String

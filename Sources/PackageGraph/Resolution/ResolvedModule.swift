@@ -173,7 +173,7 @@ public struct ResolvedModule {
             // Make sure that test products are built for the tools triple if it has tools as direct dependencies.
             // Without this workaround, `assertMacroExpansion` in tests can't be built, as it requires macros
             // and SwiftSyntax to be built for the same triple as the tests.
-            // See https://github.com/apple/swift-package-manager/pull/7349 for more context.
+            // See https://github.com/swiftlang/swift-package-manager/pull/7349 for more context.
             var inferredBuildTriple = BuildTriple.destination
             loop: for dependency in dependencies {
                 switch dependency {
