@@ -1020,8 +1020,6 @@ extension BuildOperation {
 }
 
 extension BuildOperation {
-    fileprivate typealias PluginTool = (path: AbsolutePath, triples: [String]?)
-
     private func buildPluginTools(
         graph: ModulesGraph,
         pluginsPerModule: [ResolvedModule.ID: [ResolvedModule]],

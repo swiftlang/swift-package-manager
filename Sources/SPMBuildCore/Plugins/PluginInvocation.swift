@@ -30,6 +30,16 @@ public enum PluginAction {
     case performCommand(package: ResolvedPackage, arguments: [String])
 }
 
+public struct PluginTool {
+    let path: AbsolutePath
+    let triples: [String]?
+
+    init(path: AbsolutePath, triples: [String]? = nil) {
+        self.path = path
+        self.triples = triples
+    }
+}
+
 extension PluginModule {
     public func invoke(
         action: PluginAction,
@@ -38,7 +48,7 @@ extension PluginModule {
         workingDirectory: AbsolutePath,
         outputDirectory: AbsolutePath,
         toolSearchDirectories: [AbsolutePath],
-        accessibleTools: [String: (path: AbsolutePath, triples: [String]?)],
+        accessibleTools: [String: PluginTool],
         writableDirectories: [AbsolutePath],
         readOnlyDirectories: [AbsolutePath],
         allowNetworkConnections: [SandboxNetworkPermission],
@@ -104,7 +114,7 @@ extension PluginModule {
         workingDirectory: AbsolutePath,
         outputDirectory: AbsolutePath,
         toolSearchDirectories: [AbsolutePath],
-        accessibleTools: [String: (path: AbsolutePath, triples: [String]?)],
+        accessibleTools: [String: PluginTool],
         writableDirectories: [AbsolutePath],
         readOnlyDirectories: [AbsolutePath],
         allowNetworkConnections: [SandboxNetworkPermission],
@@ -137,9 +147,9 @@ extension PluginModule {
             )
             let pluginWorkDirId = try serializer.serialize(path: outputDirectory)
             let toolSearchDirIds = try toolSearchDirectories.map{ try serializer.serialize(path: $0) }
-            let accessibleTools = try accessibleTools.mapValues { (tool: (AbsolutePath, [String]?)) -> HostToPluginMessage.InputContext.Tool in
-                let path = try serializer.serialize(path: tool.0)
-                return .init(path: path, triples: tool.1)
+            let accessibleTools = try accessibleTools.mapValues { (tool) -> HostToPluginMessage.InputContext.Tool in
+                let path = try serializer.serialize(path: tool.path)
+                return .init(path: path, triples: tool.triples)
             }
             let actionMessage: HostToPluginMessage
             switch action {
@@ -410,7 +420,7 @@ extension ModulesGraph {
     // TODO: Convert this function to be asynchronous, taking a completion closure. This may require changes to the package graph APIs to make them accessible concurrently.
     public func invokeBuildToolPlugins(
         pluginsPerTarget: [ResolvedModule.ID: [ResolvedModule]],
-        pluginTools: [ResolvedModule.ID: [String: (path: AbsolutePath, triples: [String]?)]],
+        pluginTools: [ResolvedModule.ID: [String: PluginTool]],
         outputDir: AbsolutePath,
         buildParameters: BuildParameters,
         additionalFileRules: [FileRuleDescription],
@@ -420,7 +430,6 @@ extension ModulesGraph {
         observabilityScope: ObservabilityScope,
         fileSystem: FileSystem
     ) throws -> [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] {
-        typealias PluginTools = [String: (path: AbsolutePath, triples: [String]?)]
         var pluginResultsByTarget: [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] = [:]
         for (moduleID, plugins) in pluginsPerTarget {
             guard let module = self.allModules[moduleID] else {
@@ -703,10 +712,10 @@ public extension ResolvedModule {
         environment: BuildEnvironment,
         for hostTriple: Triple,
         builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath?
-    ) throws -> [String: (path: AbsolutePath, triples: [String]?)] {
+    ) throws -> [String: PluginTool] {
         precondition(self.underlying is PluginModule)
 
-        var tools: [String: (path: AbsolutePath, triples: [String]?)] = [:]
+        var tools: [String: PluginTool] = [:]
 
         for tool in try collectAccessibleTools(
             plugin: self,
@@ -717,7 +726,7 @@ public extension ResolvedModule {
             switch tool {
             case .builtTool(let name, let path):
                 if let path = try builtToolHandler(name, path) {
-                    tools[name] = (path, nil)
+                    tools[name] = PluginTool(path: path)
                 }
             case .vendedTool(let name, let path, let triples):
                 // Avoid having the path of an unsupported tool overwrite a supported one.
@@ -725,7 +734,7 @@ public extension ResolvedModule {
                     continue
                 }
                 let priorTriples = tools[name]?.triples ?? []
-                tools[name] = (path, priorTriples + triples)
+                tools[name] = PluginTool(path: path, triples: priorTriples + triples)
             }
         }
 
