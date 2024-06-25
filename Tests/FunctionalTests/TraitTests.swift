@@ -190,5 +190,45 @@ final class TraitTests: XCTestCase {
         }
     }
 
+    func testTests_whenNoFlagPassed() async throws {
+        try await fixture(name: "Traits") { fixturePath in
+            let (stdout, _) = try await executeSwiftTest(fixturePath.appending("Example"))
+            let expectedOut = """
+            Package1Library1 trait1 enabled
+            Package2Library1 trait2 enabled
+            Package3Library1 trait3 enabled
+            Package4Library1 trait1 disabled
+            DEFINE1 enabled
+            DEFINE2 disabled
+            DEFINE3 disabled
+
+            """
+            XCTAssertTrue(stdout.contains(expectedOut))
+        }
+    }
+
+    func testTests_whenAllTraitsEnabled_andDefaultTraitsDisabled() async throws {
+        try await fixture(name: "Traits") { fixturePath in
+            let (stdout, _) = try await executeSwiftTest(fixturePath.appending("Example"), extraArgs: ["--experimental-enable-all-traits", "--experimental-disable-default-traits"])
+            let expectedOut = """
+            Package1Library1 trait1 enabled
+            Package2Library1 trait2 enabled
+            Package3Library1 trait3 enabled
+            Package4Library1 trait1 disabled
+            Package5Library1 trait1 enabled
+            Package6Library1 trait1 enabled
+            Package7Library1 trait1 disabled
+            Package10Library1 trait1 enabled
+            Package10Library1 trait2 enabled
+            Package10Library1 trait1 enabled
+            Package10Library1 trait2 enabled
+            DEFINE1 enabled
+            DEFINE2 enabled
+            DEFINE3 enabled
+
+            """
+            XCTAssertTrue(stdout.contains(expectedOut))
+        }
+    }
 }
 #endif
