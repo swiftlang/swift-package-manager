@@ -20,7 +20,7 @@ final class TestCommandTests: CommandsTestCase {
     private func execute(_ args: [String], packagePath: AbsolutePath? = nil) async throws -> (stdout: String, stderr: String) {
         try await SwiftPM.Test.execute(args, packagePath: packagePath)
     }
-    
+
     func testUsage() async throws {
         let stdout = try await execute(["-help"]).stdout
         XCTAssert(stdout.contains("USAGE: swift test"), "got stdout:\n" + stdout)
@@ -47,7 +47,7 @@ final class TestCommandTests: CommandsTestCase {
             }
         }
     }
-    
+
     func testNumWorkersValue() async throws {
         #if !os(macOS)
         // Running swift-test fixtures on linux is not yet possible.
@@ -299,6 +299,16 @@ final class TestCommandTests: CommandsTestCase {
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
             let (_, stderr) = try await SwiftPM.Test.execute(strictConcurrencyFlags, packagePath: fixturePath)
             XCTAssertNoMatch(stderr, .contains("is not concurrency-safe"))
+        }
+    }
+#endif
+
+#if !canImport(Darwin)
+    func testGeneratedMainIsExistentialAnyClean() async throws {
+        let existentialAnyFlags = ["-Xswiftc", "-enable-upcoming-feature", "-Xswiftc", "ExistentialAny"]
+        try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+            let (_, stderr) = try await SwiftPM.Test.execute(existentialAnyFlags, packagePath: fixturePath)
+            XCTAssertNoMatch(stderr, .contains("error: use of protocol"))
         }
     }
 #endif
