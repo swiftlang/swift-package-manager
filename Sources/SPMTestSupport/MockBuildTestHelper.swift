@@ -23,13 +23,13 @@ import SPMBuildCore
 import TSCUtility
 import XCTest
 
-public struct MockToolchain: PackageModel.Toolchain {
+package struct MockToolchain: PackageModel.Toolchain {
     #if os(Windows)
-    public let librarianPath = AbsolutePath("/fake/path/to/link.exe")
+    package let librarianPath = AbsolutePath("/fake/path/to/link.exe")
     #elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
-    public let librarianPath = AbsolutePath("/fake/path/to/libtool")
+    package let librarianPath = AbsolutePath("/fake/path/to/libtool")
     #else
-    public let librarianPath = AbsolutePath("/fake/path/to/llvm-ar")
+    package let librarianPath = AbsolutePath("/fake/path/to/llvm-ar")
     #endif
     package let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
     package let includeSearchPaths = [AbsolutePath]()
@@ -38,7 +38,6 @@ public struct MockToolchain: PackageModel.Toolchain {
     package let swiftStaticResourcesPath: AbsolutePath? = nil
     package let isSwiftDevelopmentToolchain = false
     package let sdkRootPath: AbsolutePath? = nil
-    package let swiftPluginServerPath: AbsolutePath? = nil
     package let extraFlags = PackageModel.BuildFlags()
     package let installedSwiftPMConfiguration = InstalledSwiftPMConfiguration.default
     package let providedLibraries = [ProvidedLibrary]()
@@ -148,7 +147,7 @@ public func mockBuildParameters(
     )
 }
 
-public func mockBuildPlan(
+package func mockBuildPlan(
     buildPath: AbsolutePath? = nil,
     environment: BuildEnvironment,
     toolchain: PackageModel.Toolchain = MockToolchain(),
@@ -179,7 +178,7 @@ public func mockBuildPlan(
     )
 }
 
-public func mockBuildPlan(
+package func mockBuildPlan(
     buildPath: AbsolutePath? = nil,
     config: BuildConfiguration = .debug,
     triple: Basics.Triple? = nil,

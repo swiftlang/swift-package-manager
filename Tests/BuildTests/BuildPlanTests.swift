@@ -6500,8 +6500,9 @@ final class BuildPlanTests: XCTestCase {
         
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let plan = try BuildPlan(
-            buildParameters: mockBuildParameters(),
+        let plan = try Build.BuildPlan(
+            destinationBuildParameters: mockBuildParameters(destination: .target),
+            toolsBuildParameters: mockBuildParameters(destination: .host),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope

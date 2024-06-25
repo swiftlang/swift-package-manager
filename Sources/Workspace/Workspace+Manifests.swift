@@ -517,28 +517,6 @@ extension Workspace {
             }
         }
 
-        // Look for any cycle in the dependencies.
-        if let cycle = try findCycle(topologicalSortInput, successors: topologicalSortSuccessors) {
-            observabilityScope.emit(
-                error: "cyclic dependency declaration found: " +
-                    (cycle.path + cycle.cycle).map(\.key.identity.description).joined(separator: " -> ") +
-                    " -> " + cycle.cycle[0].key.identity.description
-            )
-            // return partial results
-            return DependencyManifests(
-                root: root,
-                dependencies: [],
-                workspace: self,
-                observabilityScope: observabilityScope
-            )
-        }
-        let allManifestsWithPossibleDuplicates = try topologicalSort(
-            topologicalSortInput,
-            successors: topologicalSortSuccessors
-        )
-
-        // merge the productFilter of the same package (by identity)
-        var deduplication = [PackageIdentity: Int]()
         var allManifests = [(identity: PackageIdentity, manifest: Manifest, productFilter: ProductFilter)]()
         do {
             let manifestGraphRoots = topLevelManifests.map { identity, manifest in
