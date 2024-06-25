@@ -19,9 +19,6 @@ public struct TraitDescription: Sendable, Hashable, Codable, ExpressibleByString
     /// The trait's description.
     public var description: String?
 
-    /// A boolean indicating wether the trait is enabled by default.
-    public var isDefault: Bool
-
     /// A set of other traits of this package that this trait enables.
     public var enabledTraits: Set<String>
 
@@ -30,17 +27,14 @@ public struct TraitDescription: Sendable, Hashable, Codable, ExpressibleByString
     /// - Parameters:
     ///   - name: The trait's canonical name.
     ///   - description: The trait's description.
-    ///   - isDefault: A boolean indicating wether the trait is enabled by default.
     ///   - enabledTraits: A set of other traits of this package that this trait enables.
     public init(
         name: String,
         description: String? = nil,
-        isDefault: Bool = false,
         enabledTraits: Set<String> = []
     ) {
         self.name = name
         self.description = description
-        self.isDefault = isDefault
         self.enabledTraits = enabledTraits
     }
 

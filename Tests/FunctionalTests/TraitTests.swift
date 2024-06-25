@@ -37,7 +37,7 @@ final class TraitTests: XCTestCase {
 
     func testTraits_whenTraitUnification() async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "defaults,Package9,Package10"])
+            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "default,Package9,Package10"])
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             XCTAssertFalse(stderr.contains("warning:"))
             XCTAssertEqual(stdout, """
@@ -59,7 +59,7 @@ final class TraitTests: XCTestCase {
 
     func testTraits_whenTraitUnification_whenSecondTraitNotEnabled() async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "defaults,Package9"])
+            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "default,Package9"])
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             XCTAssertFalse(stderr.contains("warning:"))
             XCTAssertEqual(stdout, """
@@ -79,7 +79,7 @@ final class TraitTests: XCTestCase {
 
     func testTraits_whenIndividualTraitsEnabled_andDefaultTraits() async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "defaults,Package5,Package7,BuildCondition3"])
+            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--experimental-traits", "default,Package5,Package7,BuildCondition3"])
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             XCTAssertFalse(stderr.contains("warning:"))
             XCTAssertEqual(stdout, """
@@ -186,7 +186,7 @@ final class TraitTests: XCTestCase {
             let json = try JSON(bytes: ByteString(encodingAsUTF8: dumpOutput))
             guard case let .dictionary(contents) = json else { XCTFail("unexpected result"); return }
             guard case let .array(traits)? = contents["experimentalTraits"] else { XCTFail("unexpected result"); return }
-            XCTAssertEqual(traits.count, 11)
+            XCTAssertEqual(traits.count, 12)
         }
     }
 
