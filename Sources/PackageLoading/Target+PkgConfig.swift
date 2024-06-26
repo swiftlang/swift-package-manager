@@ -103,7 +103,7 @@ public func pkgConfigArgs(
             var (cFlags, libs) = try removeDefaultFlags(cFlags: filtered.cFlags, libs: filtered.libs)
 
             // Patch any paths containing an SDK to the current SDK
-            // See https://github.com/apple/swift-package-manager/issues/6439
+            // See https://github.com/swiftlang/swift-package-manager/issues/6439
             if let sdkRootPath = sdkRootPath {
                 cFlags = try patchSDKPaths(in: cFlags, to: sdkRootPath)
                 libs = try patchSDKPaths(in: libs, to: sdkRootPath)
@@ -316,7 +316,7 @@ public func removeDefaultFlags(cFlags: [String], libs: [String]) throws -> ([Str
 
 /// Replaces any path containing *.sdk with the current SDK to avoid conflicts.
 ///
-/// See https://github.com/apple/swift-package-manager/issues/6439 for details.
+/// See https://github.com/swiftlang/swift-package-manager/issues/6439 for details.
 public func patchSDKPaths(in flags: [String], to sdkRootPath: AbsolutePath) throws -> [String] {
     let sdkRegex = try! RegEx(pattern: #"^.*\.sdk(\/.*|$)"#)
 
