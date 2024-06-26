@@ -165,6 +165,14 @@ extension BuildParameters {
 
 /// A build plan for a package graph.
 public class BuildPlan: SPMBuildCore.BuildPlan {
+    /// Return value of `inputs()`
+    package enum Input {
+        /// Any file in this directory affects the build plan
+        case directoryStructure(AbsolutePath)
+        /// The file at the given path affects the build plan
+        case file(AbsolutePath)
+    }
+
     public enum Error: Swift.Error, CustomStringConvertible, Equatable {
         /// There is no buildable target in the graph.
         case noBuildableTarget
@@ -173,7 +181,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             switch self {
             case .noBuildableTarget:
                 return """
-                The package does not contain a buildable target. 
+                The package does not contain a buildable target.
                 Add at least one `.target` or `.executableTarget` to your `Package.swift`.
                 """
             }
@@ -655,6 +663,34 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             throw InternalError("Expected description for module \(module)")
         }
         return try description.symbolGraphExtractArguments()
+    }
+
+    /// Returns the files and directories that affect the build process of this build plan.
+    package var inputs: [Input] {
+        var inputs: [Input] = []
+        for package in self.graph.rootPackages {
+            inputs += package.targets
+                .map(\.sources.root)
+                .sorted()
+                .map { .directoryStructure($0) }
+
+            // Add the output paths of any prebuilds that were run, so that we redo the plan if they change.
+            var derivedSourceDirPaths: [AbsolutePath] = []
+            for result in self.prebuildCommandResults.values.flatMap({ $0 }) {
+                derivedSourceDirPaths.append(contentsOf: result.outputDirectories)
+            }
+            inputs.append(contentsOf: derivedSourceDirPaths.sorted().map { .directoryStructure($0) })
+
+            // FIXME: Need to handle version-specific manifests.
+            inputs.append(.file(package.manifest.path))
+
+            // FIXME: This won't be the location of Package.resolved for multiroot packages.
+            inputs.append(.file(package.path.appending("Package.resolved")))
+
+            // FIXME: Add config file as an input
+
+        }
+        return inputs
     }
 }
 
