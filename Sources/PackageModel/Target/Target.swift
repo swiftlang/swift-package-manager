@@ -21,6 +21,7 @@ public class Target: PolymorphicCodableProtocol {
         SystemLibraryTarget.self,
         BinaryTarget.self,
         PluginTarget.self,
+        ProvidedLibraryTarget.self,
     ]
 
     /// The target kind.
@@ -33,6 +34,7 @@ public class Target: PolymorphicCodableProtocol {
         case plugin
         case snippet
         case `macro`
+        case providedLibrary
     }
 
     /// A group a target belongs to that allows customizing access boundaries. A target is treated as

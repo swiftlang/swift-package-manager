@@ -402,7 +402,6 @@ public final class MockWorkspace {
                 packageName: packageName,
                 forceRemove: forceRemove,
                 root: rootInput,
-                availableLibraries: [], // assume no provided libraries for testing.
                 observabilityScope: observability.topScope
             )
         }
@@ -501,7 +500,6 @@ public final class MockWorkspace {
             let graph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
                 forceResolvedVersions: forceResolvedVersions,
-                availableLibraries: [], // assume no provided libraries for testing.
                 expectedSigningEntities: expectedSigningEntities,
                 observabilityScope: observability.topScope
             )
@@ -540,7 +538,6 @@ public final class MockWorkspace {
             try workspace.loadPackageGraph(
                 rootInput: rootInput,
                 forceResolvedVersions: forceResolvedVersions,
-                availableLibraries: [], // assume no provided libraries for testing.
                 observabilityScope: observability.topScope
             )
         }
@@ -566,7 +563,6 @@ public final class MockWorkspace {
 
         let dependencyManifests = try workspace.loadDependencyManifests(
             root: root,
-            availableLibraries: [], // assume no provided libraries for testing.
             observabilityScope: observability.topScope
         )
 
@@ -575,7 +571,6 @@ public final class MockWorkspace {
             dependencyManifests: dependencyManifests,
             pinsStore: pinsStore,
             constraints: [],
-            availableLibraries: [], // assume no provided libraries for testing.
             observabilityScope: observability.topScope
         )
 
@@ -786,7 +781,6 @@ public final class MockWorkspace {
         let graphRoot = PackageGraphRoot(input: rootInput, manifests: rootManifests, observabilityScope: observability.topScope)
         let manifests = try workspace.loadDependencyManifests(
             root: graphRoot,
-            availableLibraries: [], // assume no provided libraries for testing.
             observabilityScope: observability.topScope
         )
         result(manifests, observability.diagnostics)

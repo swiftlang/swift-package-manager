@@ -97,6 +97,7 @@ final class ContainerProvider {
             ) { result in
                 let result = result.tryMap { container -> PubGrubPackageContainer in
                     let pubGrubContainer = PubGrubPackageContainer(underlying: container, pins: self.pins)
+
                     // only cache positive results
                     self.containersCache[package] = pubGrubContainer
                     return pubGrubContainer
@@ -107,12 +108,9 @@ final class ContainerProvider {
     }
 
     /// Starts prefetching the given containers.
-    func prefetch(containers identifiers: [PackageReference], availableLibraries: [LibraryMetadata]) {
-        let filteredIdentifiers = identifiers.filter {
-            $0.matchingPrebuiltLibrary(in: availableLibraries) == nil
-        }
+    func prefetch(containers identifiers: [PackageReference]) {
         // Process each container.
-        for identifier in filteredIdentifiers {
+        for identifier in identifiers {
             var needsFetching = false
             self.prefetches.memoize(identifier) {
                 let group = DispatchGroup()

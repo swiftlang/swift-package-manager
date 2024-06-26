@@ -23,23 +23,24 @@ import SPMBuildCore
 import TSCUtility
 import XCTest
 
-public struct MockToolchain: PackageModel.Toolchain {
+package struct MockToolchain: PackageModel.Toolchain {
     #if os(Windows)
-    public let librarianPath = AbsolutePath("/fake/path/to/link.exe")
+    package let librarianPath = AbsolutePath("/fake/path/to/link.exe")
     #elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
-    public let librarianPath = AbsolutePath("/fake/path/to/libtool")
+    package let librarianPath = AbsolutePath("/fake/path/to/libtool")
     #else
-    public let librarianPath = AbsolutePath("/fake/path/to/llvm-ar")
+    package let librarianPath = AbsolutePath("/fake/path/to/llvm-ar")
     #endif
-    public let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
-    public let includeSearchPaths = [AbsolutePath]()
-    public let librarySearchPaths = [AbsolutePath]()
-    public let swiftResourcesPath: AbsolutePath?
-    public let swiftStaticResourcesPath: AbsolutePath? = nil
-    public let sdkRootPath: AbsolutePath? = nil
-    public let extraFlags = PackageModel.BuildFlags()
-    public let installedSwiftPMConfiguration = InstalledSwiftPMConfiguration.default
-    public let providedLibraries = [LibraryMetadata]()
+    package let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
+    package let includeSearchPaths = [AbsolutePath]()
+    package let librarySearchPaths = [AbsolutePath]()
+    package let swiftResourcesPath: AbsolutePath?
+    package let swiftStaticResourcesPath: AbsolutePath? = nil
+    package let isSwiftDevelopmentToolchain = false
+    package let sdkRootPath: AbsolutePath? = nil
+    package let extraFlags = PackageModel.BuildFlags()
+    package let installedSwiftPMConfiguration = InstalledSwiftPMConfiguration.default
+    package let providedLibraries = [ProvidedLibrary]()
 
     public func getClangCompiler() throws -> AbsolutePath {
         "/fake/path/to/clang"
@@ -146,7 +147,7 @@ public func mockBuildParameters(
     )
 }
 
-public func mockBuildPlan(
+package func mockBuildPlan(
     buildPath: AbsolutePath? = nil,
     environment: BuildEnvironment,
     toolchain: PackageModel.Toolchain = MockToolchain(),
@@ -177,7 +178,7 @@ public func mockBuildPlan(
     )
 }
 
-public func mockBuildPlan(
+package func mockBuildPlan(
     buildPath: AbsolutePath? = nil,
     config: BuildConfiguration = .debug,
     triple: Basics.Triple? = nil,
