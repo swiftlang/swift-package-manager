@@ -11,7 +11,8 @@ let package = Package(
         ),
     ],
     traits: [
-        Trait(name: "Package4Trait1", isDefault: true),
+        .default(enabledTraits: ["Package4Trait1"]),
+        "Package4Trait1",
     ],
     targets: [
         .target(

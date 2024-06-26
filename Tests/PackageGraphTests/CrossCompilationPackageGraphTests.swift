@@ -25,7 +25,7 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
         try PackageGraphTester(graph) { result in
             result.check(packages: "Pkg")
             // "SwiftSyntax" is included for both host and target triples and is not pruned on this level
-            result.check(targets: "app", "lib")
+            result.check(modules: "app", "lib")
             result.check(testModules: "test")
             result.checkTarget("app") { result in
                 result.check(buildTriple: .destination)
@@ -48,7 +48,7 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
             result.check(packages: "swift-firmware", "swift-mmio", "swift-syntax")
             // "SwiftSyntax" is included for both host and target triples and is not pruned on this level
             result.check(
-                targets: "Core",
+                modules: "Core",
                 "HAL",
                 "MMIO",
                 "MMIOMacros",
@@ -102,7 +102,7 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
             result.check(packages: "swift-mmio", "swift-syntax")
             // "SwiftSyntax" is included for both host and target triples and is not pruned on this level
             result.check(
-                targets: "MMIO",
+                modules: "MMIO",
                 "MMIOMacros",
                 "MMIOPlugin",
                 "SwiftCompilerPlugin",

@@ -351,7 +351,7 @@ public final class Manifest: Sendable {
     ) -> PackageDependency? {
         self.dependencies.first(where: {
             // rdar://80594761 make sure validation is case insensitive
-            $0.nameForTargetDependencyResolutionOnly.lowercased() == packageName.lowercased()
+            $0.nameForModuleDependencyResolutionOnly.lowercased() == packageName.lowercased()
         })
     }
 
@@ -484,7 +484,7 @@ public final class Manifest: Sendable {
     }
 
     /// Returns a list of target descriptions whose root source directory is the same as that for the given type.
-    public func targetsWithCommonSourceRoot(type: TargetDescription.TargetType) -> [TargetDescription] {
+    public func targetsWithCommonSourceRoot(type: TargetDescription.TargetKind) -> [TargetDescription] {
         switch type {
         case .test:
             return self.targets.filter { $0.type == .test }
@@ -496,7 +496,7 @@ public final class Manifest: Sendable {
     }
 
     /// Returns true if the tools version is >= 5.9 and the number of targets with a common source root is 1.
-    public func shouldSuggestRelaxedSourceDir(type: TargetDescription.TargetType) -> Bool {
+    public func shouldSuggestRelaxedSourceDir(type: TargetDescription.TargetKind) -> Bool {
         guard self.toolsVersion >= .v5_9 else {
             return false
         }
@@ -524,7 +524,7 @@ extension Manifest: Encodable {
     private enum CodingKeys: CodingKey {
         case name, path, url, version, targetMap, toolsVersion,
              pkgConfig, providers, cLanguageStandard, cxxLanguageStandard, swiftLanguageVersions,
-             dependencies, products, targets, platforms, packageKind, revision,
+             dependencies, products, targets, experimentalTraits, platforms, packageKind, revision,
              defaultLocalization
     }
 
@@ -555,6 +555,7 @@ extension Manifest: Encodable {
         try container.encode(self.dependencies, forKey: .dependencies)
         try container.encode(self.products, forKey: .products)
         try container.encode(self.targets, forKey: .targets)
+        try container.encode(self.traits, forKey: .experimentalTraits)
         try container.encode(self.platforms, forKey: .platforms)
         try container.encode(self.packageKind, forKey: .packageKind)
     }

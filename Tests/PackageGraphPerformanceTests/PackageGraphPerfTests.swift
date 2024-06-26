@@ -175,7 +175,7 @@ final class PackageGraphPerfTests: XCTestCasePerf {
         measure {
             do {
                 for _ in 0..<N {
-                    _ = try resolvedTarget.recursiveTargetDependencies()
+                    _ = try resolvedTarget.recursiveModuleDependencies()
                 }
             } catch {
                 XCTFail("Loading package graph is not expected to fail in this test.")

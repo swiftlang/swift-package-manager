@@ -356,7 +356,7 @@ extension PackageConditionDescription {
     }
 }
 
-extension TargetDescription.TargetType {
+extension TargetDescription.TargetKind {
     init(_ type: Serialization.TargetType) {
         switch type {
         case .regular:
@@ -605,7 +605,6 @@ extension TraitDescription {
         self.init(
             name: trait.name,
             description: trait.description,
-            isDefault: trait.isDefault,
             enabledTraits: trait.enabledTraits
         )
     }

@@ -36,47 +36,12 @@ public struct GraphLoadingNode: Equatable, Hashable {
         identity: PackageIdentity,
         manifest: Manifest,
         productFilter: ProductFilter,
-        enabledTraits: Set<String>?
+        enabledTraits: Set<String>
     ) throws {
         self.identity = identity
         self.manifest = manifest
         self.productFilter = productFilter
-
-        // This the point where we flatten the enabled traits and resolve the recursive traits
-        var recursiveEnabledTraits = enabledTraits ?? []
-        let areDefaultsEnabled = recursiveEnabledTraits.remove("defaults") != nil
-
-        // We are going to calculate which traits are actually enabled for a node here. To do this
-        // we have to check if default traits should be used and then flatten all the enabled traits.
-        for trait in recursiveEnabledTraits {
-            // Check if the enabled trait is a valid trait
-            if self.manifest.traits.first(where: { $0.name == trait }) == nil {
-                // The enabled trait is invalid
-                throw ModuleError.invalidTrait(package: identity, trait: trait)
-            }
-        }
-
-        // We have to enable all default traits if no traits are enabled or the defaults are explicitly enabled
-        if enabledTraits == nil || areDefaultsEnabled {
-            recursiveEnabledTraits.formUnion(self.manifest.traits.lazy.filter { $0.isDefault }.map { $0.name })
-        }
-
-        while true {
-            let flattendEnabledTraits = Set(self.manifest.traits
-                .lazy
-                .filter { recursiveEnabledTraits.contains($0.name) }
-                .map { $0.enabledTraits }
-                .joined()
-            )
-            let newRecursiveEnabledTraits = recursiveEnabledTraits.union(flattendEnabledTraits)
-            if newRecursiveEnabledTraits.count == recursiveEnabledTraits.count {
-                break
-            } else {
-                recursiveEnabledTraits = newRecursiveEnabledTraits
-            }
-        }
-
-        self.enabledTraits = recursiveEnabledTraits
+        self.enabledTraits = enabledTraits
     }
 
     /// Returns the dependencies required by this node.

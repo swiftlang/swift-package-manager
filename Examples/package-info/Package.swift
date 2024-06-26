@@ -12,7 +12,7 @@ let package = Package(
         // This just points to the SwiftPM at the root of this repository.
         .package(name: "swift-package-manager", path: "../../"),
         // You will want to depend on a stable semantic version instead:
-        // .package(url: "https://github.com/apple/swift-package-manager", .exact("0.4.0"))
+        // .package(url: "https://github.com/swiftlang/swift-package-manager", .exact("0.4.0"))
     ],
     targets: [
         .executableTarget(

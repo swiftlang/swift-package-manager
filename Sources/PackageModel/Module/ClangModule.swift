@@ -13,7 +13,13 @@
 import struct Basics.AbsolutePath
 import struct Basics.StringError
 
-public final class ClangTarget: Target {
+@available(*, deprecated, renamed: "ClangModule")
+public typealias ClangTarget = ClangModule
+
+public final class ClangModule: Module {
+    /// Description of the module type used in `swift package describe` output. Preserved for backwards compatibility.
+    public override class var typeDescription: String { "ClangTarget" }
+
     /// The default public include directory component.
     public static let defaultPublicHeadersComponent = "include"
 
@@ -51,7 +57,7 @@ public final class ClangTarget: Target {
         resources: [Resource] = [],
         ignored: [AbsolutePath] = [],
         others: [AbsolutePath] = [],
-        dependencies: [Target.Dependency] = [],
+        dependencies: [Module.Dependency] = [],
         buildSettings: BuildSettings.AssignmentTable = .init(),
         buildSettingsDescription: [TargetBuildSettingDescription.Setting] = [],
         usesUnsafeFlags: Bool
