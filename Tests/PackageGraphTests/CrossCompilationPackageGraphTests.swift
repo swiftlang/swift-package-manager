@@ -12,7 +12,7 @@
 
 @testable
 @_spi(SwiftPMInternal)
-import SPMTestSupport
+import _InternalTestSupport
 
 @testable
 import PackageGraph

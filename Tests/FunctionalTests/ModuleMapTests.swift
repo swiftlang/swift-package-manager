@@ -13,7 +13,7 @@
 import Basics
 import Commands
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import Workspace
 import XCTest
 
@@ -24,7 +24,7 @@ final class ModuleMapsTestCase: XCTestCase {
         rootpkg: String,
         body: @escaping (AbsolutePath, [String]) async throws -> Void
     ) async throws {
-        try await SPMTestSupport.fixture(name: name) { fixturePath in
+        try await _InternalTestSupport.fixture(name: name) { fixturePath in
             let input = fixturePath.appending(components: cModuleName, "C", "foo.c")
             let triple = try UserToolchain.default.targetTriple
             let outdir = fixturePath.appending(components: rootpkg, ".build", triple.platformBuildPathComponent, "debug")

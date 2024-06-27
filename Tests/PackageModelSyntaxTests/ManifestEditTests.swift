@@ -12,7 +12,7 @@
 import Basics
 import PackageModel
 import PackageModelSyntax
-import SPMTestSupport
+import _InternalTestSupport
 @_spi(FixItApplier) import SwiftIDEUtils
 import SwiftParser
 import SwiftSyntax

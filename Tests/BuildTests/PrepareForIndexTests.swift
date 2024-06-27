@@ -13,10 +13,9 @@
 import Build
 import Foundation
 import LLBuildManifest
+import _InternalTestSupport
 import TSCBasic
 import XCTest
-@_spi(SwiftPMInternal)
-import SPMTestSupport
 import class Basics.ObservabilitySystem
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import func PackageGraph.loadModulesGraph
