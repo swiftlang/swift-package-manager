@@ -342,9 +342,9 @@ final class MiscellaneousTestCase: XCTestCase {
         // - https://github.com/apple/swift/pull/69696
         // - https://github.com/apple/swift/pull/61766
         // - https://github.com/swiftlang/swift-package-manager/pull/5842#issuecomment-1301632685
-        try fixture(name: "Miscellaneous/LTO/SwiftAndCTargets") { fixturePath in
+        try await fixture(name: "Miscellaneous/LTO/SwiftAndCTargets") { fixturePath in
             /*let output =*/ 
-            try executeSwiftBuild(
+            try await executeSwiftBuild(
                 fixturePath,
                 extraArgs: ["--experimental-lto-mode=full", "--verbose"]
             )

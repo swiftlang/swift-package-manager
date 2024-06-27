@@ -347,7 +347,7 @@ final class InitTests: XCTestCase {
     // MARK: Special case testing
 
     func testInitPackageNonc99Directory() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
         try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
             XCTAssertDirectoryExists(tempDirPath)
             

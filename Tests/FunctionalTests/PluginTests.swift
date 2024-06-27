@@ -11,7 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@testable import PackageGraph
+
+@_spi(SwiftPMInternal)
+@testable
+import PackageGraph
+
 import PackageLoading
 import PackageModel
 @testable import SPMBuildCore
@@ -20,7 +24,7 @@ import Workspace
 import XCTest
 
 final class PluginTests: XCTestCase {
-    func testUseOfBuildToolPluginTargetByExecutableInSamePackage() throws {
+    func testUseOfBuildToolPluginTargetByExecutableInSamePackage() async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 

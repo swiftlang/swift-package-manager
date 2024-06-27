@@ -22,7 +22,7 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testPackageContextGitStatus() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         let content = """
                 import PackageDescription
@@ -36,7 +36,7 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testPackageContextGitTag() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         let content = """
                 import PackageDescription
@@ -50,7 +50,7 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testPackageContextGitCommit() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         let content = """
                 import PackageDescription

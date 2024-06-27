@@ -667,7 +667,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     package var inputs: [Input] {
         var inputs: [Input] = []
         for package in self.graph.rootPackages {
-            inputs += package.targets
+            inputs += package.modules
                 .map(\.sources.root)
                 .sorted()
                 .map { .directoryStructure($0) }
