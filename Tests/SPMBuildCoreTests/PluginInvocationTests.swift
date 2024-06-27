@@ -25,8 +25,6 @@ import SPMTestSupport
 import Workspace
 import XCTest
 
-import class TSCBasic.InMemoryFileSystem
-
 import struct TSCUtility.SerializedDiagnostics
 
 final class PluginInvocationTests: XCTestCase {
