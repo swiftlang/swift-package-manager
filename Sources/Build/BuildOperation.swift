@@ -911,9 +911,9 @@ extension BuildDescription {
     ) throws -> (BuildDescription, LLBuildManifest) {
         // Generate the llbuild manifest.
         let llbuild = LLBuildManifestBuilder(plan, disableSandboxForPluginCommands: disableSandboxForPluginCommands, fileSystem: fileSystem, observabilityScope: observabilityScope)
-        let buildManifest = plan.destinationBuildParameters.prepareForIndexing
-            ? try llbuild.generatePrepareManifest(at: plan.destinationBuildParameters.llbuildManifest)
-            : try llbuild.generateManifest(at: plan.destinationBuildParameters.llbuildManifest)
+        let buildManifest = plan.destinationBuildParameters.prepareForIndexing == .off
+            ? try llbuild.generateManifest(at: plan.destinationBuildParameters.llbuildManifest)
+            : try llbuild.generatePrepareManifest(at: plan.destinationBuildParameters.llbuildManifest)
 
         let swiftCommands = llbuild.manifest.getCmdToolMap(kind: SwiftCompilerTool.self)
         let swiftFrontendCommands = llbuild.manifest.getCmdToolMap(kind: SwiftFrontendTool.self)
