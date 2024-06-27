@@ -73,7 +73,7 @@ final class ModulesGraphTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
         PackageGraphTester(g) { result in
             result.check(packages: "Bar", "Foo", "Baz")
-            result.check(targets: "Bar", "Foo", "Baz", "FooDep")
+            result.check(modules: "Bar", "Foo", "Baz", "FooDep")
             result.check(testModules: "BazTests")
             result.checkTarget("Foo") { result in result.check(dependencies: "FooDep") }
             result.checkTarget("Bar") { result in result.check(dependencies: "Foo") }
@@ -81,12 +81,12 @@ final class ModulesGraphTests: XCTestCase {
         }
 
         let fooPackage = try XCTUnwrap(g.package(for: .plain("Foo")))
-        let fooTarget = try XCTUnwrap(g.target(for: "Foo", destination: .destination))
-        let fooDepTarget = try XCTUnwrap(g.target(for: "FooDep", destination: .destination))
+        let fooTarget = try XCTUnwrap(g.module(for: "Foo", destination: .destination))
+        let fooDepTarget = try XCTUnwrap(g.module(for: "FooDep", destination: .destination))
         XCTAssertEqual(g.package(for: fooTarget)?.id, fooPackage.id)
         XCTAssertEqual(g.package(for: fooDepTarget)?.id, fooPackage.id)
         let barPackage = try XCTUnwrap(g.package(for: .plain("Bar")))
-        let barTarget = try XCTUnwrap(g.target(for: "Bar", destination: .destination))
+        let barTarget = try XCTUnwrap(g.module(for: "Bar", destination: .destination))
         XCTAssertEqual(g.package(for: barTarget)?.id, barPackage.id)
     }
 
@@ -128,7 +128,7 @@ final class ModulesGraphTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
         PackageGraphTester(g) { result in
             result.check(packages: "Bar", "Foo")
-            result.check(targets: "Bar", "CBar", "Foo")
+            result.check(modules: "Bar", "CBar", "Foo")
             result.checkTarget("Foo") { result in result.check(dependencies: "Bar", "CBar") }
             result.checkTarget("Bar") { result in result.check(dependencies: "CBar") }
         }
@@ -382,7 +382,7 @@ final class ModulesGraphTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
         PackageGraphTester(graph) { result in
             result.check(packages: "Foo", "Bar")
-            result.check(targets: "Bar", "Baz", "Foo")
+            result.check(modules: "Bar", "Baz", "Foo")
         }
     }
 
@@ -427,7 +427,7 @@ final class ModulesGraphTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
         PackageGraphTester(g) { result in
             result.check(packages: "Bar", "Foo")
-            result.check(targets: "Bar", "Foo")
+            result.check(modules: "Bar", "Foo")
             result.check(testModules: "BarTests")
         }
     }
@@ -464,7 +464,7 @@ final class ModulesGraphTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
         PackageGraphTester(g) { result in
-            result.check(targets: "ExampleApp", "MainLib", "Core")
+            result.check(modules: "ExampleApp", "MainLib", "Core")
             result.check(testModules: "MainLibTests")
             result.checkTarget("MainLib") { result in result.check(dependencies: "Core") }
             result.checkTarget("MainLibTests") { result in result.check(dependencies: "MainLib") }
@@ -924,7 +924,7 @@ final class ModulesGraphTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
         PackageGraphTester(g) { result in
             result.check(packages: "Bar")
-            result.check(targets: "Bar")
+            result.check(modules: "Bar")
         }
     }
 
@@ -1542,13 +1542,13 @@ final class ModulesGraphTests: XCTestCase {
         XCTAssertEqual(observability.diagnostics.count, 3)
         testDiagnostics(observability.diagnostics) { result in
             var expectedMetadata = ObservabilityMetadata()
-            expectedMetadata.targetName = "Foo2"
+            expectedMetadata.moduleName = "Foo2"
             let diagnostic1 = result.checkUnordered(diagnostic: .contains("the target 'Bar2' in product 'TransitiveBar' contains unsafe build flags"), severity: .error)
-            XCTAssertEqual(diagnostic1?.metadata?.targetName, "Foo2")
+            XCTAssertEqual(diagnostic1?.metadata?.moduleName, "Foo2")
             let diagnostic2 = result.checkUnordered(diagnostic: .contains("the target 'Bar' in product 'Bar' contains unsafe build flags"), severity: .error)
-            XCTAssertEqual(diagnostic2?.metadata?.targetName, "Foo")
+            XCTAssertEqual(diagnostic2?.metadata?.moduleName, "Foo")
             let diagnostic3 = result.checkUnordered(diagnostic: .contains("the target 'Bar2' in product 'Bar' contains unsafe build flags"), severity: .error)
-            XCTAssertEqual(diagnostic3?.metadata?.targetName, "Foo")
+            XCTAssertEqual(diagnostic3?.metadata?.moduleName, "Foo")
         }
     }
 
@@ -1605,7 +1605,7 @@ final class ModulesGraphTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
         PackageGraphTester(graph) { result in
-            result.check(targets: "Foo", "Bar", "Baz", "Biz")
+            result.check(modules: "Foo", "Bar", "Baz", "Biz")
             result.checkTarget("Foo") { result in
                 result.check(dependencies: "Bar", "Baz", "Biz")
                 result.checkDependency("Bar") { result in
@@ -2367,7 +2367,7 @@ final class ModulesGraphTests: XCTestCase {
             ])
         // Make sure aliases are found properly and do not fall back to pre‐5.2 behavior, leaking across onto other dependencies.
         let required = manifest.dependenciesRequired(for: .everything)
-        let unrelated = try XCTUnwrap(required.first(where: { $0.nameForTargetDependencyResolutionOnly == "Unrelated" }))
+        let unrelated = try XCTUnwrap(required.first(where: { $0.nameForModuleDependencyResolutionOnly == "Unrelated" }))
         let requestedProducts = unrelated.productFilter
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         // Unrelated should not have been asked for Product, because it should know Product comes from Identity.

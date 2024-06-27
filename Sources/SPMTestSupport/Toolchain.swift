@@ -16,7 +16,7 @@ import PackageModel
 import Workspace
 
 import struct TSCBasic.ByteString
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 import struct TSCBasic.StringError
 import struct TSCUtility.SerializedDiagnostics
 
@@ -41,7 +41,7 @@ extension SwiftSDK {
     public static var `default`: Self {
         get throws {
             let binDir = try resolveBinDir()
-            return try! SwiftSDK.hostSwiftSDK(binDir, environment: .process())
+            return try! SwiftSDK.hostSwiftSDK(binDir, environment: .current)
         }
     }
 }
@@ -49,7 +49,7 @@ extension SwiftSDK {
 extension UserToolchain {
     public static var `default`: Self {
         get throws {
-            return try .init(swiftSDK: SwiftSDK.default, environment: .process(), fileSystem: localFileSystem)
+            return try .init(swiftSDK: SwiftSDK.default, environment: .current, fileSystem: localFileSystem)
         }
     }
 }
@@ -71,8 +71,8 @@ extension UserToolchain {
                     let outputPath = tmpPath.appending("foo")
                     let toolchainPath = self.swiftCompilerPath.parentDirectory.parentDirectory
                     let backDeploymentLibPath = toolchainPath.appending(components: "lib", "swift-5.5", "macosx")
-                    try Process.checkNonZeroExit(arguments: ["/usr/bin/xcrun", "--toolchain", toolchainPath.pathString, "swiftc", inputPath.pathString, "-Xlinker", "-rpath", "-Xlinker", backDeploymentLibPath.pathString, "-o", outputPath.pathString])
-                    try Process.checkNonZeroExit(arguments: [outputPath.pathString])
+                    try AsyncProcess.checkNonZeroExit(arguments: ["/usr/bin/xcrun", "--toolchain", toolchainPath.pathString, "swiftc", inputPath.pathString, "-Xlinker", "-rpath", "-Xlinker", backDeploymentLibPath.pathString, "-o", outputPath.pathString])
+                    try AsyncProcess.checkNonZeroExit(arguments: [outputPath.pathString])
                 }
             } catch {
                 // On any failure we assume false.
@@ -96,8 +96,18 @@ extension UserToolchain {
                 let outputPath = tmpPath.appending("foo")
                 let serializedDiagnosticsPath = tmpPath.appending("out.dia")
                 let toolchainPath = self.swiftCompilerPath.parentDirectory.parentDirectory
-                try Process.checkNonZeroExit(arguments: ["/usr/bin/xcrun", "--toolchain", toolchainPath.pathString, "swiftc", inputPath.pathString, "-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", serializedDiagnosticsPath.pathString, "-g", "-o", outputPath.pathString] + otherSwiftFlags)
-                try Process.checkNonZeroExit(arguments: [outputPath.pathString])
+                try AsyncProcess.checkNonZeroExit(
+                    arguments: [
+                        "/usr/bin/xcrun", "--toolchain", toolchainPath.pathString,
+                        "swiftc",
+                        inputPath.pathString,
+                        "-Xfrontend", "-serialize-diagnostics-path",
+                        "-Xfrontend", serializedDiagnosticsPath.pathString,
+                        "-g",
+                        "-o", outputPath.pathString
+                    ] + otherSwiftFlags
+                )
+                try AsyncProcess.checkNonZeroExit(arguments: [outputPath.pathString])
 
                 let diaFileContents = try localFileSystem.readFileContents(serializedDiagnosticsPath)
                 let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)

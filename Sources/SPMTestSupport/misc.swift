@@ -26,7 +26,7 @@ import Workspace
 import func XCTest.XCTFail
 
 import struct TSCBasic.ByteString
-import struct TSCBasic.ProcessResult
+import struct Basics.AsyncProcessResult
 
 import enum TSCUtility.Git
 
@@ -244,10 +244,10 @@ public func executeSwiftBuild(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: EnvironmentVariables? = nil
-) throws -> (stdout: String, stderr: String) {
+    env: Environment? = nil
+) async throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
-    return try SwiftPM.Build.execute(args, packagePath: packagePath, env: env)
+    return try await SwiftPM.Build.execute(args, packagePath: packagePath, env: env)
 }
 
 @discardableResult
@@ -259,11 +259,11 @@ public func executeSwiftRun(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: EnvironmentVariables? = nil
-) throws -> (stdout: String, stderr: String) {
+    env: Environment? = nil
+) async throws -> (stdout: String, stderr: String) {
     var args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
     args.append(executable)
-    return try SwiftPM.Run.execute(args, packagePath: packagePath, env: env)
+    return try await SwiftPM.Run.execute(args, packagePath: packagePath, env: env)
 }
 
 @discardableResult
@@ -274,10 +274,10 @@ public func executeSwiftPackage(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: EnvironmentVariables? = nil
-) throws -> (stdout: String, stderr: String) {
+    env: Environment? = nil
+) async throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
-    return try SwiftPM.Package.execute(args, packagePath: packagePath, env: env)
+    return try await SwiftPM.Package.execute(args, packagePath: packagePath, env: env)
 }
 
 @discardableResult
@@ -288,10 +288,10 @@ public func executeSwiftTest(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: EnvironmentVariables? = nil
-) throws -> (stdout: String, stderr: String) {
+    env: Environment? = nil
+) async throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
-    return try SwiftPM.Test.execute(args, packagePath: packagePath, env: env)
+    return try await SwiftPM.Test.execute(args, packagePath: packagePath, env: env)
 }
 
 private func swiftArgs(
@@ -488,7 +488,7 @@ extension InitPackage {
     }
 }
 
-#if swift(<6.0)
+#if compiler(<6.0)
 extension RelativePath: ExpressibleByStringLiteral {}
 extension RelativePath: ExpressibleByStringInterpolation {}
 extension URL: ExpressibleByStringLiteral {}

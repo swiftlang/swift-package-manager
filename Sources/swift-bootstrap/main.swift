@@ -221,7 +221,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
         init(fileSystem: FileSystem, observabilityScope: ObservabilityScope, logLevel: Basics.Diagnostic.Severity) throws {
             self.identityResolver = DefaultIdentityResolver()
             self.dependencyMapper = DefaultDependencyMapper(identityResolver: self.identityResolver)
-            let environment = EnvironmentVariables.process()
+            let environment = Environment.current
             self.hostToolchain = try UserToolchain(
                 swiftSDK: SwiftSDK.hostSwiftSDK(
                     environment: environment,
@@ -485,7 +485,7 @@ extension BuildConfiguration {
     }
 }
 
-#if swift(<6.0)
+#if compiler(<6.0)
 extension AbsolutePath: ExpressibleByArgument {}
 extension BuildConfiguration: ExpressibleByArgument {}
 #else

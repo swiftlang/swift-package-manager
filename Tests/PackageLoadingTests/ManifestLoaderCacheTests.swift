@@ -17,14 +17,12 @@ import SPMTestSupport
 import XCTest
 
 import class TSCBasic.InMemoryFileSystem
-import enum TSCBasic.ProcessEnv
-import func TSCTestSupport.withCustomEnv
 
 @available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)
 final class ManifestLoaderCacheTests: XCTestCase {
 
     func testDBCaching() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         try await testWithTemporaryDirectory { path in
             let fileSystem = localFileSystem
@@ -120,7 +118,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testInMemoryCaching() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         let fileSystem = InMemoryFileSystem()
         let observability = ObservabilitySystem.makeForTesting()
@@ -211,7 +209,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testContentBasedCaching() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         try await testWithTemporaryDirectory { path in
             let manifest = """
@@ -272,7 +270,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testCacheInvalidationOnEnv() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         try await testWithTemporaryDirectory { path in
             let fileSystem = InMemoryFileSystem()
@@ -306,12 +304,12 @@ final class ManifestLoaderCacheTests: XCTestCase {
             try await check(loader: manifestLoader, expectCached: false)
             try await check(loader: manifestLoader, expectCached: true)
 
-            try await withCustomEnv(["SWIFTPM_MANIFEST_CACHE_TEST": "1"]) {
+            try await Environment.makeCustom(["SWIFTPM_MANIFEST_CACHE_TEST": "1"]) {
                 try await check(loader: manifestLoader, expectCached: false)
                 try await check(loader: manifestLoader, expectCached: true)
             }
 
-            try await withCustomEnv(["SWIFTPM_MANIFEST_CACHE_TEST": "2"]) {
+            try await Environment.makeCustom(["SWIFTPM_MANIFEST_CACHE_TEST": "2"]) {
                 try await check(loader: manifestLoader, expectCached: false)
                 try await check(loader: manifestLoader, expectCached: true)
             }
@@ -339,7 +337,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testCacheDoNotInvalidationExpectedEnv() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         try await testWithTemporaryDirectory { path in
             let fileSystem = InMemoryFileSystem()
@@ -391,8 +389,8 @@ final class ManifestLoaderCacheTests: XCTestCase {
             try await check(loader: manifestLoader, expectCached: false)
             try await check(loader: manifestLoader, expectCached: true)
 
-            for key in EnvironmentVariables.nonCachableKeys {
-                try await withCustomEnv([key: UUID().uuidString]) {
+            for key in EnvironmentKey.nonCachable {
+                try await Environment.makeCustom([key: UUID().uuidString]) {
                     try await check(loader: manifestLoader, expectCached: true)
                 }
             }
@@ -426,7 +424,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testInMemoryCacheHappyCase() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         let content = """
             import PackageDescription

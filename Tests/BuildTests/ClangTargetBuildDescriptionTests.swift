@@ -30,8 +30,8 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
         XCTAssertTrue(try targetDescription.basicArguments().contains("-w"))
     }
 
-    private func makeClangTarget() throws -> ClangTarget {
-        try ClangTarget(
+    private func makeClangTarget() throws -> ClangModule {
+        try ClangModule(
             name: "dummy",
             cLanguageStandard: nil,
             cxxLanguageStandard: nil,
@@ -56,7 +56,7 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
 
     private func makeTargetBuildDescription(_ packageName: String,
                                             buildParameters: BuildParameters? = nil,
-                                            usesSourceControl: Bool = false) throws -> ClangTargetBuildDescription {
+                                            usesSourceControl: Bool = false) throws -> ClangModuleBuildDescription {
         let observability = ObservabilitySystem.makeForTesting(verbose: false)
 
         let manifest: Manifest
@@ -80,12 +80,12 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
                               targetSearchPath: .root,
                               testTargetSearchPath: .root)
 
-        return try ClangTargetBuildDescription(
+        return try ClangModuleBuildDescription(
             package: .init(underlying: package,
                            defaultLocalization: nil,
                            supportedPlatforms: [],
                            dependencies: [],
-                           targets: .init([target]),
+                           modules: .init([target]),
                            products: [],
                            registryMetadata: nil,
                            platformVersionProvider: .init(implementation: .minimumDeploymentTargetDefault)),

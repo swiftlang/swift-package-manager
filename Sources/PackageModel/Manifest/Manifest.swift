@@ -346,7 +346,7 @@ public final class Manifest: Sendable {
     ) -> PackageDependency? {
         self.dependencies.first(where: {
             // rdar://80594761 make sure validation is case insensitive
-            $0.nameForTargetDependencyResolutionOnly.lowercased() == packageName.lowercased()
+            $0.nameForModuleDependencyResolutionOnly.lowercased() == packageName.lowercased()
         })
     }
 
@@ -479,7 +479,7 @@ public final class Manifest: Sendable {
     }
 
     /// Returns a list of target descriptions whose root source directory is the same as that for the given type.
-    public func targetsWithCommonSourceRoot(type: TargetDescription.TargetType) -> [TargetDescription] {
+    public func targetsWithCommonSourceRoot(type: TargetDescription.TargetKind) -> [TargetDescription] {
         switch type {
         case .test:
             return self.targets.filter { $0.type == .test }
@@ -491,7 +491,7 @@ public final class Manifest: Sendable {
     }
 
     /// Returns true if the tools version is >= 5.9 and the number of targets with a common source root is 1.
-    public func shouldSuggestRelaxedSourceDir(type: TargetDescription.TargetType) -> Bool {
+    public func shouldSuggestRelaxedSourceDir(type: TargetDescription.TargetKind) -> Bool {
         guard self.toolsVersion >= .v5_9 else {
             return false
         }

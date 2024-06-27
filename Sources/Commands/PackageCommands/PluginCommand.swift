@@ -19,8 +19,6 @@ import PackageGraph
 
 import PackageModel
 
-import enum TSCBasic.ProcessEnv
-
 struct PluginCommand: SwiftCommand {
     static let configuration = CommandConfiguration(
         commandName: "plugin",
@@ -153,7 +151,7 @@ struct PluginCommand: SwiftCommand {
                 guard case .command(let intent, _) = plugin.capability else { continue }
                 var line = "‘\(intent.invocationVerb)’ (plugin ‘\(plugin.name)’"
                 if let package = packageGraph.packages
-                    .first(where: { $0.targets.contains(where: { $0.name == plugin.name }) })
+                    .first(where: { $0.modules.contains(where: { $0.name == plugin.name }) })
                 {
                     line += " in package ‘\(package.manifest.displayName)’"
                 }
@@ -211,7 +209,7 @@ struct PluginCommand: SwiftCommand {
     }
 
     static func run(
-        plugin: PluginTarget,
+        plugin: PluginModule,
         package: ResolvedPackage,
         packageGraph: ModulesGraph,
         options: PluginOptions,
@@ -315,7 +313,7 @@ struct PluginCommand: SwiftCommand {
 
         // Use the directory containing the compiler as an additional search directory, and add the $PATH.
         let toolSearchDirs = [try swiftCommandState.getTargetToolchain().swiftCompilerPath.parentDirectory]
-            + getEnvSearchPaths(pathString: ProcessEnv.path, currentWorkingDirectory: .none)
+            + getEnvSearchPaths(pathString: Environment.current[.path], currentWorkingDirectory: .none)
 
         let buildParameters = try swiftCommandState.toolsBuildParameters
         // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
@@ -374,7 +372,7 @@ struct PluginCommand: SwiftCommand {
         // TODO: We should also emit a final line of output regarding the result.
     }
 
-    static func availableCommandPlugins(in graph: ModulesGraph, limitedTo packageIdentity: String?) -> [PluginTarget] {
+    static func availableCommandPlugins(in graph: ModulesGraph, limitedTo packageIdentity: String?) -> [PluginModule] {
         // All targets from plugin products of direct dependencies are "available".
         let directDependencyPackages = graph.rootPackages.flatMap {
             $0.dependencies
@@ -384,10 +382,10 @@ struct PluginCommand: SwiftCommand {
             graph.package(for: $0)
         }
 
-        let directDependencyPluginTargets = directDependencyPackages.flatMap { $0.products.filter { $0.type == .plugin } }.flatMap { $0.targets }
+        let directDependencyPluginTargets = directDependencyPackages.flatMap { $0.products.filter { $0.type == .plugin } }.flatMap { $0.modules }
         // As well as any plugin targets in root packages.
-        let rootPackageTargets = graph.rootPackages.filter { $0.identity.matching(identity: packageIdentity) }.flatMap { $0.targets }
-        return (directDependencyPluginTargets + rootPackageTargets).compactMap { $0.underlying as? PluginTarget }.filter {
+        let rootPackageTargets = graph.rootPackages.filter { $0.identity.matching(identity: packageIdentity) }.flatMap { $0.modules }
+        return (directDependencyPluginTargets + rootPackageTargets).compactMap { $0.underlying as? PluginModule }.filter {
             switch $0.capability {
             case .buildTool: return false
             case .command: return true
@@ -395,7 +393,7 @@ struct PluginCommand: SwiftCommand {
         }
     }
 
-    static func findPlugins(matching verb: String, in graph: ModulesGraph, limitedTo packageIdentity: String?) -> [PluginTarget] {
+    static func findPlugins(matching verb: String, in graph: ModulesGraph, limitedTo packageIdentity: String?) -> [PluginModule] {
         // Find and return the command plugins that match the command.
         Self.availableCommandPlugins(in: graph, limitedTo: packageIdentity).filter {
             // Filter out any non-command plugins and any whose verb is different.

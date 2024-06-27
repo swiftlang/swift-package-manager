@@ -18,21 +18,21 @@ import SPMBuildCore
 
 import protocol TSCBasic.OutputByteStream
 import class TSCBasic.BufferedOutputByteStream
-import class TSCBasic.Process
-import struct TSCBasic.ProcessResult
+import class Basics.AsyncProcess
+import struct Basics.AsyncProcessResult
 
 final class PluginDelegate: PluginInvocationDelegate {
     let swiftCommandState: SwiftCommandState
-    let plugin: PluginTarget
+    let plugin: PluginModule
     var lineBufferedOutput: Data
 
-    init(swiftCommandState: SwiftCommandState, plugin: PluginTarget) {
+    init(swiftCommandState: SwiftCommandState, plugin: PluginModule) {
         self.swiftCommandState = swiftCommandState
         self.plugin = plugin
         self.lineBufferedOutput = Data()
     }
 
-    func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables) {
+    func pluginCompilationStarted(commandLine: [String], environment: [String: String]) {
     }
 
     func pluginCompilationEnded(result: PluginCompilationResult) {
@@ -330,7 +330,7 @@ final class PluginDelegate: PluginInvocationDelegate {
                 llvmProfCommand.append(filePath.pathString)
             }
             llvmProfCommand += ["-o", mergedCovFile.pathString]
-            try TSCBasic.Process.checkNonZeroExit(arguments: llvmProfCommand)
+            try AsyncProcess.checkNonZeroExit(arguments: llvmProfCommand)
 
             // Use `llvm-cov` to export the merged `.profdata` file contents in JSON form.
             var llvmCovCommand = [try toolchain.getLLVMCov().pathString]
@@ -340,7 +340,7 @@ final class PluginDelegate: PluginInvocationDelegate {
                 llvmCovCommand.append(product.binaryPath.pathString)
             }
             // We get the output on stdout, and have to write it to a JSON ourselves.
-            let jsonOutput = try TSCBasic.Process.checkNonZeroExit(arguments: llvmCovCommand)
+            let jsonOutput = try AsyncProcess.checkNonZeroExit(arguments: llvmCovCommand)
             let jsonCovFile = toolsBuildParameters.codeCovDataFile.parentDirectory.appending(
                 component: toolsBuildParameters.codeCovDataFile.basenameWithoutExt + ".json"
             )
@@ -385,7 +385,7 @@ final class PluginDelegate: PluginInvocationDelegate {
 
         // Find the target in the build operation's package graph; it's an error if we don't find it.
         let packageGraph = try buildSystem.getPackageGraph()
-        guard let target = packageGraph.target(for: targetName) else {
+        guard let target = packageGraph.module(for: targetName) else {
             throw StringError("could not find a target named “\(targetName)”")
         }
 
@@ -430,7 +430,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         guard let package = packageGraph.package(for: target) else {
             throw StringError("could not determine the package for target “\(target.name)”")
         }
-        let outputDir = try buildParameters.dataPath.appending(
+        let outputDir = buildParameters.dataPath.appending(
             components: "extracted-symbols",
             package.identity.description,
             target.name
@@ -448,7 +448,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         )
 
         guard result.exitStatus == .terminated(code: 0) else {
-            throw ProcessResult.Error.nonZeroExit(result)
+            throw AsyncProcessResult.Error.nonZeroExit(result)
         }
 
         // Return the results to the plugin.

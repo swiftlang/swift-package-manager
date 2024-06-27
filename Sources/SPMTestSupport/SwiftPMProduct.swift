@@ -13,8 +13,10 @@
 import Basics
 import Foundation
 
-import class TSCBasic.Process
-import struct TSCBasic.ProcessResult
+import class Basics.AsyncProcess
+import struct Basics.AsyncProcessResult
+
+import enum TSCBasic.ProcessEnv
 
 /// Defines the executables used by SwiftPM.
 /// Contains path to the currently built executable and
@@ -80,9 +82,9 @@ extension SwiftPM {
     public func execute(
         _ args: [String] = [],
         packagePath: AbsolutePath? = nil,
-        env: [String: String]? = nil
-    ) throws -> (stdout: String, stderr: String) {
-        let result = try executeProcess(
+        env: Environment? = nil
+    ) async throws -> (stdout: String, stderr: String) {
+        let result = try await executeProcess(
             args,
             packagePath: packagePath,
             env: env
@@ -95,7 +97,7 @@ extension SwiftPM {
             return (stdout: stdout, stderr: stderr)
         }
         throw SwiftPMError.executionFailure(
-            underlying: ProcessResult.Error.nonZeroExit(result),
+            underlying: AsyncProcessResult.Error.nonZeroExit(result),
             stdout: stdout,
             stderr: stderr
         )
@@ -104,9 +106,9 @@ extension SwiftPM {
     private func executeProcess(
         _ args: [String],
         packagePath: AbsolutePath? = nil,
-        env: [String: String]? = nil
-    ) throws -> ProcessResult {
-        var environment = ProcessInfo.processInfo.environment
+        env: Environment? = nil
+    ) async throws -> AsyncProcessResult {
+        var environment = Environment.current
 #if !os(Windows)
         environment["SDKROOT"] = nil
 #endif
@@ -136,7 +138,7 @@ extension SwiftPM {
         }
         completeArgs += args
 
-        return try Process.popen(arguments: completeArgs, environment: environment)
+        return try await AsyncProcess.popen(arguments: completeArgs, environment: environment)
     }
 }
 

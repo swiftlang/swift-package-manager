@@ -13,7 +13,7 @@
 import Basics
 import Foundation
 
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 
 public protocol AuxiliaryFileType {
     static var name: String { get }
@@ -123,7 +123,7 @@ public enum WriteAuxiliary {
                 throw Error.unknownSwiftCompilerPath
             }
             let swiftCompilerPath = try AbsolutePath(validating: swiftCompilerPathString)
-            return try TSCBasic.Process.checkNonZeroExit(args: swiftCompilerPath.pathString, "-version")
+            return try AsyncProcess.checkNonZeroExit(args: swiftCompilerPath.pathString, "-version")
         }
 
         private enum Error: Swift.Error {
@@ -336,7 +336,7 @@ public struct LLBuildManifest {
         inputs: [Node],
         outputs: [Node],
         arguments: [String],
-        environment: EnvironmentVariables = .empty(),
+        environment: Environment = [:],
         workingDirectory: String? = nil,
         allowMissingInputs: Bool = false
     ) {

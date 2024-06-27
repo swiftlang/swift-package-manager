@@ -14,14 +14,14 @@ import Basics
 import PackageModel
 import XCTest
 
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 import struct TSCBasic.StringError
 
 extension Toolchain {
     package func skipUnlessAtLeastSwift6(
         file: StaticString = #file,
         line: UInt = #line
-    ) async throws {
+    ) throws {
         #if compiler(<6.0)
         try XCTSkipIf(true, "Skipping because test requires at least Swift 6.0")
         #endif

@@ -178,8 +178,8 @@ extension Package.Dependency {
     /// packages.
     ///
     /// - Parameters:
-    ///   - name: The name of the Swift package or `nil` to deduce the name from path.
-    ///   - path: The local path to the package.
+    ///   - name: The name of the Swift package.
+    ///   - path: The file system path to the package.
     ///
     /// - Returns: A package dependency.
     @available(_PackageDescription, introduced: 5.2)

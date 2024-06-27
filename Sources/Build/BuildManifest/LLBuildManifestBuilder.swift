@@ -23,7 +23,6 @@ import SwiftDriver
 #endif
 
 import struct TSCBasic.ByteString
-import enum TSCBasic.ProcessEnv
 import func TSCBasic.topologicalSort
 
 /// High-level interface to ``LLBuildManifest`` and ``LLBuildManifestWriter``.
@@ -142,7 +141,7 @@ public class LLBuildManifestBuilder {
                 try self.createSwiftCompileCommand(desc)
             case .clang(let desc):
                 if desc.target.buildTriple == .tools {
-                    // Need the clang targets for tools
+                    // Need the clang modules for tools
                     try self.createClangCompileCommand(desc)
                 } else {
                     // Hook up the clang module target
@@ -215,7 +214,7 @@ extension LLBuildManifestBuilder {
 // MARK: - Compilation
 
 extension LLBuildManifestBuilder {
-    func addBuildToolPlugins(_ target: TargetBuildDescription) throws -> [Node] {
+    func addBuildToolPlugins(_ target: ModuleBuildDescription) throws -> [Node] {
         // For any build command that doesn't declare any outputs, we need to create a phony output to ensure they will still be run by the build system.
         var phonyOutputs = [Node]()
         // If we have multiple commands with no output files and no display name, this serves as a way to disambiguate the virtual nodes being created.
@@ -274,7 +273,7 @@ extension LLBuildManifestBuilder {
     private func addTestDiscoveryGenerationCommand() throws {
         for testDiscoveryTarget in self.plan.targets.compactMap(\.testDiscoveryTargetBuildDescription) {
             let testTargets = testDiscoveryTarget.target.dependencies
-                .compactMap(\.target).compactMap { self.plan.targetMap[$0.id] }
+                .compactMap(\.module).compactMap { self.plan.targetMap[$0.id] }
             let objectFiles = try testTargets.flatMap { try $0.objects }.sorted().map(Node.file)
             let outputs = testDiscoveryTarget.target.sources.paths
 
@@ -298,14 +297,14 @@ extension LLBuildManifestBuilder {
 
             let testEntryPointTarget = target
 
-            // Get the Swift target build descriptions of all discovery targets this synthesized entry point target
+            // Get the Swift target build descriptions of all discovery modules this synthesized entry point target
             // depends on.
             let discoveredTargetDependencyBuildDescriptions = testEntryPointTarget.target.dependencies
-                .compactMap(\.target?.id)
+                .compactMap(\.module?.id)
                 .compactMap { self.plan.targetMap[$0] }
                 .compactMap(\.testDiscoveryTargetBuildDescription)
 
-            // The module outputs of the discovery targets this synthesized entry point target depends on are
+            // The module outputs of the discovery modules this synthesized entry point target depends on are
             // considered the inputs to the entry point command.
             let inputs = discoveredTargetDependencyBuildDescriptions.map(\.moduleOutputPath)
 
@@ -327,23 +326,23 @@ extension LLBuildManifestBuilder {
     }
 }
 
-extension TargetBuildDescription {
+extension ModuleBuildDescription {
     /// If receiver represents a Swift target build description whose test target role is Discovery,
     /// then this returns that Swift target build description, else returns nil.
-    fileprivate var testDiscoveryTargetBuildDescription: SwiftTargetBuildDescription? {
+    fileprivate var testDiscoveryTargetBuildDescription: SwiftModuleBuildDescription? {
         guard case .swift(let targetBuildDescription) = self,
               case .discovery = targetBuildDescription.testTargetRole else { return nil }
         return targetBuildDescription
     }
 }
 
-extension TargetBuildDescription {
+extension ModuleBuildDescription {
     package var llbuildResourcesCmdName: String {
         "\(self.target.name)-\(self.buildParameters.triple.tripleString)-\(self.buildParameters.buildConfig)\(self.buildParameters.suffix).module-resources"
     }
 }
 
-extension ClangTargetBuildDescription {
+extension ClangModuleBuildDescription {
     package var llbuildTargetName: String {
         self.target.getLLBuildTargetName(buildParameters: self.buildParameters)
     }

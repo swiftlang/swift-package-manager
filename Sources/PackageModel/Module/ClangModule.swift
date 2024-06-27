@@ -13,7 +13,13 @@
 import struct Basics.AbsolutePath
 import struct Basics.StringError
 
-public final class ClangTarget: Target {
+@available(*, deprecated, renamed: "ClangModule")
+public typealias ClangTarget = ClangModule
+
+public final class ClangModule: Module {
+    /// Description of the module type used in `swift package describe` output. Preserved for backwards compatibility.
+    public override class var typeDescription: String { "ClangTarget" }
+
     /// The default public include directory component.
     public static let defaultPublicHeadersComponent = "include"
 
@@ -51,7 +57,7 @@ public final class ClangTarget: Target {
         resources: [Resource] = [],
         ignored: [AbsolutePath] = [],
         others: [AbsolutePath] = [],
-        dependencies: [Target.Dependency] = [],
+        dependencies: [Module.Dependency] = [],
         buildSettings: BuildSettings.AssignmentTable = .init(),
         buildSettingsDescription: [TargetBuildSettingDescription.Setting] = [],
         usesUnsafeFlags: Bool
@@ -81,31 +87,5 @@ public final class ClangTarget: Target {
             pluginUsages: [],
             usesUnsafeFlags: usesUnsafeFlags
         )
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case includeDir, moduleMapType, headers, isCXX, cLanguageStandard, cxxLanguageStandard
-    }
-
-    public override func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(includeDir, forKey: .includeDir)
-        try container.encode(moduleMapType, forKey: .moduleMapType)
-        try container.encode(headers, forKey: .headers)
-        try container.encode(isCXX, forKey: .isCXX)
-        try container.encode(cLanguageStandard, forKey: .cLanguageStandard)
-        try container.encode(cxxLanguageStandard, forKey: .cxxLanguageStandard)
-        try super.encode(to: encoder)
-    }
-
-    required public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.includeDir = try container.decode(AbsolutePath.self, forKey: .includeDir)
-        self.moduleMapType = try container.decode(ModuleMapType.self, forKey: .moduleMapType)
-        self.headers = try container.decode([AbsolutePath].self, forKey: .headers)
-        self.isCXX = try container.decode(Bool.self, forKey: .isCXX)
-        self.cLanguageStandard = try container.decodeIfPresent(String.self, forKey: .cLanguageStandard)
-        self.cxxLanguageStandard = try container.decodeIfPresent(String.self, forKey: .cxxLanguageStandard)
-        try super.init(from: decoder)
     }
 }

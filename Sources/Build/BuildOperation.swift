@@ -22,8 +22,7 @@ import Foundation
 
 import class TSCBasic.DiagnosticsEngine
 import protocol TSCBasic.OutputByteStream
-import class TSCBasic.Process
-import enum TSCBasic.ProcessEnv
+import class Basics.AsyncProcess
 import struct TSCBasic.RegEx
 
 import enum TSCUtility.Diagnostics
@@ -55,11 +54,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// The path to scratch space (.build) directory.
     let scratchDirectory: AbsolutePath
 
-    /// The llbuild build delegate reference.
-    private var buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
-
-    /// The llbuild build system reference.
-    private var buildSystem: SPMLLBuild.BuildSystem?
+    /// The llbuild build system reference previously created
+    /// via `createBuildSystem` call.
+    private var current: (buildSystem: SPMLLBuild.BuildSystem, tracker: LLBuildProgressTracker)?
 
     /// If build manifest caching should be enabled.
     public let cacheBuildManifest: Bool
@@ -194,7 +191,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Cancel the active build operation.
     public func cancel(deadline: DispatchTime) throws {
-        buildSystem?.cancel()
+        current?.buildSystem.cancel()
     }
 
     // Emit a warning if a target imports another target in this build
@@ -229,7 +226,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 let resolver = try ArgsResolver(fileSystem: localFileSystem)
                 let executor = SPMSwiftDriverExecutor(resolver: resolver,
                                                       fileSystem: localFileSystem,
-                                                      env: ProcessEnv.vars)
+                                                      env: Environment.current)
 
                 let consumeDiagnostics: DiagnosticsEngine = DiagnosticsEngine(handlers: [])
                 var driver = try Driver(args: commandLine,
@@ -355,8 +352,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         try verifyTargetImports(in: buildDescription)
 
         // Create the build system.
-        let buildSystem = try self.createBuildSystem(buildDescription: buildDescription)
-        self.buildSystem = buildSystem
+        let (buildSystem, progressTracker) = try self.createBuildSystem(
+            buildDescription: buildDescription
+        )
+        self.current = (buildSystem, progressTracker)
 
         // If any plugins are part of the build set, compile them now to surface
         // any errors up-front. Returns true if we should proceed with the build
@@ -366,7 +365,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
 
         // delegate is only available after createBuildSystem is called
-        self.buildSystemDelegate?.buildStart(configuration: self.productsBuildParameters.configuration)
+        progressTracker.buildStart(configuration: self.productsBuildParameters.configuration)
 
         // Perform the build.
         let llbuildTarget = try computeLLBuildTargetName(for: subset)
@@ -386,12 +385,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             subsetDescriptor = nil
         }
 
-        self.buildSystemDelegate?.buildComplete(
+        progressTracker.buildComplete(
             success: success,
             duration: duration,
             subsetDescriptor: subsetDescriptor
         )
-        self.delegate?.buildSystem(self, didFinishWithResult: success)
         guard success else { throw Diagnostics.fatalError }
 
         // Create backwards-compatibility symlink to old build path.
@@ -427,7 +425,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Figure out what, if any, plugin descriptions to compile, and whether
         // to continue building after that based on the subset.
         let allPlugins = try getBuildDescription().pluginDescriptions
-        let pluginsToCompile: [PluginDescription]
+        let pluginsToCompile: [PluginBuildDescription]
         let continueBuilding: Bool
         switch subset {
         case .allExcludingTests, .allIncludingTests:
@@ -437,7 +435,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             pluginsToCompile = allPlugins.filter{ $0.productNames.contains(productName) }
             continueBuilding = pluginsToCompile.isEmpty
         case .target(let targetName, _):
-            pluginsToCompile = allPlugins.filter{ $0.targetName == targetName }
+            pluginsToCompile = allPlugins.filter{ $0.moduleName == targetName }
             continueBuilding = pluginsToCompile.isEmpty
         }
 
@@ -454,54 +452,57 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     // Compiles a single plugin, emitting its output and throwing an error if it
     // fails.
-    func compilePlugin(_ plugin: PluginDescription) throws {
+    func compilePlugin(_ plugin: PluginBuildDescription) throws {
         guard let pluginConfiguration else {
             throw InternalError("unknown plugin script runner")
         }
         // Compile the plugin, getting back a PluginCompilationResult.
-        class Delegate: PluginScriptCompilerDelegate {
+        final class Delegate: PluginScriptCompilerDelegate {
             let preparationStepName: String
-            let buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
-            init(preparationStepName: String, buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?) {
+            let progressTracker: LLBuildProgressTracker?
+            init(preparationStepName: String, progressTracker: LLBuildProgressTracker?) {
                 self.preparationStepName = preparationStepName
-                self.buildSystemDelegate = buildSystemDelegate
+                self.progressTracker = progressTracker
             }
-            func willCompilePlugin(commandLine: [String], environment: EnvironmentVariables) {
-                self.buildSystemDelegate?.preparationStepStarted(preparationStepName)
+            func willCompilePlugin(commandLine: [String], environment: [String: String]) {
+                self.progressTracker?.preparationStepStarted(preparationStepName)
             }
             func didCompilePlugin(result: PluginCompilationResult) {
-                self.buildSystemDelegate?.preparationStepHadOutput(
+                self.progressTracker?.preparationStepHadOutput(
                     preparationStepName,
                     output: result.commandLine.joined(separator: " "),
                     verboseOnly: true
                 )
                 if !result.compilerOutput.isEmpty {
-                    self.buildSystemDelegate?.preparationStepHadOutput(
+                    self.progressTracker?.preparationStepHadOutput(
                         preparationStepName,
                         output: result.compilerOutput,
                         verboseOnly: false
                     )
                 }
-                self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: (result.succeeded ? .succeeded : .failed))
+                self.progressTracker?.preparationStepFinished(preparationStepName, result: (result.succeeded ? .succeeded : .failed))
             }
             func skippedCompilingPlugin(cachedResult: PluginCompilationResult) {
                 // Historically we have emitted log info about cached plugins that are used. We should reconsider whether this is the right thing to do.
-                self.buildSystemDelegate?.preparationStepStarted(preparationStepName)
+                self.progressTracker?.preparationStepStarted(preparationStepName)
                 if !cachedResult.compilerOutput.isEmpty {
-                    self.buildSystemDelegate?.preparationStepHadOutput(
+                    self.progressTracker?.preparationStepHadOutput(
                         preparationStepName,
                         output: cachedResult.compilerOutput,
                         verboseOnly: false
                     )
                 }
-                self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: (cachedResult.succeeded ? .succeeded : .failed))
+                self.progressTracker?.preparationStepFinished(preparationStepName, result: (cachedResult.succeeded ? .succeeded : .failed))
             }
         }
-        let delegate = Delegate(preparationStepName: "Compiling plugin \(plugin.targetName)", buildSystemDelegate: self.buildSystemDelegate)
+        let delegate = Delegate(
+            preparationStepName: "Compiling plugin \(plugin.moduleName)",
+            progressTracker: self.current?.tracker
+        )
         let result = try temp_await {
             pluginConfiguration.scriptRunner.compilePluginScript(
                 sourceFiles: plugin.sources.paths,
-                pluginName: plugin.targetName,
+                pluginName: plugin.moduleName,
                 toolsVersion: plugin.toolsVersion,
                 observabilityScope: self.observabilityScope,
                 callbackQueue: DispatchQueue.sharedConcurrent,
@@ -568,7 +569,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 nil
             }
 
-            let target = graph.target(
+            let target = graph.module(
                 for: targetName,
                 destination: buildTriple
             )
@@ -649,7 +650,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 for result in results {
                     let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
                         var metadata = ObservabilityMetadata()
-                        metadata.targetName = target.name
+                        metadata.moduleName = target.name
                         metadata.pluginName = result.plugin.name
                         return metadata
                     }
@@ -668,7 +669,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             }
 
             // Run any prebuild commands provided by build tool plugins. Any failure stops the build.
-            prebuildCommandResults = try graph.reachableTargets.reduce(into: [:], { partial, target in
+            prebuildCommandResults = try graph.reachableModules.reduce(into: [:], { partial, target in
                 partial[target.id] = try buildToolPluginInvocationResults[target.id].map {
                     try self.runPrebuildCommands(for: $0.results)
                 }
@@ -685,7 +686,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             subset.recursiveDependencies(for: graph, observabilityScope: observabilityScope) {
             targetsToConsider = recursiveDependencies
         } else {
-            targetsToConsider = Array(graph.reachableTargets)
+            targetsToConsider = Array(graph.reachableModules)
         }
 
         for target in targetsToConsider {
@@ -709,7 +710,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 var metadata = ObservabilityMetadata()
                 metadata.packageIdentity = package.identity
                 metadata.packageKind = package.manifest.packageKind
-                metadata.targetName = target.name
+                metadata.moduleName = target.name
                 return metadata
             }
             var warning = "found \(unhandledFiles.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
@@ -746,8 +747,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Build the package structure target.
     private func buildPackageStructure() throws -> Bool {
-        let buildSystem = try self.createBuildSystem(buildDescription: .none)
-        self.buildSystem = buildSystem
+        let (buildSystem, tracker) = try self.createBuildSystem(
+            buildDescription: .none
+        )
+        self.current = (buildSystem, tracker)
 
         // Build the package structure target which will re-generate the llbuild manifest, if necessary.
         return buildSystem.build(target: "PackageStructure")
@@ -757,7 +760,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     ///
     /// The build description should only be omitted when creating the build system for
     /// building the package structure target.
-    private func createBuildSystem(buildDescription: BuildDescription?) throws -> SPMLLBuild.BuildSystem {
+    private func createBuildSystem(
+        buildDescription: BuildDescription?
+    ) throws -> (buildSystem: SPMLLBuild.BuildSystem, tracker: LLBuildProgressTracker) {
         // Figure out which progress bar we have to use during the build.
         let progressAnimation = ProgressAnimation.ninja(
             stream: self.outputStream,
@@ -774,7 +779,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         )
 
         // Create the build delegate.
-        let buildSystemDelegate = BuildOperationBuildSystemDelegateHandler(
+        let progressTracker = LLBuildProgressTracker(
             buildSystem: self,
             buildExecutionContext: buildExecutionContext,
             outputStream: self.outputStream,
@@ -783,23 +788,17 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             observabilityScope: self.observabilityScope,
             delegate: self.delegate
         )
-        self.buildSystemDelegate = buildSystemDelegate
 
         let databasePath = self.scratchDirectory.appending("build.db").pathString
-        let buildSystem = SPMLLBuild.BuildSystem(
+
+        let llbuildSystem = SPMLLBuild.BuildSystem(
             buildFile: self.productsBuildParameters.llbuildManifest.pathString,
             databaseFile: databasePath,
-            delegate: buildSystemDelegate,
+            delegate: progressTracker,
             schedulerLanes: self.productsBuildParameters.workers
         )
 
-        // TODO: this seems fragile, perhaps we replace commandFailureHandler by adding relevant calls in the delegates chain
-        buildSystemDelegate.commandFailureHandler = {
-            buildSystem.cancel()
-            self.delegate?.buildSystemDidCancel(self)
-        }
-
-        return buildSystem
+        return (buildSystem: llbuildSystem, tracker: progressTracker)
     }
 
     /// Runs any prebuild commands associated with the given list of plugin invocation results, in order, and returns the
@@ -824,7 +823,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 if !pluginConfiguration.disableSandbox {
                     commandLine = try Sandbox.apply(command: commandLine, fileSystem: self.fileSystem, strictness: .writableTemporaryDirectory, writableDirectories: [pluginResult.pluginOutputDirectory])
                 }
-                let processResult = try Process.popen(arguments: commandLine, environment: command.configuration.environment)
+                let processResult = try AsyncProcess.popen(arguments: commandLine, environment: command.configuration.environment)
                 let output = try processResult.utf8Output() + processResult.utf8stderrOutput()
                 if processResult.exitStatus != .terminated(code: 0) {
                     throw StringError("failed: \(command)\n\n\(output)")
@@ -947,9 +946,9 @@ extension BuildSubset {
     func recursiveDependencies(for graph: ModulesGraph, observabilityScope: ObservabilityScope) throws -> [ResolvedModule]? {
         switch self {
         case .allIncludingTests:
-            return Array(graph.reachableTargets)
+            return Array(graph.reachableModules)
         case .allExcludingTests:
-            return graph.reachableTargets.filter { $0.type != .test }
+            return graph.reachableModules.filter { $0.type != .test }
         case .product(let productName, let destination):
             let buildTriple: BuildTriple? = if let destination {
                 destination == .host ? .tools : .destination
@@ -964,7 +963,7 @@ extension BuildSubset {
                 observabilityScope.emit(error: "no product named '\(productName)'")
                 return nil
             }
-            return try product.recursiveTargetDependencies()
+            return try product.recursiveModuleDependencies()
         case .target(let targetName, let destination):
             let buildTriple: BuildTriple? = if let destination {
                 destination == .host ? .tools : .destination
@@ -972,14 +971,14 @@ extension BuildSubset {
                 nil
             }
 
-            guard let target = graph.target(
+            guard let target = graph.module(
                 for: targetName,
                 destination: buildTriple
             ) else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 return nil
             }
-            return try target.recursiveTargetDependencies()
+            return try target.recursiveModuleDependencies()
         }
     }
 }

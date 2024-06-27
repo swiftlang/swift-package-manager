@@ -22,7 +22,7 @@ extension ResolvedModule {
     ) -> ResolvedModule {
         ResolvedModule(
             packageIdentity: packageIdentity,
-            underlying: SwiftTarget(
+            underlying: SwiftModule(
                 name: name,
                 type: .library,
                 path: .root,
@@ -31,7 +31,7 @@ extension ResolvedModule {
                 packageAccess: false,
                 usesUnsafeFlags: false
             ),
-            dependencies: deps.map { .target($0, conditions: conditions) },
+            dependencies: deps.map { .module($0, conditions: conditions) },
             defaultLocalization: nil,
             supportedPlatforms: [],
             platformVersionProvider: .init(implementation: .minimumDeploymentTargetDefault)

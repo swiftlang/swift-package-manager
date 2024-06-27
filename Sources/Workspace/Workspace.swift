@@ -173,7 +173,7 @@ public class Workspace {
     ///   - delegate: Delegate for workspace events
     public convenience init(
         fileSystem: any FileSystem,
-        environment: EnvironmentVariables = .process(),
+        environment: Environment = .current,
         location: Location,
         authorizationProvider: (any AuthorizationProvider)? = .none,
         registryAuthorizationProvider: (any AuthorizationProvider)? = .none,
@@ -238,7 +238,7 @@ public class Workspace {
     ///   - delegate: Delegate for workspace events
     public convenience init(
         fileSystem: FileSystem? = .none,
-        environment: EnvironmentVariables = .process(),
+        environment: Environment = .current,
         forRootPackage packagePath: AbsolutePath,
         authorizationProvider: AuthorizationProvider? = .none,
         registryAuthorizationProvider: AuthorizationProvider? = .none,
@@ -337,7 +337,7 @@ public class Workspace {
     public static func _init(
         // core
         fileSystem: FileSystem,
-        environment: EnvironmentVariables,
+        environment: Environment,
         location: Location,
         authorizationProvider: AuthorizationProvider? = .none,
         registryAuthorizationProvider: AuthorizationProvider? = .none,
@@ -396,7 +396,7 @@ public class Workspace {
     private init(
         // core
         fileSystem: FileSystem,
-        environment: EnvironmentVariables,
+        environment: Environment,
         location: Location,
         authorizationProvider: AuthorizationProvider?,
         registryAuthorizationProvider: AuthorizationProvider?,
@@ -1120,7 +1120,7 @@ extension Workspace {
     public func loadPluginImports(
         packageGraph: ModulesGraph
     ) async throws -> [PackageIdentity: [String: [String]]] {
-        let pluginTargets = packageGraph.allTargets.filter { $0.type == .plugin }
+        let pluginTargets = packageGraph.allModules.filter { $0.type == .plugin }
         let scanner = SwiftcImportScanner(
             swiftCompilerEnvironment: hostToolchain.swiftCompilerEnvironment,
             swiftCompilerFlags: self.hostToolchain
@@ -1472,7 +1472,7 @@ private func warnToStderr(_ message: String) {
 }
 
 // used for manifest validation
-#if swift(<6.0)
+#if compiler(<6.0)
 extension RepositoryManager: ManifestSourceControlValidator {}
 #else
 extension RepositoryManager: @retroactive ManifestSourceControlValidator {}

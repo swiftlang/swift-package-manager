@@ -218,7 +218,7 @@ extension Workspace {
                                     info: "swizzling '\(dependency.locationString)' with registry dependency '\(registryIdentity)'."
                                 )
                             targetDependencyPackageNameTransformations[dependency
-                                .nameForTargetDependencyResolutionOnly] = registryIdentity.description
+                                .nameForModuleDependencyResolutionOnly] = registryIdentity.description
                             modifiedDependency = .registry(
                                 identity: registryIdentity,
                                 requirement: requirement,

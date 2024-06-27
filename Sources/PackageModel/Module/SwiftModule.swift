@@ -13,7 +13,13 @@
 import struct Basics.AbsolutePath
 import struct Basics.SwiftVersion
 
-public final class SwiftTarget: Target {
+@available(*, deprecated, renamed: "SwiftModule")
+public typealias SwiftTarget = SwiftModule
+
+public final class SwiftModule: Module {
+    /// Description of the module type used in `swift package describe` output. Preserved for backwards compatibility.
+    public override class var typeDescription: String { "SwiftTarget" }
+
     /// The default name for the test entry point file located in a package.
     public static let defaultTestEntryPointName = "XCTMain.swift"
 
@@ -22,7 +28,7 @@ public final class SwiftTarget: Target {
         [defaultTestEntryPointName, "LinuxMain.swift"]
     }
 
-    public init(name: String, dependencies: [Target.Dependency], packageAccess: Bool, testDiscoverySrc: Sources) {
+    public init(name: String, dependencies: [Module.Dependency], packageAccess: Bool, testDiscoverySrc: Sources) {
         self.declaredSwiftVersions = []
 
         super.init(
@@ -51,7 +57,7 @@ public final class SwiftTarget: Target {
         resources: [Resource] = [],
         ignored: [AbsolutePath] = [],
         others: [AbsolutePath] = [],
-        dependencies: [Target.Dependency] = [],
+        dependencies: [Module.Dependency] = [],
         packageAccess: Bool,
         declaredSwiftVersions: [SwiftLanguageVersion] = [],
         buildSettings: BuildSettings.AssignmentTable = .init(),
@@ -81,7 +87,7 @@ public final class SwiftTarget: Target {
     /// Create an executable Swift target from test entry point file.
     public init(
         name: String,
-        dependencies: [Target.Dependency],
+        dependencies: [Module.Dependency],
         packageAccess: Bool,
         testEntryPointPath: AbsolutePath
     ) {
@@ -89,9 +95,9 @@ public final class SwiftTarget: Target {
         // for linux main target. This will need to change if we move to a model
         // where we allow per target swift language version build settings.
         let swiftTestTarget = dependencies.first {
-            guard case .target(let target as SwiftTarget, _) = $0 else { return false }
+            guard case .module(let target as SwiftModule, _) = $0 else { return false }
             return target.type == .test
-        }.flatMap { $0.target as? SwiftTarget }
+        }.flatMap { $0.module as? SwiftModule }
 
         // We need to select the latest Swift language version that can
         // satisfy the current tools version but there is not a good way to
@@ -124,22 +130,6 @@ public final class SwiftTarget: Target {
             pluginUsages: [],
             usesUnsafeFlags: false
         )
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case declaredSwiftVersions
-    }
-
-    override public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.declaredSwiftVersions, forKey: .declaredSwiftVersions)
-        try super.encode(to: encoder)
-    }
-
-    public required init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.declaredSwiftVersions = try container.decode([SwiftLanguageVersion].self, forKey: .declaredSwiftVersions)
-        try super.init(from: decoder)
     }
 
     public var supportsTestableExecutablesFeature: Bool {
