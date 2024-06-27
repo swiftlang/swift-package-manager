@@ -773,6 +773,13 @@ public final class SwiftCommandState {
             observabilityScope.emit(warning: Self.entitlementsMacOSWarning)
         }
 
+        let prepareForIndexingMode: BuildParameters.PrepareForIndexingMode =
+            switch (options.build.prepareForIndexing, options.build.prepareForIndexingNoLazy) {
+                case (false, _): .off
+                case (true, false): .on
+                case (true, true): .noLazy
+            }
+
         return try BuildParameters(
             destination: destination,
             dataPath: dataPath,
@@ -786,7 +793,7 @@ public final class SwiftCommandState {
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
             isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
-            prepareForIndexing: prepareForIndexing ?? options.build.prepareForIndexing,
+            prepareForIndexing: prepareForIndexingMode,
             debuggingParameters: .init(
                 debugInfoFormat: options.build.debugInfoFormat.buildParameter,
                 triple: triple,
