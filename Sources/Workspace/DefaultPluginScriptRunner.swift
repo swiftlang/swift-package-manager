@@ -17,9 +17,8 @@ import PackageModel
 import SPMBuildCore
 
 import struct TSCBasic.ByteString
-import struct TSCBasic.ProcessResult
-import enum TSCBasic.ProcessEnv
-import class TSCBasic.Process
+import struct Basics.AsyncProcessResult
+import class Basics.AsyncProcess
 
 import struct TSCUtility.SerializedDiagnostics
 
@@ -197,7 +196,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         #endif
 
         // Honor any module cache override that's set in the environment.
-        let moduleCachePath = ProcessEnv.block["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.block["SWIFTPM_TESTS_MODULECACHE"]
+        let moduleCachePath = Environment.current["SWIFTPM_MODULECACHE_OVERRIDE"] ?? Environment.current["SWIFTPM_TESTS_MODULECACHE"]
         if let moduleCachePath {
             commandLine += ["-module-cache-path", moduleCachePath]
         }
@@ -257,7 +256,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         /// Persisted information about the last time the compiler was invoked.
         struct PersistedCompilationState: Codable {
             var commandLine: [String]
-            var environment: EnvironmentVariables
+            var environment: Environment
             var inputHash: String?
             var output: String
             var result: Result
@@ -266,7 +265,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 case abnormal(exception: UInt32)
                 case signal(number: Int32)
                 
-                init(_ processExitStatus: ProcessResult.ExitStatus) {
+                init(_ processExitStatus: AsyncProcessResult.ExitStatus) {
                     switch processExitStatus {
                     case .terminated(let code):
                         self = .exit(code: code)
@@ -324,8 +323,8 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         }
 
         // Otherwise we need to recompile. We start by telling the delegate.
-        delegate.willCompilePlugin(commandLine: commandLine, environment: environment)
-        
+        delegate.willCompilePlugin(commandLine: commandLine, environment: .init(environment))
+
         // Clean up any old files to avoid confusion if the compiler can't be invoked.
         do {
             try fileSystem.removeFileTree(execFilePath)
@@ -337,7 +336,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         }
         
         // Now invoke the compiler asynchronously.
-        let process = try await TSCBasic.Process.popen(arguments: commandLine, environment: environment)
+        let process = try await AsyncPorcess.Process.popen(arguments: commandLine, environment: environment)
 
         // Emit the compiler output as observable info.
         let compilerOutput = ((try? process.utf8Output()) ?? "") + ((try? process.utf8stderrOutput()) ?? "")
@@ -386,7 +385,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         var sdkRootPath: Basics.AbsolutePath?
         // Find SDKROOT on macOS using xcrun.
         #if os(macOS)
-        let foundPath = try? TSCBasic.Process.checkNonZeroExit(
+        let foundPath = try? AsyncProcess.checkNonZeroExit(
             args: "/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"
         )
         guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
