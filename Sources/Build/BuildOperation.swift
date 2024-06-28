@@ -737,7 +737,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let buildToolPluginInvocationResults: [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])]
         let prebuildCommandResults: [ResolvedModule.ID: [PrebuildCommandResult]]
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
-        if let pluginConfiguration, !self.config.shouldSkipBuilding(for: .target) {
+        if let pluginConfiguration: PluginConfiguration, !self.config.shouldSkipBuilding(for: .target) {
             let pluginsPerModule = graph.pluginsPerModule(
                 satisfying: self.config.buildEnvironment(for: .host)
             )
@@ -823,6 +823,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             destinationBuildParameters: self.config.destinationBuildParameters,
             toolsBuildParameters: self.config.buildParameters(for: .host),
             graph: graph,
+            pluginConfiguration: self.pluginConfiguration,
             additionalFileRules: additionalFileRules,
             buildToolPluginInvocationResults: buildToolPluginInvocationResults.mapValues(\.results),
             prebuildCommandResults: prebuildCommandResults,
@@ -1024,22 +1025,24 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 }
 
-extension BuildOperation {
-    public struct PluginConfiguration {
-        /// Entity responsible for compiling and running plugin scripts.
-        let scriptRunner: PluginScriptRunner
+public struct PluginConfiguration {
+    /// Entity responsible for compiling and running plugin scripts.
+    let scriptRunner: PluginScriptRunner
 
-        /// Directory where plugin intermediate files are stored.
-        let workDirectory: AbsolutePath
+    /// Directory where plugin intermediate files are stored.
+    let workDirectory: AbsolutePath
 
-        /// Whether to sandbox commands from build tool plugins.
-        let disableSandbox: Bool
+    /// Whether to sandbox commands from build tool plugins.
+    let disableSandbox: Bool
 
-        public init(scriptRunner: PluginScriptRunner, workDirectory: AbsolutePath, disableSandbox: Bool) {
-            self.scriptRunner = scriptRunner
-            self.workDirectory = workDirectory
-            self.disableSandbox = disableSandbox
-        }
+    public init(
+        scriptRunner: PluginScriptRunner,
+        workDirectory: AbsolutePath,
+        disableSandbox: Bool
+    ) {
+        self.scriptRunner = scriptRunner
+        self.workDirectory = workDirectory
+        self.disableSandbox = disableSandbox
     }
 }
 
@@ -1070,10 +1073,10 @@ extension BuildOperation {
             destinationBuildParameters: config.destinationBuildParameters,
             toolsBuildParameters: config.toolsBuildParameters,
             graph: graph,
+            pluginConfiguration: nil,
             additionalFileRules: [],
             buildToolPluginInvocationResults: [:],
             prebuildCommandResults: [:],
-            disableSandbox: false,
             fileSystem: config.fileSystem,
             observabilityScope: config.observabilityScope
         )
