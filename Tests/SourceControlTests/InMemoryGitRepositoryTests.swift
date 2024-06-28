@@ -12,10 +12,8 @@
 
 import Basics
 import SourceControl
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
-
-import class TSCBasic.InMemoryFileSystem
 
 class InMemoryGitRepositoryTests: XCTestCase {
     func testBasics() throws {

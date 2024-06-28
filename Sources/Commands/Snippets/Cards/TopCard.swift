@@ -10,9 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 import CoreCommands
-
 import Foundation
 import PackageModel
 import PackageGraph
@@ -134,7 +132,7 @@ struct TopCard: Card {
     }
 }
 
-fileprivate extension Target.Kind {
+fileprivate extension Module.Kind {
     var pluralDescription: String {
         switch self {
         case .executable:
@@ -153,6 +151,8 @@ fileprivate extension Target.Kind {
             return "snippets"
         case .macro:
             return "macros"
+        case .providedLibrary:
+            return "provided libraries"
         }
     }
 }

@@ -90,7 +90,7 @@ public struct TargetSourcesBuilder {
 
         self.observabilityScope = observabilityScope.makeChildScope(description: "TargetSourcesBuilder") {
             var metadata = ObservabilityMetadata.packageMetadata(identity: packageIdentity, kind: packageKind)
-            metadata.targetName = target.name
+            metadata.moduleName = target.name
             return metadata
         }
 
@@ -215,7 +215,7 @@ public struct TargetSourcesBuilder {
 
         // It's an error to contain mixed language source files.
         if sources.containsMixedLanguage {
-            throw Target.Error.mixedSources(targetPath)
+            throw Module.Error.mixedSources(targetPath)
         }
 
         return (sources, resources, headers, ignored, others)
@@ -563,11 +563,11 @@ public struct TargetSourcesBuilder {
 }
 
 /// Describes a rule for including a source or resource file in a target.
-public struct FileRuleDescription {
+public struct FileRuleDescription: Sendable {
     /// A rule semantically describes a file/directory in a target.
     ///
     /// It is up to the build system to translate a rule into a build command.
-    public enum Rule: Equatable {
+    public enum Rule: Equatable, Sendable {
         /// The compile rule for `sources` in a package.
         case compile
 
@@ -793,16 +793,16 @@ extension Basics.Diagnostic {
 }
 
 extension ObservabilityMetadata {
-    public var targetName: String? {
+    public var moduleName: String? {
         get {
-            self[TargetNameKey.self]
+            self[ModuleNameKey.self]
         }
         set {
-            self[TargetNameKey.self] = newValue
+            self[ModuleNameKey.self] = newValue
         }
     }
 
-    enum TargetNameKey: Key {
+    enum ModuleNameKey: Key {
         typealias Value = String
     }
 }

@@ -145,7 +145,7 @@ extension PinsStore.Pin {
                 packageRef: dependency.packageRef,
                 state: .version(version, revision: .none)
             )
-        case .edited, .fileSystem, .custom:
+        case .edited, .fileSystem, .providedLibrary, .custom:
             // NOOP
             return nil
         }

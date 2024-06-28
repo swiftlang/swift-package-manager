@@ -14,19 +14,16 @@ import Dispatch
 import Foundation
 
 import SPMBuildCore
-
 import Basics
-
 import CoreCommands
-
 import PackageGraph
 import PackageModel
 import SourceControl
 import Workspace
 
 import protocol TSCBasic.DiagnosticLocation
-import class TSCBasic.Process
-import struct TSCBasic.ProcessResult
+import class Basics.AsyncProcess
+import struct Basics.AsyncProcessResult
 import func TSCBasic.withTemporaryFile
 
 import enum TSCUtility.Diagnostics
@@ -142,6 +139,7 @@ struct APIDigesterBaselineDumper {
         // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the APIDigester. rdar://86112934
         let buildSystem = try swiftCommandState.createBuildSystem(
             explicitBuildSystem: .native,
+            traitConfiguration: .init(),
             cacheBuildManifest: false,
             productsBuildParameters: productsBuildParameters,
             toolsBuildParameters: toolsBuildParameters,
@@ -183,7 +181,7 @@ struct APIDigesterBaselineDumper {
 }
 
 /// A wrapper for the swift-api-digester tool.
-package struct SwiftAPIDigester {
+public struct SwiftAPIDigester {
     /// The file system to use
     let fileSystem: FileSystem
 
@@ -196,7 +194,7 @@ package struct SwiftAPIDigester {
     }
 
     /// Emit an API baseline file for the specified module at the specified location.
-    package func emitAPIBaseline(
+    public func emitAPIBaseline(
         to outputPath: AbsolutePath,
         for module: String,
         buildPlan: SPMBuildCore.BuildPlan
@@ -226,7 +224,7 @@ package struct SwiftAPIDigester {
     }
 
     /// Compare the current package API to a provided baseline file.
-    package func compareAPIToBaseline(
+    public func compareAPIToBaseline(
         at baselinePath: AbsolutePath,
         for module: String,
         buildPlan: SPMBuildCore.BuildPlan,
@@ -259,9 +257,9 @@ package struct SwiftAPIDigester {
         }
     }
 
-    @discardableResult private func runTool(_ args: [String]) throws -> ProcessResult {
+    @discardableResult private func runTool(_ args: [String]) throws -> AsyncProcessResult {
         let arguments = [tool.pathString] + args
-        let process = TSCBasic.Process(
+        let process = AsyncProcess(
             arguments: arguments,
             outputRedirection: .collect(redirectStderr: true)
         )
@@ -271,12 +269,12 @@ package struct SwiftAPIDigester {
 }
 
 extension SwiftAPIDigester {
-    package enum Error: Swift.Error, CustomStringConvertible {
+    public enum Error: Swift.Error, CustomStringConvertible {
         case failedToGenerateBaseline(module: String)
         case failedToValidateBaseline(module: String)
         case noSymbolsInBaseline(module: String, toolOutput: String)
 
-        package var description: String {
+        public var description: String {
             switch self {
             case .failedToGenerateBaseline(let module):
                 return "failed to generate baseline for \(module)"
@@ -291,7 +289,7 @@ extension SwiftAPIDigester {
 
 extension SwiftAPIDigester {
     /// The result of comparing a module's API to a provided baseline.
-    package struct ComparisonResult {
+    public struct ComparisonResult {
         /// The name of the module being diffed.
         var moduleName: String
         /// Breaking changes made to the API since the baseline was generated.
@@ -319,8 +317,8 @@ extension ModulesGraph {
         self.rootPackages
             .flatMap(\.products)
             .filter { $0.type.isLibrary }
-            .flatMap(\.targets)
-            .filter { $0.underlying is SwiftTarget }
+            .flatMap(\.modules)
+            .filter { $0.underlying is SwiftModule }
             .map { $0.c99name }
     }
 }
@@ -331,7 +329,7 @@ extension SerializedDiagnostics.SourceLocation {
     }
 }
 
-#if swift(<6.0)
+#if compiler(<6.0)
 extension SerializedDiagnostics.SourceLocation: DiagnosticLocation {}
 #else
 extension SerializedDiagnostics.SourceLocation: @retroactive DiagnosticLocation {}

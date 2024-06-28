@@ -12,7 +12,7 @@
 
 import SPMBuildCore
 
-package func generateTestObservationCode(buildParameters: BuildParameters) -> String {
+public func generateTestObservationCode(buildParameters: BuildParameters) -> String {
     guard buildParameters.triple.supportsTestSummary else {
         return ""
     }
@@ -34,14 +34,14 @@ package func generateTestObservationCode(buildParameters: BuildParameters) -> St
                 return "\(buildParameters.testOutputPath)"
             }
 
-            private func write(record: Encodable) {
+            private func write(record: any Encodable) {
                 let lock = FileLock(at: URL(fileURLWithPath: self.testOutputPath + ".lock"))
                 _ = try? lock.withLock {
                     self._write(record: record)
                 }
             }
 
-            private func _write(record: Encodable) {
+            private func _write(record: any Encodable) {
                 if let data = try? JSONEncoder().encode(record) {
                     if let fileHandle = FileHandle(forWritingAtPath: self.testOutputPath) {
                         defer { fileHandle.closeFile() }
@@ -132,6 +132,8 @@ package func generateTestObservationCode(buildParameters: BuildParameters) -> St
         @_exported import WinSDK
         #elseif os(WASI)
         @_exported import WASILibc
+        #elseif canImport(Android)
+        @_exported import Android
         #else
         @_exported import Darwin.C
         #endif
@@ -433,7 +435,7 @@ package func generateTestObservationCode(buildParameters: BuildParameters) -> St
         }
 
         extension TestErrorInfo {
-            init(_ error: Swift.Error) {
+            init(_ error: any Swift.Error) {
                 self.init(description: "\\(error)", type: "\\(Swift.type(of: error))")
             }
         }

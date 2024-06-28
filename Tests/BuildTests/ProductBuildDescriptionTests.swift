@@ -22,9 +22,11 @@ import struct PackageModel.TargetDescription
 @testable
 import struct PackageGraph.ResolvedProduct
 
-import func SPMTestSupport.loadModulesGraph
-import func SPMTestSupport.mockBuildParameters
-import func SPMTestSupport.XCTAssertNoDiagnostics
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
+import func PackageGraph.loadModulesGraph
+
+import func _InternalTestSupport.mockBuildParameters
+import func _InternalTestSupport.XCTAssertNoDiagnostics
 import XCTest
 
 final class ProductBuildDescriptionTests: XCTestCase {
@@ -53,7 +55,7 @@ final class ProductBuildDescriptionTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let id = ResolvedProduct.ID(targetName: "exe", packageIdentity: .plain("pkg"), buildTriple: .destination)
+        let id = ResolvedProduct.ID(productName: "exe", packageIdentity: .plain("pkg"), buildTriple: .destination)
         let package = try XCTUnwrap(graph.rootPackages.first)
         let product = try XCTUnwrap(graph.allProducts[id])
 
@@ -61,7 +63,7 @@ final class ProductBuildDescriptionTests: XCTestCase {
             package: package,
             product: product,
             toolsVersion: .v5_9,
-            buildParameters: mockBuildParameters(environment: .init(platform: .macOS)),
+            buildParameters: mockBuildParameters(destination: .target, environment: .init(platform: .macOS)),
             fileSystem: fs,
             observabilityScope: observability.topScope
         )

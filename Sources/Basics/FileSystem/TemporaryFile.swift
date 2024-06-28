@@ -72,7 +72,7 @@ public func withTemporaryDirectory<Result>(
     dir: AbsolutePath? = nil,
     prefix: String = "TemporaryDirectory",
     removeTreeOnDeinit: Bool = false,
-    _ body: @escaping (AbsolutePath) async throws -> Result
+    _ body: @escaping @Sendable (AbsolutePath) async throws -> Result
 ) throws -> Task<Result, Error> {
     try withTemporaryDirectory(fileSystem: fileSystem, dir: dir, prefix: prefix) { path, cleanup in
         defer { if removeTreeOnDeinit { cleanup(path) } }

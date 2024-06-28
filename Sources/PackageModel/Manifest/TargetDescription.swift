@@ -10,10 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// The description of an individual target.
+/// The description of an individual module.
 public struct TargetDescription: Hashable, Encodable, Sendable {
-    /// The target type.
-    public enum TargetType: String, Hashable, Encodable, Sendable {
+    @available(*, deprecated, renamed: "TargetKind")
+    public typealias TargetType = TargetKind
+
+    /// The target kind.
+    public enum TargetKind: String, Hashable, Encodable, Sendable {
         case regular
         case executable
         case test
@@ -21,6 +24,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         case binary
         case plugin
         case `macro`
+        case providedLibrary
     }
 
     /// Represents a target's dependency on another entity.
@@ -28,6 +32,17 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         case target(name: String, condition: PackageConditionDescription?)
         case product(name: String, package: String?, moduleAliases: [String: String]? = nil, condition: PackageConditionDescription?)
         case byName(name: String, condition: PackageConditionDescription?)
+
+        var condition: PackageConditionDescription? {
+            switch self {
+            case .target(_, let condition):
+                return condition
+            case .product(_, _, _, let condition):
+                return condition
+            case .byName(_, let condition):
+                return condition
+            }
+        }
 
         public static func target(name: String) -> Dependency {
             return .target(name: name, condition: nil)
@@ -92,13 +107,13 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
     }
 
     /// The declared target dependencies.
-    public let dependencies: [Dependency]
+    public package(set) var dependencies: [Dependency]
 
     /// The custom public headers path.
     public let publicHeadersPath: String?
 
     /// The type of target.
-    public let type: TargetType
+    public let type: TargetKind
 
     /// The pkg-config name of a system library target.
     public let pkgConfig: String?
@@ -168,7 +183,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         sources: [String]? = nil,
         resources: [Resource] = [],
         publicHeadersPath: String? = nil,
-        type: TargetType = .regular,
+        type: TargetKind = .regular,
         packageAccess: Bool = true,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
@@ -222,6 +237,19 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
             if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
             if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
             if pluginCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
+        case .providedLibrary:
+            if path == nil { throw Error.providedLibraryTargetRequiresPath(targetName: name) }
+            if url != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "url") }
+            if !dependencies.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "dependencies") }
+            if !exclude.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "exclude") }
+            if sources != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "sources") }
+            if !resources.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "resources") }
+            if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "publicHeadersPath") }
+            if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
+            if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
+            if pluginCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
+            if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
+            if pluginUsages != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginUsages") }
         }
 
         self.name = name
@@ -370,13 +398,16 @@ import protocol Foundation.LocalizedError
 private enum Error: LocalizedError, Equatable {
     case binaryTargetRequiresEitherPathOrURL(targetName: String)
     case disallowedPropertyInTarget(targetName: String, propertyName: String)
-    
+    case providedLibraryTargetRequiresPath(targetName: String)
+
     var errorDescription: String? {
         switch self {
         case .binaryTargetRequiresEitherPathOrURL(let targetName):
             return "binary target '\(targetName)' neither defines neither path nor URL for its artifacts"
         case .disallowedPropertyInTarget(let targetName, let propertyName):
             return "target '\(targetName)' contains a value for disallowed property '\(propertyName)'"
+        case .providedLibraryTargetRequiresPath(let targetName):
+            return "provided library target '\(targetName)' does not define a path to the library"
         }
     }
 }

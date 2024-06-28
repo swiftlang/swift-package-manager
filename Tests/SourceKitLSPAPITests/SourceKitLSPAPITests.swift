@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2023-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -12,14 +12,16 @@
 
 import Basics
 import Build
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import PackageGraph
+
 import PackageModel
 import SourceKitLSPAPI
-import SPMTestSupport
-import TSCBasic
+import _InternalTestSupport
 import XCTest
 
-class SourceKitLSPAPITests: XCTestCase {
+final class SourceKitLSPAPITests: XCTestCase {
     func testBasicSwiftPackage() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -27,7 +29,7 @@ class SourceKitLSPAPITests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -43,23 +45,54 @@ class SourceKitLSPAPITests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let plan = try BuildPlan(
-            productsBuildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
-            toolsBuildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            destinationBuildParameters: mockBuildParameters(
+                destination: .target,
+                shouldLinkStaticSwiftStdlib: true
+            ),
+            toolsBuildParameters: mockBuildParameters(
+                destination: .host,
+                shouldLinkStaticSwiftStdlib: true
+            ),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
         let description = BuildDescription(buildPlan: plan)
 
-        try description.checkArguments(for: "exe", graph: graph, partialArguments: ["-module-name", "exe", "-emit-dependencies", "-emit-module", "-emit-module-path", "/path/to/build/debug/exe.build/exe.swiftmodule"])
-        try description.checkArguments(for: "lib", graph: graph, partialArguments: ["-module-name", "lib", "-emit-dependencies", "-emit-module", "-emit-module-path", "/path/to/build/debug/Modules/lib.swiftmodule"])
+        try description.checkArguments(
+            for: "exe",
+            graph: graph,
+            partialArguments: [
+                "-module-name", "exe",
+                "-emit-dependencies",
+                "-emit-module",
+                "-emit-module-path", "/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe.build/exe.swiftmodule"
+            ],
+            isPartOfRootPackage: true
+        )
+        try description.checkArguments(
+            for: "lib",
+            graph: graph,
+            partialArguments: [
+                "-module-name", "lib",
+                "-emit-dependencies",
+                "-emit-module",
+                "-emit-module-path", "/path/to/build/\(plan.destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule"
+            ],
+            isPartOfRootPackage: true
+        )
     }
 }
 
 extension SourceKitLSPAPI.BuildDescription {
-    @discardableResult func checkArguments(for targetName: String, graph: ModulesGraph, partialArguments: [String]) throws -> Bool {
-        let target = try XCTUnwrap(graph.allTargets.first(where: { $0.name == targetName }))
-        let buildTarget = try XCTUnwrap(self.getBuildTarget(for: target))
+    @discardableResult func checkArguments(
+        for targetName: String,
+        graph: ModulesGraph,
+        partialArguments: [String],
+        isPartOfRootPackage: Bool
+    ) throws -> Bool {
+        let target = try XCTUnwrap(graph.module(for: targetName, destination: .destination))
+        let buildTarget = try XCTUnwrap(self.getBuildTarget(for: target, in: graph))
 
         guard let file = buildTarget.sources.first else {
             XCTFail("build target \(targetName) contains no files")
@@ -70,6 +103,7 @@ extension SourceKitLSPAPI.BuildDescription {
         let result = arguments.contains(partialArguments)
 
         XCTAssertTrue(result, "could not match \(partialArguments) to actual arguments \(arguments)")
+        XCTAssertEqual(buildTarget.isPartOfRootPackage, isPartOfRootPackage)
         return result
     }
 }

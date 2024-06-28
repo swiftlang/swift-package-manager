@@ -15,12 +15,11 @@ import Dispatch
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import struct Foundation.URL
-import enum TSCBasic.ProcessEnv
 import func TSCBasic.tsc_await
 
 public enum Concurrency {
     public static var maxOperations: Int {
-        ProcessEnv.block["SWIFTPM_MAX_CONCURRENT_OPERATIONS"].flatMap(Int.init) ?? ProcessInfo.processInfo
+        Environment.current["SWIFTPM_MAX_CONCURRENT_OPERATIONS"].flatMap(Int.init) ?? ProcessInfo.processInfo
             .activeProcessorCount
     }
 }
@@ -64,7 +63,7 @@ public func safe_async<T, ErrorType: Error>(
 }
 
 /// Bridges between potentially blocking methods that take a result completion closure and async/await
-public func safe_async<T>(_ body: @escaping (@escaping (Result<T, Never>) -> Void) -> Void) async -> T {
+public func safe_async<T>(_ body: @escaping @Sendable (@escaping (Result<T, Never>) -> Void) -> Void) async -> T {
     await withCheckedContinuation { continuation in
         // It is possible that body make block indefinitely on a lock, semaphore,
         // or similar then synchronously call the completion handler. For full safety

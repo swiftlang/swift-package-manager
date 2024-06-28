@@ -28,7 +28,7 @@ public protocol RegistryClientDelegate {
 }
 
 /// Package registry client.
-/// API specification: https://github.com/apple/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md
+/// API specification: https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md
 public final class RegistryClient: Cancellable {
     public typealias Delegate = RegistryClientDelegate
 
@@ -983,7 +983,7 @@ public final class RegistryClient: Cancellable {
         package: PackageIdentity,
         version: Version,
         destinationPath: AbsolutePath,
-        progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
+        progressHandler: (@Sendable (_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
         timeout: DispatchTimeInterval? = .none,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -1009,7 +1009,7 @@ public final class RegistryClient: Cancellable {
         package: PackageIdentity,
         version: Version,
         destinationPath: AbsolutePath,
-        progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
+        progressHandler: (@Sendable (_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
         timeout: DispatchTimeInterval? = .none,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -1063,7 +1063,7 @@ public final class RegistryClient: Cancellable {
         package: PackageIdentity.RegistryIdentity,
         version: Version,
         destinationPath: AbsolutePath,
-        progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
+        progressHandler: (@Sendable (_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
         timeout: DispatchTimeInterval?,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,

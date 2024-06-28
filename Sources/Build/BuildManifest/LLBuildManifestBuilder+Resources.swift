@@ -18,7 +18,7 @@ extension LLBuildManifestBuilder {
     ///
     /// Returns the virtual node that will build the entire bundle.
     func createResourcesBundle(
-        for target: TargetBuildDescription
+        for target: ModuleBuildDescription
     ) throws -> Node? {
         guard let bundlePath = target.bundlePath else { return nil }
 
@@ -45,7 +45,7 @@ extension LLBuildManifestBuilder {
             outputs.append(output)
         }
 
-        let cmdName = target.target.getLLBuildResourcesCmdName(config: target.buildParameters.buildConfig)
+        let cmdName = target.llbuildResourcesCmdName
         self.manifest.addPhonyCmd(name: cmdName, inputs: outputs, outputs: [.virtual(cmdName)])
 
         return .virtual(cmdName)

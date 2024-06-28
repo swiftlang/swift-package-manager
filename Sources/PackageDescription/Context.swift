@@ -15,7 +15,7 @@
 /// The context encapsulates states that are known when Swift Package Manager interprets the package manifest,
 /// for example the location in the file system where the current package resides.
 @available(_PackageDescription, introduced: 5.6)
-public struct Context {
+public struct Context: Sendable {
     private static let model = try! ContextModel.decode()
 
     /// The directory that contains `Package.swift`.
@@ -46,8 +46,11 @@ public struct Context {
 
 /// Information about the git status of a given package, if available.
 @available(_PackageDescription, introduced: 6.0)
-public struct GitInformation {
+public struct GitInformation: Sendable {
+    /// The version tag currently checked out, if available.
     public let currentTag: String?
+    /// The commit currently checked out.
     public let currentCommit: String
+    /// Whether or not there are uncommitted changes in the current repository.
     public let hasUncommittedChanges: Bool
 }

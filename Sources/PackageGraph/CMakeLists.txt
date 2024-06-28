@@ -20,6 +20,7 @@ add_library(PackageGraph
   PackageModel+Extensions.swift
   PackageRequirement.swift
   PinsStore.swift
+  TraitConfiguration.swift
   Resolution/PubGrub/Assignment.swift
   Resolution/PubGrub/ContainerProvider.swift
   Resolution/PubGrub/DiagnosticReportBuilder.swift
@@ -35,7 +36,7 @@ add_library(PackageGraph
   Resolution/PlatformVersionProvider.swift
   Resolution/ResolvedPackage.swift
   Resolution/ResolvedProduct.swift
-  Resolution/ResolvedTarget.swift
+  Resolution/ResolvedModule.swift
   Version+Extensions.swift
   VersionSetSpecifier.swift)
 target_link_libraries(PackageGraph PUBLIC

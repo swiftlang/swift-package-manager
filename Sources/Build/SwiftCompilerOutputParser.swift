@@ -16,26 +16,26 @@ import class TSCUtility.JSONMessageStreamingParser
 import protocol TSCUtility.JSONMessageStreamingParserDelegate
 
 /// Represents a message output by the Swift compiler in JSON output mode.
-package struct SwiftCompilerMessage {
-    package enum Kind {
-        package struct Output {
-            package let type: String
-            package let path: String
+public struct SwiftCompilerMessage {
+    public enum Kind {
+        public struct Output {
+            public let type: String
+            public let path: String
 
-            package init(type: String, path: String) {
+            public init(type: String, path: String) {
                 self.type = type
                 self.path = path
             }
         }
 
-        package struct BeganInfo {
-            package let pid: Int
-            package let inputs: [String]
-            package let outputs: [Output]?
-            package let commandExecutable: String
-            package let commandArguments: [String]
+        public struct BeganInfo {
+            public let pid: Int
+            public let inputs: [String]
+            public let outputs: [Output]?
+            public let commandExecutable: String
+            public let commandArguments: [String]
 
-            package init(
+            public init(
                 pid: Int,
                 inputs: [String],
                 outputs: [Output]?,
@@ -50,21 +50,21 @@ package struct SwiftCompilerMessage {
             }
         }
 
-        package struct SkippedInfo {
-            package let inputs: [String]
-            package let outputs: [Output]?
+        public struct SkippedInfo {
+            public let inputs: [String]
+            public let outputs: [Output]?
 
-            package init(inputs: [String], outputs: [SwiftCompilerMessage.Kind.Output]) {
+            public init(inputs: [String], outputs: [SwiftCompilerMessage.Kind.Output]) {
                 self.inputs = inputs
                 self.outputs = outputs
             }
         }
 
-        package struct OutputInfo {
-            package let pid: Int
-            package let output: String?
+        public struct OutputInfo {
+            public let pid: Int
+            public let output: String?
 
-            package init(pid: Int, output: String?) {
+            public init(pid: Int, output: String?) {
                 self.pid = pid
                 self.output = output
             }
@@ -77,17 +77,17 @@ package struct SwiftCompilerMessage {
         case unparsableOutput(String)
     }
 
-    package let name: String
-    package let kind: Kind
+    public let name: String
+    public let kind: Kind
 
-    package init(name: String, kind: SwiftCompilerMessage.Kind) {
+    public init(name: String, kind: SwiftCompilerMessage.Kind) {
         self.name = name
         self.kind = kind
     }
 }
 
 /// Protocol for the parser delegate to get notified of parsing events.
-package protocol SwiftCompilerOutputParserDelegate: AnyObject {
+public protocol SwiftCompilerOutputParserDelegate: AnyObject {
 
     /// Called for each message parsed.
     func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didParse message: SwiftCompilerMessage)
@@ -97,7 +97,7 @@ package protocol SwiftCompilerOutputParserDelegate: AnyObject {
 }
 
 /// Parser for the Swift compiler JSON output mode.
-package final class SwiftCompilerOutputParser {
+public final class SwiftCompilerOutputParser {
 
     /// The underlying JSON message parser.
     private var jsonParser: JSONMessageStreamingParser<SwiftCompilerOutputParser>!
@@ -106,16 +106,16 @@ package final class SwiftCompilerOutputParser {
     private var hasFailed: Bool
 
     /// Name of the target the compiler is compiling.
-    package let targetName: String
+    public let targetName: String
 
     /// Delegate to notify of parsing events.
-    package weak var delegate: SwiftCompilerOutputParserDelegate?
+    public weak var delegate: SwiftCompilerOutputParserDelegate?
 
     /// Initializes the parser with a delegate to notify of parsing events.
     /// - Parameters:
     ///     - targetName: The name of the target being built.
     ///     - delegate: Delegate to notify of parsing events.
-    package init(targetName: String, delegate: SwiftCompilerOutputParserDelegate) {
+    public init(targetName: String, delegate: SwiftCompilerOutputParserDelegate) {
         self.hasFailed = false
         self.targetName = targetName
         self.delegate = delegate
@@ -128,7 +128,7 @@ package final class SwiftCompilerOutputParser {
     /// Parse the next bytes of the Swift compiler JSON output.
     /// - Note: If a parsing error is encountered, the delegate will be notified and the parser won't accept any further
     ///   input.
-    package func parse<C>(bytes: C) where C: Collection, C.Element == UInt8 {
+    public func parse<C>(bytes: C) where C: Collection, C.Element == UInt8 {
         guard !hasFailed else {
             return
         }
@@ -138,7 +138,7 @@ package final class SwiftCompilerOutputParser {
 }
 
 extension SwiftCompilerOutputParser: JSONMessageStreamingParserDelegate {
-    package func jsonMessageStreamingParser(
+    public func jsonMessageStreamingParser(
         _ parser: JSONMessageStreamingParser<SwiftCompilerOutputParser>,
         didParse message: SwiftCompilerMessage
     ) {
@@ -153,7 +153,7 @@ extension SwiftCompilerOutputParser: JSONMessageStreamingParserDelegate {
         }
     }
 
-    package func jsonMessageStreamingParser(
+    public func jsonMessageStreamingParser(
         _ parser: JSONMessageStreamingParser<SwiftCompilerOutputParser>,
         didParseRawText text: String
     ) {
@@ -165,7 +165,7 @@ extension SwiftCompilerOutputParser: JSONMessageStreamingParserDelegate {
         delegate?.swiftCompilerOutputParser(self, didParse: message)
     }
 
-    package func jsonMessageStreamingParser(
+    public func jsonMessageStreamingParser(
         _ parser: JSONMessageStreamingParser<SwiftCompilerOutputParser>,
         didFailWith error: Error
     ) {
@@ -179,7 +179,7 @@ extension SwiftCompilerMessage: Decodable, Equatable {
         case name
     }
 
-    package init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         name = try container.decode(String.self, forKey: .name)
         kind = try Kind(from: decoder)
@@ -191,7 +191,7 @@ extension SwiftCompilerMessage.Kind: Decodable, Equatable {
         case kind
     }
 
-    package init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let kind = try container.decode(String.self, forKey: .kind)
         switch kind {

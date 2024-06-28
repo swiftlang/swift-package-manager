@@ -11,20 +11,29 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import Foundation
+import struct TSCUtility.Version
 
-public struct LibraryMetadata: Decodable {
-    public enum Identity: Equatable, Decodable {
+public struct ProvidedLibrary: Hashable {
+    public let location: AbsolutePath
+    public let metadata: LibraryMetadata
+
+    public var version: Version {
+        .init(stringLiteral: metadata.version)
+    }
+}
+
+public struct LibraryMetadata: Hashable, Decodable {
+    public enum Identity: Hashable, Decodable {
         case packageIdentity(scope: String, name: String)
         case sourceControl(url: SourceControlURL)
     }
 
-    /// The package from which it was built (e.g., the URL https://github.com/apple/swift-syntax.git)
+    /// The package from which it was built (e.g., the URL https://github.com/swiftlang/swift-syntax.git)
     public let identities: [Identity]
     /// The version that was built (e.g., 509.0.2)
     public let version: String
     /// The product name, if it differs from the module name (e.g., SwiftParser).
-    public let productName: String?
+    public let productName: String
 
     let schemaVersion: Int
 }

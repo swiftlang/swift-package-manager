@@ -13,7 +13,7 @@
 import Basics
 import class Foundation.ProcessInfo
 
-package protocol ToolProtocol: Codable {
+public protocol ToolProtocol: Codable {
     /// The name of the tool.
     static var name: String { get }
 
@@ -31,16 +31,16 @@ package protocol ToolProtocol: Codable {
 }
 
 extension ToolProtocol {
-    package var alwaysOutOfDate: Bool { return false }
+    public var alwaysOutOfDate: Bool { return false }
 
-    package func write(to stream: inout ManifestToolStream) {}
+    public func write(to stream: inout ManifestToolStream) {}
 }
 
-package struct PhonyTool: ToolProtocol {
-    package static let name: String = "phony"
+public struct PhonyTool: ToolProtocol {
+    public static let name: String = "phony"
 
-    package var inputs: [Node]
-    package var outputs: [Node]
+    public var inputs: [Node]
+    public var outputs: [Node]
 
     init(inputs: [Node], outputs: [Node]) {
         self.inputs = inputs
@@ -48,24 +48,12 @@ package struct PhonyTool: ToolProtocol {
     }
 }
 
-package struct TestDiscoveryTool: ToolProtocol {
-    package static let name: String = "test-discovery-tool"
-    package static let mainFileName: String = "all-discovered-tests.swift"
+public struct TestDiscoveryTool: ToolProtocol {
+    public static let name: String = "test-discovery-tool"
+    public static let mainFileName: String = "all-discovered-tests.swift"
 
-    package var inputs: [Node]
-    package var outputs: [Node]
-
-    init(inputs: [Node], outputs: [Node]) {
-        self.inputs = inputs
-        self.outputs = outputs
-    }
-}
-
-package struct TestEntryPointTool: ToolProtocol {
-    package static let name: String = "test-entry-point-tool"
-
-    package var inputs: [Node]
-    package var outputs: [Node]
+    public var inputs: [Node]
+    public var outputs: [Node]
 
     init(inputs: [Node], outputs: [Node]) {
         self.inputs = inputs
@@ -73,18 +61,30 @@ package struct TestEntryPointTool: ToolProtocol {
     }
 }
 
-package struct CopyTool: ToolProtocol {
-    package static let name: String = "copy-tool"
+public struct TestEntryPointTool: ToolProtocol {
+    public static let name: String = "test-entry-point-tool"
 
-    package var inputs: [Node]
-    package var outputs: [Node]
+    public var inputs: [Node]
+    public var outputs: [Node]
+
+    init(inputs: [Node], outputs: [Node]) {
+        self.inputs = inputs
+        self.outputs = outputs
+    }
+}
+
+public struct CopyTool: ToolProtocol {
+    public static let name: String = "copy-tool"
+
+    public var inputs: [Node]
+    public var outputs: [Node]
 
     init(inputs: [Node], outputs: [Node]) {
         self.inputs = inputs
         self.outputs = outputs
     }
 
-    package func write(to stream: inout ManifestToolStream) {
+    public func write(to stream: inout ManifestToolStream) {
         stream["description"] = "Copying \(inputs[0].name)"
     }
 }
@@ -93,40 +93,40 @@ package struct CopyTool: ToolProtocol {
 /// that requires regenerating the build manifest file. This allows us to skip a lot of
 /// redundant work (package graph loading, build planning, manifest generation) during
 /// incremental builds.
-package struct PackageStructureTool: ToolProtocol {
-    package static let name: String = "package-structure-tool"
+public struct PackageStructureTool: ToolProtocol {
+    public static let name: String = "package-structure-tool"
 
-    package var inputs: [Node]
-    package var outputs: [Node]
+    public var inputs: [Node]
+    public var outputs: [Node]
 
     init(inputs: [Node], outputs: [Node]) {
         self.inputs = inputs
         self.outputs = outputs
     }
 
-    package func write(to stream: inout ManifestToolStream) {
+    public func write(to stream: inout ManifestToolStream) {
         stream["description"] = "Planning build"
         stream["allow-missing-inputs"] = true
     }
 }
 
-package struct ShellTool: ToolProtocol {
-    package static let name: String = "shell"
+public struct ShellTool: ToolProtocol {
+    public static let name: String = "shell"
 
-    package var description: String
-    package var inputs: [Node]
-    package var outputs: [Node]
-    package var arguments: [String]
-    package var environment: EnvironmentVariables
-    package var workingDirectory: String?
-    package var allowMissingInputs: Bool
+    public var description: String
+    public var inputs: [Node]
+    public var outputs: [Node]
+    public var arguments: [String]
+    public var environment: Environment
+    public var workingDirectory: String?
+    public var allowMissingInputs: Bool
 
     init(
         description: String,
         inputs: [Node],
         outputs: [Node],
         arguments: [String],
-        environment: EnvironmentVariables = .empty(),
+        environment: Environment,
         workingDirectory: String? = nil,
         allowMissingInputs: Bool = false
     ) {
@@ -139,7 +139,7 @@ package struct ShellTool: ToolProtocol {
         self.allowMissingInputs = allowMissingInputs
     }
 
-    package func write(to stream: inout ManifestToolStream) {
+    public func write(to stream: inout ManifestToolStream) {
         stream["description"] = description
         stream["args"] = arguments
         if !environment.isEmpty {
@@ -154,36 +154,36 @@ package struct ShellTool: ToolProtocol {
     }
 }
 
-package struct WriteAuxiliaryFile: Equatable, ToolProtocol {
-    package static let name: String = "write-auxiliary-file"
+public struct WriteAuxiliaryFile: Equatable, ToolProtocol {
+    public static let name: String = "write-auxiliary-file"
 
-    package let inputs: [Node]
+    public let inputs: [Node]
     private let outputFilePath: AbsolutePath
-    package let alwaysOutOfDate: Bool
+    public let alwaysOutOfDate: Bool
 
-    package init(inputs: [Node], outputFilePath: AbsolutePath, alwaysOutOfDate: Bool = false) {
+    public init(inputs: [Node], outputFilePath: AbsolutePath, alwaysOutOfDate: Bool = false) {
         self.inputs = inputs
         self.outputFilePath = outputFilePath
         self.alwaysOutOfDate = alwaysOutOfDate
     }
 
-    package var outputs: [Node] {
+    public var outputs: [Node] {
         return [.file(outputFilePath)]
     }
 
-    package func write(to stream: inout ManifestToolStream) {
+    public func write(to stream: inout ManifestToolStream) {
         stream["description"] = "Write auxiliary file \(outputFilePath.pathString)"
     }
 }
 
-package struct ClangTool: ToolProtocol {
-    package static let name: String = "clang"
+public struct ClangTool: ToolProtocol {
+    public static let name: String = "clang"
 
-    package var description: String
-    package var inputs: [Node]
-    package var outputs: [Node]
-    package var arguments: [String]
-    package var dependencies: String?
+    public var description: String
+    public var inputs: [Node]
+    public var outputs: [Node]
+    public var arguments: [String]
+    public var dependencies: String?
 
     init(
         description: String,
@@ -199,7 +199,7 @@ package struct ClangTool: ToolProtocol {
         self.dependencies = dependencies
     }
 
-    package func write(to stream: inout ManifestToolStream) {
+    public func write(to stream: inout ManifestToolStream) {
         stream["description"] = description
         stream["args"] = arguments
         if let dependencies {
@@ -208,11 +208,11 @@ package struct ClangTool: ToolProtocol {
     }
 }
 
-package struct ArchiveTool: ToolProtocol {
-    package static let name: String = "archive"
+public struct ArchiveTool: ToolProtocol {
+    public static let name: String = "archive"
 
-    package var inputs: [Node]
-    package var outputs: [Node]
+    public var inputs: [Node]
+    public var outputs: [Node]
 
     init(inputs: [Node], outputs: [Node]) {
         self.inputs = inputs
@@ -221,14 +221,14 @@ package struct ArchiveTool: ToolProtocol {
 }
 
 /// Swift frontend tool, which maps down to a shell tool.
-package struct SwiftFrontendTool: ToolProtocol {
-    package static let name: String = "shell"
+public struct SwiftFrontendTool: ToolProtocol {
+    public static let name: String = "shell"
 
-    package let moduleName: String
-    package var description: String
-    package var inputs: [Node]
-    package var outputs: [Node]
-    package var arguments: [String]
+    public let moduleName: String
+    public var description: String
+    public var inputs: [Node]
+    public var outputs: [Node]
+    public var arguments: [String]
 
     init(
         moduleName: String,
@@ -244,33 +244,34 @@ package struct SwiftFrontendTool: ToolProtocol {
         self.arguments = arguments
     }
 
-    package func write(to stream: inout ManifestToolStream) {
-      ShellTool(description: description, inputs: inputs, outputs: outputs, arguments: arguments).write(to: &stream)
+    public func write(to stream: inout ManifestToolStream) {
+        ShellTool(description: description, inputs: inputs, outputs: outputs, arguments: arguments, environment: [:]).write(to: &stream)
     }
 }
 
 /// Swift compiler llbuild tool.
-package struct SwiftCompilerTool: ToolProtocol {
-    package static let name: String = "shell"
+public struct SwiftCompilerTool: ToolProtocol {
+    public static let name: String = "shell"
 
-    package static let numThreads: Int = ProcessInfo.processInfo.activeProcessorCount
+    public static let numThreads: Int = ProcessInfo.processInfo.activeProcessorCount
 
-    package var inputs: [Node]
-    package var outputs: [Node]
+    public var inputs: [Node]
+    public var outputs: [Node]
 
-    package var executable: AbsolutePath
-    package var moduleName: String
-    package var moduleAliases: [String: String]?
-    package var moduleOutputPath: AbsolutePath
-    package var importPath: AbsolutePath
-    package var tempsPath: AbsolutePath
-    package var objects: [AbsolutePath]
-    package var otherArguments: [String]
-    package var sources: [AbsolutePath]
-    package var fileList: AbsolutePath
-    package var isLibrary: Bool
-    package var wholeModuleOptimization: Bool
-    package var outputFileMapPath: AbsolutePath
+    public var executable: AbsolutePath
+    public var moduleName: String
+    public var moduleAliases: [String: String]?
+    public var moduleOutputPath: AbsolutePath
+    public var importPath: AbsolutePath
+    public var tempsPath: AbsolutePath
+    public var objects: [AbsolutePath]
+    public var otherArguments: [String]
+    public var sources: [AbsolutePath]
+    public var fileList: AbsolutePath
+    public var isLibrary: Bool
+    public var wholeModuleOptimization: Bool
+    public var outputFileMapPath: AbsolutePath
+    public var prepareForIndexing: Bool
 
     init(
         inputs: [Node],
@@ -287,7 +288,8 @@ package struct SwiftCompilerTool: ToolProtocol {
         fileList: AbsolutePath,
         isLibrary: Bool,
         wholeModuleOptimization: Bool,
-        outputFileMapPath: AbsolutePath
+        outputFileMapPath: AbsolutePath,
+        prepareForIndexing: Bool
     ) {
         self.inputs = inputs
         self.outputs = outputs
@@ -304,6 +306,7 @@ package struct SwiftCompilerTool: ToolProtocol {
         self.isLibrary = isLibrary
         self.wholeModuleOptimization = wholeModuleOptimization
         self.outputFileMapPath = outputFileMapPath
+        self.prepareForIndexing = prepareForIndexing
     }
 
     var description: String {
@@ -334,13 +337,16 @@ package struct SwiftCompilerTool: ToolProtocol {
         } else {
             arguments += ["-incremental"]
         }
-        arguments += ["-c", "@\(self.fileList.pathString)"]
+        if !prepareForIndexing {
+            arguments += ["-c"]
+        }
+        arguments += ["@\(self.fileList.pathString)"]
         arguments += ["-I", importPath.pathString]
         arguments += otherArguments
         return arguments
     }
 
-    package func write(to stream: inout ManifestToolStream) {
-        ShellTool(description: description, inputs: inputs, outputs: outputs, arguments: arguments).write(to: &stream)
+    public func write(to stream: inout ManifestToolStream) {
+        ShellTool(description: description, inputs: inputs, outputs: outputs, arguments: arguments, environment: [:]).write(to: &stream)
     }
 }

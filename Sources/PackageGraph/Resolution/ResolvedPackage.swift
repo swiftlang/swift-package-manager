@@ -13,7 +13,7 @@
 import Basics
 import PackageModel
 
-/// A fully resolved package. Contains resolved targets, products and dependencies of the package.
+/// A fully resolved package. Contains resolved modules, products and dependencies of the package.
 public struct ResolvedPackage {
     // The identity of the package.
     public var identity: PackageIdentity {
@@ -33,19 +33,22 @@ public struct ResolvedPackage {
     /// The underlying package reference.
     public let underlying: Package
 
-    /// The targets contained in the package.
-    public let targets: [ResolvedTarget]
+    /// The modules contained in the package.
+    public let modules: IdentifiableSet<ResolvedModule>
 
     /// The products produced by the package.
     public let products: [ResolvedProduct]
 
+    /// The enabled traits of this package.
+    package let enabledTraits: Set<String>
+
     /// The dependencies of the package.
-    public let dependencies: [ResolvedPackage]
+    public let dependencies: [PackageIdentity]
 
     /// The default localization for resources.
     public let defaultLocalization: String?
 
-    /// The list of platforms that are supported by this target.
+    /// The list of platforms that are supported by this package.
     public let supportedPlatforms: [SupportedPlatform]
 
     /// If the given package's source is a registry release, this provides additional metadata and signature information.
@@ -57,20 +60,22 @@ public struct ResolvedPackage {
         underlying: Package,
         defaultLocalization: String?,
         supportedPlatforms: [SupportedPlatform],
-        dependencies: [ResolvedPackage],
-        targets: [ResolvedTarget],
+        dependencies: [PackageIdentity],
+        enabledTraits: Set<String>,
+        modules: IdentifiableSet<ResolvedModule>,
         products: [ResolvedProduct],
         registryMetadata: RegistryReleaseMetadata?,
         platformVersionProvider: PlatformVersionProvider
     ) {
         self.underlying = underlying
-        self.targets = targets
         self.products = products
+        self.modules = modules
         self.dependencies = dependencies
         self.defaultLocalization = defaultLocalization
         self.supportedPlatforms = supportedPlatforms
         self.registryMetadata = registryMetadata
         self.platformVersionProvider = platformVersionProvider
+        self.enabledTraits = enabledTraits
     }
 
     public func getSupportedPlatform(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {

@@ -54,13 +54,19 @@ extension SwiftSDKSubcommand {
         return swiftSDKsDirectory
     }
 
-    package func run() async throws {
+    public func run() async throws {
         let observabilityHandler = SwiftCommandObservabilityHandler(outputStream: stdoutStream, logLevel: .info)
         let observabilitySystem = ObservabilitySystem(observabilityHandler)
         let observabilityScope = observabilitySystem.topScope
         let swiftSDKsDirectory = try self.getOrCreateSwiftSDKsDirectory()
 
-        let hostToolchain = try UserToolchain(swiftSDK: SwiftSDK.hostSwiftSDK())
+        let environment = Environment.current
+        let hostToolchain = try UserToolchain(
+            swiftSDK: SwiftSDK.hostSwiftSDK(
+                environment: environment
+            ),
+            environment: environment
+        )
         let triple = try Triple.getHostTriple(usingSwiftCompiler: hostToolchain.swiftCompilerPath)
 
         var commandError: Error? = nil

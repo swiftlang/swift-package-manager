@@ -12,10 +12,13 @@
 
 import Basics
 import OrderedCollections
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import PackageGraph
+
 import PackageLoading
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 import class TSCBasic.InMemoryFileSystem
@@ -94,7 +97,6 @@ final class PackageGraphPerfTests: XCTestCasePerf {
                 identityResolver: identityResolver,
                 externalManifests: externalManifests,
                 binaryArtifacts: [:],
-                availableLibraries: [], // assume no provided libraries for testing.
                 fileSystem: fs,
                 observabilityScope: observability.topScope
             )
@@ -164,16 +166,16 @@ final class PackageGraphPerfTests: XCTestCasePerf {
     }
 
     func testRecursiveDependencies() throws {
-        var resolvedTarget = ResolvedTarget.mock(packageIdentity: "pkg", name: "t0")
+        var resolvedTarget = ResolvedModule.mock(packageIdentity: "pkg", name: "t0")
         for i in 1..<1000 {
-            resolvedTarget = ResolvedTarget.mock(packageIdentity: "pkg", name: "t\(i)", deps: resolvedTarget)
+            resolvedTarget = ResolvedModule.mock(packageIdentity: "pkg", name: "t\(i)", deps: resolvedTarget)
         }        
 
         let N = 10
         measure {
             do {
                 for _ in 0..<N {
-                    _ = try resolvedTarget.recursiveTargetDependencies()
+                    _ = try resolvedTarget.recursiveModuleDependencies()
                 }
             } catch {
                 XCTFail("Loading package graph is not expected to fail in this test.")

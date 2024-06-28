@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -11,12 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import SPMTestSupport
+import _InternalTestSupport
 import PackageModel
 import Workspace
 import XCTest
 
-class InitTests: XCTestCase {
+final class InitTests: XCTestCase {
 
     // MARK: TSCBasic package creation for each package type.
     
@@ -53,9 +53,11 @@ class InitTests: XCTestCase {
             XCTAssertMatch(manifestContents, .contains(packageWithNameOnly(named: name)))
         }
     }
-    
-    func testInitPackageExecutable() throws {
-        try testWithTemporaryDirectory { tmpPath in
+
+    func testInitPackageExecutable() async throws  {
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
+
+        try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
             let name = path.basename
@@ -86,7 +88,7 @@ class InitTests: XCTestCase {
             XCTAssertMatch(manifestContents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources")), ["main.swift"])
-            XCTAssertBuilds(path)
+            await XCTAssertBuilds(path)
             let triple = try UserToolchain.default.targetTriple
             let binPath = path.appending(components: ".build", triple.platformBuildPathComponent, "debug")
 #if os(Windows)
@@ -98,8 +100,10 @@ class InitTests: XCTestCase {
         }
     }
 
-    func testInitPackageLibraryWithXCTestOnly() throws {
-        try testWithTemporaryDirectory { tmpPath in
+    func testInitPackageLibraryWithXCTestOnly() async throws {
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
+
+        try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
             let name = path.basename
@@ -143,12 +147,12 @@ class InitTests: XCTestCase {
             XCTAssertMatch(testFileContents, .contains("func testExample() throws"))
 
             // Try building it
-            XCTAssertBuilds(path)
+            await XCTAssertBuilds(path)
             let triple = try UserToolchain.default.targetTriple
             XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
         }
     }
-        
+
     func testInitPackageLibraryWithSwiftTestingOnly() throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
@@ -235,8 +239,10 @@ class InitTests: XCTestCase {
         }
     }
 
-    func testInitPackageLibraryWithNoTests() throws {
-        try testWithTemporaryDirectory { tmpPath in
+    func testInitPackageLibraryWithNoTests() async throws {
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
+
+        try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
             let name = path.basename
@@ -263,7 +269,7 @@ class InitTests: XCTestCase {
             XCTAssertNoSuchPath(path.appending("Tests"))
 
             // Try building it
-            XCTAssertBuilds(path)
+            await XCTAssertBuilds(path)
             let triple = try UserToolchain.default.targetTriple
             XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
         }
@@ -339,9 +345,10 @@ class InitTests: XCTestCase {
     }
 
     // MARK: Special case testing
-    
-    func testInitPackageNonc99Directory() throws {
-        try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
+
+    func testInitPackageNonc99Directory() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
             XCTAssertDirectoryExists(tempDirPath)
             
             // Create a directory with non c99name.
@@ -361,14 +368,16 @@ class InitTests: XCTestCase {
             try initPackage.writePackageStructure()
 
             // Try building it.
-            XCTAssertBuilds(packageRoot)
+            await XCTAssertBuilds(packageRoot)
             let triple = try UserToolchain.default.targetTriple
             XCTAssertFileExists(packageRoot.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "some_package.swiftmodule"))
         }
     }
     
-    func testNonC99NameExecutablePackage() throws {
-        try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
+    func testNonC99NameExecutablePackage() async throws {
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
+
+        try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
             XCTAssertDirectoryExists(tempDirPath)
             
             let packageRoot = tempDirPath.appending("Foo")
@@ -384,7 +393,7 @@ class InitTests: XCTestCase {
             )
             try initPackage.writePackageStructure()
             
-            XCTAssertBuilds(packageRoot)
+            await XCTAssertBuilds(packageRoot)
         }
     }
 

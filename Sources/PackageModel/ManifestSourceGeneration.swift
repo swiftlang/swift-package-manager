@@ -63,7 +63,7 @@ public typealias ManifestCustomProductTypeSourceGenerator = (ProductDescription)
 
 /// Convenience initializers for package manifest structures.
 fileprivate extension SourceCodeFragment {
-    
+
     /// Instantiates a SourceCodeFragment to represent an entire manifest.
     init(
         from manifest: Manifest,
@@ -153,7 +153,7 @@ fileprivate extension SourceCodeFragment {
     /// Instantiates a SourceCodeFragment to represent a single package dependency.
     init(from dependency: PackageDependency, pathAnchor: AbsolutePath) {
         var params: [SourceCodeFragment] = []
-        if let explicitName = dependency.explicitNameForTargetDependencyResolutionOnly {
+        if let explicitName = dependency.explicitNameForModuleDependencyResolutionOnly {
             params.append(SourceCodeFragment(key: "name", string: explicitName))
         }
         switch dependency {
@@ -317,6 +317,8 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "plugin", subnodes: params, multiline: true)
         case .macro:
             self.init(enum: "macro", subnodes: params, multiline: true)
+        case .providedLibrary:
+            self.init(enum: "providedLibrary", subnodes: params, multiline: true)
         }
     }
 
@@ -525,6 +527,12 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
+        case .swiftLanguageVersion(let version):
+            params.append(SourceCodeFragment(from: version))
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
         }
     }
 }
@@ -677,6 +685,8 @@ extension TargetBuildSettingDescription.Kind {
             return "enableUpcomingFeature"
         case .enableExperimentalFeature:
             return "enableExperimentalFeature"
+        case .swiftLanguageVersion:
+            return "swiftLanguageVersion"
         }
     }
 }

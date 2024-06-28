@@ -14,13 +14,13 @@ import struct LLBuildManifest.Node
 import struct Basics.AbsolutePath
 import struct Basics.InternalError
 import class Basics.ObservabilityScope
-import struct PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedModule
 import PackageModel
 
 extension LLBuildManifestBuilder {
     /// Create a llbuild target for a Clang target description.
     func createClangCompileCommand(
-        _ target: ClangTargetBuildDescription
+        _ target: ClangModuleBuildDescription
     ) throws {
         var inputs: [Node] = []
 
@@ -32,7 +32,7 @@ extension LLBuildManifestBuilder {
             inputs.append(resourcesNode)
         }
 
-        func addStaticTargetInputs(_ target: ResolvedTarget) {
+        func addStaticTargetInputs(_ target: ResolvedModule) {
             if case .swift(let desc)? = self.plan.targetMap[target.id], target.type == .library {
                 inputs.append(file: desc.moduleOutputPath)
             }
@@ -40,7 +40,7 @@ extension LLBuildManifestBuilder {
 
         for dependency in target.target.dependencies(satisfying: target.buildEnvironment) {
             switch dependency {
-            case .target(let target, _):
+            case .module(let target, _):
                 addStaticTargetInputs(target)
 
             case .product(let product, _):
@@ -54,7 +54,7 @@ extension LLBuildManifestBuilder {
                     inputs.append(file: binary)
 
                 case .library(.automatic), .library(.static), .plugin:
-                    for target in product.targets {
+                    for target in product.modules {
                         addStaticTargetInputs(target)
                     }
                 case .test:
@@ -93,7 +93,7 @@ extension LLBuildManifestBuilder {
         let additionalInputs = try addBuildToolPlugins(.clang(target))
 
         // Create a phony node to represent the entire target.
-        let targetName = target.target.getLLBuildTargetName(config: target.buildParameters.buildConfig)
+        let targetName = target.llbuildTargetName
         let output: Node = .virtual(targetName)
 
         self.manifest.addNode(output, toTarget: targetName)
@@ -109,5 +109,16 @@ extension LLBuildManifestBuilder {
             }
             self.addNode(output, toTarget: .test)
         }
+    }
+
+    /// Create a llbuild target for a Clang target preparation
+    func createClangPrepareCommand(
+        _ target: ClangModuleBuildDescription
+    ) throws {
+        // Create the node for the target so you can --target it.
+        // It is a no-op for index preparation.
+        let targetName = target.llbuildTargetName
+        let output: Node = .virtual(targetName)
+        self.manifest.addNode(output, toTarget: targetName)
     }
 }

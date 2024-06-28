@@ -12,14 +12,10 @@
 
 import ArgumentParser
 import Basics
-
 import CoreCommands
-
 import Foundation
 import PackageGraph
 import PackageModel
-
-import SPMBuildCore
 
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.exec
@@ -87,6 +83,10 @@ struct RunCommandOptions: ParsableArguments {
     @Argument(help: "The executable to run", completion: .shellCommand("swift package completion-tool list-executables"))
     var executable: String?
 
+    /// Specifies the traits to build the product with.
+    @OptionGroup(visibility: .hidden)
+    package var traits: TraitOptions
+
     /// The arguments to pass to the executable.
     @Argument(parsing: .captureForPassthrough,
               help: "The arguments to pass to the executable")
@@ -94,8 +94,8 @@ struct RunCommandOptions: ParsableArguments {
 }
 
 /// swift-run command namespace
-package struct SwiftRunCommand: AsyncSwiftCommand {
-    package static var configuration = CommandConfiguration(
+public struct SwiftRunCommand: AsyncSwiftCommand {
+    public static var configuration = CommandConfiguration(
         commandName: "run",
         _superCommandName: "swift",
         abstract: "Build and run an executable product",
@@ -104,16 +104,16 @@ package struct SwiftRunCommand: AsyncSwiftCommand {
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
-    package var globalOptions: GlobalOptions
+    public var globalOptions: GlobalOptions
 
     @OptionGroup()
     var options: RunCommandOptions
 
-    package var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
+    public var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
         return .init(wantsREPLProduct: options.mode == .repl)
     }
 
-    package func run(_ swiftCommandState: SwiftCommandState) async throws {
+    public func run(_ swiftCommandState: SwiftCommandState) async throws {
         if options.shouldBuildTests && options.shouldSkipBuild {
             swiftCommandState.observabilityScope.emit(
               .mutuallyExclusiveArgumentsError(arguments: ["--build-tests", "--skip-build"])
@@ -134,6 +134,7 @@ package struct SwiftRunCommand: AsyncSwiftCommand {
             // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the REPL. rdar://86112934
             let buildSystem = try swiftCommandState.createBuildSystem(
                 explicitBuildSystem: .native,
+                traitConfiguration: .init(traitOptions: self.options.traits),
                 cacheBuildManifest: false,
                 packageGraphLoader: graphLoader
             )
@@ -153,7 +154,10 @@ package struct SwiftRunCommand: AsyncSwiftCommand {
 
         case .debugger:
             do {
-                let buildSystem = try swiftCommandState.createBuildSystem(explicitProduct: options.executable)
+                let buildSystem = try swiftCommandState.createBuildSystem(
+                    explicitProduct: options.executable,
+                    traitConfiguration: .init(traitOptions: self.options.traits)
+                )
                 let productName = try findProductName(in: buildSystem.getPackageGraph())
                 if options.shouldBuildTests {
                     try buildSystem.build(subset: .allIncludingTests)
@@ -195,7 +199,10 @@ package struct SwiftRunCommand: AsyncSwiftCommand {
             }
 
             do {
-                let buildSystem = try swiftCommandState.createBuildSystem(explicitProduct: options.executable)
+                let buildSystem = try swiftCommandState.createBuildSystem(
+                    explicitProduct: options.executable,
+                    traitConfiguration: .init(traitOptions: self.options.traits)
+                )
                 let productName = try findProductName(in: buildSystem.getPackageGraph())
                 if options.shouldBuildTests {
                     try buildSystem.build(subset: .allIncludingTests)
@@ -222,8 +229,11 @@ package struct SwiftRunCommand: AsyncSwiftCommand {
     /// Returns the path to the correct executable based on options.
     private func findProductName(in graph: ModulesGraph) throws -> String {
         if let executable = options.executable {
-            let executableExists = graph.allProducts.contains { ($0.type == .executable || $0.type == .snippet) && $0.name == executable }
-            guard executableExists else {
+            // There should be only one product with the given name in the graph
+            // and it should be executable or snippet.
+            guard let product = graph.product(for: executable, destination: .destination),
+                  product.type == .executable || product.type == .snippet
+            else {
                 throw RunError.executableNotFound(executable)
             }
             return executable
@@ -313,7 +323,7 @@ package struct SwiftRunCommand: AsyncSwiftCommand {
         try TSCBasic.exec(path: path, args: args)
     }
 
-    package init() {}
+    public init() {}
 }
 
 private extension Basics.Diagnostic {

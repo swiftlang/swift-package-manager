@@ -25,12 +25,6 @@ public protocol Toolchain {
     /// Path to `lib/swift_static`
     var swiftStaticResourcesPath: AbsolutePath? { get }
 
-    /// Whether the used compiler is from a open source development toolchain.
-    var isSwiftDevelopmentToolchain: Bool { get }
-
-    /// Path to the Swift plugin server utility.
-    var swiftPluginServerPath: AbsolutePath? { get throws }
-
     /// Path containing the macOS Swift stdlib.
     var macosSwiftStdlib: AbsolutePath { get throws }
 
@@ -44,7 +38,7 @@ public protocol Toolchain {
     var installedSwiftPMConfiguration: InstalledSwiftPMConfiguration { get }
 
     /// Metadata for libraries provided by the used toolchain.
-    var providedLibraries: [LibraryMetadata] { get }
+    var providedLibraries: [ProvidedLibrary] { get }
 
     /// The root path to the Swift SDK used by this toolchain.
     var sdkRootPath: AbsolutePath? { get }

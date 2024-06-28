@@ -12,17 +12,17 @@
 
 @testable import Basics
 @testable import Build
-
-@testable 
-import CoreCommands
-
+@testable import CoreCommands
 @testable import Commands
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
+import func PackageGraph.loadModulesGraph
+
 @testable import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 import class TSCBasic.BufferedOutputByteStream
-import class TSCBasic.InMemoryFileSystem
 import protocol TSCBasic.OutputByteStream
 import var TSCBasic.stderrStream
 
@@ -258,7 +258,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
         let explicitDwarfOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "dwarf"])
         let explicitDwarf = try SwiftCommandState.makeMockState(options: explicitDwarfOptions)
         plan = try BuildPlan(
-            productsBuildParameters: explicitDwarf.productsBuildParameters,
+            destinationBuildParameters: explicitDwarf.productsBuildParameters,
             toolsBuildParameters: explicitDwarf.toolsBuildParameters,
             graph: graph,
             fileSystem: fs,
@@ -273,7 +273,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
         let explicitCodeView = try SwiftCommandState.makeMockState(options: explicitCodeViewOptions)
 
         plan = try BuildPlan(
-            productsBuildParameters: explicitCodeView.productsBuildParameters,
+            destinationBuildParameters: explicitCodeView.productsBuildParameters,
             toolsBuildParameters: explicitCodeView.productsBuildParameters,
             graph: graph,
             fileSystem: fs,
@@ -296,7 +296,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
         let implicitDwarfOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc"])
         let implicitDwarf = try SwiftCommandState.makeMockState(options: implicitDwarfOptions)
         plan = try BuildPlan(
-            productsBuildParameters: implicitDwarf.productsBuildParameters,
+            destinationBuildParameters: implicitDwarf.productsBuildParameters,
             toolsBuildParameters: implicitDwarf.toolsBuildParameters,
             graph: graph,
             fileSystem: fs,
@@ -309,7 +309,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
         let explicitNoDebugInfoOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "none"])
         let explicitNoDebugInfo = try SwiftCommandState.makeMockState(options: explicitNoDebugInfoOptions)
         plan = try BuildPlan(
-            productsBuildParameters: explicitNoDebugInfo.productsBuildParameters,
+            destinationBuildParameters: explicitNoDebugInfo.productsBuildParameters,
             toolsBuildParameters: explicitNoDebugInfo.toolsBuildParameters,
             graph: graph,
             fileSystem: fs,
@@ -318,12 +318,79 @@ final class SwiftCommandStateTests: CommandsTestCase {
         try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
                            [.anySequence, "-gnone", .anySequence])
     }
+
+    func testToolchainArgument() throws {
+        let customTargetToolchain = AbsolutePath("/path/to/toolchain")
+        let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
+        let hostArPath = AbsolutePath("/usr/bin/ar")
+        let targetSwiftcPath = customTargetToolchain.appending(components: ["usr", "bin" , "swiftc"])
+        let targetArPath = customTargetToolchain.appending(components: ["usr", "bin", "llvm-ar"])
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Pkg/Sources/exe/main.swift",
+            hostSwiftcPath.pathString,
+            hostArPath.pathString,
+            targetSwiftcPath.pathString,
+            targetArPath.pathString
+        ])
+
+        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath,] {
+            try fs.updatePermissions(path, isExecutable: true)
+        }
+
+        let observer = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [TargetDescription(name: "exe")]
+                )
+            ],
+            observabilityScope: observer.topScope
+        )
+
+        let options = try GlobalOptions.parse(
+            [
+                "--toolchain", customTargetToolchain.pathString,
+                "--triple", "x86_64-unknown-linux-gnu",
+            ]
+        )
+        let swiftCommandState = try SwiftCommandState.makeMockState(
+            options: options,
+            fileSystem: fs,
+            environment: ["PATH": "/usr/bin"]
+        )
+        XCTAssertEqual(swiftCommandState.originalWorkingDirectory, fs.currentWorkingDirectory)
+        XCTAssertEqual(
+            try swiftCommandState.getTargetToolchain().swiftCompilerPath,
+            targetSwiftcPath
+        )
+        XCTAssertEqual(
+            try swiftCommandState.getTargetToolchain().swiftSDK.toolset.knownTools[.swiftCompiler]?.path,
+            nil
+        )
+        let plan = try BuildPlan(
+            destinationBuildParameters: swiftCommandState.productsBuildParameters,
+            toolsBuildParameters: swiftCommandState.toolsBuildParameters,
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observer.topScope
+        )
+
+        let arguments = try plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? []
+
+        XCTAssertMatch(arguments, [.contains("/path/to/toolchain")])
+    }
 }
 
 extension SwiftCommandState {
     static func makeMockState(
         outputStream: OutputByteStream = stderrStream,
-        options: GlobalOptions
+        options: GlobalOptions,
+        fileSystem: any FileSystem = localFileSystem,
+        environment: Environment = .current
     ) throws -> SwiftCommandState {
         return try SwiftCommandState(
             outputStream: outputStream,
@@ -342,6 +409,10 @@ extension SwiftCommandState {
                     fileSystem: $0,
                     observabilityScope: $1
                 )
-            })
+            },
+            hostTriple: .arm64Linux,
+            fileSystem: fileSystem,
+            environment: environment
+        )
     }
 }

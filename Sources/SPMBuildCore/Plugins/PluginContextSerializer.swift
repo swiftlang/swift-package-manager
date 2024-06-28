@@ -22,13 +22,14 @@ typealias WireInput = HostToPluginMessage.InputContext
 /// the input information to a plugin.
 internal struct PluginContextSerializer {
     let fileSystem: FileSystem
+    let modulesGraph: ModulesGraph
     let buildEnvironment: BuildEnvironment
     let pkgConfigDirectories: [AbsolutePath]
     let sdkRootPath: AbsolutePath?
     var paths: [WireInput.URL] = []
     var pathsToIds: [AbsolutePath: WireInput.URL.Id] = [:]
     var targets: [WireInput.Target] = []
-    var targetsToWireIDs: [ResolvedTarget.ID: WireInput.Target.Id] = [:]
+    var targetsToWireIDs: [ResolvedModule.ID: WireInput.Target.Id] = [:]
     var products: [WireInput.Product] = []
     var productsToWireIDs: [ResolvedProduct.ID: WireInput.Product.Id] = [:]
     var packages: [WireInput.Package] = []
@@ -55,7 +56,7 @@ internal struct PluginContextSerializer {
     // Adds a target to the serialized structure, if it isn't already there and
     // if it is of a kind that should be passed to the plugin. If so, this func-
     // tion returns the target's wire ID. If not, it returns nil.
-    mutating func serialize(target: ResolvedTarget) throws -> WireInput.Target.Id? {
+    mutating func serialize(target: ResolvedModule) throws -> WireInput.Target.Id? {
         // If we've already seen the target, just return the wire ID we already assigned to it.
         if let id = targetsToWireIDs[target.id] { return id }
 
@@ -80,7 +81,7 @@ internal struct PluginContextSerializer {
         // Look at the target and decide what to serialize. At this point we may decide to not serialize it at all.
         let targetInfo: WireInput.Target.TargetInfo
         switch target.underlying {
-        case let target as SwiftTarget:
+        case let target as SwiftModule:
             targetInfo = .swiftSourceModuleInfo(
                 moduleName: target.c99name,
                 kind: try .init(target.type),
@@ -89,7 +90,7 @@ internal struct PluginContextSerializer {
                 linkedLibraries: scope.evaluate(.LINK_LIBRARIES),
                 linkedFrameworks: scope.evaluate(.LINK_FRAMEWORKS))
 
-        case let target as ClangTarget:
+        case let target as ClangModule:
             targetInfo = .clangSourceModuleInfo(
                 moduleName: target.c99name,
                 kind: try .init(target.type),
@@ -100,7 +101,7 @@ internal struct PluginContextSerializer {
                 linkedLibraries: scope.evaluate(.LINK_LIBRARIES),
                 linkedFrameworks: scope.evaluate(.LINK_FRAMEWORKS))
 
-        case let target as SystemLibraryTarget:
+        case let target as SystemLibraryModule:
             var cFlags: [String] = []
             var ldFlags: [String] = []
             // FIXME: What do we do with any diagnostics here?
@@ -129,7 +130,7 @@ internal struct PluginContextSerializer {
                 compilerFlags: cFlags,
                 linkerFlags: ldFlags)
             
-        case let target as BinaryTarget:
+        case let target as BinaryModule:
             let artifactKind: WireInput.Target.TargetInfo.BinaryArtifactKind
             switch target.kind {
             case .artifactsArchive:
@@ -160,7 +161,7 @@ internal struct PluginContextSerializer {
         // We only get this far if we are serializing the target. If so we also serialize its dependencies. This needs to be done before assigning the next wire ID for the target we're serializing, to make sure we end up with the correct one.
         let dependencies: [WireInput.Target.Dependency] = try target.dependencies(satisfying: buildEnvironment).compactMap {
             switch $0 {
-            case .target(let target, _):
+            case .module(let target, _):
                 return try serialize(target: target).map { .target(targetId: $0) }
             case .product(let product, _):
                 return try serialize(product: product).map { .product(productId: $0) }
@@ -190,7 +191,7 @@ internal struct PluginContextSerializer {
         switch product.type {
             
         case .executable:
-            let mainExecTarget = try product.executableTarget
+            let mainExecTarget = try product.executableModule
             guard let mainExecTargetId = try serialize(target: mainExecTarget) else {
                 throw InternalError("unable to serialize main executable target \(mainExecTarget) for product \(product)")
             }
@@ -215,7 +216,7 @@ internal struct PluginContextSerializer {
         let id = products.count
         products.append(.init(
             name: product.name,
-            targetIds: try product.targets.compactMap{ try serialize(target: $0) },
+            targetIds: try product.modules.compactMap{ try serialize(target: $0) },
             info: productInfo))
         productsToWireIDs[product.id] = id
         return id
@@ -244,7 +245,7 @@ internal struct PluginContextSerializer {
         }
 
         // Serialize the dependencies. It is important to do this before the `let id = package.count` below so the correct wire ID gets assigned.
-        let dependencies = try package.dependencies.map {
+        let dependencies = try modulesGraph.directDependencies(for: package).map {
             WireInput.Package.Dependency(packageId: try serialize(package: $0))
         }
 
@@ -261,14 +262,14 @@ internal struct PluginContextSerializer {
                 patch: package.manifest.toolsVersion.patch),
             dependencies: dependencies,
             productIds: try package.products.compactMap{ try serialize(product: $0) },
-            targetIds: try package.targets.compactMap{ try serialize(target: $0) }))
+            targetIds: try package.modules.compactMap{ try serialize(target: $0) }))
         packagesToWireIDs[package.id] = id
         return id
     }
 }
 
 fileprivate extension WireInput.Target.TargetInfo.SourceModuleKind {
-    init(_ kind: Target.Kind) throws {
+    init(_ kind: Module.Kind) throws {
         switch kind {
         case .library:
             self = .generic
@@ -280,7 +281,7 @@ fileprivate extension WireInput.Target.TargetInfo.SourceModuleKind {
             self = .test
         case .macro:
             self = .macro
-        case .binary, .plugin, .systemModule:
+        case .binary, .plugin, .systemModule, .providedLibrary:
             throw StringError("unexpected target kind \(kind) for source module")
         }
     }

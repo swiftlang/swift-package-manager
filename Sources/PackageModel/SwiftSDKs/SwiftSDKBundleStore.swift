@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 // FIXME: can't write `import actor Basics.HTTPClient`, importing the whole module because of that :(
+@_spi(SwiftPMInternal)
 import Basics
 import struct Foundation.URL
 import protocol TSCBasic.FileSystem
@@ -46,7 +47,7 @@ public final class SwiftSDKBundleStore {
             case let .noMatchingSwiftSDK(selector, hostTriple):
                 return """
                 No Swift SDK found matching query `\(selector)` and host triple \
-                `\(hostTriple.tripleString)`. Use `swift experimental-sdk list` command to see \
+                `\(hostTriple.tripleString)`. Use `swift sdk list` command to see \
                 available Swift SDKs.
                 """
             }
@@ -87,7 +88,7 @@ public final class SwiftSDKBundleStore {
         get throws {
             // Get absolute paths to available Swift SDK bundles.
             try self.fileSystem.getDirectoryContents(swiftSDKsDirectory).filter {
-                $0.hasSuffix(BinaryTarget.Kind.artifactsArchive.fileExtension)
+                $0.hasSuffix(BinaryModule.Kind.artifactsArchive.fileExtension)
             }.map {
                 self.swiftSDKsDirectory.appending(components: [$0])
             }.compactMap {
@@ -239,9 +240,10 @@ public final class SwiftSDKBundleStore {
 
         try await archiver.extract(from: bundlePath, to: extractionResultsDirectory)
 
-        guard let bundleName = try fileSystem.getDirectoryContents(extractionResultsDirectory).first,
-                bundleName.hasSuffix(".\(artifactBundleExtension)")
-        else {
+        guard let bundleName = try fileSystem.getDirectoryContents(extractionResultsDirectory).first(where: {
+            $0.hasSuffix(".\(artifactBundleExtension)") &&
+                fileSystem.isDirectory(extractionResultsDirectory.appending($0))
+        }) else {
             throw SwiftSDKError.invalidBundleArchive(bundlePath)
         }
 

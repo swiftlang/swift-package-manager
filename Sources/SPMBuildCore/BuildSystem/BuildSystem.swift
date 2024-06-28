@@ -14,7 +14,6 @@ import Basics
 import PackageGraph
 
 import protocol TSCBasic.OutputByteStream
-import enum TSCBasic.ProcessEnv
 
 /// An enum representing what subset of the package to build.
 public enum BuildSubset {
@@ -24,16 +23,18 @@ public enum BuildSubset {
     /// Represents the subset of all products and targets.
     case allIncludingTests
 
-    /// Represents a specific product.
-    case product(String)
+    /// Represents a specific product. Allows to set a specific
+    /// destination if it's known.
+    case product(String, for: BuildParameters.Destination? = .none)
 
-    /// Represents a specific target.
-    case target(String)
+    /// Represents a specific target. Allows to set a specific
+    /// destination if it's known.
+    case target(String, for: BuildParameters.Destination? = .none)
 }
 
 /// A protocol that represents a build system used by SwiftPM for all build operations. This allows factoring out the
 /// implementation details between SwiftPM's `BuildOperation` and the XCBuild backed `XCBuildSystem`.
-package protocol BuildSystem: Cancellable {
+public protocol BuildSystem: Cancellable {
 
     /// The delegate used by the build system.
     var delegate: BuildSystemDelegate? { get }
@@ -74,7 +75,7 @@ extension ProductBuildDescription {
     /// The path to the product binary produced.
     public var binaryPath: AbsolutePath {
         get throws {
-            return try self.buildParameters.binaryPath(for: product)
+            try self.buildParameters.binaryPath(for: product)
         }
     }
 }
@@ -90,33 +91,16 @@ public protocol BuildPlan {
 
     func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String]
     func createREPLArguments() throws -> [String]
+
+    /// Determines the arguments needed to run `swift-symbolgraph-extract` for
+    /// a particular module.
+    func symbolGraphExtractArguments(for module: ResolvedModule) throws -> [String]
 }
 
-extension BuildPlan {
-    /// Parameters used for building a given target.
-    public func buildParameters(for target: ResolvedTarget) -> BuildParameters {
-        switch target.buildTriple {
-        case .tools:
-            return self.toolsBuildParameters
-        case .destination:
-            return self.destinationBuildParameters
-        }
-    }
-
-    /// Parameters used for building a given product.
-    public func buildParameters(for product: ResolvedProduct) -> BuildParameters {
-        switch product.buildTriple {
-        case .tools:
-            return self.toolsBuildParameters
-        case .destination:
-            return self.destinationBuildParameters
-        }
-    }
-}
-
-package protocol BuildSystemFactory {
+public protocol BuildSystemFactory {
     func makeBuildSystem(
         explicitProduct: String?,
+        traitConfiguration: TraitConfiguration,
         cacheBuildManifest: Bool,
         productsBuildParameters: BuildParameters?,
         toolsBuildParameters: BuildParameters?,
@@ -127,7 +111,7 @@ package protocol BuildSystemFactory {
     ) throws -> any BuildSystem
 }
 
-package struct BuildSystemProvider {
+public struct BuildSystemProvider {
     // TODO: In the future, we may want this to be about specific capabilities of a build system rather than choosing a concrete one.
     public enum Kind: String, CaseIterable {
         case native
@@ -143,6 +127,7 @@ package struct BuildSystemProvider {
     public func createBuildSystem(
         kind: Kind,
         explicitProduct: String? = .none,
+        traitConfiguration: TraitConfiguration,
         cacheBuildManifest: Bool = true,
         productsBuildParameters: BuildParameters? = .none,
         toolsBuildParameters: BuildParameters? = .none,
@@ -156,6 +141,7 @@ package struct BuildSystemProvider {
         }
         return try buildSystemFactory.makeBuildSystem(
             explicitProduct: explicitProduct,
+            traitConfiguration: traitConfiguration,
             cacheBuildManifest: cacheBuildManifest,
             productsBuildParameters: productsBuildParameters,
             toolsBuildParameters: toolsBuildParameters,
@@ -171,12 +157,12 @@ private enum Errors: Swift.Error {
     case buildSystemProviderNotRegistered(kind: BuildSystemProvider.Kind)
 }
 
-package enum BuildSystemUtilities {
+public enum BuildSystemUtilities {
     /// Returns the build path from the environment, if present.
     public static func getEnvBuildPath(workingDir: AbsolutePath) throws -> AbsolutePath? {
         // Don't rely on build path from env for SwiftPM's own tests.
-        guard ProcessEnv.block["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
-        guard let env = ProcessEnv.block["SWIFTPM_BUILD_DIR"] else { return nil }
+        guard Environment.current["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
+        guard let env = Environment.current["SWIFTPM_BUILD_DIR"] else { return nil }
         return try AbsolutePath(validating: env, relativeTo: workingDir)
     }
 }

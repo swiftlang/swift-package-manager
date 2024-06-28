@@ -15,7 +15,7 @@ import Basics
 import PackageGraph
 import PackageModel
 import SPMBuildCore
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 final class ClangTargetBuildDescriptionTests: XCTestCase {
@@ -28,9 +28,9 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
     func testSwiftCorelibsFoundationIncludeWorkaround() throws {
         let toolchain = MockToolchain(swiftResourcesPath: AbsolutePath("/fake/path/lib/swift"))
 
-        let macosParameters = mockBuildParameters(toolchain: toolchain, targetTriple: .macOS)
-        let linuxParameters = mockBuildParameters(toolchain: toolchain, targetTriple: .arm64Linux)
-        let androidParameters = mockBuildParameters(toolchain: toolchain, targetTriple: .arm64Android)
+        let macosParameters = mockBuildParameters(destination: .target, toolchain: toolchain, triple: .macOS)
+        let linuxParameters = mockBuildParameters(destination: .target, toolchain: toolchain, triple: .arm64Linux)
+        let androidParameters = mockBuildParameters(destination: .target, toolchain: toolchain, triple: .arm64Android)
 
         let macDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
                                                             buildParameters: macosParameters)
@@ -51,8 +51,8 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
         XCTAssertTrue(try targetDescription.basicArguments().contains("-w"))
     }
 
-    private func makeClangTarget() throws -> ClangTarget {
-        try ClangTarget(
+    private func makeClangTarget() throws -> ClangModule {
+        try ClangModule(
             name: "dummy",
             cLanguageStandard: nil,
             cxxLanguageStandard: nil,
@@ -65,8 +65,8 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
         )
     }
 
-    private func makeResolvedTarget() throws -> ResolvedTarget {
-        ResolvedTarget(
+    private func makeResolvedTarget() throws -> ResolvedModule {
+        ResolvedModule(
             packageIdentity: .plain("dummy"),
             underlying: try makeClangTarget(),
             dependencies: [],
@@ -77,7 +77,7 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
 
     private func makeTargetBuildDescription(_ packageName: String,
                                             buildParameters: BuildParameters? = nil,
-                                            usesSourceControl: Bool = false) throws -> ClangTargetBuildDescription {
+                                            usesSourceControl: Bool = false) throws -> ClangModuleBuildDescription {
         let observability = ObservabilitySystem.makeForTesting(verbose: false)
 
         let manifest: Manifest
@@ -101,18 +101,20 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
                               targetSearchPath: .root,
                               testTargetSearchPath: .root)
 
-        return try ClangTargetBuildDescription(
+        return try ClangModuleBuildDescription(
             package: .init(underlying: package,
                            defaultLocalization: nil,
                            supportedPlatforms: [],
                            dependencies: [],
-                           targets: [target],
+                           enabledTraits: [],
+                           modules: .init([target]),
                            products: [],
                            registryMetadata: nil,
                            platformVersionProvider: .init(implementation: .minimumDeploymentTargetDefault)),
             target: target,
             toolsVersion: .current,
             buildParameters: buildParameters ?? mockBuildParameters(
+                destination: .target,
                 toolchain: try UserToolchain.default,
                 indexStoreMode: .on
             ),

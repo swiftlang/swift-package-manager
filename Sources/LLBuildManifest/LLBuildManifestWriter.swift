@@ -14,7 +14,7 @@ import Basics
 
 private let namesToExclude = [".git", ".build"]
 
-package struct LLBuildManifestWriter {
+public struct LLBuildManifestWriter {
     private let manifest: LLBuildManifest
     // FIXME: since JSON is a superset of YAML and we don't need to parse these manifests,
     // we should just use `JSONEncoder` instead.
@@ -38,7 +38,7 @@ package struct LLBuildManifestWriter {
         self.render(commands: manifest.commands)
     }
 
-    package static func write(_ manifest: LLBuildManifest, at path: AbsolutePath, fileSystem: FileSystem) throws {
+    public static func write(_ manifest: LLBuildManifest, at path: AbsolutePath, fileSystem: FileSystem) throws {
         let writer = LLBuildManifestWriter(manifest: manifest)
 
         try fileSystem.writeFileContents(path, string: writer.buffer)
@@ -125,71 +125,81 @@ package struct LLBuildManifestWriter {
     }
 }
 
-package struct ManifestToolStream {
+public struct ManifestToolStream {
     fileprivate var buffer = ""
 
-    package subscript(key: String) -> Int {
+    public subscript(key: String) -> Int {
         get { fatalError() }
         set {
             self.buffer += "    \(key): \(newValue.description.asJSON)\n"
         }
     }
 
-    package subscript(key: String) -> String {
+    public subscript(key: String) -> String {
         get { fatalError() }
         set {
             self.buffer += "    \(key): \(newValue.asJSON)\n"
         }
     }
 
-    package subscript(key: String) -> ToolProtocol {
+    public subscript(key: String) -> ToolProtocol {
         get { fatalError() }
         set {
             self.buffer += "    \(key): \(type(of: newValue).name)\n"
         }
     }
 
-    package subscript(key: String) -> AbsolutePath {
+    public subscript(key: String) -> AbsolutePath {
         get { fatalError() }
         set {
             self.buffer += "    \(key): \(newValue.pathString.asJSON)\n"
         }
     }
 
-    package subscript(key: String) -> [AbsolutePath] {
+    public subscript(key: String) -> [AbsolutePath] {
         get { fatalError() }
         set {
             self.buffer += "    \(key): \(newValue.map(\.pathString).asJSON)\n"
         }
     }
 
-    package subscript(key: String) -> [Node] {
+    public subscript(key: String) -> [Node] {
         get { fatalError() }
         set {
             self.buffer += "    \(key): \(newValue.map(\.encodingName).asJSON)\n"
         }
     }
 
-    package subscript(key: String) -> Bool {
+    public subscript(key: String) -> Bool {
         get { fatalError() }
         set {
             self.buffer += "    \(key): \(newValue.description)\n"
         }
     }
 
-    package subscript(key: String) -> [String] {
+    public subscript(key: String) -> [String] {
         get { fatalError() }
         set {
             self.buffer += "    \(key): \(newValue.asJSON)\n"
         }
     }
 
-    package subscript(key: String) -> [String: String] {
+    public subscript(key: String) -> [String: String] {
         get { fatalError() }
         set {
             self.buffer += "    \(key):\n"
             for (key, value) in newValue.sorted(by: { $0.key < $1.key }) {
                 self.buffer += "      \(key.asJSON): \(value.asJSON)\n"
+            }
+        }
+    }
+
+    package subscript(key: String) -> Environment {
+        get { fatalError() }
+        set {
+            self.buffer += "    \(key):\n"
+            for (key, value) in newValue.sorted(by: { $0.key < $1.key }) {
+                self.buffer += "      \(key.rawValue.asJSON): \(value.asJSON)\n"
             }
         }
     }

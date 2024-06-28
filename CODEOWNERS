@@ -24,4 +24,6 @@
 
 # The following lines are used by GitHub to automatically recommend reviewers.
 
-* @bnbarham @MaxDesiatov @tomerd
+Sources/XCBuildSupport/* @jakepetroules
+
+* @bnbarham @MaxDesiatov @jakepetroules @francescomikulis @xedin

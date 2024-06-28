@@ -13,9 +13,7 @@
 
 import ArgumentParser
 import Basics
-
 import CoreCommands
-
 import PackageGraph
 
 import class TSCBasic.LocalFileOutputByteStream
@@ -43,13 +41,19 @@ extension SwiftPackageCommand {
             // ie "swift package show-dependencies" should output to stdout
             let stream: OutputByteStream = try outputPath.map { try LocalFileOutputByteStream($0) } ?? TSCBasic.stdoutStream
             Self.dumpDependenciesOf(
+                graph: graph,
                 rootPackage: graph.rootPackages[graph.rootPackages.startIndex],
                 mode: format,
                 on: stream
             )
         }
 
-        static func dumpDependenciesOf(rootPackage: ResolvedPackage, mode: ShowDependenciesMode, on stream: OutputByteStream) {
+        static func dumpDependenciesOf(
+            graph: ModulesGraph,
+            rootPackage: ResolvedPackage,
+            mode: ShowDependenciesMode,
+            on stream: OutputByteStream
+        ) {
             let dumper: DependenciesDumper
             switch mode {
             case .text:
@@ -61,14 +65,14 @@ extension SwiftPackageCommand {
             case .flatlist:
                 dumper = FlatListDumper()
             }
-            dumper.dump(dependenciesOf: rootPackage, on: stream)
+            dumper.dump(graph: graph, dependenciesOf: rootPackage, on: stream)
             stream.flush()
         }
 
         enum ShowDependenciesMode: String, RawRepresentable, CustomStringConvertible, ExpressibleByArgument {
             case text, dot, json, flatlist
 
-            package init?(rawValue: String) {
+            public init?(rawValue: String) {
                 switch rawValue.lowercased() {
                 case "text":
                     self = .text
@@ -83,7 +87,7 @@ extension SwiftPackageCommand {
                 }
             }
 
-            package var description: String {
+            public var description: String {
                 switch self {
                 case .text: return "text"
                 case .dot: return "dot"
