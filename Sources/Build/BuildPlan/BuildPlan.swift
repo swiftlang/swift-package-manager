@@ -255,6 +255,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             destinationBuildParameters: productsBuildParameters,
             toolsBuildParameters: toolsBuildParameters,
             graph: graph,
+            pluginConfiguration: nil,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
@@ -266,6 +267,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         destinationBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
         graph: ModulesGraph,
+        pluginConfiguration: PluginConfiguration? = nil,
         additionalFileRules: [FileRuleDescription] = [],
         buildToolPluginInvocationResults: [ResolvedModule.ID: [BuildToolPluginInvocationResult]] = [:],
         prebuildCommandResults: [ResolvedModule.ID: [PrebuildCommandResult]] = [:],
