@@ -287,7 +287,7 @@ public struct PackageCollectionsCommand: AsyncParsableCommand {
                 let identity = PackageIdentity(urlString: self.packageURL)
 
                 do { // assume URL is for a package in an imported collection
-                    let result = try await collections.getPackageMetadata(identity: identity, location: self.packageURL)
+                    let result = try await collections.getPackageMetadata(identity: identity, location: self.packageURL, collections: nil)
 
                     if let versionString = version {
                         guard let version = TSCUtility.Version(versionString), let result = result.package.versions.first(where: { $0.version == version }), let printedResult = printVersion(result) else {
