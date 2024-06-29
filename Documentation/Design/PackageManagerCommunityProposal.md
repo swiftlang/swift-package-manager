@@ -182,7 +182,7 @@ Again, this initial release of the Swift Package Manager is just a starting poin
 - Package Flavors
 - User-Global Installation
 
-Many of these ideas will eventually become concrete proposals following the [Swift evolution process](https://github.com/apple/swift-evolution). We welcome your input on which features to prioritize or how we might design and implement them. And we're excited to hear about any other ideas for new features.
+Many of these ideas will eventually become concrete proposals following the [Swift evolution process](https://github.com/swiftlang/swift-evolution). We welcome your input on which features to prioritize or how we might design and implement them. And we're excited to hear about any other ideas for new features.
 
 ### Automated Testing
 
