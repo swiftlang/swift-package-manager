@@ -28,7 +28,7 @@ extension PackageDependency: ManifestSyntaxRepresentable {
 
 extension PackageDependency.FileSystem: ManifestSyntaxRepresentable {
     func asSyntax() -> ExprSyntax {
-        fatalError()
+        ".package(path: \(literal: path.description))"
     }
 }
 
@@ -37,8 +37,8 @@ extension PackageDependency.SourceControl: ManifestSyntaxRepresentable {
         // TODO: Not handling identity, nameForTargetDependencyResolutionOnly,
         // or productFilter yet.
         switch location {
-        case .local(let path):
-            ".package(path: \(literal: path.description), \(requirement.asSyntax()))"
+        case .local:
+            fatalError()
         case .remote(let url):
             ".package(url: \(literal: url.description), \(requirement.asSyntax()))"
         }

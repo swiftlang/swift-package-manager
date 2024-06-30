@@ -27,6 +27,23 @@ public struct SourceControlURL: Codable, Equatable, Hashable, Sendable {
         self.urlString = url.absoluteString
     }
 
+    /// Initialize with string, returning nil if the URL is not https://domain or git@domain
+    ///
+    /// The following URL are valid
+    /// e.g. https://github.com/apple/swift
+    /// e.g. git@github.com:apple/swift
+    public init?(absoluteString url: String) {
+        guard let regex = try? NSRegularExpression(pattern: "^(?:https://|git@)", options: .caseInsensitive) else {
+            return nil
+        }
+
+        if regex.firstMatch(in: url, options: [], range: NSRange(location: 0, length: url.utf16.count)) != nil {
+            self.init(url)
+        } else {
+            return nil
+        }
+    }
+
     public var absoluteString: String {
         return self.urlString
     }

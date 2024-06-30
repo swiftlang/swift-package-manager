@@ -52,31 +52,56 @@ extension SwiftPackageCommand {
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
             let workspace = try swiftCommandState.getActiveWorkspace()
-
             guard let packagePath = try swiftCommandState.getWorkspaceRoot().packages.first else {
                 throw StringError("unknown package")
             }
 
-            // Load the manifest file
-            let fileSystem = workspace.fileSystem
-            let manifestPath = packagePath.appending("Package.swift")
-            let manifestContents: ByteString
-            do {
-                manifestContents = try fileSystem.readFileContents(manifestPath)
-            } catch {
-                throw StringError("cannot find package manifest in \(manifestPath)")
+            if let url = SourceControlURL(absoluteString: dependency) {
+                try self.createSourceControlPackage(
+                    packagePath: packagePath,
+                    workspace: workspace,
+                    url: url
+                )
+            } else if let path = try? Basics.AbsolutePath(validating: dependency) {
+                try self.createFileSystemPackage(
+                    packagePath: packagePath,
+                    workspace: workspace,
+                    path: path
+                )
+            } else if let _ = try? Basics.RelativePath(validating: dependency) {
+                throw StringError("relative paths not supported")
+            } else {
+                throw StringError("must provide valid url or path")
             }
+        }
 
-            // Parse the manifest.
-            let manifestSyntax = manifestContents.withData { data in
-                data.withUnsafeBytes { buffer in
-                    buffer.withMemoryRebound(to: UInt8.self) { buffer in
-                        Parser.parse(source: buffer)
-                    }
-                }
-            }
+        private func createFileSystemPackage(
+            packagePath: Basics.AbsolutePath,
+            workspace: Workspace,
+            path: Basics.AbsolutePath
+        ) throws {
+            let identity = PackageIdentity(path: path)
+            let packageDependency: PackageDependency = .fileSystem(
+                identity: identity,
+                nameForTargetDependencyResolutionOnly: nil,
+                path: path,
+                productFilter: .everything,
+                traits: []
+            )
 
-            let identity = PackageIdentity(url: .init(dependency))
+            try applyEdits(
+                packagePath: packagePath,
+                workspace: workspace,
+                packageDependency: packageDependency
+            )
+        }
+
+        private func createSourceControlPackage(
+            packagePath: Basics.AbsolutePath,
+            workspace: Workspace,
+            url: SourceControlURL
+        ) throws {
+            let identity = PackageIdentity(url: url)
 
             // Collect all of the possible version requirements.
             var requirements: [PackageDependency.SourceControl.Requirement] = []
@@ -123,22 +148,45 @@ extension SwiftPackageCommand {
                 }
             }
 
-            // Figure out the location of the package.
-            let location: PackageDependency.SourceControl.Location
-            if let path = try? Basics.AbsolutePath(validating: dependency) {
-                location = .local(path)
-            } else {
-                location = .remote(.init(dependency))
-            }
-
             let packageDependency: PackageDependency = .sourceControl(
                 identity: identity,
                 nameForTargetDependencyResolutionOnly: nil,
-                location: location,
+                location: .remote(url),
                 requirement: requirement,
                 productFilter: .everything,
                 traits: []
             )
+
+            try applyEdits(
+                packagePath: packagePath,
+                workspace: workspace,
+                packageDependency: packageDependency
+            )
+        }
+
+        private func applyEdits(
+            packagePath: Basics.AbsolutePath,
+            workspace: Workspace,
+            packageDependency: PackageDependency
+        ) throws {
+            // Load the manifest file
+            let fileSystem = workspace.fileSystem
+            let manifestPath = packagePath.appending(component: Manifest.filename)
+            let manifestContents: ByteString
+            do {
+                manifestContents = try fileSystem.readFileContents(manifestPath)
+            } catch {
+                throw StringError("cannot find package manifest in \(manifestPath)")
+            }
+
+            // Parse the manifest.
+            let manifestSyntax = manifestContents.withData { data in
+                data.withUnsafeBytes { buffer in
+                    buffer.withMemoryRebound(to: UInt8.self) { buffer in
+                        Parser.parse(source: buffer)
+                    }
+                }
+            }
 
             let editResult = try AddPackageDependency.addPackageDependency(
                 packageDependency,
