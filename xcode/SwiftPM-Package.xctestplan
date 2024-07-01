@@ -116,14 +116,6 @@
       "parallelizable" : true,
       "target" : {
         "containerPath" : "container:",
-        "identifier" : "PackageLoadingPerformanceTests",
-        "name" : "PackageLoadingPerformanceTests"
-      }
-    },
-    {
-      "parallelizable" : true,
-      "target" : {
-        "containerPath" : "container:",
         "identifier" : "PackageLoadingTests",
         "name" : "PackageLoadingTests"
       }
