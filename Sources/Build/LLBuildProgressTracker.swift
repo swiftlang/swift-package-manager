@@ -545,7 +545,7 @@ private struct CommandTaskTracker {
             }
 
             self.finishedCount += 1
-        case .unparsableOutput, .signalled, .skipped:
+        case .unparsableOutput, .abnormal, .signalled, .skipped:
             break
         }
     }
@@ -610,7 +610,7 @@ extension SwiftCompilerMessage {
         switch kind {
         case .began(let info):
             ([info.commandExecutable] + info.commandArguments).joined(separator: " ")
-        case .skipped, .finished, .signalled, .unparsableOutput:
+        case .skipped, .finished, .abnormal, .signalled, .unparsableOutput:
             nil
         }
     }
@@ -618,6 +618,7 @@ extension SwiftCompilerMessage {
     fileprivate var standardOutput: String? {
         switch kind {
         case .finished(let info),
+             .abnormal(let info),
              .signalled(let info):
             info.output
         case .unparsableOutput(let output):
