@@ -63,143 +63,119 @@ struct PackageIndex: PackageIndexProtocol, Closable {
 
     func getPackageMetadata(
         identity: PackageIdentity,
-        location: String?,
-        callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
-    ) {
-        self.runIfConfigured(callback: callback) { url, callback in
-            if let cached = try? self.cache?.get(key: identity.description),
-               cached.dispatchTime + DispatchTimeInterval.seconds(self.configuration.cacheTTLInSeconds) > DispatchTime.now() {
-                return callback(.success((package: cached.package, collections: [], provider: self.createContext(host: url.host, error: nil))))
+        location: String?
+    ) async throws -> PackageCollectionsModel.PackageMetadata {
+        let url = try await self.urlIfConfigured()
+        if let cached = try? self.cache?.get(key: identity.description),
+           cached.dispatchTime + DispatchTimeInterval.seconds(self.configuration.cacheTTLInSeconds) > DispatchTime.now() {
+            return (package: cached.package, collections: [], provider: self.createContext(host: url.host, error: nil))
+        }
+
+        // TODO: rdar://87582621 call package index's get metadata API
+        let metadataURL = url.appendingPathComponent("packages").appendingPathComponent(identity.description)
+        let response = try await self.httpClient.get(metadataURL)
+        switch response.statusCode {
+        case 200:
+            guard let package = try response.decodeBody(PackageCollectionsModel.Package.self, using: self.decoder) else {
+                throw PackageIndexError.invalidResponse(metadataURL, "Empty body")
             }
-            
-            // TODO: rdar://87582621 call package index's get metadata API
-            let metadataURL = url.appendingPathComponent("packages").appendingPathComponent(identity.description)
-            self.httpClient.get(metadataURL) { result in
-                callback(result.tryMap { response in
-                    switch response.statusCode {
-                    case 200:
-                        guard let package = try response.decodeBody(PackageCollectionsModel.Package.self, using: self.decoder) else {
-                            throw PackageIndexError.invalidResponse(metadataURL, "Empty body")
-                        }
-                        
-                        do {
-                            try self.cache?.put(
-                                key: identity.description,
-                                value: CacheValue(package: package, timestamp: DispatchTime.now()),
-                                replace: true,
-                                observabilityScope: self.observabilityScope
-                            )
-                        } catch {
-                            self.observabilityScope.emit(
-                                warning: "Failed to save index metadata for package \(identity) to cache",
-                                underlyingError: error
-                            )
-                        }
-                        
-                        return (package: package, collections: [], provider: self.createContext(host: url.host, error: nil))
-                    default:
-                        throw PackageIndexError.invalidResponse(metadataURL, "Invalid status code: \(response.statusCode)")
-                    }
-                })
+
+            do {
+                try self.cache?.put(
+                    key: identity.description,
+                    value: CacheValue(package: package, timestamp: DispatchTime.now()),
+                    replace: true,
+                    observabilityScope: self.observabilityScope
+                )
+            } catch {
+                self.observabilityScope.emit(
+                    warning: "Failed to save index metadata for package \(identity) to cache",
+                    underlyingError: error
+                )
             }
+
+            return (package: package, collections: [], provider: self.createContext(host: url.host, error: nil))
+        default:
+            throw PackageIndexError.invalidResponse(metadataURL, "Invalid status code: \(response.statusCode)")
         }
     }
     
     func findPackages(
-        _ query: String,
-        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
-    ) {
-        self.runIfConfigured(callback: callback) { url, callback in
-            guard var urlComponents = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
-                return callback(.failure(PackageIndexError.invalidURL(url)))
+        _ query: String
+    ) async throws -> PackageCollectionsModel.PackageSearchResult {
+        let url = try await self.urlIfConfigured()
+        guard var urlComponents = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
+            throw PackageIndexError.invalidURL(url)
+        }
+        urlComponents.path = (urlComponents.path.last == "/" ? "" : "/") + "search"
+        urlComponents.queryItems = [
+            URLQueryItem(name: "q", value: query),
+        ]
+
+        // TODO: rdar://87582621 call package index's search API
+        guard let searchURL = urlComponents.url else {
+            throw PackageIndexError.invalidURL(url)
+        }
+        let response = try await self.httpClient.get(searchURL)
+        switch response.statusCode {
+        case 200:
+            guard let packages = try response.decodeBody([PackageCollectionsModel.Package].self, using: self.decoder) else {
+                throw PackageIndexError.invalidResponse(searchURL, "Empty body")
             }
-            urlComponents.path = (urlComponents.path.last == "/" ? "" : "/") + "search"
-            urlComponents.queryItems = [
-                URLQueryItem(name: "q", value: query),
-            ]
-            
-            // TODO: rdar://87582621 call package index's search API
-            guard let searchURL = urlComponents.url else {
-                return callback(.failure(PackageIndexError.invalidURL(url)))
+            // Limit the number of items
+            let items = packages[..<min(packages.count, self.configuration.searchResultMaxItemsCount)].map {
+                PackageCollectionsModel.PackageSearchResult.Item(package: $0, indexes: [url])
             }
-            self.httpClient.get(searchURL) { result in
-                callback(result.tryMap { response in
-                    switch response.statusCode {
-                    case 200:
-                        guard let packages = try response.decodeBody([PackageCollectionsModel.Package].self, using: self.decoder) else {
-                            throw PackageIndexError.invalidResponse(searchURL, "Empty body")
-                        }
-                        // Limit the number of items
-                        let items = packages[..<min(packages.count, self.configuration.searchResultMaxItemsCount)].map {
-                            PackageCollectionsModel.PackageSearchResult.Item(package: $0, indexes: [url])
-                        }
-                        return PackageCollectionsModel.PackageSearchResult(items: items)
-                    default:
-                        throw PackageIndexError.invalidResponse(searchURL, "Invalid status code: \(response.statusCode)")
-                    }
-                })
-            }
+            return PackageCollectionsModel.PackageSearchResult(items: items)
+        default:
+            throw PackageIndexError.invalidResponse(searchURL, "Invalid status code: \(response.statusCode)")
         }
     }
 
     func listPackages(
         offset: Int,
-        limit: Int,
-        callback: @escaping (Result<PackageCollectionsModel.PaginatedPackageList, Error>) -> Void
-    ) {
-        self.runIfConfigured(callback: callback) { url, callback in
-            guard var urlComponents = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
-                return callback(.failure(PackageIndexError.invalidURL(url)))
+        limit: Int
+    ) async throws -> PackageCollectionsModel.PaginatedPackageList {
+        let url = try await self.urlIfConfigured()
+
+        guard var urlComponents = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
+            throw PackageIndexError.invalidURL(url)
+        }
+        urlComponents.path = (urlComponents.path.last == "/" ? "" : "/") + "packages"
+        urlComponents.queryItems = [
+            URLQueryItem(name: "offset", value: "\(offset)"),
+            URLQueryItem(name: "limit", value: "\(limit)"),
+        ]
+
+        // TODO: rdar://87582621 call package index's list API
+        guard let listURL = urlComponents.url else {
+            throw PackageIndexError.invalidURL(url)
+        }
+        let response = try await self.httpClient.get(listURL)
+        switch response.statusCode {
+        case 200:
+            guard let listResponse = try response.decodeBody(ListResponse.self, using: self.decoder) else {
+                throw PackageIndexError.invalidResponse(listURL, "Empty body")
             }
-            urlComponents.path = (urlComponents.path.last == "/" ? "" : "/") + "packages"
-            urlComponents.queryItems = [
-                URLQueryItem(name: "offset", value: "\(offset)"),
-                URLQueryItem(name: "limit", value: "\(limit)"),
-            ]
-            
-            // TODO: rdar://87582621 call package index's list API
-            guard let listURL = urlComponents.url else {
-                return callback(.failure(PackageIndexError.invalidURL(url)))
-            }
-            self.httpClient.get(listURL) { result in
-                callback(result.tryMap { response in
-                    switch response.statusCode {
-                    case 200:
-                        guard let listResponse = try response.decodeBody(ListResponse.self, using: self.decoder) else {
-                            throw PackageIndexError.invalidResponse(listURL, "Empty body")
-                        }
-                        return PackageCollectionsModel.PaginatedPackageList(
-                            items: listResponse.items,
-                            offset: offset,
-                            limit: limit,
-                            total: listResponse.total
-                        )
-                    default:
-                        throw PackageIndexError.invalidResponse(listURL, "Invalid status code: \(response.statusCode)")
-                    }
-                })
-            }
+            return PackageCollectionsModel.PaginatedPackageList(
+                items: listResponse.items,
+                offset: offset,
+                limit: limit,
+                total: listResponse.total
+            )
+        default:
+            throw PackageIndexError.invalidResponse(listURL, "Invalid status code: \(response.statusCode)")
         }
     }
 
-    private func runIfConfigured<T>(
-        callback: @escaping (Result<T, Error>) -> Void,
-        handler: @escaping (URL, @escaping (Result<T, Error>) -> Void) -> Void
-    ) {
-        let callback = self.makeAsync(callback)
-        
+    private func urlIfConfigured() async throws -> URL {
         guard self.configuration.enabled else {
-            return callback(.failure(PackageIndexError.featureDisabled))
+            throw PackageIndexError.featureDisabled
         }
         guard let url = self.configuration.url else {
-            return callback(.failure(PackageIndexError.notConfigured))
+            throw PackageIndexError.notConfigured
         }
-
-        handler(url, callback)
-    }
-
-    private func makeAsync<T>(_ closure: @escaping (Result<T, Error>) -> Void) -> (Result<T, Error>) -> Void {
-        { result in self.callbackQueue.async { closure(result) } }
+        return url
     }
     
     private func createContext(host: String?, error: Error?) -> PackageMetadataProviderContext? {
@@ -248,36 +224,33 @@ extension PackageIndex {
 extension PackageIndex: PackageMetadataProvider {
     func get(
         identity: PackageIdentity,
-        location: String,
-        callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) -> Void
-    ) {
-        self.getPackageMetadata(identity: identity, location: location) { result in
-            switch result {
-            case .failure(let error):
-                // Package index fails to produce result so it cannot be the provider
-                callback(.failure(error), nil)
-            case .success(let metadata):
-                let package = metadata.package
-                let basicMetadata = PackageCollectionsModel.PackageBasicMetadata(
-                    summary: package.summary,
-                    keywords: package.keywords,
-                    versions: package.versions.map { version in
-                        PackageCollectionsModel.PackageBasicVersionMetadata(
-                            version: version.version,
-                            title: version.title,
-                            summary: version.summary,
-                            author: version.author,
-                            createdAt: version.createdAt
-                        )
-                    },
-                    watchersCount: package.watchersCount,
-                    readmeURL: package.readmeURL,
-                    license: package.license,
-                    authors: package.authors,
-                    languages: package.languages
-                )
-                callback(.success(basicMetadata), metadata.provider)
-            }
+        location: String
+    ) async -> (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) {
+        do {
+            let metadata = try await self.getPackageMetadata(identity: identity, location: location)
+
+            let package = metadata.package
+            let basicMetadata = PackageCollectionsModel.PackageBasicMetadata(
+                summary: package.summary,
+                keywords: package.keywords,
+                versions: package.versions.map { version in
+                    PackageCollectionsModel.PackageBasicVersionMetadata(
+                        version: version.version,
+                        title: version.title,
+                        summary: version.summary,
+                        author: version.author,
+                        createdAt: version.createdAt
+                    )
+                },
+                watchersCount: package.watchersCount,
+                readmeURL: package.readmeURL,
+                license: package.license,
+                authors: package.authors,
+                languages: package.languages
+            )
+            return (.success(basicMetadata), metadata.provider)
+        } catch {
+            return (.failure(error), nil)
         }
     }
 }

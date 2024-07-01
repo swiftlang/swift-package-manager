@@ -1413,11 +1413,10 @@ final class PackageCollectionsTests: XCTestCase {
             var name: String = "BrokenMetadataProvider"
 
             func get(
-                identity: PackageIdentity,
-                location: String,
-                callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) -> Void
-            ) {
-                callback(.failure(TerribleThing()), nil)
+                identity: PackageModel.PackageIdentity,
+                location: String
+            ) async -> (Result<PackageCollectionsModel.PackageBasicMetadata, any Error>, PackageMetadataProviderContext?) {
+                return (.failure(TerribleThing()), nil)
             }
 
             struct TerribleThing: Error {}

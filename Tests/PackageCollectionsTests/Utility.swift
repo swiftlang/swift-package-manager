@@ -181,14 +181,12 @@ struct MockMetadataProvider: PackageMetadataProvider {
 
     func get(
         identity: PackageIdentity,
-        location: String,
-        callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) -> Void
-    ) {
-        if let package = self.packages[identity] {
-            callback(.success(package), nil)
-        } else {
-            callback(.failure(NotFoundError("\(identity)")), nil)
+        location: String
+    ) async -> (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) {
+        guard let packageMetadata = self.packages[identity] else {
+            return (.failure(NotFoundError("\(identity)")), nil)
         }
+        return (.success(packageMetadata), nil)
     }
 }
 

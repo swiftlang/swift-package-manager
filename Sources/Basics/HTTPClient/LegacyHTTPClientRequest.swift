@@ -78,7 +78,7 @@ public struct LegacyHTTPClientRequest {
         case download(fileSystem: FileSystem, destination: AbsolutePath)
     }
 
-    public struct Options {
+    public struct Options: Sendable {
         public init(
             addUserAgent: Bool = true,
             validResponseCodes: [Int]? = nil,
