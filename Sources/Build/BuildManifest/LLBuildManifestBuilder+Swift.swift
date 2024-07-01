@@ -41,7 +41,7 @@ extension LLBuildManifestBuilder {
         let inputs = try self.computeSwiftCompileCmdInputs(target)
 
         // Outputs.
-        let objectNodes = target.buildParameters.prepareForIndexing ? [] : try target.objects.map(Node.file)
+        let objectNodes = target.buildParameters.prepareForIndexing == .off ? try target.objects.map(Node.file) : []
         let moduleNode = Node.file(target.moduleOutputPath)
         let cmdOutputs = objectNodes + [moduleNode]
 
@@ -395,7 +395,7 @@ extension LLBuildManifestBuilder {
             isLibrary: isLibrary,
             wholeModuleOptimization: target.buildParameters.configuration == .release,
             outputFileMapPath: try target.writeOutputFileMap(), // FIXME: Eliminate side effect.
-            prepareForIndexing: target.buildParameters.prepareForIndexing
+            prepareForIndexing: target.buildParameters.prepareForIndexing != .off
         )
     }
 
@@ -433,7 +433,7 @@ extension LLBuildManifestBuilder {
             if target.underlying is ProvidedLibraryModule { return }
 
             // Depend on the binary for executable targets.
-            if target.type == .executable && !prepareForIndexing {
+            if target.type == .executable && prepareForIndexing == .off {
                 // FIXME: Optimize.
                 if let productDescription = try plan.productMap.values.first(where: {
                     try $0.product.type == .executable && $0.product.executableModule.id == target.id
@@ -447,7 +447,7 @@ extension LLBuildManifestBuilder {
             case .swift(let target)?:
                 inputs.append(file: target.moduleOutputPath)
             case .clang(let target)?:
-                if prepareForIndexing {
+                if prepareForIndexing != .off {
                     // In preparation, we're only building swiftmodules
                     // propagate the dependency to the header files in this target
                     for header in target.clangTarget.headers {

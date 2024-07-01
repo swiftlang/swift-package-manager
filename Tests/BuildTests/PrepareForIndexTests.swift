@@ -27,8 +27,8 @@ class PrepareForIndexTests: XCTestCase {
         let (graph, fs, scope) = try macrosPackageGraph()
 
         let plan = try BuildPlan(
-            destinationBuildParameters: mockBuildParameters(destination: .target, prepareForIndexing: true),
-            toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: false),
+            destinationBuildParameters: mockBuildParameters(destination: .target, prepareForIndexing: .on),
+            toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: .off),
             graph: graph,
             fileSystem: fs,
             observabilityScope: scope
@@ -72,8 +72,8 @@ class PrepareForIndexTests: XCTestCase {
         let (graph, fs, scope) = try trivialPackageGraph()
 
         let plan = try BuildPlan(
-            destinationBuildParameters: mockBuildParameters(destination: .target, prepareForIndexing: true),
-            toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: false),
+            destinationBuildParameters: mockBuildParameters(destination: .target, prepareForIndexing: .on),
+            toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: .off),
             graph: graph,
             fileSystem: fs,
             observabilityScope: scope
@@ -116,8 +116,8 @@ class PrepareForIndexTests: XCTestCase {
 
         // Under debug, enable-testing is turned on by default. Make sure the flag is not added.
         let debugPlan = try BuildPlan(
-            destinationBuildParameters: mockBuildParameters(destination: .target, config: .debug, prepareForIndexing: true),
-            toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: false),
+            destinationBuildParameters: mockBuildParameters(destination: .target, config: .debug, prepareForIndexing: .on),
+            toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: .off),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -137,8 +137,8 @@ class PrepareForIndexTests: XCTestCase {
 
         // Under release, enable-testing is turned off by default so we should see our flag
         let releasePlan = try BuildPlan(
-            destinationBuildParameters: mockBuildParameters(destination: .target, config: .release, prepareForIndexing: true),
-            toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: false),
+            destinationBuildParameters: mockBuildParameters(destination: .target, config: .release, prepareForIndexing: .on),
+            toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: .off),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -156,4 +156,31 @@ class PrepareForIndexTests: XCTestCase {
                 && !swiftCommand.otherArguments.contains("-enable-testing")
         }).count, 1)
     }
+
+    func testPrepareNoLazy() throws {
+        let (graph, fs, scope) = try macrosPackageGraph()
+
+        let plan = try BuildPlan(
+            destinationBuildParameters: mockBuildParameters(destination: .target, prepareForIndexing: .noLazy),
+            toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: .off),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: scope
+        )
+
+        let builder = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: scope)
+        let manifest = try builder.generatePrepareManifest(at: "/manifest")
+
+        // Ensure swiftmodules built with correct arguments
+        let coreCommands = manifest.commands.values.filter {
+            $0.tool.outputs.contains(where: {
+                $0.name.hasSuffix("debug/Core.build/Core.swiftmodule")
+            })
+        }
+        XCTAssertEqual(coreCommands.count, 1)
+        let coreSwiftc = try XCTUnwrap(coreCommands.first?.tool as? SwiftCompilerTool)
+        XCTAssertFalse(coreSwiftc.otherArguments.contains("-experimental-lazy-typecheck"))
+        XCTAssertTrue(coreSwiftc.otherArguments.contains("-experimental-allow-module-with-compiler-errors"))
+    }
+
 }

@@ -90,7 +90,7 @@ public func mockBuildParameters(
     linkerDeadStrip: Bool = true,
     linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil,
     omitFramePointers: Bool? = nil,
-    prepareForIndexing: Bool = false
+    prepareForIndexing: BuildParameters.PrepareForIndexingMode = .off
 ) -> BuildParameters {
     try! BuildParameters(
         destination: destination,

@@ -1117,9 +1117,9 @@ extension BuildDescription {
             fileSystem: fileSystem,
             observabilityScope: config.observabilityScope
         )
-        let buildManifest = plan.destinationBuildParameters.prepareForIndexing
-            ? try llbuild.generatePrepareManifest(at: config.manifestPath)
-            : try llbuild.generateManifest(at: config.manifestPath)
+        let buildManifest = plan.destinationBuildParameters.prepareForIndexing == .off
+            ? try llbuild.generateManifest(at: config.manifestPath)
+            : try llbuild.generatePrepareManifest(at: config.manifestPath)
 
         let swiftCommands = llbuild.manifest.getCmdToolMap(kind: SwiftCompilerTool.self)
         let swiftFrontendCommands = llbuild.manifest.getCmdToolMap(kind: SwiftFrontendTool.self)
