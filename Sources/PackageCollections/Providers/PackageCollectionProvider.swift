@@ -18,16 +18,5 @@ protocol PackageCollectionProvider {
     ///
     /// - Parameters:
     ///   - source: Where the `PackageCollection` is located
-    ///   - callback: The closure to invoke when result becomes available
-    ///
-    @available(*, noasync, message: "Use the async alternative")
-    func get(_ source: PackageCollectionsModel.CollectionSource, callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void)
-}
-
-extension PackageCollectionProvider {
-    func get(_ source: Model.CollectionSource) async throws -> Model.Collection {
-        try await safe_async {
-            self.get(source, callback: $0)
-        }
-    }
+    func get(_ source: Model.CollectionSource) async throws -> Model.Collection
 }

@@ -192,84 +192,28 @@ public protocol PackageIndexProtocol {
     /// - Parameters:
     ///   - identity: The package identity
     ///   - location: The package location (optional for deduplication)
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
-    func getPackageMetadata(
-        identity: PackageIdentity,
-        location: String?,
-        callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
-    )
-
-    /// Finds and returns packages that match the query.
-    ///
-    /// - Parameters:
-    ///   - query: The search query
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
-    func findPackages(
-        _ query: String,
-        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
-    )
-    
-    /// A paginated list of packages in the index.
-    ///
-    /// - Parameters:
-    ///   - offset: Offset of the first item in the result
-    ///   - limit: Number of items to return in the result. Implementations might impose a threshold for this.
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
-    func listPackages(
-        offset: Int,
-        limit: Int,
-        callback: @escaping (Result<PackageCollectionsModel.PaginatedPackageList, Error>) -> Void
-    )
-}
-
-public extension PackageIndexProtocol {
     func getPackageMetadata(
         identity: PackageIdentity,
         location: String?
-    ) async throws -> PackageCollectionsModel.PackageMetadata {
-        try await safe_async {
-            self.getPackageMetadata(
-                identity: identity,
-                location: location,
-                callback: $0
-            )
-        }
-    }
+    ) async throws -> PackageCollectionsModel.PackageMetadata
 
     /// Finds and returns packages that match the query.
     ///
     /// - Parameters:
     ///   - query: The search query
-    ///   - callback: The closure to invoke when result becomes available
     func findPackages(
         _ query: String
-    ) async throws -> PackageCollectionsModel.PackageSearchResult {
-        try await safe_async {
-            self.findPackages(query, callback: $0)
-        }
-    }
+    ) async throws -> PackageCollectionsModel.PackageSearchResult
 
     /// A paginated list of packages in the index.
     ///
     /// - Parameters:
     ///   - offset: Offset of the first item in the result
     ///   - limit: Number of items to return in the result. Implementations might impose a threshold for this.
-    ///   - callback: The closure to invoke when result becomes available
     func listPackages(
         offset: Int,
         limit: Int
-    ) async throws -> PackageCollectionsModel.PaginatedPackageList {
-        try await safe_async {
-            self.listPackages(
-                offset: offset,
-                limit: limit,
-                callback: $0
-            )
-        }
-    }
+    ) async throws -> PackageCollectionsModel.PaginatedPackageList
 }
 
 public enum PackageIndexError: Equatable, Error {

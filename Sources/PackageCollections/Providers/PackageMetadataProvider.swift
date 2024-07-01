@@ -19,17 +19,25 @@ import struct TSCUtility.Version
 
 /// `PackageBasicMetadata` provider
 protocol PackageMetadataProvider {
+
+    // TODO: Review if this API is correct
+    // This API is awkward because it unconditionally provides a context
+    // Does it make sense to have a context if you don't have metadata?
+    // The only use of provider on failure is PackageCollections.getPackageMetadata
+    // It would be nice to change the API to
+    // async throw -> (PackageCollectionsModel.PackageBasicMetadata, PackageMetadataProviderContext?)
+    // or even
+    // async throw -> (PackageCollectionsModel.PackageBasicMetadata, PackageMetadataProviderContext)
+
     /// Retrieves metadata for a package with the given identity and repository address.
     ///
     /// - Parameters:
     ///   - identity: The package's identity
     ///   - location: The package's location
-    ///   - callback: The closure to invoke when result becomes available
     func get(
         identity: PackageIdentity,
-        location: String,
-        callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) -> Void
-    )
+        location: String
+    ) async -> (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?)
 }
 
 extension Model {
