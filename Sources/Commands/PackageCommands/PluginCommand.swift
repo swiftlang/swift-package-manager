@@ -150,7 +150,7 @@ struct PluginCommand: SwiftCommand {
                 in: packageGraph,
                 limitedTo: self.pluginOptions.packageIdentity
             ).map {
-                $0.underlying as! PluginTarget
+                $0.underlying as! PluginModule
             }
             for plugin in allPlugins.sorted(by: { $0.name < $1.name }) {
                 guard case .command(let intent, _) = plugin.capability else { continue }
