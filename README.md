@@ -43,7 +43,7 @@ For release notes with information about changes between versions, see the [rele
 
 ## System Requirements
 
-The package manager’s system requirements are the same as [those for Swift](https://github.com/apple/swift#system-requirements) with the caveat that the package manager requires Git at runtime as well as build-time.
+The package manager’s system requirements are the same as [those for Swift](https://github.com/swiftlang/swift/blob/main/docs/HowToGuides/GettingStarted.md#system-requirements) with the caveat that the package manager requires Git at runtime as well as build-time.
 
 ---
 
