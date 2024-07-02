@@ -800,7 +800,7 @@ public final class SwiftCommandState {
                 debugInfoFormat: options.build.debugInfoFormat.buildParameter,
                 triple: triple,
                 shouldEnableDebuggingEntitlement:
-                    options.build.getTaskAllowEntitlement ?? (options.build.configuration == .debug),
+                    options.build.getTaskAllowEntitlement ?? (options.build.configuration ?? self.preferredBuildConfiguration == .debug),
                 omitFramePointers: options.build.omitFramePointers
             ),
             driverParameters: .init(
