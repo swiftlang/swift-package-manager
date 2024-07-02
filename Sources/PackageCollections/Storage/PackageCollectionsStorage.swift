@@ -69,6 +69,7 @@ public protocol PackageCollectionsStorage {
     ///   - identifier: The package identifier
     ///   - collectionIdentifiers: Optional. The identifiers of the `PackageCollection`s
     ///   - callback: The closure to invoke when result becomes available
+    @available(*, noasync, message: "Use the async alternative")
     func findPackage(identifier: PackageIdentity,
                      collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]?,
                      callback: @escaping (Result<(packages: [PackageCollectionsModel.Package], collections: [PackageCollectionsModel.CollectionIdentifier]), Error>) -> Void)
@@ -106,6 +107,23 @@ public extension PackageCollectionsStorage {
     func list(identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil) async throws -> [PackageCollectionsModel.Collection] {
         try await safe_async {
             self.list(identifiers: identifiers, callback: $0)
+        }
+    }
+
+    func searchPackages(
+        identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil,
+        query: String
+    ) async throws -> PackageCollectionsModel.PackageSearchResult {
+        try await safe_async {
+            self.searchPackages(identifiers: identifiers, query: query, callback: $0)
+        }
+    }
+    func findPackage(
+        identifier: PackageIdentity,
+        collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil
+    ) async throws -> (packages: [PackageCollectionsModel.Package], collections: [PackageCollectionsModel.CollectionIdentifier]) {
+        try await safe_async {
+            self.findPackage(identifier: identifier, collectionIdentifiers: collectionIdentifiers, callback: $0)
         }
     }
 

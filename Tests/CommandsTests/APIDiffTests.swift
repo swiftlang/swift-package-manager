@@ -20,7 +20,7 @@ import DriverSupport
 import Foundation
 import PackageModel
 import SourceControl
-import SPMTestSupport
+import _InternalTestSupport
 import Workspace
 import XCTest
 

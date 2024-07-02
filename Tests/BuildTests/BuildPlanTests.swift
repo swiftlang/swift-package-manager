@@ -26,7 +26,7 @@ import PackageLoading
 @testable import PackageModel
 
 import SPMBuildCore
-import SPMTestSupport
+import _InternalTestSupport
 import SwiftDriver
 import Workspace
 import XCTest
@@ -5550,7 +5550,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(contents, .contains("extension Foundation.Bundle"))
         // Assert that `Bundle.main` is executed in the compiled binary (and not during compilation)
         // See https://bugs.swift.org/browse/SR-14555 and
-        // https://github.com/apple/swift-package-manager/pull/2972/files#r623861646
+        // https://github.com/swiftlang/swift-package-manager/pull/2972/files#r623861646
         XCTAssertMatch(contents, .contains("let mainPath = Bundle.main."))
 
         let barTarget = try result.moduleBuildDescription(for: "Bar").swift()
@@ -5618,7 +5618,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(contents, .contains("extension Foundation.Bundle"))
         // Assert that `Bundle.main` is executed in the compiled binary (and not during compilation)
         // See https://bugs.swift.org/browse/SR-14555 and
-        // https://github.com/apple/swift-package-manager/pull/2972/files#r623861646
+        // https://github.com/swiftlang/swift-package-manager/pull/2972/files#r623861646
         XCTAssertMatch(contents, .contains("let mainPath = \""))
 
         let barTarget = try result.moduleBuildDescription(for: "Bar").swift()

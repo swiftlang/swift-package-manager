@@ -338,7 +338,7 @@ public final class SwiftModuleBuildDescription {
             return
         }
 
-        guard 
+        guard
             self.buildParameters.triple.isDarwin() &&
             self.buildParameters.testingParameters.experimentalTestOutput
         else {
@@ -541,14 +541,19 @@ public final class SwiftModuleBuildDescription {
             args += ["-emit-module-interface-path", self.parseableModuleInterfaceOutputPath.pathString]
         }
 
-        if self.buildParameters.prepareForIndexing {
+        switch self.buildParameters.prepareForIndexing {
+        case .off:
+            break
+        case .on:
+            args += ["-Xfrontend", "-experimental-lazy-typecheck",]
             if !args.contains("-enable-testing") {
                 // enable-testing needs the non-exportable-decls
                 args += ["-Xfrontend", "-experimental-skip-non-exportable-decls"]
             }
+            fallthrough
+        case .noLazy:
             args += [
                 "-Xfrontend", "-experimental-skip-all-function-bodies",
-                "-Xfrontend", "-experimental-lazy-typecheck",
                 "-Xfrontend", "-experimental-allow-module-with-compiler-errors",
                 "-Xfrontend", "-empty-abi-descriptor"
             ]
@@ -594,7 +599,7 @@ public final class SwiftModuleBuildDescription {
 
         // Pass `-user-module-version` for versioned packages that aren't pre-releases.
         if
-          let version = package.manifest.version, 
+          let version = package.manifest.version,
           version.prereleaseIdentifiers.isEmpty &&
           version.buildMetadataIdentifiers.isEmpty &&
           toolsVersion >= .v6_0
@@ -607,7 +612,7 @@ public final class SwiftModuleBuildDescription {
             isPackageNameSupported: self.buildParameters.driverParameters.isPackageAccessModifierSupported
         )
         args += try self.macroArguments()
-        
+
         // rdar://117578677
         // Pass -fno-omit-frame-pointer to support backtraces
         // this can be removed once the backtracer uses DWARF instead of frame pointers
@@ -621,7 +626,7 @@ public final class SwiftModuleBuildDescription {
 
         return args
     }
-    
+
     /// Determines the arguments needed to run `swift-symbolgraph-extract` for
     /// this module.
     package func symbolGraphExtractArguments() throws -> [String] {

@@ -12,6 +12,8 @@
 
 import PackageModel
 
+import struct Basics.IdentifiableSet
+
 @available(*, deprecated, renamed: "ResolvedModule")
 public typealias ResolvedTarget = ResolvedModule
 
@@ -103,6 +105,25 @@ public struct ResolvedModule {
         }
     }
 
+    /// Collect all of the plugins that the current target depends on.
+    package func pluginDependencies(satisfying environment: BuildEnvironment) -> [ResolvedModule] {
+        var plugins = IdentifiableSet<ResolvedModule>()
+        for dependency in self.dependencies(satisfying: environment) {
+            switch dependency {
+            case .module(let module, _):
+                if let plugin = module.underlying as? PluginModule {
+                    assert(plugin.capability == .buildTool)
+                    plugins.insert(module)
+                }
+            case .product(let product, _):
+                for plugin in product.modules.filter({ $0.underlying is PluginModule }) {
+                    plugins.insert(plugin)
+                }
+            }
+        }
+        return Array(plugins)
+    }
+
     /// The language-level module name.
     public var c99name: String {
         self.underlying.c99name
@@ -173,7 +194,7 @@ public struct ResolvedModule {
             // Make sure that test products are built for the tools triple if it has tools as direct dependencies.
             // Without this workaround, `assertMacroExpansion` in tests can't be built, as it requires macros
             // and SwiftSyntax to be built for the same triple as the tests.
-            // See https://github.com/apple/swift-package-manager/pull/7349 for more context.
+            // See https://github.com/swiftlang/swift-package-manager/pull/7349 for more context.
             var inferredBuildTriple = BuildTriple.destination
             loop: for dependency in dependencies {
                 switch dependency {

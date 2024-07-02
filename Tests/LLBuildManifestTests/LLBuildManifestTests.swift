@@ -14,7 +14,7 @@ import struct Basics.AbsolutePath
 import class Basics.InMemoryFileSystem
 import class Foundation.PropertyListDecoder
 @testable import LLBuildManifest
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 private let testEntitlement = "test-entitlement"

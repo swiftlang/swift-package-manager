@@ -21,7 +21,7 @@ import PackageModel
 import struct SPMBuildCore.BuildParameters
 
 @_spi(SwiftPMInternal)
-import SPMTestSupport
+import _InternalTestSupport
 
 import XCTest
 

@@ -829,7 +829,7 @@ private func calculateEnabledTraits(
 ) throws -> Set<String> {
     // This the point where we flatten the enabled traits and resolve the recursive traits
     var recursiveEnabledTraits = explictlyEnabledTraits ?? []
-    let areDefaultsEnabled = recursiveEnabledTraits.remove("defaults") != nil
+    let areDefaultsEnabled = recursiveEnabledTraits.remove("default") != nil
 
     // We are going to calculate which traits are actually enabled for a node here. To do this
     // we have to check if default traits should be used and then flatten all the enabled traits.
@@ -843,7 +843,7 @@ private func calculateEnabledTraits(
 
     // We have to enable all default traits if no traits are enabled or the defaults are explicitly enabled
     if explictlyEnabledTraits == nil || areDefaultsEnabled {
-        recursiveEnabledTraits.formUnion(manifest.traits.lazy.filter { $0.isDefault }.map { $0.name })
+        recursiveEnabledTraits.formUnion(manifest.traits.first { $0.name == "default" }?.enabledTraits ?? [])
     }
 
     while true {

@@ -16,7 +16,7 @@ import Basics
 @testable import PackageGraph
 
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 import struct TSCBasic.ByteString
@@ -2918,7 +2918,7 @@ final class ModulesGraphTests: XCTestCase {
                         ),
                     ],
                     traits: [
-                        .init(name: "Trait1", isDefault: true),
+                        .init(name: "default", enabledTraits: ["Trait1"]),
                         "Trait1",
                     ]
                 ),
@@ -2954,7 +2954,8 @@ final class ModulesGraphTests: XCTestCase {
                         ),
                     ],
                     traits: [
-                        .init(name: "Trait1", isDefault: true, enabledTraits: ["Trait2"]),
+                        .init(name: "default", enabledTraits: ["Trait1"]),
+                        .init(name: "Trait1", enabledTraits: ["Trait2"]),
                         .init(name: "Trait2", enabledTraits: ["Trait3", "Trait4"]),
                         "Trait3",
                         .init(name: "Trait4", enabledTraits: ["Trait5"]),
@@ -3003,7 +3004,7 @@ final class ModulesGraphTests: XCTestCase {
                         ),
                     ],
                     traits: [
-                        .init(name: "Package1Trait1", isDefault: true),
+                        .init(name: "default", enabledTraits: ["Package1Trait1"]),
                         "Package1Trait1",
                     ]
                 ),
@@ -3071,7 +3072,8 @@ final class ModulesGraphTests: XCTestCase {
                     ),
                 ],
                 traits: [
-                    .init(name: "Package1Trait1", isDefault: true)
+                    .init(name: "default", enabledTraits: ["Package1Trait1"]),
+                    .init(name: "Package1Trait1")
                 ]
             ),
             Manifest.createFileSystemManifest(
@@ -3163,8 +3165,9 @@ final class ModulesGraphTests: XCTestCase {
                     ),
                 ],
                 traits: [
-                    .init(name: "Package1Trait1", isDefault: true),
-                    .init(name: "Package1Trait2", isDefault: true),
+                    .init(name: "default", enabledTraits: ["Package1Trait1", "Package1Trait2"]),
+                    .init(name: "Package1Trait1"),
+                    .init(name: "Package1Trait2"),
                 ]
             ),
             Manifest.createFileSystemManifest(

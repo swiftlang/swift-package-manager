@@ -14,7 +14,7 @@
 import Basics
 import PackageModel
 import SourceControl
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 final class TraitLoadingTests: PackageDescriptionLoadingTests {
@@ -63,27 +63,6 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
         let firstDiagnostic = try XCTUnwrap(validationDiagnostics.first)
         XCTAssertEqual(firstDiagnostic.severity, .error)
         XCTAssertEqual(firstDiagnostic.message, "A package can define a maximum of 300 traits")
-    }
-
-    func testTraits_whenDefault() async throws {
-        let traits = ["default", "DEFAULT", "DEfauLT", "defaults", "DEFaulTs", "DEFAULTS"]
-
-        for trait in traits {
-            let content =  """
-            @_spi(ExperimentalTraits) import PackageDescription
-            let package = Package(
-                name: "Foo",
-                traits: ["\(trait)"]
-            )
-            """
-
-            let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            let firstDiagnostic = try XCTUnwrap(validationDiagnostics.first)
-            XCTAssertEqual(firstDiagnostic.severity, .error)
-            XCTAssertEqual(firstDiagnostic.message, "Traits are not allowed to be named 'default' or 'defaults' to avoid confusion with default traits")
-        }
     }
 
     func testTraits_whenUnknownEnabledTrait() async throws {
@@ -178,9 +157,10 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
             let package = Package(
                 name: "Foo",
                 traits: [
-                    Trait(name: "Trait1", isDefault: true),
+                    .default(enabledTraits: ["Trait1", "Trait3"]),
+                    Trait(name: "Trait1"),
                     Trait(name: "Trait2"),
-                    .trait(name: "Trait3", isDefault: true, enabledTraits: ["Trait1"]),
+                    .trait(name: "Trait3", enabledTraits: ["Trait1"]),
                 ]
             )
             """
@@ -191,9 +171,10 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(validationDiagnostics)
 
         XCTAssertEqual(manifest.traits, [
-            TraitDescription(name: "Trait1", isDefault: true),
-            TraitDescription(name: "Trait2", isDefault: false),
-            TraitDescription(name: "Trait3", isDefault: true, enabledTraits: ["Trait1"]),
+            TraitDescription(name: "default", description: "The default traits of this package.", enabledTraits: ["Trait1", "Trait3"]),
+            TraitDescription(name: "Trait1"),
+            TraitDescription(name: "Trait2"),
+            TraitDescription(name: "Trait3", enabledTraits: ["Trait1"]),
         ])
     }
 
@@ -203,8 +184,9 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
             let package = Package(
                 name: "Foo",
                 traits: [
-                    .trait(name: "Trait1", isDefault: true),
-                    .trait(name: "Trait2", isDefault: true),
+                    .default(enabledTraits: ["Trait1", "Trait2"]),
+                    .trait(name: "Trait1"),
+                    .trait(name: "Trait2"),
                 ],
                 dependencies: [
                     .package(
@@ -268,8 +250,9 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(validationDiagnostics)
 
         XCTAssertEqual(manifest.traits, [
-            TraitDescription(name: "Trait1", isDefault: true),
-            TraitDescription(name: "Trait2", isDefault: true),
+            TraitDescription(name: "default", description: "The default traits of this package.", enabledTraits: ["Trait1", "Trait2"]),
+            TraitDescription(name: "Trait1"),
+            TraitDescription(name: "Trait2"),
         ])
         let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
         XCTAssertEqual(
@@ -278,7 +261,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
                 .init(name: "FooTrait1"),
                 .init(name: "FooTrait2", condition: .init(traits: ["Trait1"])),
                 .init(name: "FooTrait3", condition: .init(traits: ["Trait2"])),
-                .init(name: "defaults"),
+                .init(name: "default"),
             ]
         )
         XCTAssertEqual(
@@ -287,7 +270,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
                 .init(name: "BarTrait1"),
                 .init(name: "BarTrait2", condition: .init(traits: ["Trait1"])),
                 .init(name: "BarTrait3", condition: .init(traits: ["Trait2"])),
-                .init(name: "defaults"),
+                .init(name: "default"),
             ]
         )
         XCTAssertEqual(
@@ -296,7 +279,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
                 .init(name: "FooBarTrait1"),
                 .init(name: "FooBarTrait2", condition: .init(traits: ["Trait1"])),
                 .init(name: "FooBarTrait3", condition: .init(traits: ["Trait2"])),
-                .init(name: "defaults"),
+                .init(name: "default"),
             ]
         )
         XCTAssertEqual(

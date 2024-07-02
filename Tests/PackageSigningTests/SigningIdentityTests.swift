@@ -16,7 +16,7 @@ import _CryptoExtras // For RSA
 import Basics
 import Crypto
 @testable import PackageSigning
-import SPMTestSupport
+import _InternalTestSupport
 import X509
 
 final class SigningIdentityTests: XCTestCase {

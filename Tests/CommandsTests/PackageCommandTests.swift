@@ -21,7 +21,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
-import SPMTestSupport
+import _InternalTestSupport
 import Workspace
 import XCTest
 
@@ -810,13 +810,13 @@ final class PackageCommandTests: CommandsTestCase {
                 """
             )
 
-            _ = try await execute(["add-dependency", "--branch", "main", "https://github.com/apple/swift-syntax.git"], packagePath: path)
+            _ = try await execute(["add-dependency", "--branch", "main", "https://github.com/swiftlang/swift-syntax.git"], packagePath: path)
 
             let manifest = path.appending("Package.swift")
             XCTAssertFileExists(manifest)
             let contents: String = try fs.readFileContents(manifest)
 
-            XCTAssertMatch(contents, .contains(#".package(url: "https://github.com/apple/swift-syntax.git", branch: "main"),"#))
+            XCTAssertMatch(contents, .contains(#".package(url: "https://github.com/swiftlang/swift-syntax.git", branch: "main"),"#))
         }
     }
 
@@ -1368,7 +1368,7 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Test writing.
             try await execute(["config", "set-mirror", "--original", "https://github.com/foo/bar", "--mirror", "https://mygithub.com/foo/bar"], packagePath: packageRoot)
-            try await execute(["config", "set-mirror", "--original", "git@github.com:apple/swift-package-manager.git", "--mirror", "git@mygithub.com:foo/swift-package-manager.git"], packagePath: packageRoot)
+            try await execute(["config", "set-mirror", "--original", "git@github.com:swiftlang/swift-package-manager.git", "--mirror", "git@mygithub.com:foo/swift-package-manager.git"], packagePath: packageRoot)
             XCTAssertTrue(fs.isFile(configFile))
 
             // Test env override.
@@ -1380,7 +1380,7 @@ final class PackageCommandTests: CommandsTestCase {
             // Test reading.
             var (stdout, _) = try await execute(["config", "get-mirror", "--original", "https://github.com/foo/bar"], packagePath: packageRoot)
             XCTAssertEqual(stdout.spm_chomp(), "https://mygithub.com/foo/bar")
-            (stdout, _) = try await execute(["config", "get-mirror", "--original", "git@github.com:apple/swift-package-manager.git"], packagePath: packageRoot)
+            (stdout, _) = try await execute(["config", "get-mirror", "--original", "git@github.com:swiftlang/swift-package-manager.git"], packagePath: packageRoot)
             XCTAssertEqual(stdout.spm_chomp(), "git@mygithub.com:foo/swift-package-manager.git")
 
             func check(stderr: String, _ block: () async throws -> ()) async {
@@ -1401,7 +1401,7 @@ final class PackageCommandTests: CommandsTestCase {
                 try await execute(["config", "get-mirror", "--original", "https://github.com/foo/bar"], packagePath: packageRoot)
             }
             await check(stderr: "not found\n") {
-                try await execute(["config", "get-mirror", "--original", "git@github.com:apple/swift-package-manager.git"], packagePath: packageRoot)
+                try await execute(["config", "get-mirror", "--original", "git@github.com:swiftlang/swift-package-manager.git"], packagePath: packageRoot)
             }
 
             await check(stderr: "error: Mirror not found for 'foo'\n") {

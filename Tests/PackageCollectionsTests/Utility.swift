@@ -156,15 +156,14 @@ struct MockCollectionsProvider: PackageCollectionProvider {
         self.collectionsWithInvalidSignature = collectionsWithInvalidSignature
     }
 
-    func get(_ source: PackageCollectionsModel.CollectionSource, callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+    func get(_ source: PackageCollectionsModel.CollectionSource) async throws -> PackageCollectionsModel.Collection {
         if let collection = (self.collections.first { $0.source == source }) {
             if self.collectionsWithInvalidSignature?.contains(source) ?? false {
-                return callback(.failure(PackageCollectionError.invalidSignature))
+                throw PackageCollectionError.invalidSignature
             }
-            callback(.success(collection))
-        } else {
-            callback(.failure(NotFoundError("\(source)")))
+            return collection
         }
+        throw NotFoundError("\(source)")
     }
 }
 
@@ -179,14 +178,12 @@ struct MockMetadataProvider: PackageMetadataProvider {
 
     func get(
         identity: PackageIdentity,
-        location: String,
-        callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) -> Void
-    ) {
-        if let package = self.packages[identity] {
-            callback(.success(package), nil)
-        } else {
-            callback(.failure(NotFoundError("\(identity)")), nil)
+        location: String
+    ) async -> (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) {
+        guard let packageMetadata = self.packages[identity] else {
+            return (.failure(NotFoundError("\(identity)")), nil)
         }
+        return (.success(packageMetadata), nil)
     }
 }
 

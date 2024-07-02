@@ -18,6 +18,15 @@
 @_spi(ExperimentalTraits)
 @available(_PackageDescription, introduced: 999.0)
 public struct Trait: Hashable, ExpressibleByStringLiteral {
+    /// Declares the default traits for this package.
+    public static func `default`(enabledTraits: Set<String>) -> Self {
+        .init(
+            name: "default",
+            description: "The default traits of this package.",
+            enabledTraits: enabledTraits
+        )
+    }
+
     /// The trait's canonical name.
     ///
     /// This is used when enabling the trait or when referring to it from other modifiers in the manifest.
@@ -35,9 +44,6 @@ public struct Trait: Hashable, ExpressibleByStringLiteral {
     /// Use this to explain what functionality this trait enables.
     public var description: String?
 
-    /// A boolean indicating wether the trait is enabled by default.
-    public var isDefault: Bool
-
     /// A set of other traits of this package that this trait enables.
     public var enabledTraits: Set<String>
 
@@ -46,17 +52,14 @@ public struct Trait: Hashable, ExpressibleByStringLiteral {
     /// - Parameters:
     ///   - name: The trait's canonical name.
     ///   - description: The trait's description.
-    ///   - isDefault: A boolean indicating wether the trait is enabled by default.
     ///   - enabledTraits: A set of other traits of this package that this trait enables.
     public init(
         name: String,
         description: String? = nil,
-        isDefault: Bool = false,
         enabledTraits: Set<String> = []
     ) {
         self.name = name
         self.description = description
-        self.isDefault = isDefault
         self.enabledTraits = enabledTraits
     }
 
@@ -69,18 +72,15 @@ public struct Trait: Hashable, ExpressibleByStringLiteral {
     /// - Parameters:
     ///   - name: The trait's canonical name.
     ///   - description: The trait's description.
-    ///   - isDefault: A boolean indicating wether the trait is enabled by default.
     ///   - enabledTraits: A set of other traits of this package that this trait enables.
     public static func trait(
         name: String,
         description: String? = nil,
-        isDefault: Bool = false,
         enabledTraits: Set<String> = []
     ) -> Trait {
         .init(
             name: name,
             description: description,
-            isDefault: isDefault,
             enabledTraits: enabledTraits
         )
     }

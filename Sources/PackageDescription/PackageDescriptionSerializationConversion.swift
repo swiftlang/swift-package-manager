@@ -382,7 +382,6 @@ extension Serialization.Trait {
     init(_ trait: PackageDescription.Trait) {
         self.name = trait.name
         self.description = trait.description
-        self.isDefault = trait.isDefault
         self.enabledTraits = trait.enabledTraits
     }
 }

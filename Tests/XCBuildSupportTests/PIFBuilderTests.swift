@@ -19,7 +19,7 @@ import PackageGraph
 import PackageLoading
 @testable import PackageModel
 import SPMBuildCore
-import SPMTestSupport
+import _InternalTestSupport
 @testable import XCBuildSupport
 import XCTest
 

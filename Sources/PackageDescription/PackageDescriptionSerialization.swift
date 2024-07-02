@@ -270,7 +270,6 @@ enum Serialization {
     struct Trait: Hashable, Codable {
         let name: String
         let description: String?
-        let isDefault: Bool
         let enabledTraits: Set<String>
     }
 

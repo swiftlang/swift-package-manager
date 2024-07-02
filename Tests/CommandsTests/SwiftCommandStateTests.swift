@@ -19,7 +19,7 @@
 import func PackageGraph.loadModulesGraph
 
 @testable import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 import class TSCBasic.BufferedOutputByteStream

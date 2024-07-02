@@ -17,7 +17,7 @@ import Basics
 @testable import PackageCollections
 import PackageModel
 import SourceControl
-import SPMTestSupport
+import _InternalTestSupport
 
 import struct TSCUtility.Version
 
@@ -367,8 +367,6 @@ internal extension GitHubPackageMetadataProvider {
 
 private extension GitHubPackageMetadataProvider {
     func syncGet(identity: PackageIdentity, location: String) async throws -> Model.PackageBasicMetadata {
-        try await safe_async { callback in
-            self.get(identity: identity, location: location) { result, _ in callback(result) }
-        }
+        try await self.get(identity: identity, location: location).0.get()
     }
 }

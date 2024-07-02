@@ -16,7 +16,7 @@ extension Package.Dependency {
     @available(_PackageDescription, introduced: 999.0)
     public struct Trait: Hashable, Sendable, ExpressibleByStringLiteral {
         /// Enables all default traits of a package.
-        public static let defaults = Self.init(name: "defaults")
+        public static let defaults = Self.init(name: "default")
 
         /// A condition that limits the application of a dependencies trait.
         public struct Condition: Hashable, Sendable {

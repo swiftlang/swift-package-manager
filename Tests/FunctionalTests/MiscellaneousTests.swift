@@ -13,7 +13,7 @@
 import Basics
 import PackageModel
 import SourceControl
-import SPMTestSupport
+import _InternalTestSupport
 import Workspace
 import XCTest
 
@@ -339,9 +339,9 @@ final class MiscellaneousTestCase: XCTestCase {
         // Currently swift-ci does not build/install swift-driver before running
         // swift-package-manager tests which results in this test failing.
         // See the following additional discussion:
-        // - https://github.com/apple/swift/pull/69696
-        // - https://github.com/apple/swift/pull/61766
-        // - https://github.com/apple/swift-package-manager/pull/5842#issuecomment-1301632685
+        // - https://github.com/swiftlang/swift/pull/69696
+        // - https://github.com/swiftlang/swift/pull/61766
+        // - https://github.com/swiftlang/swift-package-manager/pull/5842#issuecomment-1301632685
         try await fixture(name: "Miscellaneous/LTO/SwiftAndCTargets") { fixturePath in
             /*let output =*/
             try await executeSwiftBuild(

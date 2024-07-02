@@ -350,9 +350,9 @@ extension Triple {
   /// `tripleVersion >= featureVersion`.
   ///
   /// - SeeAlso: `Triple.supports(_:)`
-  public struct FeatureAvailability {
-    
-    public enum Availability {
+public struct FeatureAvailability: Sendable {
+
+    public enum Availability: Sendable {
       case unavailable
       case available(since: Version)
       case availableInAllVersions

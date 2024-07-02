@@ -14,7 +14,7 @@ import Basics
 import Dispatch
 import PackageLoading
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 import enum TSCBasic.PathValidationError

@@ -15,7 +15,7 @@ import Foundation
 import Basics
 import PackageModel
 @testable import PackageSigning
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 import struct TSCUtility.Version

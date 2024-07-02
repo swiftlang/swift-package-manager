@@ -90,7 +90,7 @@ public func mockBuildParameters(
     linkerDeadStrip: Bool = true,
     linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil,
     omitFramePointers: Bool? = nil,
-    prepareForIndexing: Bool = false
+    prepareForIndexing: BuildParameters.PrepareForIndexingMode = .off
 ) -> BuildParameters {
     try! BuildParameters(
         destination: destination,
@@ -254,6 +254,29 @@ public func mockBuildPlan(
         observabilityScope: observabilityScope
     )
 }
+
+package func mockPluginTools(
+    plugins: IdentifiableSet<ResolvedModule>,
+    fileSystem: any FileSystem,
+    buildParameters: BuildParameters,
+    hostTriple: Basics.Triple
+) throws -> [ResolvedModule.ID: [String: PluginTool]] {
+    var accessibleToolsPerPlugin: [ResolvedModule.ID: [String: PluginTool]] = [:]
+    for plugin in plugins where accessibleToolsPerPlugin[plugin.id] == nil {
+        let accessibleTools = try plugin.preparePluginTools(
+            fileSystem: fileSystem,
+            environment: buildParameters.buildEnvironment,
+            for: hostTriple
+        ) { name, path in
+            buildParameters.buildPath.appending(path)
+        }
+
+        accessibleToolsPerPlugin[plugin.id] = accessibleTools
+    }
+
+    return accessibleToolsPerPlugin
+}
+
 enum BuildError: Swift.Error {
     case error(String)
 }

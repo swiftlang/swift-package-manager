@@ -13,7 +13,7 @@
 import Basics
 import Commands
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 final class TestCommandTests: CommandsTestCase {

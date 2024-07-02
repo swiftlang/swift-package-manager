@@ -13,7 +13,7 @@
 @testable import Basics
 @testable import PackageLoading
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 @available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)

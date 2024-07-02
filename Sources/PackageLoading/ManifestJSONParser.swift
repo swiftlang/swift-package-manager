@@ -605,7 +605,6 @@ extension TraitDescription {
         self.init(
             name: trait.name,
             description: trait.description,
-            isDefault: trait.isDefault,
             enabledTraits: trait.enabledTraits
         )
     }
