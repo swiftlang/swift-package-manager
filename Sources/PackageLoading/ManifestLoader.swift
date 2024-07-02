@@ -977,6 +977,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
                         // Return now if there was an error.
                         if compilerResult.exitStatus != .terminated(code: 0) {
+                            evaluationResult.compilerOutput = (evaluationResult.compilerOutput ?? "") + " (compiler exited with \(compilerResult.exitStatus))"
                             return completion(.success(evaluationResult))
                         }
 
