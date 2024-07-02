@@ -66,7 +66,8 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
     /// Path to the temporary directory for this product.
     var tempsPath: AbsolutePath {
-        self.buildParameters.buildPath.appending(component: self.product.name + ".product")
+        let suffix = buildParameters.suffix
+        return self.buildParameters.buildPath.appending(component: "\(self.product.name)\(suffix).product")
     }
 
     /// Path to the link filelist file.

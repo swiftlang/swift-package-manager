@@ -215,5 +215,7 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         let manifest = try builder.generateManifest(at: "/manifest")
 
         XCTAssertNotNil(manifest.commands["C.SwiftSyntax-aarch64-unknown-linux-gnu-debug-tool.module"])
+        // Ensure that Objects.LinkFileList is -tool suffixed.
+        XCTAssertNotNil(manifest.commands["/path/to/build/aarch64-unknown-linux-gnu/debug/MMIOMacros-tool.product/Objects.LinkFileList"])
     }
 }
