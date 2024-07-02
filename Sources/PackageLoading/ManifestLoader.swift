@@ -1081,7 +1081,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                                 if runResult.exitStatus != .terminated(code: 0) {
                                     // TODO: should this simply be an error?
                                     // return completion(.failure(AsyncProcessResult.Error.nonZeroExit(runResult)))
-                                    evaluationResult.errorOutput = evaluationResult.compilerOutput
+                                    evaluationResult.errorOutput = (evaluationResult.compilerOutput ?? "<no compiler output>") + " running the manifest executable exited with a non-zero exit code: \(runResult.exitStatus)"
                                     return completion(.success(evaluationResult))
                                 }
 
