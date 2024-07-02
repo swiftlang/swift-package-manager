@@ -311,6 +311,17 @@ extension LegacyHTTPClient {
         _ url: URL,
         headers: HTTPClientHeaders = .init(),
         options: Request.Options = .init(),
+        observabilityScope: ObservabilityScope? = .none
+    ) async throws -> Response {
+        try await safe_async {
+            self.head(url, headers: headers, options: options, completion: $0)
+        }
+    }
+    @available(*, noasync, message: "Use the async alternative")
+    public func head(
+        _ url: URL,
+        headers: HTTPClientHeaders = .init(),
+        options: Request.Options = .init(),
         observabilityScope: ObservabilityScope? = .none,
         completion: @Sendable @escaping (Result<Response, Error>) -> Void
     ) {
