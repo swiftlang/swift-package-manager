@@ -268,9 +268,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         toolsBuildParameters: BuildParameters,
         graph: ModulesGraph,
         pluginConfiguration: PluginConfiguration? = nil,
+        pluginTools: [ResolvedModule.ID: [String: PluginTool]] = [:],
         additionalFileRules: [FileRuleDescription] = [],
-        buildToolPluginInvocationResults: [ResolvedModule.ID: [BuildToolPluginInvocationResult]] = [:],
-        prebuildCommandResults: [ResolvedModule.ID: [PrebuildCommandResult]] = [:],
+        pkgConfigDirectories: [AbsolutePath] = [],
         disableSandbox: Bool = false,
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope
@@ -278,11 +278,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         self.destinationBuildParameters = destinationBuildParameters
         self.toolsBuildParameters = toolsBuildParameters
         self.graph = graph
-        self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
-        self.prebuildCommandResults = prebuildCommandResults
         self.shouldDisableSandbox = disableSandbox
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Plan")
+
+        var buildToolPluginInvocationResults: [ResolvedModule.ID: [BuildToolPluginInvocationResult]] = [:]
+        var prebuildCommandResults: [ResolvedModule.ID: [PrebuildCommandResult]] = [:]
 
         var productMap: [ResolvedProduct.ID: (product: ResolvedProduct, buildDescription: ProductBuildDescription)] =
             [:]
@@ -357,6 +358,33 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             // Determine the appropriate tools version to use for the target.
             // This can affect what flags to pass and other semantics.
             let toolsVersion = graph.package(for: target)?.manifest.toolsVersion ?? .v5_5
+
+            if let pluginConfiguration, !buildParameters.shouldSkipBuilding {
+                let pluginInvocationResults = try Self.invokeBuildToolPlugins(
+                    for: target,
+                    configuration: pluginConfiguration,
+                    buildParameters: toolsBuildParameters,
+                    modulesGraph: graph,
+                    tools: pluginTools,
+                    additionalFileRules: additionalFileRules,
+                    pkgConfigDirectories: pkgConfigDirectories,
+                    fileSystem: fileSystem,
+                    observabilityScope: observabilityScope,
+                    surfaceDiagnostics: true
+                )
+
+                if pluginInvocationResults.contains(where: { !$0.succeeded }) {
+                    throw StringError("build planning stopped due to build-tool plugin failures")
+                }
+
+                buildToolPluginInvocationResults[target.id] = pluginInvocationResults
+                prebuildCommandResults[target.id] = try Self.runPrebuildCommands(
+                    using: pluginConfiguration,
+                    for: pluginInvocationResults,
+                    fileSystem: fileSystem,
+                    observabilityScope: observabilityScope
+                )
+            }
 
             switch target.underlying {
             case is SwiftModule:
@@ -471,6 +499,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 self.derivedTestTargetsMap[item.product.id] = derivedTestTargets
             }
         }
+
+        self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
+        self.prebuildCommandResults = prebuildCommandResults
 
         self.productMap = productMap.mapValues(\.buildDescription)
         self.targetMap = targetMap
@@ -691,6 +722,202 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
         }
         return inputs
+    }
+}
+
+extension BuildPlan {
+    /// Applies plugins to the given module as needed. Each plugin is passed an input context that provides
+    /// information about the module to which it is being applied (along with some information about that
+    /// module's dependency closure). The plugin is expected to generate an output in the form of commands
+    /// that will later be run before or during the build, and can also emit debug output and diagnostics.
+    ///
+    /// Each result returned by this function includes an ordered list of commands to run before the build
+    /// of the module, and another list of the commands to incorporate into the build graph so they run
+    /// at the appropriate times during the build.
+    ///
+    /// Any warnings and errors related to running the plugin will be emitted to `diagnostics` when
+    /// `surfaceDiagnostics` parameter is set to `true`.
+    ///
+    /// Note that warnings emitted by the the plugin itself will be returned in the `BuildToolPluginInvocationResult`
+    /// structures for later showing to the user, and not added directly to the diagnostics engine.
+    static func invokeBuildToolPlugins(
+        for module: ResolvedModule,
+        configuration: PluginConfiguration,
+        buildParameters: BuildParameters,
+        modulesGraph: ModulesGraph,
+        tools: [ResolvedModule.ID: [String: PluginTool]],
+        additionalFileRules: [FileRuleDescription],
+        pkgConfigDirectories: [AbsolutePath],
+        fileSystem: any FileSystem,
+        observabilityScope: ObservabilityScope,
+        surfaceDiagnostics: Bool = false
+    ) throws -> [BuildToolPluginInvocationResult] {
+        let outputDir = configuration.workDirectory.appending("outputs")
+
+        /// Determine the package that contains the target.
+        guard let package = modulesGraph.package(for: module) else {
+            throw InternalError("could not determine package for module \(self)")
+        }
+
+        // Apply each build tool plugin used by the target in order,
+        // creating a list of results (one for each plugin usage).
+        var buildToolPluginResults: [BuildToolPluginInvocationResult] = []
+        for plugin in module.pluginDependencies(satisfying: buildParameters.buildEnvironment) {
+            let pluginModule = plugin.underlying as! PluginModule
+
+            // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
+            // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
+            guard let accessibleTools = tools[plugin.id] else {
+                throw InternalError("No tools found for plugin \(plugin.name)")
+            }
+
+            // Assign a plugin working directory based on the package, target, and plugin.
+            let pluginOutputDir = outputDir.appending(
+                components: [
+                    package.identity.description,
+                    module.name,
+                    module.buildTriple.rawValue,
+                    plugin.name,
+                ]
+            )
+
+            // Determine the set of directories under which plugins are allowed to write.
+            // We always include just the output directory, and for now there is no possibility
+            // of opting into others.
+            let writableDirectories = [outputDir]
+
+            // Determine a set of further directories under which plugins are never allowed
+            // to write, even if they are covered by other rules (such as being able to write
+            // to the temporary directory).
+            let readOnlyDirectories = [package.path]
+
+            // In tools version 6.0 and newer, we vend the list of files generated by previous plugins.
+            let pluginDerivedSources: Sources
+            let pluginDerivedResources: [Resource]
+            if package.manifest.toolsVersion >= .v6_0 {
+                // Set up dummy observability because we don't want to emit diagnostics for this before the actual
+                // build.
+                let observability = ObservabilitySystem { _, _ in }
+                // Compute the generated files based on all results we have computed so far.
+                (pluginDerivedSources, pluginDerivedResources) = ModulesGraph.computePluginGeneratedFiles(
+                    target: module,
+                    toolsVersion: package.manifest.toolsVersion,
+                    additionalFileRules: additionalFileRules,
+                    buildParameters: buildParameters,
+                    buildToolPluginInvocationResults: buildToolPluginResults,
+                    prebuildCommandResults: [],
+                    observabilityScope: observability.topScope
+                )
+            } else {
+                pluginDerivedSources = .init(paths: [], root: package.path)
+                pluginDerivedResources = []
+            }
+
+            let result = try temp_await {
+                pluginModule.invoke(
+                    module: plugin,
+                    action: .createBuildToolCommands(
+                        package: package,
+                        target: module,
+                        pluginGeneratedSources: pluginDerivedSources.paths,
+                        pluginGeneratedResources: pluginDerivedResources.map(\.path)
+                    ),
+                    buildEnvironment: buildParameters.buildEnvironment,
+                    scriptRunner: configuration.scriptRunner,
+                    workingDirectory: package.path,
+                    outputDirectory: pluginOutputDir,
+                    toolSearchDirectories: [buildParameters.toolchain.swiftCompilerPath.parentDirectory],
+                    accessibleTools: accessibleTools,
+                    writableDirectories: writableDirectories,
+                    readOnlyDirectories: readOnlyDirectories,
+                    allowNetworkConnections: [],
+                    pkgConfigDirectories: pkgConfigDirectories,
+                    sdkRootPath: buildParameters.toolchain.sdkRootPath,
+                    fileSystem: fileSystem,
+                    modulesGraph: modulesGraph,
+                    observabilityScope: observabilityScope,
+                    completion: $0
+                )
+            }
+
+            if surfaceDiagnostics {
+                let diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter {
+                    var metadata = ObservabilityMetadata()
+                    metadata.moduleName = module.name
+                    metadata.pluginName = result.plugin.name
+                    return metadata
+                }
+
+                for line in result.textOutput.split(whereSeparator: { $0.isNewline }) {
+                    diagnosticsEmitter.emit(info: line)
+                }
+
+                for diag in result.diagnostics {
+                    diagnosticsEmitter.emit(diag)
+                }
+            }
+
+            // Add a BuildToolPluginInvocationResult to the mapping.
+            buildToolPluginResults.append(result)
+        }
+
+        return buildToolPluginResults
+    }
+
+    /// Runs any prebuild commands associated with the given list of plugin invocation results,
+    /// in order, and returns the results of running those prebuild commands.
+    fileprivate static func runPrebuildCommands(
+        using pluginConfiguration: PluginConfiguration,
+        for pluginResults: [BuildToolPluginInvocationResult],
+        fileSystem: any FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws -> [PrebuildCommandResult] {
+        // Run through all the commands from all the plugin usages in the target.
+        try pluginResults.map { pluginResult in
+            // As we go we will collect a list of prebuild output directories whose contents should be input to the
+            // build, and a list of the files in those directories after running the commands.
+            var derivedFiles: [AbsolutePath] = []
+            var prebuildOutputDirs: [AbsolutePath] = []
+            for command in pluginResult.prebuildCommands {
+                observabilityScope
+                    .emit(
+                        info: "Running " +
+                            (command.configuration.displayName ?? command.configuration.executable.basename)
+                    )
+
+                // Run the command configuration as a subshell. This doesn't return until it is done.
+                // TODO: We need to also use any working directory, but that support isn't yet available on all platforms at a lower level.
+                var commandLine = [command.configuration.executable.pathString] + command.configuration.arguments
+                if !pluginConfiguration.disableSandbox {
+                    commandLine = try Sandbox.apply(
+                        command: commandLine,
+                        fileSystem: fileSystem,
+                        strictness: .writableTemporaryDirectory,
+                        writableDirectories: [pluginResult.pluginOutputDirectory]
+                    )
+                }
+                let processResult = try AsyncProcess.popen(
+                    arguments: commandLine,
+                    environment: command.configuration.environment
+                )
+                let output = try processResult.utf8Output() + processResult.utf8stderrOutput()
+                if processResult.exitStatus != .terminated(code: 0) {
+                    throw StringError("failed: \(command)\n\n\(output)")
+                }
+
+                // Add any files found in the output directory declared for the prebuild command after the command ends.
+                let outputFilesDir = command.outputFilesDirectory
+                if let swiftFiles = try? fileSystem.getDirectoryContents(outputFilesDir).sorted() {
+                    derivedFiles.append(contentsOf: swiftFiles.map { outputFilesDir.appending(component: $0) })
+                }
+
+                // Add the output directory to the list of directories whose structure should affect the build plan.
+                prebuildOutputDirs.append(outputFilesDir)
+            }
+
+            // Add the results of running any prebuild commands for this invocation.
+            return PrebuildCommandResult(derivedFiles: derivedFiles, outputDirectories: prebuildOutputDirs)
+        }
     }
 }
 

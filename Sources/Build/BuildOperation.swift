@@ -734,68 +734,40 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     private func plan(subset: BuildSubset? = nil) throws -> (description: BuildDescription, manifest: LLBuildManifest) {
         // Load the package graph.
         let graph = try getPackageGraph()
-        let buildToolPluginInvocationResults: [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])]
-        let prebuildCommandResults: [ResolvedModule.ID: [PrebuildCommandResult]]
-        // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
+
+        let pluginTools: [ResolvedModule.ID: [String: PluginTool]]
+        // FIXME: This is unfortunate but we need to build plugin tools upfront at the moment because
+        // llbuild doesn't support dynamic dependency detection. In order to construct a manifest
+        // we need to build and invoke all of the build-tool plugins and capture their outputs in
+        // `BuildPlan`.
         if let pluginConfiguration: PluginConfiguration, !self.config.shouldSkipBuilding(for: .target) {
             let pluginsPerModule = graph.pluginsPerModule(
                 satisfying: self.config.buildEnvironment(for: .host)
             )
 
-            let pluginTools = try buildPluginTools(
+            pluginTools = try buildPluginTools(
                 graph: graph,
                 pluginsPerModule: pluginsPerModule,
                 hostTriple: try pluginConfiguration.scriptRunner.hostTriple
             )
-
-            buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
-                pluginsPerTarget: pluginsPerModule,
-                pluginTools: pluginTools,
-                outputDir: pluginConfiguration.workDirectory.appending("outputs"),
-                buildParameters: self.config.toolsBuildParameters,
-                additionalFileRules: self.additionalFileRules,
-                toolSearchDirectories: [self.config.toolchain(for: .host).swiftCompilerPath.parentDirectory],
-                pkgConfigDirectories: self.pkgConfigDirectories,
-                pluginScriptRunner: pluginConfiguration.scriptRunner,
-                observabilityScope: self.observabilityScope,
-                fileSystem: self.fileSystem
-            )
-
-            // Surface any diagnostics from build tool plugins.
-            var succeeded = true
-            for (_, (target, results)) in buildToolPluginInvocationResults {
-                // There is one result for each plugin that gets applied to a target.
-                for result in results {
-                    let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
-                        var metadata = ObservabilityMetadata()
-                        metadata.moduleName = target.name
-                        metadata.pluginName = result.plugin.name
-                        return metadata
-                    }
-                    for line in result.textOutput.split(whereSeparator: { $0.isNewline }) {
-                        diagnosticsEmitter.emit(info: line)
-                    }
-                    for diag in result.diagnostics {
-                        diagnosticsEmitter.emit(diag)
-                    }
-                    succeeded = succeeded && result.succeeded
-                }
-
-                if !succeeded {
-                    throw StringError("build stopped due to build-tool plugin failures")
-                }
-            }
-
-            // Run any prebuild commands provided by build tool plugins. Any failure stops the build.
-            prebuildCommandResults = try graph.reachableModules.reduce(into: [:], { partial, target in
-                partial[target.id] = try buildToolPluginInvocationResults[target.id].map {
-                    try self.runPrebuildCommands(for: $0.results)
-                }
-            })
         } else {
-            buildToolPluginInvocationResults = [:]
-            prebuildCommandResults = [:]
+            pluginTools = [:]
         }
+
+        // Create the build plan based on the modules graph and any information from plugins.
+        let plan = try BuildPlan(
+            destinationBuildParameters: self.config.destinationBuildParameters,
+            toolsBuildParameters: self.config.buildParameters(for: .host),
+            graph: graph,
+            pluginConfiguration: self.pluginConfiguration,
+            pluginTools: pluginTools,
+            additionalFileRules: additionalFileRules,
+            pkgConfigDirectories: pkgConfigDirectories,
+            disableSandbox: self.pluginConfiguration?.disableSandbox ?? false,
+            fileSystem: self.fileSystem,
+            observabilityScope: self.observabilityScope
+        )
+        self._buildPlan = plan
 
         // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins, once we know what files they handled.
         // rdar://113256834 This fix works for the plugins that do not have PreBuildCommands.
@@ -809,7 +781,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         for module in targetsToConsider {
             // Subtract out any that were inputs to any commands generated by plugins.
-            if let pluginResults = buildToolPluginInvocationResults[module.id]?.results {
+            if let pluginResults = plan.buildToolPluginInvocationResults[module.id] {
                 diagnoseUnhandledFiles(
                     modulesGraph: graph,
                     module: module,
@@ -817,21 +789,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 )
             }
         }
-
-        // Create the build plan based, on the graph and any information from plugins.
-        let plan = try BuildPlan(
-            destinationBuildParameters: self.config.destinationBuildParameters,
-            toolsBuildParameters: self.config.buildParameters(for: .host),
-            graph: graph,
-            pluginConfiguration: self.pluginConfiguration,
-            additionalFileRules: additionalFileRules,
-            buildToolPluginInvocationResults: buildToolPluginInvocationResults.mapValues(\.results),
-            prebuildCommandResults: prebuildCommandResults,
-            disableSandbox: self.pluginConfiguration?.disableSandbox ?? false,
-            fileSystem: self.fileSystem,
-            observabilityScope: self.observabilityScope
-        )
-        self._buildPlan = plan
 
         let (buildDescription, buildManifest) = try BuildDescription.create(
             from: plan,
@@ -943,49 +900,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         return (buildSystem: llbuildSystem, tracker: progressTracker)
     }
 
-    /// Runs any prebuild commands associated with the given list of plugin invocation results, in order, and returns the
-    /// results of running those prebuild commands.
-    private func runPrebuildCommands(for pluginResults: [BuildToolPluginInvocationResult]) throws -> [PrebuildCommandResult] {
-        guard let pluginConfiguration = self.pluginConfiguration else {
-            throw InternalError("unknown plugin script runner")
-
-        }
-        // Run through all the commands from all the plugin usages in the target.
-        return try pluginResults.map { pluginResult in
-            // As we go we will collect a list of prebuild output directories whose contents should be input to the build,
-            // and a list of the files in those directories after running the commands.
-            var derivedFiles: [AbsolutePath] = []
-            var prebuildOutputDirs: [AbsolutePath] = []
-            for command in pluginResult.prebuildCommands {
-                self.observabilityScope.emit(info: "Running " + (command.configuration.displayName ?? command.configuration.executable.basename))
-
-                // Run the command configuration as a subshell. This doesn't return until it is done.
-                // TODO: We need to also use any working directory, but that support isn't yet available on all platforms at a lower level.
-                var commandLine = [command.configuration.executable.pathString] + command.configuration.arguments
-                if !pluginConfiguration.disableSandbox {
-                    commandLine = try Sandbox.apply(command: commandLine, fileSystem: self.fileSystem, strictness: .writableTemporaryDirectory, writableDirectories: [pluginResult.pluginOutputDirectory])
-                }
-                let processResult = try AsyncProcess.popen(arguments: commandLine, environment: command.configuration.environment)
-                let output = try processResult.utf8Output() + processResult.utf8stderrOutput()
-                if processResult.exitStatus != .terminated(code: 0) {
-                    throw StringError("failed: \(command)\n\n\(output)")
-                }
-
-                // Add any files found in the output directory declared for the prebuild command after the command ends.
-                let outputFilesDir = command.outputFilesDirectory
-                if let swiftFiles = try? self.fileSystem.getDirectoryContents(outputFilesDir).sorted() {
-                    derivedFiles.append(contentsOf: swiftFiles.map{ outputFilesDir.appending(component: $0) })
-                }
-
-                // Add the output directory to the list of directories whose structure should affect the build plan.
-                prebuildOutputDirs.append(outputFilesDir)
-            }
-
-            // Add the results of running any prebuild commands for this invocation.
-            return PrebuildCommandResult(derivedFiles: derivedFiles, outputDirectories: prebuildOutputDirs)
-        }
-    }
-
     public func provideBuildErrorAdvice(for target: String, command: String, message: String) -> String? {
         // Find the target for which the error was emitted.  If we don't find it, we can't give any advice.
         guard let _ = self._buildPlan?.targets.first(where: { $0.target.name == target }) else { return nil }
@@ -1075,8 +989,6 @@ extension BuildOperation {
             graph: graph,
             pluginConfiguration: nil,
             additionalFileRules: [],
-            buildToolPluginInvocationResults: [:],
-            prebuildCommandResults: [:],
             fileSystem: config.fileSystem,
             observabilityScope: config.observabilityScope
         )

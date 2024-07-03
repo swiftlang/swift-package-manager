@@ -25,6 +25,9 @@ import _InternalTestSupport
 import Workspace
 import XCTest
 
+@testable import class Build.BuildPlan
+import struct Build.PluginConfiguration
+
 import struct TSCUtility.SerializedDiagnostics
 
 final class PluginInvocationTests: XCTestCase {
@@ -1335,22 +1338,40 @@ final class PluginInvocationTests: XCTestCase {
             plugins.forEach { result.insert($0) }
         }
 
-        return try graph.invokeBuildToolPlugins(
-            pluginsPerTarget: pluginsPerModule,
-            pluginTools: mockPluginTools(
-                plugins: plugins,
-                fileSystem: fileSystem,
-                buildParameters: buildParameters,
-                hostTriple: hostTriple
-            ),
-            outputDir: outputDir,
-            buildParameters: buildParameters,
-            additionalFileRules: [],
-            toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
-            pkgConfigDirectories: [],
-            pluginScriptRunner: pluginScriptRunner,
-            observabilityScope: observabilityScope,
-            fileSystem: fileSystem
+        var pluginInvocationResults: [ResolvedModule.ID: (
+            target: ResolvedModule,
+            results: [BuildToolPluginInvocationResult]
+        )] = [:]
+
+        let pluginConfiguration = PluginConfiguration(
+            scriptRunner: pluginScriptRunner,
+            workDirectory: outputDir.parentDirectory,
+            disableSandbox: false
         )
+
+        for (moduleID, _) in pluginsPerModule {
+            let module = graph.allModules[moduleID]!
+
+            let results = try BuildPlan.invokeBuildToolPlugins(
+                for: module,
+                configuration: pluginConfiguration,
+                buildParameters: buildParameters,
+                modulesGraph: graph,
+                tools: mockPluginTools(
+                    plugins: plugins,
+                    fileSystem: fileSystem,
+                    buildParameters: buildParameters,
+                    hostTriple: hostTriple
+                ),
+                additionalFileRules: [],
+                pkgConfigDirectories: [],
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope
+            )
+
+            pluginInvocationResults[moduleID] = (target: module, results: results)
+        }
+
+        return pluginInvocationResults
     }
 }

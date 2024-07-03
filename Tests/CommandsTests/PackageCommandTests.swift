@@ -1743,7 +1743,7 @@ final class PackageCommandTests: CommandsTestCase {
                 }
                 XCTAssertMatch(stderr, .contains("This is text from the plugin"))
                 XCTAssertMatch(stderr, .contains("error: This is an error from the plugin"))
-                XCTAssertMatch(stderr, .contains("build stopped due to build-tool plugin failures"))
+                XCTAssertMatch(stderr, .contains("build planning stopped due to build-tool plugin failures"))
             }
         }
     }
