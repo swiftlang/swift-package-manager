@@ -83,6 +83,7 @@ extension PluginModule {
             )
         }
     }
+
     /// Invokes the plugin by compiling its source code (if needed) and then running it as a subprocess. The specified
     /// plugin action determines which entry point is called in the subprocess, and the package and the tool mapping
     /// determine the context that is available to the plugin.
@@ -368,6 +369,138 @@ extension PluginModule {
                 })
         }
     }
+
+    package func invoke(
+        module: ResolvedModule,
+        action: PluginAction,
+        buildEnvironment: BuildEnvironment,
+        scriptRunner: PluginScriptRunner,
+        workingDirectory: AbsolutePath,
+        outputDirectory: AbsolutePath,
+        toolSearchDirectories: [AbsolutePath],
+        accessibleTools: [String: PluginTool],
+        writableDirectories: [AbsolutePath],
+        readOnlyDirectories: [AbsolutePath],
+        allowNetworkConnections: [SandboxNetworkPermission],
+        pkgConfigDirectories: [AbsolutePath],
+        sdkRootPath: AbsolutePath?,
+        fileSystem: FileSystem,
+        modulesGraph: ModulesGraph,
+        observabilityScope: ObservabilityScope
+    ) async throws -> BuildToolPluginInvocationResult {
+        try await safe_async {
+            self.invoke(
+                module: module,
+                action: action,
+                buildEnvironment: buildEnvironment,
+                scriptRunner: scriptRunner,
+                workingDirectory: workingDirectory,
+                outputDirectory: outputDirectory,
+                toolSearchDirectories: toolSearchDirectories,
+                accessibleTools: accessibleTools,
+                writableDirectories: writableDirectories,
+                readOnlyDirectories: readOnlyDirectories,
+                allowNetworkConnections: allowNetworkConnections,
+                pkgConfigDirectories: pkgConfigDirectories,
+                sdkRootPath: sdkRootPath,
+                fileSystem: fileSystem,
+                modulesGraph: modulesGraph,
+                observabilityScope: observabilityScope,
+                completion: $0
+            )
+        }
+    }
+
+    /// This is a convenient way to get results of the plugin invocation without having
+    /// to deal with delegates and other internal details.
+    @available(*, noasync, message: "Use the async alternative")
+    package func invoke(
+        module: ResolvedModule,
+        action: PluginAction,
+        buildEnvironment: BuildEnvironment,
+        scriptRunner: PluginScriptRunner,
+        workingDirectory: AbsolutePath,
+        outputDirectory: AbsolutePath,
+        toolSearchDirectories: [AbsolutePath],
+        accessibleTools: [String: PluginTool],
+        writableDirectories: [AbsolutePath],
+        readOnlyDirectories: [AbsolutePath],
+        allowNetworkConnections: [SandboxNetworkPermission],
+        pkgConfigDirectories: [AbsolutePath],
+        sdkRootPath: AbsolutePath?,
+        fileSystem: FileSystem,
+        modulesGraph: ModulesGraph,
+        observabilityScope: ObservabilityScope,
+        completion: @escaping (Result<BuildToolPluginInvocationResult, Error>) -> Void
+    ) {
+        /// Determine the package that contains the target.
+        guard let package = modulesGraph.package(for: module) else {
+            completion(.failure(InternalError("Could not find package for \(self)")))
+            return
+        }
+
+        // Set up a delegate to handle callbacks from the build tool plugin.
+        // We'll capture free-form text output as well as defined commands and diagnostics.
+        let delegateQueue = DispatchQueue(label: "plugin-invocation")
+
+        // Determine additional input dependencies for any plugin commands,
+        // based on any executables the plugin target depends on.
+        let toolPaths = accessibleTools.values.map(\.path).sorted()
+
+        let delegate = DefaultPluginInvocationDelegate(
+            fileSystem: fileSystem,
+            delegateQueue: delegateQueue,
+            toolPaths: toolPaths,
+            builtToolNames: accessibleTools.map(\.key)
+        )
+
+        let startTime = DispatchTime.now()
+
+        self.invoke(
+            action: action,
+            buildEnvironment: buildEnvironment,
+            scriptRunner: scriptRunner,
+            workingDirectory: workingDirectory,
+            outputDirectory: outputDirectory,
+            toolSearchDirectories: toolSearchDirectories,
+            accessibleTools: accessibleTools,
+            writableDirectories: writableDirectories,
+            readOnlyDirectories: readOnlyDirectories,
+            allowNetworkConnections: allowNetworkConnections,
+            pkgConfigDirectories: pkgConfigDirectories,
+            sdkRootPath: sdkRootPath,
+            fileSystem: fileSystem,
+            modulesGraph: modulesGraph,
+            observabilityScope: observabilityScope,
+            callbackQueue: delegateQueue,
+            delegate: delegate,
+            completion: {
+                let duration = startTime.distance(to: .now())
+
+                let success: Bool = switch $0 {
+                case .success(let result):
+                    result
+                case .failure:
+                    false
+                }
+
+                let invocationResult = BuildToolPluginInvocationResult(
+                    plugin: self,
+                    pluginOutputDirectory: outputDirectory,
+                    package: package,
+                    target: module,
+                    succeeded: success,
+                    duration: duration,
+                    diagnostics: delegate.diagnostics,
+                    textOutput: String(decoding: delegate.outputData, as: UTF8.self),
+                    buildCommands: delegate.buildCommands,
+                    prebuildCommands: delegate.prebuildCommands
+                )
+
+                completion(.success(invocationResult))
+            }
+        )
+    }
 }
 
 fileprivate extension HostToPluginMessage {
@@ -441,114 +574,42 @@ extension ModulesGraph {
                 throw InternalError("could not determine package for target \(module)")
             }
 
-            // Apply each build tool plugin used by the target in order, creating a list of results (one for each plugin usage).
+            // Apply each build tool plugin used by the target in order,
+            // creating a list of results (one for each plugin usage).
             var buildToolPluginResults: [BuildToolPluginInvocationResult] = []
-            for plugin  in plugins {
-                let pluginTarget = plugin.underlying as! PluginModule
+            for plugin in plugins {
+                let pluginModule = plugin.underlying as! PluginModule
                 // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
                 // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
                 guard let accessibleTools = pluginTools[plugin.id] else {
-                    throw InternalError("No tools found for plugin \(pluginTarget.name)")
+                    throw InternalError("No tools found for plugin \(plugin.name)")
                 }
-                
-                // Determine additional input dependencies for any plugin commands, based on any executables the plugin target depends on.
-                let toolPaths = accessibleTools.values.map { $0.path }.sorted()
 
                 // Assign a plugin working directory based on the package, target, and plugin.
-                let pluginOutputDir = outputDir.appending(components: package.identity.description, module.name, module.buildTriple.rawValue, pluginTarget.name)
+                let pluginOutputDir = outputDir.appending(
+                    components: package.identity.description,
+                    module.name,
+                    module.buildTriple.rawValue,
+                    plugin.name
+                )
 
-                // Determine the set of directories under which plugins are allowed to write. We always include just the output directory, and for now there is no possibility of opting into others.
+                // Determine the set of directories under which plugins are allowed to write. We always include just the
+                // output directory, and for now there is no possibility of opting into others.
                 let writableDirectories = [outputDir]
 
-                // Determine a set of further directories under which plugins are never allowed to write, even if they are covered by other rules (such as being able to write to the temporary directory).
+                // Determine a set of further directories under which plugins are never allowed to write, even if they
+                // are covered by other rules (such as being able to write to the temporary directory).
                 let readOnlyDirectories = [package.path]
-
-                // Set up a delegate to handle callbacks from the build tool plugin. We'll capture free-form text output as well as defined commands and diagnostics.
-                let delegateQueue = DispatchQueue(label: "plugin-invocation")
-                class PluginDelegate: PluginInvocationDelegate {
-                    let fileSystem: FileSystem
-                    let delegateQueue: DispatchQueue
-                    let toolPaths: [AbsolutePath]
-                    let builtToolNames: [String]
-                    var outputData = Data()
-                    var diagnostics = [Basics.Diagnostic]()
-                    var buildCommands = [BuildToolPluginInvocationResult.BuildCommand]()
-                    var prebuildCommands = [BuildToolPluginInvocationResult.PrebuildCommand]()
-                    
-                    init(fileSystem: FileSystem, delegateQueue: DispatchQueue, toolPaths: [AbsolutePath], builtToolNames: [String]) {
-                        self.fileSystem = fileSystem
-                        self.delegateQueue = delegateQueue
-                        self.toolPaths = toolPaths
-                        self.builtToolNames = builtToolNames
-                    }
-                    
-                    func pluginCompilationStarted(commandLine: [String], environment: [String: String]) {
-                    }
-                    
-                    func pluginCompilationEnded(result: PluginCompilationResult) {
-                    }
-                    
-                    func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult) {
-                    }
-
-                    func pluginEmittedOutput(_ data: Data) {
-                        dispatchPrecondition(condition: .onQueue(delegateQueue))
-                        outputData.append(contentsOf: data)
-                    }
-
-                    func pluginEmittedProgress(_ message: String) {}
-
-                    func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
-                        dispatchPrecondition(condition: .onQueue(delegateQueue))
-                        diagnostics.append(diagnostic)
-                    }
-
-                    func pluginDefinedBuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, inputFiles: [AbsolutePath], outputFiles: [AbsolutePath]) {
-                        dispatchPrecondition(condition: .onQueue(delegateQueue))
-                        buildCommands.append(.init(
-                            configuration: .init(
-                                displayName: displayName,
-                                executable: executable,
-                                arguments: arguments,
-                                environment: .init(environment),
-                                workingDirectory: workingDirectory),
-                            inputFiles: toolPaths + inputFiles,
-                            outputFiles: outputFiles))
-                    }
-                    
-                    func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool {
-                        dispatchPrecondition(condition: .onQueue(delegateQueue))
-                        // executable must exist before running prebuild command
-                        if builtToolNames.contains(executable.basename) {
-                            diagnostics.append(.error("a prebuild command cannot use executables built from source, including executable target '\(executable.basename)'"))
-                            return false
-                        }
-                        prebuildCommands.append(.init(
-                            configuration: .init(
-                                displayName: displayName,
-                                executable: executable,
-                                arguments: arguments,
-                                environment: .init(environment),
-                                workingDirectory: workingDirectory),
-                            outputFilesDirectory: outputFilesDirectory))
-                        return true
-                    }
-                }
-                let delegate = PluginDelegate(
-                    fileSystem: fileSystem,
-                    delegateQueue: delegateQueue,
-                    toolPaths: toolPaths,
-                    builtToolNames: accessibleTools.map { $0.key }
-                )
 
                 // In tools version 6.0 and newer, we vend the list of files generated by previous plugins.
                 let pluginDerivedSources: Sources
                 let pluginDerivedResources: [Resource]
                 if package.manifest.toolsVersion >= .v6_0 {
-                    // Set up dummy observability because we don't want to emit diagnostics for this before the actual build.
-                    let observability = ObservabilitySystem({ _, _ in })
+                    // Set up dummy observability because we don't want to emit diagnostics for this before the actual
+                    // build.
+                    let observability = ObservabilitySystem { _, _ in }
                     // Compute the generated files based on all results we have computed so far.
-                    (pluginDerivedSources, pluginDerivedResources) = Self.computePluginGeneratedFiles(
+                    (pluginDerivedSources, pluginDerivedResources) = ModulesGraph.computePluginGeneratedFiles(
                         target: module,
                         toolsVersion: package.manifest.toolsVersion,
                         additionalFileRules: additionalFileRules,
@@ -562,49 +623,39 @@ extension ModulesGraph {
                     pluginDerivedResources = []
                 }
 
-                // Invoke the build tool plugin with the input parameters and the delegate that will collect outputs.
-                let startTime = DispatchTime.now()
-                let success = try temp_await { pluginTarget.invoke(
-                    action: .createBuildToolCommands(
-                        package: package,
-                        target: module,
-                        pluginGeneratedSources: pluginDerivedSources.paths,
-                        pluginGeneratedResources: pluginDerivedResources.map { $0.path }
-                    ),
-                    buildEnvironment: buildParameters.buildEnvironment,
-                    scriptRunner: pluginScriptRunner,
-                    workingDirectory: package.path,
-                    outputDirectory: pluginOutputDir,
-                    toolSearchDirectories: toolSearchDirectories,
-                    accessibleTools: accessibleTools,
-                    writableDirectories: writableDirectories,
-                    readOnlyDirectories: readOnlyDirectories,
-                    allowNetworkConnections: [],
-                    pkgConfigDirectories: pkgConfigDirectories,
-                    sdkRootPath: buildParameters.toolchain.sdkRootPath,
-                    fileSystem: fileSystem,
-                    modulesGraph: self,
-                    observabilityScope: observabilityScope,
-                    callbackQueue: delegateQueue,
-                    delegate: delegate,
-                    completion: $0) }
-                let duration = startTime.distance(to: .now())
+                let result = try temp_await {
+                    pluginModule.invoke(
+                        module: plugin,
+                        action: .createBuildToolCommands(
+                            package: package,
+                            target: module,
+                            pluginGeneratedSources: pluginDerivedSources.paths,
+                            pluginGeneratedResources: pluginDerivedResources.map(\.path)
+                        ),
+                        buildEnvironment: buildParameters.buildEnvironment,
+                        scriptRunner: pluginScriptRunner,
+                        workingDirectory: package.path,
+                        outputDirectory: pluginOutputDir,
+                        toolSearchDirectories: [buildParameters.toolchain.swiftCompilerPath.parentDirectory],
+                        accessibleTools: accessibleTools,
+                        writableDirectories: writableDirectories,
+                        readOnlyDirectories: readOnlyDirectories,
+                        allowNetworkConnections: [],
+                        pkgConfigDirectories: pkgConfigDirectories,
+                        sdkRootPath: buildParameters.toolchain.sdkRootPath,
+                        fileSystem: fileSystem,
+                        modulesGraph: self,
+                        observabilityScope: observabilityScope,
+                        completion: $0
+                    )
+                }
 
                 // Add a BuildToolPluginInvocationResult to the mapping.
-                buildToolPluginResults.append(.init(
-                    plugin: pluginTarget,
-                    pluginOutputDirectory: pluginOutputDir,
-                    package: package,
-                    target: module,
-                    succeeded: success,
-                    duration: duration,
-                    diagnostics: delegate.diagnostics,
-                    textOutput: String(decoding: delegate.outputData, as: UTF8.self),
-                    buildCommands: delegate.buildCommands,
-                    prebuildCommands: delegate.prebuildCommands))
+                buildToolPluginResults.append(result)
             }
 
-            // Associate the list of results with the target. The list will have one entry for each plugin used by the target.
+            // Associate the list of results with the target. The list will have one entry for each plugin used by the
+            // target.
             pluginResultsByTarget[module.id] = (module, buildToolPluginResults)
         }
         return pluginResultsByTarget
@@ -811,6 +862,7 @@ public struct BuildToolPluginInvocationResult {
 
 /// An error in plugin evaluation.
 public enum PluginEvaluationError: Swift.Error {
+    case couldNotFindPackage(for: PluginModule)
     case couldNotCreateOuputDirectory(path: AbsolutePath, underlyingError: Error)
     case couldNotSerializePluginInput(underlyingError: Error)
     case runningPluginFailed(underlyingError: Error)
@@ -851,6 +903,102 @@ public protocol PluginInvocationDelegate {
 
     /// Called when a plugin requests that the host computes and returns symbol graph information for a particular target.
     func pluginRequestedSymbolGraph(forTarget name: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void)
+}
+
+final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
+    let fileSystem: FileSystem
+    let delegateQueue: DispatchQueue
+    let toolPaths: [AbsolutePath]
+    let builtToolNames: [String]
+    var outputData = Data()
+    var diagnostics = [Basics.Diagnostic]()
+    var buildCommands = [BuildToolPluginInvocationResult.BuildCommand]()
+    var prebuildCommands = [BuildToolPluginInvocationResult.PrebuildCommand]()
+
+    package init(
+        fileSystem: FileSystem,
+        delegateQueue: DispatchQueue,
+        toolPaths: [AbsolutePath],
+        builtToolNames: [String]
+    ) {
+        self.fileSystem = fileSystem
+        self.delegateQueue = delegateQueue
+        self.toolPaths = toolPaths
+        self.builtToolNames = builtToolNames
+    }
+
+    func pluginCompilationStarted(commandLine: [String], environment: [String: String]) {}
+
+    func pluginCompilationEnded(result: PluginCompilationResult) {}
+
+    func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult) {}
+
+    func pluginEmittedOutput(_ data: Data) {
+        dispatchPrecondition(condition: .onQueue(self.delegateQueue))
+        self.outputData.append(contentsOf: data)
+    }
+
+    func pluginEmittedProgress(_: String) {}
+
+    func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
+        dispatchPrecondition(condition: .onQueue(self.delegateQueue))
+        self.diagnostics.append(diagnostic)
+    }
+
+    func pluginDefinedBuildCommand(
+        displayName: String?,
+        executable: AbsolutePath,
+        arguments: [String],
+        environment: [String: String],
+        workingDirectory: AbsolutePath?,
+        inputFiles: [AbsolutePath],
+        outputFiles: [AbsolutePath]
+    ) {
+        dispatchPrecondition(condition: .onQueue(self.delegateQueue))
+        self.buildCommands.append(.init(
+            configuration: .init(
+                displayName: displayName,
+                executable: executable,
+                arguments: arguments,
+                environment: .init(environment),
+                workingDirectory: workingDirectory
+            ),
+            inputFiles: self.toolPaths + inputFiles,
+            outputFiles: outputFiles
+        ))
+    }
+
+    func pluginDefinedPrebuildCommand(
+        displayName: String?,
+        executable: AbsolutePath,
+        arguments: [String],
+        environment: [String: String],
+        workingDirectory: AbsolutePath?,
+        outputFilesDirectory: AbsolutePath
+    ) -> Bool {
+        dispatchPrecondition(condition: .onQueue(self.delegateQueue))
+        // executable must exist before running prebuild command
+        if self.builtToolNames.contains(executable.basename) {
+            self.diagnostics
+                .append(
+                    .error(
+                        "a prebuild command cannot use executables built from source, including executable target '\(executable.basename)'"
+                    )
+                )
+            return false
+        }
+        self.prebuildCommands.append(.init(
+            configuration: .init(
+                displayName: displayName,
+                executable: executable,
+                arguments: arguments,
+                environment: .init(environment),
+                workingDirectory: workingDirectory
+            ),
+            outputFilesDirectory: outputFilesDirectory
+        ))
+        return true
+    }
 }
 
 public struct PluginInvocationSymbolGraphOptions {
