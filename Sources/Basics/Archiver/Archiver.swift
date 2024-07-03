@@ -95,4 +95,8 @@ extension Archiver {
             self.validate(path: path, completion: { continuation.resume(with: $0) })
         }
     }
+
+    package func isFileSupported(_ lastPathComponent: String) -> Bool {
+        self.supportedExtensions.contains(where: { lastPathComponent.hasSuffix($0) })
+    }
 }
