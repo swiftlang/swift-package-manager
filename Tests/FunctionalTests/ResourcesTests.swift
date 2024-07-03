@@ -12,7 +12,7 @@
 
 import Basics
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 final class ResourcesTests: XCTestCase {

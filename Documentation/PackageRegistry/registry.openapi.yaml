@@ -4,7 +4,7 @@ info:
   version: "1"
 externalDocs:
   description: Swift Evolution Proposal SE-0292
-  url: https://github.com/apple/swift-evolution/blob/main/proposals/0292-package-registry-service.md
+  url: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0292-package-registry-service.md
 servers:
   - url: https://packages.swift.org
 paths:

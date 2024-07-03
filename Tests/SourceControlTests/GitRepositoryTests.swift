@@ -13,7 +13,7 @@
 @_spi(ProcessEnvironmentBlockShim)
 import Basics
 @testable import SourceControl
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 import struct TSCBasic.FileSystemError

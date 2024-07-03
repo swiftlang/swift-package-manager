@@ -14,7 +14,7 @@ import Basics
 import Foundation
 @testable import PackageCollections
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 class PackageIndexTests: XCTestCase {
@@ -302,8 +302,6 @@ class PackageIndexTests: XCTestCase {
 
 private extension PackageIndex {
     func syncGet(identity: PackageIdentity, location: String) async throws -> Model.PackageBasicMetadata {
-        try await safe_async { callback in
-            self.get(identity: identity, location: location) { result, _ in callback(result) }
-        }
+        try await self.get(identity: identity, location: location).0.get()
     }
 }

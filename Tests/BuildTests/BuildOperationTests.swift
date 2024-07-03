@@ -19,11 +19,10 @@ import LLBuildManifest
 import PackageGraph
 import SPMBuildCore
 @_spi(SwiftPMInternal)
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 import class TSCBasic.BufferedOutputByteStream
-import class TSCBasic.InMemoryFileSystem
 
 private func mockBuildOperation(
     productsBuildParameters: BuildParameters,

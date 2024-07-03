@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import struct Basics.AbsolutePath
+import class Basics.InMemoryFileSystem
 import class Basics.ObservabilitySystem
 import class Basics.ObservabilityScope
 
@@ -24,17 +25,14 @@ import struct PackageModel.ProductDescription
 import enum PackageModel.ProductType
 import struct PackageModel.TargetDescription
 import protocol TSCBasic.FileSystem
-import class TSCBasic.InMemoryFileSystem
 
-@_spi(SwiftPMInternal)
-public typealias MockPackageGraph = (
+package typealias MockPackageGraph = (
     graph: ModulesGraph,
     fileSystem: any FileSystem,
     observabilityScope: ObservabilityScope
 )
 
-@_spi(SwiftPMInternal)
-public func macrosPackageGraph() throws -> MockPackageGraph {
+package func macrosPackageGraph() throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(emptyFiles:
         "/swift-firmware/Sources/Core/source.swift",
         "/swift-firmware/Sources/HAL/source.swift",
@@ -132,8 +130,7 @@ public func macrosPackageGraph() throws -> MockPackageGraph {
     return (graph, fs, observability.topScope)
 }
 
-@_spi(SwiftPMInternal)
-public func macrosTestsPackageGraph() throws -> MockPackageGraph {
+package func macrosTestsPackageGraph() throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(emptyFiles:
         "/swift-mmio/Plugins/MMIOPlugin/source.swift",
         "/swift-mmio/Sources/MMIO/source.swift",
@@ -282,8 +279,7 @@ public func macrosTestsPackageGraph() throws -> MockPackageGraph {
     return (graph, fs, observability.topScope)
 }
 
-@_spi(SwiftPMInternal)
-public func trivialPackageGraph() throws -> MockPackageGraph {
+package func trivialPackageGraph() throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(
         emptyFiles:
         "/Pkg/Sources/app/main.swift",
@@ -313,8 +309,7 @@ public func trivialPackageGraph() throws -> MockPackageGraph {
     return (graph, fs, observability.topScope)
 }
 
-@_spi(SwiftPMInternal)
-public func embeddedCxxInteropPackageGraph() throws -> MockPackageGraph {
+package func embeddedCxxInteropPackageGraph() throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(
         emptyFiles:
         "/Pkg/Sources/app/main.swift",
@@ -356,8 +351,7 @@ public func embeddedCxxInteropPackageGraph() throws -> MockPackageGraph {
     return (graph, fs, observability.topScope)
 }
 
-@_spi(SwiftPMInternal)
-public func toolsExplicitLibrariesGraph(linkage: ProductType.LibraryType) throws -> MockPackageGraph {
+package func toolsExplicitLibrariesGraph(linkage: ProductType.LibraryType) throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(emptyFiles:
         "/swift-mmio/Sources/MMIOMacros/source.swift",
         "/swift-mmio/Sources/MMIOMacrosTests/source.swift",

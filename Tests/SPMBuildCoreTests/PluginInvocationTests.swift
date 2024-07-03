@@ -21,11 +21,9 @@ import PackageLoading
 import PackageModel
 
 @testable import SPMBuildCore
-import SPMTestSupport
+import _InternalTestSupport
 import Workspace
 import XCTest
-
-import class TSCBasic.InMemoryFileSystem
 
 import struct TSCUtility.SerializedDiagnostics
 

@@ -439,8 +439,20 @@ public struct BuildOptions: ParsableArguments {
     @Flag(help: "Enable or disable indexing-while-building feature")
     public var indexStoreMode: StoreMode = .autoIndexStore
 
+    /// Instead of building the target, perform the minimal amount of work to prepare it for indexing.
+    ///
+    /// This builds Swift module files for all dependencies but skips generation of object files. It also continues
+    /// building modules in the presence of compilation errors.
     @Flag(name: .customLong("experimental-prepare-for-indexing"), help: .hidden)
     var prepareForIndexing: Bool = false
+
+    /// Don't pass `-experimental-lazy-typecheck` during preparation.
+    ///
+    /// This is intended as a workaround if lazy type checking is causing compiler crashes.
+    ///
+    /// Only applicable in conjunction with `--experimental-prepare-for-indexing`
+    @Flag(name: .customLong("experimental-prepare-for-indexing-no-lazy"), help: .hidden)
+    var prepareForIndexingNoLazy: Bool = false
 
     /// Whether to enable generation of `.swiftinterface`s alongside `.swiftmodule`s.
     @Flag(name: .customLong("enable-parseable-module-interfaces"))
@@ -473,13 +485,8 @@ public struct BuildOptions: ParsableArguments {
     public var debugInfoFormat: DebugInfoFormat = .dwarf
 
     public var buildSystem: BuildSystemProvider.Kind {
-        #if os(macOS)
         // Force the Xcode build system if we want to build more than one arch.
         return self.architectures.count > 1 ? .xcode : self._buildSystem
-        #else
-        // Force building with the native build system on other platforms than macOS.
-        return .native
-        #endif
     }
 
     /// Whether to enable test discovery on platforms without Objective-C runtime.
