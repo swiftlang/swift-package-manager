@@ -36,8 +36,8 @@ extension ModulesGraph {
         testEntryPointPath: AbsolutePath? = nil,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        productsFilter: ((Product) -> Bool)?,
-        modulesFilter: ((Module) -> Bool)?
+        productsFilter: ((Product) -> Bool)? = nil,
+        modulesFilter: ((Module) -> Bool)? = nil
     ) throws -> ModulesGraph {
         try Self.load(
             root: root,
