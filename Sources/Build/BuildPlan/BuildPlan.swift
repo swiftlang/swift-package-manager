@@ -220,7 +220,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
     /// The results of running any prebuild commands for the targets in this build.  This includes any derived
     /// source files as well as directories to which any changes should cause us to reevaluate the build plan.
-    public let prebuildCommandResults: [ResolvedModule.ID: [PrebuildCommandResult]]
+    public let prebuildCommandResults: [ResolvedModule.ID: [CommandPluginResult]]
 
     @_spi(SwiftPMInternal)
     public private(set) var derivedTestTargetsMap: [ResolvedProduct.ID: [ResolvedModule]] = [:]
@@ -283,7 +283,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Plan")
 
         var buildToolPluginInvocationResults: [ResolvedModule.ID: [BuildToolPluginInvocationResult]] = [:]
-        var prebuildCommandResults: [ResolvedModule.ID: [PrebuildCommandResult]] = [:]
+        var prebuildCommandResults: [ResolvedModule.ID: [CommandPluginResult]] = [:]
 
         var productMap: [ResolvedProduct.ID: (product: ResolvedProduct, buildDescription: ProductBuildDescription)] =
             [:]
@@ -378,7 +378,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 }
 
                 buildToolPluginInvocationResults[target.id] = pluginInvocationResults
-                prebuildCommandResults[target.id] = try Self.runPrebuildCommands(
+                prebuildCommandResults[target.id] = try Self.runCommandPlugins(
                     using: pluginConfiguration,
                     for: pluginInvocationResults,
                     fileSystem: fileSystem,
@@ -864,14 +864,14 @@ extension BuildPlan {
         return buildToolPluginResults
     }
 
-    /// Runs any prebuild commands associated with the given list of plugin invocation results,
+    /// Runs any command plugins associated with the given list of plugin invocation results,
     /// in order, and returns the results of running those prebuild commands.
-    fileprivate static func runPrebuildCommands(
+    fileprivate static func runCommandPlugins(
         using pluginConfiguration: PluginConfiguration,
         for pluginResults: [BuildToolPluginInvocationResult],
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope
-    ) throws -> [PrebuildCommandResult] {
+    ) throws -> [CommandPluginResult] {
         // Run through all the commands from all the plugin usages in the target.
         try pluginResults.map { pluginResult in
             // As we go we will collect a list of prebuild output directories whose contents should be input to the
@@ -916,7 +916,7 @@ extension BuildPlan {
             }
 
             // Add the results of running any prebuild commands for this invocation.
-            return PrebuildCommandResult(derivedFiles: derivedFiles, outputDirectories: prebuildOutputDirs)
+            return CommandPluginResult(derivedFiles: derivedFiles, outputDirectories: prebuildOutputDirs)
         }
     }
 }

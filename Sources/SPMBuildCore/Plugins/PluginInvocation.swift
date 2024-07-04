@@ -537,7 +537,7 @@ extension ModulesGraph {
         additionalFileRules: [FileRuleDescription],
         buildParameters: BuildParameters,
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult],
-        prebuildCommandResults: [PrebuildCommandResult],
+        prebuildCommandResults: [CommandPluginResult],
         observabilityScope: ObservabilityScope
     ) -> (pluginDerivedSources: Sources, pluginDerivedResources: [Resource]) {
         var pluginDerivedSources = Sources(paths: [], root: buildParameters.dataPath)
