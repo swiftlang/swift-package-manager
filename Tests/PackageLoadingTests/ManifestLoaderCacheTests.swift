@@ -20,7 +20,7 @@ import XCTest
 final class ManifestLoaderCacheTests: XCTestCase {
 
     func testDBCaching() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         try await testWithTemporaryDirectory { path in
             let fileSystem = localFileSystem
@@ -116,7 +116,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testInMemoryCaching() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         let fileSystem = InMemoryFileSystem()
         let observability = ObservabilitySystem.makeForTesting()
@@ -207,7 +207,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testContentBasedCaching() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         try await testWithTemporaryDirectory { path in
             let manifest = """
@@ -268,7 +268,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testCacheInvalidationOnEnv() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         try await testWithTemporaryDirectory { path in
             let fileSystem = InMemoryFileSystem()
@@ -335,7 +335,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testCacheDoNotInvalidationExpectedEnv() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         try await testWithTemporaryDirectory { path in
             let fileSystem = InMemoryFileSystem()
@@ -422,7 +422,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testInMemoryCacheHappyCase() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         let content = """
             import PackageDescription
