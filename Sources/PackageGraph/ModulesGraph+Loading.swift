@@ -35,7 +35,9 @@ extension ModulesGraph {
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        productsFilter: ((Product) -> Bool)? = nil,
+        modulesFilter: ((Module) -> Bool)? = nil
     ) throws -> ModulesGraph {
 
         let observabilityScope = observabilityScope.makeChildScope(description: "Loading Package Graph")
@@ -172,7 +174,9 @@ extension ModulesGraph {
             platformRegistry: customPlatformsRegistry ?? .default,
             platformVersionProvider: platformVersionProvider,
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            productsFilter: productsFilter,
+            modulesFilter: modulesFilter
         )
 
         let rootPackages = resolvedPackages.filter { root.manifests.values.contains($0.manifest) }
@@ -271,7 +275,9 @@ private func createResolvedPackages(
     platformRegistry: PlatformRegistry,
     platformVersionProvider: PlatformVersionProvider,
     fileSystem: FileSystem,
-    observabilityScope: ObservabilityScope
+    observabilityScope: ObservabilityScope,
+    productsFilter: ((Product) -> Bool)?,
+    modulesFilter: ((Module) -> Bool)?
 ) throws -> IdentifiableSet<ResolvedPackage> {
 
     // Create package builder objects from the input manifests.
@@ -400,7 +406,13 @@ private func createResolvedPackages(
         )
 
         // Create module builders for each module in the package.
-        let moduleBuilders = package.modules.map {
+        let modules: [Module]
+        if let modulesFilter {
+            modules = package.modules.filter(modulesFilter)
+        } else {
+            modules = package.modules
+        }
+        let moduleBuilders = modules.map {
             ResolvedModuleBuilder(
                 packageIdentity: package.identity,
                 module: $0,
@@ -430,8 +442,15 @@ private func createResolvedPackages(
         }
 
         // Create product builders for each product in the package. A product can only contain a module present in the same package.
-        packageBuilder.products = try package.products.map{
-            try ResolvedProductBuilder(product: $0, packageBuilder: packageBuilder, moduleBuilders: $0.modules.map {
+        let products: [Product]
+        if let productsFilter {
+            products = package.products.filter(productsFilter)
+        } else {
+            products = package.products
+        }
+
+        packageBuilder.products = try products.map { product in
+            try ResolvedProductBuilder(product: product, packageBuilder: packageBuilder, moduleBuilders: product.modules.map {
                 guard let module = modulesMap[$0] else {
                     throw InternalError("unknown target \($0)")
                 }
