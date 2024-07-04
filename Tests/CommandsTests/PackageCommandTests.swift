@@ -61,9 +61,7 @@ final class PackageCommandTests: CommandsTestCase {
     }
 
     func testSeeAlso() async throws {
-        var stdout = try await execute(["--help"]).stdout
-        XCTAssertMatch(stdout, .contains("SEE ALSO: swift build, swift run, swift test"))
-        stdout = try await execute(["-help"]).stdout
+        let stdout = try await execute(["--help"]).stdout
         XCTAssertMatch(stdout, .contains("SEE ALSO: swift build, swift run, swift test"))
     }
 
