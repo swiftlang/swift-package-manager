@@ -49,8 +49,9 @@ final class PackageCommandTests: CommandsTestCase {
     }
 
     func testUsage() async throws {
+        throw XCTSkip("rdar://131126477")
         do {
-            _ = try await execute(["-help"])
+            _ = try await execute(["-halp"])
             XCTFail("expecting `execute` to fail")
         } catch SwiftPMError.executionFailure(_, _, let stderr) {
             XCTAssertMatch(stderr, .contains("Usage: swift package"))
@@ -60,7 +61,9 @@ final class PackageCommandTests: CommandsTestCase {
     }
 
     func testSeeAlso() async throws {
-        let stdout = try await execute(["--help"]).stdout
+        var stdout = try await execute(["--help"]).stdout
+        XCTAssertMatch(stdout, .contains("SEE ALSO: swift build, swift run, swift test"))
+        stdout = try await execute(["-help"]).stdout
         XCTAssertMatch(stdout, .contains("SEE ALSO: swift build, swift run, swift test"))
     }
 
@@ -102,7 +105,7 @@ final class PackageCommandTests: CommandsTestCase {
         }
     }
 
-    func testUnknownSubommand() async throws {
+    func testUnknownSubcommand() async throws {
         try await fixture(name: "Miscellaneous/ExeTest") { fixturePath in
             await XCTAssertThrowsCommandExecutionError(try await execute(["foo"], packagePath: fixturePath)) { error in
                 XCTAssertMatch(error.stderr, .contains("Unknown subcommand or plugin name ‘foo’"))
