@@ -2,7 +2,7 @@
 
 There are several types of contributions one can make. Bug fixes, documentation and enhancements that do not materially change the user facing semantics of Swift Package Manager should be submitted directly as PR.
 
-Larger changes that do materially change the semantics of Swift Package Manager (e.g. changes to the manifest format or behavior) are required to go through [Swift Evolution Process](https://github.com/apple/swift-evolution/blob/master/process.md).
+Larger changes that do materially change the semantics of Swift Package Manager (e.g. changes to the manifest format or behavior) are required to go through [Swift Evolution Process](https://github.com/swiftlang/swift-evolution/blob/master/process.md).
 
 To see how previous evolution decisions for SwiftPM have been made and have some direction for the development of future features please check out the [Community Proposals](https://forums.swift.org/tag/packagemanager).
 
