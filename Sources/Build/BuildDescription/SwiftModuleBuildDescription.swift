@@ -235,7 +235,7 @@ public final class SwiftModuleBuildDescription {
     public let buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
 
     /// The results of running any prebuild commands for this target.
-    public let prebuildCommandResults: [PrebuildCommandResult]
+    public let prebuildCommandResults: [CommandPluginResult]
 
     /// Any macro products that this target requires to build.
     public let requiredMacroProducts: [ProductBuildDescription]
@@ -257,7 +257,7 @@ public final class SwiftModuleBuildDescription {
         additionalFileRules: [FileRuleDescription] = [],
         buildParameters: BuildParameters,
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult] = [],
-        prebuildCommandResults: [PrebuildCommandResult] = [],
+        prebuildCommandResults: [CommandPluginResult] = [],
         requiredMacroProducts: [ProductBuildDescription] = [],
         testTargetRole: TestTargetRole? = nil,
         shouldGenerateTestObservation: Bool = false,

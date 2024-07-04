@@ -22,7 +22,7 @@ add_library(SPMBuildCore
   Plugins/PluginInvocation.swift
   Plugins/PluginMessages.swift
   Plugins/PluginScriptRunner.swift
-  PrebuildCommandResult.swift
+  CommandPluginResult.swift
   ResolvedPackage+Extensions.swift
   Triple+Extensions.swift
   XCFrameworkMetadata.swift)
