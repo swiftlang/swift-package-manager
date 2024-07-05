@@ -146,7 +146,7 @@ public protocol RepositoryProvider: Cancellable {
     func isValidDirectory(_ directory: AbsolutePath) throws -> Bool
 
     /// Returns true if the directory is valid git location for the specified repository
-    func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool
+    func isValidDirectory(_ directory: AbsolutePath, for repository: SourceControlURL) throws -> Bool
 }
 
 /// Abstract repository operations.

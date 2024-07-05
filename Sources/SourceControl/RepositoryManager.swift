@@ -452,7 +452,7 @@ public class RepositoryManager: Cancellable {
     }
 
     /// Returns true if the directory is valid git location for the specified repository
-    public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
+    public func isValidDirectory(_ directory: AbsolutePath, for repository: SourceControlURL) throws -> Bool {
         try self.provider.isValidDirectory(directory, for: repository)
     }
 
@@ -508,6 +508,15 @@ public class RepositoryManager: Cancellable {
                 error: "Error purging repository cache at '\(cachePath)'",
                 underlyingError: error
             )
+        }
+    }
+}
+
+extension RepositoryProvider {
+    fileprivate func isValidDirectory(_ directory: AbsolutePath, for repositorySpecifier: RepositorySpecifier) throws -> Bool {
+        switch repositorySpecifier.location {
+        case .path:         return try isValidDirectory(directory)
+        case .url(let url): return try isValidDirectory(directory, for: url)
         }
     }
 }

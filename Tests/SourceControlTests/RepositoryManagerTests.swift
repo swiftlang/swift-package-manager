@@ -556,7 +556,7 @@ class RepositoryManagerTests: XCTestCase {
                 fatalError("should not be called")
             }
 
-            public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
+            public func isValidDirectory(_ directory: AbsolutePath, for repository: SourceControlURL) throws -> Bool {
                 fatalError("should not be called")
             }
 
@@ -635,8 +635,8 @@ class RepositoryManagerTests: XCTestCase {
                 fatalError("should not be called")
             }
 
-            public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
-                assert(repository == self.repository)
+            public func isValidDirectory(_ directory: AbsolutePath, for repository: SourceControlURL) throws -> Bool {
+                assert(RepositorySpecifier(url: repository) == self.repository)
                 // the directory is not valid
                 return false
             }
@@ -667,7 +667,7 @@ class RepositoryManagerTests: XCTestCase {
                 fatalError("unexpected API call")
             }
 
-            public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
+            public func isValidDirectory(_ directory: AbsolutePath, for repository: SourceControlURL) throws -> Bool {
                 fatalError("unexpected API call")
             }
 
@@ -798,7 +798,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
         return true
     }
 
-    func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
+    func isValidDirectory(_ directory: AbsolutePath, for repository: SourceControlURL) throws -> Bool {
         return true
     }
 
@@ -980,7 +980,7 @@ fileprivate class DummyRepository: Repository {
         fatalError("unexpected API call")
     }
 
-    public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
+    public func isValidDirectory(_ directory: AbsolutePath, for repository: SourceControlURL) throws -> Bool {
         fatalError("unexpected API call")
     }
 

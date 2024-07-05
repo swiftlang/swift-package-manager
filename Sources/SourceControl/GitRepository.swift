@@ -215,16 +215,9 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             || CanonicalPackageLocation(result) == CanonicalPackageLocation(directory.pathString)
     }
 
-    public func isValidDirectory(_ directory: Basics.AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
+    public func isValidDirectory(_ directory: Basics.AbsolutePath, for repository: SourceControlURL) throws -> Bool {
         let remoteURL = try self.git.run(["-C", directory.pathString, "config", "--get", "remote.origin.url"])
-        switch repository.location {
-        case .url(let url):
-            // Compare the canonical representation, which will drop any suffix and canonicalize scp-style urls
-            return CanonicalPackageURL(remoteURL) == CanonicalPackageURL(url.absoluteString)
-        case .path(let absolutePath):
-            // Compare the canonical representation, which will drop any suffix
-            return CanonicalPackageLocation(remoteURL) == CanonicalPackageLocation(absolutePath.pathString)
-        }
+        return remoteURL == repository.absoluteString
     }
 
     public func copy(from sourcePath: Basics.AbsolutePath, to destinationPath: Basics.AbsolutePath) throws {

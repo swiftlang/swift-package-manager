@@ -768,4 +768,66 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertNoThrow(try checkoutRepo.getCurrentRevision())
         }
     }
+    
+    func testValidDirectoryLocal() async throws {
+        try testWithTemporaryDirectory { tmpDir in
+            // Create a repository.
+            let packageDir = tmpDir.appending("SomePackage")
+            try localFileSystem.createDirectory(packageDir)
+            
+            // Create a repository manager for it.
+            let repoProvider = GitRepositoryProvider()
+            let repositoryManager = RepositoryManager(
+                fileSystem: localFileSystem,
+                path: packageDir,
+                provider: repoProvider,
+                delegate: .none
+            )
+            
+            // Before initializing the directory with a git repo, it is never valid.
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir))
+            initGitRepo(packageDir)
+            
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir))
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: SourceControlURL(packageDir.pathString)))
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: SourceControlURL(URL(packageDir.pathString + "/"))))
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: SourceControlURL("/")))
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: SourceControlURL("https://mycustomdomain/some-package.git")))
+        }
+    }
+    
+    func testValidDirectoryRemote() async throws {
+        try testWithTemporaryDirectory { tmpDir in
+            // Create a repository.
+            let packageDir = tmpDir.appending("SomePackage")
+            try localFileSystem.createDirectory(packageDir)
+            
+            // Create a repository manager for it.
+            let repoProvider = GitRepositoryProvider()
+            let repositoryManager = RepositoryManager(
+                fileSystem: localFileSystem,
+                path: packageDir,
+                provider: repoProvider,
+                delegate: .none
+            )
+            
+            let customRemote = try XCTUnwrap(URL(string: "https://mycustomdomain/some-package.git"))
+            
+            // Before initializing the directory with a git repo, it is never valid.
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir))
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: SourceControlURL(customRemote)))
+            
+            initGitRepo(packageDir)
+            // Set the remote.
+            try systemQuietly([Git.tool, "-C", packageDir.pathString, "remote", "add", "origin", customRemote.absoluteString])
+            
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir))
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: SourceControlURL(customRemote)))
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: SourceControlURL("/")))
+            // We consider the directory invalid if the remote does not have the same path extension - in this case we expect '.git'.
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: SourceControlURL("https://mycustomdomain/some-package")))
+            // We consider the directory invalid if the remote does not have the same path extension - in this case we expect '.git'.
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: SourceControlURL("https://mycustomdomain/some-package/")))
+        }
+    }
 }

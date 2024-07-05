@@ -485,7 +485,7 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         return true
     }
 
-    public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
+    public func isValidDirectory(_ directory: AbsolutePath, for repository: SourceControlURL) throws -> Bool {
         return true
     }
 
