@@ -449,6 +449,45 @@ class ManifestEditTests: XCTestCase {
         }
     }
 
+    func testAddExecutableTargetWithNameAsInvalidSwiftIdentifier() throws {
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                targets: []
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .executableTarget(name: "$My-Program"),
+                ]
+            )
+            """,
+            expectedAuxiliarySources: [
+                RelativePath("Sources/$My-Program/$My-Program.swift") : """
+
+                @main
+                struct ExampleMain {
+                    static func main() {
+                        print("Hello, world")
+                    }
+                }
+                """
+            ]
+        ) { manifest in
+            try AddTarget.addTarget(
+                TargetDescription(
+                    name: "$My-Program",
+                    type: .executable
+                ),
+                to: manifest
+            )
+        }
+    }
+
     func testAddExecutableTargetWithDependencies() throws {
         try assertManifestRefactor("""
             // swift-tools-version: 5.5
@@ -485,7 +524,7 @@ class ManifestEditTests: XCTestCase {
                 import TargetLib
 
                 @main
-                struct MyProgramMain {
+                struct ExampleMain {
                     static func main() {
                         print("Hello, world")
                     }
@@ -542,10 +581,10 @@ class ManifestEditTests: XCTestCase {
                 import SwiftCompilerPlugin
                 import SwiftSyntaxMacros
 
-                struct MyMacro: Macro {
+                struct ExampleMacro: Macro {
                     /// TODO: Implement one or more of the protocols that inherit
                     /// from Macro. The appropriate macro protocol is determined
-                    /// by the "macro" declaration that MyMacro implements.
+                    /// by the "macro" declaration that ExampleMacro implements.
                     /// Examples include:
                     ///     @freestanding(expression) macro --> ExpressionMacro
                     ///     @attached(member) macro         --> MemberMacro
@@ -597,8 +636,8 @@ class ManifestEditTests: XCTestCase {
                 import Testing
 
                 @Suite
-                struct MyTestTests {
-                    @Test("MyTest tests")
+                struct ExampleTests {
+                    @Test("Example tests")
                     func example() {
                         #expect(42 == 17 + 25)
                     }
@@ -608,6 +647,54 @@ class ManifestEditTests: XCTestCase {
             try AddTarget.addTarget(
                 TargetDescription(
                     name: "MyTest",
+                    type: .test
+                ),
+                to: manifest,
+                configuration: .init(
+                    testHarness: .swiftTesting
+                )
+            )
+        }
+    }
+
+    func testAddSwiftTestingTestTargetWithNameAsInvalidSwiftIdentifier() throws {
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages"
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                dependencies: [
+                    .package(url: "https://github.com/apple/swift-testing.git", from: "0.8.0"),
+                ],
+                targets: [
+                    .testTarget(
+                        name: "$My-Test",
+                        dependencies: [ .product(name: "Testing", package: "swift-testing") ]
+                    ),
+                ]
+            )
+            """,
+            expectedAuxiliarySources: [
+                RelativePath("Tests/$My-Test/$My-Test.swift") : """
+                import Testing
+
+                @Suite
+                struct ExampleTests {
+                    @Test("Example tests")
+                    func example() {
+                        #expect(42 == 17 + 25)
+                    }
+                }
+                """
+            ]) { manifest in
+            try AddTarget.addTarget(
+                TargetDescription(
+                    name: "$My-Test",
                     type: .test
                 ),
                 to: manifest,

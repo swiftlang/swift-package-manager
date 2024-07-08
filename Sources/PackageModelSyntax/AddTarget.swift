@@ -234,10 +234,10 @@ public struct AddTarget {
         case .macro:
             """
             \(imports)
-            struct \(raw: target.name): Macro {
+            struct ExampleMacro: Macro {
                 /// TODO: Implement one or more of the protocols that inherit
                 /// from Macro. The appropriate macro protocol is determined
-                /// by the "macro" declaration that \(raw: target.name) implements.
+                /// by the "macro" declaration that ExampleMacro implements.
                 /// Examples include:
                 ///     @freestanding(expression) macro --> ExpressionMacro
                 ///     @attached(member) macro         --> MemberMacro
@@ -255,8 +255,8 @@ public struct AddTarget {
             case .xctest:
                 """
                 \(imports)
-                class \(raw: target.name): XCTestCase {
-                    func test\(raw: target.name)() {
+                class ExampleTests: XCTestCase {
+                    func testExample() {
                         XCTAssertEqual(42, 17 + 25)
                     }
                 }
@@ -266,8 +266,8 @@ public struct AddTarget {
                 """
                 \(imports)
                 @Suite
-                struct \(raw: target.name)Tests {
-                    @Test("\(raw: target.name) tests")
+                struct ExampleTests {
+                    @Test("Example tests")
                     func example() {
                         #expect(42 == 17 + 25)
                     }
@@ -284,7 +284,7 @@ public struct AddTarget {
             """
             \(imports)
             @main
-            struct \(raw: target.name)Main {
+            struct ExampleMain {
                 static func main() {
                     print("Hello, world")
                 }
