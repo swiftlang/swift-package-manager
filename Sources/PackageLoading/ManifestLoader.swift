@@ -568,6 +568,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 toolsVersion: toolsVersion,
                 env: Environment.current.cachable,
                 swiftpmVersion: SwiftVersion.current.displayString,
+                extraManifestFlags: self.extraManifestFlags,
                 fileSystem: fileSystem
             )
         } catch {
@@ -1207,6 +1208,7 @@ extension ManifestLoader {
               toolsVersion: ToolsVersion,
               env: Environment,
               swiftpmVersion: String,
+              extraManifestFlags: [String],
               fileSystem: FileSystem
         ) throws {
             let manifestContents = try fileSystem.readFileContents(manifestPath).contents
@@ -1216,6 +1218,7 @@ extension ManifestLoader {
                 manifestContents: manifestContents,
                 toolsVersion: toolsVersion,
                 env: env,
+                extraManifestFlags: extraManifestFlags,
                 swiftpmVersion: swiftpmVersion
             )
 
@@ -1238,6 +1241,7 @@ extension ManifestLoader {
             manifestContents: [UInt8],
             toolsVersion: ToolsVersion,
             env: Environment,
+            extraManifestFlags: [String],
             swiftpmVersion: String
         ) throws -> String {
             let stream = BufferedOutputByteStream()
@@ -1249,6 +1253,9 @@ extension ManifestLoader {
                 stream.send(key.rawValue).send(value)
             }
             stream.send(swiftpmVersion)
+            for flag in extraManifestFlags {
+                stream.send(flag)
+            }
             return stream.bytes.sha256Checksum
         }
     }
