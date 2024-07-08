@@ -269,6 +269,8 @@ public final class SwiftCommandState {
 
     private let hostTriple: Basics.Triple?
 
+    package var preferredBuildConfiguration = BuildConfiguration.debug
+
     /// Create an instance of this tool.
     ///
     /// - parameter options: The command line options to be passed to this tool.
@@ -760,7 +762,7 @@ public final class SwiftCommandState {
         return try BuildParameters(
             destination: destination,
             dataPath: dataPath,
-            configuration: options.build.configuration,
+            configuration: options.build.configuration ?? self.preferredBuildConfiguration,
             toolchain: toolchain,
             triple: triple,
             flags: options.build.buildFlags,
@@ -775,7 +777,7 @@ public final class SwiftCommandState {
                 debugInfoFormat: options.build.debugInfoFormat.buildParameter,
                 triple: triple,
                 shouldEnableDebuggingEntitlement:
-                    options.build.getTaskAllowEntitlement ?? (options.build.configuration == .debug),
+                    options.build.getTaskAllowEntitlement ?? (options.build.configuration ?? self.preferredBuildConfiguration == .debug),
                 omitFramePointers: options.build.omitFramePointers
             ),
             driverParameters: .init(
@@ -802,7 +804,7 @@ public final class SwiftCommandState {
                 isVerbose: self.logLevel <= .info
             ),
             testingParameters: .init(
-                configuration: options.build.configuration,
+                configuration: options.build.configuration ?? self.preferredBuildConfiguration,
                 targetTriple: triple,
                 forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
                 testEntryPointPath: options.build.testEntryPointPath
