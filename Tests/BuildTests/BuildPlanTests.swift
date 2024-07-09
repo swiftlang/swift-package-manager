@@ -1146,9 +1146,6 @@ final class BuildPlanTests: XCTestCase {
         ))
 
         XCTAssertEqual(Set(result.productMap.keys.map(\.productName)), ["APackageTests"])
-        #if os(macOS)
-        XCTAssertEqual(Set(result.targetMap.keys.map(\.moduleName)), ["ATarget", "BTarget", "ATargetTests"])
-        #else
         XCTAssertEqual(Set(result.targetMap.keys.map(\.moduleName)), [
             "APackageTests",
             "APackageDiscoveredTests",
@@ -1156,7 +1153,6 @@ final class BuildPlanTests: XCTestCase {
             "ATargetTests",
             "BTarget",
         ])
-        #endif
     }
 
     func testBasicReleasePackage() throws {
@@ -2213,13 +2209,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         ))
         result.checkProductsCount(1)
-        #if os(macOS)
-        result.checkTargetsCount(2)
-        #else
-        // On non-Apple platforms, when a custom entry point file is present (e.g. XCTMain.swift), there is one
-        // additional target for the synthesized test entry point.
         result.checkTargetsCount(3)
-        #endif
 
         let buildPath = result.plan.productsBuildPath
 
@@ -2288,6 +2278,8 @@ final class BuildPlanTests: XCTestCase {
                 buildPath.appending(components: "Modules", "Foo.swiftmodule").pathString,
                 "-Xlinker", "-add_ast_path", "-Xlinker",
                 buildPath.appending(components: "Modules", "FooTests.swiftmodule").pathString,
+                "-Xlinker", "-add_ast_path", "-Xlinker",
+                buildPath.appending(components: "PkgPackageTests.build", "PkgPackageTests.swiftmodule").pathString,
                 "-g",
             ]
         )

@@ -50,8 +50,8 @@ extension IndexStore.TestCaseClass.TestMethod {
 }
 
 extension TestEntryPointTool {
-    public static func mainFileName(for library: BuildParameters.Testing.Library) -> String {
-        "runner-\(library).swift"
+    public static var mainFileName: String {
+        "runner.swift"
     }
 }
 
@@ -105,74 +105,76 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
     private func execute(fileSystem: Basics.FileSystem, tool: TestDiscoveryTool) throws {
         let outputs = tool.outputs.compactMap { try? AbsolutePath(validating: $0.name) }
 
-        switch self.context.productsBuildParameters.testingParameters.library {
-        case .swiftTesting:
+        if case .loadableBundle = context.productsBuildParameters.testingParameters.testProductStyle {
+            // When building an XCTest bundle, test discovery is handled by the
+            // test harness process (i.e. this is the Darwin path.)
             for file in outputs {
                 try fileSystem.writeIfChanged(path: file, string: "")
             }
-        case .xctest:
-            let index = self.context.productsBuildParameters.indexStore
-            let api = try self.context.indexStoreAPI.get()
-            let store = try IndexStore.open(store: TSCAbsolutePath(index), api: api)
-
-            // FIXME: We can speed this up by having one llbuild command per object file.
-            let tests = try store
-                .listTests(in: tool.inputs.map { try TSCAbsolutePath(AbsolutePath(validating: $0.name)) })
-
-            let testsByModule = Dictionary(grouping: tests, by: { $0.module.spm_mangledToC99ExtendedIdentifier() })
-
-            // Find the main file path.
-            guard let mainFile = outputs.first(where: { path in
-                path.basename == TestDiscoveryTool.mainFileName
-            }) else {
-                throw InternalError("main output (\(TestDiscoveryTool.mainFileName)) not found")
-            }
-
-            // Write one file for each test module.
-            //
-            // We could write everything in one file but that can easily run into type conflicts due
-            // in complex packages with large number of test modules.
-            for file in outputs where file != mainFile {
-                // FIXME: This is relying on implementation detail of the output but passing the
-                // the context all the way through is not worth it right now.
-                let module = file.basenameWithoutExt.spm_mangledToC99ExtendedIdentifier()
-
-                guard let tests = testsByModule[module] else {
-                    // This module has no tests so just write an empty file for it.
-                    try fileSystem.writeFileContents(file, bytes: "")
-                    continue
-                }
-                try write(
-                    tests: tests,
-                    forModule: module,
-                    fileSystem: fileSystem,
-                    path: file
-                )
-            }
-
-            let testsKeyword = tests.isEmpty ? "let" : "var"
-
-            // Write the main file.
-            let stream = try LocalFileOutputByteStream(mainFile)
-
-            stream.send(
-                #"""
-                import XCTest
-
-                @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
-                @MainActor
-                public func __allDiscoveredTests() -> [XCTestCaseEntry] {
-                    \#(testsKeyword) tests = [XCTestCaseEntry]()
-
-                    \#(testsByModule.keys.map { "tests += __\($0)__allTests()" }.joined(separator: "\n    "))
-
-                    return tests
-                }
-                """#
-            )
-
-            stream.flush()
+            return
         }
+
+        let index = self.context.productsBuildParameters.indexStore
+        let api = try self.context.indexStoreAPI.get()
+        let store = try IndexStore.open(store: TSCAbsolutePath(index), api: api)
+
+        // FIXME: We can speed this up by having one llbuild command per object file.
+        let tests = try store
+            .listTests(in: tool.inputs.map { try TSCAbsolutePath(AbsolutePath(validating: $0.name)) })
+
+        let testsByModule = Dictionary(grouping: tests, by: { $0.module.spm_mangledToC99ExtendedIdentifier() })
+
+        // Find the main file path.
+        guard let mainFile = outputs.first(where: { path in
+            path.basename == TestDiscoveryTool.mainFileName
+        }) else {
+            throw InternalError("main output (\(TestDiscoveryTool.mainFileName)) not found")
+        }
+
+        // Write one file for each test module.
+        //
+        // We could write everything in one file but that can easily run into type conflicts due
+        // in complex packages with large number of test modules.
+        for file in outputs where file != mainFile {
+            // FIXME: This is relying on implementation detail of the output but passing the
+            // the context all the way through is not worth it right now.
+            let module = file.basenameWithoutExt.spm_mangledToC99ExtendedIdentifier()
+
+            guard let tests = testsByModule[module] else {
+                // This module has no tests so just write an empty file for it.
+                try fileSystem.writeFileContents(file, bytes: "")
+                continue
+            }
+            try write(
+                tests: tests,
+                forModule: module,
+                fileSystem: fileSystem,
+                path: file
+            )
+        }
+
+        let testsKeyword = tests.isEmpty ? "let" : "var"
+
+        // Write the main file.
+        let stream = try LocalFileOutputByteStream(mainFile)
+
+        stream.send(
+            #"""
+            import XCTest
+
+            @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
+            @MainActor
+            public func __allDiscoveredTests() -> [XCTestCaseEntry] {
+                \#(testsKeyword) tests = [XCTestCaseEntry]()
+
+                \#(testsByModule.keys.map { "tests += __\($0)__allTests()" }.joined(separator: "\n    "))
+
+                return tests
+            }
+            """#
+        )
+
+        stream.flush()
     }
 
     override func execute(
@@ -201,9 +203,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
         let outputs = tool.outputs.compactMap { try? AbsolutePath(validating: $0.name) }
 
         // Find the main output file
-        let mainFileName = TestEntryPointTool.mainFileName(
-            for: self.context.productsBuildParameters.testingParameters.library
-        )
+        let mainFileName = TestEntryPointTool.mainFileName
         guard let mainFile = outputs.first(where: { path in
             path.basename == mainFileName
         }) else {
@@ -213,62 +213,99 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
         // Write the main file.
         let stream = try LocalFileOutputByteStream(mainFile)
 
-        switch self.context.productsBuildParameters.testingParameters.library {
-        case .swiftTesting:
-            stream.send(
-                #"""
-                #if canImport(Testing)
-                import Testing
-                #endif
+        // Find the inputs, which are the names of the test discovery module(s)
+        let inputs = tool.inputs.compactMap { try? AbsolutePath(validating: $0.name) }
+        let discoveryModuleNames = inputs.map(\.basenameWithoutExt)
 
-                @main struct Runner {
-                    static func main() async {
-                #if canImport(Testing)
-                        await Testing.__swiftPMEntryPoint() as Never
-                #endif
+        let testObservabilitySetup: String
+        let buildParameters = self.context.productsBuildParameters
+        if buildParameters.testingParameters.experimentalTestOutput && buildParameters.triple.supportsTestSummary {
+            testObservabilitySetup = "_ = SwiftPMXCTestObserver()\n"
+        } else {
+            testObservabilitySetup = ""
+        }
+
+        let swiftTestingImportCondition = "canImport(Testing)"
+        let xctestImportCondition: String = switch buildParameters.testingParameters.testProductStyle {
+        case .entryPointExecutable:
+            "canImport(XCTest)"
+        case .loadableBundle:
+            "false"
+        }
+
+        /// On WASI, we can't block the main thread, so XCTestMain is defined as async.
+        let awaitXCTMainKeyword = if context.productsBuildParameters.triple.isWASI() {
+            "await"
+        } else {
+            ""
+        }
+
+        // FIXME: work around crash on Amazon Linux 2 when main function is async (rdar://128303921)
+        let asyncMainKeyword = if context.productsBuildParameters.triple.isLinux() {
+          ""
+        } else {
+          "async"
+        }
+
+        stream.send(
+            #"""
+            #if \#(swiftTestingImportCondition)
+            import Testing
+            #endif
+
+            #if \#(xctestImportCondition)
+            \#(generateTestObservationCode(buildParameters: buildParameters))
+
+            import XCTest
+            \#(discoveryModuleNames.map { "import \($0)" }.joined(separator: "\n"))
+            #endif
+
+            @main
+            @available(macOS 10.15.0, iOS 11.0, watchOS 4.0, tvOS 11.0, *)
+            @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
+            struct Runner {
+                private static func testingLibrary() -> String {
+                    var iterator = CommandLine.arguments.makeIterator()
+                    while let argument = iterator.next() {
+                        if argument == "--testing-library", let libraryName = iterator.next() {
+                            return libraryName.lowercased()
+                        }
                     }
+
+                    // Fallback if not specified: run XCTest (legacy behavior)
+                    return "xctest"
                 }
-                """#
-            )
-        case .xctest:
-            // Find the inputs, which are the names of the test discovery module(s)
-            let inputs = tool.inputs.compactMap { try? AbsolutePath(validating: $0.name) }
-            let discoveryModuleNames = inputs.map(\.basenameWithoutExt)
 
-            let testObservabilitySetup: String
-            let buildParameters = self.context.productsBuildParameters
-            if buildParameters.testingParameters.experimentalTestOutput && buildParameters.triple.supportsTestSummary {
-                testObservabilitySetup = "_ = SwiftPMXCTestObserver()\n"
-            } else {
-                testObservabilitySetup = ""
-            }
+                #if os(Linux)
+                // FIXME: work around crash on Amazon Linux 2 when main function is async (rdar://128303921)
+                @_silgen_name("$ss13_runAsyncMainyyyyYaKcF")
+                private static func _runAsyncMain(_ asyncFun: @Sendable @escaping () async throws -> ())
+                #endif
 
-            stream.send(
-                #"""
-                \#(generateTestObservationCode(buildParameters: buildParameters))
-
-                import XCTest
-                \#(discoveryModuleNames.map { "import \($0)" }.joined(separator: "\n"))
-
-                @main
-                @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
-                struct Runner {
-                    #if os(WASI)
-                    /// On WASI, we can't block the main thread, so XCTestMain is defined as async.
-                    static func main() async {
-                        \#(testObservabilitySetup)
-                        await XCTMain(__allDiscoveredTests()) as Never
+                static func main() \#(asyncMainKeyword) {
+                    let testingLibrary = Self.testingLibrary()
+                    #if \#(swiftTestingImportCondition)
+                    if testingLibrary == "swift-testing" {
+                        #if os(Linux)
+                        // FIXME: work around crash on Amazon Linux 2 when main function is async (rdar://128303921)
+                        _runAsyncMain {
+                            await Testing.__swiftPMEntryPoint() as Never
+                        }
+                        #else
+                        await Testing.__swiftPMEntryPoint() as Never
+                        #endif
                     }
-                    #else
-                    static func main() {
+                    #endif
+                    #if \#(xctestImportCondition)
+                    if testingLibrary == "xctest" {
                         \#(testObservabilitySetup)
-                        XCTMain(__allDiscoveredTests()) as Never
+                        \#(awaitXCTMainKeyword) XCTMain(__allDiscoveredTests()) as Never
                     }
                     #endif
                 }
-                """#
-            )
-        }
+            }
+            """#
+        )
 
         stream.flush()
     }
