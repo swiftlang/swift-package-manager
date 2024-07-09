@@ -175,7 +175,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         }
 
         if case .allIncludingTests = subset {
-            func updateTestingParameters(of buildParameters: inout BuildParameters, library: BuildParameters.Testing.Library) {
+            func updateTestingParameters(of buildParameters: inout BuildParameters) {
                 buildParameters.testingParameters = .init(
                     configuration: buildParameters.configuration,
                     targetTriple: buildParameters.triple,
@@ -183,15 +183,12 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
                     enableTestability: buildParameters.testingParameters.enableTestability,
                     experimentalTestOutput: buildParameters.testingParameters.experimentalTestOutput,
                     forceTestDiscovery: globalOptions.build.enableTestDiscovery,
-                    testEntryPointPath: globalOptions.build.testEntryPointPath,
-                    library: library
+                    testEntryPointPath: globalOptions.build.testEntryPointPath
                 )
             }
-            for library in try options.testLibraryOptions.enabledTestingLibraries(swiftCommandState: swiftCommandState) {
-                updateTestingParameters(of: &productsBuildParameters, library: library)
-                updateTestingParameters(of: &toolsBuildParameters, library: library)
-                try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
-            }
+            updateTestingParameters(of: &productsBuildParameters)
+            updateTestingParameters(of: &toolsBuildParameters)
+            try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
         } else {
             try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
         }

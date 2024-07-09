@@ -112,9 +112,7 @@ public class LLBuildManifestBuilder {
             }
         }
 
-        if self.plan.destinationBuildParameters.testingParameters.library == .xctest {
-            try self.addTestDiscoveryGenerationCommand()
-        }
+        try self.addTestDiscoveryGenerationCommand()
         try self.addTestEntryPointGenerationCommand()
 
         // Create command for all products in the plan.
@@ -310,9 +308,7 @@ extension LLBuildManifestBuilder {
 
             let outputs = testEntryPointTarget.target.sources.paths
 
-            let mainFileName = TestEntryPointTool.mainFileName(
-                for: self.plan.destinationBuildParameters.testingParameters.library
-            )
+            let mainFileName = TestEntryPointTool.mainFileName
             guard let mainOutput = (outputs.first { $0.basename == mainFileName }) else {
                 throw InternalError("main output (\(mainFileName)) not found")
             }
