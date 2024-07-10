@@ -12,7 +12,7 @@
 
 import Commands
 #if canImport(Darwin.C)
-private import Darwin.C
+import Darwin.C
 #endif
 
 @main
@@ -26,7 +26,11 @@ struct Entrypoint {
         let bundlePath = args[2]
         guard let image = dlopen(bundlePath, RTLD_LAZY) else {
           let errorMessage: String = dlerror().flatMap {
+#if compiler(>=6)
             String(validatingCString: $0)
+#else
+            String(validatingUTF8: $0)
+#endif
           } ?? "An unknown error occurred."
           fatalError("Failed to open test bundle at path \(bundlePath): \(errorMessage)")
         }
