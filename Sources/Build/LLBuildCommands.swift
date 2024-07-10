@@ -247,6 +247,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             #endif
 
             @main
+            @available(macOS 10.15.0, iOS 11.0, watchOS 4.0, tvOS 11.0, *)
             @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
             struct Runner {
                 private static func testingLibrary() -> String {
