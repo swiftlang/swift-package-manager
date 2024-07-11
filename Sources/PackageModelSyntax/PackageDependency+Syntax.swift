@@ -12,8 +12,8 @@
 
 import Basics
 import PackageModel
-import SwiftSyntax
 import SwiftParser
+import SwiftSyntax
 import struct TSCUtility.Version
 
 extension PackageDependency: ManifestSyntaxRepresentable {
@@ -88,6 +88,6 @@ extension PackageDependency.SourceControl.Requirement: ManifestSyntaxRepresentab
 
 extension Version: ManifestSyntaxRepresentable {
     func asSyntax() -> ExprSyntax {
-        return "\(literal: description)"
+        "\(literal: description)"
     }
 }

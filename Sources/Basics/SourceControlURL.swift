@@ -45,26 +45,24 @@ public struct SourceControlURL: Codable, Equatable, Hashable, Sendable {
     }
 
     public var absoluteString: String {
-        return self.urlString
+        self.urlString
     }
 
     public var lastPathComponent: String {
-        return (self.urlString as NSString).lastPathComponent
+        (self.urlString as NSString).lastPathComponent
     }
 
     public var url: URL? {
-        return URL(string: self.urlString)
+        URL(string: self.urlString)
     }
 }
 
 extension SourceControlURL: CustomStringConvertible {
     public var description: String {
-        return self.urlString
+        self.urlString
     }
 }
 
-extension SourceControlURL: ExpressibleByStringInterpolation {
-}
+extension SourceControlURL: ExpressibleByStringInterpolation {}
 
-extension SourceControlURL: ExpressibleByStringLiteral {
-}
+extension SourceControlURL: ExpressibleByStringLiteral {}

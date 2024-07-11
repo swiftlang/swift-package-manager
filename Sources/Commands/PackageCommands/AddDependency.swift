@@ -24,7 +24,8 @@ import Workspace
 extension SwiftPackageCommand {
     struct AddDependency: SwiftCommand {
         package static let configuration = CommandConfiguration(
-            abstract: "Add a package dependency to the manifest")
+            abstract: "Add a package dependency to the manifest"
+        )
 
         @Argument(help: "The URL or directory of the package to add")
         var dependency: String
@@ -126,24 +127,28 @@ extension SwiftPackageCommand {
             }
 
             if requirements.count > 1 {
-                throw StringError("must specify at most one of --exact, --branch, --revision, --from, or --up-to-next-minor-from")
+                throw StringError(
+                    "must specify at most one of --exact, --branch, --revision, --from, or --up-to-next-minor-from"
+                )
             }
 
             guard let firstRequirement = requirements.first else {
-                throw StringError("must specify one of --exact, --branch, --revision, --from, or --up-to-next-minor-from")
+                throw StringError(
+                    "must specify one of --exact, --branch, --revision, --from, or --up-to-next-minor-from"
+                )
             }
 
             let requirement: PackageDependency.SourceControl.Requirement
             if case .range(let range) = firstRequirement {
                 if let to {
-                    requirement = .range(range.lowerBound..<to)
+                    requirement = .range(range.lowerBound ..< to)
                 } else {
                     requirement = .range(range)
                 }
             } else {
                 requirement = firstRequirement
 
-                if to != nil {
+                if self.to != nil {
                     throw StringError("--to can only be specified with --from or --up-to-next-minor-from")
                 }
             }
@@ -197,7 +202,7 @@ extension SwiftPackageCommand {
                 to: fileSystem,
                 manifest: manifestSyntax,
                 manifestPath: manifestPath,
-                verbose: !globalOptions.logging.quiet
+                verbose: !self.globalOptions.logging.quiet
             )
         }
     }

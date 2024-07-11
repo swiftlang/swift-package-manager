@@ -800,7 +800,9 @@ final class PackageCommandTests: CommandsTestCase {
             let path = tmpPath.appending("PackageB")
             try fs.createDirectory(path)
 
-            try fs.writeFileContents(path.appending("Package.swift"), string:
+            try fs.writeFileContents(
+                path.appending("Package.swift"),
+                string:
                 """
                 // swift-tools-version: 5.9
                 import PackageDescription
@@ -811,7 +813,7 @@ final class PackageCommandTests: CommandsTestCase {
                 """
             )
 
-            _ = try await execute(
+            _ = try await self.execute(
                 [
                     "add-dependency",
                     "https://github.com/swiftlang/swift-syntax.git",
@@ -825,7 +827,10 @@ final class PackageCommandTests: CommandsTestCase {
             XCTAssertFileExists(manifest)
             let contents: String = try fs.readFileContents(manifest)
 
-            XCTAssertMatch(contents, .contains(#".package(url: "https://github.com/swiftlang/swift-syntax.git", branch: "main"),"#))
+            XCTAssertMatch(
+                contents,
+                .contains(#".package(url: "https://github.com/swiftlang/swift-syntax.git", branch: "main"),"#)
+            )
         }
     }
 
