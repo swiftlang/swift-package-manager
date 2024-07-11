@@ -66,8 +66,7 @@ extension SwiftPackageCommand {
         cancellator: Cancellator?
     ) throws  {
         let gitRepositoryProvider = GitRepositoryProvider()
-        if gitRepositoryProvider.repositoryExists(at: packageDirectory) &&
-            (try? gitRepositoryProvider.isValidDirectory(packageDirectory)) == true {
+        if gitRepositoryProvider.isValidDirectory(packageDirectory) {
             let repository = GitRepository(path: packageDirectory, cancellator: cancellator)
             try repository.archive(to: archivePath)
         } else {

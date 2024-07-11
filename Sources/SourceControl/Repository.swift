@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import struct PackageModel.CanonicalPackageURL
 import Foundation
 
 /// Specifies a repository address.
@@ -32,10 +33,10 @@ public struct RepositorySpecifier: Hashable, Sendable {
     }
 
     /// The location of the repository as string.
-    public var url: String {
+    public var url: CanonicalPackageURL {
         switch self.location {
-        case .path(let path): return path.pathString
-        case .url(let url): return url.absoluteString
+        case .path(let path): return CanonicalPackageURL(path.pathString)
+        case .url(let url): return CanonicalPackageURL(url.absoluteString)
         }
     }
 
@@ -43,7 +44,7 @@ public struct RepositorySpecifier: Hashable, Sendable {
     public var basename: String {
         // FIXME: this might be wrong
         //var basename = self.url.pathComponents.dropFirst(1).last(where: { !$0.isEmpty }) ?? ""
-        var basename = (self.url as NSString).lastPathComponent
+        var basename = (self.url.description as NSString).lastPathComponent
         if basename.hasSuffix(".git") {
             basename = String(basename.dropLast(4))
         }
@@ -88,9 +89,6 @@ public protocol RepositoryProvider: Cancellable {
     ///   - progress: Reports the progress of the current fetch operation.
     /// - Throws: If there is any error fetching the repository.
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler?) throws
-
-    /// Returns true if a  repository exists at `path`
-    func repositoryExists(at path: AbsolutePath) throws -> Bool
 
     /// Open the given repository.
     ///
@@ -143,10 +141,10 @@ public protocol RepositoryProvider: Cancellable {
     func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws
 
     /// Returns true if the directory is valid git location.
-    func isValidDirectory(_ directory: AbsolutePath) throws -> Bool
+    func isValidDirectory(_ directory: AbsolutePath) -> Bool
 
     /// Returns true if the directory is valid git location for the specified repository
-    func isValidDirectory(_ directory: AbsolutePath, for repository: SourceControlURL) throws -> Bool
+    func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool
 }
 
 /// Abstract repository operations.

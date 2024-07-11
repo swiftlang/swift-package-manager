@@ -220,13 +220,8 @@ public class RepositoryManager: Cancellable {
         // check if a repository already exists
         // errors when trying to check if a repository already exists are legitimate
         // and recoverable, and as such can be ignored
-        quick: if (try? self.provider.repositoryExists(at: repositoryPath)) ?? false {
+        if ((try? self.provider.isValidDirectory(repositoryPath, for: repositorySpecifier)) ?? false) {
             let repository = try handle.open()
-
-            guard ((try? self.provider.isValidDirectory(repositoryPath, for: repositorySpecifier)) ?? false) else {
-                observabilityScope.emit(warning: "\(repositoryPath) is not valid git repository for '\(repositorySpecifier.location)', will fetch again.")
-                break quick
-            }
 
             // Update the repository if needed
             if self.fetchRequired(repository: repository, updateStrategy: updateStrategy) {
@@ -244,6 +239,8 @@ public class RepositoryManager: Cancellable {
             }
 
             return handle
+        } else {
+            observabilityScope.emit(warning: "\(repositoryPath) is not valid git repository for '\(repositorySpecifier.location)', will fetch again.")
         }
 
         // inform delegate that we are starting to fetch
@@ -447,12 +444,12 @@ public class RepositoryManager: Cancellable {
     }
 
     /// Returns true if the directory is valid git location.
-    public func isValidDirectory(_ directory: AbsolutePath) throws -> Bool {
-        try self.provider.isValidDirectory(directory)
+    public func isValidDirectory(_ directory: AbsolutePath) -> Bool {
+        self.provider.isValidDirectory(directory)
     }
 
     /// Returns true if the directory is valid git location for the specified repository
-    public func isValidDirectory(_ directory: AbsolutePath, for repository: SourceControlURL) throws -> Bool {
+    public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
         try self.provider.isValidDirectory(directory, for: repository)
     }
 
@@ -508,15 +505,6 @@ public class RepositoryManager: Cancellable {
                 error: "Error purging repository cache at '\(cachePath)'",
                 underlyingError: error
             )
-        }
-    }
-}
-
-extension RepositoryProvider {
-    fileprivate func isValidDirectory(_ directory: AbsolutePath, for repositorySpecifier: RepositorySpecifier) throws -> Bool {
-        switch repositorySpecifier.location {
-        case .path:         return try isValidDirectory(directory)
-        case .url(let url): return try isValidDirectory(directory, for: url)
         }
     }
 }

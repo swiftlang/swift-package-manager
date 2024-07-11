@@ -438,10 +438,6 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         add(specifier: RepositorySpecifier(path: path), repository: repo)
     }
 
-    public func repositoryExists(at path: AbsolutePath) throws -> Bool {
-        return fetchedMap[path] != nil
-    }
-
     public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
         guard let repo = fetchedMap[sourcePath] else {
             throw InternalError("unknown repo at \(sourcePath)")
@@ -481,12 +477,12 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         return checkout
     }
 
-    public func isValidDirectory(_ directory: AbsolutePath) throws -> Bool {
-        return true
+    public func isValidDirectory(_ directory: AbsolutePath) -> Bool {
+        return fetchedMap[directory] != nil
     }
 
-    public func isValidDirectory(_ directory: AbsolutePath, for repository: SourceControlURL) throws -> Bool {
-        return true
+    public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
+        return fetchedMap[directory] != nil
     }
 
     public func cancel(deadline: DispatchTime) throws {

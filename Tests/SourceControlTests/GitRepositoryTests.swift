@@ -785,14 +785,14 @@ class GitRepositoryTests: XCTestCase {
             )
             
             // Before initializing the directory with a git repo, it is never valid.
-            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir))
+            XCTAssertFalse(repositoryManager.isValidDirectory(packageDir))
             initGitRepo(packageDir)
             
-            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir))
-            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: SourceControlURL(packageDir.pathString)))
-            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: SourceControlURL(URL(packageDir.pathString + "/"))))
-            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: SourceControlURL("/")))
-            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: SourceControlURL("https://mycustomdomain/some-package.git")))
+            XCTAssertTrue(repositoryManager.isValidDirectory(packageDir))
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(packageDir.pathString))))
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(URL(packageDir.pathString + "/")))))
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL("/"))))
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL("https://mycustomdomain/some-package.git"))))
         }
     }
     
@@ -814,20 +814,21 @@ class GitRepositoryTests: XCTestCase {
             let customRemote = try XCTUnwrap(URL(string: "https://mycustomdomain/some-package.git"))
             
             // Before initializing the directory with a git repo, it is never valid.
-            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir))
-            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: SourceControlURL(customRemote)))
+            XCTAssertFalse(repositoryManager.isValidDirectory(packageDir))
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemote))))
             
             initGitRepo(packageDir)
             // Set the remote.
             try systemQuietly([Git.tool, "-C", packageDir.pathString, "remote", "add", "origin", customRemote.absoluteString])
             
-            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir))
-            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: SourceControlURL(customRemote)))
-            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: SourceControlURL("/")))
-            // We consider the directory invalid if the remote does not have the same path extension - in this case we expect '.git'.
-            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: SourceControlURL("https://mycustomdomain/some-package")))
-            // We consider the directory invalid if the remote does not have the same path extension - in this case we expect '.git'.
-            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: SourceControlURL("https://mycustomdomain/some-package/")))
+            XCTAssertTrue(repositoryManager.isValidDirectory(packageDir))
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemote))))
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL("/"))))
+
+            // We consider the directory valid even if the remote does not have the same path extension - in this case we expected '.git'.
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL("https://mycustomdomain/some-package"))))
+            // We consider the directory valid even if the remote does not have the same path extension - in this case we expected '.git'.
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for:  RepositorySpecifier(url: SourceControlURL("https://mycustomdomain/some-package/"))))
         }
     }
 }
