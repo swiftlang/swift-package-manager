@@ -30,7 +30,8 @@ import XCBuildSupport
 import struct TSCBasic.KeyedPair
 import func TSCBasic.topologicalSort
 import var TSCBasic.stdoutStream
-
+import enum TSCBasic.GraphError
+import struct TSCBasic.OrderedSet
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
 
@@ -190,7 +191,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 observabilityScope: observabilityScope,
                 logLevel: self.logLevel
             )
-            try builder.build(
+            try await builder.build(
                 packagePath: packagePath,
                 scratchDirectory: scratchDirectory,
                 buildSystem: self.buildSystem,
@@ -249,7 +250,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             useIntegratedSwiftDriver: Bool,
             explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode,
             shouldDisableLocalRpath: Bool
-        ) throws {
+        ) async throws {
             let buildSystem = try createBuildSystem(
                 packagePath: packagePath,
                 scratchDirectory: scratchDirectory,
@@ -263,7 +264,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 shouldDisableLocalRpath: shouldDisableLocalRpath,
                 logLevel: logLevel
             )
-            try buildSystem.build(subset: .allExcludingTests)
+            try await buildSystem.build(subset: .allExcludingTests)
         }
 
         func createBuildSystem(
@@ -314,9 +315,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             let manifestLoader = createManifestLoader(manifestBuildFlags: manifestBuildFlags)
 
             let asyncUnsafePackageGraphLoader = {
-                try unsafe_await {
-                    try await self.loadPackageGraph(packagePath: packagePath, manifestLoader: manifestLoader)
-                }
+                try await self.loadPackageGraph(packagePath: packagePath, manifestLoader: manifestLoader)
             }
 
             switch buildSystem {
@@ -373,10 +372,12 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
 
             // Compute the transitive closure of available dependencies.
             let input = loadedManifests.map { identity, manifest in KeyedPair(manifest, key: identity) }
-            _ = try topologicalSort(input) { pair in
+            _ = try await topologicalSort(input) { pair in
                 let dependenciesRequired = pair.item.dependenciesRequired(for: .everything)
                 let dependenciesToLoad = dependenciesRequired.map{ $0.packageRef }.filter { !loadedManifests.keys.contains($0.identity) }
-                let dependenciesManifests = try temp_await { self.loadManifests(manifestLoader: manifestLoader, packages: dependenciesToLoad, completion: $0) }
+                let dependenciesManifests = try await withCheckedThrowingContinuation {
+                    self.loadManifests(manifestLoader: manifestLoader, packages: dependenciesToLoad, completion: $0.resume(with:))
+                }
                 dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
                 return dependenciesRequired.compactMap { dependency in
                     loadedManifests[dependency.identity].flatMap {
@@ -505,3 +506,47 @@ extension BuildConfiguration: ExpressibleByArgument {}
 extension AbsolutePath: @retroactive ExpressibleByArgument {}
 extension BuildConfiguration: @retroactive ExpressibleByArgument {}
 #endif
+
+public func topologicalSort<T: Hashable>(
+    _ nodes: [T], successors: (T) async throws -> [T]
+) async throws -> [T] {
+    // Implements a topological sort via recursion and reverse postorder DFS.
+    func visit(_ node: T,
+               _ stack: inout OrderedSet<T>, _ visited: inout Set<T>, _ result: inout [T],
+               _ successors: (T) async throws -> [T]) async throws {
+        // Mark this node as visited -- we are done if it already was.
+        if !visited.insert(node).inserted {
+            return
+        }
+
+        // Otherwise, visit each adjacent node.
+        for succ in try await successors(node) {
+            guard stack.append(succ) else {
+                // If the successor is already in this current stack, we have found a cycle.
+                //
+                // FIXME: We could easily include information on the cycle we found here.
+                throw TSCBasic.GraphError.unexpectedCycle
+            }
+            try await visit(succ, &stack, &visited, &result, successors)
+            let popped = stack.removeLast()
+            assert(popped == succ)
+        }
+
+        // Add to the result.
+        result.append(node)
+    }
+
+    // FIXME: This should use a stack not recursion.
+    var visited = Set<T>()
+    var result = [T]()
+    var stack = OrderedSet<T>()
+    for node in nodes {
+        precondition(stack.isEmpty)
+        stack.append(node)
+        try await visit(node, &stack, &visited, &result, successors)
+        let popped = stack.removeLast()
+        assert(popped == node)
+    }
+
+    return result.reversed()
+}

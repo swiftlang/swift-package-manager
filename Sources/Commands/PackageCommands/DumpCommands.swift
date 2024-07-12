@@ -53,7 +53,7 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
             traitConfiguration: .init(enableAllTraits: true),
             cacheBuildManifest: false
         )
-        try buildSystem.build()
+        try await buildSystem.build()
 
         // Configure the symbol graph extractor.
         let symbolGraphExtractor = try SymbolGraphExtract(
@@ -71,7 +71,7 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
         // Run the tool once for every library and executable target in the root package.
         let buildPlan = try buildSystem.buildPlan
         let symbolGraphDirectory = buildPlan.destinationBuildParameters.dataPath.appending("symbolgraph")
-        let targets = try buildSystem.getPackageGraph().rootPackages.flatMap{ $0.modules }.filter{ $0.type == .library }
+        let targets = try await buildSystem.getPackageGraph().rootPackages.flatMap{ $0.modules }.filter{ $0.type == .library }
         for target in targets {
             print("-- Emitting symbol graph for", target.name)
             let result = try symbolGraphExtractor.extractSymbolGraph(

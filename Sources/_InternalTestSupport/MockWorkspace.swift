@@ -169,13 +169,13 @@ public final class MockWorkspace {
                 if let containerProvider = customPackageContainerProvider {
                     let observability = ObservabilitySystem.makeForTesting()
                     let packageRef = PackageReference(identity: PackageIdentity(url: url), kind: .remoteSourceControl(url))
-                    let container = try await safe_async {
+                    let container = try await withCheckedThrowingContinuation {
                         containerProvider.getContainer(
                             for: packageRef,
                             updateStrategy: .never,
                             observabilityScope: observability.topScope,
                             on: .sharedConcurrent,
-                            completion: $0
+                            completion: $0.resume(with:)
                         )
                     }
                     guard let customContainer = container as? CustomPackageContainer else {
@@ -779,7 +779,9 @@ public final class MockWorkspace {
         let rootInput = PackageGraphRootInput(
             packages: try rootPaths(for: roots), dependencies: dependencies
         )
-        let rootManifests = try await safe_async { workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope, completion: $0) }
+        let rootManifests = try await withCheckedThrowingContinuation {
+            workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope, completion: $0.resume(with:))
+        }
         let graphRoot = PackageGraphRoot(input: rootInput, manifests: rootManifests, observabilityScope: observability.topScope)
         let manifests = try await workspace.loadDependencyManifests(root: graphRoot, observabilityScope: observability.topScope)
         result(manifests, observability.diagnostics)

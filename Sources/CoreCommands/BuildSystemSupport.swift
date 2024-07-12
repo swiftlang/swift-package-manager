@@ -30,7 +30,7 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
         cacheBuildManifest: Bool,
         productsBuildParameters: BuildParameters?,
         toolsBuildParameters: BuildParameters?,
-        packageGraphLoader: (() throws -> ModulesGraph)?,
+        packageGraphLoader: (() async throws -> ModulesGraph)?,
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?
@@ -42,13 +42,11 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
             toolsBuildParameters: try toolsBuildParameters ?? self.swiftCommandState.toolsBuildParameters,
             cacheBuildManifest: cacheBuildManifest && self.swiftCommandState.canUseCachedBuildManifest(),
             packageGraphLoader: packageGraphLoader ?? {
-                try unsafe_await {
-                    try await self.swiftCommandState.loadPackageGraph(
-                        explicitProduct: explicitProduct,
-                        traitConfiguration: traitConfiguration,
-                        testEntryPointPath: testEntryPointPath
-                    )
-                }
+                try await self.swiftCommandState.loadPackageGraph(
+                    explicitProduct: explicitProduct,
+                    traitConfiguration: traitConfiguration,
+                    testEntryPointPath: testEntryPointPath
+                )
             },
             pluginConfiguration: .init(
                 scriptRunner: self.swiftCommandState.getPluginScriptRunner(),
@@ -75,7 +73,7 @@ private struct XcodeBuildSystemFactory: BuildSystemFactory {
         cacheBuildManifest: Bool,
         productsBuildParameters: BuildParameters?,
         toolsBuildParameters: BuildParameters?,
-        packageGraphLoader: (() throws -> ModulesGraph)?,
+        packageGraphLoader: (() async throws -> ModulesGraph)?,
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?
@@ -83,11 +81,9 @@ private struct XcodeBuildSystemFactory: BuildSystemFactory {
         return try XcodeBuildSystem(
             buildParameters: productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
             packageGraphLoader: packageGraphLoader ?? {
-                try unsafe_await {
-                    try await self.swiftCommandState.loadPackageGraph(
-                        explicitProduct: explicitProduct
-                    )
-                }
+                try await self.swiftCommandState.loadPackageGraph(
+                    explicitProduct: explicitProduct
+                )
             },
             outputStream: outputStream ?? self.swiftCommandState.outputStream,
             logLevel: logLevel ?? self.swiftCommandState.logLevel,
