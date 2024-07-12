@@ -275,7 +275,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
                 private static func _runAsyncMain(_ asyncFun: @Sendable @escaping () async throws -> ())
                 #endif
 
-                static func main() \(asyncMainKeyword) {
+                static func main() \#(asyncMainKeyword) {
                     let testingLibrary = Self.testingLibrary()
                     #if \#(swiftTestingImportCondition)
                     if testingLibrary == "swift-testing" {
