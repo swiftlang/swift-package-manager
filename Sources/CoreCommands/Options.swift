@@ -586,7 +586,7 @@ public struct TestLibraryOptions: ParsableArguments {
     /// have the correct default value if the user didn't specify one.
     @Flag(name: .customLong("swift-testing"),
           inversion: .prefixedEnableDisable,
-          help: "Enable support for swift-testing")
+          help: "Enable support for Swift Testing")
     public var explicitlyEnableSwiftTestingLibrarySupport: Bool?
 
     /// Legacy experimental equivalent of ``explicitlyEnableSwiftTestingLibrarySupport``.
@@ -594,7 +594,7 @@ public struct TestLibraryOptions: ParsableArguments {
     /// This option will be removed in a future update.
     @Flag(name: .customLong("experimental-swift-testing"),
           inversion: .prefixedEnableDisable,
-          help: .hidden)
+          help: .private)
     public var explicitlyEnableExperimentalSwiftTestingLibrarySupport: Bool?
 
     /// Test whether or not a given library is enabled.
@@ -609,7 +609,7 @@ public struct TestLibraryOptions: ParsableArguments {
 
     /// The list of enabled testing libraries.
     public var enabledTestingLibraries: [BuildParameters.Testing.Library] {
-        [.xctest, .swiftTesting].lazy.filter(isEnabled)
+        [.xctest, .swiftTesting].filter(isEnabled)
     }
 }
 
