@@ -80,6 +80,38 @@ struct SharedOptions: ParsableArguments {
     var testProduct: String?
 }
 
+struct TestEventStreamOptions: ParsableArguments {
+    /// Legacy equivalent of ``configurationPath``.
+    @Option(name: .customLong("experimental-configuration-path"),
+            help: .private)
+    var experimentalConfigurationPath: AbsolutePath?
+
+    /// Path where swift-testing's JSON configuration should be read.
+    @Option(name: .customLong("configuration-path"),
+            help: .hidden)
+    var configurationPath: AbsolutePath?
+
+    /// Legacy equivalent of ``eventStreamOutputPath``.
+    @Option(name: .customLong("experimental-event-stream-output"),
+            help: .private)
+    var experimentalEventStreamOutputPath: AbsolutePath?
+
+    /// Path where swift-testing's JSON output should be written.
+    @Option(name: .customLong("event-stream-output-path"),
+            help: .hidden)
+    var eventStreamOutputPath: AbsolutePath?
+
+    /// Legacy equivalent of ``eventStreamVersion``.
+    @Option(name: .customLong("experimental-event-stream-version"),
+            help: .private)
+    var experimentalEventStreamVersion: Int?
+
+    /// The schema version of swift-testing's JSON input/output.
+    @Option(name: .customLong("event-stream-version"),
+            help: .hidden)
+    var eventStreamVersion: Int?
+}
+
 struct TestCommandOptions: ParsableArguments {
     @OptionGroup()
     var globalOptions: GlobalOptions
@@ -90,6 +122,10 @@ struct TestCommandOptions: ParsableArguments {
     /// Which testing libraries to use (and any related options.)
     @OptionGroup()
     var testLibraryOptions: TestLibraryOptions
+
+    /// Options for Swift Testing's event stream.
+    @OptionGroup()
+    var testEventStreamOptions: TestEventStreamOptions
 
     /// If tests should run in parallel mode.
     @Flag(name: .customLong("parallel"),
@@ -155,21 +191,6 @@ struct TestCommandOptions: ParsableArguments {
     var enableExperimentalTestOutput: Bool {
         return testOutput == .experimentalSummary
     }
-
-    /// Path where swift-testing's JSON configuration should be read.
-    @Option(name: .customLong("experimental-configuration-path"),
-            help: .hidden)
-    var configurationPath: AbsolutePath?
-
-    /// Path where swift-testing's JSON output should be written.
-    @Option(name: .customLong("experimental-event-stream-output"),
-            help: .hidden)
-    var eventStreamOutputPath: AbsolutePath?
-
-    /// The schema version of swift-testing's JSON input/output.
-    @Option(name: .customLong("experimental-event-stream-version"),
-            help: .hidden)
-    var eventStreamVersion: Int?
 
     @OptionGroup(visibility: .hidden)
     package var traits: TraitOptions
@@ -655,6 +676,10 @@ extension SwiftTestCommand {
         /// Which testing libraries to use (and any related options.)
         @OptionGroup()
         var testLibraryOptions: TestLibraryOptions
+
+        /// Options for Swift Testing's event stream.
+        @OptionGroup()
+        var testEventStreamOptions: TestEventStreamOptions
 
         @OptionGroup(visibility: .hidden)
         package var traits: TraitOptions
