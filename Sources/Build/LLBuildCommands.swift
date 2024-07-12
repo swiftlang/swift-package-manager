@@ -233,6 +233,13 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             "false"
         }
 
+        // FIXME: work around crash on Amazon Linux 2 when main function is async (rdar://128303921)
+        let asyncMainKeyword = if context.productsBuildParameters.triple.isLinux() {
+            "async"
+        } else {
+            ""
+        }
+
         stream.send(
             #"""
             #if \#(swiftTestingImportCondition)
@@ -262,24 +269,37 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
                     return "xctest"
                 }
 
-                static func main() async {
+                #if os(Linux)
+                // FIXME: work around crash on Amazon Linux 2 when main function is async (rdar://128303921)
+                @_silgen_name("$ss13_runAsyncMainyyyyYaKcF")
+                private static func _runAsyncMain(_ asyncFun: @Sendable @escaping () async throws -> ())
+                #endif
+
+                static func main() \(asyncMainKeyword) {
                     let testingLibrary = Self.testingLibrary()
-            #if \#(swiftTestingImportCondition)
+                    #if \#(swiftTestingImportCondition)
                     if testingLibrary == "swift-testing" {
+                        #if os(Linux)
+                        // FIXME: work around crash on Amazon Linux 2 when main function is async (rdar://128303921)
+                        _runAsyncMain {
+                            await Testing.__swiftPMEntryPoint() as Never
+                        }
+                        #else
                         await Testing.__swiftPMEntryPoint() as Never
+                        #endif
                     }
-            #endif
-            #if \#(xctestImportCondition)
+                    #endif
+                    #if \#(xctestImportCondition)
                     if testingLibrary == "xctest" {
                         \#(testObservabilitySetup)
-            #if os(WASI)
+                        #if os(WASI)
                         /// On WASI, we can't block the main thread, so XCTestMain is defined as async.
                         await XCTMain(__allDiscoveredTests()) as Never
-            #else
+                        #else
                         XCTMain(__allDiscoveredTests()) as Never
-            #endif
+                        #endif
                     }
-            #endif
+                    #endif
                 }
             }
             """#
