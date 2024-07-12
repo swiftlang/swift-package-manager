@@ -233,6 +233,13 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             "false"
         }
 
+        /// On WASI, we can't block the main thread, so XCTestMain is defined as async.
+        let awaitXCTMainKeyword = if context.productsBuildParameters.triple.isWASI() {
+            "await"
+        } else {
+            ""
+        }
+
         // FIXME: work around crash on Amazon Linux 2 when main function is async (rdar://128303921)
         let asyncMainKeyword = if context.productsBuildParameters.triple.isLinux() {
             "async"
@@ -292,12 +299,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
                     #if \#(xctestImportCondition)
                     if testingLibrary == "xctest" {
                         \#(testObservabilitySetup)
-                        #if os(WASI)
-                        /// On WASI, we can't block the main thread, so XCTestMain is defined as async.
-                        await XCTMain(__allDiscoveredTests()) as Never
-                        #else
-                        XCTMain(__allDiscoveredTests()) as Never
-                        #endif
+                        \#(awaitXCTMainKeyword) XCTMain(__allDiscoveredTests()) as Never
                     }
                     #endif
                 }
