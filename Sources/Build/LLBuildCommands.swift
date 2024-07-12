@@ -242,9 +242,9 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
 
         // FIXME: work around crash on Amazon Linux 2 when main function is async (rdar://128303921)
         let asyncMainKeyword = if context.productsBuildParameters.triple.isLinux() {
-            "async"
+          ""
         } else {
-            ""
+          "async"
         }
 
         stream.send(
