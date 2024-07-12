@@ -421,7 +421,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
 
         if self.options.shouldPrintCodeCovPath {
-            try printCodeCovPath(swiftCommandState)
+            try await printCodeCovPath(swiftCommandState)
         } else if self.options._deprecated_shouldListTests {
             // backward compatibility 6/2022 for deprecation of flag into a subcommand
             let command = try List.parse()
@@ -665,10 +665,10 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 }
 
 extension SwiftTestCommand {
-    func printCodeCovPath(_ swiftCommandState: SwiftCommandState) throws {
+    func printCodeCovPath(_ swiftCommandState: SwiftCommandState) async throws {
         let workspace = try swiftCommandState.getActiveWorkspace()
         let root = try swiftCommandState.getWorkspaceRoot()
-        let rootManifests = try temp_await {
+        let rootManifests = try await safe_async {
             workspace.loadRootManifests(
                 packages: root.packages,
                 observabilityScope: swiftCommandState.observabilityScope,

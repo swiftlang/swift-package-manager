@@ -25,14 +25,46 @@ public enum Concurrency {
 }
 
 // FIXME: mark as deprecated once async/await is available
-// @available(*, deprecated, message: "replace with async/await when available")
+@available(*, noasync, message: "replace with async/await when available")
 @inlinable
 public func temp_await<T, ErrorType>(_ body: (@escaping (Result<T, ErrorType>) -> Void) -> Void) throws -> T {
     try tsc_await(body)
 }
 
+@available(*, noasync, message: "This method blocks the current thread indefinitely. Calling it from the concurrency pool can cause deadlocks")
+public func unsafe_await<T>(_ body: @Sendable @escaping () async throws -> T) throws -> T {
+    let semaphore = DispatchSemaphore(value: 0)
+    let box = ThreadSafeBox<Result<T, Error>>()
+    Task {
+        let localResult: Result<T, Error>
+        do {
+            localResult = try await .success(body())
+        } catch {
+            localResult = .failure(error)
+        }
+        box.mutate { _ in localResult }
+        semaphore.signal()
+    }
+    semaphore.wait()
+    return try box.get()!.get()
+}
+
+@available(*, noasync, message: "This method blocks the current thread indefinitely. Calling it from the concurrency pool can cause deadlocks")
+public func unsafe_await<T>(_ body: @Sendable @escaping () async -> T) -> T {
+    let semaphore = DispatchSemaphore(value: 0)
+
+    let box = ThreadSafeBox<T>()
+    Task {
+        let localValue: T = await body()
+        box.mutate { _ in localValue }
+        semaphore.signal()
+    }
+    semaphore.wait()
+    return box.get()!
+}
+
 // FIXME: mark as deprecated once async/await is available
-// @available(*, deprecated, message: "replace with async/await when available")
+@available(*, deprecated, message: "replace with async/await when available")
 @inlinable
 public func temp_await<T>(_ body: (@escaping (T) -> Void) -> Void) -> T {
     tsc_await(body)

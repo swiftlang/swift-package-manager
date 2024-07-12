@@ -28,11 +28,11 @@ import struct TSCBasic.ByteString
 import struct TSCUtility.Version
 
 final class WorkspaceTests: XCTestCase {
-    func testBasics() throws {
+    func testBasics() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -262,11 +262,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testMultipleRootPackages() throws {
+    func testMultipleRootPackages() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -319,11 +319,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testRootPackagesOverride() throws {
+    func testRootPackagesOverride() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -381,11 +381,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDuplicateRootPackages() throws {
+    func testDuplicateRootPackages() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -418,11 +418,11 @@ final class WorkspaceTests: XCTestCase {
     }
 
     /// Test that the explicit name given to a package is not used as its identity.
-    func testExplicitPackageNameIsNotUsedAsPackageIdentity() throws {
+    func testExplicitPackageNameIsNotUsedAsPackageIdentity() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -491,11 +491,11 @@ final class WorkspaceTests: XCTestCase {
     }
 
     /// Test that the remote repository is not resolved when a root package with same name is already present.
-    func testRootAsDependency1() throws {
+    func testRootAsDependency1() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -552,11 +552,11 @@ final class WorkspaceTests: XCTestCase {
     }
 
     /// Test that a root package can be used as a dependency when the remote version was resolved previously.
-    func testRootAsDependency2() throws {
+    func testRootAsDependency2() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -639,11 +639,11 @@ final class WorkspaceTests: XCTestCase {
         )
     }
 
-    func testGraphRootDependencies() throws {
+    func testGraphRootDependencies() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [],
@@ -701,11 +701,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testCanResolveWithIncompatiblePins() throws {
+    func testCanResolveWithIncompatiblePins() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [],
@@ -803,11 +803,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testResolverCanHaveError() throws {
+    func testResolverCanHaveError() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [],
@@ -871,7 +871,7 @@ final class WorkspaceTests: XCTestCase {
         let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
         let v2 = CheckoutState.version("2.0.0", revision: Revision(identifier: "hello"))
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -916,7 +916,7 @@ final class WorkspaceTests: XCTestCase {
         let v1Requirement: SourceControlRequirement = .range("1.0.0" ..< "2.0.0")
         let v1 = CheckoutState.version("1.0.0", revision: Revision(identifier: "hello"))
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -979,7 +979,7 @@ final class WorkspaceTests: XCTestCase {
         let branchRequirement: SourceControlRequirement = .branch("master")
         let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -1044,7 +1044,7 @@ final class WorkspaceTests: XCTestCase {
         let cPath = RelativePath("C")
         let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
 
-        let testWorkspace = try MockWorkspace(
+        let testWorkspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -1097,7 +1097,7 @@ final class WorkspaceTests: XCTestCase {
         let masterRequirement: SourceControlRequirement = .branch("master")
         let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -1164,7 +1164,7 @@ final class WorkspaceTests: XCTestCase {
         let v1Requirement: SourceControlRequirement = .range("1.0.0" ..< "2.0.0")
         let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -1232,7 +1232,7 @@ final class WorkspaceTests: XCTestCase {
         let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
         let master = CheckoutState.branch(name: "master", revision: Revision(identifier: "master"))
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -1300,7 +1300,7 @@ final class WorkspaceTests: XCTestCase {
         let v2Requirement: SourceControlRequirement = .range("2.0.0" ..< "3.0.0")
         let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -1370,7 +1370,7 @@ final class WorkspaceTests: XCTestCase {
         let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
         let v2 = CheckoutState.version("2.0.0", revision: Revision(identifier: "hello"))
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -1425,11 +1425,11 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertEqual(result.result.isRequired, false)
     }
 
-    func testLoadingRootManifests() throws {
+    func testLoadingRootManifests() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -1449,11 +1449,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testUpdate() throws {
+    func testUpdate() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -1550,11 +1550,11 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertMatch(workspace.delegate.events, [.equal("Everything is already up-to-date")])
     }
 
-    func testUpdateDryRun() throws {
+    func testUpdateDryRun() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -1645,11 +1645,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testPartialUpdate() throws {
+    func testPartialUpdate() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -1749,11 +1749,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testCleanAndReset() throws {
+    func testCleanAndReset() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -1828,11 +1828,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDependencyManifestLoading() throws {
+    func testDependencyManifestLoading() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -1864,7 +1864,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Check that we can compute missing dependencies.
-        try workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
+        try await workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
             XCTAssertEqual(
                 try! manifests.missingPackages.map(\.locationString).sorted(),
                 [
@@ -1876,7 +1876,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Load the graph with one root.
-        try workspace.checkPackageGraph(roots: ["Root1"]) { graph, diagnostics in
+        try await workspace.checkPackageGraph(roots: ["Root1"]) { graph, diagnostics in
             PackageGraphTester(graph) { result in
                 result.check(packages: "Foo", "Root1")
             }
@@ -1884,7 +1884,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check that we compute the correct missing dependencies.
-        try workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
+        try await workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
             XCTAssertEqual(
                 try! manifests.missingPackages.map(\.locationString).sorted(),
                 [sandbox.appending(components: "pkgs", "Bar").pathString]
@@ -1901,17 +1901,17 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check that we compute the correct missing dependencies.
-        try workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
+        try await workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
             XCTAssertEqual(try! manifests.missingPackages.map(\.locationString).sorted(), [])
             XCTAssertNoDiagnostics(diagnostics)
         }
     }
 
-    func testDependencyManifestsOrder() throws {
+    func testDependencyManifestsOrder() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -1966,7 +1966,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
         }
 
-        try workspace.loadDependencyManifests(roots: ["Root1"]) { manifests, diagnostics in
+        try await workspace.loadDependencyManifests(roots: ["Root1"]) { manifests, diagnostics in
             // Ensure that the order of the manifests is stable.
             XCTAssertEqual(
                 manifests.allDependencyManifests.map(\.value.manifest.displayName),
@@ -1976,11 +1976,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testBranchAndRevision() throws {
+    func testBranchAndRevision() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -2040,11 +2040,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testResolve() throws {
+    func testResolve() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -2113,11 +2113,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDeletedCheckoutDirectory() throws {
+    func testDeletedCheckoutDirectory() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -2159,11 +2159,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testMinimumRequiredToolsVersionInDependencyResolution() throws {
+    func testMinimumRequiredToolsVersionInDependencyResolution() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -2200,11 +2200,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testToolsVersionRootPackages() throws {
+    func testToolsVersionRootPackages() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -2279,11 +2279,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testEditDependency() throws {
+    func testEditDependency() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -2342,7 +2342,7 @@ final class WorkspaceTests: XCTestCase {
         }
         XCTAssertTrue(fs.exists(fooPath))
 
-        try workspace.loadDependencyManifests(roots: ["Root"]) { manifests, diagnostics in
+        try await workspace.loadDependencyManifests(roots: ["Root"]) { manifests, diagnostics in
             let editedPackages = manifests.editedPackagesConstraints
             XCTAssertEqual(editedPackages.map(\.package.locationString), [fooPath.pathString])
             XCTAssertNoDiagnostics(diagnostics)
@@ -2387,11 +2387,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testMissingEditCanRestoreOriginalCheckout() throws {
+    func testMissingEditCanRestoreOriginalCheckout() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -2450,11 +2450,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testCanUneditRemovedDependencies() throws {
+    func testCanUneditRemovedDependencies() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [],
@@ -2524,11 +2524,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDependencyResolutionWithEdit() throws {
+    func testDependencyResolutionWithEdit() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -2645,11 +2645,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testPrefetchingWithOverridenPackage() throws {
+    func testPrefetchingWithOverridenPackage() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -2730,11 +2730,11 @@ final class WorkspaceTests: XCTestCase {
     }
 
     // Test that changing a particular dependency re-resolves the graph.
-    func testChangeOneDependency() throws {
+    func testChangeOneDependency() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -2816,11 +2816,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testResolutionFailureWithEditedDependency() throws {
+    func testResolutionFailureWithEditedDependency() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -2896,11 +2896,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testStateModified() throws {
+    func testStateModified() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -2987,11 +2987,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testSkipUpdate() throws {
+    func testSkipUpdate() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -3036,11 +3036,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testLocalDependencyBasics() throws {
+    func testLocalDependencyBasics() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -3114,11 +3114,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testLocalDependencyTransitive() throws {
+    func testLocalDependencyTransitive() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -3176,11 +3176,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testLocalDependencyWithPackageUpdate() throws {
+    func testLocalDependencyWithPackageUpdate() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -3240,11 +3240,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testMissingLocalDependencyDiagnostic() throws {
+    func testMissingLocalDependencyDiagnostic() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -3280,11 +3280,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testRevisionVersionSwitch() throws {
+    func testRevisionVersionSwitch() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -3349,11 +3349,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testLocalVersionSwitch() throws {
+    func testLocalVersionSwitch() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -3418,11 +3418,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testLocalLocalSwitch() throws {
+    func testLocalLocalSwitch() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -3490,11 +3490,11 @@ final class WorkspaceTests: XCTestCase {
 
     // Test that switching between two same local packages placed at
     // different locations works correctly.
-    func testDependencySwitchLocalWithSameIdentity() throws {
+    func testDependencySwitchLocalWithSameIdentity() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -3567,11 +3567,11 @@ final class WorkspaceTests: XCTestCase {
 
     // Test that switching between two remote packages at
     // different locations works correctly.
-    func testDependencySwitchRemoteWithSameIdentity() throws {
+    func testDependencySwitchRemoteWithSameIdentity() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -3643,11 +3643,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testResolvedFileUpdate() throws {
+    func testResolvedFileUpdate() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -3698,7 +3698,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testResolvedFileSchemeToolsVersion() throws {
+    func testResolvedFileSchemeToolsVersion() async throws {
         let fs = InMemoryFileSystem()
 
         for pair in [
@@ -3707,7 +3707,7 @@ final class WorkspaceTests: XCTestCase {
             (ToolsVersion.v5_2, ToolsVersion.v5_6),
         ] {
             let sandbox = AbsolutePath("/tmp/ws/")
-            let workspace = try MockWorkspace(
+            let workspace = try await MockWorkspace(
                 sandbox: sandbox,
                 fileSystem: fs,
                 roots: [
@@ -3766,11 +3766,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testResolvedFileStableCanonicalLocation() throws {
+    func testResolvedFileStableCanonicalLocation() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -3992,11 +3992,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testPreferResolvedFileWhenExists() throws {
+    func testPreferResolvedFileWhenExists() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -4260,7 +4260,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testPackageSimpleMirrorPath() throws {
+    func testPackageSimpleMirrorPath() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -4274,7 +4274,7 @@ final class WorkspaceTests: XCTestCase {
             for: sandbox.appending(components: "pkgs", "Baz").pathString
         )
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -4352,7 +4352,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testPackageMirrorPath() throws {
+    func testPackageMirrorPath() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -4366,7 +4366,7 @@ final class WorkspaceTests: XCTestCase {
             for: sandbox.appending(components: "pkgs", "Baz").pathString
         )
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -4455,7 +4455,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testPackageSimpleMirrorURL() throws {
+    func testPackageSimpleMirrorURL() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -4463,7 +4463,7 @@ final class WorkspaceTests: XCTestCase {
         try mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "https://scm.com/org/bar")
         try mirrors.set(mirror: "https://scm.com/org/baz-mirror", for: "https://scm.com/org/baz")
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -4544,7 +4544,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testPackageMirrorURL() throws {
+    func testPackageMirrorURL() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -4552,7 +4552,7 @@ final class WorkspaceTests: XCTestCase {
         try mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "https://scm.com/org/bar")
         try mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "https://scm.com/org/baz")
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -4649,14 +4649,14 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testPackageMirrorURLToRegistry() throws {
+    func testPackageMirrorURLToRegistry() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let mirrors = try DependencyMirrors()
         try mirrors.set(mirror: "org.bar-mirror", for: "https://scm.com/org/bar")
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -4719,14 +4719,14 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testPackageMirrorRegistryToURL() throws {
+    func testPackageMirrorRegistryToURL() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let mirrors = try DependencyMirrors()
         try mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "org.bar")
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -4792,7 +4792,7 @@ final class WorkspaceTests: XCTestCase {
     // In this test, we get into a state where an entry in the resolved
     // file for a transitive dependency whose URL is later changed to
     // something else, while keeping the same package identity.
-    func testTransitiveDependencySwitchWithSameIdentity() throws {
+    func testTransitiveDependencySwitchWithSameIdentity() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -4800,7 +4800,7 @@ final class WorkspaceTests: XCTestCase {
         // package despite having different URLs.
         let fooRevision = String((UUID().uuidString + UUID().uuidString).prefix(40))
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -4939,11 +4939,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testForceResolveToResolvedVersions() throws {
+    func testForceResolveToResolvedVersions() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -5062,11 +5062,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testForceResolveToResolvedVersionsDuplicateLocalDependency() throws {
+    func testForceResolveToResolvedVersionsDuplicateLocalDependency() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -5113,11 +5113,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testForceResolveWithNoResolvedFile() throws {
+    func testForceResolveWithNoResolvedFile() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -5170,11 +5170,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testForceResolveToResolvedVersionsLocalPackage() throws {
+    func testForceResolveToResolvedVersionsLocalPackage() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -5211,11 +5211,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testForceResolveToResolvedVersionsLocalPackageInAdditionalDependencies() throws {
+    func testForceResolveToResolvedVersionsLocalPackageInAdditionalDependencies() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -5310,11 +5310,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testRevisionDepOnLocal() throws {
+    func testRevisionDepOnLocal() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -5368,11 +5368,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testRootPackagesOverrideBasenameMismatch() throws {
+    func testRootPackagesOverrideBasenameMismatch() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -5418,11 +5418,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testManagedDependenciesNotCaseSensitive() throws {
+    func testManagedDependenciesNotCaseSensitive() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -5512,11 +5512,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testUnsafeFlags() throws {
+    func testUnsafeFlags() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -5592,11 +5592,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testUnsafeFlagsInFoundation() throws {
+    func testUnsafeFlagsInFoundation() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -5634,11 +5634,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testEditDependencyHadOverridableConstraints() throws {
+    func testEditDependencyHadOverridableConstraints() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -5735,7 +5735,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertNoMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
     }
 
-    func testTargetBasedDependency() throws {
+    func testTargetBasedDependency() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5750,7 +5750,7 @@ final class WorkspaceTests: XCTestCase {
         barProducts = [MockProduct(name: "Bar", modules: ["Bar"])]
         #endif
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -5842,7 +5842,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testLocalArchivedArtifactExtractionHappyPath() throws {
+    func testLocalArchivedArtifactExtractionHappyPath() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5867,7 +5867,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -6012,7 +6012,7 @@ final class WorkspaceTests: XCTestCase {
     // This test covers the last 4 permutations where the `local-archived` source is involved.
     // It ensures that all the appropriate clean-up operations are executed, and the workspace
     // contains the correct set of managed artifacts after the transition.
-    func testLocalArchivedArtifactSourceTransitionPermutations() throws {
+    func testLocalArchivedArtifactSourceTransitionPermutations() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -6082,7 +6082,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -6287,7 +6287,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testLocalArchivedArtifactNameDoesNotMatchTargetName() throws {
+    func testLocalArchivedArtifactNameDoesNotMatchTargetName() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -6312,7 +6312,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -6346,7 +6346,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testLocalArchivedArtifactExtractionError() throws {
+    func testLocalArchivedArtifactExtractionError() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -6354,7 +6354,7 @@ final class WorkspaceTests: XCTestCase {
             completion(.failure(DummyError()))
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -6397,7 +6397,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testLocalArchiveDoesNotMatchTargetName() throws {
+    func testLocalArchiveDoesNotMatchTargetName() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -6417,7 +6417,7 @@ final class WorkspaceTests: XCTestCase {
                 completion(.failure(error))
             }
         })
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -6472,7 +6472,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testLocalArchivedArtifactChecksumChange() throws {
+    func testLocalArchivedArtifactChecksumChange() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -6495,7 +6495,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -6576,7 +6576,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testLocalArchivedArtifactStripFirstComponent() throws {
+    func testLocalArchivedArtifactStripFirstComponent() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -6610,7 +6610,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -6686,11 +6686,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testLocalArtifactHappyPath() throws {
+    func testLocalArtifactHappyPath() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -6738,11 +6738,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testLocalArtifactDoesNotExist() throws {
+    func testLocalArtifactDoesNotExist() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -6782,7 +6782,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testArtifactDownloadHappyPath() throws {
+    func testArtifactDownloadHappyPath() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
@@ -6840,7 +6840,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -6975,7 +6975,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertMatch(workspace.delegate.events, ["finished downloading binary artifact package: https://b.com/b.zip"])
     }
 
-    func testArtifactDownloadWithPreviousState() throws {
+    func testArtifactDownloadWithPreviousState() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
@@ -7041,7 +7041,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -7287,7 +7287,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testArtifactDownloadTwice() throws {
+    func testArtifactDownloadTwice() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeArrayStore<(URL, AbsolutePath)>()
@@ -7343,7 +7343,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -7413,7 +7413,7 @@ final class WorkspaceTests: XCTestCase {
         )
     }
 
-    func testArtifactDownloadServerError() throws {
+    func testArtifactDownloadServerError() async throws {
         let fs = InMemoryFileSystem()
         let sandbox = AbsolutePath("/tmp/ws/")
         try fs.createDirectory(sandbox, recursive: true)
@@ -7438,7 +7438,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -7486,7 +7486,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertFalse(fs.exists(cachePath))
     }
 
-    func testArtifactDownloaderOrArchiverError() throws {
+    func testArtifactDownloaderOrArchiverError() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -7519,7 +7519,7 @@ final class WorkspaceTests: XCTestCase {
             completion(.failure(DummyError()))
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -7577,7 +7577,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDownloadedArtifactNotAnArchiveError() throws {
+    func testDownloadedArtifactNotAnArchiveError() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -7635,7 +7635,7 @@ final class WorkspaceTests: XCTestCase {
             }
         )
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -7689,7 +7689,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDownloadedArtifactInvalid() throws {
+    func testDownloadedArtifactInvalid() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -7728,7 +7728,7 @@ final class WorkspaceTests: XCTestCase {
             }
         )
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -7764,7 +7764,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDownloadedArtifactDoesNotMatchTargetName() throws {
+    func testDownloadedArtifactDoesNotMatchTargetName() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -7802,7 +7802,7 @@ final class WorkspaceTests: XCTestCase {
             }
         )
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -7843,7 +7843,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testArtifactChecksum() throws {
+    func testArtifactChecksum() async throws {
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
         let sandbox = AbsolutePath("/tmp/ws/")
@@ -7915,7 +7915,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDownloadedArtifactChecksumChange() throws {
+    func testDownloadedArtifactChecksumChange() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -7923,7 +7923,7 @@ final class WorkspaceTests: XCTestCase {
             XCTFail("should not be called")
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -7967,7 +7967,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDownloadedArtifactChecksumChangeURLChange() throws {
+    func testDownloadedArtifactChecksumChangeURLChange() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -8017,7 +8017,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -8062,7 +8062,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testArtifactDownloadAddsAcceptHeader() throws {
+    func testArtifactDownloadAddsAcceptHeader() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         var acceptHeaders: [String] = []
@@ -8112,7 +8112,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -8142,7 +8142,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDownloadedArtifactNoCache() throws {
+    func testDownloadedArtifactNoCache() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         var downloads = 0
@@ -8192,7 +8192,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -8235,7 +8235,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDownloadedArtifactCache() throws {
+    func testDownloadedArtifactCache() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         var downloads = 0
@@ -8285,7 +8285,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -8343,7 +8343,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDownloadedArtifactTransitive() throws {
+    func testDownloadedArtifactTransitive() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
@@ -8401,7 +8401,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -8517,7 +8517,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDownloadedArtifactArchiveExists() throws {
+    func testDownloadedArtifactArchiveExists() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         // this relies on internal knowledge of the destination path construction
@@ -8583,7 +8583,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -8632,7 +8632,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDownloadedArtifactConcurrency() throws {
+    func testDownloadedArtifactConcurrency() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -8702,7 +8702,7 @@ final class WorkspaceTests: XCTestCase {
             )
         }
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -8753,7 +8753,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDownloadedArtifactStripFirstComponent() throws {
+    func testDownloadedArtifactStripFirstComponent() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
@@ -8826,7 +8826,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -8917,7 +8917,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testArtifactMultipleExtensions() throws {
+    func testArtifactMultipleExtensions() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
@@ -8973,7 +8973,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -9049,7 +9049,7 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -9089,7 +9089,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
-    func testDownloadArchiveIndexFilesHappyPath() throws {
+    func testDownloadArchiveIndexFilesHappyPath() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -9195,7 +9195,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -9338,7 +9338,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertMatch(workspace.delegate.events, ["finished downloading binary artifact package: https://b.com/b.zip"])
     }
 
-    func testDownloadArchiveIndexServerError() throws {
+    func testDownloadArchiveIndexServerError() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -9347,7 +9347,7 @@ final class WorkspaceTests: XCTestCase {
             completion(.success(.serverError()))
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -9380,7 +9380,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDownloadArchiveIndexFileBadChecksum() throws {
+    func testDownloadArchiveIndexFileBadChecksum() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -9417,7 +9417,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -9450,11 +9450,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDownloadArchiveIndexFileChecksumChanges() throws {
+    func testDownloadArchiveIndexFileChecksumChanges() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -9500,7 +9500,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDownloadArchiveIndexFileBadArchivesChecksum() throws {
+    func testDownloadArchiveIndexFileBadArchivesChecksum() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -9577,7 +9577,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -9611,7 +9611,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDownloadArchiveIndexFileArchiveNotFound() throws {
+    func testDownloadArchiveIndexFileArchiveNotFound() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -9654,7 +9654,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -9687,7 +9687,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDownloadArchiveIndexTripleNotFound() throws {
+    func testDownloadArchiveIndexTripleNotFound() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -9728,7 +9728,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -9761,11 +9761,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDuplicateDependencyIdentityWithNameAtRoot() throws {
+    func testDuplicateDependencyIdentityWithNameAtRoot() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -9830,11 +9830,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDuplicateDependencyIdentityWithoutNameAtRoot() throws {
+    func testDuplicateDependencyIdentityWithoutNameAtRoot() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -9891,11 +9891,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDuplicateExplicitDependencyName_AtRoot() throws {
+    func testDuplicateExplicitDependencyName_AtRoot() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -9960,11 +9960,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDuplicateManifestNameAtRoot() throws {
+    func testDuplicateManifestNameAtRoot() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -10015,11 +10015,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDuplicateManifestName_ExplicitProductPackage_AtRoot() throws {
+    func testDuplicateManifestName_ExplicitProductPackage_AtRoot() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -10070,11 +10070,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testManifestNameAndIdentityConflict_AtRoot_Pre52() throws {
+    func testManifestNameAndIdentityConflict_AtRoot_Pre52() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -10125,11 +10125,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testManifestNameAndIdentityConflict_AtRoot_Post52_Incorrect() throws {
+    func testManifestNameAndIdentityConflict_AtRoot_Post52_Incorrect() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -10189,11 +10189,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testManifestNameAndIdentityConflict_AtRoot_Post52_Correct() throws {
+    func testManifestNameAndIdentityConflict_AtRoot_Post52_Correct() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -10244,11 +10244,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testManifestNameAndIdentityConflict_ExplicitDependencyNames_AtRoot() throws {
+    func testManifestNameAndIdentityConflict_ExplicitDependencyNames_AtRoot() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -10308,11 +10308,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testManifestNameAndIdentityConflict_ExplicitDependencyNames_ExplicitProductPackage_AtRoot() throws {
+    func testManifestNameAndIdentityConflict_ExplicitDependencyNames_ExplicitProductPackage_AtRoot() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -10372,11 +10372,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDuplicateTransitiveIdentityWithNames() throws {
+    func testDuplicateTransitiveIdentityWithNames() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -10461,11 +10461,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDuplicateTransitiveIdentityWithoutNames() throws {
+    func testDuplicateTransitiveIdentityWithoutNames() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -10546,11 +10546,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDuplicateTransitiveIdentitySimilarURLs1() throws {
+    func testDuplicateTransitiveIdentitySimilarURLs1() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -10621,11 +10621,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDuplicateTransitiveIdentitySimilarURLs2() throws {
+    func testDuplicateTransitiveIdentitySimilarURLs2() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -10696,11 +10696,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDuplicateTransitiveIdentityGitHubURLs1() throws {
+    func testDuplicateTransitiveIdentityGitHubURLs1() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -10771,11 +10771,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDuplicateTransitiveIdentityGitHubURLs2() throws {
+    func testDuplicateTransitiveIdentityGitHubURLs2() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -10849,11 +10849,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDuplicateTransitiveIdentityUnfamiliarURLs() throws {
+    func testDuplicateTransitiveIdentityUnfamiliarURLs() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -10934,11 +10934,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDuplicateTransitiveIdentityWithSimilarURLs() throws {
+    func testDuplicateTransitiveIdentityWithSimilarURLs() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -11056,11 +11056,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDuplicateNestedTransitiveIdentityWithNames() throws {
+    func testDuplicateNestedTransitiveIdentityWithNames() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -11150,11 +11150,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDuplicateNestedTransitiveIdentityWithoutNames() throws {
+    func testDuplicateNestedTransitiveIdentityWithoutNames() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -11234,11 +11234,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testRootPathConflictsWithTransitiveIdentity() throws {
+    func testRootPathConflictsWithTransitiveIdentity() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -11309,11 +11309,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDeterministicURLPreference() throws {
+    func testDeterministicURLPreference() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -11465,11 +11465,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDeterministicURLPreferenceWithRoot() throws {
+    func testDeterministicURLPreferenceWithRoot() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -11602,11 +11602,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testCanonicalURLWithPreviousManagedState() throws {
+    func testCanonicalURLWithPreviousManagedState() async throws {
          let sandbox = AbsolutePath("/tmp/ws/")
          let fs = InMemoryFileSystem()
 
-         let workspace = try MockWorkspace(
+         let workspace = try await MockWorkspace(
              sandbox: sandbox,
              fileSystem: fs,
              roots: [
@@ -11758,11 +11758,11 @@ final class WorkspaceTests: XCTestCase {
          }
      }
     
-    func testCanonicalURLChanges() throws {
+    func testCanonicalURLChanges() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -11863,11 +11863,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testCanonicalURLChangesWithTransitiveDependencies() throws {
+    func testCanonicalURLChangesWithTransitiveDependencies() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -12022,11 +12022,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testCycleRoot() throws {
+    func testCycleRoot() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -12138,11 +12138,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testResolutionBranchAndVersion() throws {
+    func testResolutionBranchAndVersion() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -12209,7 +12209,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testBinaryArtifactsInvalidPath() throws {
+    func testBinaryArtifactsInvalidPath() async throws {
         try testWithTemporaryDirectory { path in
             let fs = localFileSystem
             let observability = ObservabilitySystem.makeForTesting()
@@ -12248,7 +12248,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testManifestLoaderDiagnostics() throws {
+    func testManifestLoaderDiagnostics() async throws {
         struct TestLoader: ManifestLoaderProtocol {
             let error: Error?
 
@@ -12350,11 +12350,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testBasicResolutionFromSourceControl() throws {
+    func testBasicResolutionFromSourceControl() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -12456,11 +12456,11 @@ final class WorkspaceTests: XCTestCase {
         )
     }
 
-    func testBasicTransitiveResolutionFromSourceControl() throws {
+    func testBasicTransitiveResolutionFromSourceControl() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -12600,11 +12600,11 @@ final class WorkspaceTests: XCTestCase {
         )
     }
 
-    func testBasicResolutionFromRegistry() throws {
+    func testBasicResolutionFromRegistry() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -12706,11 +12706,11 @@ final class WorkspaceTests: XCTestCase {
         )
     }
 
-    func testBasicTransitiveResolutionFromRegistry() throws {
+    func testBasicTransitiveResolutionFromRegistry() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -12851,11 +12851,11 @@ final class WorkspaceTests: XCTestCase {
     }
 
     // no dups
-    func testResolutionMixedRegistryAndSourceControl1() throws {
+    func testResolutionMixedRegistryAndSourceControl1() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -12982,11 +12982,11 @@ final class WorkspaceTests: XCTestCase {
     }
 
     // duplicate package at root level
-    func testResolutionMixedRegistryAndSourceControl2() throws {
+    func testResolutionMixedRegistryAndSourceControl2() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -13078,11 +13078,11 @@ final class WorkspaceTests: XCTestCase {
 
     // mixed graph root --> dep1 scm
     //                  --> dep2 scm --> dep1 registry
-    func testResolutionMixedRegistryAndSourceControl3() throws {
+    func testResolutionMixedRegistryAndSourceControl3() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -13241,11 +13241,11 @@ final class WorkspaceTests: XCTestCase {
 
     // mixed graph root --> dep1 scm
     //                  --> dep2 registry --> dep1 registry
-    func testResolutionMixedRegistryAndSourceControl4() throws {
+    func testResolutionMixedRegistryAndSourceControl4() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -13379,11 +13379,11 @@ final class WorkspaceTests: XCTestCase {
 
     // mixed graph root --> dep1 scm
     //                  --> dep2 scm --> dep1 registry incompatible version
-    func testResolutionMixedRegistryAndSourceControl5() throws {
+    func testResolutionMixedRegistryAndSourceControl5() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -13504,11 +13504,11 @@ final class WorkspaceTests: XCTestCase {
 
     // mixed graph root --> dep1 registry
     //                  --> dep2 registry --> dep1 scm
-    func testResolutionMixedRegistryAndSourceControl6() throws {
+    func testResolutionMixedRegistryAndSourceControl6() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -13650,11 +13650,11 @@ final class WorkspaceTests: XCTestCase {
 
     // mixed graph root --> dep1 registry
     //                  --> dep2 registry --> dep1 scm incompatible version
-    func testResolutionMixedRegistryAndSourceControl7() throws {
+    func testResolutionMixedRegistryAndSourceControl7() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -13775,11 +13775,11 @@ final class WorkspaceTests: XCTestCase {
 
     // mixed graph root --> dep1 registry --> dep3 scm
     //                  --> dep2 registry --> dep3 registry
-    func testResolutionMixedRegistryAndSourceControl8() throws {
+    func testResolutionMixedRegistryAndSourceControl8() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -13945,11 +13945,11 @@ final class WorkspaceTests: XCTestCase {
 
     // mixed graph root --> dep1 registry --> dep3 scm
     //                  --> dep2 registry --> dep3 registry incompatible version
-    func testResolutionMixedRegistryAndSourceControl9() throws {
+    func testResolutionMixedRegistryAndSourceControl9() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -14086,11 +14086,11 @@ final class WorkspaceTests: XCTestCase {
 
     // mixed graph root --> dep1 scm branch
     //                  --> dep2 registry --> dep1 registry
-    func testResolutionMixedRegistryAndSourceControl10() throws {
+    func testResolutionMixedRegistryAndSourceControl10() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -14233,7 +14233,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testCustomPackageContainerProvider() throws {
+    func testCustomPackageContainerProvider() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -14267,7 +14267,7 @@ final class WorkspaceTests: XCTestCase {
         let fooPackageReference = PackageReference(identity: PackageIdentity(path: fooPath), kind: .root(fooPath))
         let fooContainer = MockPackageContainer(package: fooPackageReference)
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -14322,7 +14322,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testRegistryMissingConfigurationErrors() throws {
+    func testRegistryMissingConfigurationErrors() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -14333,7 +14333,7 @@ final class WorkspaceTests: XCTestCase {
             fileSystem: fs
         )
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -14375,11 +14375,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testRegistryReleasesServerErrors() throws {
+    func testRegistryReleasesServerErrors() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -14460,11 +14460,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testRegistryReleaseChecksumServerErrors() throws {
+    func testRegistryReleaseChecksumServerErrors() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -14547,11 +14547,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testRegistryManifestServerErrors() throws {
+    func testRegistryManifestServerErrors() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -14632,11 +14632,11 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testRegistryDownloadServerErrors() throws {
+    func testRegistryDownloadServerErrors() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -14719,7 +14719,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testRegistryArchiveErrors() throws {
+    func testRegistryArchiveErrors() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -14732,7 +14732,7 @@ final class WorkspaceTests: XCTestCase {
             fileSystem: fs
         )
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -14781,7 +14781,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testRegistryMetadata() throws {
+    func testRegistryMetadata() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -14800,7 +14800,7 @@ final class WorkspaceTests: XCTestCase {
             fileSystem: fs
         )
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -14863,7 +14863,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testRegistryDefaultRegistryConfiguration() throws {
+    func testRegistryDefaultRegistryConfiguration() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -14877,7 +14877,7 @@ final class WorkspaceTests: XCTestCase {
             fileSystem: fs
         )
 
-        let workspace = try MockWorkspace(
+        let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -14926,11 +14926,11 @@ final class WorkspaceTests: XCTestCase {
 
     // MARK: - Expected signing entity verification
 
-    func createBasicRegistryWorkspace(metadata: [String: RegistryReleaseMetadata], mirrors: DependencyMirrors? = nil) throws -> MockWorkspace {
+    func createBasicRegistryWorkspace(metadata: [String: RegistryReleaseMetadata], mirrors: DependencyMirrors? = nil) async throws -> MockWorkspace {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        return try MockWorkspace(
+        return try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
@@ -15012,7 +15012,7 @@ final class WorkspaceTests: XCTestCase {
         )
     }
 
-    func testSigningEntityVerification_SignedCorrectly() throws {
+    func testSigningEntityVerification_SignedCorrectly() async throws {
         let actualMetadata = RegistryReleaseMetadata.createWithSigningEntity(.recognized(
             type: "adp",
             commonName: "John Doe",
@@ -15020,7 +15020,7 @@ final class WorkspaceTests: XCTestCase {
             identity: "XYZ")
         )
 
-        let workspace = try createBasicRegistryWorkspace(metadata: ["org.bar": actualMetadata])
+        let workspace = try await createBasicRegistryWorkspace(metadata: ["org.bar": actualMetadata])
 
         try workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
             PackageIdentity.plain("org.bar"): try XCTUnwrap(actualMetadata.signature?.signedBy),
@@ -15029,7 +15029,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testSigningEntityVerification_SignedIncorrectly() throws {
+    func testSigningEntityVerification_SignedIncorrectly() async throws {
         let actualMetadata = RegistryReleaseMetadata.createWithSigningEntity(.recognized(
             type: "adp",
             commonName: "John Doe",
@@ -15043,7 +15043,7 @@ final class WorkspaceTests: XCTestCase {
             identity: "ABC"
         )
 
-        let workspace = try createBasicRegistryWorkspace(metadata: ["org.bar": actualMetadata])
+        let workspace = try await createBasicRegistryWorkspace(metadata: ["org.bar": actualMetadata])
 
         do {
             try workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
@@ -15058,7 +15058,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testSigningEntityVerification_Unsigned() throws {
+    func testSigningEntityVerification_Unsigned() async throws {
         let expectedSigningEntity: RegistryReleaseMetadata.SigningEntity = .recognized(
             type: "adp",
             commonName: "Jane Doe",
@@ -15066,7 +15066,7 @@ final class WorkspaceTests: XCTestCase {
             identity: "XYZ"
         )
 
-        let workspace = try createBasicRegistryWorkspace(metadata: [:])
+        let workspace = try await createBasicRegistryWorkspace(metadata: [:])
 
         do {
             try workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
@@ -15080,7 +15080,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testSigningEntityVerification_NotFound() throws {
+    func testSigningEntityVerification_NotFound() async throws {
         let expectedSigningEntity: RegistryReleaseMetadata.SigningEntity = .recognized(
             type: "adp",
             commonName: "Jane Doe",
@@ -15088,7 +15088,7 @@ final class WorkspaceTests: XCTestCase {
             identity: "XYZ"
         )
 
-        let workspace = try createBasicRegistryWorkspace(metadata: [:])
+        let workspace = try await createBasicRegistryWorkspace(metadata: [:])
 
         do {
             try workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
@@ -15102,7 +15102,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testSigningEntityVerification_MirroredSignedCorrectly() throws {
+    func testSigningEntityVerification_MirroredSignedCorrectly() async throws {
         let mirrors = try DependencyMirrors()
         try mirrors.set(mirror: "ecorp.bar", for: "org.bar")
 
@@ -15113,7 +15113,7 @@ final class WorkspaceTests: XCTestCase {
             identity: "XYZ")
         )
 
-        let workspace = try createBasicRegistryWorkspace(metadata: ["ecorp.bar": actualMetadata], mirrors: mirrors)
+        let workspace = try await createBasicRegistryWorkspace(metadata: ["ecorp.bar": actualMetadata], mirrors: mirrors)
 
         try workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
             PackageIdentity.plain("org.bar"): try XCTUnwrap(actualMetadata.signature?.signedBy),
@@ -15126,7 +15126,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testSigningEntityVerification_MirrorSignedIncorrectly() throws {
+    func testSigningEntityVerification_MirrorSignedIncorrectly() async throws {
         let mirrors = try DependencyMirrors()
         try mirrors.set(mirror: "ecorp.bar", for: "org.bar")
 
@@ -15143,7 +15143,7 @@ final class WorkspaceTests: XCTestCase {
             identity: "ABC"
         )
 
-        let workspace = try createBasicRegistryWorkspace(metadata: ["ecorp.bar": actualMetadata], mirrors: mirrors)
+        let workspace = try await createBasicRegistryWorkspace(metadata: ["ecorp.bar": actualMetadata], mirrors: mirrors)
 
         do {
             try workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
@@ -15158,7 +15158,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testSigningEntityVerification_MirroredUnsigned() throws {
+    func testSigningEntityVerification_MirroredUnsigned() async throws {
         let mirrors = try DependencyMirrors()
         try mirrors.set(mirror: "ecorp.bar", for: "org.bar")
 
@@ -15169,7 +15169,7 @@ final class WorkspaceTests: XCTestCase {
             identity: "XYZ"
         )
 
-        let workspace = try createBasicRegistryWorkspace(metadata: [:], mirrors: mirrors)
+        let workspace = try await createBasicRegistryWorkspace(metadata: [:], mirrors: mirrors)
 
         do {
             try workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
@@ -15183,7 +15183,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testSigningEntityVerification_MirroredToSCM() throws {
+    func testSigningEntityVerification_MirroredToSCM() async throws {
         let mirrors = try DependencyMirrors()
         try mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "org.bar")
 
@@ -15194,7 +15194,7 @@ final class WorkspaceTests: XCTestCase {
             identity: "XYZ"
         )
 
-        let workspace = try createBasicRegistryWorkspace(metadata: [:], mirrors: mirrors)
+        let workspace = try await createBasicRegistryWorkspace(metadata: [:], mirrors: mirrors)
 
         do {
             try workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [

@@ -19,7 +19,7 @@ import PackageGraph
 
 import PackageModel
 
-struct PluginCommand: SwiftCommand {
+struct PluginCommand: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
         commandName: "plugin",
         abstract: "Invoke a command plugin or perform other actions on command plugins"
@@ -137,7 +137,7 @@ struct PluginCommand: SwiftCommand {
     )
     var arguments: [String] = []
 
-    func run(_ swiftCommandState: SwiftCommandState) throws {
+    func run(_ swiftCommandState: SwiftCommandState) async throws {
         // Check for a missing plugin command verb.
         if self.command == "" && !self.listCommands {
             throw ValidationError("Missing expected plugin command")
@@ -166,7 +166,7 @@ struct PluginCommand: SwiftCommand {
             return
         }
 
-        try Self.run(
+        try await Self.run(
             command: self.command,
             options: self.pluginOptions,
             arguments: self.arguments,
@@ -179,7 +179,7 @@ struct PluginCommand: SwiftCommand {
         options: PluginOptions,
         arguments: [String],
         swiftCommandState: SwiftCommandState
-    ) throws {
+    ) async throws {
         // Load the workspace and resolve the package graph.
         let packageGraph = try swiftCommandState.loadPackageGraph()
 
@@ -203,7 +203,7 @@ struct PluginCommand: SwiftCommand {
             .shouldDisableSandbox
 
         // At this point we know we found exactly one command plugin, so we run it. In SwiftPM CLI, we have only one root package.
-        try PluginCommand.run(
+        try await PluginCommand.run(
             plugin: matchingPlugins[0],
             package: packageGraph.rootPackages[packageGraph.rootPackages.startIndex],
             packageGraph: packageGraph,
@@ -220,7 +220,7 @@ struct PluginCommand: SwiftCommand {
         options: PluginOptions,
         arguments: [String],
         swiftCommandState: SwiftCommandState
-    ) throws {
+    ) async throws {
         let pluginTarget = plugin.underlying as! PluginModule
 
         swiftCommandState.observabilityScope
@@ -354,8 +354,13 @@ struct PluginCommand: SwiftCommand {
         let delegateQueue = DispatchQueue(label: "plugin-invocation")
 
         // Run the command plugin.
+
+        // TODO: use region based isolation when swift 6 is available
+        let writableDirectoriesCopy = writableDirectories
+        let allowNetworkConnectionsCopy = allowNetworkConnections
+
         let buildEnvironment = buildParameters.buildEnvironment
-        let _ = try temp_await { pluginTarget.invoke(
+        let _ = try await safe_async { pluginTarget.invoke(
             action: .performCommand(package: package, arguments: arguments),
             buildEnvironment: buildEnvironment,
             scriptRunner: pluginScriptRunner,
@@ -363,9 +368,9 @@ struct PluginCommand: SwiftCommand {
             outputDirectory: outputDir,
             toolSearchDirectories: toolSearchDirs,
             accessibleTools: accessibleTools,
-            writableDirectories: writableDirectories,
+            writableDirectories: writableDirectoriesCopy,
             readOnlyDirectories: readOnlyDirectories,
-            allowNetworkConnections: allowNetworkConnections,
+            allowNetworkConnections: allowNetworkConnectionsCopy,
             pkgConfigDirectories: swiftCommandState.options.locations.pkgConfigDirectories,
             sdkRootPath: buildParameters.toolchain.sdkRootPath,
             fileSystem: swiftCommandState.fileSystem,

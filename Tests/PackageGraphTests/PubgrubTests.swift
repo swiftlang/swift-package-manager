@@ -338,12 +338,13 @@ final class PubgrubTests: XCTestCase {
         XCTAssertThrowsError(try solver1.resolve(state: state1, conflict: notRoot))
     }
 
-    func testResolverDecisionMaking() throws {
+    func testResolverDecisionMaking() async throws {
         let solver1 = PubGrubDependencyResolver(provider: emptyProvider, observabilityScope: ObservabilitySystem.NOOP)
         let state1 = PubGrubDependencyResolver.State(root: rootNode)
 
         // No decision can be made if no unsatisfied terms are available.
-        XCTAssertNil(try temp_await { solver1.makeDecision(state: state1, completion: $0) })
+        let decisionNil = try await safe_async { solver1.makeDecision(state: state1, completion: $0) }
+        XCTAssertNil(decisionNil)
 
         let a = MockContainer(package: aRef, dependenciesByVersion: [
             "0.0.0": [:],
@@ -359,7 +360,7 @@ final class PubgrubTests: XCTestCase {
 
         XCTAssertEqual(state2.incompatibilities.count, 0)
 
-        let decision = try temp_await { solver2.makeDecision(state: state2, completion: $0) }
+        let decision = try await safe_async {solver2.makeDecision(state: state2, completion: $0) }
         XCTAssertEqual(decision, .product("a", package: "a"))
 
         XCTAssertEqual(state2.incompatibilities.count, 3)
