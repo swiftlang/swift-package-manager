@@ -253,7 +253,7 @@ public struct PackageSearchClient {
                             to: tempPath,
                             progressHandler: nil
                         )
-                        if self.repositoryProvider.isValidDirectory(tempPath),
+                        if ((try? self.repositoryProvider.isValidDirectory(tempPath)) ?? false),
                            let repository = try self.repositoryProvider.open(
                                repository: repositorySpecifier,
                                at: tempPath

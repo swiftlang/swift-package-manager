@@ -267,7 +267,7 @@ public struct ManifestValidator {
         // there is a case to be made to throw early (here) if the path does not exists
         // but many of our tests assume they can pass a non existent path
         if case .local(let localPath) = dependency.location, self.fileSystem.exists(localPath) {
-            if !self.sourceControlValidator.isValidDirectory(localPath) {
+            if !((try? self.sourceControlValidator.isValidDirectory(localPath)) ?? false) {
                 // Provides better feedback when mistakenly using url: for a dependency that
                 // is a local package. Still allows for using url with a local package that has
                 // also been initialized by git
@@ -279,7 +279,7 @@ public struct ManifestValidator {
 }
 
 public protocol ManifestSourceControlValidator {
-    func isValidDirectory(_ path: AbsolutePath) -> Bool
+    func isValidDirectory(_ path: AbsolutePath) throws -> Bool
 }
 
 extension Basics.Diagnostic {

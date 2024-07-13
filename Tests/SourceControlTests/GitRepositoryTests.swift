@@ -785,10 +785,10 @@ class GitRepositoryTests: XCTestCase {
             )
             
             // Before initializing the directory with a git repo, it is never valid.
-            XCTAssertFalse(repositoryManager.isValidDirectory(packageDir))
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir))
             initGitRepo(packageDir)
             
-            XCTAssertTrue(repositoryManager.isValidDirectory(packageDir))
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir))
             XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(packageDir.pathString))))
             XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(URL(packageDir.pathString + "/")))))
             XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL("/"))))
@@ -814,14 +814,14 @@ class GitRepositoryTests: XCTestCase {
             let customRemote = try XCTUnwrap(URL(string: "https://mycustomdomain/some-package.git"))
             
             // Before initializing the directory with a git repo, it is never valid.
-            XCTAssertFalse(repositoryManager.isValidDirectory(packageDir))
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir))
             XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemote))))
             
             initGitRepo(packageDir)
             // Set the remote.
             try systemQuietly([Git.tool, "-C", packageDir.pathString, "remote", "add", "origin", customRemote.absoluteString])
             
-            XCTAssertTrue(repositoryManager.isValidDirectory(packageDir))
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir))
             XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemote))))
             XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL("/"))))
 

@@ -204,18 +204,14 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         )
     }
 
-    public func isValidDirectory(_ directory: Basics.AbsolutePath) -> Bool {
-        do {
-            _ = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
-            return true
-        } catch {
-            return false
-        }
+    public func isValidDirectory(_ directory: Basics.AbsolutePath) throws -> Bool {
+        let result = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
+        return result == ".git" || result == "." || result == directory.pathString
     }
 
     public func isValidDirectory(_ directory: Basics.AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
         let remoteURL = try self.git.run(["-C", directory.pathString, "config", "--get", "remote.origin.url"])
-        return CanonicalPackageURL(remoteURL) == repository.url
+        return CanonicalPackageURL(remoteURL) == CanonicalPackageURL(repository.url)
     }
 
     public func copy(from sourcePath: Basics.AbsolutePath, to destinationPath: Basics.AbsolutePath) throws {

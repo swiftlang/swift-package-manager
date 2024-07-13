@@ -444,8 +444,8 @@ public class RepositoryManager: Cancellable {
     }
 
     /// Returns true if the directory is valid git location.
-    public func isValidDirectory(_ directory: AbsolutePath) -> Bool {
-        self.provider.isValidDirectory(directory)
+    public func isValidDirectory(_ directory: AbsolutePath) throws -> Bool {
+        try self.provider.isValidDirectory(directory)
     }
 
     /// Returns true if the directory is valid git location for the specified repository

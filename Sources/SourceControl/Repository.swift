@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import struct PackageModel.CanonicalPackageURL
 import Foundation
 
 /// Specifies a repository address.
@@ -33,10 +32,10 @@ public struct RepositorySpecifier: Hashable, Sendable {
     }
 
     /// The location of the repository as string.
-    public var url: CanonicalPackageURL {
+    public var url: String {
         switch self.location {
-        case .path(let path): return CanonicalPackageURL(path.pathString)
-        case .url(let url): return CanonicalPackageURL(url.absoluteString)
+        case .path(let path): path.pathString
+        case .url(let url): url.absoluteString
         }
     }
 
@@ -141,7 +140,7 @@ public protocol RepositoryProvider: Cancellable {
     func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws
 
     /// Returns true if the directory is valid git location.
-    func isValidDirectory(_ directory: AbsolutePath) -> Bool
+    func isValidDirectory(_ directory: AbsolutePath) throws -> Bool
 
     /// Returns true if the directory is valid git location for the specified repository
     func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool
