@@ -886,13 +886,8 @@ final class TestRunner {
             }
             args += [xctestPath.pathString]
         case .swiftTesting:
-            // FIXME: better way to get path to self
-            let toolPath = String(unsafeUninitializedCapacity: 2048) { buffer in
-                var count = UInt32(buffer.count)
-                _NSGetExecutablePath(buffer.baseAddress!, &count)
-                return Int(count)
-            }
-            args += [toolPath, "--test-bundle-path", testPath.pathString]
+            let helper = try self.toolchain.getSwiftTestingHelper()
+            args += [helper.pathString, "--test-bundle-path", testPath.pathString]
         }
         args += additionalArguments
         args += [testPath.pathString]
