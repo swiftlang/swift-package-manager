@@ -431,7 +431,14 @@ def install(args):
 def install_swiftpm(prefix, args):
     # Install the swift-package-manager tool and create symlinks to it.
     cli_tool_dest = os.path.join(prefix, "bin")
+    aux_tool_dest = os.path.join(prefix, "libexec", "swift", "pm")
+
     install_binary(args, "swift-package-manager", os.path.join(cli_tool_dest, "swift-package"), destination_is_directory=False)
+
+    # `swiftpm-testing-helper` only exists on Darwin platforms
+    if os.path.exists(os.path.join(args.bin_dir, "swiftpm-testing-helper")):
+        install_binary(args, "swiftpm-testing-helper", aux_tool_dest)
+
     for tool in ["swift-build", "swift-test", "swift-run", "swift-package-collection", "swift-package-registry", "swift-sdk", "swift-experimental-sdk"]:
         src = "swift-package"
         dest = os.path.join(cli_tool_dest, tool)
