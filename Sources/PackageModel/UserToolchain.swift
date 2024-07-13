@@ -387,6 +387,22 @@ public final class UserToolchain: Toolchain {
         )
     }
 
+    public func getSwiftTestingHelper() throws -> AbsolutePath {
+        // The helper would be located in `.build/<config>` directory when
+        // SwiftPM is built locally and `usr/libexec/swift/pm` directory in
+        // installed version.
+        let binDirectories = self.swiftSDK.toolset.rootPaths +
+            self.swiftSDK.toolset.rootPaths.map {
+                $0.parentDirectory.appending(components: ["libexec", "swift", "pm"])
+            }
+
+        return try UserToolchain.getTool(
+            "swiftpm-testing-helper",
+            binDirectories: binDirectories,
+            fileSystem: self.fileSystem
+        )
+    }
+
     internal static func deriveSwiftCFlags(
         triple: Triple,
         swiftSDK: SwiftSDK,
