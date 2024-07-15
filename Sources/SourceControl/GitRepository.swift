@@ -14,6 +14,7 @@
 import Basics
 import Dispatch
 import class Foundation.NSLock
+import class Foundation.NSString
 
 import struct PackageModel.CanonicalPackageURL
 
@@ -211,6 +212,8 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     public func isValidDirectory(_ directory: Basics.AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
         let remoteURL = try self.git.run(["-C", directory.pathString, "config", "--get", "remote.origin.url"])
         return CanonicalPackageURL(remoteURL) == CanonicalPackageURL(repository.url)
+            // NOTE: We require that the path extensions match (e.g. consistency for presence or absence of '.git')
+            && (remoteURL as NSString).pathExtension == (repository.url as NSString).pathExtension
     }
 
     public func copy(from sourcePath: Basics.AbsolutePath, to destinationPath: Basics.AbsolutePath) throws {

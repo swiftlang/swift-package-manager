@@ -798,10 +798,10 @@ class GitRepositoryTests: XCTestCase {
             
             let customRemoteWithoutPathExtension = (customRemote as NSString).deletingPathExtension
             XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemote))))
-            // We consider the directory valid even if the remote does not have the same path extension - in this case we expected '.git'.
-            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemoteWithoutPathExtension))))
-            // We consider the directory valid even if the remote does not have the same path extension - in this case we expected '.git'.
-            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for:  RepositorySpecifier(url: SourceControlURL((customRemote as NSString).deletingPathExtension + "/"))))
+            // We consider the directory invalid if the remote does not have the same path extension - in this case we expected '.git'.
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemoteWithoutPathExtension))))
+            // We consider the directory invalid if the remote does not have the same path extension - in this case we expected '.git'.
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for:  RepositorySpecifier(url: SourceControlURL((customRemote as NSString).deletingPathExtension + "/"))))
             
             // The following ensure that are actually checking the remote's origin.
             XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: AbsolutePath(validating: "/"))))
@@ -846,12 +846,12 @@ class GitRepositoryTests: XCTestCase {
             let customRemotePathWithoutPathExtension = (customRemotePath as NSString).deletingPathExtension
             XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: customRemote)))
             XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemotePath))))
-            // We consider the directory valid even if the remote does not have the same path extension - in this case we expected '.git'.
-            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: try AbsolutePath(validating: customRemotePathWithoutPathExtension))))
-            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemotePathWithoutPathExtension))))
-            // We consider the directory valid even if the remote does not have the same path extension - in this case we expected '.git'.
-            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for:  RepositorySpecifier(path: try AbsolutePath(validating: customRemotePathWithoutPathExtension + "/"))))
-            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for:  RepositorySpecifier(url: SourceControlURL((customRemotePath as NSString).deletingPathExtension + "/"))))
+            // We consider the directory invalid if the remote does not have the same path extension - in this case we expected '.git'.
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: try AbsolutePath(validating: customRemotePathWithoutPathExtension))))
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemotePathWithoutPathExtension))))
+            // We consider the directory invalid if the remote does not have the same path extension - in this case we expected '.git'.
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for:  RepositorySpecifier(path: try AbsolutePath(validating: customRemotePathWithoutPathExtension + "/"))))
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for:  RepositorySpecifier(url: SourceControlURL((customRemotePath as NSString).deletingPathExtension + "/"))))
             
             // The following ensure that are actually checking the remote's origin.
             XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: AbsolutePath(validating: "/"))))
@@ -892,10 +892,10 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir))
             
             XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemote))))
-            // We consider the directory valid even if the remote does not have the same path extension - in this case we expected '.git'.
-            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL("https://mycustomdomain/some-package"))))
-            // We consider the directory valid even if the remote does not have the same path extension - in this case we expected '.git'.
-            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for:  RepositorySpecifier(url: SourceControlURL("https://mycustomdomain/some-package/"))))
+            // We consider the directory invalid if the remote does not have the same path extension - in this case we expected '.git'.
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL("https://mycustomdomain/some-package"))))
+            // We consider the directory invalid if the remote does not have the same path extension - in this case we expected '.git'.
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for:  RepositorySpecifier(url: SourceControlURL("https://mycustomdomain/some-package/"))))
             
             // The following ensure that are actually checking the remote's origin.
             XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: AbsolutePath(validating: "/"))))
