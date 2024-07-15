@@ -34,8 +34,8 @@ public struct RepositorySpecifier: Hashable, Sendable {
     /// The location of the repository as string.
     public var url: String {
         switch self.location {
-        case .path(let path): path.pathString
-        case .url(let url): url.absoluteString
+        case .path(let path): return path.pathString
+        case .url(let url): return url.absoluteString
         }
     }
 
@@ -43,7 +43,7 @@ public struct RepositorySpecifier: Hashable, Sendable {
     public var basename: String {
         // FIXME: this might be wrong
         //var basename = self.url.pathComponents.dropFirst(1).last(where: { !$0.isEmpty }) ?? ""
-        var basename = (self.url.description as NSString).lastPathComponent
+        var basename = (self.url as NSString).lastPathComponent
         if basename.hasSuffix(".git") {
             basename = String(basename.dropLast(4))
         }

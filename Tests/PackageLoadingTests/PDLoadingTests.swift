@@ -13,7 +13,6 @@
 import Basics
 import PackageLoading
 import PackageModel
-import SourceControl
 import _InternalTestSupport
 import XCTest
 

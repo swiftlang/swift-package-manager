@@ -630,7 +630,7 @@ class RepositoryManagerTests: XCTestCase {
             }
 
             public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
-                assert(repository.url == self.repository.url)
+                assert(repository == self.repository)
                 // the directory is not valid
                 return false
             }
@@ -654,14 +654,6 @@ class RepositoryManagerTests: XCTestCase {
             }
 
             func exists(revision: Revision) -> Bool {
-                fatalError("unexpected API call")
-            }
-
-            func isValidDirectory(_ directory: AbsolutePath) throws -> Bool {
-                fatalError("unexpected API call")
-            }
-
-            public func isValidDirectory(_ directory: AbsolutePath, for repository: SourceControlURL) throws -> Bool {
                 fatalError("unexpected API call")
             }
 
@@ -709,7 +701,7 @@ extension RepositoryManager {
     ) async throws -> RepositoryHandle {
         return try await safe_async {
             self.lookup(
-                package: .init(url: SourceControlURL(repository.location.description)),
+                package: .init(url: SourceControlURL(repository.url)),
                 repository: repository,
                 updateStrategy: updateStrategy,
                 observabilityScope: observabilityScope,

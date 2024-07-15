@@ -220,8 +220,13 @@ public class RepositoryManager: Cancellable {
         // check if a repository already exists
         // errors when trying to check if a repository already exists are legitimate
         // and recoverable, and as such can be ignored
-        if ((try? self.provider.isValidDirectory(repositoryPath, for: repositorySpecifier)) ?? false) {
+        quick: if (try? self.provider.isValidDirectory(repositoryPath)) ?? false {
             let repository = try handle.open()
+
+            guard ((try? self.provider.isValidDirectory(repositoryPath, for: repositorySpecifier)) ?? false) else {
+                observabilityScope.emit(warning: "\(repositoryPath) is not valid git repository for '\(repositorySpecifier.location)', will fetch again.")
+                break quick
+            }
 
             // Update the repository if needed
             if self.fetchRequired(repository: repository, updateStrategy: updateStrategy) {
@@ -239,8 +244,6 @@ public class RepositoryManager: Cancellable {
             }
 
             return handle
-        } else {
-            observabilityScope.emit(warning: "\(repositoryPath) is not valid git repository for '\(repositorySpecifier.location)', will fetch again.")
         }
 
         // inform delegate that we are starting to fetch
