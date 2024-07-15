@@ -15,7 +15,6 @@ import Basics
 import Dispatch
 import class Foundation.NSLock
 
-import struct PackageModel.CanonicalPackageLocation
 import struct PackageModel.CanonicalPackageURL
 
 import struct TSCBasic.ByteString
