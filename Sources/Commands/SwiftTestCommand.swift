@@ -37,6 +37,10 @@ import var TSCBasic.stdoutStream
 import class TSCBasic.SynchronizedQueue
 import class TSCBasic.Thread
 
+#if os(Windows)
+import WinSDK // for ERROR_NOT_FOUND
+#endif
+
 private enum TestError: Swift.Error {
     case invalidListTestJSONData(context: String, underlyingError: Error? = nil)
     case testsNotFound
