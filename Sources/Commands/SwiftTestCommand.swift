@@ -37,6 +37,10 @@ import var TSCBasic.stdoutStream
 import class TSCBasic.SynchronizedQueue
 import class TSCBasic.Thread
 
+#if os(Windows)
+import WinSDK // for ERROR_NOT_FOUND
+#endif
+
 private enum TestError: Swift.Error {
     case invalidListTestJSONData(context: String, underlyingError: Error? = nil)
     case testsNotFound
@@ -869,13 +873,40 @@ final class TestRunner {
 
     /// Executes and returns execution status. Prints test output on standard streams if requested
     /// - Returns: Boolean indicating if test execution returned code 0, and the output stream result
-    public func test(outputHandler: @escaping (String) -> Void) -> Bool {
-        var success = true
+    func test(outputHandler: @escaping (String) -> Void) -> Bool {
+        (test(outputHandler: outputHandler) as Result) != .failure
+    }
+
+    /// The result of running the test(s).
+    enum Result: Equatable {
+        /// The test(s) ran successfully.
+        case success
+
+        /// The test(s) failed.
+        case failure
+
+        /// There were no matching tests to run.
+        ///
+        /// XCTest does not report this result. It is used by Swift Testing only.
+        case noMatchingTests
+    }
+
+    /// Executes and returns execution status. Prints test output on standard streams if requested
+    /// - Returns: Result of spawning and running the test process, and the output stream result
+    @_disfavoredOverload
+    func test(outputHandler: @escaping (String) -> Void) -> Result {
+        var results = [Result]()
         for path in self.bundlePaths {
             let testSuccess = self.test(at: path, outputHandler: outputHandler)
-            success = success && testSuccess
+            results.append(testSuccess)
         }
-        return success
+        if results.contains(.failure) {
+            return .failure
+        } else if results.isEmpty || results.contains(.success) {
+            return .success
+        } else {
+            return .noMatchingTests
+        }
     }
 
     /// Constructs arguments to execute XCTest.
@@ -899,7 +930,7 @@ final class TestRunner {
         return args
     }
 
-    private func test(at path: AbsolutePath, outputHandler: @escaping (String) -> Void) -> Bool {
+    private func test(at path: AbsolutePath, outputHandler: @escaping (String) -> Void) -> Result {
         let testObservabilityScope = self.observabilityScope.makeChildScope(description: "running test at \(path)")
 
         do {
@@ -914,25 +945,27 @@ final class TestRunner {
             )
             let process = AsyncProcess(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection)
             guard let terminationKey = self.cancellator.register(process) else {
-                return false // terminating
+                return .failure // terminating
             }
             defer { self.cancellator.deregister(terminationKey) }
             try process.launch()
             let result = try process.waitUntilExit()
             switch result.exitStatus {
             case .terminated(code: 0):
-                return true
+                return .success
+            case .terminated(code: EXIT_NO_TESTS_FOUND) where library == .swiftTesting:
+                return .noMatchingTests
             #if !os(Windows)
             case .signalled(let signal) where ![SIGINT, SIGKILL, SIGTERM].contains(signal):
                 testObservabilityScope.emit(error: "Exited with unexpected signal code \(signal)")
-                return false
+                return .failure
             #endif
             default:
-                return false
+                return .failure
             }
         } catch {
             testObservabilityScope.emit(error)
-            return false
+            return .failure
         }
     }
 }
@@ -1397,6 +1430,24 @@ private extension Basics.Diagnostic {
     static var noMatchingTests: Self {
         .warning("No matching test cases were run")
     }
+}
+
+/// The exit code returned to Swift Package Manager by Swift Testing when no
+/// tests matched the inputs specified by the developer (or, for the case of
+/// `swift test list`, when no tests were found.)
+///
+/// Because Swift Package Manager does not directly link to the testing library,
+/// it duplicates the definition of this constant in its own source. Any changes
+/// to this constant in either package must be mirrored in the other.
+private var EXIT_NO_TESTS_FOUND: CInt {
+#if os(macOS) || os(Linux)
+    EX_UNAVAILABLE
+#elseif os(Windows)
+    ERROR_NOT_FOUND
+#else
+#warning("Platform-specific implementation missing: value for EXIT_NO_TESTS_FOUND unavailable")
+    return 2 // We're assuming that EXIT_SUCCESS = 0 and EXIT_FAILURE = 1.
+#endif
 }
 
 /// Builds the "test" target if enabled in options.
