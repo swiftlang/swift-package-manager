@@ -233,6 +233,12 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             "false"
         }
 
+        let (entryPointAttribute, entryPointFunctionName) = if context.productsBuildParameters.triple.isDarwin() {
+            ("@available(macOS 10.15.0, iOS 11.0, watchOS 4.0, tvOS 11.0, *) @usableFromInline", "swiftpm_testingMain")
+        } else {
+            ("@main", "main")
+        }
+
         /// On WASI, we can't block the main thread, so XCTestMain is defined as async.
         let awaitXCTMainKeyword = if context.productsBuildParameters.triple.isWASI() {
             "await"
@@ -260,8 +266,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             \#(discoveryModuleNames.map { "import \($0)" }.joined(separator: "\n"))
             #endif
 
-            @main
-            @available(macOS 10.15.0, iOS 11.0, watchOS 4.0, tvOS 11.0, *)
+            \#(entryPointAttribute)
             @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
             struct Runner {
                 private static func testingLibrary() -> String {
@@ -282,7 +287,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
                 private static func _runAsyncMain(_ asyncFun: @Sendable @escaping () async throws -> ())
                 #endif
 
-                static func main() \#(asyncMainKeyword) {
+                static func \#(entryPointFunctionName)() \#(asyncMainKeyword) {
                     let testingLibrary = Self.testingLibrary()
                     #if \#(swiftTestingImportCondition)
                     if testingLibrary == "swift-testing" {
