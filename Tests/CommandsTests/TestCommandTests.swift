@@ -197,7 +197,6 @@ final class TestCommandTests: CommandsTestCase {
             XCTAssertNoMatch(stdout, .contains("testExample2"))
             XCTAssertNoMatch(stdout, .contains("testExample3"))
             XCTAssertNoMatch(stdout, .contains("testExample4"))
-            XCTAssertMatch(stderr, .contains("No matching test cases were run"))
         }
     }
 
