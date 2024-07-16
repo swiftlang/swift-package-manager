@@ -240,14 +240,15 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             ""
         }
 
-        let needsAsyncMainWorkaround = if context.productsBuildParameters.triple.isLinux() {
+        var needsAsyncMainWorkaround = false
+        if context.productsBuildParameters.triple.isLinux() {
             // FIXME: work around crash on Amazon Linux 2 when main function is async (rdar://128303921)
-            true
+            needsAsyncMainWorkaround = true
         } else if context.productsBuildParameters.triple.isDarwin() {
-            // FIXME: work around duplicate async_Main symbols (fixed by https://github.com/swiftlang/swift/pull/69113, not in host toolchain in CI yet?)
-            true
-        } else {
-          false
+#if compiler(<5.10)
+            // FIXME: work around duplicate async_Main symbols (SEE https://github.com/swiftlang/swift/pull/69113)
+            needsAsyncMainWorkaround = true
+#endif
         }
 
         stream.send(
