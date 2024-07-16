@@ -233,17 +233,17 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
         }
 
         /// On WASI, we can't block the main thread, so XCTestMain is defined as async.
-        let awaitXCTMainKeyword = if context.productsBuildParameters.triple.isWASI() {
+        let awaitXCTMainKeyword = if buildParameters.triple.isWASI() {
             "await"
         } else {
             ""
         }
 
         var needsAsyncMainWorkaround = false
-        if context.productsBuildParameters.triple.isLinux() {
+        if buildParameters.triple.isLinux() {
             // FIXME: work around crash on Amazon Linux 2 when main function is async (rdar://128303921)
             needsAsyncMainWorkaround = true
-        } else if context.productsBuildParameters.triple.isDarwin() {
+        } else if buildParameters.triple.isDarwin() {
 #if compiler(<5.10)
             // FIXME: work around duplicate async_Main symbols (SEE https://github.com/swiftlang/swift/pull/69113)
             needsAsyncMainWorkaround = true
@@ -264,7 +264,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             #endif
 
             @main
-            @available(macOS 10.15.0, iOS 11.0, watchOS 4.0, tvOS 11.0, *)
+            @available(macOS 10.15, iOS 11, watchOS 4, tvOS 11, *)
             @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
             struct Runner {
                 private static func testingLibrary() -> String {

@@ -34,10 +34,6 @@ extension BuildPlan {
         _ fileSystem: FileSystem,
         _ observabilityScope: ObservabilityScope
     ) throws -> [(product: ResolvedProduct, discoveryTargetBuildDescription: SwiftModuleBuildDescription?, entryPointTargetBuildDescription: SwiftModuleBuildDescription)] {
-        guard destinationBuildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets else {
-            throw InternalError("makeTestManifestTargets should not be used for build plan which does not require additional derived test targets")
-        }
-
         var explicitlyEnabledDiscovery = false
         var explicitlySpecifiedPath: AbsolutePath?
         if case let .entryPointExecutable(caseExplicitlyEnabledDiscovery, caseExplicitlySpecifiedPath) = destinationBuildParameters.testingParameters.testProductStyle {
@@ -156,9 +152,15 @@ extension BuildPlan {
             let swiftTargetDependencies: [Module.Dependency]
             let resolvedTargetDependencies: [ResolvedModule.Dependency]
 
-            discoveryTargets = try generateDiscoveryTargets()
-            swiftTargetDependencies = [.module(discoveryTargets!.target, conditions: [])]
-            resolvedTargetDependencies = [.module(discoveryTargets!.resolved, conditions: [])]
+            if destinationBuildParameters.triple.isDarwin() {
+                discoveryTargets = nil
+                swiftTargetDependencies = []
+                resolvedTargetDependencies = []
+            } else {
+                discoveryTargets = try generateDiscoveryTargets()
+                swiftTargetDependencies = [.module(discoveryTargets!.target, conditions: [])]
+                resolvedTargetDependencies = [.module(discoveryTargets!.resolved, conditions: [])]
+            }
 
             if !destinationBuildParameters.triple.isDarwin(), let entryPointResolvedTarget = testProduct.testEntryPointModule {
                 if isEntryPointPathSpecifiedExplicitly || explicitlyEnabledDiscovery {

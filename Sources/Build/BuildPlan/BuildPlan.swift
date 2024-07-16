@@ -473,31 +473,29 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
 
         // Plan the derived test targets, if necessary.
-        if destinationBuildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets {
-            let derivedTestTargets = try Self.makeDerivedTestTargets(
-                testProducts: productMap.values.filter {
-                    $0.product.type == .test
-                },
-                destinationBuildParameters: destinationBuildParameters,
-                toolsBuildParameters: toolsBuildParameters,
-                shouldDisableSandbox: self.shouldDisableSandbox,
-                self.fileSystem,
-                self.observabilityScope
+        let derivedTestTargets = try Self.makeDerivedTestTargets(
+            testProducts: productMap.values.filter {
+                $0.product.type == .test
+            },
+            destinationBuildParameters: destinationBuildParameters,
+            toolsBuildParameters: toolsBuildParameters,
+            shouldDisableSandbox: self.shouldDisableSandbox,
+            self.fileSystem,
+            self.observabilityScope
+        )
+        for item in derivedTestTargets {
+            var derivedTestTargets = [item.entryPointTargetBuildDescription.target]
+
+            targetMap[item.entryPointTargetBuildDescription.target.id] = .swift(
+                item.entryPointTargetBuildDescription
             )
-            for item in derivedTestTargets {
-                var derivedTestTargets = [item.entryPointTargetBuildDescription.target]
 
-                targetMap[item.entryPointTargetBuildDescription.target.id] = .swift(
-                    item.entryPointTargetBuildDescription
-                )
-
-                if let discoveryTargetBuildDescription = item.discoveryTargetBuildDescription {
-                    targetMap[discoveryTargetBuildDescription.target.id] = .swift(discoveryTargetBuildDescription)
-                    derivedTestTargets.append(discoveryTargetBuildDescription.target)
-                }
-
-                self.derivedTestTargetsMap[item.product.id] = derivedTestTargets
+            if let discoveryTargetBuildDescription = item.discoveryTargetBuildDescription {
+                targetMap[discoveryTargetBuildDescription.target.id] = .swift(discoveryTargetBuildDescription)
+                derivedTestTargets.append(discoveryTargetBuildDescription.target)
             }
+
+            self.derivedTestTargetsMap[item.product.id] = derivedTestTargets
         }
 
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults

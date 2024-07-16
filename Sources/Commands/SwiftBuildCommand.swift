@@ -166,32 +166,12 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         var productsBuildParameters = try swiftCommandState.productsBuildParameters
         var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
 
-        // Clean out the code coverage directory that may contain stale
-        // profraw files from a previous run of the code coverage tool.
         if self.options.enableCodeCoverage {
-            try swiftCommandState.fileSystem.removeFileTree(swiftCommandState.productsBuildParameters.codeCovPath)
             productsBuildParameters.testingParameters.enableCodeCoverage = true
             toolsBuildParameters.testingParameters.enableCodeCoverage = true
         }
 
-        if case .allIncludingTests = subset {
-            func updateTestingParameters(of buildParameters: inout BuildParameters) {
-                buildParameters.testingParameters = .init(
-                    configuration: buildParameters.configuration,
-                    targetTriple: buildParameters.triple,
-                    enableCodeCoverage: buildParameters.testingParameters.enableCodeCoverage,
-                    enableTestability: buildParameters.testingParameters.enableTestability,
-                    experimentalTestOutput: buildParameters.testingParameters.experimentalTestOutput,
-                    forceTestDiscovery: globalOptions.build.enableTestDiscovery,
-                    testEntryPointPath: globalOptions.build.testEntryPointPath
-                )
-            }
-            updateTestingParameters(of: &productsBuildParameters)
-            updateTestingParameters(of: &toolsBuildParameters)
-            try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
-        } else {
-            try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
-        }
+        try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
     }
 
     private func build(

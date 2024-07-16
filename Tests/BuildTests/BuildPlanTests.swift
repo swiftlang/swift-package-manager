@@ -2209,11 +2209,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         ))
         result.checkProductsCount(1)
-        #if os(macOS)
-        result.checkTargetsCount(4)
-        #else
         result.checkTargetsCount(3)
-        #endif
 
         let buildPath = result.plan.productsBuildPath
 
@@ -2282,8 +2278,6 @@ final class BuildPlanTests: XCTestCase {
                 buildPath.appending(components: "Modules", "Foo.swiftmodule").pathString,
                 "-Xlinker", "-add_ast_path", "-Xlinker",
                 buildPath.appending(components: "Modules", "FooTests.swiftmodule").pathString,
-                "-Xlinker", "-add_ast_path", "-Xlinker",
-                buildPath.appending(components: "Modules", "PkgPackageDiscoveredTests.swiftmodule").pathString,
                 "-Xlinker", "-add_ast_path", "-Xlinker",
                 buildPath.appending(components: "Modules", "PkgPackageTests.swiftmodule").pathString,
                 "-g",

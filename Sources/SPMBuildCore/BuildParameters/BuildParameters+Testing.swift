@@ -38,13 +38,6 @@ extension BuildParameters {
             explicitlySpecifiedPath: AbsolutePath?
         )
 
-        /// Whether this test product style requires additional, derived test targets, i.e. there must be additional test targets, beyond those
-        /// listed explicitly in the package manifest, created in order to add additional behavior (such as entry point logic).
-        /// FIXME: remove this property since it's always true now.
-        public var requiresAdditionalDerivedTestTargets: Bool {
-            true
-        }
-
         /// The explicitly-specified entry point file path, if this style of test product supports it and a path was specified.
         public var explicitlySpecifiedEntryPointPath: AbsolutePath? {
             switch self {
