@@ -563,7 +563,7 @@ public struct TargetSourcesBuilder {
 }
 
 /// Describes a rule for including a source or resource file in a target.
-public struct   : Sendable {
+public struct FileRuleDescription: Sendable {
     /// A rule semantically describes a file/directory in a target.
     ///
     /// It is up to the build system to translate a rule into a build command.
