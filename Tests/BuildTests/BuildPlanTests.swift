@@ -1146,13 +1146,16 @@ final class BuildPlanTests: XCTestCase {
         ))
 
         XCTAssertEqual(Set(result.productMap.keys.map(\.productName)), ["APackageTests"])
-        XCTAssertEqual(Set(result.targetMap.keys.map(\.moduleName)), [
+        var expectedTargets: Set<String> = [
             "APackageTests",
-            "APackageDiscoveredTests",
             "ATarget",
             "ATargetTests",
             "BTarget",
-        ])
+        ]
+#if !os(macOS)
+        expectedTargets.insert("APackageDiscoveredTests")
+#endif
+        XCTAssertEqual(Set(result.targetMap.keys.map(\.moduleName)), expectedTargets)
     }
 
     func testBasicReleasePackage() throws {
