@@ -240,11 +240,14 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             ""
         }
 
-        // FIXME: work around crash on Amazon Linux 2 when main function is async (rdar://128303921)
-        let asyncMainKeyword = if context.productsBuildParameters.triple.isLinux() {
-          ""
+        let needsAsyncMainWorkaround = if context.productsBuildParameters.triple.isLinux() {
+            // FIXME: work around crash on Amazon Linux 2 when main function is async (rdar://128303921)
+            true
+        } else if context.productsBuildParameters.triple.isDarwin() {
+            // FIXME: work around duplicate async_Main symbols (fixed by https://github.com/swiftlang/swift/pull/69113, not in host toolchain in CI yet?)
+            true
         } else {
-          "async"
+          false
         }
 
         stream.send(
@@ -276,18 +279,16 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
                     return "xctest"
                 }
 
-                #if os(Linux)
-                // FIXME: work around crash on Amazon Linux 2 when main function is async (rdar://128303921)
+                #if \#(needsAsyncMainWorkaround)
                 @_silgen_name("$ss13_runAsyncMainyyyyYaKcF")
                 private static func _runAsyncMain(_ asyncFun: @Sendable @escaping () async throws -> ())
                 #endif
 
-                static func main() \#(asyncMainKeyword) {
+                static func main() \#(needsAsyncMainWorkaround ? "" : "async") {
                     let testingLibrary = Self.testingLibrary()
                     #if \#(swiftTestingImportCondition)
                     if testingLibrary == "swift-testing" {
-                        #if os(Linux)
-                        // FIXME: work around crash on Amazon Linux 2 when main function is async (rdar://128303921)
+                        #if \#(needsAsyncMainWorkaround)
                         _runAsyncMain {
                             await Testing.__swiftPMEntryPoint() as Never
                         }
