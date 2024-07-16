@@ -714,6 +714,14 @@ let package = Package(
     swiftLanguageVersions: [.v5]
 )
 
+#if canImport(Darwin)
+package.targets.append(contentsOf: [
+    .executableTarget(
+        name: "swiftpm-testing-helper"
+    )
+])
+#endif
+
 // Workaround SPM's attempt to link in executables which does not work on all
 // platforms.
 #if !os(Windows)
