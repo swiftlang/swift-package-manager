@@ -567,7 +567,7 @@ public struct FileRuleDescription: Sendable {
     /// A rule semantically describes a file/directory in a target.
     ///
     /// It is up to the build system to translate a rule into a build command.
-    public enum Rule: Equatable {
+    public enum Rule: Sendable, Equatable {
         /// The compile rule for `sources` in a package.
         case compile
 
