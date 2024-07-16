@@ -179,7 +179,7 @@ final class InitTests: XCTestCase {
             XCTAssertMatch(manifestContents, .contains(#".tvOS(.v13)"#))
             XCTAssertMatch(manifestContents, .contains(#".watchOS(.v6)"#))
             XCTAssertMatch(manifestContents, .contains(#".macCatalyst(.v13)"#))
-            XCTAssertMatch(manifestContents, .contains(#"swift-testing.git", from: "0.11.0""#))
+            XCTAssertMatch(manifestContents, .contains(#"swift-testing.git", from: "0.2.0""#))
             XCTAssertMatch(manifestContents, .contains(#".product(name: "Testing", package: "swift-testing")"#))
 
             let testFile = path.appending("Tests").appending("FooTests").appending("FooTests.swift")
@@ -222,7 +222,7 @@ final class InitTests: XCTestCase {
             XCTAssertMatch(manifestContents, .contains(#".tvOS(.v13)"#))
             XCTAssertMatch(manifestContents, .contains(#".watchOS(.v6)"#))
             XCTAssertMatch(manifestContents, .contains(#".macCatalyst(.v13)"#))
-            XCTAssertMatch(manifestContents, .contains(#"swift-testing.git", from: "0.11.0""#))
+            XCTAssertMatch(manifestContents, .contains(#"swift-testing.git", from: "0.2.0""#))
             XCTAssertMatch(manifestContents, .contains(#".product(name: "Testing", package: "swift-testing")"#))
 
             let testFile = path.appending("Tests").appending("FooTests").appending("FooTests.swift")
@@ -262,7 +262,7 @@ final class InitTests: XCTestCase {
             let manifest = path.appending("Package.swift")
             XCTAssertFileExists(manifest)
             let manifestContents: String = try localFileSystem.readFileContents(manifest)
-            XCTAssertNoMatch(manifestContents, .contains(#"swift-testing.git", from: "0.11.0""#))
+            XCTAssertNoMatch(manifestContents, .contains(#"swift-testing.git", from: "0.2.0""#))
             XCTAssertNoMatch(manifestContents, .contains(#".product(name: "Testing", package: "swift-testing")"#))
             XCTAssertNoMatch(manifestContents, .contains(#".testTarget"#))
 

@@ -166,12 +166,35 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         var productsBuildParameters = try swiftCommandState.productsBuildParameters
         var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
 
+        // Clean out the code coverage directory that may contain stale
+        // profraw files from a previous run of the code coverage tool.
         if self.options.enableCodeCoverage {
+            try swiftCommandState.fileSystem.removeFileTree(swiftCommandState.productsBuildParameters.codeCovPath)
             productsBuildParameters.testingParameters.enableCodeCoverage = true
             toolsBuildParameters.testingParameters.enableCodeCoverage = true
         }
 
-        try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
+        if case .allIncludingTests = subset {
+            func updateTestingParameters(of buildParameters: inout BuildParameters, library: BuildParameters.Testing.Library) {
+                buildParameters.testingParameters = .init(
+                    configuration: buildParameters.configuration,
+                    targetTriple: buildParameters.triple,
+                    enableCodeCoverage: buildParameters.testingParameters.enableCodeCoverage,
+                    enableTestability: buildParameters.testingParameters.enableTestability,
+                    experimentalTestOutput: buildParameters.testingParameters.experimentalTestOutput,
+                    forceTestDiscovery: globalOptions.build.enableTestDiscovery,
+                    testEntryPointPath: globalOptions.build.testEntryPointPath,
+                    library: library
+                )
+            }
+            for library in try options.testLibraryOptions.enabledTestingLibraries(swiftCommandState: swiftCommandState) {
+                updateTestingParameters(of: &productsBuildParameters, library: library)
+                updateTestingParameters(of: &toolsBuildParameters, library: library)
+                try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
+            }
+        } else {
+            try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
+        }
     }
 
     private func build(
