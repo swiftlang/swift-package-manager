@@ -844,12 +844,6 @@ final class TestRunner {
         self.library = library
     }
 
-//    /// Executes and returns execution status. Prints test output on standard streams if requested
-//    /// - Returns: Boolean indicating if test execution returned code 0, and the output stream result
-//    func test(outputHandler: @escaping (String) -> Void) -> Bool {
-//        (test(outputHandler: outputHandler) as Result) != .failure
-//    }
-
     /// The result of running the test(s).
     enum Result: Equatable {
         /// The test(s) ran successfully.

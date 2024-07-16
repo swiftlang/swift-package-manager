@@ -225,8 +225,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             testObservabilitySetup = ""
         }
 
-        let swiftTestingImportCondition = "canImport(Testing)"
-        let xctestImportCondition: String = switch buildParameters.testingParameters.testProductStyle {
+        let isXCTMainAvailable: String = switch buildParameters.testingParameters.testProductStyle {
         case .entryPointExecutable:
             "canImport(XCTest)"
         case .loadableBundle:
@@ -253,11 +252,11 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
 
         stream.send(
             #"""
-            #if \#(swiftTestingImportCondition)
+            #if canImport(Testing)
             import Testing
             #endif
 
-            #if \#(xctestImportCondition)
+            #if \#(isXCTMainAvailable)
             \#(generateTestObservationCode(buildParameters: buildParameters))
 
             import XCTest
@@ -287,7 +286,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
 
                 static func main() \#(needsAsyncMainWorkaround ? "" : "async") {
                     let testingLibrary = Self.testingLibrary()
-                    #if \#(swiftTestingImportCondition)
+                    #if canImport(Testing)
                     if testingLibrary == "swift-testing" {
                         #if \#(needsAsyncMainWorkaround)
                         _runAsyncMain {
@@ -298,7 +297,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
                         #endif
                     }
                     #endif
-                    #if \#(xctestImportCondition)
+                    #if \#(isXCTMainAvailable)
                     if testingLibrary == "xctest" {
                         \#(testObservabilitySetup)
                         \#(awaitXCTMainKeyword) XCTMain(__allDiscoveredTests()) as Never
