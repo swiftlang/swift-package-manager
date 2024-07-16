@@ -305,7 +305,7 @@ public final class Package {
     ///   - swiftLanguageModes: The list of Swift language modes with which this package is compatible.
     ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
     ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
-    @available(_PackageDescription, introduced: 6)
+    @available(_PackageDescription, introduced: 6.0)
     public init(
         name: String,
         defaultLocalization: LanguageTag? = nil,
@@ -327,6 +327,7 @@ public final class Package {
         self.products = products
         self.dependencies = dependencies
         self.targets = targets
+        self.traits = []
         self.swiftLanguageModes = swiftLanguageModes
         self.cLanguageStandard = cLanguageStandard
         self.cxxLanguageStandard = cxxLanguageStandard
@@ -350,7 +351,8 @@ public final class Package {
     ///   - swiftLanguageModes: The list of Swift language modes with which this package is compatible.
     ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
     ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
-    @available(_PackageDescription, introduced: 6)
+    @_spi(ExperimentalTraits)
+    @available(_PackageDescription, introduced: 999.0)
     public init(
         name: String,
         defaultLocalization: LanguageTag? = nil,
