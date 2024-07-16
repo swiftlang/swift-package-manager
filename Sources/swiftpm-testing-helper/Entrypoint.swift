@@ -35,7 +35,7 @@ struct Entrypoint {
             // Find and call the main function from the image. This function may
             // link to the copy of Swift Testing included with Xcode, or may link to
             // a copy that's included as a package dependency.
-            let main = dlsym(image, "swiftpm_testingMain").map {
+            let main = dlsym(image, "main").map {
                 unsafeBitCast(
                     $0,
                     to: (@convention(c) (CInt, UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>) -> CInt).self
