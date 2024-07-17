@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #if canImport(os)
-import os
+@preconcurrency import os
 #endif
 
 #if canImport(os)
