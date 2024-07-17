@@ -32,6 +32,7 @@ final class InitTests: XCTestCase {
                 name: name,
                 packageType: .empty,
                 destinationPath: path,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             )
             var progressMessages = [String]()
@@ -68,6 +69,7 @@ final class InitTests: XCTestCase {
                 name: name,
                 packageType: .executable,
                 destinationPath: path,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             )
             var progressMessages = [String]()
@@ -114,6 +116,7 @@ final class InitTests: XCTestCase {
                 name: name,
                 packageType: .library,
                 destinationPath: path,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             )
             var progressMessages = [String]()
@@ -166,6 +169,7 @@ final class InitTests: XCTestCase {
                 packageType: .library,
                 supportedTestingLibraries: [.swiftTesting],
                 destinationPath: path,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
@@ -209,6 +213,7 @@ final class InitTests: XCTestCase {
                 packageType: .library,
                 supportedTestingLibraries: [.swiftTesting, .xctest],
                 destinationPath: path,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
@@ -254,6 +259,7 @@ final class InitTests: XCTestCase {
                 packageType: .library,
                 supportedTestingLibraries: [],
                 destinationPath: path,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
@@ -287,6 +293,7 @@ final class InitTests: XCTestCase {
                 name: name,
                 packageType: .commandPlugin,
                 destinationPath: path,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             ).writePackageStructure()
 
@@ -322,6 +329,7 @@ final class InitTests: XCTestCase {
                 name: name,
                 packageType: .buildToolPlugin,
                 destinationPath: path,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             ).writePackageStructure()
 
@@ -362,6 +370,7 @@ final class InitTests: XCTestCase {
                 name: packageName,
                 packageType: .library,
                 destinationPath: packageRoot,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             )
             initPackage.progressReporter = { message in }
@@ -415,6 +424,7 @@ final class InitTests: XCTestCase {
                 name: "Foo",
                 options: options,
                 destinationPath: packageRoot,
+                isDestinationCurrentWorkingDirectory: false,
                 installedSwiftPMConfiguration: .default,
                 fileSystem: localFileSystem
             )

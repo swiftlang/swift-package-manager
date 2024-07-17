@@ -5261,6 +5261,7 @@ final class WorkspaceTests: XCTestCase {
                 name: packagePath.basename,
                 packageType: .executable,
                 destinationPath: packagePath,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
