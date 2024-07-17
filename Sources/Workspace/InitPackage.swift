@@ -276,7 +276,7 @@ public final class InitPackage {
                 dependencies.append(#".package(url: "https://github.com/swiftlang/swift-syntax.git", from: "\#(self.installedSwiftPMConfiguration.swiftSyntaxVersionForMacroTemplate.description)")"#)
             }
             if options.supportedTestingLibraries.contains(.swiftTesting) {
-                dependencies.append(#".package(url: "https://github.com/apple/swift-testing.git", from: "0.11.0")"#)
+                dependencies.append(#".package(url: "https://github.com/swiftlang/swift-testing.git", from: "0.2.0")"#)
             }
             if !dependencies.isEmpty {
                 let dependencies = dependencies.map { dependency in

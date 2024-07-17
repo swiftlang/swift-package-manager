@@ -118,7 +118,8 @@ enum TestingSupport {
                 destinationBuildParameters: swiftCommandState.buildParametersForTest(
                     enableCodeCoverage: enableCodeCoverage,
                     shouldSkipBuilding: shouldSkipBuilding,
-                    experimentalTestOutput: experimentalTestOutput
+                    experimentalTestOutput: experimentalTestOutput,
+                    library: .xctest
                 ).productsBuildParameters,
                 sanitizers: sanitizers,
                 library: .xctest
@@ -133,7 +134,8 @@ enum TestingSupport {
             toolchain: try swiftCommandState.getTargetToolchain(),
             destinationBuildParameters: swiftCommandState.buildParametersForTest(
                 enableCodeCoverage: enableCodeCoverage,
-                shouldSkipBuilding: shouldSkipBuilding
+                shouldSkipBuilding: shouldSkipBuilding,
+                library: .xctest
             ).productsBuildParameters,
             sanitizers: sanitizers,
             library: .xctest
@@ -162,6 +164,10 @@ enum TestingSupport {
             env["NO_COLOR"] = "1"
         }
 
+        // Set an environment variable to indicate which library's test product
+        // is being executed.
+        env["SWIFT_PM_TEST_LIBRARY"] = String(describing: library)
+
         // Add the code coverage related variables.
         if buildParameters.testingParameters.enableCodeCoverage {
             // Defines the path at which the profraw files will be written on test execution.
@@ -171,7 +177,7 @@ enum TestingSupport {
             // execution but is required when the tests are running in parallel as
             // SwiftPM repeatedly invokes the test binary with the test case name as
             // the filter.
-            let codecovProfile = buildParameters.buildPath.appending(components: "codecov", "\(library)%m.profraw")
+            let codecovProfile = buildParameters.buildPath.appending(components: "codecov", "default%m.profraw")
             env["LLVM_PROFILE_FILE"] = codecovProfile.pathString
         }
         #if !os(macOS)
@@ -187,11 +193,6 @@ enum TestingSupport {
             // appending since we prefer the user setting (if set) to the one we inject
             env.appendPath(key: "DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.fwk.pathString)
             env.appendPath(key: "DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.lib.pathString)
-        }
-
-        // We aren't using XCTest's harness logic to run Swift Testing tests.
-        if library == .xctest {
-            env["SWIFT_TESTING_ENABLED"] = "0"
         }
 
         // Fast path when no sanitizers are enabled.
@@ -220,21 +221,24 @@ extension SwiftCommandState {
         enableCodeCoverage: Bool,
         enableTestability: Bool? = nil,
         shouldSkipBuilding: Bool = false,
-        experimentalTestOutput: Bool = false
+        experimentalTestOutput: Bool = false,
+        library: BuildParameters.Testing.Library
     ) throws -> (productsBuildParameters: BuildParameters, toolsBuildParameters: BuildParameters) {
         let productsBuildParameters = buildParametersForTest(
             modifying: try productsBuildParameters,
             enableCodeCoverage: enableCodeCoverage,
             enableTestability: enableTestability,
             shouldSkipBuilding: shouldSkipBuilding,
-            experimentalTestOutput: experimentalTestOutput
+            experimentalTestOutput: experimentalTestOutput,
+            library: library
         )
         let toolsBuildParameters = buildParametersForTest(
             modifying: try toolsBuildParameters,
             enableCodeCoverage: enableCodeCoverage,
             enableTestability: enableTestability,
             shouldSkipBuilding: shouldSkipBuilding,
-            experimentalTestOutput: experimentalTestOutput
+            experimentalTestOutput: experimentalTestOutput,
+            library: library
         )
         return (productsBuildParameters, toolsBuildParameters)
     }
@@ -244,7 +248,8 @@ extension SwiftCommandState {
         enableCodeCoverage: Bool,
         enableTestability: Bool?,
         shouldSkipBuilding: Bool,
-        experimentalTestOutput: Bool
+        experimentalTestOutput: Bool,
+        library: BuildParameters.Testing.Library
     ) -> BuildParameters {
         var parameters = parameters
 
@@ -261,7 +266,8 @@ extension SwiftCommandState {
             configuration: parameters.configuration,
             targetTriple: parameters.triple,
             forceTestDiscovery: explicitlyEnabledDiscovery,
-            testEntryPointPath: explicitlySpecifiedPath
+            testEntryPointPath: explicitlySpecifiedPath,
+            library: library
         )
 
         parameters.testingParameters.enableCodeCoverage = enableCodeCoverage

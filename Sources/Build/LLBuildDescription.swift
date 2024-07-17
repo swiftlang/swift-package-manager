@@ -140,7 +140,8 @@ public struct BuildDescription: Codable {
             try BuiltTestProduct(
                 productName: desc.product.name,
                 binaryPath: desc.binaryPath,
-                packagePath: desc.package.path
+                packagePath: desc.package.path,
+                library: desc.buildParameters.testingParameters.library
             )
         }
         self.pluginDescriptions = pluginDescriptions
