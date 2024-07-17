@@ -64,7 +64,8 @@ extension Environment {
 // MARK: - Conversions between Dictionary<String, String>
 
 extension Environment {
-    package init(_ dictionary: [String: String]) {
+    @_spi(SwiftPMInternal)
+    public init(_ dictionary: [String: String]) {
         self.storage = .init()
         let sorted = dictionary.sorted { $0.key < $1.key }
         for (key, value) in sorted {
@@ -74,7 +75,8 @@ extension Environment {
 }
 
 extension [String: String] {
-    package init(_ environment: Environment) {
+    @_spi(SwiftPMInternal)
+    public init(_ environment: Environment) {
         self.init()
         let sorted = environment.sorted { $0.key < $1.key }
         for (key, value) in sorted {
