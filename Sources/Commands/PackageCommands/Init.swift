@@ -55,10 +55,22 @@ extension SwiftPackageCommand {
             }
 
             let packageName = self.packageName ?? cwd.basename
+
+            // Which testing libraries should be used? XCTest is on by default,
+            // but Swift Testing must remain off by default until it is present
+            // in the Swift toolchain.
+            var supportedTestingLibraries = Set<BuildParameters.Testing.Library>()
+            if testLibraryOptions.isEnabled(.xctest) {
+                supportedTestingLibraries.insert(.xctest)
+            }
+            if testLibraryOptions.explicitlyEnableSwiftTestingLibrarySupport == true || testLibraryOptions.explicitlyEnableExperimentalSwiftTestingLibrarySupport == true {
+                supportedTestingLibraries.insert(.swiftTesting)
+            }
+
             let initPackage = try InitPackage(
                 name: packageName,
                 packageType: initMode,
-                supportedTestingLibraries: Set(testLibraryOptions.enabledTestingLibraries),
+                supportedTestingLibraries: supportedTestingLibraries,
                 destinationPath: cwd,
                 installedSwiftPMConfiguration: swiftCommandState.getHostToolchain().installedSwiftPMConfiguration,
                 fileSystem: swiftCommandState.fileSystem
