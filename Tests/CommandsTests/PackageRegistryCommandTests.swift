@@ -349,6 +349,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
                 name: "MyPackage",
                 packageType: .executable,
                 destinationPath: packageDirectory,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
@@ -381,6 +382,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
                 name: "MyPackage",
                 packageType: .executable,
                 destinationPath: packageDirectory,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
@@ -410,6 +412,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
                 name: "MyPackage",
                 packageType: .executable,
                 destinationPath: packageDirectory,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
@@ -470,6 +473,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
                 name: "MyPackage",
                 packageType: .executable,
                 destinationPath: packageDirectory,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
@@ -513,6 +517,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
                 name: "MyPackage",
                 packageType: .executable,
                 destinationPath: packageDirectory,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
@@ -544,6 +549,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
                 name: "MyPackage",
                 packageType: .executable,
                 destinationPath: packageDirectory,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
@@ -598,6 +604,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
                 name: "MyPackage",
                 packageType: .executable,
                 destinationPath: packageDirectory,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
@@ -642,6 +649,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
                 name: "MyPackage",
                 packageType: .executable,
                 destinationPath: packageDirectory,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
@@ -685,6 +693,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
                 name: "MyPackage",
                 packageType: .executable,
                 destinationPath: packageDirectory,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
@@ -765,6 +774,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
                 name: "MyPackage",
                 packageType: .executable,
                 destinationPath: packageDirectory,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
@@ -876,6 +886,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
                 name: "MyPackage",
                 packageType: .executable,
                 destinationPath: packageDirectory,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
@@ -986,6 +997,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
                 name: "MyPackage",
                 packageType: .executable,
                 destinationPath: packageDirectory,
+                isDestinationCurrentWorkingDirectory: false,
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()

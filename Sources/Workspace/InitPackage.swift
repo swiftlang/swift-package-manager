@@ -69,6 +69,9 @@ public final class InitPackage {
     /// Where to create the new package
     let destinationPath: AbsolutePath
 
+    /// If the current package is being created in the current working directory.
+    let isDestinationCurrentWorkingDirectory: Bool
+
     /// The type of package to create.
     var packageType: PackageType { options.packageType }
 
@@ -95,6 +98,7 @@ public final class InitPackage {
         packageType: PackageType,
         supportedTestingLibraries: Set<BuildParameters.Testing.Library>,
         destinationPath: AbsolutePath,
+        isDestinationCurrentWorkingDirectory: Bool,
         installedSwiftPMConfiguration: InstalledSwiftPMConfiguration,
         fileSystem: FileSystem
     ) throws {
@@ -102,6 +106,7 @@ public final class InitPackage {
             name: name,
             options: InitPackageOptions(packageType: packageType, supportedTestingLibraries: supportedTestingLibraries),
             destinationPath: destinationPath,
+            isDestinationCurrentWorkingDirectory: isDestinationCurrentWorkingDirectory,
             installedSwiftPMConfiguration: installedSwiftPMConfiguration,
             fileSystem: fileSystem
         )
@@ -112,6 +117,7 @@ public final class InitPackage {
         name: String,
         options: InitPackageOptions,
         destinationPath: AbsolutePath,
+        isDestinationCurrentWorkingDirectory: Bool,
         installedSwiftPMConfiguration: InstalledSwiftPMConfiguration,
         fileSystem: FileSystem
     ) throws {
@@ -124,6 +130,7 @@ public final class InitPackage {
         self.pkgname = name
         self.moduleName = name.spm_mangledToC99ExtendedIdentifier()
         self.destinationPath = destinationPath
+        self.isDestinationCurrentWorkingDirectory = isDestinationCurrentWorkingDirectory
         self.installedSwiftPMConfiguration = installedSwiftPMConfiguration
         self.fileSystem = fileSystem
     }
@@ -142,7 +149,7 @@ public final class InitPackage {
     }
 
     private func writePackageFile(_ path: AbsolutePath, body: (OutputByteStream) -> Void) throws {
-        progressReporter?("Creating \(path.relative(to: destinationPath))")
+        progressReporter?("Creating \(try pathRelativeToDestination(path))")
         try self.fileSystem.writeFileContents(path, body: body)
     }
 
@@ -465,7 +472,7 @@ public final class InitPackage {
             guard self.fileSystem.exists(plugins) == false else {
                 return
             }
-            progressReporter?("Creating \(plugins.relative(to: destinationPath))/")
+            progressReporter?("Creating \(try pathRelativeToDestination(plugins))/")
             try makeDirectories(plugins)
 
             let moduleDir = plugins
@@ -580,7 +587,7 @@ public final class InitPackage {
         guard self.fileSystem.exists(sources) == false else {
             return
         }
-        progressReporter?("Creating \(sources.relative(to: destinationPath))/")
+        progressReporter?("Creating \(try pathRelativeToDestination(sources))/")
         try makeDirectories(sources)
 
         let moduleDir: AbsolutePath
@@ -679,7 +686,7 @@ public final class InitPackage {
         guard self.fileSystem.exists(tests) == false else {
             return
         }
-        progressReporter?("Creating \(tests.relative(to: destinationPath))/")
+        progressReporter?("Creating \(try pathRelativeToDestination(tests))/")
         try makeDirectories(tests)
         try writeTestFileStubs(testsPath: tests)
     }
@@ -878,7 +885,7 @@ public final class InitPackage {
 
     private func writeTestFileStubs(testsPath: AbsolutePath) throws {
         let testModule = try AbsolutePath(validating: pkgname + Module.testModuleNameSuffix, relativeTo: testsPath)
-        progressReporter?("Creating \(testModule.relative(to: destinationPath))/")
+        progressReporter?("Creating \(try pathRelativeToDestination(testModule))/")
         try makeDirectories(testModule)
 
         let testClassFile = try AbsolutePath(validating: "\(moduleName)Tests.swift", relativeTo: testModule)
@@ -888,6 +895,18 @@ public final class InitPackage {
             try writeLibraryTestsFile(testClassFile)
         case .macro:
             try writeMacroTestsFile(testClassFile)
+        }
+    }
+
+    private func pathRelativeToDestination(_ path: AbsolutePath) throws -> RelativePath {
+        if isDestinationCurrentWorkingDirectory {
+            return path.relative(to: destinationPath)
+        } else {
+            if let cwd = fileSystem.currentWorkingDirectory {
+                return path.relative(to: cwd)
+            } else {
+                throw InternalError("Could not find the current working directory")
+            }
         }
     }
 }

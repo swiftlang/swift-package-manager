@@ -434,12 +434,14 @@ extension InitPackage {
         packageType: PackageType,
         supportedTestingLibraries: Set<BuildParameters.Testing.Library> = [.xctest],
         destinationPath: AbsolutePath,
+        isDestinationCurrentWorkingDirectory: Bool,
         fileSystem: FileSystem
     ) throws {
         try self.init(
             name: name,
             options: InitPackageOptions(packageType: packageType, supportedTestingLibraries: supportedTestingLibraries),
             destinationPath: destinationPath,
+            isDestinationCurrentWorkingDirectory: isDestinationCurrentWorkingDirectory,
             installedSwiftPMConfiguration: .default,
             fileSystem: fileSystem
         )

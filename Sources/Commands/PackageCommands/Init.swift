@@ -49,10 +49,21 @@ extension SwiftPackageCommand {
         @Option(name: .customLong("name"), help: "Provide custom package name")
         var packageName: String?
 
+        @Argument(help: "Path at which to create the package. If none is supplied, the package will be created in the current working directory.")
+        var destinationPath: AbsolutePath?
+
         func run(_ swiftCommandState: SwiftCommandState) throws {
-            guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
-                throw InternalError("Could not find the current working directory")
+            let isDestinationCurrentWorkingDirectory = destinationPath == nil
+            let destinationPath = self.destinationPath ?? swiftCommandState.fileSystem.currentWorkingDirectory
+
+            guard let destinationPath = destinationPath else {
+                if swiftCommandState.fileSystem.currentWorkingDirectory == nil {
+                    throw InternalError("Could not find the current working directory")
+                } else {
+                    throw InternalError("Could not find the given destination path")
+                }
             }
+            let packageName = self.packageName ?? destinationPath.basename
 
             // NOTE: Do not use testLibraryOptions.enabledTestingLibraries(swiftCommandState:) here
             // because the package doesn't exist yet, so there are no dependencies for it to query.
@@ -63,12 +74,12 @@ extension SwiftPackageCommand {
             if testLibraryOptions.explicitlyEnableSwiftTestingLibrarySupport == true {
                 testingLibraries.insert(.swiftTesting)
             }
-            let packageName = self.packageName ?? cwd.basename
             let initPackage = try InitPackage(
                 name: packageName,
                 packageType: initMode,
                 supportedTestingLibraries: testingLibraries,
-                destinationPath: cwd,
+                destinationPath: destinationPath,
+                isDestinationCurrentWorkingDirectory: isDestinationCurrentWorkingDirectory,
                 installedSwiftPMConfiguration: swiftCommandState.getHostToolchain().installedSwiftPMConfiguration,
                 fileSystem: swiftCommandState.fileSystem
             )
