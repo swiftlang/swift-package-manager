@@ -597,17 +597,9 @@ public struct TestLibraryOptions: ParsableArguments {
           help: .private)
     public var explicitlyEnableExperimentalSwiftTestingLibrarySupport: Bool?
 
-    /// Test whether or not a given library is enabled.
-    public func isEnabled(_ library: BuildParameters.Testing.Library) -> Bool {
-        switch library {
-        case .xctest:
-            explicitlyEnableXCTestSupport ?? true
-        case .swiftTesting:
-            explicitlyEnableSwiftTestingLibrarySupport ?? explicitlyEnableExperimentalSwiftTestingLibrarySupport ?? true
-        }
-    }
-
     /// Test whether or not a given library was explicitly enabled by the developer.
+    ///
+    /// If the developer did not specify either way, the result is `nil`.
     public func isExplicitlyEnabled(_ library: BuildParameters.Testing.Library) -> Bool? {
         switch library {
         case .xctest:
@@ -615,6 +607,12 @@ public struct TestLibraryOptions: ParsableArguments {
         case .swiftTesting:
             explicitlyEnableSwiftTestingLibrarySupport ?? explicitlyEnableExperimentalSwiftTestingLibrarySupport
         }
+    }
+
+    /// Test whether or not a given library is enabled.
+    public func isEnabled(_ library: BuildParameters.Testing.Library) -> Bool {
+        // Both libraries are enabled by default.
+        isExplicitlyEnabled(library) ?? true
     }
 
     /// The list of enabled testing libraries.

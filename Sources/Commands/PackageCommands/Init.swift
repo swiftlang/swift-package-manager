@@ -63,7 +63,7 @@ extension SwiftPackageCommand {
             if testLibraryOptions.isEnabled(.xctest) {
                 supportedTestingLibraries.insert(.xctest)
             }
-            if testLibraryOptions.explicitlyEnableSwiftTestingLibrarySupport == true || testLibraryOptions.explicitlyEnableExperimentalSwiftTestingLibrarySupport == true {
+            if testLibraryOptions.isExplicitlyEnabled(.swiftTesting) == true {
                 supportedTestingLibraries.insert(.swiftTesting)
             }
 
