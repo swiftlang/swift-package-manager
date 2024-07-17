@@ -325,9 +325,12 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
         // Run Swift Testing (parallel or not, it has a single entry point.)
         if options.testLibraryOptions.isEnabled(.swiftTesting) {
-            if let testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first {
-                // Cannot run Swift Testing because a custom entry point was specified.
-                swiftCommandState.observabilityScope.emit(debug: "Skipping automatic Swift Testing invocation because a test entry point path is present: \(testEntryPointPath)")
+            if options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting) != true,
+               let testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first {
+                // Cannot run Swift Testing because an entry point file was used.
+                swiftCommandState.observabilityScope.emit(
+                    debug: "Skipping automatic Swift Testing invocation because a test entry point path is present: \(testEntryPointPath)"
+                )
             } else {
                 results.append(
                     try await runTestProducts(
@@ -730,9 +733,12 @@ extension SwiftTestCommand {
             }
 
             if testLibraryOptions.isEnabled(.swiftTesting) {
-                if let testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first {
-                    // Cannot run Swift Testing because a custom entry point was specified.
-                    swiftCommandState.observabilityScope.emit(debug: "Skipping automatic Swift Testing invocation (list) because a test entry point path is present: \(testEntryPointPath)")
+                if testLibraryOptions.isExplicitlyEnabled(.swiftTesting) != true,
+                   let testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first {
+                    // Cannot run Swift Testing because an entry point file was used.
+                    swiftCommandState.observabilityScope.emit(
+                        debug: "Skipping automatic Swift Testing invocation (list) because a test entry point path is present: \(testEntryPointPath)"
+                    )
                 } else {
                     let additionalArguments = ["--list-tests"] + CommandLine.arguments.dropFirst()
                     let runner = TestRunner(

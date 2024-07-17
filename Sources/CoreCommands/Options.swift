@@ -607,6 +607,16 @@ public struct TestLibraryOptions: ParsableArguments {
         }
     }
 
+    /// Test whether or not a given library was explicitly enabled by the developer.
+    public func isExplicitlyEnabled(_ library: BuildParameters.Testing.Library) -> Bool? {
+        switch library {
+        case .xctest:
+            explicitlyEnableXCTestSupport
+        case .swiftTesting:
+            explicitlyEnableSwiftTestingLibrarySupport ?? explicitlyEnableExperimentalSwiftTestingLibrarySupport
+        }
+    }
+
     /// The list of enabled testing libraries.
     public var enabledTestingLibraries: [BuildParameters.Testing.Library] {
         [.xctest, .swiftTesting].filter(isEnabled)
