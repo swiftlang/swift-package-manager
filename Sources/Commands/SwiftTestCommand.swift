@@ -325,7 +325,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
         // Run Swift Testing (parallel or not, it has a single entry point.)
         if options.testLibraryOptions.isEnabled(.swiftTesting) {
-            if options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting) != true,
+            if let explicitlyEnabled = options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting),
+               explicitlyEnabled,
                let testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first {
                 // Cannot run Swift Testing because an entry point file was used.
                 swiftCommandState.observabilityScope.emit(
@@ -733,7 +734,8 @@ extension SwiftTestCommand {
             }
 
             if testLibraryOptions.isEnabled(.swiftTesting) {
-                if testLibraryOptions.isExplicitlyEnabled(.swiftTesting) != true,
+                if let explicitlyEnabled = testLibraryOptions.isExplicitlyEnabled(.swiftTesting),
+                   explicitlyEnabled,
                    let testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first {
                     // Cannot run Swift Testing because an entry point file was used.
                     swiftCommandState.observabilityScope.emit(
