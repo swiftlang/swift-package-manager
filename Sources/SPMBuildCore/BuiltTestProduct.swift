@@ -38,14 +38,20 @@ public struct BuiltTestProduct: Codable {
         return bundlePath
     }
 
+    /// The path to the entry point source file (XCTMain.swift, LinuxMain.swift,
+    /// etc.) used, if any.
+    public let testEntryPointPath: AbsolutePath?
+
     /// Creates a new instance.
     /// - Parameters:
     ///   - productName: The test product name.
     ///   - binaryPath: The path of the test binary.
     ///   - packagePath: The path to the package this product was declared in.
-    public init(productName: String, binaryPath: AbsolutePath, packagePath: AbsolutePath) {
+    ///   - mainSourceFilePath: The path to the main source file used, if any.
+    public init(productName: String, binaryPath: AbsolutePath, packagePath: AbsolutePath, testEntryPointPath: AbsolutePath?) {
         self.productName = productName
         self.binaryPath = binaryPath
         self.packagePath = packagePath
+        self.testEntryPointPath = testEntryPointPath
     }
 }
