@@ -293,11 +293,16 @@ public struct BuildParameters: Encodable {
             guard !self.triple.isWasm else {
                 return try RelativePath(validating: "\(product.name).wasm")
             }
-            let base = "\(product.name).xctest"
-            if self.triple.isDarwin() {
-                return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
-            } else {
-                return try RelativePath(validating: base)
+            switch testingParameters.library {
+            case .xctest:
+                let base = "\(product.name).xctest"
+                if self.triple.isDarwin() {
+                    return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
+                } else {
+                    return try RelativePath(validating: base)
+                }
+            case .swiftTesting:
+                return try RelativePath(validating: "\(product.name).swift-testing")
             }
         case .macro:
             #if BUILD_MACROS_AS_DYLIBS

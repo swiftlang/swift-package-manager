@@ -54,23 +54,20 @@ extension SwiftPackageCommand {
                 throw InternalError("Could not find the current working directory")
             }
 
+            // NOTE: Do not use testLibraryOptions.enabledTestingLibraries(swiftCommandState:) here
+            // because the package doesn't exist yet, so there are no dependencies for it to query.
+            var testingLibraries: Set<BuildParameters.Testing.Library> = []
+            if testLibraryOptions.enableXCTestSupport {
+                testingLibraries.insert(.xctest)
+            }
+            if testLibraryOptions.explicitlyEnableSwiftTestingLibrarySupport == true {
+                testingLibraries.insert(.swiftTesting)
+            }
             let packageName = self.packageName ?? cwd.basename
-
-            // Which testing libraries should be used? XCTest is on by default,
-            // but Swift Testing must remain off by default until it is present
-            // in the Swift toolchain.
-            var supportedTestingLibraries = Set<BuildParameters.Testing.Library>()
-            if testLibraryOptions.isEnabled(.xctest) {
-                supportedTestingLibraries.insert(.xctest)
-            }
-            if testLibraryOptions.explicitlyEnableSwiftTestingLibrarySupport == true || testLibraryOptions.explicitlyEnableExperimentalSwiftTestingLibrarySupport == true {
-                supportedTestingLibraries.insert(.swiftTesting)
-            }
-
             let initPackage = try InitPackage(
                 name: packageName,
                 packageType: initMode,
-                supportedTestingLibraries: supportedTestingLibraries,
+                supportedTestingLibraries: testingLibraries,
                 destinationPath: cwd,
                 installedSwiftPMConfiguration: swiftCommandState.getHostToolchain().installedSwiftPMConfiguration,
                 fileSystem: swiftCommandState.fileSystem

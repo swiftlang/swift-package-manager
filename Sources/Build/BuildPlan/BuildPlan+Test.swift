@@ -34,12 +34,13 @@ extension BuildPlan {
         _ fileSystem: FileSystem,
         _ observabilityScope: ObservabilityScope
     ) throws -> [(product: ResolvedProduct, discoveryTargetBuildDescription: SwiftModuleBuildDescription?, entryPointTargetBuildDescription: SwiftModuleBuildDescription)] {
-        var explicitlyEnabledDiscovery = false
-        var explicitlySpecifiedPath: AbsolutePath?
-        if case let .entryPointExecutable(caseExplicitlyEnabledDiscovery, caseExplicitlySpecifiedPath) = destinationBuildParameters.testingParameters.testProductStyle {
-            explicitlyEnabledDiscovery = caseExplicitlyEnabledDiscovery
-            explicitlySpecifiedPath = caseExplicitlySpecifiedPath
+        guard destinationBuildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets,
+              case .entryPointExecutable(let explicitlyEnabledDiscovery, let explicitlySpecifiedPath) =
+                destinationBuildParameters.testingParameters.testProductStyle
+        else {
+            throw InternalError("makeTestManifestTargets should not be used for build plan which does not require additional derived test targets")
         }
+
         let isEntryPointPathSpecifiedExplicitly = explicitlySpecifiedPath != nil
 
         var isDiscoveryEnabledRedundantly = explicitlyEnabledDiscovery && !isEntryPointPathSpecifiedExplicitly
@@ -115,7 +116,7 @@ extension BuildPlan {
                 resolvedTargetDependencies: [ResolvedModule.Dependency]
             ) throws -> SwiftModuleBuildDescription {
                 let entryPointDerivedDir = destinationBuildParameters.buildPath.appending(components: "\(testProduct.name).derived")
-                let entryPointMainFileName = TestEntryPointTool.mainFileName
+                let entryPointMainFileName = TestEntryPointTool.mainFileName(for: destinationBuildParameters.testingParameters.library)
                 let entryPointMainFile = entryPointDerivedDir.appending(component: entryPointMainFileName)
                 let entryPointSources = Sources(paths: [entryPointMainFile], root: entryPointDerivedDir)
 
@@ -152,17 +153,18 @@ extension BuildPlan {
             let swiftTargetDependencies: [Module.Dependency]
             let resolvedTargetDependencies: [ResolvedModule.Dependency]
 
-            if destinationBuildParameters.triple.isDarwin() {
-                discoveryTargets = nil
-                swiftTargetDependencies = []
-                resolvedTargetDependencies = []
-            } else {
+            switch destinationBuildParameters.testingParameters.library {
+            case .xctest:
                 discoveryTargets = try generateDiscoveryTargets()
                 swiftTargetDependencies = [.module(discoveryTargets!.target, conditions: [])]
                 resolvedTargetDependencies = [.module(discoveryTargets!.resolved, conditions: [])]
+            case .swiftTesting:
+                discoveryTargets = nil
+                swiftTargetDependencies = testProduct.modules.map { .module($0.underlying, conditions: []) }
+                resolvedTargetDependencies = testProduct.modules.map { .module($0, conditions: []) }
             }
 
-            if !destinationBuildParameters.triple.isDarwin(), let entryPointResolvedTarget = testProduct.testEntryPointModule {
+            if let entryPointResolvedTarget = testProduct.testEntryPointModule {
                 if isEntryPointPathSpecifiedExplicitly || explicitlyEnabledDiscovery {
                     if isEntryPointPathSpecifiedExplicitly {
                         // Allow using the explicitly-specified test entry point target, but still perform test discovery and thus declare a dependency on the discovery modules.
