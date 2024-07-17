@@ -104,21 +104,6 @@ struct BuildCommandOptions: ParsableArguments {
     /// If should link the Swift stdlib statically.
     @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically")
     public var shouldLinkStaticSwiftStdlib: Bool = false
-
-    /// Which testing libraries to use (and any related options.)
-    @OptionGroup()
-    var testLibraryOptions: TestLibraryOptions
-
-    func validate() throws {
-        // If --build-tests was not specified, it does not make sense to enable
-        // or disable either testing library.
-        if !buildTests {
-            if testLibraryOptions.explicitlyEnableXCTestSupport != nil
-                || testLibraryOptions.explicitlyEnableSwiftTestingLibrarySupport != nil {
-                throw StringError("pass --build-tests to build test targets")
-            }
-        }
-    }
 }
 
 /// swift-build command namespace
