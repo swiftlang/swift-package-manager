@@ -769,15 +769,15 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         if toolsVersion >= .v5_8 {
             manifestPreamble = ByteString()
         } else {
-          manifestPreamble = ByteString("\nimport Foundation")
+            manifestPreamble = ByteString("\nimport Foundation")
         }
 
         do {
             try withTemporaryDirectory { tempDir, cleanupTempDir in
                 let manifestTempFilePath = tempDir.appending("manifest.swift")
-              // Since this isn't overwriting the original file, postpend Foundation library
-              // import to avoid having diagnostics being displayed on the incorrect line.
-              try localFileSystem.writeFileContents(manifestTempFilePath, bytes: ByteString(manifestContents + manifestPreamble.contents))
+                // Since this isn't overwriting the original file, append Foundation library
+                // import to avoid having diagnostics being displayed on the incorrect line.
+                try localFileSystem.writeFileContents(manifestTempFilePath, bytes: ByteString(manifestContents + manifestPreamble.contents))
 
                 let vfsOverlayTempFilePath = tempDir.appending("vfs.yaml")
                 try VFSOverlay(roots: [
