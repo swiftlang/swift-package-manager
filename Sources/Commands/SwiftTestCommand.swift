@@ -453,8 +453,25 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     ) async throws -> TestRunner.Result {
         // Pass through all arguments from the command line to Swift Testing.
         var additionalArguments = additionalArguments
-        if library == .swiftTesting {
-            additionalArguments += CommandLine.arguments.dropFirst()
+        if library == .swiftTesting && options.testLibraryOptions.isEnabled(.xctest) {
+            // We are running Swift Testing, and XCTest is also running in this session. Make sure
+            // we don't stomp on XCTest's XML output by having Swift Testing write to a different path.
+            var commandLineArguments = Array(CommandLine.arguments.dropFirst())
+            if let xunitArgIndex = commandLineArguments.firstIndex(of: "--xunit-output"),
+               case let xunitPathIndex = commandLineArguments.index(after: xunitArgIndex),
+               xunitPathIndex < commandLineArguments.endIndex {
+                // Don't know if the path is relative or absolute, so use URL instead.
+                var xunitPath = URL(fileURLWithPath: commandLineArguments[xunitPathIndex], isDirectory: false)
+                let basename = xunitPath.deletingPathExtension().lastPathComponent
+                let ext = xunitPath.pathExtension
+                xunitPath.deleteLastPathComponent()
+                xunitPath.append(component: "\(basename)-swift-testing", directoryHint: .notDirectory)
+                if !ext.isEmpty {
+                    xunitPath.appendPathExtension(ext)
+                }
+                commandLineArguments[xunitPathIndex] = xunitPath.path()
+            }
+            additionalArguments += commandLineArguments
         }
 
         let toolchain = try swiftCommandState.getTargetToolchain()
