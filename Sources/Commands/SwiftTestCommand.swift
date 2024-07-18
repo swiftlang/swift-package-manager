@@ -269,58 +269,43 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 throw TestError.xcodeNotInstalled
             }
 
-            if !self.options.shouldRunInParallel {
-                let (xctestArgs, testCount) = try xctestArgs(for: testProducts, swiftCommandState: swiftCommandState)
-                let result = try await runTestProducts(
-                    testProducts,
-                    additionalArguments: xctestArgs,
-                    productsBuildParameters: buildParameters,
-                    swiftCommandState: swiftCommandState,
-                    library: .xctest
-                )
-                if result == .success && testCount == 0 {
-                    results.append(.noMatchingTests)
-                } else {
-                    results.append(result)
-                }
+            let testSuites = try TestingSupport.getTestSuites(
+                in: testProducts,
+                swiftCommandState: swiftCommandState,
+                enableCodeCoverage: options.enableCodeCoverage,
+                shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
+                experimentalTestOutput: options.enableExperimentalTestOutput,
+                sanitizers: globalOptions.build.sanitizers
+            )
+            let tests = try testSuites
+                .filteredTests(specifier: options.testCaseSpecifier)
+                .skippedTests(specifier: options.skippedTests(fileSystem: swiftCommandState.fileSystem))
+
+            let result: TestRunner.Result
+            let testResults: [ParallelTestRunner.TestResult]
+            if tests.isEmpty {
+                testResults = []
+                result = .noMatchingTests
             } else {
-                let testSuites = try TestingSupport.getTestSuites(
-                    in: testProducts,
-                    swiftCommandState: swiftCommandState,
-                    enableCodeCoverage: options.enableCodeCoverage,
-                    shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
-                    experimentalTestOutput: options.enableExperimentalTestOutput,
-                    sanitizers: globalOptions.build.sanitizers
+                // Run the tests using the parallel runner.
+                let runner = ParallelTestRunner(
+                    bundlePaths: testProducts.map { $0.bundlePath },
+                    cancellator: swiftCommandState.cancellator,
+                    toolchain: toolchain,
+                    isParallelized: options.shouldRunInParallel,
+                    numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
+                    buildOptions: globalOptions.build,
+                    productsBuildParameters: buildParameters,
+                    shouldOutputSuccess: swiftCommandState.logLevel <= .info,
+                    observabilityScope: swiftCommandState.observabilityScope
                 )
-                let tests = try testSuites
-                    .filteredTests(specifier: options.testCaseSpecifier)
-                    .skippedTests(specifier: options.skippedTests(fileSystem: swiftCommandState.fileSystem))
 
-                let result: TestRunner.Result
-                let testResults: [ParallelTestRunner.TestResult]
-                if tests.isEmpty {
-                    testResults = []
-                    result = .noMatchingTests
-                } else {
-                    // Run the tests using the parallel runner.
-                    let runner = ParallelTestRunner(
-                        bundlePaths: testProducts.map { $0.bundlePath },
-                        cancellator: swiftCommandState.cancellator,
-                        toolchain: toolchain,
-                        numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
-                        buildOptions: globalOptions.build,
-                        productsBuildParameters: buildParameters,
-                        shouldOutputSuccess: swiftCommandState.logLevel <= .info,
-                        observabilityScope: swiftCommandState.observabilityScope
-                    )
-
-                    testResults = try runner.run(tests)
-                    result = runner.ranSuccessfully ? .success : .failure
-                }
-
-                try generateXUnitOutputIfRequested(for: testResults, swiftCommandState: swiftCommandState)
-                results.append(result)
+                testResults = try runner.run(tests)
+                result = runner.ranSuccessfully ? .success : .failure
             }
+
+            try generateXUnitOutputIfRequested(for: testResults, swiftCommandState: swiftCommandState)
+            results.append(result)
         }
 
         // Run Swift Testing (parallel or not, it has a single entry point.)
@@ -1012,7 +997,7 @@ final class ParallelTestRunner {
     private let finishedTests = SynchronizedQueue<TestResult?>()
 
     /// Instance of a terminal progress animation.
-    private let progressAnimation: ProgressAnimationProtocol
+    private let progressAnimation: ProgressAnimationProtocol?
 
     /// Number of tests that will be executed.
     private var numTests = 0
@@ -1030,7 +1015,11 @@ final class ParallelTestRunner {
     private let buildOptions: BuildOptions
     private let productsBuildParameters: BuildParameters
 
+    private let isParallelized: Bool
+
     /// Number of tests to execute in parallel.
+    ///
+    /// If ``isParallelized`` is `false`, this value is ignored.
     private let numJobs: Int
 
     /// Whether to display output from successful tests.
@@ -1043,6 +1032,7 @@ final class ParallelTestRunner {
         bundlePaths: [AbsolutePath],
         cancellator: Cancellator,
         toolchain: UserToolchain,
+        isParallelized: Bool,
         numJobs: Int,
         buildOptions: BuildOptions,
         productsBuildParameters: BuildParameters,
@@ -1052,23 +1042,29 @@ final class ParallelTestRunner {
         self.bundlePaths = bundlePaths
         self.cancellator = cancellator
         self.toolchain = toolchain
+        self.isParallelized = isParallelized
         self.numJobs = numJobs
         self.shouldOutputSuccess = shouldOutputSuccess
         self.observabilityScope = observabilityScope.makeChildScope(description: "Parallel Test Runner")
 
-        // command's result output goes on stdout
-        // ie "swift test" should output to stdout
-        if Environment.current["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
-            self.progressAnimation = ProgressAnimation.percent(
-                stream: TSCBasic.stdoutStream,
-                verbose: false,
-                header: "Testing:"
-            )
+        if isParallelized {
+            // command's result output goes on stdout
+            // ie "swift test" should output to stdout
+            if Environment.current["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
+                self.progressAnimation = ProgressAnimation.percent(
+                    stream: TSCBasic.stdoutStream,
+                    verbose: false,
+                    header: "Testing:"
+                )
+            } else {
+                self.progressAnimation = ProgressAnimation.ninja(
+                    stream: TSCBasic.stdoutStream,
+                    verbose: false
+                )
+            }
         } else {
-            self.progressAnimation = ProgressAnimation.ninja(
-                stream: TSCBasic.stdoutStream,
-                verbose: false
-            )
+            // When running tests in serial, no progress indicator is shown.
+            self.progressAnimation = nil
         }
 
         self.buildOptions = buildOptions
@@ -1080,7 +1076,7 @@ final class ParallelTestRunner {
     /// Updates the progress bar status.
     private func updateProgress(for test: UnitTest) {
         numCurrentTest += 1
-        progressAnimation.update(step: numCurrentTest, total: numTests, text: "Testing \(test.specifier)")
+        progressAnimation?.update(step: numCurrentTest, total: numTests, text: "Testing \(test.specifier)")
     }
 
     private func enqueueTests(_ tests: [UnitTest]) throws {
@@ -1110,8 +1106,11 @@ final class ParallelTestRunner {
         // Enqueue all the tests.
         try enqueueTests(tests)
 
+        let isParallelized = isParallelized
+        let numJobs = isParallelized ? numJobs : 1
+
         // Create the worker threads.
-        let workers: [Thread] = (0..<numJobs).map({ _ in
+        let workers: [Thread] = (0..<numJobs).map { _ in
             let thread = Thread {
                 // Dequeue a specifier and run it till we encounter nil.
                 while let test = self.pendingTests.dequeue() {
@@ -1131,9 +1130,18 @@ final class ParallelTestRunner {
                         library: .xctest // swift-testing does not use ParallelTestRunner
                     )
                     var output = ""
-                    let outputLock = NSLock()
                     let start = DispatchTime.now()
-                    let result = testRunner.test(outputHandler: { _output in outputLock.withLock{ output += _output }})
+                    let result: TestRunner.Result
+                    if isParallelized {
+                        let outputLock = NSLock()
+                        result = testRunner.test { _output in
+                            outputLock.withLock{ output += _output }
+                        }
+                    } else {
+                        result = testRunner.test {
+                            print($0, terminator: "")
+                        }
+                    }
                     let duration = start.distance(to: .now())
                     if result == .failure {
                         self.ranSuccessfully = false
@@ -1148,7 +1156,7 @@ final class ParallelTestRunner {
             }
             thread.start()
             return thread
-        })
+        }
 
         // List of processed tests.
         let processedTests = ThreadSafeArrayStore<TestResult>()
@@ -1171,7 +1179,7 @@ final class ParallelTestRunner {
         workers.forEach { $0.join() }
 
         // Report the completion.
-        progressAnimation.complete(success: processedTests.get().contains(where: { !$0.success }))
+        progressAnimation?.complete(success: processedTests.get().contains(where: { !$0.success }))
 
         // Print test results.
         for test in processedTests.get() {
