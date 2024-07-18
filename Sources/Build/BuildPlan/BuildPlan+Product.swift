@@ -275,10 +275,8 @@ extension BuildPlan {
         }
 
         // Add derived test targets, if necessary
-        if buildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets {
-            if product.type == .test, let derivedTestTargets = derivedTestTargetsMap[product.id] {
-                staticTargets.append(contentsOf: derivedTestTargets)
-            }
+        if product.type == .test, let derivedTestTargets = derivedTestTargetsMap[product.id] {
+            staticTargets.append(contentsOf: derivedTestTargets)
         }
 
         return (linkLibraries, staticTargets, systemModules, libraryBinaryPaths, providedLibraries, availableTools)
