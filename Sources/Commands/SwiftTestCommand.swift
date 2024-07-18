@@ -466,7 +466,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             }
             additionalArguments += commandLineArguments
 
-            if var xunitPath, options.testLibraryOptions.isEnabled(.xctest) {
+            if var xunitPath = options.xUnitOutput, options.testLibraryOptions.isEnabled(.xctest) {
                 // We are running Swift Testing, XCTest is also running in this session, and an xUnit path
                 // was specified. Make sure we don't stomp on XCTest's XML output by having Swift Testing
                 // write to a different path.
