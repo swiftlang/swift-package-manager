@@ -17,6 +17,7 @@ import SPMBuildCore
 import Workspace
 
 import class Basics.AsyncProcess
+import struct Foundation.UUID
 import var TSCBasic.stderrStream
 import var TSCBasic.stdoutStream
 import func TSCBasic.withTemporaryFile
@@ -162,18 +163,7 @@ enum TestingSupport {
             env["NO_COLOR"] = "1"
         }
 
-        // Add the code coverage related variables.
-        if buildParameters.testingParameters.enableCodeCoverage {
-            // Defines the path at which the profraw files will be written on test execution.
-            //
-            // `%m` will create a pool of profraw files and append the data from
-            // each execution in one of the files. This doesn't matter for serial
-            // execution but is required when the tests are running in parallel as
-            // SwiftPM repeatedly invokes the test binary with the test case name as
-            // the filter.
-            let codecovProfile = buildParameters.buildPath.appending(components: "codecov", "\(library)%m.profraw")
-            env["LLVM_PROFILE_FILE"] = codecovProfile.pathString
-        }
+        randomizeCodeCovPath(in: &env, destinationBuildParameters: buildParameters)
         #if !os(macOS)
         #if os(Windows)
         if let location = toolchain.xctestPath {
@@ -212,6 +202,29 @@ enum TestingSupport {
         env["DYLD_INSERT_LIBRARIES"] = runtimes.joined(separator: ":")
         return env
         #endif
+    }
+
+    /// Add a randomly-selected code coverage file (.profraw) path to the given environment.
+    ///
+    /// You don't generally need to call this function unless you're reusing the
+    /// same environment value for multiple test processes (i.e. parallel XCTest runs.)
+    static func randomizeCodeCovPath(
+        in env: inout Environment,
+        destinationBuildParameters buildParameters: BuildParameters
+    ) {
+        // Add the code coverage related variables.
+        if buildParameters.testingParameters.enableCodeCoverage {
+            // Defines the path at which the profraw files will be written on test execution.
+            //
+            // The documentation for "LLVM_PROFILE_FILE" suggests, but does not state outright, that
+            // `%m` is unreliable when used with concurrently running processes. So instead of using
+            // `%m`, let's just use a different file name for each run.
+            //
+            // For more information, see: https://clang.llvm.org/docs/SourceBasedCodeCoverage.html#running-the-instrumented-program
+            let profrawUUID = UUID().uuidString
+            let codecovProfile = buildParameters.buildPath.appending(components: "codecov", "default-\(profrawUUID).profraw")
+            env["LLVM_PROFILE_FILE"] = codecovProfile.pathString
+        }
     }
 }
 
