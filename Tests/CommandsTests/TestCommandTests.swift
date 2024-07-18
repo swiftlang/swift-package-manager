@@ -135,6 +135,24 @@ final class TestCommandTests: CommandsTestCase {
         }
     }
 
+    func testSwiftTestParallelCodeCoverage() async throws {
+        try await fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
+            let stdout = try await SwiftPM.Test.execute([
+                "--parallel", "--enable-code-coverage", "--skip", "ParallelTestsFailureTests", "--disable-swift-testing"
+            ], packagePath: fixturePath)
+
+            let codeCovPath = fixturePath.appending(components: ".build", "debug", "codecov")
+            let files = try localFileSystem.getDirectoryContents(codeCovPath).filter { path in
+                RelativePath(path).extension == "profraw"
+            }
+
+            // There should be n + 1 files, where n is the number of XCTest tests
+            // and there's an extra file generated when `swift test` gathers the test list.
+            // n = 2 because there are two unit tests in the fixture package.
+            XCTAssertEqual(files.count, 3)
+        }
+    }
+
     func testSwiftTestXMLOutputWhenEmpty() async throws {
         try await fixture(name: "Miscellaneous/EmptyTestsPkg") { fixturePath in
             let xUnitOutput = fixturePath.appending("result.xml")

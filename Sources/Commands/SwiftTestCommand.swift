@@ -1115,6 +1115,11 @@ final class ParallelTestRunner {
             let thread = Thread {
                 // Dequeue a specifier and run it till we encounter nil.
                 while let test = self.pendingTests.dequeue() {
+                    var testEnv = testEnv
+                    TestingSupport.randomizeCodeCovPath(
+                        in: &testEnv,
+                        destinationBuildParameters: self.productsBuildParameters
+                    )
                     let additionalArguments = TestRunner.xctestArguments(forTestSpecifiers: CollectionOfOne(test.specifier))
                     let testRunner = TestRunner(
                         bundlePaths: [test.productPath],
