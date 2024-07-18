@@ -25,7 +25,8 @@ final class SourceKitLSPAPITests: XCTestCase {
     func testBasicSwiftPackage() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
-            "/Pkg/Sources/lib/lib.swift"
+            "/Pkg/Sources/lib/lib.swift",
+            "/Pkg/Plugins/plugin/plugin.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -38,6 +39,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
+                        TargetDescription(name: "plugin", type: .plugin, pluginCapability: .buildTool)
                     ]),
             ],
             observabilityScope: observability.topScope
@@ -81,6 +83,15 @@ final class SourceKitLSPAPITests: XCTestCase {
             ],
             isPartOfRootPackage: true
         )
+        try description.checkArguments(
+            for: "plugin",
+            graph: graph,
+            partialArguments: [
+                "-I", "/fake/manifestLib/path"
+            ],
+            isPartOfRootPackage: true,
+            destination: .tools
+        )
     }
 }
 
@@ -89,9 +100,10 @@ extension SourceKitLSPAPI.BuildDescription {
         for targetName: String,
         graph: ModulesGraph,
         partialArguments: [String],
-        isPartOfRootPackage: Bool
+        isPartOfRootPackage: Bool,
+        destination: BuildTriple = .destination
     ) throws -> Bool {
-        let target = try XCTUnwrap(graph.module(for: targetName, destination: .destination))
+        let target = try XCTUnwrap(graph.module(for: targetName, destination: destination))
         let buildTarget = try XCTUnwrap(self.getBuildTarget(for: target, in: graph))
 
         guard let file = buildTarget.sources.first else {
