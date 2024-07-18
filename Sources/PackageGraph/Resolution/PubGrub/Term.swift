@@ -40,6 +40,10 @@ public struct Term: Equatable, Hashable {
         )
     }
 
+    package var supportsPrereleases: Bool {
+        self.requirement.supportsPrereleases
+    }
+
     /// Check if this term satisfies another term, e.g. if `self` is true,
     /// `other` must also be true.
     public func satisfies(_ other: Term) -> Bool {

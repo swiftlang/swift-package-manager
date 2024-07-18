@@ -466,6 +466,21 @@ extension VersionSetSpecifier {
     }
 }
 
+extension VersionSetSpecifier {
+    package var supportsPrereleases: Bool {
+        switch self {
+        case .empty, .any:
+            false
+        case .exact(let version):
+            version.supportsPrerelease
+        case .range(let range):
+            range.supportsPrereleases
+        case .ranges(let ranges):
+            ranges.contains(where: \.supportsPrereleases)
+        }
+    }
+}
+
 extension VersionSetSpecifier: CustomStringConvertible {
     public var description: String {
         switch self {
@@ -504,5 +519,15 @@ fileprivate extension Range where Bound == Version {
 
     func isHigherThan(_ other: Range<Bound>) -> Bool {
         return other.isLowerThan(self)
+    }
+
+    var supportsPrereleases: Bool {
+        self.lowerBound.supportsPrerelease || self.upperBound.supportsPrerelease
+    }
+}
+
+fileprivate extension Version {
+    var supportsPrerelease: Bool {
+        !self.prereleaseIdentifiers.isEmpty
     }
 }
