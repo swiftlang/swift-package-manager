@@ -579,83 +579,45 @@ public struct TestLibraryOptions: ParsableArguments {
           help: "Enable support for XCTest")
     public var explicitlyEnableXCTestSupport: Bool?
 
-    /// Whether to enable support for XCTest.
-    public var enableXCTestSupport: Bool {
-        // Default to enabled.
-        explicitlyEnableXCTestSupport ?? true
-    }
-
-    /// Whether to enable support for swift-testing (as explicitly specified by the user.)
+    /// Whether to enable support for Swift Testing (as explicitly specified by the user.)
     ///
-    /// Callers (other than `swift package init`) will generally want to use
-    /// ``enableSwiftTestingLibrarySupport(swiftCommandState:)`` since it will
-    /// take into account whether the package has a dependency on swift-testing.
-    @Flag(name: .customLong("experimental-swift-testing"),
+    /// Callers will generally want to use ``enableSwiftTestingLibrarySupport`` since it will
+    /// have the correct default value if the user didn't specify one.
+    @Flag(name: .customLong("swift-testing"),
           inversion: .prefixedEnableDisable,
-          help: "Enable experimental support for swift-testing")
+          help: "Enable support for Swift Testing")
     public var explicitlyEnableSwiftTestingLibrarySupport: Bool?
 
-    /// Whether to enable support for swift-testing.
-    public func enableSwiftTestingLibrarySupport(
-        swiftCommandState: SwiftCommandState
-    ) throws -> Bool {
-        // Honor the user's explicit command-line selection, if any.
-        if let callerSuppliedValue = explicitlyEnableSwiftTestingLibrarySupport {
-            return callerSuppliedValue
-        }
+    /// Legacy experimental equivalent of ``explicitlyEnableSwiftTestingLibrarySupport``.
+    ///
+    /// This option will be removed in a future update.
+    @Flag(name: .customLong("experimental-swift-testing"),
+          inversion: .prefixedEnableDisable,
+          help: .private)
+    public var explicitlyEnableExperimentalSwiftTestingLibrarySupport: Bool?
 
-        // If the active package has a dependency on swift-testing, automatically enable support for it so that extra steps are not needed.
-        let workspace = try swiftCommandState.getActiveWorkspace()
-        let root = try swiftCommandState.getWorkspaceRoot()
-        let rootManifests = try temp_await {
-            workspace.loadRootManifests(
-                packages: root.packages,
-                observabilityScope: swiftCommandState.observabilityScope,
-                completion: $0
-            )
+    private func isEnabled(_ library: BuildParameters.Testing.Library, `default`: Bool) -> Bool {
+        switch library {
+        case .xctest:
+            explicitlyEnableXCTestSupport ?? `default`
+        case .swiftTesting:
+            explicitlyEnableSwiftTestingLibrarySupport ?? explicitlyEnableExperimentalSwiftTestingLibrarySupport ?? `default`
         }
-
-        // Is swift-testing among the dependencies of the package being built?
-        // If so, enable support.
-        let isEnabledByDependency = rootManifests.values.lazy
-            .flatMap(\.dependencies)
-            .map(\.identity)
-            .map(String.init(describing:))
-            .contains("swift-testing")
-        if isEnabledByDependency {
-            swiftCommandState.observabilityScope.emit(debug: "Enabling swift-testing support due to its presence as a package dependency.")
-            return true
-        }
-
-        // Is swift-testing the package being built itself (unlikely)? If so,
-        // enable support.
-        let isEnabledByName = root.packages.lazy
-            .map(PackageIdentity.init(path:))
-            .map(String.init(describing:))
-            .contains("swift-testing")
-        if isEnabledByName {
-            swiftCommandState.observabilityScope.emit(debug: "Enabling swift-testing support because it is a root package.")
-            return true
-        }
-
-        // Default to disabled since swift-testing is experimental (opt-in.)
-        return false
     }
 
-    /// Get the set of enabled testing libraries.
-    public func enabledTestingLibraries(
-        swiftCommandState: SwiftCommandState
-    ) throws -> Set<BuildParameters.Testing.Library> {
-        var result = Set<BuildParameters.Testing.Library>()
+    /// Test whether or not a given library is enabled.
+    public func isEnabled(_ library: BuildParameters.Testing.Library) -> Bool {
+        isEnabled(library, default: true)
+    }
 
-        if enableXCTestSupport {
-            result.insert(.xctest)
-        }
-        if try enableSwiftTestingLibrarySupport(swiftCommandState: swiftCommandState) {
-            result.insert(.swiftTesting)
-        }
+    /// Test whether or not a given library was explicitly enabled by the developer.
+    public func isExplicitlyEnabled(_ library: BuildParameters.Testing.Library) -> Bool {
+        isEnabled(library, default: false)
+    }
 
-        return result
+    /// The list of enabled testing libraries.
+    public var enabledTestingLibraries: [BuildParameters.Testing.Library] {
+        [.xctest, .swiftTesting].filter(isEnabled)
     }
 }
 
