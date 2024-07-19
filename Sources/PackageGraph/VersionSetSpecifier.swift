@@ -479,6 +479,23 @@ extension VersionSetSpecifier {
             ranges.contains(where: \.supportsPrereleases)
         }
     }
+
+    package var withoutPrereleases: VersionSetSpecifier {
+        if !supportsPrereleases {
+            return self
+        }
+
+        return switch self {
+        case .empty, .any:
+            self
+        case .range(let range):
+            .range(range.withoutPrerelease)
+        case .ranges(let ranges):
+            .ranges(ranges.map { $0.withoutPrerelease })
+        case .exact(let version):
+            .exact(version.withoutPrerelease)
+        }
+    }
 }
 
 extension VersionSetSpecifier: CustomStringConvertible {
@@ -524,10 +541,31 @@ fileprivate extension Range where Bound == Version {
     var supportsPrereleases: Bool {
         self.lowerBound.supportsPrerelease || self.upperBound.supportsPrerelease
     }
+
+    var withoutPrerelease: Range<Version> {
+        if !supportsPrereleases {
+            return self
+        }
+
+        return Range(uncheckedBounds: (
+            lower: self.lowerBound.withoutPrerelease,
+            upper: self.upperBound.withoutPrerelease
+        ))
+    }
 }
 
 fileprivate extension Version {
     var supportsPrerelease: Bool {
         !self.prereleaseIdentifiers.isEmpty
+    }
+
+    var withoutPrerelease: Version {
+        Version(
+            self.major,
+            self.minor,
+            self.patch,
+            prereleaseIdentifiers: [],
+            buildMetadataIdentifiers: self.buildMetadataIdentifiers
+        )
     }
 }
