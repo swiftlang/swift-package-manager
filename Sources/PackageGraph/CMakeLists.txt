@@ -19,6 +19,7 @@ add_library(PackageGraph
   PackageGraphRoot.swift
   PackageModel+Extensions.swift
   PackageRequirement.swift
+  PrebuiltPackageContainer.swift
   PinsStore.swift
   TraitConfiguration.swift
   Resolution/PubGrub/Assignment.swift
