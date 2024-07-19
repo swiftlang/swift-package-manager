@@ -391,6 +391,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                     partial[item.key] = (manifest: item.value, fs: self.fileSystem)
                 },
                 binaryArtifacts: [:],
+                availableLibraries: [], // assume no provided libraries during bootstrap
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
                 // Plugins can't be used in bootstrap builds, exclude those.

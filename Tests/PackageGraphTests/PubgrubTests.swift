@@ -2023,16 +2023,13 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
         try builder.serve(fooRef, at: .version(.init(stringLiteral: "1.2.0")))
         try builder.serve(fooRef, at: .version(.init(stringLiteral: "2.0.0")))
 
-        let availableLibraries: [ProvidedLibrary] = [
+        let availableLibraries: [LibraryMetadata] = [
             .init(
-                location: .init("/foo"),
-                metadata: .init(
-                    identities: [.sourceControl(url: "https://example.com/org/foo")],
-                    version: "1.0.0",
-                    productName: "foo",
-                    schemaVersion: 1
-                )
-            )
+                identities: [.sourceControl(url: "https://example.com/org/foo")],
+                version: "1.0.0",
+                productName: nil,
+                schemaVersion: 1
+            ),
         ]
 
         let resolver = builder.create(availableLibraries: availableLibraries)
@@ -2044,10 +2041,8 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
         ])
 
         let result = resolver.solve(constraints: dependencies1)
-        print(try result.get())
-        AssertResult(result, [
-            ("foo", .version(.init(stringLiteral: "1.0.0"), library: availableLibraries.first!)),
-        ])
+        // Available libraries are filtered from the resolver results, so this is expected to be empty.
+        AssertResult(result, [])
 
         let result2 = resolver.solve(constraints: dependencies2)
         AssertResult(result2, [
@@ -2085,16 +2080,13 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
         try builder.serve("target", at: "1.0.0")
         try builder.serve("target", at: "2.0.0")
 
-        let availableLibraries: [ProvidedLibrary] = [
+        let availableLibraries: [LibraryMetadata] = [
             .init(
-                location: .init("/foo"),
-                metadata: .init(
-                    identities: [.sourceControl(url: "https://example.com/org/foo")],
-                    version: "1.1.0",
-                    productName: "foo",
-                    schemaVersion: 1
-                )
-            )
+                identities: [.sourceControl(url: "https://example.com/org/foo")],
+                version: "1.1.0",
+                productName: nil,
+                schemaVersion: 1
+            ),
         ]
 
         let resolver = builder.create(availableLibraries: availableLibraries)
@@ -2103,14 +2095,13 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
             "target": (.versionSet(.range(.upToNextMajor(from: "2.0.0"))), .everything),
         ])
 
-        // This behavior requires an explanation - "foo" is selected to be 1.1.0 because its
-        // prebuilt matches "root" requirements but without prebuilt library the solver would
-        // pick "1.0.0" because "foo" 1.1.0 dependency version requirements are incompatible
-        // with "target" 2.0.0.
+        // This behavior requires an explanation - "foo" is elided because 1.1.0 is prebuilt.
+        // It matches "root" requirements but without prebuilt library the solver would pick
+        // "1.0.0" because "foo" 1.1.0 dependency version requirements are incompatible with
+        // "target" 2.0.0.
 
         let result = resolver.solve(constraints: dependencies)
         AssertResult(result, [
-            ("foo", .version(.init(stringLiteral: "1.1.0"), library: availableLibraries.first!)),
             ("target", .version(.init(stringLiteral: "2.0.0"))),
         ])
     }
@@ -2135,16 +2126,13 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
             "bar": [fooRef: (.versionSet(.range(.upToNextMinor(from: "2.0.0"))), .everything)],
         ])
 
-        let availableLibraries: [ProvidedLibrary] = [
+        let availableLibraries: [LibraryMetadata] = [
             .init(
-                location: .init("/foo"),
-                metadata: .init(
-                    identities: [.sourceControl(url: "https://example.com/org/foo")],
-                    version: "1.0.0",
-                    productName: "foo",
-                    schemaVersion: 1
-                )
-            )
+                identities: [.sourceControl(url: "https://example.com/org/foo")],
+                version: "1.0.0",
+                productName: nil,
+                schemaVersion: 1
+            ),
         ]
 
         let resolver = builder.create(availableLibraries: availableLibraries)
@@ -3317,9 +3305,7 @@ private func AssertBindings(
         )
     }
     for package in packages {
-        guard let binding = bindings.first(where: {
-            $0.package.identity == package.identity
-        }) else {
+        guard let binding = bindings.first(where: { $0.package.identity == package.identity }) else {
             XCTFail("No binding found for \(package.identity).", file: file, line: line)
             continue
         }
@@ -3343,12 +3329,7 @@ private func AssertResult(
 ) {
     switch result {
     case .success(let bindings):
-        AssertBindings(
-            bindings,
-            packages.map { (PackageIdentity($0.identifier), $0.version) },
-            file: file,
-            line: line
-        )
+        AssertBindings(bindings, packages.map { (PackageIdentity($0.identifier), $0.version) }, file: file, line: line)
     case .failure(let error):
         XCTFail("Unexpected error: \(error)", file: file, line: line)
     }
@@ -3395,7 +3376,7 @@ public class MockContainer: PackageContainer {
     public func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
         var versions: [Version] = []
         for version in self._versions.reversed() {
-            guard case .version(let v, _) = version else { continue }
+            guard case .version(let v) = version else { continue }
             versions.append(v)
         }
         return versions
@@ -3404,7 +3385,7 @@ public class MockContainer: PackageContainer {
     public func versionsAscending() throws -> [Version] {
         var versions: [Version] = []
         for version in self._versions {
-            guard case .version(let v, _) = version else { continue }
+            guard case .version(let v) = version else { continue }
             versions.append(v)
         }
         return versions
@@ -3471,7 +3452,7 @@ public class MockContainer: PackageContainer {
         self._versions.append(version)
         self._versions = self._versions
             .sorted(by: { lhs, rhs -> Bool in
-                guard case .version(let lv, _) = lhs, case .version(let rv, _) = rhs else {
+                guard case .version(let lv) = lhs, case .version(let rv) = rhs else {
                     return true
                 }
                 return lv < rv
@@ -3526,7 +3507,7 @@ public class MockContainer: PackageContainer {
         let versions = dependencies.keys.compactMap(Version.init(_:))
         self._versions = versions
             .sorted()
-            .map { .version($0) }
+            .map(BoundVersion.version)
     }
 }
 
@@ -3685,7 +3666,7 @@ class DependencyGraphBuilder {
         let container = self
             .containers[packageReference.identity.description] ?? MockContainer(package: packageReference)
 
-        if case .version(let v, _) = version {
+        if case .version(let v) = version {
             container.versionsToolsVersions[v] = toolsVersion ?? container.toolsVersion
         }
 
@@ -3723,7 +3704,7 @@ class DependencyGraphBuilder {
 
     func create(
         pins: PinsStore.Pins = [:],
-        availableLibraries: [ProvidedLibrary] = [],
+        availableLibraries: [LibraryMetadata] = [],
         delegate: DependencyResolverDelegate? = .none
     ) -> PubGrubDependencyResolver {
         defer {

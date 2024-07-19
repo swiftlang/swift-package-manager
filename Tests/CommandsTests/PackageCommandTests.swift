@@ -3398,6 +3398,7 @@ final class PackageCommandTests: CommandsTestCase {
             // Load the package graph.
             let _ = try workspace.loadPackageGraph(
                 rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
                 observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)

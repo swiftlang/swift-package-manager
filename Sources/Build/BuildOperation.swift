@@ -272,7 +272,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     // TODO: Currently this function will only match frameworks.
     func detectUnexpressedDependencies(
-        availableLibraries: [ProvidedLibrary],
+        availableLibraries: [LibraryMetadata],
         targetDependencyMap: [String: [String]]?
     ) {
         // Ensure we only emit these once, regardless of how many builds are being done.
@@ -282,8 +282,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         Self.didEmitUnexpressedDependencies = true
 
         let availableFrameworks = Dictionary<String, PackageIdentity>(uniqueKeysWithValues: availableLibraries.compactMap {
-            if let identity = Set($0.metadata.identities.map(\.identity)).spm_only {
-                return ("\($0.metadata.productName).framework", identity)
+            if let identity = Set($0.identities.map(\.identity)).spm_only {
+                return ("\($0.productName!).framework", identity)
             } else {
                 return nil
             }

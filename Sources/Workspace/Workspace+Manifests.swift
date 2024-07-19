@@ -29,7 +29,7 @@ import struct PackageGraph.PackageGraphRoot
 import class PackageLoading.ManifestLoader
 import struct PackageLoading.ManifestValidator
 import struct PackageLoading.ToolsVersionParser
-import struct PackageModel.ProvidedLibrary
+import struct PackageModel.LibraryMetadata
 import class PackageModel.Manifest
 import struct PackageModel.PackageIdentity
 import struct PackageModel.PackageReference
@@ -62,6 +62,8 @@ extension Workspace {
 
         private let workspace: Workspace
 
+        private let availableLibraries: [LibraryMetadata]
+
         private let observabilityScope: ObservabilityScope
 
         private let _dependencies: LoadableResult<(
@@ -80,17 +82,20 @@ extension Workspace {
                 fileSystem: FileSystem
             )],
             workspace: Workspace,
+            availableLibraries: [LibraryMetadata],
             observabilityScope: ObservabilityScope
         ) {
             self.root = root
             self.dependencies = dependencies
             self.workspace = workspace
+            self.availableLibraries = availableLibraries
             self.observabilityScope = observabilityScope
             self._dependencies = LoadableResult {
                 try Self.computeDependencies(
                     root: root,
                     dependencies: dependencies,
                     workspace: workspace,
+                    availableLibraries: availableLibraries,
                     observabilityScope: observabilityScope
                 )
             }
@@ -140,8 +145,7 @@ extension Workspace {
                     if checkout.isBranchOrRevisionBased {
                         result.insert(dependency.packageRef)
                     }
-
-                case .registryDownload, .edited, .providedLibrary, .custom:
+                case .registryDownload, .edited, .custom:
                     continue
                 case .fileSystem:
                     result.insert(dependency.packageRef)
@@ -163,6 +167,7 @@ extension Workspace {
                 fileSystem: FileSystem
             )],
             workspace: Workspace,
+            availableLibraries: [LibraryMetadata],
             observabilityScope: ObservabilityScope
         ) throws
             -> (
@@ -192,6 +197,17 @@ extension Workspace {
                 }
                 return PackageReference(identity: $0.key, kind: $0.1.packageKind)
             })
+
+            let identitiesAvailableInSDK = availableLibraries.flatMap {
+                $0.identities.map {
+                    $0.ref
+                }.filter {
+                    // We "trust the process" here, if an identity from the SDK is available, filter it.
+                    !availableIdentities.contains($0)
+                }.map {
+                    $0.identity
+                }
+            }
 
             var inputIdentities: OrderedCollections.OrderedSet<PackageReference> = []
             let inputNodes: [GraphLoadingNode] = root.packages.map { identity, package in
@@ -270,6 +286,11 @@ extension Workspace {
             }
             requiredIdentities = inputIdentities.union(requiredIdentities)
 
+            let identitiesToFilter = requiredIdentities.filter {
+                return identitiesAvailableInSDK.contains($0.identity)
+            }
+            requiredIdentities = requiredIdentities.subtracting(identitiesToFilter)
+
             // We should never have loaded a manifest we don't need.
             assert(
                 availableIdentities.isSubset(of: requiredIdentities),
@@ -316,7 +337,7 @@ extension Workspace {
                         products: productFilter
                     )
                     allConstraints.append(constraint)
-                case .sourceControlCheckout, .registryDownload, .fileSystem, .providedLibrary, .custom:
+                case .sourceControlCheckout, .registryDownload, .fileSystem, .custom:
                     break
                 }
                 allConstraints += try externalManifest.dependencyConstraints(productFilter: productFilter)
@@ -331,7 +352,7 @@ extension Workspace {
 
             for (_, managedDependency, productFilter, _) in dependencies {
                 switch managedDependency.state {
-                case .sourceControlCheckout, .registryDownload, .fileSystem, .providedLibrary, .custom: continue
+                case .sourceControlCheckout, .registryDownload, .fileSystem, .custom: continue
                 case .edited: break
                 }
                 // FIXME: We shouldn't need to construct a new package reference object here.
@@ -366,8 +387,6 @@ extension Workspace {
         case .edited(_, let path):
             return path ?? self.location.editSubdirectory(for: dependency)
         case .fileSystem(let path):
-            return path
-        case .providedLibrary(let path, _):
             return path
         case .custom(_, let path):
             return path
@@ -411,6 +430,7 @@ extension Workspace {
     public func loadDependencyManifests(
         root: PackageGraphRoot,
         automaticallyAddManagedDependencies: Bool = false,
+        availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
     ) throws -> DependencyManifests {
         let prepopulateManagedDependencies: ([PackageReference]) throws -> Void = { refs in
@@ -453,6 +473,7 @@ extension Workspace {
 
         // Validates that all the managed dependencies are still present in the file system.
         self.fixManagedDependencies(
+            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
         guard !observabilityScope.errorsReported else {
@@ -461,6 +482,7 @@ extension Workspace {
                 root: root,
                 dependencies: [],
                 workspace: self,
+                availableLibraries: availableLibraries,
                 observabilityScope: observabilityScope
             )
         }
@@ -579,6 +601,7 @@ extension Workspace {
             root: root,
             dependencies: dependencies,
             workspace: self,
+            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
     }
@@ -639,14 +662,6 @@ extension Workspace {
         case .registryDownload(let downloadedVersion):
             packageKind = managedDependency.packageRef.kind
             packageVersion = downloadedVersion
-        case .providedLibrary(let path, let version):
-            let manifest: Manifest? = try? .forProvidedLibrary(
-                fileSystem: fileSystem,
-                package: managedDependency.packageRef,
-                libraryPath: path,
-                version: version
-            )
-            return completion(manifest)
         case .custom(let availableVersion, _):
             packageKind = managedDependency.packageRef.kind
             packageVersion = availableVersion
@@ -779,6 +794,7 @@ extension Workspace {
     /// If some edited dependency is removed from the file system, mark it as unedited and
     /// fallback on the original checkout.
     private func fixManagedDependencies(
+        availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
     ) {
         // Reset managed dependencies if the state file was removed during the lifetime of the Workspace object.
@@ -852,15 +868,12 @@ extension Workspace {
                     try self.unedit(
                         dependency: dependency,
                         forceRemove: true,
+                        availableLibraries: availableLibraries,
                         observabilityScope: observabilityScope
                     )
 
                     observabilityScope
                         .emit(.editedDependencyMissing(packageName: dependency.packageRef.identity.description))
-
-                case .providedLibrary(_, version: _):
-                    // TODO: If the dependency is not available we can turn it into a source control dependency
-                    break
 
                 case .fileSystem:
                     self.state.dependencies.remove(dependency.packageRef.identity)
