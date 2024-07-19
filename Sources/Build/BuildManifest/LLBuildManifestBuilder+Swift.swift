@@ -427,10 +427,8 @@ extension LLBuildManifestBuilder {
             if target.underlying is SystemLibraryModule { return }
             // Ignore Binary Modules.
             if target.underlying is BinaryModule { return }
-            // Ignore Plugin Targets.
+            // Ignore Plugin Modules.
             if target.underlying is PluginModule { return }
-            // Ignore Provided Libraries.
-            if target.underlying is ProvidedLibraryModule { return }
 
             // Depend on the binary for executable targets.
             if target.type == .executable && prepareForIndexing == .off {

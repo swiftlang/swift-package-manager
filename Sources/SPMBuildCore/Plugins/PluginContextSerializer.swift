@@ -281,7 +281,7 @@ fileprivate extension WireInput.Target.TargetInfo.SourceModuleKind {
             self = .test
         case .macro:
             self = .macro
-        case .binary, .plugin, .systemModule, .providedLibrary:
+        case .binary, .plugin, .systemModule:
             throw StringError("unexpected target kind \(kind) for source module")
         }
     }

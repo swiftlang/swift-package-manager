@@ -105,7 +105,7 @@ public struct PubGrubDependencyResolver {
     private let pins: PinsStore.Pins
 
     /// The packages that are available in a prebuilt form in SDK or a toolchain
-    private let availableLibraries: [ProvidedLibrary]
+    private let availableLibraries: [LibraryMetadata]
 
     /// The container provider used to load package containers.
     private let provider: ContainerProvider
@@ -125,7 +125,7 @@ public struct PubGrubDependencyResolver {
     public init(
         provider: PackageContainerProvider,
         pins: PinsStore.Pins = [:],
-        availableLibraries: [ProvidedLibrary] = [],
+        availableLibraries: [LibraryMetadata] = [],
         skipDependenciesUpdates: Bool = false,
         prefetchBasedOnResolvedFile: Bool = false,
         observabilityScope: ObservabilityScope,
@@ -203,7 +203,7 @@ public struct PubGrubDependencyResolver {
             let pins = self.pins.values
                 .map(\.packageRef)
                 .filter { !inputs.overriddenPackages.keys.contains($0) }
-            self.provider.prefetch(containers: pins)
+            self.provider.prefetch(containers: pins, availableLibraries: self.availableLibraries)
         }
 
         let state = State(root: root, overriddenPackages: inputs.overriddenPackages)
@@ -236,27 +236,28 @@ public struct PubGrubDependencyResolver {
             let boundVersion: BoundVersion
             switch assignment.term.requirement {
             case .exact(let version):
-                if let library = package.matchingPrebuiltLibrary(in: availableLibraries),
-                   version == library.version
-                {
-                    boundVersion = .version(version, library: library)
-                } else {
-                    boundVersion = .version(version)
-                }
+                boundVersion = .version(version)
             case .range, .any, .empty, .ranges:
                 throw InternalError("unexpected requirement value for assignment \(assignment.term)")
             }
 
+            // Strip packages that have prebuilt libraries only if they match library version.
+            //
+            // FIXME: This is built on assumption that libraries are part of the SDK and are
+            //        always available in include/library paths, but what happens if they are
+            //        part of a toolchain instead? Builder needs an indicator that certain path
+            //        has to be included when building packages that depend on prebuilt libraries.
+            if let library = package.matchingPrebuiltLibrary(in: availableLibraries),
+               boundVersion == .version(.init(stringLiteral: library.version))
+            {
+                continue
+            }
+
             let products = assignment.term.node.productFilter
 
-            let updatePackage: PackageReference
-            if case .version(_, let library) = boundVersion, library != nil {
-                updatePackage = package
-            } else {
-                // TODO: replace with async/await when available
-                let container = try temp_await { self.provider.getContainer(for: package, completion: $0) }
-                updatePackage = try container.underlying.loadPackageReference(at: boundVersion)
-            }
+            // TODO: replace with async/await when available
+            let container = try temp_await { self.provider.getContainer(for: package, completion: $0) }
+            let updatePackage = try container.underlying.loadPackageReference(at: boundVersion)
 
             if var existing = flattenedAssignments[updatePackage] {
                 guard existing.binding == boundVersion else {
@@ -497,9 +498,8 @@ public struct PubGrubDependencyResolver {
 
             // initiate prefetch of known packages that will be used to make the decision on the next step
             self.provider.prefetch(
-                containers: state.solution.undecided.map(\.node.package).filter {
-                    $0.matchingPrebuiltLibrary(in: self.availableLibraries) == nil
-                }
+                containers: state.solution.undecided.map(\.node.package),
+                availableLibraries: self.availableLibraries
             )
 
             // If decision making determines that no more decisions are to be
@@ -745,13 +745,11 @@ public struct PubGrubDependencyResolver {
                     continue
                 }
 
-                if pkgTerm.requirement.contains(library.version) {
-                    self.delegate?.didResolve(
-                        term: pkgTerm,
-                        version: library.version,
-                        duration: start.distance(to: .now())
-                    )
-                    state.decide(pkgTerm.node, at: library.version)
+                let version = Version(stringLiteral: library.version)
+
+                if pkgTerm.requirement.contains(version) {
+                    self.delegate?.didResolve(term: pkgTerm, version: version, duration: start.distance(to: .now()))
+                    state.decide(pkgTerm.node, at: version)
                     return completion(.success(pkgTerm.node))
                 }
             }
@@ -897,14 +895,14 @@ extension PackageRequirement {
 }
 
 extension PackageReference {
-    public func matchingPrebuiltLibrary(in availableLibraries: [ProvidedLibrary]) -> ProvidedLibrary? {
+    public func matchingPrebuiltLibrary(in availableLibraries: [LibraryMetadata]) -> LibraryMetadata? {
         switch self.kind {
         case .fileSystem, .localSourceControl, .root:
-            nil // can never match a prebuilt library
+            return nil // can never match a prebuilt library
         case .registry(let identity):
             if let registryIdentity = identity.registry {
-                availableLibraries.first(
-                    where: { $0.metadata.identities.contains(
+                return availableLibraries.first(
+                    where: { $0.identities.contains(
                         where: { $0 == .packageIdentity(
                             scope: registryIdentity.scope.description,
                             name: registryIdentity.name.description
@@ -914,11 +912,11 @@ extension PackageReference {
                     }
                 )
             } else {
-                nil
+                return nil
             }
         case .remoteSourceControl(let url):
-            availableLibraries.first(where: {
-                $0.metadata.identities.contains(where: { $0 == .sourceControl(url: url) })
+            return availableLibraries.first(where: {
+                $0.identities.contains(where: { $0 == .sourceControl(url: url) })
             })
         }
     }

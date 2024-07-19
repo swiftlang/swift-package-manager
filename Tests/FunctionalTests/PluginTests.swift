@@ -447,6 +447,7 @@ final class PluginTests: XCTestCase {
             // Load the package graph.
             let packageGraph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
                 observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -634,6 +635,7 @@ final class PluginTests: XCTestCase {
             // Load the package graph.
             let packageGraph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
                 observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -731,6 +733,7 @@ final class PluginTests: XCTestCase {
             // Load the package graph.
             let packageGraph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
                 observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -1047,6 +1050,7 @@ final class PluginTests: XCTestCase {
             // Load the package graph.
             let packageGraph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
                 observabilityScope: observability.topScope
             )
             XCTAssert(packageGraph.packages.count == 4, "\(packageGraph.packages)")

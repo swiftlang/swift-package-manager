@@ -95,6 +95,7 @@ final class PackageGraphPerfTests: XCTestCasePerf {
                 identityResolver: identityResolver,
                 externalManifests: externalManifests,
                 binaryArtifacts: [:],
+                availableLibraries: [], // assume no provided libraries for testing.
                 fileSystem: fs,
                 observabilityScope: observability.topScope
             )
