@@ -82,18 +82,6 @@ let systemSQLitePkgConfig: String? = "sqlite3"
  */
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
-let packageModelResourcesSettings: [SwiftSetting]
-let packageModelResources: [Resource]
-if ProcessInfo.processInfo.environment["SWIFTPM_USE_LIBRARIES_METADATA"] == nil {
-    packageModelResources = []
-    packageModelResourcesSettings = [.define("SKIP_RESOURCE_SUPPORT")]
-} else {
-    packageModelResources = [
-        .copy("InstalledLibrariesSupport/provided-libraries.json"),
-    ]
-    packageModelResourcesSettings = []
-}
-
 let package = Package(
     name: "SwiftPM",
     platforms: [
@@ -246,8 +234,9 @@ let package = Package(
             name: "PackageModel",
             dependencies: ["Basics"],
             exclude: ["CMakeLists.txt", "README.md"],
-            resources: packageModelResources,
-            swiftSettings: packageModelResourcesSettings
+            resources: [
+                .copy("InstalledLibrariesSupport/provided-libraries.json"),
+            ]
         ),
 
         .target(
