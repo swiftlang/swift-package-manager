@@ -225,10 +225,24 @@ let package = Package(
             /** Primitive Package model objects */
             name: "PackageModel",
             dependencies: ["Basics"],
-            exclude: ["CMakeLists.txt", "README.md"],
-            resources: [
-                .copy("InstalledLibrariesSupport/provided-libraries.json"),
-            ]
+            exclude: ["CMakeLists.txt", "README.md"]
+        ),
+
+        .target(
+            /** Primary Package model objects relationship to SwiftSyntax */
+            name: "PackageModelSyntax",
+            dependencies: [
+                "Basics",
+                "PackageLoading",
+                "PackageModel",
+                .product(name: "SwiftBasicFormat", package: "swift-syntax"),
+                .product(name: "SwiftDiagnostics", package: "swift-syntax"),
+                .product(name: "SwiftIDEUtils", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
+            ],
+            exclude: ["CMakeLists.txt"]
         ),
 
         .target(

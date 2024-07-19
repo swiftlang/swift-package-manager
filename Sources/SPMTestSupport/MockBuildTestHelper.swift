@@ -39,7 +39,6 @@ public struct MockToolchain: PackageModel.Toolchain {
     public let sdkRootPath: AbsolutePath? = nil
     public let extraFlags = PackageModel.BuildFlags()
     public let installedSwiftPMConfiguration = InstalledSwiftPMConfiguration.default
-    public let providedLibraries = [LibraryMetadata]()
 
     public func getClangCompiler() throws -> AbsolutePath {
         "/fake/path/to/clang"

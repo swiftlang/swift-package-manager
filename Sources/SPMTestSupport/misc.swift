@@ -387,7 +387,6 @@ public func loadModulesGraph(
         shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
         createREPLProduct: createREPLProduct,
         customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
-        availableLibraries: [],
         fileSystem: fileSystem,
         observabilityScope: observabilityScope
     )

@@ -48,12 +48,6 @@ final class ContainerProvider {
         self.observabilityScope = observabilityScope
     }
 
-    func removeCachedContainers(for packages: [PackageReference]) {
-        packages.forEach {
-            self.containersCache[$0] = nil
-        }
-    }
-
     /// Get a cached container for the given identifier, asserting / throwing if not found.
     func getCachedContainer(for package: PackageReference) throws -> PubGrubPackageContainer {
         guard let container = self.containersCache[package] else {
@@ -65,23 +59,11 @@ final class ContainerProvider {
     /// Get the container for the given identifier, loading it if necessary.
     func getContainer(
         for package: PackageReference,
-        availableLibraries: [LibraryMetadata],
         completion: @escaping (Result<PubGrubPackageContainer, Error>) -> Void
     ) {
         // Return the cached container, if available.
         if let container = self.containersCache[comparingLocation: package] {
             return completion(.success(container))
-        }
-
-        if let metadata = package.matchingPrebuiltLibrary(in: availableLibraries) {
-            do {
-                let prebuiltPackageContainer = try PrebuiltPackageContainer(metadata: metadata)
-                let pubGrubContainer = PubGrubPackageContainer(underlying: prebuiltPackageContainer, pins: self.pins)
-                self.containersCache[package] = pubGrubContainer
-                return completion(.success(pubGrubContainer))
-            } catch {
-                return completion(.failure(error))
-            }
         }
 
         if let prefetchSync = self.prefetches[package] {
@@ -93,7 +75,7 @@ final class ContainerProvider {
                 } else {
                     // if prefetch failed, remove from list of prefetches and try again
                     self.prefetches[package] = nil
-                    return self.getContainer(for: package, availableLibraries: availableLibraries, completion: completion)
+                    return self.getContainer(for: package, completion: completion)
                 }
             }
         } else {
@@ -116,12 +98,9 @@ final class ContainerProvider {
     }
 
     /// Starts prefetching the given containers.
-    func prefetch(containers identifiers: [PackageReference], availableLibraries: [LibraryMetadata]) {
-        let filteredIdentifiers = identifiers.filter {
-            return $0.matchingPrebuiltLibrary(in: availableLibraries) == nil
-        }
+    func prefetch(containers identifiers: [PackageReference]) {
         // Process each container.
-        for identifier in filteredIdentifiers {
+        for identifier in identifiers {
             var needsFetching = false
             self.prefetches.memoize(identifier) {
                 let group = DispatchGroup()
