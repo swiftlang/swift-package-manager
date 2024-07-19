@@ -2887,6 +2887,158 @@ final class PubGrubBacktrackTests: XCTestCase {
         XCTAssertTrue(observability.diagnostics.contains(where: { $0.message == "[DependencyResolver] resolved 'c' @ '1.5.2'" }))
         XCTAssertTrue(observability.diagnostics.contains(where: { $0.message == "[DependencyResolver] resolved 'd' @ '2.3.0'" }))
     }
+
+    func testPrereleaseVersionSelection() throws {
+        try builder.serve("a", at: "1.0.0", with: [
+            "a": [
+                "b": (.versionSet(.range("0.0.8"..<"2.0.0")), .specific(["b"]))
+            ]
+        ])
+
+        try builder.serve("b", at: "1.0.0-prerelease-20240710")
+
+        try builder.serve("c", at: "1.0.0", with: [
+            "c": [
+                "d": (.versionSet(.range("1.0.5"..<"2.0.0")), .specific(["d"]))
+            ]
+        ])
+        try builder.serve("c", at: "1.0.1")
+
+        try builder.serve("d", at: "1.0.0-prerelease-20240710")
+        try builder.serve("d", at: "1.0.6-prerelease-1")
+        try builder.serve("d", at: "1.0.6")
+
+        let resolver = builder.create()
+        // The order matters here because solver used to assign `b` before `a`.
+        let dependencies1 = try builder.create(dependencies: [
+            "a": (.versionSet(.exact("1.0.0")), .specific(["a"])),
+            "b": (.versionSet(.range("1.0.0-latest"..<"2.0.0")), .specific(["b"]))
+        ])
+
+        AssertResult(resolver.solve(constraints: dependencies1), [
+            ("a", .version("1.0.0")),
+            ("b", .version("1.0.0-prerelease-20240710"))
+        ])
+
+        let dependencies2 = try builder.create(dependencies: [
+            "c": (.versionSet(.exact("1.0.0")), .specific(["c"])),
+            "d": (.versionSet(.range("1.0.0-latest"..<"2.0.0")), .specific(["d"]))
+        ])
+
+        AssertResult(resolver.solve(constraints: dependencies2), [
+            ("c", .version("1.0.0")),
+            ("d", .version("1.0.6"))
+        ])
+    }
+
+    func testPrereleaseExactRequirement() throws {
+        try builder.serve("c", at: "1.0.0", with: [
+            "c": [
+                "d": (.versionSet(.range("1.0.4"..<"2.0.0")), .specific(["d"]))
+            ]
+        ])
+        try builder.serve("c", at: "1.0.1")
+
+        try builder.serve("d", at: "1.0.0-prerelease-20240710")
+        try builder.serve("d", at: "1.0.4")
+        try builder.serve("d", at: "1.0.6-prerelease-1")
+
+        let resolver = builder.create()
+
+        let exactDependencies = try builder.create(dependencies: [
+            "c": (.versionSet(.exact("1.0.0")), .specific(["c"])),
+            "d": (.versionSet(.exact("1.0.6-prerelease-1")), .specific(["d"]))
+        ])
+
+        // FIXME: This should produce a valid solution but cannot at the
+        // moment because "1.0.4"..<"2.0.0" doesn't support pre-release versions
+        // and there is no way to infer it.
+        let resultWithExact = resolver.solve(constraints: exactDependencies)
+        XCTAssertMatch(
+            resultWithExact.errorMsg,
+            .contains("Dependencies could not be resolved because root depends on 'd' 1.0.6-prerelease-1")
+        )
+
+        let rangeDependency = try builder.create(dependencies: [
+            "c": (.versionSet(.exact("1.0.0")), .specific(["c"])),
+            "d": (.versionSet(.range("1.0.5"..<"1.0.6-prerelease-2")), .specific(["d"]))
+        ])
+
+        let resultWithRange = resolver.solve(constraints: rangeDependency)
+        AssertResult(resultWithRange, [
+            ("c", .version("1.0.0")),
+            ("d", .version("1.0.6-prerelease-1"))
+        ])
+    }
+
+    func testReleaseOverPrerelease() throws {
+        try builder.serve("a", at: "1.0.0", with: [
+            "a": [
+                "b": (.versionSet(.range("0.0.8"..<"2.0.0")), .specific(["b"]))
+            ]
+        ])
+
+        try builder.serve("b", at: "1.0.0-prerelease-20240616")
+        try builder.serve("b", at: "1.0.0")
+
+        let resolver = builder.create()
+        // The order matters here because solver used to assign `b` before `a`.
+        let dependencies1 = try builder.create(dependencies: [
+            "a": (.versionSet(.exact("1.0.0")), .specific(["a"])),
+            "b": (.versionSet(.range("1.0.0-latest"..<"2.0.0")), .specific(["b"]))
+        ])
+
+        AssertResult(resolver.solve(constraints: dependencies1), [
+            ("a", .version("1.0.0")),
+            ("b", .version("1.0.0"))
+        ])
+
+        let dependencies2 = try builder.create(dependencies: [
+            "b": (.versionSet(.range("1.0.0-latest"..<"2.0.0")), .specific(["b"])),
+            "a": (.versionSet(.exact("1.0.0")), .specific(["a"]))
+        ])
+
+        AssertResult(resolver.solve(constraints: dependencies2), [
+            ("a", .version("1.0.0")),
+            ("b", .version("1.0.0"))
+        ])
+    }
+
+    func testPrereleaseInferenceThroughDependencies() throws {
+        try builder.serve("a", at: "1.0.0", with: [
+            "a": [
+                "b": (.versionSet(.range("1.0.0"..<"2.0.0-latest")), .specific(["b"]))
+            ]
+        ])
+
+        try builder.serve("b", at: "0.0.8-prerelease-20230310")
+        try builder.serve("b", at: "0.0.8")
+        try builder.serve("b", at: "1.0.0-prerelease-20230616")
+        try builder.serve("b", at: "1.0.0")
+        try builder.serve("b", at: "1.9.9-prerelease-20240702")
+
+        let resolver = builder.create()
+        // The order matters here because solver used to assign `b` before `a`.
+        let dependencies1 = try builder.create(dependencies: [
+            "a": (.versionSet(.exact("1.0.0")), .specific(["a"])),
+            "b": (.versionSet(.range("0.0.8"..<"2.0.0")), .specific(["b"]))
+        ])
+
+        AssertResult(resolver.solve(constraints: dependencies1), [
+            ("a", .version("1.0.0")),
+            ("b", .version("1.9.9-prerelease-20240702"))
+        ])
+
+        let dependencies2 = try builder.create(dependencies: [
+            "b": (.versionSet(.range("0.0.8"..<"2.0.0")), .specific(["b"])),
+            "a": (.versionSet(.exact("1.0.0")), .specific(["a"]))
+        ])
+
+        AssertResult(resolver.solve(constraints: dependencies2), [
+            ("a", .version("1.0.0")),
+            ("b", .version("1.9.9-prerelease-20240702"))
+        ])
+    }
 }
 
 fileprivate extension PinsStore.PinState {
