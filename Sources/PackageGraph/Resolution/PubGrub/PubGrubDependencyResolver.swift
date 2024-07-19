@@ -760,7 +760,17 @@ public struct PubGrubDependencyResolver {
                 let start = DispatchTime.now()
                 let counts = try result.get()
                 // forced unwraps safe since we are testing for count and errors above
-                let pkgTerm = undecided.min { counts[$0]! < counts[$1]! }!
+                let pkgTerm = undecided.min {
+                    // Prefer packages that don't allow pre-release versions
+                    // to allow propagation logic to find dependencies that
+                    // limit the range before making any decisions. This means
+                    // that we'd always prefer release versions.
+                    if $0.supportsPrereleases != $1.supportsPrereleases {
+                        return !$0.supportsPrereleases
+                    }
+
+                    return counts[$0]! < counts[$1]!
+                }!
                 self.delegate?.willResolve(term: pkgTerm)
                 // at this point the container is cached
                 let container = try self.provider.getCachedContainer(for: pkgTerm.node.package)
