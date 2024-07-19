@@ -29,7 +29,6 @@ import struct PackageGraph.PackageGraphRoot
 import class PackageLoading.ManifestLoader
 import struct PackageLoading.ManifestValidator
 import struct PackageLoading.ToolsVersionParser
-import struct PackageModel.LibraryMetadata
 import class PackageModel.Manifest
 import struct PackageModel.PackageIdentity
 import struct PackageModel.PackageReference
@@ -62,8 +61,6 @@ extension Workspace {
 
         private let workspace: Workspace
 
-        private let availableLibraries: [LibraryMetadata]
-
         private let observabilityScope: ObservabilityScope
 
         private let _dependencies: LoadableResult<(
@@ -82,20 +79,17 @@ extension Workspace {
                 fileSystem: FileSystem
             )],
             workspace: Workspace,
-            availableLibraries: [LibraryMetadata],
             observabilityScope: ObservabilityScope
         ) {
             self.root = root
             self.dependencies = dependencies
             self.workspace = workspace
-            self.availableLibraries = availableLibraries
             self.observabilityScope = observabilityScope
             self._dependencies = LoadableResult {
                 try Self.computeDependencies(
                     root: root,
                     dependencies: dependencies,
                     workspace: workspace,
-                    availableLibraries: availableLibraries,
                     observabilityScope: observabilityScope
                 )
             }
@@ -174,7 +168,6 @@ extension Workspace {
                 fileSystem: FileSystem
             )],
             workspace: Workspace,
-            availableLibraries: [LibraryMetadata],
             observabilityScope: ObservabilityScope
         ) throws
             -> (
@@ -189,32 +182,6 @@ extension Workspace {
                         ($0.dependency.packageRef.identity, $0.manifest)
                     }
             )
-
-            let availableIdentities: Set<PackageReference> = try Set(manifestsMap.map {
-                // FIXME: adding this guard to ensure refactoring is correct 9/21
-                // we only care about remoteSourceControl for this validation. it would otherwise trigger for
-                // a dependency is put into edit mode, which we want to deprecate anyways
-                if case .remoteSourceControl = $0.1.packageKind {
-                    let effectiveURL = workspace.mirrors.effective(for: $0.1.packageLocation)
-                    guard effectiveURL == $0.1.packageKind.locationString else {
-                        throw InternalError(
-                            "effective url for \($0.1.packageLocation) is \(effectiveURL), different from expected \($0.1.packageKind.locationString)"
-                        )
-                    }
-                }
-                return PackageReference(identity: $0.key, kind: $0.1.packageKind)
-            })
-
-            let identitiesAvailableInSDK = availableLibraries.flatMap {
-                $0.identities.map {
-                    $0.ref
-                }.filter {
-                    // We "trust the process" here, if an identity from the SDK is available, filter it.
-                    !availableIdentities.contains($0)
-                }.map {
-                    $0.identity
-                }
-            }
 
             var inputIdentities: OrderedCollections.OrderedSet<PackageReference> = []
             let inputNodes: [GraphLoadingNode] = try root.packages.map { identity, package in
@@ -299,11 +266,20 @@ extension Workspace {
             }
             requiredIdentities = inputIdentities.union(requiredIdentities)
 
-            let identitiesToFilter = requiredIdentities.filter {
-                return identitiesAvailableInSDK.contains($0.identity)
-            }
-            requiredIdentities = requiredIdentities.subtracting(identitiesToFilter)
-
+            let availableIdentities: Set<PackageReference> = try Set(manifestsMap.map {
+                // FIXME: adding this guard to ensure refactoring is correct 9/21
+                // we only care about remoteSourceControl for this validation. it would otherwise trigger for
+                // a dependency is put into edit mode, which we want to deprecate anyways
+                if case .remoteSourceControl = $0.1.packageKind {
+                    let effectiveURL = workspace.mirrors.effective(for: $0.1.packageLocation)
+                    guard effectiveURL == $0.1.packageKind.locationString else {
+                        throw InternalError(
+                            "effective url for \($0.1.packageLocation) is \(effectiveURL), different from expected \($0.1.packageKind.locationString)"
+                        )
+                    }
+                }
+                return PackageReference(identity: $0.key, kind: $0.1.packageKind)
+            })
             // We should never have loaded a manifest we don't need.
             assert(
                 availableIdentities.isSubset(of: requiredIdentities),
@@ -443,7 +419,6 @@ extension Workspace {
     public func loadDependencyManifests(
         root: PackageGraphRoot,
         automaticallyAddManagedDependencies: Bool = false,
-        availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
     ) throws -> DependencyManifests {
         let prepopulateManagedDependencies: ([PackageReference]) throws -> Void = { refs in
@@ -485,17 +460,13 @@ extension Workspace {
         }
 
         // Validates that all the managed dependencies are still present in the file system.
-        self.fixManagedDependencies(
-            availableLibraries: availableLibraries,
-            observabilityScope: observabilityScope
-        )
+        self.fixManagedDependencies(observabilityScope: observabilityScope)
         guard !observabilityScope.errorsReported else {
             // return partial results
             return DependencyManifests(
                 root: root,
                 dependencies: [],
                 workspace: self,
-                availableLibraries: availableLibraries,
                 observabilityScope: observabilityScope
             )
         }
@@ -614,7 +585,6 @@ extension Workspace {
             root: root,
             dependencies: dependencies,
             workspace: self,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
     }
@@ -806,10 +776,7 @@ extension Workspace {
     /// If some checkout dependency is removed form the file system, clone it again.
     /// If some edited dependency is removed from the file system, mark it as unedited and
     /// fallback on the original checkout.
-    private func fixManagedDependencies(
-        availableLibraries: [LibraryMetadata],
-        observabilityScope: ObservabilityScope
-    ) {
+    private func fixManagedDependencies(observabilityScope: ObservabilityScope) {
         // Reset managed dependencies if the state file was removed during the lifetime of the Workspace object.
         if !self.state.dependencies.isEmpty && !self.state.stateFileExists() {
             try? self.state.reset()
@@ -878,12 +845,7 @@ extension Workspace {
                     // Note: We don't resolve the dependencies when unediting
                     // here because we expect this method to be called as part
                     // of some other resolve operation (i.e. resolve, update, etc).
-                    try self.unedit(
-                        dependency: dependency,
-                        forceRemove: true,
-                        availableLibraries: availableLibraries,
-                        observabilityScope: observabilityScope
-                    )
+                    try self.unedit(dependency: dependency, forceRemove: true, observabilityScope: observabilityScope)
 
                     observabilityScope
                         .emit(.editedDependencyMissing(packageName: dependency.packageRef.identity.description))

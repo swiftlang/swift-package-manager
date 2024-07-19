@@ -16,7 +16,6 @@ import class Basics.ObservabilityScope
 import struct Basics.RelativePath
 import func Basics.temp_await
 import struct PackageGraph.PackageGraphRootInput
-import struct PackageModel.LibraryMetadata
 import struct SourceControl.Revision
 
 extension Workspace {
@@ -170,7 +169,6 @@ extension Workspace {
         dependency: ManagedDependency,
         forceRemove: Bool,
         root: PackageGraphRootInput? = nil,
-        availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
     ) throws {
         // Compute if we need to force remove.
@@ -235,7 +233,6 @@ extension Workspace {
             try self._resolve(
                 root: root,
                 explicitProduct: .none,
-                availableLibraries: availableLibraries,
                 resolvedFileStrategy: .update(forceResolution: false),
                 observabilityScope: observabilityScope
             )

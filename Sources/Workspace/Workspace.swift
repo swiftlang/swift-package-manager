@@ -585,11 +585,6 @@ public class Workspace {
             initializationWarningHandler: initializationWarningHandler
         )
     }
-
-    fileprivate var providedLibraries: [LibraryMetadata] {
-        // Note: Eventually, we should get these from the individual SDKs, but the first step is providing the metadata centrally in the toolchain.
-        return self.hostToolchain.providedLibraries
-    }
 }
 
 // MARK: - Public API
@@ -640,7 +635,6 @@ extension Workspace {
         packageName: String,
         forceRemove: Bool,
         root: PackageGraphRootInput,
-        availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
     ) throws {
         guard let dependency = self.state.dependencies[.plain(packageName)] else {
@@ -657,7 +651,6 @@ extension Workspace {
             dependency: dependency,
             forceRemove: forceRemove,
             root: root,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
     }
@@ -678,7 +671,6 @@ extension Workspace {
         try self._resolve(
             root: root,
             explicitProduct: explicitProduct,
-            availableLibraries: self.providedLibraries,
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : forceResolution ? .update(forceResolution: true) :
                 .bestEffort,
             observabilityScope: observabilityScope
@@ -750,7 +742,6 @@ extension Workspace {
         // Run the resolution.
         try self.resolveAndUpdateResolvedFile(
             root: root,
-            availableLibraries: self.providedLibraries,
             forceResolution: false,
             constraints: [constraint],
             observabilityScope: observabilityScope
@@ -768,7 +759,6 @@ extension Workspace {
         try self._resolveBasedOnResolvedVersionsFile(
             root: root,
             explicitProduct: .none,
-            availableLibraries: self.providedLibraries,
             observabilityScope: observabilityScope
         )
     }
@@ -879,7 +869,6 @@ extension Workspace {
             root: root,
             packages: packages,
             dryRun: dryRun,
-            availableLibraries: self.providedLibraries,
             observabilityScope: observabilityScope
         )
     }
@@ -891,7 +880,6 @@ extension Workspace {
         forceResolvedVersions: Bool = false,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
-        availableLibraries: [LibraryMetadata],
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
         observabilityScope: ObservabilityScope
     ) throws -> ModulesGraph {
@@ -934,7 +922,6 @@ extension Workspace {
         let manifests = try self._resolve(
             root: root,
             explicitProduct: explicitProduct,
-            availableLibraries: [],
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : .bestEffort,
             observabilityScope: observabilityScope
         )

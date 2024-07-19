@@ -445,11 +445,7 @@ final class PluginTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(
-                rootInput: rootInput,
-                availableLibraries: [], // assume no provided libraries for testing.
-                observabilityScope: observability.topScope
-            )
+            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssert(packageGraph.packages.count == 2, "\(packageGraph.packages)")
             XCTAssert(packageGraph.rootPackages.count == 1, "\(packageGraph.rootPackages)")
@@ -633,11 +629,7 @@ final class PluginTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(
-                rootInput: rootInput,
-                availableLibraries: [], // assume no provided libraries for testing.
-                observabilityScope: observability.topScope
-            )
+            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             // Make sure that the use of plugins doesn't bleed into the use of plugins by tools.
@@ -731,11 +723,7 @@ final class PluginTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(
-                rootInput: rootInput,
-                availableLibraries: [], // assume no provided libraries for testing.
-                observabilityScope: observability.topScope
-            )
+            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
             XCTAssert(packageGraph.rootPackages.count == 1, "\(packageGraph.rootPackages)")
@@ -1048,11 +1036,7 @@ final class PluginTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(
-                rootInput: rootInput,
-                availableLibraries: [], // assume no provided libraries for testing.
-                observabilityScope: observability.topScope
-            )
+            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
             XCTAssert(packageGraph.packages.count == 4, "\(packageGraph.packages)")
             XCTAssert(packageGraph.rootPackages.count == 1, "\(packageGraph.rootPackages)")
 

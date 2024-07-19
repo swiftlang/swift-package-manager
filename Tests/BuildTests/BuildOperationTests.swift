@@ -41,8 +41,6 @@ private func mockBuildOperation(
         scratchDirectory: scratchDirectory,
         additionalFileRules: [],
         pkgConfigDirectories: [],
-        dependenciesByRootPackageIdentity: [:],
-        targetsByRootPackageIdentity: [:],
         outputStream: BufferedOutputByteStream(),
         logLevel: .info,
         fileSystem: fs,
@@ -51,47 +49,6 @@ private func mockBuildOperation(
 }
 
 final class BuildOperationTests: XCTestCase {
-    func testDetectUnexpressedDependencies() throws {
-        let scratchDirectory = AbsolutePath("/path/to/build")
-        let triple = hostTriple
-        let targetBuildParameters = mockBuildParameters(
-            destination: .target,
-            buildPath: scratchDirectory.appending(triple.tripleString),
-            shouldDisableLocalRpath: false,
-            triple: triple
-        )
-
-        let fs = InMemoryFileSystem(files: [
-            "\(targetBuildParameters.dataPath)/debug/Lunch.build/Lunch.d" : "/Best.framework"
-        ])
-
-        let observability = ObservabilitySystem.makeForTesting()
-        let buildOp = mockBuildOperation(
-            productsBuildParameters: targetBuildParameters,
-            toolsBuildParameters: mockBuildParameters(destination: .host, shouldDisableLocalRpath: false),
-            scratchDirectory: scratchDirectory,
-            fs: fs, observabilityScope: observability.topScope
-        )
-        buildOp.detectUnexpressedDependencies(
-            availableLibraries: [
-                .init(
-                    identities: [
-                        .sourceControl(url: .init("https://example.com/org/foo"))
-                    ],
-                    version: "1.0.0",
-                    productName: "Best",
-                    schemaVersion: 1
-                )
-            ],
-            targetDependencyMap: ["Lunch": []]
-        )
-
-        XCTAssertEqual(
-            observability.diagnostics.map { $0.message },
-            ["target 'Lunch' has an unexpressed depedency on 'foo'"]
-        )
-    }
-
     func testDetectProductTripleChange() throws {
         let observability = ObservabilitySystem.makeForTesting()
         let fs = InMemoryFileSystem(
