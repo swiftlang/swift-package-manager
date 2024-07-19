@@ -12,6 +12,10 @@ Swift Next
 Swift 6.0
 -----------
 
+* [#7741]
+
+  Fixed an issue where repositories would be re-cloned each build rather than using the cache due to git validation errors.
+
 * [#7507] 
 
   `swift experimental-sdk` command is deprecated with `swift sdk` command replacing it. `--experimental-swift-sdk` and
