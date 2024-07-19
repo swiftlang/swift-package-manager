@@ -252,7 +252,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(observability.diagnostics) { result in
                 let diagnostic = result.check(
                     diagnostic: .contains(
-                        "\(pkgDir.appending("Package.swift")):4:8: error: An error in MyPkg"
+                        "\(pkgDir.appending("Package.swift")):3:8: error: An error in MyPkg"
                     ),
                     severity: .error
                 )
