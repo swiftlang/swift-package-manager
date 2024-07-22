@@ -723,6 +723,15 @@ public struct FileRuleDescription: Sendable {
         )
     }()
 
+    /// File rule to ignore `.xcprivacy` (in the SwiftPM build system).
+    public static let xcprivacy: FileRuleDescription = {
+        .init(
+            rule: .ignored,
+            toolsVersion: .v6_0,
+            fileTypes: ["xcprivacy"]
+        )
+    }()
+
     /// List of all the builtin rules.
     public static let builtinRules: [FileRuleDescription] = [
         swift,
@@ -744,6 +753,7 @@ public struct FileRuleDescription: Sendable {
     /// List of file types that apply just to the SwiftPM build system.
     public static let swiftpmFileTypes: [FileRuleDescription] = [
         docc,
+        xcprivacy,
     ]
 
     /// List of file directory extensions that should be treated as opaque, non source, directories.

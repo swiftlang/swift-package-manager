@@ -38,6 +38,27 @@ final class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testXCPrivacyIgnored() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/foo/PrivacyInfo.xcprivacy",
+            "/Sources/foo/Foo.swift")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            path: .root,
+            targets: [
+                try TargetDescription(name: "foo"),
+            ]
+        )
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { module in
+                module.check(c99name: "foo", type: .library)
+                module.checkSources(root: "/Sources/foo", paths: "Foo.swift")
+                module.checkResources(resources: [])
+            }
+        }
+    }
+
     func testMixedSources() throws {
         let foo: AbsolutePath = "/Sources/foo"
 
