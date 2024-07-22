@@ -3,6 +3,10 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 Swift 6.0
 -----------
 
+* [#7741]
+
+  Fixed an issue where repositories would be re-cloned each build rather than using the cache due to git validation errors.
+
 * [#7530]
 
   Starting from tools-version 6.0 makes it possible for packages to depend on each other if such dependency doesn't form any target-level cycles.

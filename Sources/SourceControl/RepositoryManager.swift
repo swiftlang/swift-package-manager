@@ -220,7 +220,7 @@ public class RepositoryManager: Cancellable {
         // check if a repository already exists
         // errors when trying to check if a repository already exists are legitimate
         // and recoverable, and as such can be ignored
-        quick: if (try? self.provider.repositoryExists(at: repositoryPath)) ?? false {
+        quick: if (try? self.provider.isValidDirectory(repositoryPath)) ?? false {
             let repository = try handle.open()
 
             guard ((try? self.provider.isValidDirectory(repositoryPath, for: repositorySpecifier)) ?? false) else {
