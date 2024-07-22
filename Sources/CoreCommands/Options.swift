@@ -26,6 +26,7 @@ import struct PackageModel.EnabledSanitizers
 import struct PackageModel.PackageIdentity
 import class PackageModel.Manifest
 import enum PackageModel.Sanitizer
+@_spi(SwiftPMInternal) import struct PackageModel.SwiftSDK
 
 import struct PackageGraph.TraitConfiguration
 
@@ -598,28 +599,30 @@ public struct TestLibraryOptions: ParsableArguments {
           help: .private)
     public var explicitlyEnableExperimentalSwiftTestingLibrarySupport: Bool?
 
-    private func isEnabled(_ library: TestingLibrary, `default`: Bool) -> Bool {
+    private func isEnabled(_ library: TestingLibrary, `default`: Bool, swiftCommandState: SwiftCommandState) -> Bool {
         switch library {
         case .xctest:
-            explicitlyEnableXCTestSupport ?? `default`
+            if let explicitlyEnableXCTestSupport {
+                return explicitlyEnableXCTestSupport
+            }
+            if let toolchain = try? swiftCommandState.getHostToolchain(),
+               toolchain.swiftSDK.xctestSupport == .supported {
+                return `default`
+            }
+            return false
         case .swiftTesting:
-            explicitlyEnableSwiftTestingLibrarySupport ?? explicitlyEnableExperimentalSwiftTestingLibrarySupport ?? `default`
+            return explicitlyEnableSwiftTestingLibrarySupport ?? explicitlyEnableExperimentalSwiftTestingLibrarySupport ?? `default`
         }
     }
 
     /// Test whether or not a given library is enabled.
-    public func isEnabled(_ library: TestingLibrary) -> Bool {
-        isEnabled(library, default: true)
+    public func isEnabled(_ library: TestingLibrary, swiftCommandState: SwiftCommandState) -> Bool {
+        isEnabled(library, default: true, swiftCommandState: swiftCommandState)
     }
 
     /// Test whether or not a given library was explicitly enabled by the developer.
-    public func isExplicitlyEnabled(_ library: TestingLibrary) -> Bool {
-        isEnabled(library, default: false)
-    }
-
-    /// The list of enabled testing libraries.
-    public var enabledTestingLibraries: [TestingLibrary] {
-        [.xctest, .swiftTesting].filter(isEnabled)
+    public func isExplicitlyEnabled(_ library: TestingLibrary, swiftCommandState: SwiftCommandState) -> Bool {
+        isEnabled(library, default: false, swiftCommandState: swiftCommandState)
     }
 }
 
