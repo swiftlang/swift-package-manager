@@ -59,7 +59,7 @@ extension SwiftPackageCommand {
             // Which testing libraries should be used? XCTest is on by default,
             // but Swift Testing must remain off by default until it is present
             // in the Swift toolchain.
-            var supportedTestingLibraries = Set<BuildParameters.Testing.Library>()
+            var supportedTestingLibraries = Set<TestingLibrary>()
             if testLibraryOptions.isEnabled(.xctest) {
                 supportedTestingLibraries.insert(.xctest)
             }
