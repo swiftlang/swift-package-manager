@@ -480,6 +480,7 @@ private func computeCanonicalLocation(_ string: String) -> (description: String,
 
     // Prepend a leading slash for file URLs and paths
     if detectedScheme == "file" || string.first.flatMap(isSeparator) ?? false {
+        scheme = "file"
         description.insert("/", at: description.startIndex)
     }
 

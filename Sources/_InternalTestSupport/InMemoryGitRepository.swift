@@ -14,6 +14,7 @@ import Basics
 import Dispatch
 import Foundation
 import SourceControl
+import struct PackageModel.CanonicalPackageURL
 
 import struct TSCBasic.ByteString
 import enum TSCBasic.FileMode
@@ -68,7 +69,7 @@ public final class InMemoryGitRepository {
     fileprivate let path: AbsolutePath
 
     /// The file system in which this repository should be installed.
-    private let fs: InMemoryFileSystem
+    fileprivate let fs: InMemoryFileSystem
 
     private let lock = NSLock()
 
@@ -438,10 +439,6 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         add(specifier: RepositorySpecifier(path: path), repository: repo)
     }
 
-    public func repositoryExists(at path: AbsolutePath) throws -> Bool {
-        return fetchedMap[path] != nil
-    }
-
     public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
         guard let repo = fetchedMap[sourcePath] else {
             throw InternalError("unknown repo at \(sourcePath)")
@@ -482,11 +479,11 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     }
 
     public func isValidDirectory(_ directory: AbsolutePath) throws -> Bool {
-        return true
+        return fetchedMap[directory] != nil || specifierMap.get().values.map(\.path).contains(directory)
     }
 
     public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
-        return true
+        return fetchedMap[directory] != nil || specifierMap[repository] != nil
     }
 
     public func cancel(deadline: DispatchTime) throws {
