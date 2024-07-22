@@ -723,8 +723,17 @@ public struct FileRuleDescription: Sendable {
         )
     }()
 
+    /// File rule to copy `.xcprivacy` (in the Xcode build system).
+    public static let xcprivacyCopied: FileRuleDescription = {
+        .init(
+            rule: .copyResource,
+            toolsVersion: .v6_0,
+            fileTypes: ["xcprivacy"]
+        )
+    }()
+
     /// File rule to ignore `.xcprivacy` (in the SwiftPM build system).
-    public static let xcprivacy: FileRuleDescription = {
+    public static let xcprivacyIgnored: FileRuleDescription = {
         .init(
             rule: .ignored,
             toolsVersion: .v6_0,
@@ -748,12 +757,13 @@ public struct FileRuleDescription: Sendable {
         stringCatalog,
         coredata,
         metal,
+        xcprivacyCopied,
     ]
 
     /// List of file types that apply just to the SwiftPM build system.
     public static let swiftpmFileTypes: [FileRuleDescription] = [
         docc,
-        xcprivacy,
+        xcprivacyIgnored,
     ]
 
     /// List of file directory extensions that should be treated as opaque, non source, directories.

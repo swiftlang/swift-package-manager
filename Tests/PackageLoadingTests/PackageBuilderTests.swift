@@ -2970,7 +2970,46 @@ final class PackageBuilderTests: XCTestCase {
             }
         }
     }
-    
+
+    func testXcodeResources6_0AndLater() throws {
+        // In SwiftTools 6.0 and later, xcprivacy file types are only supported when explicitly passed via additionalFileRules.
+
+        let root: AbsolutePath = "/Foo"
+        let foo = root.appending(components: "Sources", "Foo")
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            foo.appending(components: "foo.swift").pathString,
+            foo.appending(components: "Foo.xcassets").pathString,
+            foo.appending(components: "Foo.xcstrings").pathString,
+            foo.appending(components: "Foo.xib").pathString,
+            foo.appending(components: "Foo.xcdatamodel").pathString,
+            foo.appending(components: "Foo.metal").pathString,
+            foo.appending(components: "PrivacyInfo.xcprivacy").pathString
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "Foo",
+            toolsVersion: .v6_0,
+            targets: [
+                try TargetDescription(name: "Foo"),
+            ]
+        )
+
+        PackageBuilderTester(manifest, path: root, supportXCBuildTypes: true, in: fs) { result, diagnostics in
+            result.checkModule("Foo") { result in
+                result.checkSources(sources: ["foo.swift"])
+                result.checkResources(resources: [
+                    foo.appending(components: "Foo.xib").pathString,
+                    foo.appending(components: "Foo.xcdatamodel").pathString,
+                    foo.appending(components: "Foo.xcassets").pathString,
+                    foo.appending(components: "Foo.xcstrings").pathString,
+                    foo.appending(components: "Foo.metal").pathString,
+                    foo.appending(components: "PrivacyInfo.xcprivacy").pathString,
+                ])
+            }
+        }
+    }
+
     func testSnippetsLinkProductLibraries() throws {
         let root = AbsolutePath("/Foo")
         let internalSourcesDir = root.appending(components: "Sources", "Internal")
