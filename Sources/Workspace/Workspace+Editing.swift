@@ -16,7 +16,6 @@ import class Basics.ObservabilityScope
 import struct Basics.RelativePath
 import func Basics.temp_await
 import struct PackageGraph.PackageGraphRootInput
-import struct PackageModel.ProvidedLibrary
 import struct SourceControl.Revision
 
 extension Workspace {
@@ -51,9 +50,6 @@ extension Workspace {
             return
         case .registryDownload:
             observabilityScope.emit(error: "registry dependency '\(dependency.packageRef.identity)' can't be edited")
-            return
-        case .providedLibrary:
-            observabilityScope.emit(error: "library dependency '\(dependency.packageRef.identity)' can't be edited")
             return
         case .custom:
             observabilityScope.emit(error: "custom dependency '\(dependency.packageRef.identity)' can't be edited")

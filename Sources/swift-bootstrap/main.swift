@@ -327,8 +327,6 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                     traitConfiguration: nil,
                     additionalFileRules: [],
                     pkgConfigDirectories: [],
-                    dependenciesByRootPackageIdentity: [:],
-                    targetsByRootPackageIdentity: [:],
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
                     fileSystem: self.fileSystem,

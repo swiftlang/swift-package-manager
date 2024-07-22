@@ -28,7 +28,6 @@ public class Module {
         case plugin
         case snippet
         case `macro`
-        case providedLibrary
     }
 
     /// A group a module belongs to that allows customizing access boundaries. A module is treated as

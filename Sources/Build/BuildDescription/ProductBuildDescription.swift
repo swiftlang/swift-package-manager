@@ -46,9 +46,6 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     // Computed during build planning.
     var dylibs: [ProductBuildDescription] = []
 
-    /// The list of provided libraries that are going to be used by this product.
-    var providedLibraries: [String: AbsolutePath] = [:]
-
     /// Any additional flags to be added. These flags are expected to be computed during build planning.
     var additionalFlags: [String] = []
 
@@ -160,8 +157,6 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         if !self.libraryBinaryPaths.isEmpty {
             args += ["-F", self.buildParameters.buildPath.pathString]
         }
-
-        self.providedLibraries.forEach { args += ["-L", $1.pathString, "-l", $0] }
 
         args += ["-L", self.buildParameters.buildPath.pathString]
         args += try ["-o", binaryPath.pathString]

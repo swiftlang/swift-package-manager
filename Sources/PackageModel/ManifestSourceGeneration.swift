@@ -317,8 +317,6 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "plugin", subnodes: params, multiline: true)
         case .macro:
             self.init(enum: "macro", subnodes: params, multiline: true)
-        case .providedLibrary:
-            self.init(enum: "providedLibrary", subnodes: params, multiline: true)
         }
     }
 

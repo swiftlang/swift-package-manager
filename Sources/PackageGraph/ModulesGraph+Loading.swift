@@ -697,7 +697,7 @@ private func createResolvedPackages(
                             dependencyProductName: productRef.name,
                             dependencyPackageName: productRef.package,
                             dependencyProductInDecl: !declProductsAsDependency.isEmpty,
-                            similarProductName: bestMatchedProductName,
+                            similarProductName: bestMatchedProductName, 
                             packageContainingSimilarProduct: packageContainingBestMatchedProduct
                         )
                         packageObservabilityScope.emit(error)

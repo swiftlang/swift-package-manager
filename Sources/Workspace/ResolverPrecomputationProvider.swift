@@ -63,9 +63,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     ) {
         queue.async {
             // Start by searching manifests from the Workspace's resolved dependencies.
-            if let manifest = self.dependencyManifests.dependencies
-                .first(where: { _, managed, _, _ in managed.packageRef == package })
-            {
+            if let manifest = self.dependencyManifests.dependencies.first(where: { _, managed, _, _ in managed.packageRef == package }) {
                 let container = LocalPackageContainer(
                     package: package,
                     manifest: manifest.manifest,
@@ -101,7 +99,7 @@ private struct LocalPackageContainer: PackageContainer {
     let shouldInvalidatePinnedVersions = false
 
     func versionsAscending() throws -> [Version] {
-        switch self.dependency?.state {
+        switch dependency?.state {
         case .sourceControlCheckout(.version(let version, revision: _)):
             return [version]
         case .registryDownload(let version):
@@ -113,10 +111,7 @@ private struct LocalPackageContainer: PackageContainer {
 
     func isToolsVersionCompatible(at version: Version) -> Bool {
         do {
-            try self.manifest.toolsVersion.validateToolsVersion(
-                self.currentToolsVersion,
-                packageIdentity: .plain("unknown")
-            )
+            try manifest.toolsVersion.validateToolsVersion(currentToolsVersion, packageIdentity: .plain("unknown"))
             return true
         } catch {
             return false
@@ -124,36 +119,31 @@ private struct LocalPackageContainer: PackageContainer {
     }
 
     func toolsVersion(for version: Version) throws -> ToolsVersion {
-        self.currentToolsVersion
+        return currentToolsVersion
     }
 
     func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
-        try self.versionsDescending()
+        return try self.versionsDescending()
     }
 
     func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // Because of the implementation of `reversedVersions`, we should only get the exact same version.
-        switch self.dependency?.state {
+        switch dependency?.state {
         case .sourceControlCheckout(.version(version, revision: _)):
-            return try self.manifest.dependencyConstraints(productFilter: productFilter)
+            return try manifest.dependencyConstraints(productFilter: productFilter)
         case .registryDownload(version: version):
-            return try self.manifest.dependencyConstraints(productFilter: productFilter)
+            return try manifest.dependencyConstraints(productFilter: productFilter)
         default:
-            throw InternalError(
-                "expected version based state, but state was \(String(describing: self.dependency?.state))"
-            )
+            throw InternalError("expected version based state, but state was \(String(describing: dependency?.state))")
         }
     }
 
-    func getDependencies(
-        at revisionString: String,
-        productFilter: ProductFilter
-    ) throws -> [PackageContainerConstraint] {
+    func getDependencies(at revisionString: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         let revision = Revision(identifier: revisionString)
-        switch self.dependency?.state {
+        switch dependency?.state {
         case .sourceControlCheckout(.branch(_, revision: revision)), .sourceControlCheckout(.revision(revision)):
             // Return the dependencies if the checkout state matches the revision.
-            return try self.manifest.dependencyConstraints(productFilter: productFilter)
+            return try manifest.dependencyConstraints(productFilter: productFilter)
         default:
             // Throw an error when the dependency is not revision based to fail resolution.
             throw ResolverPrecomputationError.differentRequirement(
@@ -165,14 +155,14 @@ private struct LocalPackageContainer: PackageContainer {
     }
 
     func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
-        switch self.dependency?.state {
+        switch dependency?.state {
         case .none, .fileSystem, .edited:
-            return try self.manifest.dependencyConstraints(productFilter: productFilter)
+            return try manifest.dependencyConstraints(productFilter: productFilter)
         default:
             // Throw an error when the dependency is not unversioned to fail resolution.
             throw ResolverPrecomputationError.differentRequirement(
-                package: self.package,
-                state: self.dependency?.state,
+                package: package,
+                state: dependency?.state,
                 requirement: .unversioned
             )
         }

@@ -11,10 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import struct Basics.InternalError
+
 import class PackageModel.BinaryModule
 import class PackageModel.ClangModule
 import class PackageModel.SystemLibraryModule
-import class PackageModel.ProvidedLibraryModule
 
 extension BuildPlan {
     func plan(swiftTarget: SwiftModuleBuildDescription) throws {
@@ -49,10 +49,6 @@ extension BuildPlan {
                         swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
                     }
                 }
-            case let target as ProvidedLibraryModule:
-                swiftTarget.additionalFlags += [
-                    "-I", target.path.pathString
-                ]
             default:
                 break
             }
