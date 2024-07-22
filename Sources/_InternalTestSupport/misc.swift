@@ -432,7 +432,7 @@ extension InitPackage {
     public convenience init(
         name: String,
         packageType: PackageType,
-        supportedTestingLibraries: Set<BuildParameters.Testing.Library> = [.xctest],
+        supportedTestingLibraries: Set<TestingLibrary> = [.xctest],
         destinationPath: AbsolutePath,
         fileSystem: FileSystem
     ) throws {

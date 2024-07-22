@@ -449,7 +449,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         additionalArguments: [String],
         productsBuildParameters: BuildParameters,
         swiftCommandState: SwiftCommandState,
-        library: BuildParameters.Testing.Library
+        library: TestingLibrary
     ) async throws -> TestRunner.Result {
         // Pass through all arguments from the command line to Swift Testing.
         var additionalArguments = additionalArguments
@@ -843,7 +843,7 @@ final class TestRunner {
     private let observabilityScope: ObservabilityScope
 
     /// Which testing library to use with this test run.
-    private let library: BuildParameters.Testing.Library
+    private let library: TestingLibrary
 
     /// Get the arguments used on this platform to pass test specifiers to XCTest.
     static func xctestArguments<S>(forTestSpecifiers testSpecifiers: S) -> [String] where S: Collection, S.Element == String {
@@ -873,7 +873,7 @@ final class TestRunner {
         toolchain: UserToolchain,
         testEnv: Environment,
         observabilityScope: ObservabilityScope,
-        library: BuildParameters.Testing.Library
+        library: TestingLibrary
     ) {
         self.bundlePaths = bundlePaths
         self.additionalArguments = additionalArguments

@@ -150,7 +150,7 @@ enum TestingSupport {
         toolchain: UserToolchain,
         destinationBuildParameters buildParameters: BuildParameters,
         sanitizers: [Sanitizer],
-        library: BuildParameters.Testing.Library
+        library: TestingLibrary
     ) throws -> Environment {
         var env = Environment.current
 

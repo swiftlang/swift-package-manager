@@ -14,6 +14,7 @@ import ArgumentParser
 
 import var Basics.localFileSystem
 import struct Basics.AbsolutePath
+import enum Basics.TestingLibrary
 import struct Basics.Triple
 import func Basics.temp_await
 
@@ -597,7 +598,7 @@ public struct TestLibraryOptions: ParsableArguments {
           help: .private)
     public var explicitlyEnableExperimentalSwiftTestingLibrarySupport: Bool?
 
-    private func isEnabled(_ library: BuildParameters.Testing.Library, `default`: Bool) -> Bool {
+    private func isEnabled(_ library: TestingLibrary, `default`: Bool) -> Bool {
         switch library {
         case .xctest:
             explicitlyEnableXCTestSupport ?? `default`
@@ -607,17 +608,17 @@ public struct TestLibraryOptions: ParsableArguments {
     }
 
     /// Test whether or not a given library is enabled.
-    public func isEnabled(_ library: BuildParameters.Testing.Library) -> Bool {
+    public func isEnabled(_ library: TestingLibrary) -> Bool {
         isEnabled(library, default: true)
     }
 
     /// Test whether or not a given library was explicitly enabled by the developer.
-    public func isExplicitlyEnabled(_ library: BuildParameters.Testing.Library) -> Bool {
+    public func isExplicitlyEnabled(_ library: TestingLibrary) -> Bool {
         isEnabled(library, default: false)
     }
 
     /// The list of enabled testing libraries.
-    public var enabledTestingLibraries: [BuildParameters.Testing.Library] {
+    public var enabledTestingLibraries: [TestingLibrary] {
         [.xctest, .swiftTesting].filter(isEnabled)
     }
 }

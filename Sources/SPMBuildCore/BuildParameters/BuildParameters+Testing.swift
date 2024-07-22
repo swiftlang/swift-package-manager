@@ -86,22 +86,6 @@ extension BuildParameters {
         /// The style of test product to produce.
         public var testProductStyle: TestProductStyle
 
-        /// The testing libraries supported by the package manager.
-        public enum Library: String, Codable, CustomStringConvertible {
-            /// The XCTest library.
-            ///
-            /// This case represents both the open-source swift-corelibs-xctest
-            /// package and Apple's XCTest framework that ships with Xcode.
-            case xctest = "XCTest"
-
-            /// The swift-testing library.
-            case swiftTesting = "swift-testing"
-
-            public var description: String {
-                rawValue
-            }
-        }
-
         public init(
             configuration: BuildConfiguration,
             targetTriple: Triple,
