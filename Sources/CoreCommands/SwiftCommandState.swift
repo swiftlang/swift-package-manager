@@ -53,7 +53,7 @@ import var TSCBasic.stderrStream
 import class TSCBasic.TerminalController
 import class TSCBasic.ThreadSafeOutputByteStream
 
-import TSCUtility // cannot be scoped because of `String.spm_mangleToC99ExtendedIdentifier()`
+import var TSCUtility.verbosity
 
 typealias Diagnostic = Basics.Diagnostic
 

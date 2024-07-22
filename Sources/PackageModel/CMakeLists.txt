@@ -15,7 +15,6 @@ add_library(PackageModel
   DependencyMapper.swift
   Diagnostics.swift
   IdentityResolver.swift
-  InstalledLibrariesSupport/LibraryMetadata.swift
   InstalledSwiftPMConfiguration.swift
   Manifest/Manifest.swift
   Manifest/PackageConditionDescription.swift
@@ -30,7 +29,6 @@ add_library(PackageModel
   Module/BinaryModule.swift
   Module/ClangModule.swift
   Module/PluginModule.swift
-  Module/ProvidedLibraryModule.swift
   Module/SwiftModule.swift
   Module/SystemLibraryModule.swift
   Module/Module.swift

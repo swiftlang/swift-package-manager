@@ -586,11 +586,6 @@ public class Workspace {
             initializationWarningHandler: initializationWarningHandler
         )
     }
-
-    var providedLibraries: [ProvidedLibrary] {
-        // Note: Eventually, we should get these from the individual SDKs, but the first step is providing the metadata centrally in the toolchain.
-        self.hostToolchain.providedLibraries
-    }
 }
 
 // MARK: - Public API
@@ -719,8 +714,6 @@ extension Workspace {
         case .sourceControlCheckout(let checkoutState):
             defaultRequirement = checkoutState.requirement
         case .registryDownload(let version), .custom(let version, _):
-            defaultRequirement = .versionSet(.exact(version))
-        case .providedLibrary(_, version: let version):
             defaultRequirement = .versionSet(.exact(version))
         case .fileSystem:
             throw StringError("local dependency '\(dependency.packageRef.identity)' can't be resolved")
@@ -888,7 +881,6 @@ extension Workspace {
         forceResolvedVersions: Bool = false,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
-        availableLibraries: [LibraryMetadata] = [],
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
         observabilityScope: ObservabilityScope
     ) throws -> ModulesGraph {
@@ -1348,8 +1340,6 @@ extension Workspace {
                     result.append("unversioned")
                 }
             case .registryDownload(let version)?, .custom(let version, _):
-                result.append("resolved to '\(version)'")
-            case .providedLibrary(_, version: let version):
                 result.append("resolved to '\(version)'")
             case .edited?:
                 result.append("edited")

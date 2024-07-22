@@ -425,7 +425,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     toolsVersion: toolsVersion,
                     fileSystem: fileSystem
                 ))
-            case is SystemLibraryModule, is BinaryModule, is ProvidedLibraryModule:
+            case is SystemLibraryModule, is BinaryModule:
                 break
             default:
                 throw InternalError("unhandled \(target.underlying)")

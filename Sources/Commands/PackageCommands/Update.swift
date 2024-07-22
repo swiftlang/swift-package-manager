@@ -71,7 +71,7 @@ extension SwiftPackageCommand {
                 case .removed:
                     report += "\n"
                     report += "- \(package.identity) \(currentVersion)"
-                case .unchanged, .usesLibrary:
+                case .unchanged:
                     continue
                 }
             }

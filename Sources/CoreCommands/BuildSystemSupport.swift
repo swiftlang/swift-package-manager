@@ -52,8 +52,6 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
             scratchDirectory: self.swiftCommandState.scratchDirectory,
             additionalFileRules: FileRuleDescription.swiftpmFileTypes,
             pkgConfigDirectories: self.swiftCommandState.options.locations.pkgConfigDirectories,
-            dependenciesByRootPackageIdentity: rootPackageInfo.dependencies,
-            targetsByRootPackageIdentity: rootPackageInfo.targets,
             outputStream: outputStream ?? self.swiftCommandState.outputStream,
             logLevel: logLevel ?? self.swiftCommandState.logLevel,
             fileSystem: self.swiftCommandState.fileSystem,

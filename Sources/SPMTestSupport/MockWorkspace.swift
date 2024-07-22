@@ -398,12 +398,7 @@ public final class MockWorkspace {
         observability.topScope.trap {
             let rootInput = PackageGraphRootInput(packages: try rootPaths(for: roots))
             let ws = try self.getOrCreateWorkspace()
-            try ws.unedit(
-                packageName: packageName,
-                forceRemove: forceRemove,
-                root: rootInput,
-                observabilityScope: observability.topScope
-            )
+            try ws.unedit(packageName: packageName, forceRemove: forceRemove, root: rootInput, observabilityScope: observability.topScope)
         }
         result(observability.diagnostics)
     }
@@ -561,10 +556,7 @@ public final class MockWorkspace {
         )
         let root = PackageGraphRoot(input: rootInput, manifests: rootManifests, observabilityScope: observability.topScope)
 
-        let dependencyManifests = try workspace.loadDependencyManifests(
-            root: root,
-            observabilityScope: observability.topScope
-        )
+        let dependencyManifests = try workspace.loadDependencyManifests(root: root, observabilityScope: observability.topScope)
 
         let result = try workspace.precomputeResolution(
             root: root,
@@ -779,10 +771,7 @@ public final class MockWorkspace {
         )
         let rootManifests = try temp_await { workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope, completion: $0) }
         let graphRoot = PackageGraphRoot(input: rootInput, manifests: rootManifests, observabilityScope: observability.topScope)
-        let manifests = try workspace.loadDependencyManifests(
-            root: graphRoot,
-            observabilityScope: observability.topScope
-        )
+        let manifests = try workspace.loadDependencyManifests(root: graphRoot, observabilityScope: observability.topScope)
         result(manifests, observability.diagnostics)
     }
 

@@ -3396,10 +3396,7 @@ final class PackageCommandTests: CommandsTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let _ = try workspace.loadPackageGraph(
-                rootInput: rootInput,
-                observabilityScope: observability.topScope
-            )
+            let _ = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }
