@@ -317,4 +317,11 @@ final class TestCommandTests: CommandsTestCase {
             await XCTAssertAsyncNoThrow(try await SwiftPM.Test.execute(packagePath: fixturePath))
         }
     }
+
+    func testXCTestOnlyDoesNotLogAboutNoMatchingTests() async throws {
+        try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+            let (_, stderr) = try await SwiftPM.Test.execute(["--disable-swift-testing"], packagePath: fixturePath)
+            XCTAssertNoMatch(stderr, .contains("No matching test cases were run"))
+        }
+    }
 }

@@ -278,7 +278,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                     swiftCommandState: swiftCommandState,
                     library: .xctest
                 )
-                if result == .success && testCount == 0 {
+                if result == .success, let testCount, testCount == 0 {
                     results.append(.noMatchingTests)
                 } else {
                     results.append(result)
@@ -359,13 +359,13 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
     }
 
-    private func xctestArgs(for testProducts: [BuiltTestProduct], swiftCommandState: SwiftCommandState) throws -> (arguments: [String], testCount: Int) {
+    private func xctestArgs(for testProducts: [BuiltTestProduct], swiftCommandState: SwiftCommandState) throws -> (arguments: [String], testCount: Int?) {
         switch options.testCaseSpecifier {
         case .none:
             if case .skip = options.skippedTests(fileSystem: swiftCommandState.fileSystem) {
                 fallthrough
             } else {
-                return ([], 0)
+                return ([], nil)
             }
 
         case .regex, .specific, .skip:
