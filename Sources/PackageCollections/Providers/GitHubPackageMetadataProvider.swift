@@ -57,146 +57,128 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
     }
 
     func get(
-        identity: PackageIdentity,
-        location: String,
-        callback: @escaping (Result<Model.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) -> Void
-    ) {
+        identity: PackageModel.PackageIdentity,
+        location: String
+    ) async -> (Result<PackageCollectionsModel.PackageBasicMetadata, any Error>, PackageMetadataProviderContext?) {
         guard let baseURL = Self.apiURL(location) else {
-            return self.errorCallback(GitHubPackageMetadataProviderError.invalidSourceControlURL(location), apiHost: nil, callback: callback)
+            return self.metadataErrorResponse(GitHubPackageMetadataProviderError.invalidSourceControlURL(location), apiHost: nil)
         }
+        // TODO: baseURL.host is used / unwrapped repeatedly does it make sense to proceed if baseURL.host is nil?
 
         if let cached = try? self.cache?.get(key: identity.description) {
             if cached.dispatchTime + DispatchTimeInterval.seconds(self.configuration.cacheTTLInSeconds) > DispatchTime.now() {
-                return callback(.success(cached.package), self.createContext(apiHost: baseURL.host, error: nil))
+                return (.success(cached.package), self.createContext(apiHost: baseURL.host, error: nil))
             }
         }
 
-        let metadataURL = baseURL
-        // TODO: make `per_page` configurable? GitHub API's max/default is 100
-        let releasesURL = URL(string: baseURL.appendingPathComponent("releases").absoluteString + "?per_page=20") ?? baseURL.appendingPathComponent("releases")
-        let contributorsURL = baseURL.appendingPathComponent("contributors")
-        let readmeURL = baseURL.appendingPathComponent("readme")
-        let licenseURL = baseURL.appendingPathComponent("license")
-        let languagesURL = baseURL.appendingPathComponent("languages")
+        do {
+            let metadataURL = baseURL
+            // TODO: make `per_page` configurable? GitHub API's max/default is 100
+            let releasesURL = URL(string: baseURL.appendingPathComponent("releases").absoluteString + "?per_page=20") ?? baseURL.appendingPathComponent("releases")
+            let contributorsURL = baseURL.appendingPathComponent("contributors")
+            let readmeURL = baseURL.appendingPathComponent("readme")
+            let licenseURL = baseURL.appendingPathComponent("license")
+            let languagesURL = baseURL.appendingPathComponent("languages")
 
-        let sync = DispatchGroup()
-        let results = ThreadSafeKeyValueStore<URL, Result<HTTPClientResponse, Error>>()
+            // get the main data
+            var metadataHeaders = HTTPClientHeaders()
+            metadataHeaders.add(name: "Accept", value: "application/vnd.github.mercy-preview+json")
+            let metadataOptions = self.makeRequestOptions(validResponseCodes: [200, 401, 403, 404])
+            let hasAuthorization = metadataOptions.authorizationProvider?(metadataURL) != nil
+            let response = try await httpClient.get(metadataURL, headers: metadataHeaders, options: metadataOptions)
 
-        // get the main data
-        sync.enter()
-        var metadataHeaders = HTTPClientHeaders()
-        metadataHeaders.add(name: "Accept", value: "application/vnd.github.mercy-preview+json")
-        let metadataOptions = self.makeRequestOptions(validResponseCodes: [200, 401, 403, 404])
-        let hasAuthorization = metadataOptions.authorizationProvider?(metadataURL) != nil
-        httpClient.get(metadataURL, headers: metadataHeaders, options: metadataOptions) { result in
-            defer { sync.leave() }
-            results[metadataURL] = result
-            if case .success(let response) = result {
-                let apiLimit = response.headers.get("X-RateLimit-Limit").first.flatMap(Int.init) ?? -1
-                let apiRemaining = response.headers.get("X-RateLimit-Remaining").first.flatMap(Int.init) ?? -1
-                switch (response.statusCode, hasAuthorization, apiRemaining) {
-                case (_, _, 0):
-                    self.observabilityScope.emit(warning: "Exceeded API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
-                    results[metadataURL] = .failure(GitHubPackageMetadataProviderError.apiLimitsExceeded(metadataURL, apiLimit))
-                case (401, true, _):
-                    results[metadataURL] = .failure(GitHubPackageMetadataProviderError.invalidAuthToken(metadataURL))
-                case (401, false, _):
-                    results[metadataURL] = .failure(GitHubPackageMetadataProviderError.permissionDenied(metadataURL))
-                case (403, _, _):
-                    results[metadataURL] = .failure(GitHubPackageMetadataProviderError.permissionDenied(metadataURL))
-                case (404, _, _):
-                    results[metadataURL] = .failure(NotFoundError("\(baseURL)"))
-                case (200, _, _):
-                    if apiRemaining < self.configuration.apiLimitWarningThreshold {
-                        self.observabilityScope.emit(warning: "Approaching API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
-                    }
-                    // if successful, fan out multiple API calls
-                    [releasesURL, contributorsURL, readmeURL, licenseURL, languagesURL].forEach { url in
-                        sync.enter()
-                        var headers = HTTPClientHeaders()
-                        headers.add(name: "Accept", value: "application/vnd.github.v3+json")
-                        let options = self.makeRequestOptions(validResponseCodes: [200])
-                        self.httpClient.get(url, headers: headers, options: options) { result in
-                            defer { sync.leave() }
-                            results[url] = result
-                        }
-                    }
-                default:
-                    results[metadataURL] = .failure(GitHubPackageMetadataProviderError.invalidResponse(metadataURL, "Invalid status code: \(response.statusCode)"))
+            let apiLimit = response.headers.get("X-RateLimit-Limit").first.flatMap(Int.init) ?? -1
+            let apiRemaining = response.headers.get("X-RateLimit-Remaining").first.flatMap(Int.init) ?? -1
+            switch (response.statusCode, hasAuthorization, apiRemaining) {
+            case (_, _, 0):
+                self.observabilityScope.emit(warning: "Exceeded API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
+                return self.metadataErrorResponse(GitHubPackageMetadataProviderError.apiLimitsExceeded(metadataURL, apiLimit), apiHost: baseURL.host)
+            case (401, true, _):
+                return self.metadataErrorResponse(GitHubPackageMetadataProviderError.invalidAuthToken(metadataURL), apiHost: baseURL.host)
+            case (401, false, _):
+                return self.metadataErrorResponse(GitHubPackageMetadataProviderError.permissionDenied(metadataURL), apiHost: baseURL.host)
+            case (403, _, _):
+                return self.metadataErrorResponse(GitHubPackageMetadataProviderError.permissionDenied(metadataURL), apiHost: baseURL.host)
+            case (404, _, _):
+                return self.metadataErrorResponse(NotFoundError("\(baseURL)"), apiHost: baseURL.host)
+            case (200, _, _):
+                if apiRemaining < self.configuration.apiLimitWarningThreshold {
+                    self.observabilityScope.emit(warning: "Approaching API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
                 }
+            default:
+                return self.metadataErrorResponse(GitHubPackageMetadataProviderError.invalidResponse(metadataURL, "Invalid status code: \(response.statusCode)"), apiHost: baseURL.host)
             }
-        }
 
-        // process results
-        sync.notify(queue: self.httpClient.configuration.callbackQueue) {
-            do {
-                // check for main request error state
-                switch results[metadataURL] {
-                case .none:
-                    throw GitHubPackageMetadataProviderError.invalidResponse(metadataURL, "Response missing")
-                case .some(.failure(let error)):
-                    throw error
-                case .some(.success(let metadataResponse)):
-                    guard let metadata = try metadataResponse.decodeBody(GetRepositoryResponse.self, using: self.decoder) else {
-                        throw GitHubPackageMetadataProviderError.invalidResponse(metadataURL, "Empty body")
+            let makeRequest = { (url: URL) async throws -> LegacyHTTPClient.Response in
+                var headers = HTTPClientHeaders()
+                headers.add(name: "Accept", value: "application/vnd.github.v3+json")
+                let options = self.makeRequestOptions(validResponseCodes: [200])
+                return try await self.httpClient.get(url, headers: headers, options: options)
+            }
+
+            async let releasesResponse = makeRequest(releasesURL)
+            async let contributorsResponse = makeRequest(contributorsURL)
+            async let readmeResponse = makeRequest(readmeURL)
+            async let licenseResponse = makeRequest(licenseURL)
+            async let languagesResponse = makeRequest(languagesURL)
+
+            // process results
+            guard let metadata = try response.decodeBody(GetRepositoryResponse.self, using: self.decoder) else {
+                throw GitHubPackageMetadataProviderError.invalidResponse(metadataURL, "Invalid status code: \(response.statusCode)")
+            }
+            let releases = (try? await releasesResponse.decodeBody([Release].self, using: self.decoder)) ?? []
+            let contributors = try? await contributorsResponse.decodeBody([Contributor].self, using: self.decoder)
+            let readme = try? await readmeResponse.decodeBody(Readme.self, using: self.decoder)
+            let license = try? await licenseResponse.decodeBody(License.self, using: self.decoder)
+            let languages = try? await languagesResponse.decodeBody([String: Int].self, using: self.decoder)?.keys
+
+            let model = Model.PackageBasicMetadata(
+                summary: metadata.description,
+                keywords: metadata.topics,
+                // filters out non-semantic versioned tags
+                versions: releases.compactMap {
+                    guard let version = $0.tagName.flatMap(TSCUtility.Version.init(tag:)) else {
+                        return nil
                     }
-                    let releases = try results[releasesURL]?.success?.decodeBody([Release].self, using: self.decoder) ?? []
-                    let contributors = try results[contributorsURL]?.success?.decodeBody([Contributor].self, using: self.decoder)
-                    let readme = try results[readmeURL]?.success?.decodeBody(Readme.self, using: self.decoder)
-                    let license = try results[licenseURL]?.success?.decodeBody(License.self, using: self.decoder)
-                    let languages = try results[languagesURL]?.success?.decodeBody([String: Int].self, using: self.decoder)?.keys
-
-                    let model = Model.PackageBasicMetadata(
-                        summary: metadata.description,
-                        keywords: metadata.topics,
-                        // filters out non-semantic versioned tags
-                        versions: releases.compactMap {
-                            guard let version = $0.tagName.flatMap(TSCUtility.Version.init(tag:)) else {
-                                return nil
-                            }
-                            return Model.PackageBasicVersionMetadata(
-                                version: version,
-                                title: $0.name,
-                                summary: $0.body,
-                                author: $0.author.map { .init(username: $0.login, url: $0.url, service: Self.service) },
-                                createdAt: $0.createdAt
-                            )
-                        },
-                        watchersCount: metadata.watchersCount,
-                        readmeURL: readme?.downloadURL,
-                        license: license.flatMap { .init(type: Model.LicenseType(string: $0.license.spdxID), url: $0.downloadURL) },
-                        authors: contributors?.map { .init(username: $0.login, url: $0.url, service: Self.service) },
-                        languages: languages.flatMap(Set.init) ?? metadata.language.map { [$0] }
+                    return Model.PackageBasicVersionMetadata(
+                        version: version,
+                        title: $0.name,
+                        summary: $0.body,
+                        author: $0.author.map { .init(username: $0.login, url: $0.url, service: Self.service) },
+                        createdAt: $0.createdAt
                     )
+                },
+                watchersCount: metadata.watchersCount,
+                readmeURL: readme?.downloadURL,
+                license: license.flatMap { .init(type: Model.LicenseType(string: $0.license.spdxID), url: $0.downloadURL) },
+                authors: contributors?.map { .init(username: $0.login, url: $0.url, service: Self.service) },
+                languages: languages.flatMap(Set.init) ?? metadata.language.map { [$0] }
+            )
 
-                    do {
-                        try self.cache?.put(
-                            key: identity.description,
-                            value: CacheValue(package: model, timestamp: DispatchTime.now()),
-                            replace: true,
-                            observabilityScope: self.observabilityScope
-                        )
-                    } catch {
-                        self.observabilityScope.emit(
-                            warning: "Failed to save GitHub metadata for package \(identity) to cache",
-                            underlyingError: error
-                        )
-                    }
-
-                    callback(.success(model), self.createContext(apiHost: baseURL.host, error: nil))
-                }
+            do {
+                try self.cache?.put(
+                    key: identity.description,
+                    value: CacheValue(package: model, timestamp: DispatchTime.now()),
+                    replace: true,
+                    observabilityScope: self.observabilityScope
+                )
             } catch {
-                self.errorCallback(error, apiHost: baseURL.host, callback: callback)
+                self.observabilityScope.emit(
+                    warning: "Failed to save GitHub metadata for package \(identity) to cache",
+                    underlyingError: error
+                )
             }
+            return (.success(model), self.createContext(apiHost: baseURL.host, error: nil))
+        } catch {
+            return self.metadataErrorResponse(error, apiHost: baseURL.host)
         }
     }
     
-    private func errorCallback(
+    private func metadataErrorResponse(
         _ error: Error,
-        apiHost: String?,
-        callback: @escaping (Result<Model.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) -> Void
-    ) {
-        callback(.failure(error), self.createContext(apiHost: apiHost, error: error))
+        apiHost: String?
+    ) -> (Result<PackageCollectionsModel.PackageBasicMetadata, any Error>, PackageMetadataProviderContext?) {
+        return (.failure(error), self.createContext(apiHost: apiHost, error: error))
     }
     
     private func createContext(apiHost: String?, error: Error?) -> PackageMetadataProviderContext? {

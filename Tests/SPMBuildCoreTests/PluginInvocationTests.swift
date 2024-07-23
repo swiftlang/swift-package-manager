@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
@@ -25,7 +26,8 @@ import _InternalTestSupport
 import Workspace
 import XCTest
 
-import class TSCBasic.InMemoryFileSystem
+@testable import class Build.BuildPlan
+import struct Build.PluginConfiguration
 
 import struct TSCUtility.SerializedDiagnostics
 
@@ -315,10 +317,7 @@ final class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(
-                rootInput: rootInput,
-                observabilityScope: observability.topScope
-            )
+            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
             
@@ -695,10 +694,7 @@ final class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            XCTAssertThrowsError(try workspace.loadPackageGraph(
-                rootInput: rootInput,
-                observabilityScope: observability.topScope
-            )) { error in
+            XCTAssertThrowsError(try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)) { error in
                 var diagnosed = false
                 if let realError = error as? PackageGraphError,
                    realError.description == "plugin 'MyPlugin' cannot depend on 'FooLib' of type 'library' from package 'foopackage'; this dependency is unsupported" {
@@ -774,9 +770,7 @@ final class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            XCTAssertThrowsError(try workspace.loadPackageGraph(
-                rootInput: rootInput,
-                observabilityScope: observability.topScope)) { error in
+            XCTAssertThrowsError(try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)) { error in
                 var diagnosed = false
                 if let realError = error as? PackageGraphError,
                    realError.description == "plugin 'MyPlugin' cannot depend on 'MyLibrary' of type 'library'; this dependency is unsupported" {
@@ -883,10 +877,7 @@ final class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(
-                rootInput: rootInput,
-                observabilityScope: observability.topScope
-            )
+            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
 
@@ -1077,10 +1068,7 @@ final class PluginInvocationTests: XCTestCase {
             )
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
-            let graph = try workspace.loadPackageGraph(
-                rootInput: rootInput,
-                observabilityScope: observability.topScope
-            )
+            let graph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
             let dict = try await workspace.loadPluginImports(packageGraph: graph)
 
             var count = 0
@@ -1224,10 +1212,7 @@ final class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(
-                rootInput: rootInput,
-                observabilityScope: observability.topScope
-            )
+            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             // Find the build tool plugin.
@@ -1337,22 +1322,40 @@ final class PluginInvocationTests: XCTestCase {
             plugins.forEach { result.insert($0) }
         }
 
-        return try graph.invokeBuildToolPlugins(
-            pluginsPerTarget: pluginsPerModule,
-            pluginTools: mockPluginTools(
-                plugins: plugins,
-                fileSystem: fileSystem,
-                buildParameters: buildParameters,
-                hostTriple: hostTriple
-            ),
-            outputDir: outputDir,
-            buildParameters: buildParameters,
-            additionalFileRules: [],
-            toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
-            pkgConfigDirectories: [],
-            pluginScriptRunner: pluginScriptRunner,
-            observabilityScope: observabilityScope,
-            fileSystem: fileSystem
+        var pluginInvocationResults: [ResolvedModule.ID: (
+            target: ResolvedModule,
+            results: [BuildToolPluginInvocationResult]
+        )] = [:]
+
+        let pluginConfiguration = PluginConfiguration(
+            scriptRunner: pluginScriptRunner,
+            workDirectory: outputDir.parentDirectory,
+            disableSandbox: false
         )
+
+        for (moduleID, _) in pluginsPerModule {
+            let module = graph.allModules[moduleID]!
+
+            let results = try BuildPlan.invokeBuildToolPlugins(
+                for: module,
+                configuration: pluginConfiguration,
+                buildParameters: buildParameters,
+                modulesGraph: graph,
+                tools: mockPluginTools(
+                    plugins: plugins,
+                    fileSystem: fileSystem,
+                    buildParameters: buildParameters,
+                    hostTriple: hostTriple
+                ),
+                additionalFileRules: [],
+                pkgConfigDirectories: [],
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope
+            )
+
+            pluginInvocationResults[moduleID] = (target: module, results: results)
+        }
+
+        return pluginInvocationResults
     }
 }

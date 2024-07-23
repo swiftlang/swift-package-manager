@@ -16,13 +16,11 @@ import PackageModel
 import _InternalTestSupport
 import XCTest
 
-import class TSCBasic.InMemoryFileSystem
-
 @available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)
 final class ManifestLoaderCacheTests: XCTestCase {
 
     func testDBCaching() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         try await testWithTemporaryDirectory { path in
             let fileSystem = localFileSystem
@@ -118,7 +116,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testInMemoryCaching() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         let fileSystem = InMemoryFileSystem()
         let observability = ObservabilitySystem.makeForTesting()
@@ -209,7 +207,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testContentBasedCaching() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         try await testWithTemporaryDirectory { path in
             let manifest = """
@@ -269,8 +267,70 @@ final class ManifestLoaderCacheTests: XCTestCase {
         }
     }
 
+    func testCacheInvalidateOnBuildToolsFlags() async throws {
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
+
+        try await testWithTemporaryDirectory { path in
+            let fileSystem = InMemoryFileSystem()
+            let observability = ObservabilitySystem.makeForTesting()
+
+            let manifestPath = path.appending(components: "pkg", "Package.swift")
+            try fileSystem.createDirectory(manifestPath.parentDirectory, recursive: true)
+            try fileSystem.writeFileContents(
+                manifestPath,
+                string: """
+                    import PackageDescription
+                    let package = Package(
+                        name: "Trivial",
+                        targets: [
+                            .target(
+                                name: "foo",
+                                dependencies: []),
+                        ]
+                    )
+                    #if TEST_BUILD_FLAG
+                    package.targets[0].name = "bar"
+                    #endif
+                    """
+            )
+
+            try await check(expectCached: false, extraManifestFlags: [], targetName: "foo")
+            try await check(expectCached: true, extraManifestFlags: [], targetName: "foo")
+            // Cache key should take into account the extra flags.
+            try await check(expectCached: false, extraManifestFlags: ["-DTEST_BUILD_FLAG"], targetName: "bar")
+            try await check(expectCached: true, extraManifestFlags: ["-DTEST_BUILD_FLAG"], targetName: "bar")
+            // Cache should hit after back to original flags.
+            try await check(expectCached: true, extraManifestFlags: [], targetName: "foo")
+
+            func check(expectCached: Bool, extraManifestFlags: [String], targetName: String) async throws {
+                let delegate = ManifestTestDelegate()
+
+                let loader = ManifestLoader(
+                    toolchain: try UserToolchain.default,
+                    cacheDir: path,
+                    extraManifestFlags: extraManifestFlags,
+                    delegate: delegate
+                )
+
+                let manifest = try await XCTAsyncUnwrap(try await loader.load(
+                    manifestPath: manifestPath,
+                    packageKind: .root(manifestPath.parentDirectory),
+                    toolsVersion: .current,
+                    fileSystem: fileSystem,
+                    observabilityScope: observability.topScope
+                ))
+
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
+                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, expectCached ? 0 : 1)
+                XCTAssertEqual(manifest.displayName, "Trivial")
+                XCTAssertEqual(manifest.targets[0].name, targetName)
+            }
+        }
+    }
+
     func testCacheInvalidationOnEnv() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         try await testWithTemporaryDirectory { path in
             let fileSystem = InMemoryFileSystem()
@@ -337,7 +397,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testCacheDoNotInvalidationExpectedEnv() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         try await testWithTemporaryDirectory { path in
             let fileSystem = InMemoryFileSystem()
@@ -424,7 +484,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testInMemoryCacheHappyCase() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         let content = """
             import PackageDescription
@@ -576,6 +636,7 @@ private func makeMockManifests(
             toolsVersion: ToolsVersion.current,
             env: [:],
             swiftpmVersion: SwiftVersion.current.displayString,
+            extraManifestFlags: [],
             fileSystem: fileSystem
         )
         manifests[key] = ManifestLoader.EvaluationResult(

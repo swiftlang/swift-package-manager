@@ -15,6 +15,8 @@ import Basics
 import Dispatch
 import class Foundation.NSLock
 
+import struct PackageModel.CanonicalPackageURL
+
 import struct TSCBasic.ByteString
 import protocol TSCBasic.DiagnosticLocation
 import struct TSCBasic.FileInfo
@@ -201,10 +203,6 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         )
     }
 
-    public func repositoryExists(at directory: Basics.AbsolutePath) -> Bool {
-        return localFileSystem.isDirectory(directory)
-    }
-
     public func isValidDirectory(_ directory: Basics.AbsolutePath) throws -> Bool {
         let result = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
         return result == ".git" || result == "." || result == directory.pathString
@@ -212,7 +210,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
 
     public func isValidDirectory(_ directory: Basics.AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
         let remoteURL = try self.git.run(["-C", directory.pathString, "config", "--get", "remote.origin.url"])
-        return remoteURL == repository.url
+        return CanonicalPackageURL(remoteURL) == CanonicalPackageURL(repository.url)
     }
 
     public func copy(from sourcePath: Basics.AbsolutePath, to destinationPath: Basics.AbsolutePath) throws {

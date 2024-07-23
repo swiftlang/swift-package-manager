@@ -12,8 +12,15 @@
 
 import Basics
 
-/// Represents the result of running prebuild commands for a single plugin invocation for a target.
-public struct PrebuildCommandResult {
+@available(*,
+    deprecated,
+    renamed: "CommandPluginResult",
+    message: "renamed to unify terminology with the Swift Evolution proposal"
+)
+public typealias PrebuildCommandResult = CommandPluginResult
+
+/// Represents the result of running a command plugin for a single plugin invocation for a target.
+public struct CommandPluginResult {
     /// Paths of any derived files that should be included in the build.
     public var derivedFiles: [AbsolutePath]
     

@@ -104,21 +104,6 @@ struct BuildCommandOptions: ParsableArguments {
     /// If should link the Swift stdlib statically.
     @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically")
     public var shouldLinkStaticSwiftStdlib: Bool = false
-
-    /// Which testing libraries to use (and any related options.)
-    @OptionGroup()
-    var testLibraryOptions: TestLibraryOptions
-
-    func validate() throws {
-        // If --build-tests was not specified, it does not make sense to enable
-        // or disable either testing library.
-        if !buildTests {
-            if testLibraryOptions.explicitlyEnableXCTestSupport != nil
-                || testLibraryOptions.explicitlyEnableSwiftTestingLibrarySupport != nil {
-                throw StringError("pass --build-tests to build test targets")
-            }
-        }
-    }
 }
 
 /// swift-build command namespace
@@ -166,35 +151,12 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         var productsBuildParameters = try swiftCommandState.productsBuildParameters
         var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
 
-        // Clean out the code coverage directory that may contain stale
-        // profraw files from a previous run of the code coverage tool.
         if self.options.enableCodeCoverage {
-            try swiftCommandState.fileSystem.removeFileTree(swiftCommandState.productsBuildParameters.codeCovPath)
             productsBuildParameters.testingParameters.enableCodeCoverage = true
             toolsBuildParameters.testingParameters.enableCodeCoverage = true
         }
 
-        if case .allIncludingTests = subset {
-            func updateTestingParameters(of buildParameters: inout BuildParameters, library: BuildParameters.Testing.Library) {
-                buildParameters.testingParameters = .init(
-                    configuration: buildParameters.configuration,
-                    targetTriple: buildParameters.triple,
-                    enableCodeCoverage: buildParameters.testingParameters.enableCodeCoverage,
-                    enableTestability: buildParameters.testingParameters.enableTestability,
-                    experimentalTestOutput: buildParameters.testingParameters.experimentalTestOutput,
-                    forceTestDiscovery: globalOptions.build.enableTestDiscovery,
-                    testEntryPointPath: globalOptions.build.testEntryPointPath,
-                    library: library
-                )
-            }
-            for library in try options.testLibraryOptions.enabledTestingLibraries(swiftCommandState: swiftCommandState) {
-                updateTestingParameters(of: &productsBuildParameters, library: library)
-                updateTestingParameters(of: &toolsBuildParameters, library: library)
-                try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
-            }
-        } else {
-            try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
-        }
+        try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
     }
 
     private func build(

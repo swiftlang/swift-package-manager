@@ -39,8 +39,8 @@ import Darwin
 import Glibc
 #elseif canImport(Musl)
 import Musl
-#elseif canImport(Android)
-import Android
+#elseif canImport(Bionic)
+import Bionic
 #endif
 
 import func TSCBasic.exec
@@ -53,7 +53,7 @@ import var TSCBasic.stderrStream
 import class TSCBasic.TerminalController
 import class TSCBasic.ThreadSafeOutputByteStream
 
-import TSCUtility // cannot be scoped because of `String.spm_mangleToC99ExtendedIdentifier()`
+import var TSCUtility.verbosity
 
 typealias Diagnostic = Basics.Diagnostic
 
@@ -503,6 +503,7 @@ public final class SwiftCommandState {
         return (identities, targets)
     }
 
+
     private func getEditsDirectory() throws -> AbsolutePath {
         // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
@@ -773,6 +774,13 @@ public final class SwiftCommandState {
             observabilityScope.emit(warning: Self.entitlementsMacOSWarning)
         }
 
+        let prepareForIndexingMode: BuildParameters.PrepareForIndexingMode =
+            switch (options.build.prepareForIndexing, options.build.prepareForIndexingNoLazy) {
+                case (false, _): .off
+                case (true, false): .on
+                case (true, true): .noLazy
+            }
+
         return try BuildParameters(
             destination: destination,
             dataPath: dataPath,
@@ -786,7 +794,7 @@ public final class SwiftCommandState {
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
             isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
-            prepareForIndexing: prepareForIndexing ?? options.build.prepareForIndexing,
+            prepareForIndexing: prepareForIndexingMode,
             debuggingParameters: .init(
                 debugInfoFormat: options.build.debugInfoFormat.buildParameter,
                 triple: triple,

@@ -149,16 +149,6 @@ public struct PackageIndexAndCollections: Closable {
         try await self.index.listPackages(offset: offset, limit: limit)
     }
 
-    /// - SeeAlso: `PackageIndexProtocol.listPackages`
-    @available(*, noasync, message: "Use the async alternative")
-    public func listPackagesInIndex(
-        offset: Int,
-        limit: Int,
-        callback: @escaping (Result<PackageCollectionsModel.PaginatedPackageList, Error>) -> Void
-    ) {
-        self.index.listPackages(offset: offset, limit: limit, callback: callback)
-    }
-
 
     // MARK: - APIs that make use of both package index and collections
 
@@ -323,13 +313,12 @@ struct PackageIndexMetadataProvider: PackageMetadataProvider, Closable {
 
     func get(
         identity: PackageIdentity,
-        location: String,
-        callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) -> Void
-    ) {
+        location: String
+    ) async -> (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) {
         if self.index.isEnabled {
-            self.index.get(identity: identity, location: location, callback: callback)
+            return await self.index.get(identity: identity, location: location)
         } else {
-            self.alternative.get(identity: identity, location: location, callback: callback)
+            return await self.alternative.get(identity: identity, location: location)
         }
     }
     

@@ -38,17 +38,6 @@ extension BuildParameters {
             explicitlySpecifiedPath: AbsolutePath?
         )
 
-        /// Whether this test product style requires additional, derived test targets, i.e. there must be additional test targets, beyond those
-        /// listed explicitly in the package manifest, created in order to add additional behavior (such as entry point logic).
-        public var requiresAdditionalDerivedTestTargets: Bool {
-            switch self {
-            case .loadableBundle:
-                return false
-            case .entryPointExecutable:
-                return true
-            }
-        }
-
         /// The explicitly-specified entry point file path, if this style of test product supports it and a path was specified.
         public var explicitlySpecifiedEntryPointPath: AbsolutePath? {
             switch self {
@@ -97,25 +86,6 @@ extension BuildParameters {
         /// The style of test product to produce.
         public var testProductStyle: TestProductStyle
 
-        /// The testing libraries supported by the package manager.
-        public enum Library: String, Codable, CustomStringConvertible {
-            /// The XCTest library.
-            ///
-            /// This case represents both the open-source swift-corelibs-xctest
-            /// package and Apple's XCTest framework that ships with Xcode.
-            case xctest = "XCTest"
-
-            /// The swift-testing library.
-            case swiftTesting = "swift-testing"
-
-            public var description: String {
-                rawValue
-            }
-        }
-
-        /// Which testing library to use for this build.
-        public var library: Library
-
         public init(
             configuration: BuildConfiguration,
             targetTriple: Triple,
@@ -123,8 +93,7 @@ extension BuildParameters {
             enableTestability: Bool? = nil,
             experimentalTestOutput: Bool = false,
             forceTestDiscovery: Bool = false,
-            testEntryPointPath: AbsolutePath? = nil,
-            library: Library = .xctest
+            testEntryPointPath: AbsolutePath? = nil
         ) {
             self.enableCodeCoverage = enableCodeCoverage
             self.experimentalTestOutput = experimentalTestOutput
@@ -136,11 +105,10 @@ extension BuildParameters {
             // when building and testing in release mode, one can use the '--disable-testable-imports' flag
             // to disable testability in `swift test`, but that requires that the tests do not use the testable imports feature
             self.enableTestability =  enableTestability ?? (.debug == configuration)
-            self.testProductStyle = (targetTriple.isDarwin() && library == .xctest) ? .loadableBundle : .entryPointExecutable(
+            self.testProductStyle = targetTriple.isDarwin() ? .loadableBundle : .entryPointExecutable(
                 explicitlyEnabledDiscovery: forceTestDiscovery,
                 explicitlySpecifiedPath: testEntryPointPath
             )
-            self.library = library
         }
     }
 }

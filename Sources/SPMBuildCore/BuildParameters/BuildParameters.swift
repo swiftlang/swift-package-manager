@@ -16,6 +16,17 @@ import PackageModel
 import PackageGraph
 
 public struct BuildParameters: Encodable {
+    public enum PrepareForIndexingMode: Encodable {
+        /// Perform a normal build and don't prepare for indexing
+        case off
+        /// Prepare for indexing but don't pass `-experimental-lazy-typecheck`.
+        ///
+        /// This is intended as a workaround if lazy type checking is causing compiler crashes.
+        case noLazy
+        /// Do minimal build to prepare for indexing
+        case on
+    }
+
     /// Mode for the indexing-while-building feature.
     public enum IndexStoreMode: String, Encodable {
         /// Index store should be enabled.
@@ -115,7 +126,7 @@ public struct BuildParameters: Encodable {
     public var shouldSkipBuilding: Bool
 
     /// Do minimal build to prepare for indexing
-    public var prepareForIndexing: Bool
+    public var prepareForIndexing: PrepareForIndexingMode
 
     /// Build parameters related to debugging.
     public var debuggingParameters: Debugging
@@ -147,7 +158,7 @@ public struct BuildParameters: Encodable {
         indexStoreMode: IndexStoreMode = .auto,
         isXcodeBuildSystemEnabled: Bool = false,
         shouldSkipBuilding: Bool = false,
-        prepareForIndexing: Bool = false,
+        prepareForIndexing: PrepareForIndexingMode = .off,
         debuggingParameters: Debugging? = nil,
         driverParameters: Driver = .init(),
         linkingParameters: Linking = .init(),
@@ -282,16 +293,11 @@ public struct BuildParameters: Encodable {
             guard !self.triple.isWasm else {
                 return try RelativePath(validating: "\(product.name).wasm")
             }
-            switch testingParameters.library {
-            case .xctest:
-                let base = "\(product.name).xctest"
-                if self.triple.isDarwin() {
-                    return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
-                } else {
-                    return try RelativePath(validating: base)
-                }
-            case .swiftTesting:
-                return try RelativePath(validating: "\(product.name).swift-testing")
+            let base = "\(product.name).xctest"
+            if self.triple.isDarwin() {
+                return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
+            } else {
+                return try RelativePath(validating: base)
             }
         case .macro:
             #if BUILD_MACROS_AS_DYLIBS

@@ -18,7 +18,7 @@ import struct PackageGraph.ModulesGraph
 import struct PackageGraph.ResolvedModule
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildToolPluginInvocationResult
-import struct SPMBuildCore.PrebuildCommandResult
+import struct SPMBuildCore.CommandPluginResult
 
 @available(*, deprecated, renamed: "ClangModuleBuildDescription")
 public typealias ClangTargetBuildDescription = ClangModuleBuildDescription
@@ -120,7 +120,7 @@ public final class ClangModuleBuildDescription {
         additionalFileRules: [FileRuleDescription] = [],
         buildParameters: BuildParameters,
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult] = [],
-        prebuildCommandResults: [PrebuildCommandResult] = [],
+        prebuildCommandResults: [CommandPluginResult] = [],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
