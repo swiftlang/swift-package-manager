@@ -271,22 +271,34 @@ public struct BuildParameters: Encodable {
         return try buildPath.appending(binaryRelativePath(for: product))
     }
 
+    public func macroBinaryPath(_ module: ResolvedModule) throws -> AbsolutePath {
+        assert(module.type == .macro)
+        #if BUILD_MACROS_AS_DYLIBS
+        return buildPath.appending(try dynamicLibraryPath(for: module.name))
+        #else
+        return buildPath.appending(try executablePath(for: module.name))
+        #endif
+    }
+
     /// Returns the path to the dynamic library of a product for the current build parameters.
-    func potentialDynamicLibraryPath(for product: ResolvedProduct) throws -> RelativePath {
-        try RelativePath(validating: "\(self.triple.dynamicLibraryPrefix)\(product.name)\(self.suffix)\(self.triple.dynamicLibraryExtension)")
+    private func dynamicLibraryPath(for name: String) throws -> RelativePath {
+        try RelativePath(validating: "\(self.triple.dynamicLibraryPrefix)\(name)\(self.suffix)\(self.triple.dynamicLibraryExtension)")
+    }
+
+    /// Returns the path to the executable of a product for the current build parameters.
+    private func executablePath(for name: String) throws -> RelativePath {
+        try RelativePath(validating: "\(name)\(self.suffix)\(self.triple.executableExtension)")
     }
 
     /// Returns the path to the binary of a product for the current build parameters, relative to the build directory.
     public func binaryRelativePath(for product: ResolvedProduct) throws -> RelativePath {
-        let potentialExecutablePath = try RelativePath(validating: "\(product.name)\(self.suffix)\(self.triple.executableExtension)")
-
         switch product.type {
         case .executable, .snippet:
-            return potentialExecutablePath
+            return try executablePath(for: product.name)
         case .library(.static):
             return try RelativePath(validating: "lib\(product.name)\(self.suffix)\(self.triple.staticLibraryExtension)")
         case .library(.dynamic):
-            return try potentialDynamicLibraryPath(for: product)
+            return try dynamicLibraryPath(for: product.name)
         case .library(.automatic), .plugin:
             fatalError()
         case .test:
@@ -301,9 +313,9 @@ public struct BuildParameters: Encodable {
             }
         case .macro:
             #if BUILD_MACROS_AS_DYLIBS
-            return try potentialDynamicLibraryPath(for: product)
+            return try dynamicLibraryPath(for: product.name)
             #else
-            return potentialExecutablePath
+            return try executablePath(for: product.name)
             #endif
         }
     }
