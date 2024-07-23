@@ -3033,7 +3033,7 @@ final class PackageBuilderTests: XCTestCase {
             ]
         )
 
-        PackageBuilderTester(manifest, path: root, supportXCBuildTypes: true, in: fs) { result, diagnostics in
+        PackageBuilderTester(manifest, path: root, supportXCBuildTypes: false, in: fs) { result, diagnostics in
             result.checkModule("Foo") { result in
                 result.checkSources(sources: ["foo.swift"])
                 result.checkResources(resources: [
