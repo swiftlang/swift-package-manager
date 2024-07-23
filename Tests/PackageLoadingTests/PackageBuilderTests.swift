@@ -3010,6 +3010,41 @@ final class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testXCPrivacyNoDiagnostics() throws {
+        // In SwiftTools 6.0 and later, xcprivacy file types should not produce diagnostics messages when included
+        // as resources and built with `swift build`.
+
+        let root: AbsolutePath = "/Foo"
+        let foo = root.appending(components: "Sources", "Foo")
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            foo.appending(components: "foo.swift").pathString,
+            foo.appending(components: "PrivacyInfo.xcprivacy").pathString
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "Foo",
+            toolsVersion: .v6_0,
+            targets: [
+                try TargetDescription(
+                    name: "Foo",
+                    resources: [.init(rule: .copy, path: "PrivacyInfo.xcprivacy")]
+                ),
+            ]
+        )
+
+        PackageBuilderTester(manifest, path: root, supportXCBuildTypes: true, in: fs) { result, diagnostics in
+            result.checkModule("Foo") { result in
+                result.checkSources(sources: ["foo.swift"])
+                result.checkResources(resources: [
+                    foo.appending(components: "PrivacyInfo.xcprivacy").pathString,
+                ])
+            }
+
+            diagnostics.checkIsEmpty()
+        }
+    }
+
     func testSnippetsLinkProductLibraries() throws {
         let root = AbsolutePath("/Foo")
         let internalSourcesDir = root.appending(components: "Sources", "Internal")
