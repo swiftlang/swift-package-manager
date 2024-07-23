@@ -252,8 +252,9 @@ public final class Package {
     ///   - swiftLanguageVersions: The list of Swift versions with which this package is compatible.
     ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
     ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
+    @_disfavoredOverload
     @available(_PackageDescription, introduced: 5.3)
-    @available(_PackageDescription, obsoleted: 6, renamed:"init(name:defaultLocalization:platforms:pkgConfig:providers:products:dependencies:targets:swiftLanguageModes:cLanguageStandard:cxxLanguageStandard:)")
+    @available(_PackageDescription, deprecated: 6, renamed:"init(name:defaultLocalization:platforms:pkgConfig:providers:products:dependencies:targets:swiftLanguageModes:cLanguageStandard:cxxLanguageStandard:)")
     public init(
         name: String,
         defaultLocalization: LanguageTag? = nil,
