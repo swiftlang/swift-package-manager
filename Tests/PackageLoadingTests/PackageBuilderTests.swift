@@ -38,6 +38,27 @@ final class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testXCPrivacyIgnored() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/foo/PrivacyInfo.xcprivacy",
+            "/Sources/foo/Foo.swift")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            path: .root,
+            targets: [
+                try TargetDescription(name: "foo"),
+            ]
+        )
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { module in
+                module.check(c99name: "foo", type: .library)
+                module.checkSources(root: "/Sources/foo", paths: "Foo.swift")
+                module.checkResources(resources: [])
+            }
+        }
+    }
+
     func testMixedSources() throws {
         let foo: AbsolutePath = "/Sources/foo"
 
@@ -2949,7 +2970,81 @@ final class PackageBuilderTests: XCTestCase {
             }
         }
     }
-    
+
+    func testXcodeResources6_0AndLater() throws {
+        // In SwiftTools 6.0 and later, xcprivacy file types are only supported when explicitly passed via additionalFileRules.
+
+        let root: AbsolutePath = "/Foo"
+        let foo = root.appending(components: "Sources", "Foo")
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            foo.appending(components: "foo.swift").pathString,
+            foo.appending(components: "Foo.xcassets").pathString,
+            foo.appending(components: "Foo.xcstrings").pathString,
+            foo.appending(components: "Foo.xib").pathString,
+            foo.appending(components: "Foo.xcdatamodel").pathString,
+            foo.appending(components: "Foo.metal").pathString,
+            foo.appending(components: "PrivacyInfo.xcprivacy").pathString
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "Foo",
+            toolsVersion: .v6_0,
+            targets: [
+                try TargetDescription(name: "Foo"),
+            ]
+        )
+
+        PackageBuilderTester(manifest, path: root, supportXCBuildTypes: true, in: fs) { result, diagnostics in
+            result.checkModule("Foo") { result in
+                result.checkSources(sources: ["foo.swift"])
+                result.checkResources(resources: [
+                    foo.appending(components: "Foo.xib").pathString,
+                    foo.appending(components: "Foo.xcdatamodel").pathString,
+                    foo.appending(components: "Foo.xcassets").pathString,
+                    foo.appending(components: "Foo.xcstrings").pathString,
+                    foo.appending(components: "Foo.metal").pathString,
+                    foo.appending(components: "PrivacyInfo.xcprivacy").pathString,
+                ])
+            }
+        }
+    }
+
+    func testXCPrivacyNoDiagnostics() throws {
+        // In SwiftTools 6.0 and later, xcprivacy file types should not produce diagnostics messages when included
+        // as resources and built with `swift build`.
+
+        let root: AbsolutePath = "/Foo"
+        let foo = root.appending(components: "Sources", "Foo")
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            foo.appending(components: "foo.swift").pathString,
+            foo.appending(components: "PrivacyInfo.xcprivacy").pathString
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "Foo",
+            toolsVersion: .v6_0,
+            targets: [
+                try TargetDescription(
+                    name: "Foo",
+                    resources: [.init(rule: .copy, path: "PrivacyInfo.xcprivacy")]
+                ),
+            ]
+        )
+
+        PackageBuilderTester(manifest, path: root, supportXCBuildTypes: false, in: fs) { result, diagnostics in
+            result.checkModule("Foo") { result in
+                result.checkSources(sources: ["foo.swift"])
+                result.checkResources(resources: [
+                    foo.appending(components: "PrivacyInfo.xcprivacy").pathString,
+                ])
+            }
+
+            diagnostics.checkIsEmpty()
+        }
+    }
+
     func testSnippetsLinkProductLibraries() throws {
         let root = AbsolutePath("/Foo")
         let internalSourcesDir = root.appending(components: "Sources", "Internal")
