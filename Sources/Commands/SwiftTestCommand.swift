@@ -257,7 +257,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
         // Run XCTest.
         if options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
-            // Validate XCTest available on Darwin-based systems. If it's not available and we're hitting this code
+            // Validate XCTest is available on Darwin-based systems. If it's not available and we're hitting this code
             // path, that means the developer must have explicitly passed --enable-xctest (or the toolchain is
             // corrupt, I suppose.)
             let toolchain = try swiftCommandState.getTargetToolchain()

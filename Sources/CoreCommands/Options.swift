@@ -599,6 +599,11 @@ public struct TestLibraryOptions: ParsableArguments {
           help: .private)
     public var explicitlyEnableExperimentalSwiftTestingLibrarySupport: Bool?
 
+    /// The common implementation for `isEnabled()` and `isExplicitlyEnabled()`.
+    ///
+    /// It is intentional that `isEnabled()` is not simply this function with a
+    /// default value for the `default` argument. There's no "true" default
+    /// value to use; it depends on the semantics the caller is interested in.
     private func isEnabled(_ library: TestingLibrary, `default`: Bool, swiftCommandState: SwiftCommandState) -> Bool {
         switch library {
         case .xctest:
