@@ -16,9 +16,16 @@ import struct Basics.AbsolutePath
 import struct LLBuildManifest.TestDiscoveryTool
 import struct LLBuildManifest.TestEntryPointTool
 import struct PackageGraph.ModulesGraph
+
+@_spi(SwiftPMInternal)
 import struct PackageGraph.ResolvedPackage
+
+@_spi(SwiftPMInternal)
 import struct PackageGraph.ResolvedProduct
+
+@_spi(SwiftPMInternal)
 import struct PackageGraph.ResolvedModule
+
 import struct PackageModel.Sources
 import class PackageModel.SwiftModule
 import class PackageModel.Module

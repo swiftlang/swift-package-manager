@@ -144,7 +144,8 @@ public struct ResolvedModule {
     /// The list of platforms that are supported by this module.
     public let supportedPlatforms: [SupportedPlatform]
 
-    private let platformVersionProvider: PlatformVersionProvider
+    @_spi(SwiftPMInternal)
+    public let platformVersionProvider: PlatformVersionProvider
 
     /// Triple for which this resolved module should be compiled for.
     public package(set) var buildTriple: BuildTriple {
