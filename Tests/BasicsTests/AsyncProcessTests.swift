@@ -12,6 +12,8 @@ import _InternalTestSupport
 import Basics
 import XCTest
 
+import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
+
 import class TSCBasic.BufferedOutputByteStream
 import struct TSCBasic.ByteString
 import struct TSCBasic.Format
