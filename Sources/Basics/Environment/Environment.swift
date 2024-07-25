@@ -26,7 +26,7 @@ import Darwin.C
 #endif
 
 // FIXME: Use Synchronization.Mutex when available
-class Mutex<T>: @unchecked Sendable {
+private final class Mutex<T>: @unchecked Sendable {
     var lock: NSLock
     var value: T
 
@@ -118,7 +118,7 @@ extension Environment {
 // MARK: - Global Environment
 
 extension Environment {
-    static let _cachedCurrent = Mutex<Self?>(value: nil)
+    fileprivate static let _cachedCurrent = Mutex<Self?>(value: nil)
 
     /// Vends a copy of the current process's environment variables.
     ///
