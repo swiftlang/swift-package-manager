@@ -393,6 +393,53 @@ final class AsyncProcessTests: XCTestCase {
             }
         }
     }
+
+    func testAsyncStream() async throws {
+        let (stdoutStream, stdoutContinuation) = AsyncProcess.OutputStream.makeStream()
+        let (stderrStream, stderrContinuation) = AsyncProcess.OutputStream.makeStream()
+
+        let process = AsyncProcess(
+            scriptName: "echo",
+            outputRedirection: .stream {
+                stdoutContinuation.yield($0)
+            } stderr: {
+                stderrContinuation.yield($0)
+            }
+        )
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            let stdin = try process.launch()
+
+            group.addTask {
+                var counter = 0
+                stdin.write("Hello \(counter)\n")
+                stdin.flush()
+
+                for try await output in stdoutStream {
+                    XCTAssertEqual(output, .init("Hello \(counter)\n".utf8))
+                    counter += 1
+
+                    stdin.write(.init("Hello \(counter)\n".utf8))
+                    stdin.flush()
+                }
+
+                try stdin.close()
+            }
+
+            group.addTask {
+                for try await output in stderrStream {
+                    XCTAssertTrue(output.isEmpty)
+                }
+            }
+
+            defer {
+                stdoutContinuation.finish()
+                stderrContinuation.finish()
+            }
+
+            try await process.waitUntilExit()
+        }
+    }
 }
 
 extension AsyncProcess {
