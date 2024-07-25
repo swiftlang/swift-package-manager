@@ -589,7 +589,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
         try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v5_9)
     }
 
-    func testManifestGenerationWithSwiftLanguageVersion() async throws {
+    func testManifestGenerationWithSwiftLanguageMode() async throws {
         try UserToolchain.default.skipUnlessAtLeastSwift6()
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
