@@ -716,6 +716,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             )
         }
 
+        @Sendable
         func validateManifest(
             manifestFile: String,
             in archivePath: AbsolutePath,
