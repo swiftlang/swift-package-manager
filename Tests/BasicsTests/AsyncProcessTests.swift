@@ -423,13 +423,19 @@ final class AsyncProcessTests: XCTestCase {
                     stdin.flush()
                 }
 
+                XCTAssertEqual(counter, 5)
+
                 try stdin.close()
             }
 
             group.addTask {
+                var counter = 0
                 for try await output in stderrStream {
+                    counter += 1
                     XCTAssertTrue(output.isEmpty)
                 }
+
+                XCTAssertEqual(counter, 0)
             }
 
             defer {
