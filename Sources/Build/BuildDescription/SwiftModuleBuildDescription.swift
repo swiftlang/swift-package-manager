@@ -49,6 +49,9 @@ public final class SwiftModuleBuildDescription {
     /// The build parameters for this target.
     let buildParameters: BuildParameters
 
+    /// The build parameters for the macro dependencies of this target.
+    let macroBuildParameters: BuildParameters
+
     /// Path to the temporary directory for this target.
     let tempsPath: AbsolutePath
 
@@ -237,8 +240,13 @@ public final class SwiftModuleBuildDescription {
     /// The results of running any prebuild commands for this target.
     public let prebuildCommandResults: [CommandPluginResult]
 
-    /// Any macro products that this target requires to build.
-    public let requiredMacroProducts: [ProductBuildDescription]
+    public var requiredMacros: [ResolvedModule] {
+        get throws {
+            try self.target.recursiveModuleDependencies().filter {
+                $0.type == .macro
+            }
+        }
+    }
 
     /// ObservabilityScope with which to emit diagnostics
     private let observabilityScope: ObservabilityScope
@@ -256,9 +264,9 @@ public final class SwiftModuleBuildDescription {
         toolsVersion: ToolsVersion,
         additionalFileRules: [FileRuleDescription] = [],
         buildParameters: BuildParameters,
+        macroBuildParameters: BuildParameters,
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult] = [],
         prebuildCommandResults: [CommandPluginResult] = [],
-        requiredMacroProducts: [ProductBuildDescription] = [],
         testTargetRole: TestTargetRole? = nil,
         shouldGenerateTestObservation: Bool = false,
         shouldDisableSandbox: Bool,
@@ -274,6 +282,7 @@ public final class SwiftModuleBuildDescription {
         self.target = target
         self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
+        self.macroBuildParameters = macroBuildParameters
 
         // Unless mentioned explicitly, use the target type to determine if this is a test target.
         if let testTargetRole {
@@ -288,7 +297,6 @@ public final class SwiftModuleBuildDescription {
         self.derivedSources = Sources(paths: [], root: self.tempsPath.appending("DerivedSources"))
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
-        self.requiredMacroProducts = requiredMacroProducts
         self.shouldGenerateTestObservation = shouldGenerateTestObservation
         self.shouldDisableSandbox = shouldDisableSandbox
         self.fileSystem = fileSystem
@@ -415,17 +423,17 @@ public final class SwiftModuleBuildDescription {
         var args = [String]()
 
         #if BUILD_MACROS_AS_DYLIBS
-        self.requiredMacroProducts.forEach { macro in
-            args += ["-Xfrontend", "-load-plugin-library", "-Xfrontend", macro.binaryPath.pathString]
+        try self.requiredMacros.forEach { macro in
+            args += [
+                "-Xfrontend", "-load-plugin-library",
+                "-Xfrontend", macroBuildParameters.macroBinaryPath(macro).pathString
+            ]
         }
         #else
-        try self.requiredMacroProducts.forEach { macro in
-            if let macroTarget = macro.product.modules.first {
-                let executablePath = try macro.binaryPath.pathString
-                args += ["-Xfrontend", "-load-plugin-executable", "-Xfrontend", "\(executablePath)#\(macroTarget.c99name)"]
-            } else {
-                throw InternalError("macro product \(macro.product.name) has no targets") // earlier validation should normally catch this
-            }
+        let macroModules = try self.requiredMacros
+        try macroModules.forEach { macro in
+            let executablePath = try macroBuildParameters.macroBinaryPath(macro).pathString
+            args += ["-Xfrontend", "-load-plugin-executable", "-Xfrontend", "\(executablePath)#\(macro.c99name)"]
         }
         #endif
 
@@ -439,7 +447,7 @@ public final class SwiftModuleBuildDescription {
                 args += ["-disable-sandbox"]
             } else {
                 // If there's at least one macro being used, we warn about our inability to disable sandboxing.
-                if !self.requiredMacroProducts.isEmpty {
+                if !macroModules.isEmpty {
                     observabilityScope.emit(warning: "cannot disable sandboxing for Swift compilation because the selected toolchain does not support it")
                 }
             }

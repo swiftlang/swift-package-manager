@@ -498,9 +498,12 @@ extension LLBuildManifestBuilder {
 
         let additionalInputs = try self.addBuildToolPlugins(.swift(target))
 
-        // Depend on any required macro product's output.
-        try target.requiredMacroProducts.forEach { macro in
-            try inputs.append(.virtual(macro.llbuildTargetName))
+        // Depend on any required macro's output.
+        try target.requiredMacros.forEach { macro in
+            inputs.append(.virtual(getLLBuildTargetName(
+                macro: macro,
+                buildParameters: target.macroBuildParameters
+            )))
         }
 
         return inputs + additionalInputs

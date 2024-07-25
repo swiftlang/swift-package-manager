@@ -14,6 +14,7 @@ import struct Basics.AbsolutePath
 import struct Basics.InternalError
 import struct LLBuildManifest.Node
 import struct SPMBuildCore.BuildParameters
+import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedProduct
 
 extension LLBuildManifestBuilder {
@@ -138,31 +139,71 @@ extension ProductBuildDescription {
     }
 }
 
+fileprivate func llbuildNameWithoutExtension(
+    for product: String,
+    buildParameters: BuildParameters
+) -> String {
+    "\(product)-\(buildParameters.triple.tripleString)-\(buildParameters.buildConfig)\(buildParameters.suffix)"
+}
+
+fileprivate func executableName(
+    for product: String,
+    buildParameters: BuildParameters
+) -> String {
+    "\(llbuildNameWithoutExtension(for: product, buildParameters: buildParameters)).exe"
+}
+
+fileprivate func dynamicLibraryName(
+    for product: String,
+    buildParameters: BuildParameters
+) -> String {
+    "\(llbuildNameWithoutExtension(for: product, buildParameters: buildParameters)).dylib"
+}
+
+fileprivate func staticLibraryName(
+    for product: String,
+    buildParameters: BuildParameters
+) -> String {
+    "\(llbuildNameWithoutExtension(for: product, buildParameters: buildParameters)).a"
+}
+
+fileprivate func testName(
+    for testProduct: String,
+    buildParameters: BuildParameters
+) -> String {
+    "\(llbuildNameWithoutExtension(for: testProduct, buildParameters: buildParameters)).test"
+}
+
+func getLLBuildTargetName(
+    macro: ResolvedModule,
+    buildParameters: BuildParameters
+) -> String {
+    assert(macro.type == .macro)
+    #if BUILD_MACROS_AS_DYLIBS
+    return dynamicLibraryName(for: macro.name, buildParameters: buildParameters)
+    #else
+    return executableName(for: macro.name, buildParameters: buildParameters)
+    #endif
+}
+
 extension ResolvedProduct {
     public func getLLBuildTargetName(buildParameters: BuildParameters) throws -> String {
-        let triple = buildParameters.triple.tripleString
-        let config = buildParameters.buildConfig
-        let suffix = buildParameters.suffix
-        let potentialExecutableTargetName = "\(name)-\(triple)-\(config)\(suffix).exe"
-        let potentialLibraryTargetName = "\(name)-\(triple)-\(config)\(suffix).dylib"
-
         switch type {
         case .library(.dynamic):
-            return potentialLibraryTargetName
+            return dynamicLibraryName(for: self.name, buildParameters: buildParameters)
         case .test:
-            return "\(name)-\(triple)-\(config)\(suffix).test"
+            return testName(for: self.name, buildParameters: buildParameters)
         case .library(.static):
-            return "\(name)-\(triple)-\(config)\(suffix).a"
+            return staticLibraryName(for: self.name, buildParameters: buildParameters)
         case .library(.automatic):
             throw InternalError("automatic library not supported")
         case .executable, .snippet:
-            return potentialExecutableTargetName
+            return executableName(for: self.name, buildParameters: buildParameters)
         case .macro:
-            #if BUILD_MACROS_AS_DYLIBS
-            return potentialLibraryTargetName
-            #else
-            return potentialExecutableTargetName
-            #endif
+            guard let macroModule = self.modules.first else {
+                throw InternalError("macro product \(self.name) has no targets")
+            }
+            return Build.getLLBuildTargetName(macro: macroModule, buildParameters: buildParameters)
         case .plugin:
             throw InternalError("unexpectedly asked for the llbuild target name of a plugin product")
         }
