@@ -402,7 +402,7 @@ public struct SwiftSetting: Sendable {
       _ condition: BuildSettingCondition? = nil
     ) -> SwiftSetting {
         return SwiftSetting(
-            name: "swiftLanguageVersion", value: [.init(describing: version)], condition: condition)
+            name: "swiftLanguageMode", value: [.init(describing: version)], condition: condition)
     }
 
     /// Defines a `-language-mode` to pass  to the
