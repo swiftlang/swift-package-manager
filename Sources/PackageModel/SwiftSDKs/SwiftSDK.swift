@@ -72,7 +72,7 @@ extension SwiftSDKError: CustomStringConvertible {
         switch self {
         case let .checksumInvalid(computed, provided):
             return """
-            Computed archive checksum `\(computed) does not match the provided checksum `\(provided)`.
+            Computed archive checksum `\(computed)` does not match the provided checksum `\(provided)`.
             """
 
         case .checksumNotProvided(let url):
