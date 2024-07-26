@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import func XCTest.XCTAssertTrue
 import func XCTest.XCTAssertEqual
 import func XCTest.XCTFail
 
@@ -161,6 +162,13 @@ public class DiagnosticsTestResult {
 
     init(_ diagnostics: [Basics.Diagnostic]) {
         self.uncheckedDiagnostics = diagnostics
+    }
+
+    package func checkIsEmpty(
+        file: StaticString = #file,
+        line: UInt = #line
+    ) {
+        XCTAssertTrue(self.uncheckedDiagnostics.isEmpty, file: file, line: line)
     }
 
     @discardableResult

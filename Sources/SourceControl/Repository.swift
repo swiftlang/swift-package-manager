@@ -89,9 +89,6 @@ public protocol RepositoryProvider: Cancellable {
     /// - Throws: If there is any error fetching the repository.
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler?) throws
 
-    /// Returns true if a  repository exists at `path`
-    func repositoryExists(at path: AbsolutePath) throws -> Bool
-
     /// Open the given repository.
     ///
     /// - Parameters:

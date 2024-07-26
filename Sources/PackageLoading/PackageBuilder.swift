@@ -557,16 +557,6 @@ public final class PackageBuilder {
                     throw ModuleError.artifactNotFound(moduleName: target.name, expectedArtifactName: target.name)
                 }
                 return artifact.path
-            } else if let targetPath = target.path, target.type == .providedLibrary {
-                guard let path = try? AbsolutePath(validating: targetPath) else {
-                    throw ModuleError.invalidCustomPath(moduleName: target.name, path: targetPath)
-                }
-
-                if !self.fileSystem.isDirectory(path) {
-                    throw ModuleError.unsupportedTargetPath(targetPath)
-                }
-
-                return path
             } else if let subpath = target.path { // If there is a custom path defined, use that.
                 if subpath == "" || subpath == "." {
                     return self.packagePath
@@ -880,11 +870,6 @@ public final class PackageBuilder {
                 path: potentialModule.path,
                 origin: artifactOrigin
             )
-        } else if potentialModule.type == .providedLibrary {
-            return ProvidedLibraryModule(
-                name: potentialModule.name,
-                path: potentialModule.path
-            )
         }
 
         // Check for duplicate target dependencies
@@ -1197,7 +1182,7 @@ public final class PackageBuilder {
 
                 values = ["-enable-experimental-feature", value]
 
-            case .swiftLanguageVersion(let version):
+            case .swiftLanguageMode(let version):
                 switch setting.tool {
                 case .c, .cxx, .linker:
                     throw InternalError("only Swift supports swift language version")

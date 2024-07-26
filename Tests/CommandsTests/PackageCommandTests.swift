@@ -21,13 +21,12 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
-import SPMTestSupport
+import _InternalTestSupport
 import Workspace
 import XCTest
 
 import struct TSCBasic.ByteString
 import class TSCBasic.BufferedOutputByteStream
-import class TSCBasic.InMemoryFileSystem
 import enum TSCBasic.JSON
 import class Basics.AsyncProcess
 
@@ -50,8 +49,9 @@ final class PackageCommandTests: CommandsTestCase {
     }
 
     func testUsage() async throws {
+        throw XCTSkip("rdar://131126477")
         do {
-            _ = try await execute(["-help"])
+            _ = try await execute(["-halp"])
             XCTFail("expecting `execute` to fail")
         } catch SwiftPMError.executionFailure(_, _, let stderr) {
             XCTAssertMatch(stderr, .contains("Usage: swift package"))
@@ -103,7 +103,7 @@ final class PackageCommandTests: CommandsTestCase {
         }
     }
 
-    func testUnknownSubommand() async throws {
+    func testUnknownSubcommand() async throws {
         try await fixture(name: "Miscellaneous/ExeTest") { fixturePath in
             await XCTAssertThrowsCommandExecutionError(try await execute(["foo"], packagePath: fixturePath)) { error in
                 XCTAssertMatch(error.stderr, .contains("Unknown subcommand or plugin name ‘foo’"))
@@ -1744,7 +1744,7 @@ final class PackageCommandTests: CommandsTestCase {
                 }
                 XCTAssertMatch(stderr, .contains("This is text from the plugin"))
                 XCTAssertMatch(stderr, .contains("error: This is an error from the plugin"))
-                XCTAssertMatch(stderr, .contains("build stopped due to build-tool plugin failures"))
+                XCTAssertMatch(stderr, .contains("build planning stopped due to build-tool plugin failures"))
             }
         }
     }
@@ -3399,10 +3399,7 @@ final class PackageCommandTests: CommandsTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let _ = try workspace.loadPackageGraph(
-                rootInput: rootInput,
-                observabilityScope: observability.topScope
-            )
+            let _ = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -19,13 +19,11 @@ import PackageGraph
 import PackageLoading
 @testable import PackageModel
 import SPMBuildCore
-import SPMTestSupport
+import _InternalTestSupport
 @testable import XCBuildSupport
 import XCTest
 
-import class TSCBasic.InMemoryFileSystem
-
-class PIFBuilderTests: XCTestCase {
+final class PIFBuilderTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
 
     func testOrdering() throws {
@@ -2931,7 +2929,7 @@ class PIFBuilderTests: XCTestCase {
                         .init(name: "bar", dependencies: [], settings: [
                             .init(
                                 tool: .swift,
-                                kind: .swiftLanguageVersion(.v4_2),
+                                kind: .swiftLanguageMode(.v4_2),
                                 condition: .init(platformNames: ["linux"])
                             ),
                         ]),
@@ -2998,24 +2996,24 @@ class PIFBuilderTests: XCTestCase {
                         .init(name: "foo", dependencies: [], settings: [
                             .init(
                                 tool: .swift,
-                                kind: .swiftLanguageVersion(.v4_2)
+                                kind: .swiftLanguageMode(.v4_2)
                             ),
                         ]),
                         .init(name: "bar", dependencies: [], settings: [
                             .init(
                                 tool: .swift,
-                                kind: .swiftLanguageVersion(.v6)
+                                kind: .swiftLanguageMode(.v6)
                             ),
                         ]),
                         .init(name: "baz", dependencies: [], settings: [
                             .init(
                                 tool: .swift,
-                                kind: .swiftLanguageVersion(.v3),
+                                kind: .swiftLanguageMode(.v3),
                                 condition: .init(platformNames: ["linux"])
                             ),
                             .init(
                                 tool: .swift,
-                                kind: .swiftLanguageVersion(.v4_2),
+                                kind: .swiftLanguageMode(.v4_2),
                                 condition: .init(platformNames: ["macOS"])
                             ),
                         ]),

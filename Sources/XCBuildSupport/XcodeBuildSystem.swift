@@ -59,7 +59,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
                             productName: product.name,
                             binaryPath: binaryPath,
                             packagePath: package.path,
-                            library: buildParameters.testingParameters.library
+                            testEntryPointPath: product.underlying.testEntryPointPath
                         )
                     )
                 }
@@ -233,8 +233,8 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     func createBuildParametersFile() throws -> AbsolutePath {
         // Generate the run destination parameters.
         let runDestination = XCBBuildParameters.RunDestination(
-            platform: "macosx",
-            sdk: "macosx",
+            platform: self.buildParameters.triple.osNameUnversioned,
+            sdk: self.buildParameters.triple.osNameUnversioned,
             sdkVariant: nil,
             targetArchitecture: buildParameters.triple.archName,
             supportedArchitectures: [],

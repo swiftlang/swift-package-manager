@@ -203,7 +203,7 @@ extension PackageReference: CustomStringConvertible {
 
 extension PackageReference.Kind: Encodable {
     private enum CodingKeys: String, CodingKey {
-        case root, fileSystem, localSourceControl, remoteSourceControl, registry, providedLibrary
+        case root, fileSystem, localSourceControl, remoteSourceControl, registry
     }
 
     public func encode(to encoder: Encoder) throws {

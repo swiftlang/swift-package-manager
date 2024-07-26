@@ -26,7 +26,7 @@ import PackageLoading
 @testable import PackageModel
 
 import SPMBuildCore
-import SPMTestSupport
+import _InternalTestSupport
 import SwiftDriver
 import Workspace
 import XCTest
@@ -1146,17 +1146,16 @@ final class BuildPlanTests: XCTestCase {
         ))
 
         XCTAssertEqual(Set(result.productMap.keys.map(\.productName)), ["APackageTests"])
-        #if os(macOS)
-        XCTAssertEqual(Set(result.targetMap.keys.map(\.moduleName)), ["ATarget", "BTarget", "ATargetTests"])
-        #else
-        XCTAssertEqual(Set(result.targetMap.keys.map(\.moduleName)), [
+        var expectedTargets: Set<String> = [
             "APackageTests",
-            "APackageDiscoveredTests",
             "ATarget",
             "ATargetTests",
             "BTarget",
-        ])
-        #endif
+        ]
+#if !os(macOS)
+        expectedTargets.insert("APackageDiscoveredTests")
+#endif
+        XCTAssertEqual(Set(result.targetMap.keys.map(\.moduleName)), expectedTargets)
     }
 
     func testBasicReleasePackage() throws {
@@ -2213,13 +2212,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         ))
         result.checkProductsCount(1)
-        #if os(macOS)
-        result.checkTargetsCount(2)
-        #else
-        // On non-Apple platforms, when a custom entry point file is present (e.g. XCTMain.swift), there is one
-        // additional target for the synthesized test entry point.
         result.checkTargetsCount(3)
-        #endif
 
         let buildPath = result.plan.productsBuildPath
 
@@ -2288,6 +2281,8 @@ final class BuildPlanTests: XCTestCase {
                 buildPath.appending(components: "Modules", "Foo.swiftmodule").pathString,
                 "-Xlinker", "-add_ast_path", "-Xlinker",
                 buildPath.appending(components: "Modules", "FooTests.swiftmodule").pathString,
+                "-Xlinker", "-add_ast_path", "-Xlinker",
+                buildPath.appending(components: "Modules", "PkgPackageTests.swiftmodule").pathString,
                 "-g",
             ]
         )
@@ -4158,12 +4153,12 @@ final class BuildPlanTests: XCTestCase {
                         ),
                         .init(
                             tool: .swift,
-                            kind: .swiftLanguageVersion(.v4),
+                            kind: .swiftLanguageMode(.v4),
                             condition: .init(platformNames: ["macos"])
                         ),
                         .init(
                             tool: .swift,
-                            kind: .swiftLanguageVersion(.v5),
+                            kind: .swiftLanguageMode(.v5),
                             condition: .init(platformNames: ["linux"])
                         ),
                         .init(tool: .linker, kind: .linkedLibrary("sqlite3")),
@@ -4196,8 +4191,8 @@ final class BuildPlanTests: XCTestCase {
                     name: "t1",
                     settings: [
                         .init(tool: .swift, kind: .define("DEP")),
-                        .init(tool: .swift, kind: .swiftLanguageVersion(.v4), condition: .init(platformNames: ["linux"])),
-                        .init(tool: .swift, kind: .swiftLanguageVersion(.v5), condition: .init(platformNames: ["macos"])),
+                        .init(tool: .swift, kind: .swiftLanguageMode(.v4), condition: .init(platformNames: ["linux"])),
+                        .init(tool: .swift, kind: .swiftLanguageMode(.v5), condition: .init(platformNames: ["macos"])),
                         .init(tool: .linker, kind: .linkedLibrary("libz")),
                     ]
                 ),
@@ -6436,113 +6431,6 @@ final class BuildPlanTests: XCTestCase {
         )
         let dylibs = Array(buildProduct.dylibs.map({$0.product.name})).sorted()
         XCTAssertEqual(dylibs, ["BarLogging", "FooLogging"])
-    }
-
-    func testSwiftPackageWithProvidedLibraries() throws {
-        let fs = InMemoryFileSystem(
-            emptyFiles:
-            "/A/Sources/ATarget/main.swift",
-            "/Libraries/B/BTarget.swiftmodule",
-            "/Libraries/C/CTarget.swiftmodule"
-        )
-
-        let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadModulesGraph(
-            fileSystem: fs,
-            manifests: [
-                Manifest.createRootManifest(
-                    displayName: "A",
-                    path: "/A",
-                    dependencies: [
-                        .localSourceControl(path: "/B", requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: "/C", requirement: .upToNextMajor(from: "1.0.0")),
-                    ],
-                    products: [
-                        ProductDescription(
-                            name: "A",
-                            type: .executable,
-                            targets: ["ATarget"]
-                        )
-                    ],
-                    targets: [
-                        TargetDescription(name: "ATarget", dependencies: ["BLibrary", "CLibrary"])
-                    ]
-                ),
-                Manifest.createFileSystemManifest(
-                    displayName: "B",
-                    path: "/B",
-                    products: [
-                        ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
-                    ],
-                    targets: [
-                        TargetDescription(
-                            name: "BTarget",
-                            path: "/Libraries/B",
-                            type: .providedLibrary
-                        )
-                    ]
-                ),
-                Manifest.createFileSystemManifest(
-                    displayName: "C",
-                    path: "/C",
-                    products: [
-                        ProductDescription(name: "CLibrary", type: .library(.automatic), targets: ["CTarget"]),
-                    ],
-                    targets: [
-                        TargetDescription(
-                            name: "CTarget",
-                            path: "/Libraries/C",
-                            type: .providedLibrary
-                        )
-                    ]
-                ),
-            ],
-            observabilityScope: observability.topScope
-        )
-        
-        XCTAssertNoDiagnostics(observability.diagnostics)
-
-        let plan = try mockBuildPlan(
-            graph: graph,
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        )
-        let result = try BuildPlanResult(plan: plan)
-
-        result.checkProductsCount(1)
-        result.checkTargetsCount(1)
-
-        XCTAssertMatch(
-            try result.moduleBuildDescription(for: "ATarget").swift().compileArguments(),
-            [
-                .anySequence,
-                "-I", "/Libraries/C",
-                "-I", "/Libraries/B",
-                .anySequence
-            ]
-        )
-
-        let linkerArgs = try result.buildProduct(for: "A").linkArguments()
-
-        XCTAssertMatch(
-            linkerArgs,
-            [
-                .anySequence,
-                "-L", "/Libraries/B",
-                "-l", "BTarget",
-                .anySequence
-            ]
-        )
-
-        XCTAssertMatch(
-            linkerArgs,
-            [
-                .anySequence,
-                "-L", "/Libraries/C",
-                "-l", "CTarget",
-                .anySequence
-            ]
-        )
     }
 
     func testDefaultVersions() throws {

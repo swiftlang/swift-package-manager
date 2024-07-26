@@ -10,7 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import Basics
+@_spi(SwiftPMInternal)
+@testable
+import Basics
+
 import XCTest
 
 final class EnvironmentTests: XCTestCase {

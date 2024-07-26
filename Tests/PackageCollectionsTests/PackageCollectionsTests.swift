@@ -12,7 +12,7 @@
 
 import Foundation
 import XCTest
-import SPMTestSupport
+import _InternalTestSupport
 
 import Basics
 @testable import PackageCollections
@@ -979,19 +979,19 @@ final class PackageCollectionsTests: XCTestCase {
                 self.error = error
             }
 
-            func get(_ source: PackageCollectionsModel.CollectionSource, callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+            func get(_ source: PackageCollectionsModel.CollectionSource) async throws -> PackageCollectionsModel.Collection {
                 if self.brokenSources.contains(source) {
-                    callback(.failure(self.error))
-                } else {
-                    let signature = PackageCollectionsModel.SignatureData(
-                        certificate: PackageCollectionsModel.SignatureData.Certificate(
-                            subject: .init(userID: nil, commonName: nil, organizationalUnit: nil, organization: nil),
-                            issuer: .init(userID: nil, commonName: nil, organizationalUnit: nil, organization: nil)
-                        ),
-                        isVerified: true
-                    )
-                    callback(.success(PackageCollectionsModel.Collection(source: source, name: "", overview: nil, keywords: nil, packages: [], createdAt: Date(), createdBy: nil, signature: signature)))
+                    throw self.error
                 }
+                let signature = PackageCollectionsModel.SignatureData(
+                    certificate: PackageCollectionsModel.SignatureData.Certificate(
+                        subject: .init(userID: nil, commonName: nil, organizationalUnit: nil, organization: nil),
+                        issuer: .init(userID: nil, commonName: nil, organizationalUnit: nil, organization: nil)
+                    ),
+                    isVerified: true
+                )
+                return PackageCollectionsModel.Collection(source: source, name: "", overview: nil, keywords: nil, packages: [], createdAt: Date(), createdBy: nil, signature: signature)
+
             }
         }
 
@@ -1413,11 +1413,10 @@ final class PackageCollectionsTests: XCTestCase {
             var name: String = "BrokenMetadataProvider"
 
             func get(
-                identity: PackageIdentity,
-                location: String,
-                callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) -> Void
-            ) {
-                callback(.failure(TerribleThing()), nil)
+                identity: PackageModel.PackageIdentity,
+                location: String
+            ) async -> (Result<PackageCollectionsModel.PackageBasicMetadata, any Error>, PackageMetadataProviderContext?) {
+                return (.failure(TerribleThing()), nil)
             }
 
             struct TerribleThing: Error {}

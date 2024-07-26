@@ -29,7 +29,6 @@ import struct PackageGraph.PackageGraphRoot
 import class PackageLoading.ManifestLoader
 import struct PackageLoading.ManifestValidator
 import struct PackageLoading.ToolsVersionParser
-import struct PackageModel.ProvidedLibrary
 import class PackageModel.Manifest
 import struct PackageModel.PackageIdentity
 import struct PackageModel.PackageReference
@@ -147,7 +146,7 @@ extension Workspace {
                       result.insert(packageRef)
                     }
 
-                case .registryDownload, .edited, .providedLibrary, .custom:
+                case .registryDownload, .edited, .custom:
                     continue
                 case .fileSystem:
                     result.insert(dependency.packageRef)
@@ -183,21 +182,6 @@ extension Workspace {
                         ($0.dependency.packageRef.identity, $0.manifest)
                     }
             )
-
-            let availableIdentities: Set<PackageReference> = try Set(manifestsMap.map {
-                // FIXME: adding this guard to ensure refactoring is correct 9/21
-                // we only care about remoteSourceControl for this validation. it would otherwise trigger for
-                // a dependency is put into edit mode, which we want to deprecate anyways
-                if case .remoteSourceControl = $0.1.packageKind {
-                    let effectiveURL = workspace.mirrors.effective(for: $0.1.packageLocation)
-                    guard effectiveURL == $0.1.packageKind.locationString else {
-                        throw InternalError(
-                            "effective url for \($0.1.packageLocation) is \(effectiveURL), different from expected \($0.1.packageKind.locationString)"
-                        )
-                    }
-                }
-                return PackageReference(identity: $0.key, kind: $0.1.packageKind)
-            })
 
             var inputIdentities: OrderedCollections.OrderedSet<PackageReference> = []
             let inputNodes: [GraphLoadingNode] = try root.packages.map { identity, package in
@@ -282,6 +266,20 @@ extension Workspace {
             }
             requiredIdentities = inputIdentities.union(requiredIdentities)
 
+            let availableIdentities: Set<PackageReference> = try Set(manifestsMap.map {
+                // FIXME: adding this guard to ensure refactoring is correct 9/21
+                // we only care about remoteSourceControl for this validation. it would otherwise trigger for
+                // a dependency is put into edit mode, which we want to deprecate anyways
+                if case .remoteSourceControl = $0.1.packageKind {
+                    let effectiveURL = workspace.mirrors.effective(for: $0.1.packageLocation)
+                    guard effectiveURL == $0.1.packageKind.locationString else {
+                        throw InternalError(
+                            "effective url for \($0.1.packageLocation) is \(effectiveURL), different from expected \($0.1.packageKind.locationString)"
+                        )
+                    }
+                }
+                return PackageReference(identity: $0.key, kind: $0.1.packageKind)
+            })
             // We should never have loaded a manifest we don't need.
             assert(
                 availableIdentities.isSubset(of: requiredIdentities),
@@ -328,7 +326,7 @@ extension Workspace {
                         products: productFilter
                     )
                     allConstraints.append(constraint)
-                case .sourceControlCheckout, .registryDownload, .fileSystem, .providedLibrary, .custom:
+                case .sourceControlCheckout, .registryDownload, .fileSystem, .custom:
                     break
                 }
                 allConstraints += try externalManifest.dependencyConstraints(productFilter: productFilter)
@@ -343,7 +341,7 @@ extension Workspace {
 
             for (_, managedDependency, productFilter, _) in dependencies {
                 switch managedDependency.state {
-                case .sourceControlCheckout, .registryDownload, .fileSystem, .providedLibrary, .custom: continue
+                case .sourceControlCheckout, .registryDownload, .fileSystem, .custom: continue
                 case .edited: break
                 }
                 // FIXME: We shouldn't need to construct a new package reference object here.
@@ -378,8 +376,6 @@ extension Workspace {
         case .edited(_, let path):
             return path ?? self.location.editSubdirectory(for: dependency)
         case .fileSystem(let path):
-            return path
-        case .providedLibrary(let path, _):
             return path
         case .custom(_, let path):
             return path
@@ -464,9 +460,7 @@ extension Workspace {
         }
 
         // Validates that all the managed dependencies are still present in the file system.
-        self.fixManagedDependencies(
-            observabilityScope: observabilityScope
-        )
+        self.fixManagedDependencies(observabilityScope: observabilityScope)
         guard !observabilityScope.errorsReported else {
             // return partial results
             return DependencyManifests(
@@ -651,14 +645,6 @@ extension Workspace {
         case .registryDownload(let downloadedVersion):
             packageKind = managedDependency.packageRef.kind
             packageVersion = downloadedVersion
-        case .providedLibrary(let path, let version):
-            let manifest: Manifest? = try? .forProvidedLibrary(
-                fileSystem: fileSystem,
-                package: managedDependency.packageRef,
-                libraryPath: path,
-                version: version
-            )
-            return completion(manifest)
         case .custom(let availableVersion, _):
             packageKind = managedDependency.packageRef.kind
             packageVersion = availableVersion
@@ -790,9 +776,7 @@ extension Workspace {
     /// If some checkout dependency is removed form the file system, clone it again.
     /// If some edited dependency is removed from the file system, mark it as unedited and
     /// fallback on the original checkout.
-    private func fixManagedDependencies(
-        observabilityScope: ObservabilityScope
-    ) {
+    private func fixManagedDependencies(observabilityScope: ObservabilityScope) {
         // Reset managed dependencies if the state file was removed during the lifetime of the Workspace object.
         if !self.state.dependencies.isEmpty && !self.state.stateFileExists() {
             try? self.state.reset()
@@ -861,18 +845,10 @@ extension Workspace {
                     // Note: We don't resolve the dependencies when unediting
                     // here because we expect this method to be called as part
                     // of some other resolve operation (i.e. resolve, update, etc).
-                    try self.unedit(
-                        dependency: dependency,
-                        forceRemove: true,
-                        observabilityScope: observabilityScope
-                    )
+                    try self.unedit(dependency: dependency, forceRemove: true, observabilityScope: observabilityScope)
 
                     observabilityScope
                         .emit(.editedDependencyMissing(packageName: dependency.packageRef.identity.description))
-
-                case .providedLibrary(_, version: _):
-                    // TODO: If the dependency is not available we can turn it into a source control dependency
-                    break
 
                 case .fileSystem:
                     self.state.dependencies.remove(dependency.packageRef.identity)

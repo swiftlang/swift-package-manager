@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -13,7 +13,7 @@
 import Basics
 import Commands
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import Workspace
 import XCTest
 
@@ -24,7 +24,7 @@ final class ModuleMapsTestCase: XCTestCase {
         rootpkg: String,
         body: @escaping (AbsolutePath, [String]) async throws -> Void
     ) async throws {
-        try await SPMTestSupport.fixture(name: name) { fixturePath in
+        try await _InternalTestSupport.fixture(name: name) { fixturePath in
             let input = fixturePath.appending(components: cModuleName, "C", "foo.c")
             let triple = try UserToolchain.default.targetTriple
             let outdir = fixturePath.appending(components: rootpkg, ".build", triple.platformBuildPathComponent, "debug")

@@ -23,7 +23,6 @@ import SourceControl
 
 import func TSCBasic.findCycle
 import protocol TSCBasic.HashAlgorithm
-import class TSCBasic.InMemoryFileSystem
 import struct TSCBasic.KeyedPair
 import struct TSCBasic.SHA256
 import var TSCBasic.stderrStream
@@ -586,11 +585,6 @@ public class Workspace {
             initializationWarningHandler: initializationWarningHandler
         )
     }
-
-    var providedLibraries: [ProvidedLibrary] {
-        // Note: Eventually, we should get these from the individual SDKs, but the first step is providing the metadata centrally in the toolchain.
-        self.hostToolchain.providedLibraries
-    }
 }
 
 // MARK: - Public API
@@ -719,8 +713,6 @@ extension Workspace {
         case .sourceControlCheckout(let checkoutState):
             defaultRequirement = checkoutState.requirement
         case .registryDownload(let version), .custom(let version, _):
-            defaultRequirement = .versionSet(.exact(version))
-        case .providedLibrary(_, version: let version):
             defaultRequirement = .versionSet(.exact(version))
         case .fileSystem:
             throw StringError("local dependency '\(dependency.packageRef.identity)' can't be resolved")
@@ -1391,8 +1383,6 @@ extension Workspace {
                     result.append("unversioned")
                 }
             case .registryDownload(let version)?, .custom(let version, _):
-                result.append("resolved to '\(version)'")
-            case .providedLibrary(_, version: let version):
                 result.append("resolved to '\(version)'")
             case .edited?:
                 result.append("edited")

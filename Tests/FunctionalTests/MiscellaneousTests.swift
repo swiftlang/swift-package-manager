@@ -13,7 +13,7 @@
 import Basics
 import PackageModel
 import SourceControl
-import SPMTestSupport
+import _InternalTestSupport
 import Workspace
 import XCTest
 

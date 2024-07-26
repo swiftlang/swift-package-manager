@@ -70,6 +70,7 @@ add_library(Basics
   Serialization/SerializedJSON.swift
   SwiftVersion.swift
   SQLiteBackedCache.swift
+  TestingLibrary.swift
   Triple+Basics.swift
   Version+Extensions.swift
   WritableByteStream+Extensions.swift

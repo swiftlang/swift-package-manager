@@ -10,7 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
+
 import SwiftDriver
 
 import class TSCBasic.Process

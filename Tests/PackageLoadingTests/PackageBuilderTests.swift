@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -13,10 +13,8 @@
 import Basics
 import PackageLoading
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
-
-import class TSCBasic.InMemoryFileSystem
 
 /// Tests for the handling of source layout conventions.
 final class PackageBuilderTests: XCTestCase {
@@ -36,6 +34,27 @@ final class PackageBuilderTests: XCTestCase {
             package.checkModule("foo") { module in
                 module.check(c99name: "foo", type: .library)
                 module.checkSources(root: "/Sources/foo", paths: "Foo.swift")
+            }
+        }
+    }
+
+    func testXCPrivacyIgnored() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/foo/PrivacyInfo.xcprivacy",
+            "/Sources/foo/Foo.swift")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            path: .root,
+            targets: [
+                try TargetDescription(name: "foo"),
+            ]
+        )
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { module in
+                module.check(c99name: "foo", type: .library)
+                module.checkSources(root: "/Sources/foo", paths: "Foo.swift")
+                module.checkResources(resources: [])
             }
         }
     }
@@ -2951,7 +2970,81 @@ final class PackageBuilderTests: XCTestCase {
             }
         }
     }
-    
+
+    func testXcodeResources6_0AndLater() throws {
+        // In SwiftTools 6.0 and later, xcprivacy file types are only supported when explicitly passed via additionalFileRules.
+
+        let root: AbsolutePath = "/Foo"
+        let foo = root.appending(components: "Sources", "Foo")
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            foo.appending(components: "foo.swift").pathString,
+            foo.appending(components: "Foo.xcassets").pathString,
+            foo.appending(components: "Foo.xcstrings").pathString,
+            foo.appending(components: "Foo.xib").pathString,
+            foo.appending(components: "Foo.xcdatamodel").pathString,
+            foo.appending(components: "Foo.metal").pathString,
+            foo.appending(components: "PrivacyInfo.xcprivacy").pathString
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "Foo",
+            toolsVersion: .v6_0,
+            targets: [
+                try TargetDescription(name: "Foo"),
+            ]
+        )
+
+        PackageBuilderTester(manifest, path: root, supportXCBuildTypes: true, in: fs) { result, diagnostics in
+            result.checkModule("Foo") { result in
+                result.checkSources(sources: ["foo.swift"])
+                result.checkResources(resources: [
+                    foo.appending(components: "Foo.xib").pathString,
+                    foo.appending(components: "Foo.xcdatamodel").pathString,
+                    foo.appending(components: "Foo.xcassets").pathString,
+                    foo.appending(components: "Foo.xcstrings").pathString,
+                    foo.appending(components: "Foo.metal").pathString,
+                    foo.appending(components: "PrivacyInfo.xcprivacy").pathString,
+                ])
+            }
+        }
+    }
+
+    func testXCPrivacyNoDiagnostics() throws {
+        // In SwiftTools 6.0 and later, xcprivacy file types should not produce diagnostics messages when included
+        // as resources and built with `swift build`.
+
+        let root: AbsolutePath = "/Foo"
+        let foo = root.appending(components: "Sources", "Foo")
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            foo.appending(components: "foo.swift").pathString,
+            foo.appending(components: "PrivacyInfo.xcprivacy").pathString
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "Foo",
+            toolsVersion: .v6_0,
+            targets: [
+                try TargetDescription(
+                    name: "Foo",
+                    resources: [.init(rule: .copy, path: "PrivacyInfo.xcprivacy")]
+                ),
+            ]
+        )
+
+        PackageBuilderTester(manifest, path: root, supportXCBuildTypes: false, in: fs) { result, diagnostics in
+            result.checkModule("Foo") { result in
+                result.checkSources(sources: ["foo.swift"])
+                result.checkResources(resources: [
+                    foo.appending(components: "PrivacyInfo.xcprivacy").pathString,
+                ])
+            }
+
+            diagnostics.checkIsEmpty()
+        }
+    }
+
     func testSnippetsLinkProductLibraries() throws {
         let root = AbsolutePath("/Foo")
         let internalSourcesDir = root.appending(components: "Sources", "Internal")
@@ -3040,14 +3133,14 @@ final class PackageBuilderTests: XCTestCase {
                 try TargetDescription(
                     name: "foo",
                     settings: [
-                        .init(tool: .swift, kind: .swiftLanguageVersion(.v5))
+                        .init(tool: .swift, kind: .swiftLanguageMode(.v5))
                     ]
                 ),
                 try TargetDescription(
                     name: "bar",
                     settings: [
-                        .init(tool: .swift, kind: .swiftLanguageVersion(.v3), condition: .init(platformNames: ["linux"])),
-                        .init(tool: .swift, kind: .swiftLanguageVersion(.v4), condition: .init(platformNames: ["macos"], config: "debug"))
+                        .init(tool: .swift, kind: .swiftLanguageMode(.v3), condition: .init(platformNames: ["linux"])),
+                        .init(tool: .swift, kind: .swiftLanguageMode(.v4), condition: .init(platformNames: ["macos"], config: "debug"))
                     ]
                 ),
             ]

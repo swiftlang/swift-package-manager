@@ -16,6 +16,17 @@ import PackageModel
 import PackageGraph
 
 public struct BuildParameters: Encodable {
+    public enum PrepareForIndexingMode: Encodable {
+        /// Perform a normal build and don't prepare for indexing
+        case off
+        /// Prepare for indexing but don't pass `-experimental-lazy-typecheck`.
+        ///
+        /// This is intended as a workaround if lazy type checking is causing compiler crashes.
+        case noLazy
+        /// Do minimal build to prepare for indexing
+        case on
+    }
+
     /// Mode for the indexing-while-building feature.
     public enum IndexStoreMode: String, Encodable {
         /// Index store should be enabled.
@@ -115,7 +126,7 @@ public struct BuildParameters: Encodable {
     public var shouldSkipBuilding: Bool
 
     /// Do minimal build to prepare for indexing
-    public var prepareForIndexing: Bool
+    public var prepareForIndexing: PrepareForIndexingMode
 
     /// Build parameters related to debugging.
     public var debuggingParameters: Debugging
@@ -147,7 +158,7 @@ public struct BuildParameters: Encodable {
         indexStoreMode: IndexStoreMode = .auto,
         isXcodeBuildSystemEnabled: Bool = false,
         shouldSkipBuilding: Bool = false,
-        prepareForIndexing: Bool = false,
+        prepareForIndexing: PrepareForIndexingMode = .off,
         debuggingParameters: Debugging? = nil,
         driverParameters: Driver = .init(),
         linkingParameters: Linking = .init(),
@@ -260,44 +271,51 @@ public struct BuildParameters: Encodable {
         return try buildPath.appending(binaryRelativePath(for: product))
     }
 
+    public func macroBinaryPath(_ module: ResolvedModule) throws -> AbsolutePath {
+        assert(module.type == .macro)
+        #if BUILD_MACROS_AS_DYLIBS
+        return buildPath.appending(try dynamicLibraryPath(for: module.name))
+        #else
+        return buildPath.appending(try executablePath(for: module.name))
+        #endif
+    }
+
     /// Returns the path to the dynamic library of a product for the current build parameters.
-    func potentialDynamicLibraryPath(for product: ResolvedProduct) throws -> RelativePath {
-        try RelativePath(validating: "\(self.triple.dynamicLibraryPrefix)\(product.name)\(self.suffix)\(self.triple.dynamicLibraryExtension)")
+    private func dynamicLibraryPath(for name: String) throws -> RelativePath {
+        try RelativePath(validating: "\(self.triple.dynamicLibraryPrefix)\(name)\(self.suffix)\(self.triple.dynamicLibraryExtension)")
+    }
+
+    /// Returns the path to the executable of a product for the current build parameters.
+    private func executablePath(for name: String) throws -> RelativePath {
+        try RelativePath(validating: "\(name)\(self.suffix)\(self.triple.executableExtension)")
     }
 
     /// Returns the path to the binary of a product for the current build parameters, relative to the build directory.
     public func binaryRelativePath(for product: ResolvedProduct) throws -> RelativePath {
-        let potentialExecutablePath = try RelativePath(validating: "\(product.name)\(self.suffix)\(self.triple.executableExtension)")
-
         switch product.type {
         case .executable, .snippet:
-            return potentialExecutablePath
+            return try executablePath(for: product.name)
         case .library(.static):
             return try RelativePath(validating: "lib\(product.name)\(self.suffix)\(self.triple.staticLibraryExtension)")
         case .library(.dynamic):
-            return try potentialDynamicLibraryPath(for: product)
+            return try dynamicLibraryPath(for: product.name)
         case .library(.automatic), .plugin:
             fatalError()
         case .test:
             guard !self.triple.isWasm else {
                 return try RelativePath(validating: "\(product.name).wasm")
             }
-            switch testingParameters.library {
-            case .xctest:
-                let base = "\(product.name).xctest"
-                if self.triple.isDarwin() {
-                    return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
-                } else {
-                    return try RelativePath(validating: base)
-                }
-            case .swiftTesting:
-                return try RelativePath(validating: "\(product.name).swift-testing")
+            let base = "\(product.name).xctest"
+            if self.triple.isDarwin() {
+                return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
+            } else {
+                return try RelativePath(validating: base)
             }
         case .macro:
             #if BUILD_MACROS_AS_DYLIBS
-            return try potentialDynamicLibraryPath(for: product)
+            return try dynamicLibraryPath(for: product.name)
             #else
-            return potentialExecutablePath
+            return try executablePath(for: product.name)
             #endif
         }
     }

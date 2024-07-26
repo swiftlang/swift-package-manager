@@ -13,7 +13,7 @@
 import Basics
 import PackageLoading
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 final class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
@@ -414,7 +414,8 @@ final class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                     products: [],
                     targets: [
                         .target(name: "Foo"),
-                    ]
+                    ],
+                    swiftLanguageVersions: [.v5]
                 )
                 """
 

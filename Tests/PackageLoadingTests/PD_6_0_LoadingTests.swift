@@ -13,7 +13,7 @@
 import Basics
 import PackageModel
 import SourceControl
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
@@ -22,7 +22,7 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testPackageContextGitStatus() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         let content = """
                 import PackageDescription
@@ -36,7 +36,7 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testPackageContextGitTag() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         let content = """
                 import PackageDescription
@@ -50,7 +50,7 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testPackageContextGitCommit() async throws {
-        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
 
         let content = """
                 import PackageDescription
@@ -63,6 +63,40 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
             let repo = GitRepository(path: manifest.path.parentDirectory)
             let currentRevision = try repo.getCurrentRevision()
             XCTAssertEqual(manifest.displayName, currentRevision.identifier)
+        }
+    }
+
+    func testSwiftLanguageModesPerTarget() async throws {
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
+
+        let content = """
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    defaultLocalization: "fr",
+                    products: [],
+                    targets: [
+                        .target(
+                            name: "Foo",
+                            swiftSettings: [
+                                .swiftLanguageMode(.v5)
+                            ]
+                        ),
+                        .target(
+                            name: "Bar",
+                            swiftSettings: [
+                                .swiftLanguageVersion(.v6)
+                            ]
+                        )
+                    ]
+                )
+                """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(validationDiagnostics)
+        testDiagnostics(observability.diagnostics) { result in
+            result.checkUnordered(diagnostic: .contains("'swiftLanguageVersion' is deprecated: renamed to 'swiftLanguageMode(_:_:)'"), severity: .warning)
         }
     }
 

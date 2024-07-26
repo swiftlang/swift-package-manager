@@ -39,7 +39,9 @@ public struct MockToolchain: PackageModel.Toolchain {
     public let sdkRootPath: AbsolutePath? = nil
     public let extraFlags = PackageModel.BuildFlags()
     public let installedSwiftPMConfiguration = InstalledSwiftPMConfiguration.default
-    public let providedLibraries = [ProvidedLibrary]()
+    public let swiftPMLibrariesLocation = ToolchainConfiguration.SwiftPMLibrariesLocation(
+        manifestLibraryPath: AbsolutePath("/fake/manifestLib/path"), pluginLibraryPath: AbsolutePath("/fake/pluginLibrary/path")
+    )
 
     public func getClangCompiler() throws -> AbsolutePath {
         "/fake/path/to/clang"
@@ -90,7 +92,7 @@ public func mockBuildParameters(
     linkerDeadStrip: Bool = true,
     linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil,
     omitFramePointers: Bool? = nil,
-    prepareForIndexing: Bool = false
+    prepareForIndexing: BuildParameters.PrepareForIndexingMode = .off
 ) -> BuildParameters {
     try! BuildParameters(
         destination: destination,
