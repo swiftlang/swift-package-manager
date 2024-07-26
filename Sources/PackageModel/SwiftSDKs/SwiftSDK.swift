@@ -72,13 +72,13 @@ extension SwiftSDKError: CustomStringConvertible {
         switch self {
         case let .checksumInvalid(computed, provided):
             return """
-            Computed archive checksum `\(computed) does not match the provided checksum `\(provided)`.
+            Computed archive checksum `\(computed)` does not match the provided checksum `\(provided)`.
             """
 
         case .checksumNotProvided(let url):
             return """
             Bundles installed from remote URLs (such as \(url)) require their checksum passed via `--checksum` option.
-            The distributor of the bundle must compute it with `swift package compute-checksum` \
+            The distributor of the bundle must compute it with the `swift package compute-checksum` \
             command and provide it with their Swift SDK installation instructions.
             """
         case .invalidBundleArchive(let archivePath):

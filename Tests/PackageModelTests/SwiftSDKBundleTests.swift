@@ -18,7 +18,6 @@ import XCTest
 
 import struct TSCBasic.ByteString
 import protocol TSCBasic.FileSystem
-import class TSCBasic.InMemoryFileSystem
 import class Workspace.Workspace
 
 private let testArtifactID = "test-artifact"
