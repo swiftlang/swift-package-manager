@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
+import struct Foundation.URL
 
 /// The `Archiver` protocol abstracts away the different operations surrounding archives.
 public protocol Archiver: Sendable {
