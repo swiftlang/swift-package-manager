@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+
+import sys
+
+for n in range(5):
+  input = sys.stdin.readline()
+  sys.stdout.write(input)
+  sys.stdout.flush()

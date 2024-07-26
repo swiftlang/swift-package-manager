@@ -619,6 +619,11 @@ let package = Package(
                 "Archiver/Inputs/archive.zip",
                 "Archiver/Inputs/invalid_archive.tar.gz",
                 "Archiver/Inputs/invalid_archive.zip",
+                "processInputs/long-stdout-stderr",
+                "processInputs/exit4",
+                "processInputs/simple-stdout-stderr",
+                "processInputs/deadlock-if-blocking-io",
+                "processInputs/in-to-out",
             ]
         ),
         .testTarget(
