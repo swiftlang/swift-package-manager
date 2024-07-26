@@ -175,18 +175,29 @@ package final class AsyncProcess {
 
     package typealias OutputStream = AsyncStream<[UInt8]>
 
-    package enum OutputRedirection {
+    package enum OutputRedirection: Sendable {
         /// Do not redirect the output
         case none
-        /// Collect stdout and stderr output and provide it back via ProcessResult object. If redirectStderr is true,
-        /// stderr be redirected to stdout.
+
+        /// Collect stdout and stderr output and provide it back via ``AsyncProcessResult`` object. If
+        /// `redirectStderr` is `true`, `stderr` be redirected to `stdout`.
         case collect(redirectStderr: Bool)
-        /// Stream stdout and stderr via the corresponding closures. If redirectStderr is true, stderr be redirected to
-        /// stdout.
+
+        /// Stream `stdout` and `stderr` via the corresponding closures. If `redirectStderr` is `true`, `stderr` will
+        /// be redirected to `stdout`.
         case stream(stdout: OutputClosure, stderr: OutputClosure, redirectStderr: Bool)
 
+        /// Stream stdout and stderr as `AsyncSequence` provided as an argument to closures passed to
+        /// ``AsyncProcess/launch(stdoutStream:stderrStream:)``.
+        case asyncStream(
+            stdoutStream: OutputStream,
+            stdoutContinuation: OutputStream.Continuation,
+            stderrStream: OutputStream,
+            stderrContinuation: OutputStream.Continuation
+        )
+
         /// Default collect OutputRedirection that defaults to not redirect stderr. Provided for API compatibility.
-        package static let collect: OutputRedirection = .collect(redirectStderr: false)
+        package static let collect: Self = .collect(redirectStderr: false)
 
         /// Default stream OutputRedirection that defaults to not redirect stderr. Provided for API compatibility.
         package static func stream(stdout: @escaping OutputClosure, stderr: @escaping OutputClosure) -> Self {
@@ -197,15 +208,19 @@ package final class AsyncProcess {
             switch self {
             case .none:
                 false
-            case .collect, .stream:
+            case .collect, .stream, .asyncStream:
                 true
             }
         }
 
         package var outputClosures: (stdoutClosure: OutputClosure, stderrClosure: OutputClosure)? {
             switch self {
-            case .stream(let stdoutClosure, let stderrClosure, _):
+            case let .stream(stdoutClosure, stderrClosure, _):
                 (stdoutClosure: stdoutClosure, stderrClosure: stderrClosure)
+
+            case let .asyncStream(stdoutStream, stdoutContinuation, stderrStream, stderrContinuation):
+                (stdoutClosure: { stdoutContinuation.yield($0) }, stderrClosure: { stderrContinuation.yield($0) })
+
             case .collect, .none:
                 nil
             }
@@ -240,7 +255,7 @@ package final class AsyncProcess {
     #endif
 
     /// Typealias for stdout/stderr output closure.
-    package typealias OutputClosure = ([UInt8]) -> Void
+    package typealias OutputClosure = @Sendable ([UInt8]) -> Void
 
     /// Typealias for logging handling closure
     package typealias LoggingHandler = (String) -> Void
@@ -944,6 +959,53 @@ extension AsyncProcess {
         loggingHandler: LoggingHandler? = .none
     ) async throws -> AsyncProcessResult {
         try await self.popen(arguments: args, environment: environment, loggingHandler: loggingHandler)
+    }
+
+    package enum StderrRedirection {
+        case ignore
+        case redirectToStdout
+        case custom((OutputStream) -> ())
+    }
+
+    package static func popen(
+        arguments: [String],
+        environment: Environment = .current,
+        stdoutHandler: @escaping @Sendable (_ stdinStream: WritableByteStream, _ stdoutStream: OutputStream) -> (),
+        stderrHandler: (@Sendable (_ stderrStream: OutputStream) -> ())? = nil
+    ) async throws -> AsyncProcessResult {
+        let (stdoutStream, stdoutContinuation) = OutputStream.makeStream()
+        let (stderrStream, stderrContinuation) = OutputStream.makeStream()
+
+        let process = AsyncProcess(
+            arguments: arguments,
+            environment: environment,
+            outputRedirection: .stream {
+                stdoutContinuation.yield($0)
+            } stderr: {
+                stderrContinuation.yield($0)
+            }
+        )
+
+        return try await withThrowingTaskGroup(of: Void.self) { group in
+            let stdinStream = try process.launch()
+
+            group.addTask {
+                stdoutHandler(stdinStream, stdoutStream)
+            }
+
+            if let stderrHandler {
+                group.addTask {
+                    stderrHandler(stderrStream)
+                }
+            }
+
+            defer {
+                stdoutContinuation.finish()
+                stderrContinuation.finish()
+            }
+
+            return try await process.waitUntilExit()
+        }
     }
 
     /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
