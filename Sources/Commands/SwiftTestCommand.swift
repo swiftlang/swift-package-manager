@@ -254,8 +254,10 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         var results = [TestRunner.Result]()
 
         // Run XCTest.
-        if options.testLibraryOptions.isEnabled(.xctest) {
-            // validate XCTest available on darwin based systems
+        if options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
+            // Validate XCTest is available on Darwin-based systems. If it's not available and we're hitting this code
+            // path, that means the developer must have explicitly passed --enable-xctest (or the toolchain is
+            // corrupt, I suppose.)
             let toolchain = try swiftCommandState.getTargetToolchain()
             if case let .unsupported(reason) = try swiftCommandState.getHostToolchain().swiftSDK.xctestSupport {
                 if let reason {
@@ -276,7 +278,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                     swiftCommandState: swiftCommandState,
                     library: .xctest
                 )
-                if result == .success, let testCount, testCount == 0 {
+                if result == .success, testCount == 0 {
                     results.append(.noMatchingTests)
                 } else {
                     results.append(result)
@@ -322,9 +324,9 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
 
         // Run Swift Testing (parallel or not, it has a single entry point.)
-        if options.testLibraryOptions.isEnabled(.swiftTesting) {
+        if options.testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState) {
             lazy var testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first
-            if options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting) || testEntryPointPath == nil {
+            if options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) || testEntryPointPath == nil {
                 results.append(
                     try await runTestProducts(
                         testProducts,
@@ -410,7 +412,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     public func run(_ swiftCommandState: SwiftCommandState) async throws {
         do {
             // Validate commands arguments
-            try self.validateArguments(observabilityScope: swiftCommandState.observabilityScope)
+            try self.validateArguments(swiftCommandState: swiftCommandState)
         } catch {
             swiftCommandState.observabilityScope.emit(error)
             throw ExitCode.failure
@@ -464,7 +466,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             }
             additionalArguments += commandLineArguments
 
-            if var xunitPath = options.xUnitOutput, options.testLibraryOptions.isEnabled(.xctest) {
+            if var xunitPath = options.xUnitOutput, options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
                 // We are running Swift Testing, XCTest is also running in this session, and an xUnit path
                 // was specified. Make sure we don't stomp on XCTest's XML output by having Swift Testing
                 // write to a different path.
@@ -631,7 +633,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     /// Private function that validates the commands arguments
     ///
     /// - Throws: if a command argument is invalid
-    private func validateArguments(observabilityScope: ObservabilityScope) throws {
+    private func validateArguments(swiftCommandState: SwiftCommandState) throws {
         // Validation for --num-workers.
         if let workers = options.numberOfWorkers {
 
@@ -646,13 +648,13 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 throw StringError("'--num-workers' must be greater than zero")
             }
 
-            guard options.testLibraryOptions.isEnabled(.xctest) else {
+            guard options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) else {
                 throw StringError("'--num-workers' is only supported when testing with XCTest")
             }
         }
 
         if options._deprecated_shouldListTests {
-            observabilityScope.emit(warning: "'--list-tests' option is deprecated; use 'swift test list' instead")
+            swiftCommandState.observabilityScope.emit(warning: "'--list-tests' option is deprecated; use 'swift test list' instead")
         }
     }
 
@@ -733,7 +735,7 @@ extension SwiftTestCommand {
                 library: .swiftTesting
             )
 
-            if testLibraryOptions.isEnabled(.xctest) {
+            if testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
                 let testSuites = try TestingSupport.getTestSuites(
                     in: testProducts,
                     swiftCommandState: swiftCommandState,
@@ -749,9 +751,9 @@ extension SwiftTestCommand {
                 }
             }
 
-            if testLibraryOptions.isEnabled(.swiftTesting) {
+            if testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState) {
                 lazy var testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first
-                if testLibraryOptions.isExplicitlyEnabled(.swiftTesting) || testEntryPointPath == nil {
+                if testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) || testEntryPointPath == nil {
                     let additionalArguments = ["--list-tests"] + CommandLine.arguments.dropFirst()
                     let runner = TestRunner(
                         bundlePaths: testProducts.map(\.binaryPath),

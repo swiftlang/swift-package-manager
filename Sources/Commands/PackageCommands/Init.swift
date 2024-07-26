@@ -60,12 +60,12 @@ extension SwiftPackageCommand {
             // For macros this is reversed, since we don't support testing
             // macros with Swift Testing yet.
             var supportedTestingLibraries = Set<BuildParameters.Testing.Library>()
-            if testLibraryOptions.isExplicitlyEnabled(.xctest) ||
-                (initMode == .macro && testLibraryOptions.isEnabled(.xctest)) {
+            if testLibraryOptions.isExplicitlyEnabled(.xctest, swiftCommandState: swiftCommandState) ||
+                (initMode == .macro && testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState)) {
                 supportedTestingLibraries.insert(.xctest)
             }
-            if testLibraryOptions.isExplicitlyEnabled(.swiftTesting) ||
-                (initMode != .macro && testLibraryOptions.isEnabled(.swiftTesting)) {
+            if testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) ||
+                (initMode != .macro && testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState)) {
                 supportedTestingLibraries.insert(.swiftTesting)
             }
 
