@@ -540,7 +540,7 @@ extension TargetBuildSettingDescription.Kind {
         case "unsafeFlags":
             return .unsafeFlags(values)
 
-        case "swiftLanguageMode":
+        case "swiftLanguageVersion", "swiftLanguageMode":
             guard let rawVersion = values.first else {
                 throw InternalError("invalid (empty) build settings value")
             }
