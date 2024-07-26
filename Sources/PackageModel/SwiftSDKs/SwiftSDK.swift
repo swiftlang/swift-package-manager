@@ -77,7 +77,7 @@ extension SwiftSDKError: CustomStringConvertible {
 
         case .checksumNotProvided(let url):
             return """
-            Bundles installed from remote URLs (such as \(url)) require their checksum passed via `--checksum` option.
+            Bundles installed from remote URLs (`\(url)`) require their checksum passed via `--checksum` option.
             The distributor of the bundle must compute it with the `swift package compute-checksum` \
             command and provide it with their Swift SDK installation instructions.
             """
