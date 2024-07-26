@@ -11,10 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 #if canImport(os)
+#if compiler(>= 6.0)
+import os
+#else
 @preconcurrency import os
 #endif
 
-#if canImport(os)
 extension os.OSLog {
     @usableFromInline
     static let swiftpm = os.OSLog(subsystem: "org.swift.swiftpm", category: "default")
