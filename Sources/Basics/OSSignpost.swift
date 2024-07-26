@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #if canImport(os)
-#if compiler(>= 6.0)
+#if compiler(>=6.0)
 import os
 #else
 @preconcurrency import os
