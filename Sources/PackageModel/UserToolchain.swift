@@ -403,6 +403,40 @@ public final class UserToolchain: Toolchain {
     }
 #endif
 
+    /// On MacOS toolchain can shadow SDK content. This method is intended
+    /// to locate and include swift-testing library from a toolchain before
+    /// sdk content which to sure that builds that use a custom toolchain
+    /// always get a custom swift-testing library as well.
+    static func deriveMacOSSpecificSwiftTestingFlags(
+        derivedSwiftCompiler: AbsolutePath,
+        fileSystem: any FileSystem
+    ) -> [String] {
+        guard let toolchainLibDir = try? toolchainLibDir(
+            swiftCompilerPath: derivedSwiftCompiler
+        ) else {
+            return []
+        }
+
+        let testingLibDir = toolchainLibDir.appending(
+            components: ["swift", "macosx", "testing"]
+        )
+
+        let testingPluginsDir = toolchainLibDir.appending(
+            components: ["swift", "host", "plugins", "testing"]
+        )
+
+        guard fileSystem.exists(testingLibDir), fileSystem.exists(testingPluginsDir) else {
+            return []
+        }
+
+        return [
+            "-I", testingLibDir.pathString,
+            "-L", testingLibDir.pathString,
+            "-plugin-path", testingPluginsDir.pathString,
+            "-Xlinker", "-rpath", "-Xlinker", testingLibDir.pathString,
+        ]
+    }
+
     internal static func deriveSwiftCFlags(
         triple: Triple,
         swiftSDK: SwiftSDK,
@@ -420,9 +454,10 @@ public final class UserToolchain: Toolchain {
                 // Windows uses a variable named SDKROOT to determine the root of
                 // the SDK.  This is not the same value as the SDKROOT parameter
                 // in Xcode, however, the value represents a similar concept.
-                if let SDKROOT = environment["SDKROOT"], let sdkroot = try? AbsolutePath(validating: SDKROOT) {
+                if let sdkroot = environment.windowsSDKRoot {
                     var runtime: [String] = []
                     var xctest: [String] = []
+                    var swiftTesting: [String] = []
                     var extraSwiftCFlags: [String] = []
 
                     if let settings = WindowsSDKSettings(
@@ -444,7 +479,7 @@ public final class UserToolchain: Toolchain {
 
                     // The layout of the SDK is as follows:
                     //
-                    // Library/Developer/Platforms/[PLATFORM].platform/Developer/Library/XCTest-[VERSION]/...
+                    // Library/Developer/Platforms/[PLATFORM].platform/Developer/Library/<Project>-[VERSION]/...
                     // Library/Developer/Platforms/[PLATFORM].platform/Developer/SDKs/[PLATFORM].sdk/...
                     //
                     // SDKROOT points to [PLATFORM].sdk
@@ -455,14 +490,17 @@ public final class UserToolchain: Toolchain {
                         observabilityScope: nil,
                         filesystem: fileSystem
                     ) {
-                        let installation: AbsolutePath =
+                        let XCTestInstallation: AbsolutePath =
                             platform.appending("Developer")
                                 .appending("Library")
                                 .appending("XCTest-\(info.defaults.xctestVersion)")
 
                         xctest = try [
                             "-I",
-                            AbsolutePath(validating: "usr/lib/swift/windows", relativeTo: installation).pathString,
+                            AbsolutePath(
+                                validating: "usr/lib/swift/windows",
+                                relativeTo: XCTestInstallation
+                            ).pathString,
                             // Migration Path
                             //
                             // Older Swift (<=5.7) installations placed the
@@ -475,11 +513,13 @@ public final class UserToolchain: Toolchain {
                             "-I",
                             AbsolutePath(
                                 validating: "usr/lib/swift/windows/\(triple.archName)",
-                                relativeTo: installation
+                                relativeTo: XCTestInstallation
                             ).pathString,
                             "-L",
-                            AbsolutePath(validating: "usr/lib/swift/windows/\(triple.archName)", relativeTo: installation)
-                                .pathString,
+                            AbsolutePath(
+                                validating: "usr/lib/swift/windows/\(triple.archName)",
+                                relativeTo: XCTestInstallation
+                            ).pathString,
                         ]
 
                         // Migration Path
@@ -492,16 +532,36 @@ public final class UserToolchain: Toolchain {
                         // architecture subdirectory in `bin` if available.
                         let implib = try AbsolutePath(
                             validating: "usr/lib/swift/windows/XCTest.lib",
-                            relativeTo: installation
+                            relativeTo: XCTestInstallation
                         )
                         if fileSystem.exists(implib) {
                             xctest.append(contentsOf: ["-L", implib.parentDirectory.pathString])
                         }
 
+                        if let swiftTestingVersion = info.defaults.swiftTestingVersion {
+                            let swiftTestingInstallation: AbsolutePath =
+                                platform.appending("Developer")
+                                    .appending("Library")
+                                    .appending("Testing-\(swiftTestingVersion)")
+
+                            swiftTesting = try [
+                                "-I",
+                                AbsolutePath(
+                                    validating: "usr/lib/swift/windows",
+                                    relativeTo: swiftTestingInstallation
+                                ).pathString,
+                                "-L",
+                                AbsolutePath(
+                                    validating: "usr/lib/swift/windows/\(triple.archName)",
+                                    relativeTo: swiftTestingInstallation
+                                ).pathString
+                            ]
+                        }
+
                         extraSwiftCFlags = info.defaults.extraSwiftCFlags ?? []
                     }
 
-                    return ["-sdk", sdkroot.pathString] + runtime + xctest + extraSwiftCFlags
+                    return ["-sdk", sdkroot.pathString] + runtime + xctest + swiftTesting + extraSwiftCFlags
                 }
             }
 
@@ -596,15 +656,25 @@ public final class UserToolchain: Toolchain {
 
         self.targetTriple = triple
 
+        var swiftCompilerFlags: [String] = []
+        #if os(macOS)
+        swiftCompilerFlags += Self.deriveMacOSSpecificSwiftTestingFlags(
+            derivedSwiftCompiler: swiftCompilers.compile,
+            fileSystem: fileSystem
+        )
+        #endif
+
+        swiftCompilerFlags += try Self.deriveSwiftCFlags(
+            triple: triple,
+            swiftSDK: swiftSDK,
+            environment: environment,
+            fileSystem: fileSystem
+        )
+
         self.extraFlags = BuildFlags(
             cCompilerFlags: swiftSDK.toolset.knownTools[.cCompiler]?.extraCLIOptions ?? [],
             cxxCompilerFlags: swiftSDK.toolset.knownTools[.cxxCompiler]?.extraCLIOptions ?? [],
-            swiftCompilerFlags: try Self.deriveSwiftCFlags(
-                triple: triple,
-                swiftSDK: swiftSDK,
-                environment: environment,
-                fileSystem: fileSystem
-            ),
+            swiftCompilerFlags: swiftCompilerFlags,
             linkerFlags: swiftSDK.toolset.knownTools[.linker]?.extraCLIOptions ?? [],
             xcbuildFlags: swiftSDK.toolset.knownTools[.xcbuild]?.extraCLIOptions ?? [])
 
@@ -627,7 +697,7 @@ public final class UserToolchain: Toolchain {
         }
 
         if triple.isWindows() {
-            if let SDKROOT = environment["SDKROOT"], let root = try? AbsolutePath(validating: SDKROOT) {
+            if let root = environment.windowsSDKRoot {
                 if let settings = WindowsSDKSettings(
                     reading: root.appending("SDKSettings.plist"),
                     observabilityScope: nil,
@@ -683,6 +753,19 @@ public final class UserToolchain: Toolchain {
             )
         }
 
+        let swiftTestingPath: AbsolutePath?
+        if case .custom(_, let useXcrun) = searchStrategy, !useXcrun {
+            swiftTestingPath = nil
+        } else {
+            swiftTestingPath = try Self.deriveSwiftTestingPath(
+                swiftSDK: self.swiftSDK,
+                triple: triple,
+                environment: environment,
+                fileSystem: fileSystem
+            )
+        }
+
+
         self.configuration = .init(
             librarianPath: librarianPath,
             swiftCompilerPath: swiftCompilers.manifest,
@@ -690,7 +773,8 @@ public final class UserToolchain: Toolchain {
             swiftCompilerEnvironment: environment,
             swiftPMLibrariesLocation: swiftPMLibrariesLocation,
             sdkRootPath: self.swiftSDK.pathsConfiguration.sdkRootPath,
-            xctestPath: xctestPath
+            xctestPath: xctestPath,
+            swiftTestingPath: swiftTestingPath
         )
 
         self.fileSystem = fileSystem
@@ -786,6 +870,42 @@ public final class UserToolchain: Toolchain {
         return .none
     }
 
+    private static func getWindowsPlatformInfo(
+        swiftSDK: SwiftSDK,
+        environment: Environment,
+        fileSystem: any FileSystem
+    ) -> (AbsolutePath, WindowsPlatformInfo)? {
+        let sdkRoot: AbsolutePath? = if let sdkDir = swiftSDK.pathsConfiguration.sdkRootPath {
+            sdkDir
+        } else if let sdkDir = environment.windowsSDKRoot {
+            sdkDir
+        } else {
+            nil
+        }
+
+        guard let sdkRoot else {
+            return nil
+        }
+
+        // The layout of the SDK is as follows:
+        //
+        // Library/Developer/Platforms/[PLATFORM].platform/Developer/Library/<Project>-[VERSION]/...
+        // Library/Developer/Platforms/[PLATFORM].platform/Developer/SDKs/[PLATFORM].sdk/...
+        //
+        // SDKROOT points to [PLATFORM].sdk
+        let platform = sdkRoot.parentDirectory.parentDirectory.parentDirectory
+
+        guard let info = WindowsPlatformInfo(
+            reading: platform.appending("Info.plist"),
+            observabilityScope: nil,
+            filesystem: fileSystem
+        ) else {
+            return nil
+        }
+
+        return (platform, info)
+    }
+
     // TODO: We should have some general utility to find tools.
     private static func deriveXCTestPath(
         swiftSDK: SwiftSDK,
@@ -802,28 +922,10 @@ public final class UserToolchain: Toolchain {
                 return try AbsolutePath(validating: path)
             }
         } else if triple.isWindows() {
-            let sdkRoot: AbsolutePath
-
-            if let sdkDir = swiftSDK.pathsConfiguration.sdkRootPath {
-                sdkRoot = sdkDir
-            } else if let SDKROOT = environment["SDKROOT"], let sdkDir = try? AbsolutePath(validating: SDKROOT) {
-                sdkRoot = sdkDir
-            } else {
-                return .none
-            }
-
-            // The layout of the SDK is as follows:
-            //
-            // Library/Developer/Platforms/[PLATFORM].platform/Developer/Library/XCTest-[VERSION]/...
-            // Library/Developer/Platforms/[PLATFORM].platform/Developer/SDKs/[PLATFORM].sdk/...
-            //
-            // SDKROOT points to [PLATFORM].sdk
-            let platform = sdkRoot.parentDirectory.parentDirectory.parentDirectory
-
-            if let info = WindowsPlatformInfo(
-                reading: platform.appending("Info.plist"),
-                observabilityScope: nil,
-                filesystem: fileSystem
+            if let (platform, info) = getWindowsPlatformInfo(
+                swiftSDK: swiftSDK,
+                environment: environment,
+                fileSystem: fileSystem
             ) {
                 let xctest: AbsolutePath =
                     platform.appending("Developer")
@@ -886,6 +988,57 @@ public final class UserToolchain: Toolchain {
         return .none
     }
 
+    private static func deriveSwiftTestingPath(
+        swiftSDK: SwiftSDK,
+        triple: Triple,
+        environment: Environment,
+        fileSystem: any FileSystem
+    ) throws -> AbsolutePath? {
+        guard triple.isWindows() else {
+            return nil
+        }
+
+        guard let (platform, info) = getWindowsPlatformInfo(
+            swiftSDK: swiftSDK,
+            environment: environment,
+            fileSystem: fileSystem
+        ) else {
+            return nil
+        }
+
+        guard let swiftTestingVersion = info.defaults.swiftTestingVersion else {
+            return nil
+        }
+
+        let swiftTesting: AbsolutePath =
+            platform.appending("Developer")
+                .appending("Library")
+                .appending("Testing-\(swiftTestingVersion)")
+
+        let binPath: AbsolutePath? = switch triple.arch {
+        case .x86_64: // amd64 x86_64 x86_64h
+            swiftTesting.appending("usr")
+                .appending("bin64")
+        case .x86: // i386 i486 i586 i686 i786 i886 i986
+            swiftTesting.appending("usr")
+                .appending("bin32")
+        case .arm: // armv7 and many more
+            swiftTesting.appending("usr")
+                .appending("bin32a")
+        case .aarch64: // aarch6 arm64
+            swiftTesting.appending("usr")
+                .appending("bin64a")
+        default:
+            nil
+        }
+
+        guard let path = binPath, fileSystem.exists(path) else {
+            return nil
+        }
+
+        return path
+    }
+
     public var sdkRootPath: AbsolutePath? {
         configuration.sdkRootPath
     }
@@ -908,5 +1061,18 @@ public final class UserToolchain: Toolchain {
 
     public var xctestPath: AbsolutePath? {
         configuration.xctestPath
+    }
+
+    public var swiftTestingPathOnWindows: AbsolutePath? {
+        configuration.swiftTestingPath
+    }
+}
+
+extension Environment {
+    fileprivate var windowsSDKRoot: AbsolutePath? {
+        if let SDKROOT = self["SDKROOT"], let sdkDir = try? AbsolutePath(validating: SDKROOT) {
+            return sdkDir
+        }
+        return nil
     }
 }
