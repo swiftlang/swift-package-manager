@@ -403,6 +403,38 @@ public final class UserToolchain: Toolchain {
     }
 #endif
 
+    /// On MacOS toolchain can shadow SDK content. This method is intended
+    /// to locate and include swift-testing library from a toolchain before
+    /// sdk content which to sure that builds that use a custom toolchain
+    /// always get a custom swift-testing library as well.
+    static func deriveMacOSSpecificSwiftTestingFlags(
+        derivedSwiftCompiler: AbsolutePath,
+        fileSystem: any FileSystem
+    ) throws -> [String] {
+        let toolchainLibDir = try toolchainLibDir(
+            swiftCompilerPath: derivedSwiftCompiler
+        )
+
+        let testingLibDir = toolchainLibDir.appending(
+            components: ["swift", "macosx", "testing"]
+        )
+
+        let testingPluginsDir = toolchainLibDir.appending(
+            components: ["swift", "host", "plugins", "testing"]
+        )
+
+        guard fileSystem.exists(toolchainLibDir), fileSystem.exists(testingPluginsDir) else {
+            return []
+        }
+
+        return [
+            "-I", testingLibDir.pathString,
+            "-L", testingLibDir.pathString,
+            "-plugin-path", testingPluginsDir.pathString,
+            "-Xlinker", "-rpath", "-Xlinker", testingLibDir.pathString,
+        ]
+    }
+
     internal static func deriveSwiftCFlags(
         triple: Triple,
         swiftSDK: SwiftSDK,
@@ -596,15 +628,25 @@ public final class UserToolchain: Toolchain {
 
         self.targetTriple = triple
 
+        var swiftCompilerFlags: [String] = []
+        #if os(macOS)
+        swiftCompilerFlags += try Self.deriveMacOSSpecificSwiftTestingFlags(
+            derivedSwiftCompiler: swiftCompilers.compile,
+            fileSystem: fileSystem
+        )
+        #endif
+
+        swiftCompilerFlags += try Self.deriveSwiftCFlags(
+            triple: triple,
+            swiftSDK: swiftSDK,
+            environment: environment,
+            fileSystem: fileSystem
+        )
+
         self.extraFlags = BuildFlags(
             cCompilerFlags: swiftSDK.toolset.knownTools[.cCompiler]?.extraCLIOptions ?? [],
             cxxCompilerFlags: swiftSDK.toolset.knownTools[.cxxCompiler]?.extraCLIOptions ?? [],
-            swiftCompilerFlags: try Self.deriveSwiftCFlags(
-                triple: triple,
-                swiftSDK: swiftSDK,
-                environment: environment,
-                fileSystem: fileSystem
-            ),
+            swiftCompilerFlags: swiftCompilerFlags,
             linkerFlags: swiftSDK.toolset.knownTools[.linker]?.extraCLIOptions ?? [],
             xcbuildFlags: swiftSDK.toolset.knownTools[.xcbuild]?.extraCLIOptions ?? [])
 
