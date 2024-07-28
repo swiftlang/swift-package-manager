@@ -312,12 +312,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 observabilityScope: observabilityScope
             ))
         }
-        let macroProductsByTarget = productMap.values.filter { $0.product.type == .macro }
-            .reduce(into: [ResolvedModule.ID: ResolvedProduct]()) {
-                if let target = $1.product.modules.first {
-                    $0[target.id] = $1.product
-                }
-            }
 
         // Create build target description for each target which we need to plan.
         // Plugin targets are noted, since they need to be compiled, but they do
@@ -392,18 +386,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     throw InternalError("package not found for \(target)")
                 }
 
-                let requiredMacroProducts = try target.recursiveModuleDependencies()
-                    .filter { $0.underlying.type == .macro }
-                    .compactMap {
-                        guard let product = macroProductsByTarget[$0.id],
-                              let description = productMap[product.id] else
-                        {
-                            throw InternalError("macro product not found for \($0)")
-                        }
-
-                        return description.buildDescription
-                    }
-
                 var generateTestObservation = false
                 if target.type == .test && shouldGenerateTestObservation {
                     generateTestObservation = true
@@ -417,9 +399,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         toolsVersion: toolsVersion,
                         additionalFileRules: additionalFileRules,
                         buildParameters: buildParameters,
+                        macroBuildParameters: toolsBuildParameters,
                         buildToolPluginInvocationResults: buildToolPluginInvocationResults[target.id] ?? [],
                         prebuildCommandResults: prebuildCommandResults[target.id] ?? [],
-                        requiredMacroProducts: requiredMacroProducts,
                         shouldGenerateTestObservation: generateTestObservation,
                         shouldDisableSandbox: self.shouldDisableSandbox,
                         fileSystem: fileSystem,

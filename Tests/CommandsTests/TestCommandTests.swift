@@ -191,7 +191,7 @@ final class TestCommandTests: CommandsTestCase {
         }
 
         try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
-            let (stdout, stderr) = try await SwiftPM.Test.execute(["--skip", "Tests"], packagePath: fixturePath)
+            let (stdout, _) = try await SwiftPM.Test.execute(["--skip", "Tests"], packagePath: fixturePath)
             // in "swift test" test output goes to stdout
             XCTAssertNoMatch(stdout, .contains("testExample1"))
             XCTAssertNoMatch(stdout, .contains("testExample2"))

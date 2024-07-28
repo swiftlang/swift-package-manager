@@ -60,10 +60,10 @@ extension SwiftPackageCommand {
             // but Swift Testing must remain off by default until it is present
             // in the Swift toolchain.
             var supportedTestingLibraries = Set<TestingLibrary>()
-            if testLibraryOptions.isEnabled(.xctest) {
+            if testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
                 supportedTestingLibraries.insert(.xctest)
             }
-            if testLibraryOptions.isExplicitlyEnabled(.swiftTesting) {
+            if testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) {
                 supportedTestingLibraries.insert(.swiftTesting)
             }
 

@@ -66,6 +66,40 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
+    func testSwiftLanguageModesPerTarget() async throws {
+        try UserToolchain.default.skipUnlessAtLeastSwift6()
+
+        let content = """
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    defaultLocalization: "fr",
+                    products: [],
+                    targets: [
+                        .target(
+                            name: "Foo",
+                            swiftSettings: [
+                                .swiftLanguageMode(.v5)
+                            ]
+                        ),
+                        .target(
+                            name: "Bar",
+                            swiftSettings: [
+                                .swiftLanguageVersion(.v6)
+                            ]
+                        )
+                    ]
+                )
+                """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(validationDiagnostics)
+        testDiagnostics(observability.diagnostics) { result in
+            result.checkUnordered(diagnostic: .contains("'swiftLanguageVersion' is deprecated: renamed to 'swiftLanguageMode(_:_:)'"), severity: .warning)
+        }
+    }
+
     private func loadRootManifestWithBasicGitRepository(
         manifestContent: String, 
         validator: (Manifest, TestingObservability) throws -> ()

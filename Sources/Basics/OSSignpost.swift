@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2023-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -11,10 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 #if canImport(os)
+#if compiler(>=6.0)
+import os
+#else
 @preconcurrency import os
 #endif
 
-#if canImport(os)
 extension os.OSLog {
     @usableFromInline
     static let swiftpm = os.OSLog(subsystem: "org.swift.swiftpm", category: "default")
