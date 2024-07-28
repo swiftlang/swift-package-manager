@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import protocol _Concurrency.Actor
+
 /// An asynchronous output byte stream.
 ///
 /// This protocol is designed to be able to support efficient streaming to

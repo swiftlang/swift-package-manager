@@ -30,6 +30,7 @@ add_library(Basics
   Concurrency/ThreadSafeBox.swift
   Concurrency/ThreadSafeKeyValueStore.swift
   Concurrency/TokenBucket.swift
+  Concurrency/WritableStream.swift
   DispatchTimeInterval+Extensions.swift
   Environment/Environment.swift
   Environment/EnvironmentKey.swift
