@@ -966,9 +966,21 @@ extension AsyncProcess {
     package typealias ReadableStreamHandler =
         @Sendable (_ stderrStream: ReadableStream) async throws -> ()
 
+    /// Launches a new `AsyncProcess` instances, allowing the caller to consume `stdout` and `stderr` output
+    /// with handlers that support structured concurrency.
+    /// - Parameters:
+    ///   - arguments: CLI command used to launch the process.
+    ///   - environment: environment variables passed to the launched process.
+    ///   - loggingHandler: handler used for logging,
+    ///   - stdoutHandler: asynchronous bidirectional handler closure that receives `stdin` and `stdout` streams as
+    ///   arguments.
+    ///   - stderrHandler: asynchronous unidirectional handler closure that receives `stderr` stream as an argument.
+    /// - Returns: ``AsyncProcessResult`` value as received from the underlying ``AsyncProcess/waitUntilExit()`` call
+    /// made on ``AsyncProcess`` instance.
     package static func popen(
         arguments: [String],
         environment: Environment = .current,
+        loggingHandler: LoggingHandler? = .none,
         stdoutHandler: @escaping DuplexStreamHandler,
         stderrHandler: ReadableStreamHandler? = nil
     ) async throws -> AsyncProcessResult {
@@ -982,7 +994,8 @@ extension AsyncProcess {
                 stdoutContinuation.yield($0)
             } stderr: {
                 stderrContinuation.yield($0)
-            }
+            },
+            loggingHandler: loggingHandler
         )
 
         return try await withThrowingTaskGroup(of: Void.self) { group in
