@@ -432,7 +432,6 @@ final class AsyncProcessTests: XCTestCase {
                 var counter = 0
                 for await output in stderrStream {
                     counter += 1
-                    XCTAssertTrue(output.isEmpty)
                 }
 
                 XCTAssertEqual(counter, 0)
@@ -473,7 +472,6 @@ final class AsyncProcessTests: XCTestCase {
                 var counter = 0
                 for await output in stderr {
                     counter += 1
-                    XCTAssertTrue(output.isEmpty)
                 }
 
                 XCTAssertEqual(counter, 0)
