@@ -10,9 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct SystemPackage.FilePath
+@preconcurrency import struct SystemPackage.FilePath
 
-actor VirtualFileSystem: AsyncFileSystem {
+package actor AsyncVFS: AsyncFS {
     package static let defaultChunkSize = 512 * 1024
 
     let readChunkSize: Int
@@ -27,25 +27,29 @@ actor VirtualFileSystem: AsyncFileSystem {
 
     private let storage: Storage
 
-    init(content: [FilePath: [UInt8]] = [:], readChunkSize: Int = defaultChunkSize) {
+    package init(content: [FilePath: [UInt8]] = [:], readChunkSize: Int = defaultChunkSize) {
         self.storage = .init(content)
         self.readChunkSize = readChunkSize
     }
 
-    func withOpenReadableFile<T: Sendable>(
+    func append(path: FilePath, bytes: some Sequence<UInt8>) {
+        storage.content[path, default: []].append(contentsOf: bytes)
+    }
+
+    package func withOpenReadableFile<T: Sendable>(
         _ path: FilePath,
         _ body: (OpenReadableFile) async throws -> T
     ) async throws -> T {
         guard let bytes = storage.content[path] else {
-            throw FileSystemError.fileDoesNotExist(path)
+            throw AsyncFSError.fileDoesNotExist(path)
         }
         return try await body(.init(readChunkSize: self.readChunkSize, fileHandle: .virtual(bytes)))
     }
 
-    func withOpenWritableFile<T: Sendable>(
+    package func withOpenWritableFile<T: Sendable>(
         _ path: FilePath,
         _ body: (OpenWritableFile) async throws -> T
     ) async throws -> T {
-        try await body(.init(fileHandle: .virtual(self.storage, path)))
+        try await body(.init(storage: .virtual(self), path: path))
     }
 }

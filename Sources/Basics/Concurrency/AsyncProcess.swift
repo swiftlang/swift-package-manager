@@ -437,7 +437,7 @@ package final class AsyncProcess {
     /// stdin. If needed, the stream can be closed using the close() API. Otherwise, the stream will be closed
     /// automatically.
     @discardableResult
-    package func launch() throws -> WritableByteStream {
+    package func launch() throws -> any WritableByteStream {
         precondition(
             self.arguments.count > 0 && !self.arguments[0].isEmpty,
             "Need at least one argument to launch the process."

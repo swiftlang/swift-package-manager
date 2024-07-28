@@ -12,6 +12,7 @@
 
 import _Concurrency
 import SystemPackage
+import class Dispatch.DispatchQueue
 
 package enum ReadableFileStream: AsyncSequence {
     package typealias Element = [UInt8]
@@ -47,35 +48,43 @@ package struct LocalReadableFileStream: AsyncSequence {
     package typealias Element = [UInt8]
 
     let fileDescriptor: FileDescriptor
+    let ioQueue: DispatchQueue
     let readChunkSize: Int
 
     package final class Iterator: AsyncIteratorProtocol {
-        init(_ fileDescriptor: FileDescriptor, readChunkSize: Int) {
+        init(_ fileDescriptor: FileDescriptor, ioQueue: DispatchQueue, readChunkSize: Int) {
             self.fileDescriptor = fileDescriptor
+            self.ioQueue = ioQueue
             self.readChunkSize = readChunkSize
         }
 
         private let fileDescriptor: FileDescriptor
+        private let ioQueue: DispatchQueue
         private let readChunkSize: Int
 
         package func next() async throws -> [UInt8]? {
-            var buffer = [UInt8](repeating: 0, count: readChunkSize)
+            let chunkSize = self.readChunkSize
+            let fileDescriptor = self.fileDescriptor
 
-            let bytesRead = try buffer.withUnsafeMutableBytes {
-                try self.fileDescriptor.read(into: $0)
+            return try await ioQueue.scheduleOnQueue {
+                var buffer = [UInt8](repeating: 0, count: chunkSize)
+
+                let bytesRead = try buffer.withUnsafeMutableBytes {
+                    try fileDescriptor.read(into: $0)
+                }
+
+                guard bytesRead > 0 else {
+                    return nil
+                }
+
+                buffer.removeLast(chunkSize - bytesRead)
+                return buffer
             }
-
-            guard bytesRead > 0 else {
-                return nil
-            }
-
-            buffer.removeLast(self.readChunkSize - bytesRead)
-            return buffer
         }
     }
 
     package func makeAsyncIterator() -> Iterator {
-        Iterator(self.fileDescriptor, readChunkSize: self.readChunkSize)
+        Iterator(self.fileDescriptor, ioQueue: ioQueue, readChunkSize: self.readChunkSize)
     }
 }
 

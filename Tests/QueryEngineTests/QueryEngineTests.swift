@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import class Basics.ObservabilitySystem
+import Basics
 import struct Foundation.Data
 @testable import QueryEngine
 import struct SystemPackage.FilePath
@@ -20,7 +20,7 @@ import XCTest
 private let encoder = JSONEncoder()
 private let decoder = JSONDecoder()
 
-private extension AsyncFileSystem {
+private extension AsyncFS {
   func read<V: Decodable>(_ path: FilePath, bufferLimit: Int = 10 * 1024 * 1024, as: V.Type) async throws -> V {
     let data = try await self.withOpenReadableFile(path) {
       var data = Data()
@@ -28,7 +28,7 @@ private extension AsyncFileSystem {
         data.append(contentsOf: chunk)
 
         guard data.count < bufferLimit else {
-          throw FileSystemError.bufferLimitExceeded(path)
+          throw AsyncFSError.bufferLimitExceeded(path)
         }
       }
       return data
@@ -102,7 +102,7 @@ final class QueryEngineTests: XCTestCase {
   func testSimpleCaching() async throws {
     let observabilitySystem = ObservabilitySystem.makeForTesting()
     let engine = QueryEngine(
-      VirtualFileSystem(),
+      AsyncVFS(),
       observabilitySystem.topScope,
       cacheLocation: .memory
     )

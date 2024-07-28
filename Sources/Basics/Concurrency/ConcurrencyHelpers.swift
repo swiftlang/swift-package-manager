@@ -80,3 +80,17 @@ public func safe_async<T>(_ body: @escaping @Sendable (@escaping (Result<T, Neve
 // As of Swift 5.7 and 5.8 swift-corelibs-foundation doesn't have `Sendable` annotations yet.
 extension URL: @unchecked Sendable {}
 #endif
+
+extension DispatchQueue {
+    package func scheduleOnQueue<T>(work: @escaping @Sendable () throws -> T) async throws -> T {
+        try await withCheckedThrowingContinuation { continuation in
+            self.async {
+                do {
+                    continuation.resume(returning: try work())
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+}

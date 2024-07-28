@@ -11,11 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import protocol _Concurrency.Actor
-import protocol Crypto.HashFunction
-import struct SystemPackage.Errno
-import struct SystemPackage.FilePath
+@preconcurrency import struct SystemPackage.Errno
+@preconcurrency import struct SystemPackage.FilePath
 
-package protocol AsyncFileSystem: Actor {
+package protocol AsyncFS: Actor {
     func withOpenReadableFile<T>(
         _ path: FilePath,
         _ body: @Sendable (OpenReadableFile) async throws -> T
@@ -27,7 +26,7 @@ package protocol AsyncFileSystem: Actor {
     ) async throws -> T
 }
 
-enum FileSystemError: Error {
+package enum AsyncFSError: Error {
     case fileDoesNotExist(FilePath)
     case bufferLimitExceeded(FilePath)
     case systemError(FilePath, Errno)
@@ -36,7 +35,7 @@ enum FileSystemError: Error {
 extension Error {
     func attach(path: FilePath) -> any Error {
         if let error = self as? Errno {
-            FileSystemError.systemError(path, error)
+            AsyncFSError.systemError(path, error)
         } else {
             self
         }

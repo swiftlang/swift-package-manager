@@ -15,7 +15,7 @@ import Crypto
 @preconcurrency import SystemPackage
 
 package func withQueryEngine(
-    _ fileSystem: any AsyncFileSystem,
+    _ fileSystem: any AsyncFS,
     _ observabilityScope: ObservabilityScope,
     cacheLocation: SQLite.Location,
     _ body: @Sendable (QueryEngine) async throws -> Void
@@ -39,7 +39,7 @@ package actor QueryEngine {
     private(set) var cacheHits = 0
     private(set) var cacheMisses = 0
 
-    package let fileSystem: any AsyncFileSystem
+    package let fileSystem: any AsyncFS
     package let httpClient = HTTPClient()
     package let observabilityScope: ObservabilityScope
     private let resultsCache: SQLiteBackedCache<FileCacheRecord>
@@ -52,7 +52,7 @@ package actor QueryEngine {
     /// - Parameter cacheLocation: Location of cache storage used by the engine.
     /// - Parameter logger: Logger to use during queries execution.
     init(
-        _ fileSystem: any AsyncFileSystem,
+        _ fileSystem: any AsyncFS,
         _ observabilityScope: ObservabilityScope,
         cacheLocation: SQLite.Location
     ) {

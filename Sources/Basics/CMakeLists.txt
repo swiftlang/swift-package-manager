@@ -11,13 +11,18 @@ add_library(Basics
   Archiver/TarArchiver.swift
   Archiver/ZipArchiver.swift
   Archiver/UniversalArchiver.swift
-  AsyncProcess.swift
+  AsyncFileSystem/AsyncFS.swift
+  AsyncFileSystem/AsyncVFS.swift
+  AsyncFileSystem/OpenReadableFile.swift
+  AsyncFileSystem/OpenWritableFile.swift
+  AsyncFileSystem/ReadableFileStream.swift
   AuthorizationProvider.swift
   Cancellator.swift
   Collections/ByteString+Extensions.swift
   Collections/Dictionary+Extensions.swift
   Collections/IdentifiableSet.swift
   Collections/String+Extensions.swift
+  Concurrency/AsyncProcess.swift
   Concurrency/ConcurrencyHelpers.swift
   Concurrency/NSLock+Extensions.swift
   Concurrency/SendableBox.swift
