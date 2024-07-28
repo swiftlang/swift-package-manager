@@ -33,7 +33,7 @@ package actor OpenWritableFile: WritableStream {
         self.path = path
     }
 
-    package func write<S: Collection<UInt8> & Sendable>(_ bytes: S) async throws {
+    package func write(_ bytes: some Collection<UInt8> & Sendable) async throws {
         assert(!isClosed)
         switch self.storage {
         case let .real(queue, fileDescriptor):

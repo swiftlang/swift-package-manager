@@ -18,8 +18,9 @@ import protocol _Concurrency.Actor
 /// The stream is generally used in conjunction with the ``WritableStream/write(_:)`` function.
 /// For example:
 /// ```swift
-/// let stream = BufferedOutputByteStream()
-/// stream.write("Hello, world!")
+/// let stream = fileSystem.withOpenWritableFile { stream in
+///     stream.write("Hello, world!")
+/// }
 /// ```
 /// would write the UTF8 encoding of "Hello, world!" to the stream.
 package protocol WritableStream: Actor {
