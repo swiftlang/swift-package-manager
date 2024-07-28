@@ -395,8 +395,8 @@ final class AsyncProcessTests: XCTestCase {
     }
 
     func testAsyncStream() async throws {
-        let (stdoutStream, stdoutContinuation) = AsyncProcess.OutputStream.makeStream()
-        let (stderrStream, stderrContinuation) = AsyncProcess.OutputStream.makeStream()
+        let (stdoutStream, stdoutContinuation) = AsyncProcess.ReadableStream.makeStream()
+        let (stderrStream, stderrContinuation) = AsyncProcess.ReadableStream.makeStream()
 
         let process = AsyncProcess(
             scriptName: "echo",
@@ -407,7 +407,7 @@ final class AsyncProcessTests: XCTestCase {
             }
         )
 
-        try await withThrowingTaskGroup(of: Void.self) { group in
+        let result = try await withThrowingTaskGroup(of: Void.self) { group in
             let stdin = try process.launch()
 
             group.addTask {
@@ -415,7 +415,7 @@ final class AsyncProcessTests: XCTestCase {
                 stdin.write("Hello \(counter)\n")
                 stdin.flush()
 
-                for try await output in stdoutStream {
+                for await output in stdoutStream {
                     XCTAssertEqual(output, .init("Hello \(counter)\n".utf8))
                     counter += 1
 
@@ -430,7 +430,7 @@ final class AsyncProcessTests: XCTestCase {
 
             group.addTask {
                 var counter = 0
-                for try await output in stderrStream {
+                for await output in stderrStream {
                     counter += 1
                     XCTAssertTrue(output.isEmpty)
                 }
@@ -443,8 +443,44 @@ final class AsyncProcessTests: XCTestCase {
                 stderrContinuation.finish()
             }
 
-            try await process.waitUntilExit()
+            return try await process.waitUntilExit()
         }
+
+        XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+    }
+
+    func testAsyncStreamHighLevelAPI() async throws {
+        let result = try await AsyncProcess.popen(
+            scriptName: "echo",
+            stdout: { stdin, stdout in
+                var counter = 0
+                stdin.write("Hello \(counter)\n")
+                stdin.flush()
+
+                for await output in stdout {
+                    XCTAssertEqual(output, .init("Hello \(counter)\n".utf8))
+                    counter += 1
+
+                    stdin.write(.init("Hello \(counter)\n".utf8))
+                    stdin.flush()
+                }
+
+                XCTAssertEqual(counter, 5)
+
+                try stdin.close()
+            },
+            stderr: { stderr in
+                var counter = 0
+                for await output in stderr {
+                    counter += 1
+                    XCTAssertTrue(output.isEmpty)
+                }
+
+                XCTAssertEqual(counter, 0)
+            }
+        )
+
+        XCTAssertEqual(result.exitStatus, .terminated(code: 0))
     }
 }
 
@@ -465,9 +501,7 @@ extension AsyncProcess {
         )
     }
 
-    #if compiler(>=5.8)
     @available(*, noasync)
-    #endif
     fileprivate static func checkNonZeroExit(
         scriptName: String,
         environment: Environment = .current,
@@ -493,9 +527,7 @@ extension AsyncProcess {
         )
     }
 
-    #if compiler(>=5.8)
     @available(*, noasync)
-    #endif
     @discardableResult
     fileprivate static func popen(
         scriptName: String,
@@ -513,5 +545,13 @@ extension AsyncProcess {
         loggingHandler: LoggingHandler? = .none
     ) async throws -> AsyncProcessResult {
         try await self.popen(arguments: [self.script(scriptName)], environment: .current, loggingHandler: loggingHandler)
+    }
+
+    fileprivate static func popen(
+        scriptName: String,
+        stdout: @escaping AsyncProcess.DuplexStreamHandler,
+        stderr: AsyncProcess.ReadableStreamHandler? = nil
+    ) async throws -> AsyncProcessResult {
+        try await self.popen(arguments: [self.script(scriptName)], stdoutHandler: stdout, stderrHandler: stderr)
     }
 }

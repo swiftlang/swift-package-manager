@@ -173,7 +173,7 @@ package final class AsyncProcess {
         case stdinUnavailable
     }
 
-    package typealias OutputStream = AsyncStream<[UInt8]>
+    package typealias ReadableStream = AsyncStream<[UInt8]>
 
     package enum OutputRedirection: Sendable {
         /// Do not redirect the output
@@ -190,10 +190,10 @@ package final class AsyncProcess {
         /// Stream stdout and stderr as `AsyncSequence` provided as an argument to closures passed to
         /// ``AsyncProcess/launch(stdoutStream:stderrStream:)``.
         case asyncStream(
-            stdoutStream: OutputStream,
-            stdoutContinuation: OutputStream.Continuation,
-            stderrStream: OutputStream,
-            stderrContinuation: OutputStream.Continuation
+            stdoutStream: ReadableStream,
+            stdoutContinuation: ReadableStream.Continuation,
+            stderrStream: ReadableStream,
+            stderrContinuation: ReadableStream.Continuation
         )
 
         /// Default collect OutputRedirection that defaults to not redirect stderr. Provided for API compatibility.
@@ -255,7 +255,7 @@ package final class AsyncProcess {
     #endif
 
     /// Typealias for stdout/stderr output closure.
-    package typealias OutputClosure = @Sendable ([UInt8]) -> Void
+    package typealias OutputClosure = ([UInt8]) -> Void
 
     /// Typealias for logging handling closure
     package typealias LoggingHandler = (String) -> Void
@@ -961,20 +961,19 @@ extension AsyncProcess {
         try await self.popen(arguments: args, environment: environment, loggingHandler: loggingHandler)
     }
 
-    package enum StderrRedirection {
-        case ignore
-        case redirectToStdout
-        case custom((OutputStream) -> ())
-    }
+    package typealias DuplexStreamHandler =
+        @Sendable (_ stdinStream: WritableByteStream, _ stdoutStream: ReadableStream) async throws -> ()
+    package typealias ReadableStreamHandler =
+        @Sendable (_ stderrStream: ReadableStream) async throws -> ()
 
     package static func popen(
         arguments: [String],
         environment: Environment = .current,
-        stdoutHandler: @escaping @Sendable (_ stdinStream: WritableByteStream, _ stdoutStream: OutputStream) -> (),
-        stderrHandler: (@Sendable (_ stderrStream: OutputStream) -> ())? = nil
+        stdoutHandler: @escaping DuplexStreamHandler,
+        stderrHandler: ReadableStreamHandler? = nil
     ) async throws -> AsyncProcessResult {
-        let (stdoutStream, stdoutContinuation) = OutputStream.makeStream()
-        let (stderrStream, stderrContinuation) = OutputStream.makeStream()
+        let (stdoutStream, stdoutContinuation) = ReadableStream.makeStream()
+        let (stderrStream, stderrContinuation) = ReadableStream.makeStream()
 
         let process = AsyncProcess(
             arguments: arguments,
@@ -990,12 +989,12 @@ extension AsyncProcess {
             let stdinStream = try process.launch()
 
             group.addTask {
-                stdoutHandler(stdinStream, stdoutStream)
+                try await stdoutHandler(stdinStream, stdoutStream)
             }
 
             if let stderrHandler {
                 group.addTask {
-                    stderrHandler(stderrStream)
+                    try await stderrHandler(stderrStream)
                 }
             }
 
