@@ -619,6 +619,13 @@ let package = Package(
         // MARK: SwiftPM tests
 
         .testTarget(
+            name: "_AsyncFileSystemTests",
+            dependencies: [
+                "_AsyncFileSystem"
+            ]
+        ),
+
+        .testTarget(
             name: "SourceKitLSPAPITests",
             dependencies: [
                 "SourceKitLSPAPI",

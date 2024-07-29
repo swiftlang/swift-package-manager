@@ -24,8 +24,8 @@ import protocol _Concurrency.Actor
 /// ```
 /// would write the UTF8 encoding of "Hello, world!" to the stream.
 package protocol WritableStream: Actor {
-    /// Write a sequence of bytes to the buffer.
-    func write(_ bytes: [UInt8]) async throws
+    /// Writes a sequence of bytes to the buffer.
+    func write(_ bytes: some Collection<UInt8> & Sendable) async throws
 
     /// Closes the underlying stream handle. It is a programmer error to write to a stream after it's closed.
     func close() async throws

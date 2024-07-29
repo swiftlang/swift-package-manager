@@ -14,10 +14,10 @@
 
 /// In-memory implementation of `AsyncFileSystem` for mocking and testing purposes.
 package actor MockFileSystem: AsyncFileSystem {
-    /// The default size of chunks read by this file system.
+    /// The default size of chunks in bytes read by this file system.
     package static let defaultChunkSize = 512 * 1024
 
-    /// Size of chunks read by this instance of file system.
+    /// Maximum size of chunks in bytes read by this instance of file system.
     let readChunkSize: Int
 
     /// Underlying in-memory dictionary-based storage for this mock file system.
@@ -31,17 +31,24 @@ package actor MockFileSystem: AsyncFileSystem {
 
     /// Concrete instance of the underlying storage used by this file system.
     private let storage: Storage
-    
+
     /// Creates a new instance of the mock file system.
     /// - Parameters:
     ///   - content: Dictionary of paths to their in-memory contents to use for seeding the file system.
-    ///   - readChunkSize: Size of chunks produce by this file system when reading files.
+    ///   - readChunkSize: Size of chunks in bytes produced by this file system when reading files.
     package init(content: [FilePath: [UInt8]] = [:], readChunkSize: Int = defaultChunkSize) {
         self.storage = .init(content)
         self.readChunkSize = readChunkSize
     }
 
-    /// 
+    package func exists(_ path: FilePath) -> Bool {
+        self.storage.content.keys.contains(path)
+    }
+
+    /// Appends a sequence of bytes to a file.
+    /// - Parameters:
+    ///   - path: absolute path of the file to append bytes to.
+    ///   - bytes: sequence of bytes to append to file's contents.
     func append(path: FilePath, bytes: some Sequence<UInt8>) {
         storage.content[path, default: []].append(contentsOf: bytes)
     }
@@ -53,7 +60,7 @@ package actor MockFileSystem: AsyncFileSystem {
         guard let bytes = storage.content[path] else {
             throw AsyncFileSystemError.fileDoesNotExist(path)
         }
-        return try await body(.init(readChunkSize: self.readChunkSize, fileHandle: .mock(bytes)))
+        return try await body(.init(chunkSize: self.readChunkSize, fileHandle: .mock(bytes)))
     }
 
     package func withOpenWritableFile<T: Sendable>(

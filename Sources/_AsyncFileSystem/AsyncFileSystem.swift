@@ -16,6 +16,11 @@ import protocol _Concurrency.Actor
 
 /// An abstract file system protocol with first-class support for Swift Concurrency.
 package protocol AsyncFileSystem: Actor {
+    /// Whether a file exists on the file system.
+    /// - Parameter path: Absolute path to the file to check.
+    /// - Returns: `true` if the file exists, `false` otherwise.
+    func exists(_ path: FilePath) async -> Bool
+
     /// Temporarily opens a read-only file within a scope defined by a given closure.
     /// - Parameters:
     ///   - path: Absolute path to a readable file on this file system.
@@ -54,11 +59,19 @@ extension Error {
     /// Makes a system error value more actionable and readable by the end user.
     /// - Parameter path: absolute path to the file, operations on which caused this error.
     /// - Returns: An ``AsyncFileSystemError`` value augmented by the given file path.
-    func attach(path: FilePath) -> any Error {
+    func attach(_ path: FilePath) -> any Error {
         if let error = self as? Errno {
             AsyncFileSystemError.systemError(path, error)
         } else {
             self
+        }
+    }
+}
+
+extension AsyncFileSystem {
+    package func write(_ path: FilePath, bytes: some Collection<UInt8> & Sendable) async throws {
+        try await self.withOpenWritableFile(path) { fileHandle in
+            try await fileHandle.write(bytes)
         }
     }
 }
