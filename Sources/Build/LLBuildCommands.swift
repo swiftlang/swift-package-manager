@@ -239,17 +239,6 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             ""
         }
 
-        var needsAsyncMainWorkaround = false
-        if buildParameters.triple.isLinux() {
-            // FIXME: work around crash on Amazon Linux 2 when main function is async (rdar://128303921)
-            needsAsyncMainWorkaround = true
-        } else if buildParameters.triple.isDarwin() {
-#if compiler(<5.10)
-            // FIXME: work around duplicate async_Main symbols (SEE https://github.com/swiftlang/swift/pull/69113)
-            needsAsyncMainWorkaround = true
-#endif
-        }
-
         stream.send(
             #"""
             #if canImport(Testing)
@@ -279,22 +268,11 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
                     return "xctest"
                 }
 
-                #if \#(needsAsyncMainWorkaround)
-                @_silgen_name("$ss13_runAsyncMainyyyyYaKcF")
-                private static func _runAsyncMain(_ asyncFun: @Sendable @escaping () async throws -> ())
-                #endif
-
-                static func main() \#(needsAsyncMainWorkaround ? "" : "async") {
+                static func main() async {
                     let testingLibrary = Self.testingLibrary()
                     #if canImport(Testing)
                     if testingLibrary == "swift-testing" {
-                        #if \#(needsAsyncMainWorkaround)
-                        _runAsyncMain {
-                            await Testing.__swiftPMEntryPoint() as Never
-                        }
-                        #else
                         await Testing.__swiftPMEntryPoint() as Never
-                        #endif
                     }
                     #endif
                     #if \#(isXCTMainAvailable)
