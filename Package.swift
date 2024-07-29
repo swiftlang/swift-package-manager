@@ -621,7 +621,8 @@ let package = Package(
         .testTarget(
             name: "_AsyncFileSystemTests",
             dependencies: [
-                "_AsyncFileSystem"
+                "_AsyncFileSystem",
+                "_InternalTestSupport",
             ]
         ),
 

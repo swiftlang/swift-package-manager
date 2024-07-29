@@ -8,31 +8,29 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-#if canImport(Testing)
-
 import _AsyncFileSystem
-import Testing
+import _InternalTestSupport
+import XCTest
 import struct SystemPackage.FilePath
 
-@Test
-func testMockFileSystem() async throws {
-    let fs = MockFileSystem()
+final class AsyncFileSystemTests: XCTestCase {
+    func testMockFileSystem() async throws {
+        let fs = MockFileSystem()
 
-    let mockPath: FilePath = "/foo/bar"
+        let mockPath: FilePath = "/foo/bar"
 
-    #expect(await !fs.exists(mockPath))
+        await XCTAssertAsyncFalse(await fs.exists(mockPath))
 
-    let mockContent = "baz".utf8
+        let mockContent = "baz".utf8
 
-    try await fs.write(mockPath, bytes: "baz".utf8)
+        try await fs.write(mockPath, bytes: "baz".utf8)
 
-    #expect(await fs.exists(mockPath))
+        await XCTAssertAsyncTrue(await fs.exists(mockPath))
 
-    let bytes = try await fs.withOpenReadableFile(mockPath) { fileHandle in
-        try await fileHandle.read().reduce(into: []) { $0.append(contentsOf: $1) }
+        let bytes = try await fs.withOpenReadableFile(mockPath) { fileHandle in
+            try await fileHandle.read().reduce(into: []) { $0.append(contentsOf: $1) }
+        }
+
+        XCTAssertEqual(bytes, Array(mockContent))
     }
-
-    #expect(bytes == Array(mockContent))
 }
-
-#endif
