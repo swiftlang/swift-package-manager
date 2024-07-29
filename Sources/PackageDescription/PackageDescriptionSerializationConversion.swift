@@ -107,7 +107,7 @@ extension Serialization.CXXLanguageStandard {
 }
 
 extension Serialization.SwiftVersion {
-    init(_ swiftVersion: PackageDescription.SwiftVersion) {
+    init(_ swiftVersion: PackageDescription.SwiftLanguageMode) {
         switch swiftVersion {
         case .v3: self = .v3
         case .v4: self = .v4
