@@ -749,6 +749,19 @@ public final class UserToolchain: Toolchain {
             )
         }
 
+        let swiftTestingPath: AbsolutePath?
+        if case .custom(_, let useXcrun) = searchStrategy, !useXcrun {
+            swiftTestingPath = nil
+        } else {
+            swiftTestingPath = try Self.deriveSwiftTestingPath(
+                swiftSDK: self.swiftSDK,
+                triple: triple,
+                environment: environment,
+                fileSystem: fileSystem
+            )
+        }
+
+
         self.configuration = .init(
             librarianPath: librarianPath,
             swiftCompilerPath: swiftCompilers.manifest,
@@ -756,7 +769,8 @@ public final class UserToolchain: Toolchain {
             swiftCompilerEnvironment: environment,
             swiftPMLibrariesLocation: swiftPMLibrariesLocation,
             sdkRootPath: self.swiftSDK.pathsConfiguration.sdkRootPath,
-            xctestPath: xctestPath
+            xctestPath: xctestPath,
+            swiftTestingPath: swiftTestingPath
         )
 
         self.fileSystem = fileSystem
@@ -852,6 +866,40 @@ public final class UserToolchain: Toolchain {
         return .none
     }
 
+    private static func getWindowsPlatformInfo(
+        swiftSDK: SwiftSDK,
+        environment: Environment,
+        fileSystem: any FileSystem
+    ) -> (AbsolutePath, WindowsPlatformInfo)? {
+        let sdkRoot: AbsolutePath
+
+        if let sdkDir = swiftSDK.pathsConfiguration.sdkRootPath {
+            sdkRoot = sdkDir
+        } else if let SDKROOT = environment["SDKROOT"], let sdkDir = try? AbsolutePath(validating: SDKROOT) {
+            sdkRoot = sdkDir
+        } else {
+            return .none
+        }
+
+        // The layout of the SDK is as follows:
+        //
+        // Library/Developer/Platforms/[PLATFORM].platform/Developer/Library/<Project>-[VERSION]/...
+        // Library/Developer/Platforms/[PLATFORM].platform/Developer/SDKs/[PLATFORM].sdk/...
+        //
+        // SDKROOT points to [PLATFORM].sdk
+        let platform = sdkRoot.parentDirectory.parentDirectory.parentDirectory
+
+        guard let info = WindowsPlatformInfo(
+            reading: platform.appending("Info.plist"),
+            observabilityScope: nil,
+            filesystem: fileSystem
+        ) else {
+            return nil
+        }
+
+        return (platform, info)
+    }
+
     // TODO: We should have some general utility to find tools.
     private static func deriveXCTestPath(
         swiftSDK: SwiftSDK,
@@ -868,28 +916,10 @@ public final class UserToolchain: Toolchain {
                 return try AbsolutePath(validating: path)
             }
         } else if triple.isWindows() {
-            let sdkRoot: AbsolutePath
-
-            if let sdkDir = swiftSDK.pathsConfiguration.sdkRootPath {
-                sdkRoot = sdkDir
-            } else if let SDKROOT = environment["SDKROOT"], let sdkDir = try? AbsolutePath(validating: SDKROOT) {
-                sdkRoot = sdkDir
-            } else {
-                return .none
-            }
-
-            // The layout of the SDK is as follows:
-            //
-            // Library/Developer/Platforms/[PLATFORM].platform/Developer/Library/XCTest-[VERSION]/...
-            // Library/Developer/Platforms/[PLATFORM].platform/Developer/SDKs/[PLATFORM].sdk/...
-            //
-            // SDKROOT points to [PLATFORM].sdk
-            let platform = sdkRoot.parentDirectory.parentDirectory.parentDirectory
-
-            if let info = WindowsPlatformInfo(
-                reading: platform.appending("Info.plist"),
-                observabilityScope: nil,
-                filesystem: fileSystem
+            if let (platform, info) = getWindowsPlatformInfo(
+                swiftSDK: swiftSDK,
+                environment: environment,
+                fileSystem: fileSystem
             ) {
                 let xctest: AbsolutePath =
                     platform.appending("Developer")
@@ -952,6 +982,53 @@ public final class UserToolchain: Toolchain {
         return .none
     }
 
+    private static func deriveSwiftTestingPath(
+        swiftSDK: SwiftSDK,
+        triple: Triple,
+        environment: Environment,
+        fileSystem: any FileSystem
+    ) throws -> AbsolutePath? {
+        guard triple.isWindows() else {
+            return nil
+        }
+
+        guard let (platform, info) = getWindowsPlatformInfo(
+            swiftSDK: swiftSDK,
+            environment: environment,
+            fileSystem: fileSystem
+        ) else {
+            return nil
+        }
+
+        let swiftTesting: AbsolutePath =
+            platform.appending("Developer")
+                .appending("Library")
+                .appending("Testing-\(info.defaults.swiftTestingVersion)")
+
+        let binPath: AbsolutePath? = switch triple.arch {
+        case .x86_64: // amd64 x86_64 x86_64h
+            swiftTesting.appending("usr")
+                .appending("bin64")
+        case .x86: // i386 i486 i586 i686 i786 i886 i986
+            swiftTesting.appending("usr")
+                .appending("bin32")
+        case .arm: // armv7 and many more
+            swiftTesting.appending("usr")
+                .appending("bin32a")
+        case .aarch64: // aarch6 arm64
+            swiftTesting.appending("usr")
+                .appending("bin64a")
+        default:
+            nil
+        }
+
+        guard let path = binPath, fileSystem.exists(path) else {
+            return nil
+        }
+
+        return path
+    }
+
     public var sdkRootPath: AbsolutePath? {
         configuration.sdkRootPath
     }
@@ -974,6 +1051,10 @@ public final class UserToolchain: Toolchain {
 
     public var xctestPath: AbsolutePath? {
         configuration.xctestPath
+    }
+
+    public var swiftTestingPathOnWindows: AbsolutePath? {
+        configuration.swiftTestingPath
     }
 
     private static func loadJSONResource<T: Decodable>(
