@@ -175,8 +175,22 @@ let package = Package(
         .systemLibrary(name: "SPMSQLite3", pkgConfig: systemSQLitePkgConfig),
 
         .target(
+            name: "_AsyncFileSystem",
+            dependencies: [
+                .product(name: "SystemPackage", package: "swift-system"),
+            ],
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [
+                .enableExperimentalFeature("StrictConcurrency"),
+                .enableExperimentalFeature("AccessLevelOnImport"),
+                .enableExperimentalFeature("InternalImportsByDefault")
+            ]
+        ),
+
+        .target(
             name: "Basics",
             dependencies: [
+                "_AsyncFileSystem",
                 "SPMSQLite3",
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
@@ -482,6 +496,7 @@ let package = Package(
         .target(
             name: "QueryEngine",
             dependencies: [
+                "_AsyncFileSystem",
                 "Basics",
                 .product(name: "Crypto", package: "swift-crypto"),
             ],

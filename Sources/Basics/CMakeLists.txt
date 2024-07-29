@@ -11,11 +11,6 @@ add_library(Basics
   Archiver/TarArchiver.swift
   Archiver/ZipArchiver.swift
   Archiver/UniversalArchiver.swift
-  AsyncFileSystem/AsyncFS.swift
-  AsyncFileSystem/AsyncVFS.swift
-  AsyncFileSystem/OpenReadableFile.swift
-  AsyncFileSystem/OpenWritableFile.swift
-  AsyncFileSystem/ReadableFileStream.swift
   AuthorizationProvider.swift
   Cancellator.swift
   Collections/ByteString+Extensions.swift
@@ -30,7 +25,6 @@ add_library(Basics
   Concurrency/ThreadSafeBox.swift
   Concurrency/ThreadSafeKeyValueStore.swift
   Concurrency/TokenBucket.swift
-  Concurrency/WritableStream.swift
   DispatchTimeInterval+Extensions.swift
   Environment/Environment.swift
   Environment/EnvironmentKey.swift
@@ -83,6 +77,7 @@ add_library(Basics
   Vendor/Triple.swift
   Vendor/Triple+Platforms.swift)
 target_link_libraries(Basics PUBLIC
+  _AsyncFileSystem
   SwiftCollections::DequeModule
   SwiftCollections::OrderedCollections
   SwiftSystem::SystemPackage

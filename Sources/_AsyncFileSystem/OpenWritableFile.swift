@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import class Dispatch.DispatchQueue
+internal import class Dispatch.DispatchQueue
 @preconcurrency import struct SystemPackage.FileDescriptor
 import struct SystemPackage.FilePath
 
@@ -21,9 +21,9 @@ package actor OpenWritableFile: WritableStream {
 
     enum Storage {
         case real(DispatchQueue, FileDescriptor)
-        case virtual(AsyncVFS)
+        case mock(MockFileSystem)
     }
-    
+
     let storage: Storage
     let path: FilePath
     private var isClosed = false
@@ -37,15 +37,16 @@ package actor OpenWritableFile: WritableStream {
         assert(!isClosed)
         switch self.storage {
         case let .real(queue, fileDescriptor):
+            let path = self.path
             try await queue.scheduleOnQueue {
                 do {
                     let writtenBytesCount = try fileDescriptor.writeAll(bytes)
                     assert(bytes.count == writtenBytesCount)
                 } catch {
-                    throw error.attach(path: self.path)
+                    throw error.attach(path: path)
                 }
             }
-        case let .virtual(storage):
+        case let .mock(storage):
             await storage.append(path: self.path, bytes: bytes)
         }
     }

@@ -12,23 +12,23 @@
 
 import _Concurrency
 import SystemPackage
-import class Dispatch.DispatchQueue
+internal import class Dispatch.DispatchQueue
 
 package enum ReadableFileStream: AsyncSequence {
     package typealias Element = [UInt8]
 
-    case local(LocalReadableFileStream)
-    case virtual(VirtualReadableFileStream)
+    case real(RealReadableFileStream)
+    case mock(MockReadableFileStream)
 
     package enum Iterator: AsyncIteratorProtocol {
-        case local(LocalReadableFileStream.Iterator)
-        case virtual(VirtualReadableFileStream.Iterator)
+        case real(RealReadableFileStream.Iterator)
+        case mock(MockReadableFileStream.Iterator)
 
         package func next() async throws -> [UInt8]? {
             switch self {
-            case .local(let local):
+            case .real(let local):
                 try await local.next()
-            case .virtual(let virtual):
+            case .mock(let virtual):
                 try await virtual.next()
             }
         }
@@ -36,15 +36,15 @@ package enum ReadableFileStream: AsyncSequence {
 
     package func makeAsyncIterator() -> Iterator {
         switch self {
-        case .local(let local):
-            .local(local.makeAsyncIterator())
-        case .virtual(let virtual):
-            .virtual(virtual.makeAsyncIterator())
+        case .real(let real):
+            .real(real.makeAsyncIterator())
+        case .mock(let mock):
+            .mock(mock.makeAsyncIterator())
         }
     }
 }
 
-package struct LocalReadableFileStream: AsyncSequence {
+package struct RealReadableFileStream: AsyncSequence {
     package typealias Element = [UInt8]
 
     let fileDescriptor: FileDescriptor
@@ -88,7 +88,7 @@ package struct LocalReadableFileStream: AsyncSequence {
     }
 }
 
-package struct VirtualReadableFileStream: AsyncSequence {
+package struct MockReadableFileStream: AsyncSequence {
     package typealias Element = [UInt8]
 
     package final class Iterator: AsyncIteratorProtocol {

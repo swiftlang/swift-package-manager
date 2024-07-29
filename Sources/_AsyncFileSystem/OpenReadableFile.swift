@@ -10,31 +10,31 @@
 //
 //===----------------------------------------------------------------------===//
 
-import class Dispatch.DispatchQueue
+internal import class Dispatch.DispatchQueue
 import struct SystemPackage.FileDescriptor
 
 package struct OpenReadableFile: Sendable {
     let readChunkSize: Int
 
-    package enum Storage {
-        case local(FileDescriptor, DispatchQueue)
-        case virtual([UInt8])
+    enum Storage {
+        case real(FileDescriptor, DispatchQueue)
+        case mock([UInt8])
     }
 
-    package let fileHandle: Storage
+    let fileHandle: Storage
 
     package func read() async throws -> ReadableFileStream {
         switch self.fileHandle {
-        case let .local(fileDescriptor, ioQueue):
-            ReadableFileStream.local(
+        case let .real(fileDescriptor, ioQueue):
+            ReadableFileStream.real(
                 .init(
                     fileDescriptor: fileDescriptor,
                     ioQueue: ioQueue,
                     readChunkSize: self.readChunkSize
                 )
             )
-        case .virtual(let array):
-            ReadableFileStream.virtual(.init(bytes: array))
+        case .mock(let array):
+            ReadableFileStream.mock(.init(bytes: array))
         }
     }
 }

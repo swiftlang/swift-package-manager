@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Basics.OpenReadableFile
+import struct _AsyncFileSystem.OpenReadableFile
 
 // FIXME: need a new swift-system tag to remove `@preconcurrency`
 @preconcurrency import struct SystemPackage.FilePath
@@ -42,16 +42,10 @@ extension FileCacheRecord: Codable {
 
 extension OpenReadableFile {
     func hash(with hashFunction: inout some HashFunction) async throws {
-        switch self.fileHandle {
-        case let .local(fileDescriptor, ioQueue):
-            let stream = try await self.read()
+        let stream = try await self.read()
 
-            for try await bytes in stream {
-                hashFunction.update(data: bytes)
-            }
-
-        case let .virtual(array):
-            hashFunction.update(data: array)
+        for try await bytes in stream {
+            hashFunction.update(data: bytes)
         }
     }
 }

@@ -27,9 +27,7 @@ private extension AsyncFS {
       for try await chunk in try await $0.read() {
         data.append(contentsOf: chunk)
 
-        guard data.count < bufferLimit else {
-          throw AsyncFSError.bufferLimitExceeded(path)
-        }
+        assert(data.count < bufferLimit)
       }
       return data
     }
