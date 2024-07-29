@@ -455,6 +455,7 @@ public final class UserToolchain: Toolchain {
                 if let SDKROOT = environment["SDKROOT"], let sdkroot = try? AbsolutePath(validating: SDKROOT) {
                     var runtime: [String] = []
                     var xctest: [String] = []
+                    var swiftTesting: [String] = []
                     var extraSwiftCFlags: [String] = []
 
                     if let settings = WindowsSDKSettings(
@@ -476,7 +477,7 @@ public final class UserToolchain: Toolchain {
 
                     // The layout of the SDK is as follows:
                     //
-                    // Library/Developer/Platforms/[PLATFORM].platform/Developer/Library/XCTest-[VERSION]/...
+                    // Library/Developer/Platforms/[PLATFORM].platform/Developer/Library/<Project>-[VERSION]/...
                     // Library/Developer/Platforms/[PLATFORM].platform/Developer/SDKs/[PLATFORM].sdk/...
                     //
                     // SDKROOT points to [PLATFORM].sdk
@@ -487,14 +488,17 @@ public final class UserToolchain: Toolchain {
                         observabilityScope: nil,
                         filesystem: fileSystem
                     ) {
-                        let installation: AbsolutePath =
+                        let XCTestInstallation: AbsolutePath =
                             platform.appending("Developer")
                                 .appending("Library")
                                 .appending("XCTest-\(info.defaults.xctestVersion)")
 
                         xctest = try [
                             "-I",
-                            AbsolutePath(validating: "usr/lib/swift/windows", relativeTo: installation).pathString,
+                            AbsolutePath(
+                                validating: "usr/lib/swift/windows",
+                                relativeTo: XCTestInstallation
+                            ).pathString,
                             // Migration Path
                             //
                             // Older Swift (<=5.7) installations placed the
@@ -507,11 +511,13 @@ public final class UserToolchain: Toolchain {
                             "-I",
                             AbsolutePath(
                                 validating: "usr/lib/swift/windows/\(triple.archName)",
-                                relativeTo: installation
+                                relativeTo: XCTestInstallation
                             ).pathString,
                             "-L",
-                            AbsolutePath(validating: "usr/lib/swift/windows/\(triple.archName)", relativeTo: installation)
-                                .pathString,
+                            AbsolutePath(
+                                validating: "usr/lib/swift/windows/\(triple.archName)",
+                                relativeTo: XCTestInstallation
+                            ).pathString,
                         ]
 
                         // Migration Path
@@ -524,16 +530,34 @@ public final class UserToolchain: Toolchain {
                         // architecture subdirectory in `bin` if available.
                         let implib = try AbsolutePath(
                             validating: "usr/lib/swift/windows/XCTest.lib",
-                            relativeTo: installation
+                            relativeTo: XCTestInstallation
                         )
                         if fileSystem.exists(implib) {
                             xctest.append(contentsOf: ["-L", implib.parentDirectory.pathString])
                         }
 
+                        let swiftTestingInstallation: AbsolutePath =
+                            platform.appending("Developer")
+                                .appending("Library")
+                                .appending("Testing-\(info.defaults.swiftTestingVersion)")
+
+                        swiftTesting = try [
+                            "-I",
+                            AbsolutePath(
+                                validating: "usr/lib/swift/windows",
+                                relativeTo: swiftTestingInstallation
+                            ).pathString,
+                            "-L",
+                            AbsolutePath(
+                                validating: "usr/lib/swift/windows/\(triple.archName)",
+                                relativeTo: swiftTestingInstallation
+                            ).pathString
+                        ]
+
                         extraSwiftCFlags = info.defaults.extraSwiftCFlags ?? []
                     }
 
-                    return ["-sdk", sdkroot.pathString] + runtime + xctest + extraSwiftCFlags
+                    return ["-sdk", sdkroot.pathString] + runtime + xctest + swiftTesting + extraSwiftCFlags
                 }
             }
 
