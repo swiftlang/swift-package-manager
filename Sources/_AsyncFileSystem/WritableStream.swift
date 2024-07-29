@@ -19,7 +19,7 @@ import protocol _Concurrency.Actor
 /// For example:
 /// ```swift
 /// let stream = fileSystem.withOpenWritableFile { stream in
-///     stream.write("Hello, world!")
+///     stream.write("Hello, world!".utf8)
 /// }
 /// ```
 /// would write the UTF8 encoding of "Hello, world!" to the stream.
