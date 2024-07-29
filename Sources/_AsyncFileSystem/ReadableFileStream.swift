@@ -16,6 +16,8 @@ internal import class Dispatch.DispatchQueue
 
 /// Type-erasure wrapper over underlying file system readable streams.
 package enum ReadableFileStream: AsyncSequence {
+    package typealias Element = ArraySlice<UInt8>
+
     case real(RealReadableFileStream)
     case mock(MockReadableFileStream)
 
@@ -45,6 +47,8 @@ package enum ReadableFileStream: AsyncSequence {
 
 /// A stream of file contents from the real file system provided by the OS.
 package struct RealReadableFileStream: AsyncSequence {
+    package typealias Element = ArraySlice<UInt8>
+
     let fileDescriptor: FileDescriptor
     let ioQueue: DispatchQueue
     let readChunkSize: Int
@@ -89,6 +93,8 @@ package struct RealReadableFileStream: AsyncSequence {
 
 /// A stream of file contents backed by an in-memory array of bytes.
 package struct MockReadableFileStream: AsyncSequence {
+    package typealias Element = ArraySlice<UInt8>
+
     package final class Iterator: AsyncIteratorProtocol {
         init(bytes: [UInt8], chunkSize: Int) {
             self.bytes = bytes
