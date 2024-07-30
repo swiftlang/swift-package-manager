@@ -28,7 +28,7 @@ import struct OrderedCollections.OrderedSet
 public func depthFirstSearch<T: Hashable>(
     _ nodes: [T],
     successors: (T) throws -> [T],
-    onUnique: (T) -> Void,
+    onUnique: (T) throws -> Void,
     onDuplicate: (T, T) -> Void
 ) rethrows {
     var stack = OrderedSet<T>()
@@ -43,7 +43,7 @@ public func depthFirstSearch<T: Hashable>(
 
             let visitResult = visited.insert(curr)
             if visitResult.inserted {
-                onUnique(curr)
+                try onUnique(curr)
             } else {
                 onDuplicate(visitResult.memberAfterInsert, curr)
                 continue
