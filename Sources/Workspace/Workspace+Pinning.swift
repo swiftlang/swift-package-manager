@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import class Basics.ObservabilityScope
-import class PackageGraph.PackageResolvedStore
+import class PackageGraph.ResolvedPackagesStore
 import struct PackageModel.PackageReference
 import struct PackageModel.ToolsVersion
 import struct TSCUtility.Version
@@ -19,7 +19,7 @@ import struct TSCUtility.Version
 extension Workspace {
     /// Pins all of the current managed dependencies at their checkout state.
     func saveResolvedFile(
-        pinsStore: PackageResolvedStore,
+        pinsStore: ResolvedPackagesStore,
         dependencyManifests: DependencyManifests,
         originHash: String,
         rootManifestsMinimumToolsVersion: ToolsVersion,
@@ -51,12 +51,12 @@ extension Workspace {
             // compare for any differences between the existing state and the stored one
             // subtle changes between versions of SwiftPM could treat URLs differently
             // in which case we don't want to cause unnecessary churn
-            if dependenciesToPin.count != storedPinStore.pins.count {
+            if dependenciesToPin.count != storedPinStore.resolvedPackages.count {
                 needsUpdate = true
             } else {
                 for dependency in dependenciesToPin {
-                    if let pin = storedPinStore.pins[comparingLocation: dependency.packageRef] {
-                        if pin.state != PackageResolvedStore.Pin(dependency)?.state {
+                    if let pin = storedPinStore.resolvedPackages[comparingLocation: dependency.packageRef] {
+                        if pin.state != ResolvedPackagesStore.ResolvedPackage(dependency)?.state {
                             needsUpdate = true
                             break
                         }
@@ -111,18 +111,18 @@ extension Workspace {
     }
 }
 
-extension PackageResolvedStore {
+extension ResolvedPackagesStore {
     /// Pin a managed dependency at its checkout state.
     ///
     /// This method does nothing if the dependency is in edited state.
     func pin(_ dependency: Workspace.ManagedDependency) {
-        if let pin = PackageResolvedStore.Pin(dependency) {
+        if let pin = ResolvedPackagesStore.ResolvedPackage(dependency) {
             self.add(pin)
         }
     }
 }
 
-extension PackageResolvedStore.Pin {
+extension ResolvedPackagesStore.ResolvedPackage {
     fileprivate init?(_ dependency: Workspace.ManagedDependency) {
         switch dependency.state {
         case .sourceControlCheckout(.version(let version, let revision)):
@@ -163,7 +163,7 @@ extension PackageReference.Kind {
     }
 }
 
-extension PackageResolvedStore.ResolutionState {
+extension ResolvedPackagesStore.ResolutionState {
     func equals(_ checkoutState: CheckoutState) -> Bool {
         switch (self, checkoutState) {
         case (.version(let lversion, let lrevision), .version(let rversion, let rrevision)):
@@ -187,8 +187,8 @@ extension PackageResolvedStore.ResolutionState {
     }
 }
 
-extension PackageResolvedStore.Pins {
-    subscript(comparingLocation package: PackageReference) -> PackageResolvedStore.Pin? {
+extension ResolvedPackagesStore.ResolvedPackages {
+    subscript(comparingLocation package: PackageReference) -> ResolvedPackagesStore.ResolvedPackage? {
         if let pin = self[package.identity], pin.packageRef.equalsIncludingLocation(package) {
             return pin
         }

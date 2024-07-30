@@ -33,7 +33,7 @@ import struct PackageGraph.ObservabilityDependencyResolverDelegate
 import struct PackageGraph.PackageContainerConstraint
 import struct PackageGraph.PackageGraphRoot
 import struct PackageGraph.PackageGraphRootInput
-import class PackageGraph.PackageResolvedStore
+import class PackageGraph.ResolvedPackagesStore
 import struct PackageGraph.PubGrubDependencyResolver
 import struct PackageGraph.Term
 import class PackageLoading.ManifestLoader
@@ -100,14 +100,14 @@ extension Workspace {
         // Create constraints based on root manifest and pins for the update resolution.
         updateConstraints += try graphRoot.constraints()
 
-        let pins: PackageResolvedStore.Pins
+        let pins: ResolvedPackagesStore.ResolvedPackages
         if packages.isEmpty {
             // No input packages so we have to do a full update. Set pins map to empty.
             pins = [:]
         } else {
             // We have input packages so we have to partially update the package graph. Remove
             // the pins for the input packages so only those packages are updated.
-            pins = pinsStore.pins
+            pins = pinsStore.resolvedPackages
                 .filter {
                     !packages.contains($0.value.packageRef.identity.description) && !packages
                         .contains($0.value.packageRef.deprecatedName)
@@ -360,7 +360,7 @@ extension Workspace {
         // We just request the packages here, repository manager will
         // automatically manage the parallelism.
         let group = DispatchGroup()
-        for pin in pinsStore.pins.values {
+        for pin in pinsStore.resolvedPackages.values {
             group.enter()
             let observabilityScope = observabilityScope.makeChildScope(
                 description: "requesting package containers",
@@ -398,7 +398,7 @@ extension Workspace {
         //
         // We require cloning if there is no checkout or if the checkout doesn't
         // match with the pin.
-        let requiredPins = pinsStore.pins.values.filter { pin in
+        let requiredPins = pinsStore.resolvedPackages.values.filter { pin in
             // also compare the location in case it has changed
             guard let dependency = state.dependencies[comparingLocation: pin.packageRef] else {
                 return true
@@ -564,7 +564,7 @@ extension Workspace {
         computedConstraints += try graphRoot.constraints() + constraints
 
         // Perform dependency resolution.
-        let resolver = try self.createResolver(pins: pinsStore.pins, observabilityScope: observabilityScope)
+        let resolver = try self.createResolver(pins: pinsStore.resolvedPackages, observabilityScope: observabilityScope)
         self.activeResolver = resolver
 
         let result = self.resolveDependencies(
@@ -799,7 +799,7 @@ extension Workspace {
     public func precomputeResolution(
         root: PackageGraphRoot,
         dependencyManifests: DependencyManifests,
-        pinsStore: PackageResolvedStore,
+        pinsStore: ResolvedPackagesStore,
         constraints: [PackageContainerConstraint],
         observabilityScope: ObservabilityScope
     ) throws -> ResolutionPrecomputationResult {
@@ -816,7 +816,7 @@ extension Workspace {
         )
         let resolver = PubGrubDependencyResolver(
             provider: precomputationProvider,
-            pins: pinsStore.pins,
+            pins: pinsStore.resolvedPackages,
             observabilityScope: observabilityScope
         )
         let result = resolver.solve(constraints: computedConstraints)
@@ -846,7 +846,7 @@ extension Workspace {
         dependencyManifests: DependencyManifests,
         rootManifestsMinimumToolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope
-    ) -> PackageResolvedStore? {
+    ) -> ResolvedPackagesStore? {
         guard let pinsStore = observabilityScope.trap({ try self.pinsStore.load() }) else {
             return nil
         }
@@ -861,10 +861,10 @@ extension Workspace {
             // also comparing location as it may have changed at this point
             if requiredDependencies.contains(where: { $0.equalsIncludingLocation(dependency.packageRef) }) {
                 // if pin not found, or location is different (it may have changed at this point) pin it
-                if pinsStore.pins[comparingLocation: dependency.packageRef] == .none {
+                if pinsStore.resolvedPackages[comparingLocation: dependency.packageRef] == .none {
                     pinsStore.pin(dependency)
                 }
-            } else if let pin = pinsStore.pins[dependency.packageRef.identity] {
+            } else if let pin = pinsStore.resolvedPackages[dependency.packageRef.identity] {
                 // otherwise, it should *not* be in the pins store.
                 pinsStore.remove(pin)
             }
@@ -1024,7 +1024,7 @@ extension Workspace {
                 // If we have a branch and we shouldn't be updating the
                 // branches, use the revision from pin instead (if present).
                 if branch != nil, !updateBranches {
-                    if case .branch(branch, let pinRevision) = pinsStore.pins.values
+                    if case .branch(branch, let pinRevision) = pinsStore.resolvedPackages.values
                         .first(where: { $0.packageRef == binding.package })?.state
                     {
                         revision = Revision(identifier: pinRevision)
@@ -1086,7 +1086,7 @@ extension Workspace {
 
     /// Creates resolver for the workspace.
     fileprivate func createResolver(
-        pins: PackageResolvedStore.Pins,
+        pins: ResolvedPackagesStore.ResolvedPackages,
         observabilityScope: ObservabilityScope
     ) throws -> PubGrubDependencyResolver {
         var delegate: DependencyResolverDelegate

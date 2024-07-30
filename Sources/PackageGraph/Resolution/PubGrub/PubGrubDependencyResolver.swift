@@ -101,7 +101,7 @@ public struct PubGrubDependencyResolver {
     }
 
     /// Reference to the pins store, if provided.
-    private let pins: PackageResolvedStore.Pins
+    private let pins: ResolvedPackagesStore.ResolvedPackages
 
     /// The container provider used to load package containers.
     private let provider: ContainerProvider
@@ -120,7 +120,7 @@ public struct PubGrubDependencyResolver {
 
     public init(
         provider: PackageContainerProvider,
-        pins: PackageResolvedStore.Pins = [:],
+        pins: ResolvedPackagesStore.ResolvedPackages = [:],
         skipDependenciesUpdates: Bool = false,
         prefetchBasedOnResolvedFile: Bool = false,
         observabilityScope: ObservabilityScope,

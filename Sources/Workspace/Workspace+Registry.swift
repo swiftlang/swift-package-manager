@@ -17,7 +17,7 @@ import class Basics.ObservabilityScope
 import struct Basics.SourceControlURL
 import class Basics.ThreadSafeKeyValueStore
 import func Basics.temp_await
-import class PackageGraph.PackageResolvedStore
+import class PackageGraph.ResolvedPackagesStore
 import protocol PackageLoading.ManifestLoaderProtocol
 import protocol PackageModel.DependencyMapper
 import protocol PackageModel.IdentityResolver
@@ -423,7 +423,7 @@ extension Workspace {
 
     func downloadRegistryArchive(
         package: PackageReference,
-        at pinState: PackageResolvedStore.ResolutionState,
+        at pinState: ResolvedPackagesStore.ResolutionState,
         observabilityScope: ObservabilityScope
     ) throws -> AbsolutePath {
         switch pinState {

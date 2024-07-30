@@ -92,7 +92,7 @@ public class Workspace {
 
     /// The Pins store. The pins file will be created when first pin is added to pins store.
     // public visibility for testing
-    public let pinsStore: LoadableResult<PackageResolvedStore>
+    public let pinsStore: LoadableResult<ResolvedPackagesStore>
 
     /// The file system on which the workspace will operate.
     package let fileSystem: any FileSystem
@@ -571,8 +571,8 @@ public class Workspace {
         self.fingerprints = fingerprints
 
         self.pinsStore = LoadableResult {
-            try PackageResolvedStore(
-                pinsFile: location.resolvedVersionsFile,
+            try ResolvedPackagesStore(
+                packageResolvedFile: location.resolvedVersionsFile,
                 workingDirectory: location.scratchDirectory,
                 fileSystem: fileSystem,
                 mirrors: mirrors

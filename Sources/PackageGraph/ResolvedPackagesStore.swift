@@ -19,13 +19,15 @@ import enum TSCBasic.JSON
 import struct TSCUtility.Version
 
 @available(*, deprecated, renamed: "PackageResolvedStore", message: "Renamed for consistency with the actual name of the feature")
-public typealias PinsStore = PackageResolvedStore
+public typealias PinsStore = ResolvedPackagesStore
 
-public final class PackageResolvedStore {
-    @available(*, deprecated, renamed: "ResolvedPackage", message: "Renamed for consistency with the actual name of the feature")
+
+/// An in-memory representation of `Package.resolved` file.
+public final class ResolvedPackagesStore {
+    @available(*, deprecated, renamed: "ResolvedPackages", message: "Renamed for consistency with the actual name of the feature")
     public typealias Pins = ResolvedPackages
 
-    public typealias ResolvedPackages = [PackageIdentity: PackageResolvedStore.ResolvedPackage]
+    public typealias ResolvedPackages = [PackageIdentity: ResolvedPackagesStore.ResolvedPackage]
 
     @available(*, deprecated, renamed: "ResolvedPackage", message: "Renamed for consistency with the actual name of the feature")
     public typealias Pin = ResolvedPackage
@@ -67,36 +69,57 @@ public final class PackageResolvedStore {
 
     /// storage
     private let storage: PinsStorage
-    private let _pins: ThreadSafeKeyValueStore<PackageIdentity, PackageResolvedStore.Pin>
+    private let _resolvedPackages: ThreadSafeKeyValueStore<PackageIdentity, ResolvedPackagesStore.ResolvedPackage>
     public let originHash: String?
 
-    /// The current pins.
-    public var pins: Pins {
-        self._pins.get()
+    /// The current resolved packages.
+    @available(*, deprecated, renamed: "resolvedPackages", message: "Renamed for consistency with the actual name of the feature")
+    public var pins: ResolvedPackages {
+        self.resolvedPackages
     }
 
-    /// Create a new pins store.
-    ///
-    /// - Parameters:
-    ///   - pinsFile: Path to the pins file.
-    ///   - fileSystem: The filesystem to manage the pin file on.
-    public init(
+    /// The current pins.
+    public var resolvedPackages: ResolvedPackages {
+        self._resolvedPackages.get()
+    }
+
+    @available(*, deprecated, renamed: "init(packageResolvedFile:workingDirectory:fileSystem:mirrors:)", message: "Renamed for consistency with the actual name of the feature")
+    public convenience init(
         pinsFile: AbsolutePath,
         workingDirectory: AbsolutePath,
         fileSystem: FileSystem,
         mirrors: DependencyMirrors
     ) throws {
-        self.storage = .init(path: pinsFile, workingDirectory: workingDirectory, fileSystem: fileSystem)
+        try self.init(
+            packageResolvedFile: pinsFile,
+            workingDirectory: workingDirectory,
+            fileSystem: fileSystem,
+            mirrors: mirrors
+        )
+    }
+
+    /// Create a new `Package.resolved` store.
+    ///
+    /// - Parameters:
+    ///   - packageResolvedFile: Path to the `Package.resolved` file.
+    ///   - fileSystem: The filesystem to manage the `Package.resolved` file on.
+    public init(
+        packageResolvedFile: AbsolutePath,
+        workingDirectory: AbsolutePath,
+        fileSystem: FileSystem,
+        mirrors: DependencyMirrors
+    ) throws {
+        self.storage = .init(path: packageResolvedFile, workingDirectory: workingDirectory, fileSystem: fileSystem)
         self.mirrors = mirrors
 
         do {
             let (pins, originHash) = try self.storage.load(mirrors: mirrors)
-            self._pins = .init(pins)
+            self._resolvedPackages = .init(pins)
             self.originHash = originHash
         } catch {
-            self._pins = .init()
+            self._resolvedPackages = .init()
             throw StringError(
-                "\(pinsFile) file is corrupted or malformed; fix or delete the file to continue: \(error.interpolationDescription)"
+                "\(packageResolvedFile) file is corrupted or malformed; fix or delete the file to continue: \(error.interpolationDescription)"
             )
         }
     }
@@ -118,15 +141,15 @@ public final class PackageResolvedStore {
     /// Add a pin.
     ///
     /// This will replace any previous pin with same package name.
-    public func add(_ pin: Pin) {
-        self._pins[pin.packageRef.identity] = pin
+    public func add(_ pin: ResolvedPackage) {
+        self._resolvedPackages[pin.packageRef.identity] = pin
     }
 
     /// Remove a pin.
     ///
     /// This will replace any previous pin with same package name.
-    public func remove(_ pin: Pin) {
-        self._pins[pin.packageRef.identity] = nil
+    public func remove(_ resolvedPackage: ResolvedPackage) {
+        self._resolvedPackages[resolvedPackage.packageRef.identity] = nil
     }
 
     /// Unpin all of the currently pinned dependencies.
@@ -134,7 +157,7 @@ public final class PackageResolvedStore {
     /// This method does not automatically write to state file.
     public func unpinAll() {
         // Reset the pins map.
-        self._pins.clear()
+        self._resolvedPackages.clear()
     }
 
     public func saveState(
@@ -143,7 +166,7 @@ public final class PackageResolvedStore {
     ) throws {
         try self.storage.save(
             toolsVersion: toolsVersion,
-            pins: self._pins.get(),
+            pins: self._resolvedPackages.get(),
             mirrors: self.mirrors,
             originHash: originHash,
             removeIfEmpty: true
@@ -171,7 +194,7 @@ private struct PinsStorage {
         self.fileSystem = fileSystem
     }
 
-    func load(mirrors: DependencyMirrors) throws -> (pins: PackageResolvedStore.Pins, originHash: String?) {
+    func load(mirrors: DependencyMirrors) throws -> (pins: ResolvedPackagesStore.ResolvedPackages, originHash: String?) {
         if !self.fileSystem.exists(self.path) {
             return (pins: [:], originHash: .none)
         }
@@ -183,8 +206,8 @@ private struct PinsStorage {
                 let v1 = try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V1.self)
                 return (
                     pins: try v1.object.pins
-                        .map { try PackageResolvedStore.Pin($0, mirrors: mirrors) }
-                        .reduce(into: [PackageIdentity: PackageResolvedStore.Pin]()) { partial, iterator in
+                        .map { try ResolvedPackagesStore.ResolvedPackage($0, mirrors: mirrors) }
+                        .reduce(into: [PackageIdentity: ResolvedPackagesStore.ResolvedPackage]()) { partial, iterator in
                             if partial.keys.contains(iterator.packageRef.identity) {
                                 throw StringError("duplicated entry for package \"\(iterator.packageRef.identity)\"")
                             }
@@ -196,8 +219,8 @@ private struct PinsStorage {
                 let v2 = try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V2.self)
                 return (
                     pins: try v2.pins
-                        .map { try PackageResolvedStore.Pin($0, mirrors: mirrors) }
-                        .reduce(into: [PackageIdentity: PackageResolvedStore.Pin]()) { partial, iterator in
+                        .map { try ResolvedPackagesStore.ResolvedPackage($0, mirrors: mirrors) }
+                        .reduce(into: [PackageIdentity: ResolvedPackagesStore.ResolvedPackage]()) { partial, iterator in
                             if partial.keys.contains(iterator.packageRef.identity) {
                                 throw StringError("duplicated entry for package \"\(iterator.packageRef.identity)\"")
                             }
@@ -209,8 +232,8 @@ private struct PinsStorage {
                 let v3 = try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V3.self)
                 return (
                     pins: try v3.pins
-                        .map { try PackageResolvedStore.Pin($0, mirrors: mirrors) }
-                        .reduce(into: [PackageIdentity: PackageResolvedStore.Pin]()) { partial, iterator in
+                        .map { try ResolvedPackagesStore.ResolvedPackage($0, mirrors: mirrors) }
+                        .reduce(into: [PackageIdentity: ResolvedPackagesStore.ResolvedPackage]()) { partial, iterator in
                             if partial.keys.contains(iterator.packageRef.identity) {
                                 throw StringError("duplicated entry for package \"\(iterator.packageRef.identity)\"")
                             }
@@ -226,7 +249,7 @@ private struct PinsStorage {
 
     func save(
         toolsVersion: ToolsVersion,
-        pins: PackageResolvedStore.Pins,
+        pins: ResolvedPackagesStore.ResolvedPackages,
         mirrors: DependencyMirrors,
         originHash: String?,
         removeIfEmpty: Bool
@@ -300,7 +323,7 @@ private struct PinsStorage {
         let version: Int
         let object: Container
 
-        init(pins: PackageResolvedStore.Pins, mirrors: DependencyMirrors) throws {
+        init(pins: ResolvedPackagesStore.ResolvedPackages, mirrors: DependencyMirrors) throws {
             self.version = Self.version
             self.object = try .init(
                 pins: pins.values
@@ -333,7 +356,7 @@ private struct PinsStorage {
             let repositoryURL: String
             let state: State
 
-            init(_ pin: PackageResolvedStore.Pin, mirrors: DependencyMirrors) throws {
+            init(_ pin: ResolvedPackagesStore.ResolvedPackage, mirrors: DependencyMirrors) throws {
                 let location: String
                 switch pin.packageRef.kind {
                 case .localSourceControl(let path):
@@ -365,7 +388,7 @@ private struct PinsStorage {
             let branch: String?
             let version: String?
 
-            init(_ state: PackageResolvedStore.ResolutionState) throws {
+            init(_ state: ResolvedPackagesStore.ResolutionState) throws {
                 switch state {
                 case .version(let version, let revision) where revision != nil:
                     self.version = version.description
@@ -403,7 +426,7 @@ private struct PinsStorage {
         let pins: [Pin]
 
         init(
-            pins: PackageResolvedStore.Pins,
+            pins: ResolvedPackagesStore.ResolvedPackages,
             mirrors: DependencyMirrors
         ) throws {
             self.version = Self.version
@@ -418,7 +441,7 @@ private struct PinsStorage {
             let location: String
             let state: State
 
-            init(_ pin: PackageResolvedStore.Pin, mirrors: DependencyMirrors) throws {
+            init(_ pin: ResolvedPackagesStore.ResolvedPackage, mirrors: DependencyMirrors) throws {
                 let kind: Kind
                 let location: String
                 switch pin.packageRef.kind {
@@ -454,7 +477,7 @@ private struct PinsStorage {
             let branch: String?
             let revision: String?
 
-            init(_ state: PackageResolvedStore.ResolutionState) {
+            init(_ state: ResolvedPackagesStore.ResolutionState) {
                 switch state {
                 case .version(let version, let revision):
                     self.version = version.description
@@ -482,7 +505,7 @@ private struct PinsStorage {
         let pins: [V2.Pin]
 
         init(
-            pins: PackageResolvedStore.Pins,
+            pins: ResolvedPackagesStore.ResolvedPackages,
             mirrors: DependencyMirrors,
             originHash: String?
         ) throws {
@@ -495,7 +518,7 @@ private struct PinsStorage {
     }
 }
 
-extension PackageResolvedStore.Pin {
+extension ResolvedPackagesStore.ResolvedPackage {
     fileprivate init(_ pin: PinsStorage.V1.Pin, mirrors: DependencyMirrors) throws {
         // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
         let location = mirrors.effective(for: pin.repositoryURL)
@@ -516,7 +539,7 @@ extension PackageResolvedStore.Pin {
     }
 }
 
-extension PackageResolvedStore.ResolutionState {
+extension ResolvedPackagesStore.ResolutionState {
     fileprivate init(_ state: PinsStorage.V1.State) throws {
         let revision = state.revision
         if let version = state.version {
@@ -529,7 +552,7 @@ extension PackageResolvedStore.ResolutionState {
     }
 }
 
-extension PackageResolvedStore.Pin {
+extension ResolvedPackagesStore.ResolvedPackage {
     fileprivate init(_ pin: PinsStorage.V2.Pin, mirrors: DependencyMirrors) throws {
         let packageRef: PackageReference
         let identity = pin.identity
@@ -550,7 +573,7 @@ extension PackageResolvedStore.Pin {
     }
 }
 
-extension PackageResolvedStore.ResolutionState {
+extension ResolvedPackagesStore.ResolutionState {
     fileprivate init(_ state: PinsStorage.V2.State) throws {
         if let version = state.version {
             self = try .version(Version(versionString: version), revision: state.revision)

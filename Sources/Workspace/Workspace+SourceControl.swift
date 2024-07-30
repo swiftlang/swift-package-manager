@@ -16,7 +16,7 @@ import class Basics.ObservabilityScope
 import func Basics.temp_await
 import struct Dispatch.DispatchTime
 import enum PackageGraph.PackageRequirement
-import class PackageGraph.PackageResolvedStore
+import class PackageGraph.ResolvedPackagesStore
 import struct PackageModel.PackageReference
 import struct SourceControl.Revision
 import struct TSCUtility.Version
@@ -96,7 +96,7 @@ extension Workspace {
 
     func checkoutRepository(
         package: PackageReference,
-        at pinState: PackageResolvedStore.ResolutionState,
+        at pinState: ResolvedPackagesStore.ResolutionState,
         observabilityScope: ObservabilityScope
     ) throws -> AbsolutePath {
         switch pinState {

@@ -23,9 +23,9 @@ final class PubGrubPackageContainer {
     let underlying: PackageContainer
 
     /// Reference to the pins map.
-    private let pins: PackageResolvedStore.Pins
+    private let pins: ResolvedPackagesStore.ResolvedPackages
 
-    init(underlying: PackageContainer, pins: PackageResolvedStore.Pins) {
+    init(underlying: PackageContainer, pins: ResolvedPackagesStore.ResolvedPackages) {
         self.underlying = underlying
         self.pins = pins
     }

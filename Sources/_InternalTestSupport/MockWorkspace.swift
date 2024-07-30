@@ -575,7 +575,7 @@ public final class MockWorkspace {
         managedDependencies: [AbsolutePath: Workspace.ManagedDependency] = [:],
         managedArtifacts: [Workspace.ManagedArtifact] = []
     ) throws {
-        let pins = pins.mapValues { checkoutState -> PackageResolvedStore.ResolutionState in
+        let pins = pins.mapValues { checkoutState -> ResolvedPackagesStore.ResolutionState in
             switch checkoutState {
             case .version(let version, let revision):
                 return .version(version, revision: revision.identifier)
@@ -589,7 +589,7 @@ public final class MockWorkspace {
     }
 
     public func set(
-        pins: [PackageReference: PackageResolvedStore.ResolutionState],
+        pins: [PackageReference: ResolvedPackagesStore.ResolutionState],
         managedDependencies: [AbsolutePath: Workspace.ManagedDependency] = [:],
         managedArtifacts: [Workspace.ManagedArtifact] = []
     ) throws {
@@ -795,18 +795,18 @@ public final class MockWorkspace {
     }
 
     public struct ResolvedResult {
-        public let store: PackageResolvedStore
+        public let store: ResolvedPackagesStore
 
-        public init(_ store: PackageResolvedStore) {
+        public init(_ store: ResolvedPackagesStore) {
             self.store = store
         }
 
         public func check(notPresent name: String, file: StaticString = #file, line: UInt = #line) {
-            XCTAssertFalse(self.store.pins.keys.contains(where: { $0.description == name }), "Unexpectedly found \(name) in Package.resolved", file: file, line: line)
+            XCTAssertFalse(self.store.resolvedPackages.keys.contains(where: { $0.description == name }), "Unexpectedly found \(name) in Package.resolved", file: file, line: line)
         }
 
         public func check(dependency package: String, at state: State, file: StaticString = #file, line: UInt = #line) {
-            guard let pin = store.pins.first(where: { $0.key.description == package })?.value else {
+            guard let pin = store.resolvedPackages.first(where: { $0.key.description == package })?.value else {
                 XCTFail("Pin for \(package) not found", file: file, line: line)
                 return
             }
@@ -833,7 +833,7 @@ public final class MockWorkspace {
         }
 
         public func check(dependency package: String, url: String, file: StaticString = #file, line: UInt = #line) {
-            guard let pin = store.pins.first(where: { $0.key.description == package })?.value else {
+            guard let pin = store.resolvedPackages.first(where: { $0.key.description == package })?.value else {
                 XCTFail("Pin for \(package) not found", file: file, line: line)
                 return
             }

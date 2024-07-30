@@ -3871,8 +3871,8 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
-            XCTAssertEqual(result.store.pins[.plain("foo")]?.packageRef.locationString, "https://localhost/org/foo")
-            XCTAssertEqual(result.store.pins[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar")
+            XCTAssertEqual(result.store.resolvedPackages[.plain("foo")]?.packageRef.locationString, "https://localhost/org/foo")
+            XCTAssertEqual(result.store.resolvedPackages[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar")
         }
 
         // case 2: set state with slightly different URLs that are canonically the same
@@ -3907,8 +3907,8 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
             // URLs should be stable since URLs are canonically the same and we kept the resolved file between the two iterations
-            XCTAssertEqual(result.store.pins[.plain("foo")]?.packageRef.locationString, "https://localhost/org/foo")
-            XCTAssertEqual(result.store.pins[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar")
+            XCTAssertEqual(result.store.resolvedPackages[.plain("foo")]?.packageRef.locationString, "https://localhost/org/foo")
+            XCTAssertEqual(result.store.resolvedPackages[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar")
         }
 
         // case 2: set state with slightly different URLs that are canonically the same but request different versions
@@ -3942,9 +3942,9 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.1.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
             // URLs should reflect the actual dependencies since the new version forces rewrite of the resolved file
-            XCTAssertEqual(result.store.pins[.plain("foo")]?.packageRef.locationString, "https://localhost/ORG/FOO")
+            XCTAssertEqual(result.store.resolvedPackages[.plain("foo")]?.packageRef.locationString, "https://localhost/ORG/FOO")
             XCTAssertEqual(
-                result.store.pins[.plain("bar")]?.packageRef.locationString,
+                result.store.resolvedPackages[.plain("bar")]?.packageRef.locationString,
                 "https://localhost/org/bar.git"
             )
         }
@@ -3982,11 +3982,11 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
             // URLs should reflect the actual dependencies since we deleted the resolved file
             XCTAssertEqual(
-                result.store.pins[.plain("foo")]?.packageRef.locationString,
+                result.store.resolvedPackages[.plain("foo")]?.packageRef.locationString,
                 "https://localhost/org/foo.git"
             )
             XCTAssertEqual(
-                result.store.pins[.plain("bar")]?.packageRef.locationString,
+                result.store.resolvedPackages[.plain("bar")]?.packageRef.locationString,
                 "https://localhost/org/bar.git"
             )
         }
@@ -4081,8 +4081,8 @@ final class WorkspaceTests: XCTestCase {
             }
 
             let pinsStore = try workspace.getOrCreateWorkspace().pinsStore.load()
-            checkPinnedVersion(pin: pinsStore.pins["foo"]!, version: "1.3.1")
-            checkPinnedVersion(pin: pinsStore.pins["bar"]!, version: "1.1.1")
+            checkPinnedVersion(pin: pinsStore.resolvedPackages["foo"]!, version: "1.3.1")
+            checkPinnedVersion(pin: pinsStore.resolvedPackages["bar"]!, version: "1.1.1")
         }
 
         do {
@@ -4250,7 +4250,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // util
-        func checkPinnedVersion(pin: PackageResolvedStore.Pin, version: Version) {
+        func checkPinnedVersion(pin: ResolvedPackagesStore.ResolvedPackage, version: Version) {
             switch pin.state {
             case .version(let pinnedVersion, _):
                 XCTAssertEqual(pinnedVersion, version)
@@ -4908,7 +4908,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
-            XCTAssertEqual(result.store.pins[.plain("foo")]?.packageRef.locationString, "https://scm.com/org/foo")
+            XCTAssertEqual(result.store.resolvedPackages[.plain("foo")]?.packageRef.locationString, "https://scm.com/org/foo")
         }
 
         // reset state
@@ -4935,7 +4935,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
-            XCTAssertEqual(result.store.pins[.plain("foo")]?.packageRef.locationString, "https://scm.com/other/foo")
+            XCTAssertEqual(result.store.resolvedPackages[.plain("foo")]?.packageRef.locationString, "https://scm.com/other/foo")
         }
     }
 
@@ -5003,7 +5003,7 @@ final class WorkspaceTests: XCTestCase {
         do {
             let ws = try workspace.getOrCreateWorkspace()
             let pinsStore = try ws.pinsStore.load()
-            let fooPin = try XCTUnwrap(pinsStore.pins.values.first(where: { $0.packageRef.identity.description == "foo" }))
+            let fooPin = try XCTUnwrap(pinsStore.resolvedPackages.values.first(where: { $0.packageRef.identity.description == "foo" }))
 
             let fooRepo = workspace.repositoryProvider
                 .specifierMap[RepositorySpecifier(path: try AbsolutePath(
@@ -5011,7 +5011,7 @@ final class WorkspaceTests: XCTestCase {
                         .locationString
                 ))]!
             let revision = try fooRepo.resolveRevision(tag: "1.0.0")
-            let newState = PackageResolvedStore.ResolutionState.version("1.0.0", revision: revision.identifier)
+            let newState = ResolvedPackagesStore.ResolutionState.version("1.0.0", revision: revision.identifier)
 
             pinsStore.pin(packageRef: fooPin.packageRef, state: newState)
             try pinsStore.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
@@ -11461,7 +11461,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         workspace.checkResolved { result in
-            XCTAssertEqual(result.store.pins["foo"]?.packageRef.locationString, "https://github.com/org/foo.git")
+            XCTAssertEqual(result.store.resolvedPackages["foo"]?.packageRef.locationString, "https://github.com/org/foo.git")
         }
     }
 
@@ -11598,7 +11598,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         workspace.checkResolved { result in
-            XCTAssertEqual(result.store.pins["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
+            XCTAssertEqual(result.store.resolvedPackages["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
         }
     }
 
@@ -11728,7 +11728,7 @@ final class WorkspaceTests: XCTestCase {
          }
 
          workspace.checkResolved { result in
-             XCTAssertEqual(result.store.pins["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
+             XCTAssertEqual(result.store.resolvedPackages["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
          }
 
          // update to a different url via transitive dependencies
@@ -11754,7 +11754,7 @@ final class WorkspaceTests: XCTestCase {
          }
 
          workspace.checkResolved { result in
-             XCTAssertEqual(result.store.pins["foo"]?.packageRef.locationString, "https://github.com/org/foo")
+             XCTAssertEqual(result.store.resolvedPackages["foo"]?.packageRef.locationString, "https://github.com/org/foo")
          }
      }
     
@@ -11839,7 +11839,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         workspace.checkResolved { result in
-            XCTAssertEqual(result.store.pins["foo"]?.packageRef.locationString, "https://github.com/org/foo.git")
+            XCTAssertEqual(result.store.resolvedPackages["foo"]?.packageRef.locationString, "https://github.com/org/foo.git")
         }
 
         // update URL to one with different scheme
@@ -11859,7 +11859,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         workspace.checkResolved { result in
-            XCTAssertEqual(result.store.pins["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
+            XCTAssertEqual(result.store.resolvedPackages["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
         }
     }
 
@@ -11992,7 +11992,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         workspace.checkResolved { result in
-            XCTAssertEqual(result.store.pins["foo"]?.packageRef.locationString, "https://github.com/org/foo.git")
+            XCTAssertEqual(result.store.resolvedPackages["foo"]?.packageRef.locationString, "https://github.com/org/foo.git")
         }
 
         // update URL to one with different scheme
@@ -12018,7 +12018,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         workspace.checkResolved { result in
-            XCTAssertEqual(result.store.pins["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
+            XCTAssertEqual(result.store.resolvedPackages["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
         }
     }
 

@@ -1414,7 +1414,7 @@ final class PubgrubTests: XCTestCase {
             "b": (.version(v1), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pins: pinsStore.pins)
+        let resolver = builder.create(pins: pinsStore.resolvedPackages)
         let result = try resolver.solve(root: rootNode, constraints: dependencies)
 
         // Since a was pinned, we shouldn't have computed bounds for its incomaptibilities.
@@ -1448,7 +1448,7 @@ final class PubgrubTests: XCTestCase {
             "b": (.version(v1), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pins: pinsStore.pins)
+        let resolver = builder.create(pins: pinsStore.resolvedPackages)
         let result = resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
@@ -1477,7 +1477,7 @@ final class PubgrubTests: XCTestCase {
             "b": (.version("1.2.0"), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pins: pinsStore.pins)
+        let resolver = builder.create(pins: pinsStore.resolvedPackages)
         let result = resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
@@ -1502,7 +1502,7 @@ final class PubgrubTests: XCTestCase {
             "b": (.branch(name: "master", revision: "master-sha-2"), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pins: pinsStore.pins)
+        let resolver = builder.create(pins: pinsStore.resolvedPackages)
         let result = resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
@@ -1642,7 +1642,7 @@ final class PubgrubTests: XCTestCase {
                         versionRequirement: .exact(Version(1, 0, 0))
                     )]
                 ]),
-            pins: PackageResolvedStore.Pins()
+            pins: ResolvedPackagesStore.ResolvedPackages()
         )
         let rootLocation = AbsolutePath("/Root")
         let otherLocation = AbsolutePath("/Other")
@@ -3039,7 +3039,7 @@ final class PubGrubBacktrackTests: XCTestCase {
     }
 }
 
-fileprivate extension PackageResolvedStore.ResolutionState {
+fileprivate extension ResolvedPackagesStore.ResolutionState {
     /// Creates a checkout state with the given version and a mocked revision.
     static func version(_ version: Version) -> Self {
         .version(version, revision: .none)
@@ -3395,9 +3395,9 @@ class DependencyGraphBuilder {
     }
 
     /// Creates a pins store with the given pins.
-    func create(pinsStore pins: [String: (PackageResolvedStore.ResolutionState, ProductFilter)]) throws -> PackageResolvedStore {
+    func create(pinsStore pins: [String: (ResolvedPackagesStore.ResolutionState, ProductFilter)]) throws -> ResolvedPackagesStore {
         let fs = InMemoryFileSystem()
-        let store = try! PackageResolvedStore(pinsFile: "/tmp/Package.resolved", workingDirectory: .root, fileSystem: fs, mirrors: .init())
+        let store = try! ResolvedPackagesStore(packageResolvedFile: "/tmp/Package.resolved", workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
         for (package, pin) in pins {
             store.pin(packageRef: try reference(for: package), state: pin.0)
@@ -3408,7 +3408,7 @@ class DependencyGraphBuilder {
     }
 
 
-    func create(pins: PackageResolvedStore.Pins = [:], delegate: DependencyResolverDelegate? = .none) -> PubGrubDependencyResolver {
+    func create(pins: ResolvedPackagesStore.ResolvedPackages = [:], delegate: DependencyResolverDelegate? = .none) -> PubGrubDependencyResolver {
         defer {
             self.containers = [:]
             self.references = [:]

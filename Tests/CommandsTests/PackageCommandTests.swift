@@ -1060,19 +1060,19 @@ final class PackageCommandTests: CommandsTestCase {
             // Try to pin bar at a branch.
             do {
                 try await execute("resolve", "bar", "--branch", "YOLO")
-                let pinsStore = try PackageResolvedStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
-                let state = PackageResolvedStore.ResolutionState.branch(name: "YOLO", revision: yoloRevision.identifier)
+                let pinsStore = try ResolvedPackagesStore(packageResolvedFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
+                let state = ResolvedPackagesStore.ResolutionState.branch(name: "YOLO", revision: yoloRevision.identifier)
                 let identity = PackageIdentity(path: barPath)
-                XCTAssertEqual(pinsStore.pins[identity]?.state, state)
+                XCTAssertEqual(pinsStore.resolvedPackages[identity]?.state, state)
             }
 
             // Try to pin bar at a revision.
             do {
                 try await execute("resolve", "bar", "--revision", yoloRevision.identifier)
-                let pinsStore = try PackageResolvedStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
-                let state = PackageResolvedStore.ResolutionState.revision(yoloRevision.identifier)
+                let pinsStore = try ResolvedPackagesStore(packageResolvedFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
+                let state = ResolvedPackagesStore.ResolutionState.revision(yoloRevision.identifier)
                 let identity = PackageIdentity(path: barPath)
-                XCTAssertEqual(pinsStore.pins[identity]?.state, state)
+                XCTAssertEqual(pinsStore.resolvedPackages[identity]?.state, state)
             }
 
             // Try to pin bar at a bad revision.
@@ -1107,11 +1107,11 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Test pins file.
             do {
-                let pinsStore = try PackageResolvedStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
-                XCTAssertEqual(pinsStore.pins.count, 2)
+                let pinsStore = try ResolvedPackagesStore(packageResolvedFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
+                XCTAssertEqual(pinsStore.resolvedPackages.count, 2)
                 for pkg in ["bar", "baz"] {
                     let path = try SwiftPM.packagePath(for: pkg, packageRoot: fooPath)
-                    let pin = pinsStore.pins[PackageIdentity(path: path)]!
+                    let pin = pinsStore.resolvedPackages[PackageIdentity(path: path)]!
                     XCTAssertEqual(pin.packageRef.identity, PackageIdentity(path: path))
                     guard case .localSourceControl(let path) = pin.packageRef.kind, path.pathString.hasSuffix(pkg) else {
                         return XCTFail("invalid pin location \(path)")
@@ -1133,9 +1133,9 @@ final class PackageCommandTests: CommandsTestCase {
             // Try to pin bar.
             do {
                 try await execute("resolve", "bar")
-                let pinsStore = try PackageResolvedStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
+                let pinsStore = try ResolvedPackagesStore(packageResolvedFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
                 let identity = PackageIdentity(path: barPath)
-                switch pinsStore.pins[identity]?.state {
+                switch pinsStore.resolvedPackages[identity]?.state {
                 case .version(let version, revision: _):
                     XCTAssertEqual(version, "1.2.3")
                 default:
@@ -1162,9 +1162,9 @@ final class PackageCommandTests: CommandsTestCase {
             // We should be able to revert to a older version.
             do {
                 try await execute("resolve", "bar", "--version", "1.2.3")
-                let pinsStore = try PackageResolvedStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
+                let pinsStore = try ResolvedPackagesStore(packageResolvedFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
                 let identity = PackageIdentity(path: barPath)
-                switch pinsStore.pins[identity]?.state {
+                switch pinsStore.resolvedPackages[identity]?.state {
                 case .version(let version, revision: _):
                     XCTAssertEqual(version, "1.2.3")
                 default:
