@@ -596,7 +596,7 @@ let package = Package(
         ),
 
         .target(
-            /** Test for thread-santizer. */
+            /** Test for thread-sanitizer. */
             name: "tsan_utils",
             dependencies: []
         ),
