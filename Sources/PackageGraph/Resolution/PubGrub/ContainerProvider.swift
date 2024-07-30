@@ -25,7 +25,7 @@ final class ContainerProvider {
     private let skipUpdate: Bool
 
     /// Reference to the pins store.
-    private let pins: PinsStore.Pins
+    private let pins: PackageResolvedStore.Pins
 
     /// Observability scope to emit diagnostics with
     private let observabilityScope: ObservabilityScope
@@ -39,7 +39,7 @@ final class ContainerProvider {
     init(
         provider underlying: PackageContainerProvider,
         skipUpdate: Bool,
-        pins: PinsStore.Pins,
+        pins: PackageResolvedStore.Pins,
         observabilityScope: ObservabilityScope
     ) {
         self.underlying = underlying

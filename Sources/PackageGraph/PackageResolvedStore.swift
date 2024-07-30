@@ -18,23 +18,35 @@ import enum TSCBasic.JSON
 
 import struct TSCUtility.Version
 
-public final class PinsStore {
-    public typealias Pins = [PackageIdentity: PinsStore.Pin]
+@available(*, deprecated, renamed: "PackageResolvedStore", message: "Renamed for consistency with the actual name of the feature")
+public typealias PinsStore = PackageResolvedStore
 
-    public struct Pin: Equatable {
-        /// The package reference of the pinned dependency.
+public final class PackageResolvedStore {
+    @available(*, deprecated, renamed: "ResolvedPackage", message: "Renamed for consistency with the actual name of the feature")
+    public typealias Pins = ResolvedPackages
+
+    public typealias ResolvedPackages = [PackageIdentity: PackageResolvedStore.ResolvedPackage]
+
+    @available(*, deprecated, renamed: "ResolvedPackage", message: "Renamed for consistency with the actual name of the feature")
+    public typealias Pin = ResolvedPackage
+
+    public struct ResolvedPackage: Equatable {
+        /// The package reference of the resolved dependency.
         public let packageRef: PackageReference
 
-        /// The pinned state.
-        public let state: PinState
+        /// The resolved state.
+        public let state: ResolutionState
 
-        public init(packageRef: PackageReference, state: PinState) {
+        public init(packageRef: PackageReference, state: ResolutionState) {
             self.packageRef = packageRef
             self.state = state
         }
     }
 
-    public enum PinState: Equatable, CustomStringConvertible {
+    @available(*, deprecated, renamed: "PackageResolvedStore", message: "Renamed for consistency with the actual name of the feature")
+    public typealias PinState = ResolutionState
+
+    public enum ResolutionState: Equatable, CustomStringConvertible {
         case branch(name: String, revision: String)
         case version(_ version: Version, revision: String?)
         case revision(_ revision: String)
@@ -55,7 +67,7 @@ public final class PinsStore {
 
     /// storage
     private let storage: PinsStorage
-    private let _pins: ThreadSafeKeyValueStore<PackageIdentity, PinsStore.Pin>
+    private let _pins: ThreadSafeKeyValueStore<PackageIdentity, PackageResolvedStore.Pin>
     public let originHash: String?
 
     /// The current pins.
@@ -96,7 +108,7 @@ public final class PinsStore {
     /// - Parameters:
     ///   - packageRef: The package reference to pin.
     ///   - state: The state to pin at.
-    public func pin(packageRef: PackageReference, state: PinState) {
+    public func pin(packageRef: PackageReference, state: ResolutionState) {
         self.add(.init(
             packageRef: packageRef,
             state: state
@@ -159,7 +171,7 @@ private struct PinsStorage {
         self.fileSystem = fileSystem
     }
 
-    func load(mirrors: DependencyMirrors) throws -> (pins: PinsStore.Pins, originHash: String?) {
+    func load(mirrors: DependencyMirrors) throws -> (pins: PackageResolvedStore.Pins, originHash: String?) {
         if !self.fileSystem.exists(self.path) {
             return (pins: [:], originHash: .none)
         }
@@ -171,8 +183,8 @@ private struct PinsStorage {
                 let v1 = try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V1.self)
                 return (
                     pins: try v1.object.pins
-                        .map { try PinsStore.Pin($0, mirrors: mirrors) }
-                        .reduce(into: [PackageIdentity: PinsStore.Pin]()) { partial, iterator in
+                        .map { try PackageResolvedStore.Pin($0, mirrors: mirrors) }
+                        .reduce(into: [PackageIdentity: PackageResolvedStore.Pin]()) { partial, iterator in
                             if partial.keys.contains(iterator.packageRef.identity) {
                                 throw StringError("duplicated entry for package \"\(iterator.packageRef.identity)\"")
                             }
@@ -184,8 +196,8 @@ private struct PinsStorage {
                 let v2 = try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V2.self)
                 return (
                     pins: try v2.pins
-                        .map { try PinsStore.Pin($0, mirrors: mirrors) }
-                        .reduce(into: [PackageIdentity: PinsStore.Pin]()) { partial, iterator in
+                        .map { try PackageResolvedStore.Pin($0, mirrors: mirrors) }
+                        .reduce(into: [PackageIdentity: PackageResolvedStore.Pin]()) { partial, iterator in
                             if partial.keys.contains(iterator.packageRef.identity) {
                                 throw StringError("duplicated entry for package \"\(iterator.packageRef.identity)\"")
                             }
@@ -197,8 +209,8 @@ private struct PinsStorage {
                 let v3 = try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V3.self)
                 return (
                     pins: try v3.pins
-                        .map { try PinsStore.Pin($0, mirrors: mirrors) }
-                        .reduce(into: [PackageIdentity: PinsStore.Pin]()) { partial, iterator in
+                        .map { try PackageResolvedStore.Pin($0, mirrors: mirrors) }
+                        .reduce(into: [PackageIdentity: PackageResolvedStore.Pin]()) { partial, iterator in
                             if partial.keys.contains(iterator.packageRef.identity) {
                                 throw StringError("duplicated entry for package \"\(iterator.packageRef.identity)\"")
                             }
@@ -214,7 +226,7 @@ private struct PinsStorage {
 
     func save(
         toolsVersion: ToolsVersion,
-        pins: PinsStore.Pins,
+        pins: PackageResolvedStore.Pins,
         mirrors: DependencyMirrors,
         originHash: String?,
         removeIfEmpty: Bool
@@ -288,7 +300,7 @@ private struct PinsStorage {
         let version: Int
         let object: Container
 
-        init(pins: PinsStore.Pins, mirrors: DependencyMirrors) throws {
+        init(pins: PackageResolvedStore.Pins, mirrors: DependencyMirrors) throws {
             self.version = Self.version
             self.object = try .init(
                 pins: pins.values
@@ -321,7 +333,7 @@ private struct PinsStorage {
             let repositoryURL: String
             let state: State
 
-            init(_ pin: PinsStore.Pin, mirrors: DependencyMirrors) throws {
+            init(_ pin: PackageResolvedStore.Pin, mirrors: DependencyMirrors) throws {
                 let location: String
                 switch pin.packageRef.kind {
                 case .localSourceControl(let path):
@@ -353,7 +365,7 @@ private struct PinsStorage {
             let branch: String?
             let version: String?
 
-            init(_ state: PinsStore.PinState) throws {
+            init(_ state: PackageResolvedStore.ResolutionState) throws {
                 switch state {
                 case .version(let version, let revision) where revision != nil:
                     self.version = version.description
@@ -391,7 +403,7 @@ private struct PinsStorage {
         let pins: [Pin]
 
         init(
-            pins: PinsStore.Pins,
+            pins: PackageResolvedStore.Pins,
             mirrors: DependencyMirrors
         ) throws {
             self.version = Self.version
@@ -406,7 +418,7 @@ private struct PinsStorage {
             let location: String
             let state: State
 
-            init(_ pin: PinsStore.Pin, mirrors: DependencyMirrors) throws {
+            init(_ pin: PackageResolvedStore.Pin, mirrors: DependencyMirrors) throws {
                 let kind: Kind
                 let location: String
                 switch pin.packageRef.kind {
@@ -442,7 +454,7 @@ private struct PinsStorage {
             let branch: String?
             let revision: String?
 
-            init(_ state: PinsStore.PinState) {
+            init(_ state: PackageResolvedStore.ResolutionState) {
                 switch state {
                 case .version(let version, let revision):
                     self.version = version.description
@@ -470,7 +482,7 @@ private struct PinsStorage {
         let pins: [V2.Pin]
 
         init(
-            pins: PinsStore.Pins,
+            pins: PackageResolvedStore.Pins,
             mirrors: DependencyMirrors,
             originHash: String?
         ) throws {
@@ -483,7 +495,7 @@ private struct PinsStorage {
     }
 }
 
-extension PinsStore.Pin {
+extension PackageResolvedStore.Pin {
     fileprivate init(_ pin: PinsStorage.V1.Pin, mirrors: DependencyMirrors) throws {
         // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
         let location = mirrors.effective(for: pin.repositoryURL)
@@ -504,7 +516,7 @@ extension PinsStore.Pin {
     }
 }
 
-extension PinsStore.PinState {
+extension PackageResolvedStore.ResolutionState {
     fileprivate init(_ state: PinsStorage.V1.State) throws {
         let revision = state.revision
         if let version = state.version {
@@ -517,7 +529,7 @@ extension PinsStore.PinState {
     }
 }
 
-extension PinsStore.Pin {
+extension PackageResolvedStore.Pin {
     fileprivate init(_ pin: PinsStorage.V2.Pin, mirrors: DependencyMirrors) throws {
         let packageRef: PackageReference
         let identity = pin.identity
@@ -538,7 +550,7 @@ extension PinsStore.Pin {
     }
 }
 
-extension PinsStore.PinState {
+extension PackageResolvedStore.ResolutionState {
     fileprivate init(_ state: PinsStorage.V2.State) throws {
         if let version = state.version {
             self = try .version(Version(versionString: version), revision: state.revision)

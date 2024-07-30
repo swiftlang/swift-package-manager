@@ -33,7 +33,7 @@ import struct PackageGraph.ObservabilityDependencyResolverDelegate
 import struct PackageGraph.PackageContainerConstraint
 import struct PackageGraph.PackageGraphRoot
 import struct PackageGraph.PackageGraphRootInput
-import class PackageGraph.PinsStore
+import class PackageGraph.PackageResolvedStore
 import struct PackageGraph.PubGrubDependencyResolver
 import struct PackageGraph.Term
 import class PackageLoading.ManifestLoader
@@ -100,7 +100,7 @@ extension Workspace {
         // Create constraints based on root manifest and pins for the update resolution.
         updateConstraints += try graphRoot.constraints()
 
-        let pins: PinsStore.Pins
+        let pins: PackageResolvedStore.Pins
         if packages.isEmpty {
             // No input packages so we have to do a full update. Set pins map to empty.
             pins = [:]
@@ -799,7 +799,7 @@ extension Workspace {
     public func precomputeResolution(
         root: PackageGraphRoot,
         dependencyManifests: DependencyManifests,
-        pinsStore: PinsStore,
+        pinsStore: PackageResolvedStore,
         constraints: [PackageContainerConstraint],
         observabilityScope: ObservabilityScope
     ) throws -> ResolutionPrecomputationResult {
@@ -846,7 +846,7 @@ extension Workspace {
         dependencyManifests: DependencyManifests,
         rootManifestsMinimumToolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope
-    ) -> PinsStore? {
+    ) -> PackageResolvedStore? {
         guard let pinsStore = observabilityScope.trap({ try self.pinsStore.load() }) else {
             return nil
         }
@@ -1086,7 +1086,7 @@ extension Workspace {
 
     /// Creates resolver for the workspace.
     fileprivate func createResolver(
-        pins: PinsStore.Pins,
+        pins: PackageResolvedStore.Pins,
         observabilityScope: ObservabilityScope
     ) throws -> PubGrubDependencyResolver {
         var delegate: DependencyResolverDelegate

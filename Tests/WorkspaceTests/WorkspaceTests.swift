@@ -4250,7 +4250,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // util
-        func checkPinnedVersion(pin: PinsStore.Pin, version: Version) {
+        func checkPinnedVersion(pin: PackageResolvedStore.Pin, version: Version) {
             switch pin.state {
             case .version(let pinnedVersion, _):
                 XCTAssertEqual(pinnedVersion, version)
@@ -5011,7 +5011,7 @@ final class WorkspaceTests: XCTestCase {
                         .locationString
                 ))]!
             let revision = try fooRepo.resolveRevision(tag: "1.0.0")
-            let newState = PinsStore.PinState.version("1.0.0", revision: revision.identifier)
+            let newState = PackageResolvedStore.ResolutionState.version("1.0.0", revision: revision.identifier)
 
             pinsStore.pin(packageRef: fooPin.packageRef, state: newState)
             try pinsStore.saveState(toolsVersion: ToolsVersion.current, originHash: .none)

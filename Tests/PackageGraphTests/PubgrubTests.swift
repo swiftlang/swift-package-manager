@@ -1642,7 +1642,7 @@ final class PubgrubTests: XCTestCase {
                         versionRequirement: .exact(Version(1, 0, 0))
                     )]
                 ]),
-            pins: PinsStore.Pins()
+            pins: PackageResolvedStore.Pins()
         )
         let rootLocation = AbsolutePath("/Root")
         let otherLocation = AbsolutePath("/Other")
@@ -3039,7 +3039,7 @@ final class PubGrubBacktrackTests: XCTestCase {
     }
 }
 
-fileprivate extension PinsStore.PinState {
+fileprivate extension PackageResolvedStore.ResolutionState {
     /// Creates a checkout state with the given version and a mocked revision.
     static func version(_ version: Version) -> Self {
         .version(version, revision: .none)
@@ -3395,9 +3395,9 @@ class DependencyGraphBuilder {
     }
 
     /// Creates a pins store with the given pins.
-    func create(pinsStore pins: [String: (PinsStore.PinState, ProductFilter)]) throws -> PinsStore {
+    func create(pinsStore pins: [String: (PackageResolvedStore.ResolutionState, ProductFilter)]) throws -> PackageResolvedStore {
         let fs = InMemoryFileSystem()
-        let store = try! PinsStore(pinsFile: "/tmp/Package.resolved", workingDirectory: .root, fileSystem: fs, mirrors: .init())
+        let store = try! PackageResolvedStore(pinsFile: "/tmp/Package.resolved", workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
         for (package, pin) in pins {
             store.pin(packageRef: try reference(for: package), state: pin.0)
@@ -3408,7 +3408,7 @@ class DependencyGraphBuilder {
     }
 
 
-    func create(pins: PinsStore.Pins = [:], delegate: DependencyResolverDelegate? = .none) -> PubGrubDependencyResolver {
+    func create(pins: PackageResolvedStore.Pins = [:], delegate: DependencyResolverDelegate? = .none) -> PubGrubDependencyResolver {
         defer {
             self.containers = [:]
             self.references = [:]

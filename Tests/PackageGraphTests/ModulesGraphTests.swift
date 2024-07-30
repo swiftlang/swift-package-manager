@@ -1749,7 +1749,7 @@ final class ModulesGraphTests: XCTestCase {
         try fs.writeFileContents(pinsFile, string: json)
 
         XCTAssertThrows(StringError("\(pinsFile) file is corrupted or malformed; fix or delete the file to continue: duplicated entry for package \"yams\""), {
-            _ = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+            _ = try PackageResolvedStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
         })
     }
 

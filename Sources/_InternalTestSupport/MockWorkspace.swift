@@ -575,7 +575,7 @@ public final class MockWorkspace {
         managedDependencies: [AbsolutePath: Workspace.ManagedDependency] = [:],
         managedArtifacts: [Workspace.ManagedArtifact] = []
     ) throws {
-        let pins = pins.mapValues { checkoutState -> PinsStore.PinState in
+        let pins = pins.mapValues { checkoutState -> PackageResolvedStore.ResolutionState in
             switch checkoutState {
             case .version(let version, let revision):
                 return .version(version, revision: revision.identifier)
@@ -589,7 +589,7 @@ public final class MockWorkspace {
     }
 
     public func set(
-        pins: [PackageReference: PinsStore.PinState],
+        pins: [PackageReference: PackageResolvedStore.ResolutionState],
         managedDependencies: [AbsolutePath: Workspace.ManagedDependency] = [:],
         managedArtifacts: [Workspace.ManagedArtifact] = []
     ) throws {
@@ -795,9 +795,9 @@ public final class MockWorkspace {
     }
 
     public struct ResolvedResult {
-        public let store: PinsStore
+        public let store: PackageResolvedStore
 
-        public init(_ store: PinsStore) {
+        public init(_ store: PackageResolvedStore) {
             self.store = store
         }
 

@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import class Basics.ObservabilityScope
-import class PackageGraph.PinsStore
+import class PackageGraph.PackageResolvedStore
 import struct PackageModel.PackageReference
 import struct PackageModel.ToolsVersion
 import struct TSCUtility.Version
@@ -19,7 +19,7 @@ import struct TSCUtility.Version
 extension Workspace {
     /// Pins all of the current managed dependencies at their checkout state.
     func saveResolvedFile(
-        pinsStore: PinsStore,
+        pinsStore: PackageResolvedStore,
         dependencyManifests: DependencyManifests,
         originHash: String,
         rootManifestsMinimumToolsVersion: ToolsVersion,
@@ -56,7 +56,7 @@ extension Workspace {
             } else {
                 for dependency in dependenciesToPin {
                     if let pin = storedPinStore.pins[comparingLocation: dependency.packageRef] {
-                        if pin.state != PinsStore.Pin(dependency)?.state {
+                        if pin.state != PackageResolvedStore.Pin(dependency)?.state {
                             needsUpdate = true
                             break
                         }
@@ -111,18 +111,18 @@ extension Workspace {
     }
 }
 
-extension PinsStore {
+extension PackageResolvedStore {
     /// Pin a managed dependency at its checkout state.
     ///
     /// This method does nothing if the dependency is in edited state.
     func pin(_ dependency: Workspace.ManagedDependency) {
-        if let pin = PinsStore.Pin(dependency) {
+        if let pin = PackageResolvedStore.Pin(dependency) {
             self.add(pin)
         }
     }
 }
 
-extension PinsStore.Pin {
+extension PackageResolvedStore.Pin {
     fileprivate init?(_ dependency: Workspace.ManagedDependency) {
         switch dependency.state {
         case .sourceControlCheckout(.version(let version, let revision)):
@@ -163,7 +163,7 @@ extension PackageReference.Kind {
     }
 }
 
-extension PinsStore.PinState {
+extension PackageResolvedStore.ResolutionState {
     func equals(_ checkoutState: CheckoutState) -> Bool {
         switch (self, checkoutState) {
         case (.version(let lversion, let lrevision), .version(let rversion, let rrevision)):
@@ -187,8 +187,8 @@ extension PinsStore.PinState {
     }
 }
 
-extension PinsStore.Pins {
-    subscript(comparingLocation package: PackageReference) -> PinsStore.Pin? {
+extension PackageResolvedStore.Pins {
+    subscript(comparingLocation package: PackageReference) -> PackageResolvedStore.Pin? {
         if let pin = self[package.identity], pin.packageRef.equalsIncludingLocation(package) {
             return pin
         }
