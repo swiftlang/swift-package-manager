@@ -856,7 +856,6 @@ for target in package.targets where target.type == .regular && target.name != "S
         updatedSwiftSettings = swiftSettings
     } else {
         updatedSwiftSettings = [sendableFromCaptures]
-
     }
 
     target.swiftSettings = updatedSwiftSettings
