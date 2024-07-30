@@ -410,10 +410,20 @@ public final class UserToolchain: Toolchain {
     static func deriveMacOSSpecificSwiftTestingFlags(
         derivedSwiftCompiler: AbsolutePath,
         fileSystem: any FileSystem
-    ) throws -> [String] {
-        let toolchainLibDir = try toolchainLibDir(
+    ) -> [String] {
+        // If this is CommandLineTools all we need to add is a frameworks path.
+        if let frameworksPath = try? AbsolutePath(
+            validating: "../../Library/Developer/Frameworks",
+            relativeTo: resolveSymlinks(derivedSwiftCompiler).parentDirectory
+        ), fileSystem.exists(frameworksPath.appending("Testing.framework")) {
+            return ["-F", frameworksPath.pathString]
+        }
+
+        guard let toolchainLibDir = try? toolchainLibDir(
             swiftCompilerPath: derivedSwiftCompiler
-        )
+        ) else {
+            return []
+        }
 
         let testingLibDir = toolchainLibDir.appending(
             components: ["swift", "macosx", "testing"]
@@ -654,7 +664,7 @@ public final class UserToolchain: Toolchain {
 
         var swiftCompilerFlags: [String] = []
         #if os(macOS)
-        swiftCompilerFlags += try Self.deriveMacOSSpecificSwiftTestingFlags(
+        swiftCompilerFlags += Self.deriveMacOSSpecificSwiftTestingFlags(
             derivedSwiftCompiler: swiftCompilers.compile,
             fileSystem: fileSystem
         )
