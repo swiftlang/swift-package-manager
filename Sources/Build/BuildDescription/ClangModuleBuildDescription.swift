@@ -42,6 +42,11 @@ public final class ClangModuleBuildDescription {
     /// The build parameters.
     let buildParameters: BuildParameters
 
+    /// The destination for while this module is built.
+    public var destination: BuildParameters.Destination {
+        self.buildParameters.destination
+    }
+
     /// The build environment.
     var buildEnvironment: BuildEnvironment {
         buildParameters.buildEnvironment
