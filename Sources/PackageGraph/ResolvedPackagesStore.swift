@@ -124,25 +124,25 @@ public final class ResolvedPackagesStore {
         }
     }
 
-    /// Pin a repository at a version.
+    /// Track a resolved package with a given state.
     ///
     /// This method does not automatically write to state file.
     ///
     /// - Parameters:
-    ///   - packageRef: The package reference to pin.
-    ///   - state: The state to pin at.
-    public func pin(packageRef: PackageReference, state: ResolutionState) {
+    ///   - packageRef: The package reference to track.
+    ///   - state: The state to track with.
+    public func track(packageRef: PackageReference, state: ResolutionState) {
         self.add(.init(
             packageRef: packageRef,
             state: state
         ))
     }
 
-    /// Add a pin.
+    /// Add a resolved package.
     ///
-    /// This will replace any previous pin with same package name.
-    public func add(_ pin: ResolvedPackage) {
-        self._resolvedPackages[pin.packageRef.identity] = pin
+    /// This will replace any previous resolutions with same package name.
+    public func add(_ resolvedPackage: ResolvedPackage) {
+        self._resolvedPackages[resolvedPackage.packageRef.identity] = resolvedPackage
     }
 
     /// Remove a pin.
@@ -152,10 +152,10 @@ public final class ResolvedPackagesStore {
         self._resolvedPackages[resolvedPackage.packageRef.identity] = nil
     }
 
-    /// Unpin all of the currently pinned dependencies.
+    /// Stop tracking all of the currently tracked resolved packages.
     ///
     /// This method does not automatically write to state file.
-    public func unpinAll() {
+    public func reset() {
         // Reset the pins map.
         self._resolvedPackages.clear()
     }
@@ -166,7 +166,7 @@ public final class ResolvedPackagesStore {
     ) throws {
         try self.storage.save(
             toolsVersion: toolsVersion,
-            pins: self._resolvedPackages.get(),
+            resolvedPackages: self._resolvedPackages.get(),
             mirrors: self.mirrors,
             originHash: originHash,
             removeIfEmpty: true
@@ -249,7 +249,7 @@ private struct PinsStorage {
 
     func save(
         toolsVersion: ToolsVersion,
-        pins: ResolvedPackagesStore.ResolvedPackages,
+        resolvedPackages: ResolvedPackagesStore.ResolvedPackages,
         mirrors: DependencyMirrors,
         originHash: String?,
         removeIfEmpty: Bool
@@ -262,7 +262,7 @@ private struct PinsStorage {
             //
             // This can happen if all dependencies are path-based or edited
             // dependencies.
-            if removeIfEmpty && pins.isEmpty {
+            if removeIfEmpty && resolvedPackages.isEmpty {
                 try self.fileSystem.removeFileTree(self.path)
                 return
             }
@@ -270,19 +270,19 @@ private struct PinsStorage {
             var data: Data
             if toolsVersion > .v5_9  {
                 let container = try V3(
-                    pins: pins,
+                    pins: resolvedPackages,
                     mirrors: mirrors,
                     originHash: originHash
                 )
                 data = try self.encoder.encode(container)
             } else if toolsVersion >= .v5_6 {
                 let container = try V2(
-                    pins: pins,
+                    pins: resolvedPackages,
                     mirrors: mirrors
                 )
                 data = try self.encoder.encode(container)
             } else {
-                let container = try V1(pins: pins, mirrors: mirrors)
+                let container = try V1(pins: resolvedPackages, mirrors: mirrors)
                 let json = container.toLegacyJSON()
                 let bytes = json.toBytes(prettyPrint: true)
                 data = Data(bytes.contents)

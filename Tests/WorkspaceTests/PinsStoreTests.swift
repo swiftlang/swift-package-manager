@@ -45,7 +45,7 @@ final class PinsStoreTests: XCTestCase {
 
             let revision = UUID().uuidString
             let state = ResolvedPackagesStore.ResolutionState.version(v1, revision: revision)
-            store.pin(packageRef: fooRef, state: state)
+            store.track(packageRef: fooRef, state: state)
             try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
 
             XCTAssert(fs.exists(pinsFile))
@@ -63,12 +63,12 @@ final class PinsStoreTests: XCTestCase {
             }
 
             // We should be able to pin again.
-            store.pin(packageRef: fooRef, state: state)
-            store.pin(
+            store.track(packageRef: fooRef, state: state)
+            store.track(
                 packageRef: fooRef,
                 state: .version("1.0.2", revision: revision)
             )
-            store.pin(packageRef: barRef, state: state)
+            store.track(packageRef: barRef, state: state)
             try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
 
             store = try ResolvedPackagesStore(packageResolvedFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
@@ -84,7 +84,7 @@ final class PinsStoreTests: XCTestCase {
             let revision = UUID().uuidString
 
             var store = try ResolvedPackagesStore(packageResolvedFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
-            store.pin(
+            store.track(
                 packageRef: .localSourceControl(identity: identity, path: path),
                 state: .version("1.2.3", revision: revision)
             )
@@ -104,7 +104,7 @@ final class PinsStoreTests: XCTestCase {
             let revision = UUID().uuidString
 
             var store = try ResolvedPackagesStore(packageResolvedFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
-            store.pin(
+            store.track(
                 packageRef: .localSourceControl(identity: identity, path: path),
                 state: .branch(name: "develop", revision: revision)
             )
@@ -124,7 +124,7 @@ final class PinsStoreTests: XCTestCase {
             let revision = UUID().uuidString
 
             var store = try ResolvedPackagesStore(packageResolvedFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
-            store.pin(
+            store.track(
                 packageRef: .localSourceControl(identity: identity, path: path),
                 state: .revision(revision)
             )
@@ -142,7 +142,7 @@ final class PinsStoreTests: XCTestCase {
             let identity = PackageIdentity.plain("baz.baz") // FIXME: use scope identifier
 
             var store = try ResolvedPackagesStore(packageResolvedFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
-            store.pin(
+            store.track(
                 packageRef: .registry(identity: identity),
                 state: .version("1.2.3", revision: .none)
             )
@@ -321,14 +321,14 @@ final class PinsStoreTests: XCTestCase {
         let foo = PackageIdentity(path: fooPath)
         let fooRef = PackageReference.localSourceControl(identity: foo, path: fooPath)
         let revision = "81513c8fd220cf1ed1452b98060cd80d3725c5b7"
-        store.pin(packageRef: fooRef, state: .version(v1, revision: revision))
+        store.track(packageRef: fooRef, state: .version(v1, revision: revision))
 
         XCTAssert(!fs.exists(pinsFile))
 
         try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
         XCTAssert(fs.exists(pinsFile))
 
-        store.unpinAll()
+        store.reset()
         try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
         XCTAssertFalse(fs.exists(pinsFile))
     }
@@ -355,11 +355,11 @@ final class PinsStoreTests: XCTestCase {
 
         let store = try ResolvedPackagesStore(packageResolvedFile: pinsFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
 
-        store.pin(packageRef: .remoteSourceControl(identity: fooIdentity, url: fooMirroredURL),
+        store.track(packageRef: .remoteSourceControl(identity: fooIdentity, url: fooMirroredURL),
                   state: .version(v1, revision: "foo-revision"))
-        store.pin(packageRef: .remoteSourceControl(identity: barIdentity, url: barMirroredURL),
+        store.track(packageRef: .remoteSourceControl(identity: barIdentity, url: barMirroredURL),
                   state: .version(v1, revision: "bar-revision"))
-        store.pin(packageRef: .remoteSourceControl(identity: bazIdentity, url: bazURL),
+        store.track(packageRef: .remoteSourceControl(identity: bazIdentity, url: bazURL),
                   state: .version(v1, revision: "baz-revision"))
 
         XCTAssert(store.resolvedPackages.count == 3)
@@ -406,7 +406,7 @@ final class PinsStoreTests: XCTestCase {
         let pinsFile = AbsolutePath("/pins.txt")
 
         let store1 = try ResolvedPackagesStore(packageResolvedFile: pinsFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
-        store1.pin(
+        store1.track(
             packageRef: .remoteSourceControl(identity: fooIdentity, url: fooMirroredURL),
             state: .version(v1, revision: "revision")
         )

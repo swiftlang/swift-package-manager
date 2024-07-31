@@ -42,7 +42,7 @@ extension SwiftPackageCommand {
                 observabilityScope: swiftCommandState.observabilityScope
             )
 
-            if self.dryRun, let changes = changes, let pinsStore = swiftCommandState.observabilityScope.trap({ try workspace.pinsStore.load() }){
+            if self.dryRun, let changes = changes, let pinsStore = swiftCommandState.observabilityScope.trap({ try workspace.resolvedPackagesStore.load() }){
                 self.logPackageChanges(changes: changes, pins: pinsStore)
             }
             

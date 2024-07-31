@@ -897,7 +897,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try workspace.set(
-            pins: [bRef: v1_5, cRef: v2],
+            resolvedPackages: [bRef: v1_5, cRef: v2],
             managedDependencies: [
                 bPackagePath: .sourceControlCheckout(packageRef: bRef, state: v1_5, subpath: bPath)
                     .edited(subpath: bPath, unmanagedPath: .none),
@@ -959,7 +959,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try workspace.set(
-            pins: [bRef: v1],
+            resolvedPackages: [bRef: v1],
             managedDependencies: [
                 bPackagePath: .sourceControlCheckout(packageRef: bRef, state: v1, subpath: bPath),
             ]
@@ -1022,7 +1022,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try workspace.set(
-            pins: [bRef: v1_5, cRef: v1_5],
+            resolvedPackages: [bRef: v1_5, cRef: v1_5],
             managedDependencies: [
                 bPackagePath: .sourceControlCheckout(packageRef: bRef, state: v1_5, subpath: bPath),
                 cPackagePath: .sourceControlCheckout(packageRef: cRef, state: v1_5, subpath: cPath),
@@ -1074,7 +1074,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try testWorkspace.set(
-            pins: [cRef: v1_5],
+            resolvedPackages: [cRef: v1_5],
             managedDependencies: [
                 cPackagePath: .sourceControlCheckout(packageRef: cRef, state: v1_5, subpath: cPath),
             ]
@@ -1140,7 +1140,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try workspace.set(
-            pins: [bRef: v1_5],
+            resolvedPackages: [bRef: v1_5],
             managedDependencies: [
                 bPackagePath: .sourceControlCheckout(packageRef: bRef, state: v1_5, subpath: bPath),
                 cPackagePath: .fileSystem(packageRef: cRef),
@@ -1207,7 +1207,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try workspace.set(
-            pins: [bRef: v1_5, cRef: v1_5],
+            resolvedPackages: [bRef: v1_5, cRef: v1_5],
             managedDependencies: [
                 bPackagePath: .sourceControlCheckout(packageRef: bRef, state: v1_5, subpath: bPath),
                 cPackagePath: .sourceControlCheckout(packageRef: cRef, state: v1_5, subpath: cPath),
@@ -1275,7 +1275,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try workspace.set(
-            pins: [bRef: v1_5, cRef: master],
+            resolvedPackages: [bRef: v1_5, cRef: master],
             managedDependencies: [
                 bPackagePath: .sourceControlCheckout(packageRef: bRef, state: v1_5, subpath: bPath),
                 cPackagePath: .sourceControlCheckout(packageRef: cRef, state: master, subpath: cPath),
@@ -1343,7 +1343,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try workspace.set(
-            pins: [bRef: v1_5, cRef: v1_5],
+            resolvedPackages: [bRef: v1_5, cRef: v1_5],
             managedDependencies: [
                 bPackagePath: .sourceControlCheckout(packageRef: bRef, state: v1_5, subpath: bPath),
                 cPackagePath: .sourceControlCheckout(packageRef: cRef, state: v1_5, subpath: cPath),
@@ -1413,7 +1413,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try workspace.set(
-            pins: [bRef: v1_5, cRef: v2],
+            resolvedPackages: [bRef: v1_5, cRef: v2],
             managedDependencies: [
                 bPackagePath: .sourceControlCheckout(packageRef: bRef, state: v1_5, subpath: bPath),
                 cPackagePath: .sourceControlCheckout(packageRef: cRef, state: v2, subpath: cPath),
@@ -3762,7 +3762,7 @@ final class WorkspaceTests: XCTestCase {
 
             let minToolsVersion = [pair.0, pair.1].min()!
             let expectedSchemeVersion = minToolsVersion >= .v5_6 ? 2 : 1
-            XCTAssertEqual(try workspace.getOrCreateWorkspace().pinsStore.load().schemeVersion(), expectedSchemeVersion)
+            XCTAssertEqual(try workspace.getOrCreateWorkspace().resolvedPackagesStore.load().schemeVersion(), expectedSchemeVersion)
         }
     }
 
@@ -4080,7 +4080,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(dependency: "bar", at: .checkout(.version("1.1.1")))
             }
 
-            let pinsStore = try workspace.getOrCreateWorkspace().pinsStore.load()
+            let pinsStore = try workspace.getOrCreateWorkspace().resolvedPackagesStore.load()
             checkPinnedVersion(pin: pinsStore.resolvedPackages["foo"]!, version: "1.3.1")
             checkPinnedVersion(pin: pinsStore.resolvedPackages["bar"]!, version: "1.1.1")
         }
@@ -5002,7 +5002,7 @@ final class WorkspaceTests: XCTestCase {
         // Change pin of foo to something else.
         do {
             let ws = try workspace.getOrCreateWorkspace()
-            let pinsStore = try ws.pinsStore.load()
+            let pinsStore = try ws.resolvedPackagesStore.load()
             let fooPin = try XCTUnwrap(pinsStore.resolvedPackages.values.first(where: { $0.packageRef.identity.description == "foo" }))
 
             let fooRepo = workspace.repositoryProvider
@@ -5013,7 +5013,7 @@ final class WorkspaceTests: XCTestCase {
             let revision = try fooRepo.resolveRevision(tag: "1.0.0")
             let newState = ResolvedPackagesStore.ResolutionState.version("1.0.0", revision: revision.identifier)
 
-            pinsStore.pin(packageRef: fooPin.packageRef, state: newState)
+            pinsStore.track(packageRef: fooPin.packageRef, state: newState)
             try pinsStore.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
         }
 
@@ -6172,7 +6172,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Set an initial workspace state
         try workspace.set(
-            pins: [aRef: aState],
+            resolvedPackages: [aRef: aState],
             managedArtifacts: [
                 .init(
                     packageRef: aRef,
@@ -7141,7 +7141,7 @@ final class WorkspaceTests: XCTestCase {
         let aState = CheckoutState.version("1.0.0", revision: aRevision)
 
         try workspace.set(
-            pins: [aRef: aState],
+            resolvedPackages: [aRef: aState],
             managedArtifacts: [
                 .init(
                     packageRef: aRef,

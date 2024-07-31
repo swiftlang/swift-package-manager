@@ -47,7 +47,7 @@ extension Workspace {
         // try to load the pin store from disk so we can compare for any changes
         // this is needed as we want to avoid re-writing the resolved files unless absolutely necessary
         var needsUpdate = false
-        if let storedPinStore = try? self.pinsStore.load() {
+        if let storedPinStore = try? self.resolvedPackagesStore.load() {
             // compare for any differences between the existing state and the stored one
             // subtle changes between versions of SwiftPM could treat URLs differently
             // in which case we don't want to cause unnecessary churn
@@ -76,7 +76,7 @@ extension Workspace {
         }
 
         // reset the pinsStore and start pinning the required dependencies.
-        pinsStore.unpinAll()
+        pinsStore.reset()
         for dependency in dependenciesToPin {
             pinsStore.pin(dependency)
         }

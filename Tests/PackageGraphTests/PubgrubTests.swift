@@ -3400,7 +3400,7 @@ class DependencyGraphBuilder {
         let store = try! ResolvedPackagesStore(packageResolvedFile: "/tmp/Package.resolved", workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
         for (package, pin) in pins {
-            store.pin(packageRef: try reference(for: package), state: pin.0)
+            store.track(packageRef: try reference(for: package), state: pin.0)
         }
 
         try! store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)

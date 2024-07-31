@@ -87,7 +87,7 @@ extension Workspace {
         let currentManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
 
         // Abort if we're unable to load the pinsStore or have any diagnostics.
-        guard let pinsStore = observabilityScope.trap({ try self.pinsStore.load() }) else { return nil }
+        guard let pinsStore = observabilityScope.trap({ try self.resolvedPackagesStore.load() }) else { return nil }
 
         // Ensure we don't have any error at this point.
         guard !observabilityScope.errorsReported else {
@@ -216,7 +216,7 @@ extension Workspace {
                 return try resolveAndUpdateResolvedFile(forceResolution: false)
             }
 
-            guard let pinsStore = try? self.pinsStore.load(), let storedHash = pinsStore.originHash else {
+            guard let pinsStore = try? self.resolvedPackagesStore.load(), let storedHash = pinsStore.originHash else {
                 observabilityScope
                     .emit(
                         debug: "'\(self.location.resolvedVersionsFile.basename)' origin hash is missing. resolving and updating accordingly"
@@ -346,7 +346,7 @@ extension Workspace {
         )
 
         // Load the pins store or abort now.
-        guard let pinsStore = observabilityScope.trap({ try self.pinsStore.load() }),
+        guard let pinsStore = observabilityScope.trap({ try self.resolvedPackagesStore.load() }),
               !observabilityScope.errorsReported
         else {
             return try (
@@ -847,7 +847,7 @@ extension Workspace {
         rootManifestsMinimumToolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope
     ) -> ResolvedPackagesStore? {
-        guard let pinsStore = observabilityScope.trap({ try self.pinsStore.load() }) else {
+        guard let pinsStore = observabilityScope.trap({ try self.resolvedPackagesStore.load() }) else {
             return nil
         }
 
@@ -960,7 +960,7 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) throws -> [(PackageReference, PackageStateChange)] {
         // Load pins store and managed dependencies.
-        let pinsStore = try self.pinsStore.load()
+        let pinsStore = try self.resolvedPackagesStore.load()
         var packageStateChanges: [PackageIdentity: (PackageReference, PackageStateChange)] = [:]
 
         // Set the states from resolved dependencies results.
