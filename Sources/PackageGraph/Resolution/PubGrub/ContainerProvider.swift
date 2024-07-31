@@ -24,8 +24,8 @@ final class ContainerProvider {
     /// Whether to perform update (git fetch) on existing cloned repositories or not.
     private let skipUpdate: Bool
 
-    /// Reference to the pins store.
-    private let pins: ResolvedPackagesStore.ResolvedPackages
+    /// `Package.resolved` file representation.
+    private let resolvedPackages: ResolvedPackagesStore.ResolvedPackages
 
     /// Observability scope to emit diagnostics with
     private let observabilityScope: ObservabilityScope
@@ -39,12 +39,12 @@ final class ContainerProvider {
     init(
         provider underlying: PackageContainerProvider,
         skipUpdate: Bool,
-        pins: ResolvedPackagesStore.ResolvedPackages,
+        resolvedPackages: ResolvedPackagesStore.ResolvedPackages,
         observabilityScope: ObservabilityScope
     ) {
         self.underlying = underlying
         self.skipUpdate = skipUpdate
-        self.pins = pins
+        self.resolvedPackages = resolvedPackages
         self.observabilityScope = observabilityScope
     }
 
@@ -87,7 +87,7 @@ final class ContainerProvider {
                 on: .sharedConcurrent
             ) { result in
                 let result = result.tryMap { container -> PubGrubPackageContainer in
-                    let pubGrubContainer = PubGrubPackageContainer(underlying: container, pins: self.pins)
+                    let pubGrubContainer = PubGrubPackageContainer(underlying: container, resolvedPackages: self.resolvedPackages)
                     // only cache positive results
                     self.containersCache[package] = pubGrubContainer
                     return pubGrubContainer
@@ -118,7 +118,7 @@ final class ContainerProvider {
                     defer { self.prefetches[identifier]?.leave() }
                     // only cache positive results
                     if case .success(let container) = result {
-                        self.containersCache[identifier] = PubGrubPackageContainer(underlying: container, pins: self.pins)
+                        self.containersCache[identifier] = PubGrubPackageContainer(underlying: container, resolvedPackages: self.resolvedPackages)
                     }
                 }
             }

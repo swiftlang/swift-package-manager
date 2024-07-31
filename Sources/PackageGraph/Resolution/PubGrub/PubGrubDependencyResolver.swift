@@ -100,8 +100,8 @@ public struct PubGrubDependencyResolver {
         }
     }
 
-    /// Reference to the pins store, if provided.
-    private let pins: ResolvedPackagesStore.ResolvedPackages
+    /// `Package.resolved` representation.
+    private let resolvedPackages: ResolvedPackagesStore.ResolvedPackages
 
     /// The container provider used to load package containers.
     private let provider: ContainerProvider
@@ -118,6 +118,12 @@ public struct PubGrubDependencyResolver {
     /// Resolver delegate
     private let delegate: DependencyResolverDelegate?
 
+    @available(*,
+        deprecated,
+        renamed: "init(provider:resolvedPackages:skipDependenciesUpdates:prefetchBasedOnResolvedFile:observabilityScope:delegate:)",
+        message: "Renamed for consistency with the actual name of the feature"
+    )
+    @_disfavoredOverload
     public init(
         provider: PackageContainerProvider,
         pins: ResolvedPackagesStore.ResolvedPackages = [:],
@@ -126,14 +132,32 @@ public struct PubGrubDependencyResolver {
         observabilityScope: ObservabilityScope,
         delegate: DependencyResolverDelegate? = nil
     ) {
+        self.init(
+            provider: provider,
+            resolvedPackages: pins,
+            skipDependenciesUpdates: skipDependenciesUpdates,
+            prefetchBasedOnResolvedFile: prefetchBasedOnResolvedFile,
+            observabilityScope: observabilityScope,
+            delegate: delegate
+        )
+    }
+
+    public init(
+        provider: PackageContainerProvider,
+        resolvedPackages: ResolvedPackagesStore.ResolvedPackages = [:],
+        skipDependenciesUpdates: Bool = false,
+        prefetchBasedOnResolvedFile: Bool = false,
+        observabilityScope: ObservabilityScope,
+        delegate: DependencyResolverDelegate? = nil
+    ) {
         self.packageContainerProvider = provider
-        self.pins = pins
+        self.resolvedPackages = resolvedPackages
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
         self.provider = ContainerProvider(
             provider: self.packageContainerProvider,
             skipUpdate: self.skipDependenciesUpdates,
-            pins: self.pins,
+            resolvedPackages: self.resolvedPackages,
             observabilityScope: observabilityScope
         )
         self.delegate = delegate
@@ -189,10 +213,10 @@ public struct PubGrubDependencyResolver {
             // We avoid prefetching packages that are overridden since
             // otherwise we'll end up creating a repository container
             // for them.
-            let pins = self.pins.values
+            let resolvedPackageReferences = self.resolvedPackages.values
                 .map(\.packageRef)
                 .filter { !inputs.overriddenPackages.keys.contains($0) }
-            self.provider.prefetch(containers: pins)
+            self.provider.prefetch(containers: resolvedPackageReferences)
         }
 
         let state = State(root: root, overriddenPackages: inputs.overriddenPackages)
@@ -366,7 +390,7 @@ public struct PubGrubDependencyResolver {
             // latest commit on that branch. Note that if this revision-based dependency is
             // already a commit, then its pin entry doesn't matter in practice.
             let revisionForDependencies: String
-            if case .branch(revision, let pinRevision) = self.pins[package.identity]?.state {
+            if case .branch(revision, let pinRevision) = self.resolvedPackages[package.identity]?.state {
                 revisionForDependencies = pinRevision
 
                 // Mark the package as overridden with the pinned revision and record the branch as well.

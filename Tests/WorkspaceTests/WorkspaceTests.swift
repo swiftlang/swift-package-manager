@@ -701,7 +701,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testCanResolveWithIncompatiblePins() throws {
+    func testCanResolveWithIncompatiblePackages() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -4080,9 +4080,9 @@ final class WorkspaceTests: XCTestCase {
                 result.check(dependency: "bar", at: .checkout(.version("1.1.1")))
             }
 
-            let pinsStore = try workspace.getOrCreateWorkspace().resolvedPackagesStore.load()
-            checkPinnedVersion(pin: pinsStore.resolvedPackages["foo"]!, version: "1.3.1")
-            checkPinnedVersion(pin: pinsStore.resolvedPackages["bar"]!, version: "1.1.1")
+            let resolvedPackagesStore = try workspace.getOrCreateWorkspace().resolvedPackagesStore.load()
+            checkPinnedVersion(pin: resolvedPackagesStore.resolvedPackages["foo"]!, version: "1.3.1")
+            checkPinnedVersion(pin: resolvedPackagesStore.resolvedPackages["bar"]!, version: "1.1.1")
         }
 
         do {
@@ -5002,8 +5002,8 @@ final class WorkspaceTests: XCTestCase {
         // Change pin of foo to something else.
         do {
             let ws = try workspace.getOrCreateWorkspace()
-            let pinsStore = try ws.resolvedPackagesStore.load()
-            let fooPin = try XCTUnwrap(pinsStore.resolvedPackages.values.first(where: { $0.packageRef.identity.description == "foo" }))
+            let resolvedPackagesStore = try ws.resolvedPackagesStore.load()
+            let fooPin = try XCTUnwrap(resolvedPackagesStore.resolvedPackages.values.first(where: { $0.packageRef.identity.description == "foo" }))
 
             let fooRepo = workspace.repositoryProvider
                 .specifierMap[RepositorySpecifier(path: try AbsolutePath(
@@ -5013,8 +5013,8 @@ final class WorkspaceTests: XCTestCase {
             let revision = try fooRepo.resolveRevision(tag: "1.0.0")
             let newState = ResolvedPackagesStore.ResolutionState.version("1.0.0", revision: revision.identifier)
 
-            pinsStore.track(packageRef: fooPin.packageRef, state: newState)
-            try pinsStore.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
+            resolvedPackagesStore.track(packageRef: fooPin.packageRef, state: newState)
+            try resolvedPackagesStore.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
         }
 
         // Check force resolve. This should produce an error because the resolved file is out-of-date.

@@ -1037,7 +1037,7 @@ final class PackageCommandTests: CommandsTestCase {
         }
     }
 
-    func testPinningBranchAndRevision() async throws {
+    func testResolvingBranchAndRevision() async throws {
         try await fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
             let fooPath = fixturePath.appending("foo")
 
@@ -1048,8 +1048,8 @@ final class PackageCommandTests: CommandsTestCase {
 
             try await execute("update")
 
-            let pinsFile = fooPath.appending("Package.resolved")
-            XCTAssertFileExists(pinsFile)
+            let packageResolvedFile = fooPath.appending("Package.resolved")
+            XCTAssertFileExists(packageResolvedFile)
 
             // Update bar repo.
             let barPath = fixturePath.appending("bar")
@@ -1057,25 +1057,35 @@ final class PackageCommandTests: CommandsTestCase {
             try barRepo.checkout(newBranch: "YOLO")
             let yoloRevision = try barRepo.getCurrentRevision()
 
-            // Try to pin bar at a branch.
+            // Try to resolve `bar` at a branch.
             do {
                 try await execute("resolve", "bar", "--branch", "YOLO")
-                let pinsStore = try ResolvedPackagesStore(packageResolvedFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
+                let resolvedPackagesStore = try ResolvedPackagesStore(
+                    packageResolvedFile: packageResolvedFile,
+                    workingDirectory: fixturePath,
+                    fileSystem: localFileSystem,
+                    mirrors: .init()
+                )
                 let state = ResolvedPackagesStore.ResolutionState.branch(name: "YOLO", revision: yoloRevision.identifier)
                 let identity = PackageIdentity(path: barPath)
-                XCTAssertEqual(pinsStore.resolvedPackages[identity]?.state, state)
+                XCTAssertEqual(resolvedPackagesStore.resolvedPackages[identity]?.state, state)
             }
 
-            // Try to pin bar at a revision.
+            // Try to resolve `bar` at a revision.
             do {
                 try await execute("resolve", "bar", "--revision", yoloRevision.identifier)
-                let pinsStore = try ResolvedPackagesStore(packageResolvedFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
+                let resolvedPackagesStore = try ResolvedPackagesStore(
+                    packageResolvedFile: packageResolvedFile,
+                    workingDirectory: fixturePath,
+                    fileSystem: localFileSystem,
+                    mirrors: .init()
+                )
                 let state = ResolvedPackagesStore.ResolutionState.revision(yoloRevision.identifier)
                 let identity = PackageIdentity(path: barPath)
-                XCTAssertEqual(pinsStore.resolvedPackages[identity]?.state, state)
+                XCTAssertEqual(resolvedPackagesStore.resolvedPackages[identity]?.state, state)
             }
 
-            // Try to pin bar at a bad revision.
+            // Try to resolve `bar` at a bad revision.
             do {
                 try await execute("resolve", "bar", "--revision", "xxxxx")
                 XCTFail()
@@ -1083,44 +1093,54 @@ final class PackageCommandTests: CommandsTestCase {
         }
     }
 
-    func testPinning() async throws {
+    func testPackageResolved() async throws {
         try await fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
             let fooPath = fixturePath.appending("foo")
-            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "foo").pathString]
+            let exec = [fooPath.appending(
+                components: ".build",
+                try UserToolchain.default.targetTriple.platformBuildPathComponent,
+                "debug",
+                "foo"
+            ).pathString]
 
             // Build and check.
             _ = try await SwiftPM.Build.execute(packagePath: fooPath)
             try await XCTAssertAsyncEqual(try await AsyncProcess.checkNonZeroExit(arguments: exec).spm_chomp(), "\(5)")
 
-            // Get path to bar checkout.
+            // Get path to `bar` checkout.
             let barPath = try SwiftPM.packagePath(for: "bar", packageRoot: fooPath)
 
-            // Checks the content of checked out bar.swift.
+            // Checks the content of checked out `bar.swift`.
             func checkBar(_ value: Int, file: StaticString = #file, line: UInt = #line) throws {
-                let contents: String = try localFileSystem.readFileContents(barPath.appending(components:"Sources", "bar.swift"))
+                let contents: String = try localFileSystem.readFileContents(barPath.appending(components: "Sources", "bar.swift"))
                 XCTAssertTrue(contents.spm_chomp().hasSuffix("\(value)"), "got \(contents)", file: file, line: line)
             }
 
-            // We should see a pin file now.
-            let pinsFile = fooPath.appending("Package.resolved")
-            XCTAssertFileExists(pinsFile)
+            // We should see a `Package.resolved` file now.
+            let packageResolvedFile = fooPath.appending("Package.resolved")
+            XCTAssertFileExists(packageResolvedFile)
 
-            // Test pins file.
+            // Test `Package.resolved` file.
             do {
-                let pinsStore = try ResolvedPackagesStore(packageResolvedFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
-                XCTAssertEqual(pinsStore.resolvedPackages.count, 2)
+                let resolvedPackagesStore = try ResolvedPackagesStore(
+                    packageResolvedFile: packageResolvedFile,
+                    workingDirectory: fixturePath,
+                    fileSystem: localFileSystem,
+                    mirrors: .init()
+                )
+                XCTAssertEqual(resolvedPackagesStore.resolvedPackages.count, 2)
                 for pkg in ["bar", "baz"] {
                     let path = try SwiftPM.packagePath(for: pkg, packageRoot: fooPath)
-                    let pin = pinsStore.resolvedPackages[PackageIdentity(path: path)]!
-                    XCTAssertEqual(pin.packageRef.identity, PackageIdentity(path: path))
-                    guard case .localSourceControl(let path) = pin.packageRef.kind, path.pathString.hasSuffix(pkg) else {
-                        return XCTFail("invalid pin location \(path)")
+                    let resolvedPackage = resolvedPackagesStore.resolvedPackages[PackageIdentity(path: path)]!
+                    XCTAssertEqual(resolvedPackage.packageRef.identity, PackageIdentity(path: path))
+                    guard case .localSourceControl(let path) = resolvedPackage.packageRef.kind, path.pathString.hasSuffix(pkg) else {
+                        return XCTFail("invalid resolved package location \(path)")
                     }
-                    switch pin.state {
+                    switch resolvedPackage.state {
                     case .version(let version, revision: _):
                         XCTAssertEqual(version, "1.2.3")
                     default:
-                        XCTFail("invalid pin state")
+                        XCTFail("invalid `Package.resolved` state")
                     }
                 }
             }
@@ -1133,13 +1153,18 @@ final class PackageCommandTests: CommandsTestCase {
             // Try to pin bar.
             do {
                 try await execute("resolve", "bar")
-                let pinsStore = try ResolvedPackagesStore(packageResolvedFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
+                let resolvedPackagesStore = try ResolvedPackagesStore(
+                    packageResolvedFile: packageResolvedFile,
+                    workingDirectory: fixturePath,
+                    fileSystem: localFileSystem,
+                    mirrors: .init()
+                )
                 let identity = PackageIdentity(path: barPath)
-                switch pinsStore.resolvedPackages[identity]?.state {
+                switch resolvedPackagesStore.resolvedPackages[identity]?.state {
                 case .version(let version, revision: _):
                     XCTAssertEqual(version, "1.2.3")
                 default:
-                    XCTFail("invalid pin state")
+                    XCTFail("invalid resolved package state")
                 }
             }
 
@@ -1153,7 +1178,7 @@ final class PackageCommandTests: CommandsTestCase {
                 try barRepo.tag(name: "1.2.4")
             }
 
-            // Running package update with --repin should update the package.
+            // Running `package update` should update the package.
             do {
                 try await execute("update")
                 try checkBar(6)
@@ -1162,18 +1187,23 @@ final class PackageCommandTests: CommandsTestCase {
             // We should be able to revert to a older version.
             do {
                 try await execute("resolve", "bar", "--version", "1.2.3")
-                let pinsStore = try ResolvedPackagesStore(packageResolvedFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
+                let resolvedPackagesStore = try ResolvedPackagesStore(
+                    packageResolvedFile: packageResolvedFile,
+                    workingDirectory: fixturePath,
+                    fileSystem: localFileSystem,
+                    mirrors: .init()
+                )
                 let identity = PackageIdentity(path: barPath)
-                switch pinsStore.resolvedPackages[identity]?.state {
+                switch resolvedPackagesStore.resolvedPackages[identity]?.state {
                 case .version(let version, revision: _):
                     XCTAssertEqual(version, "1.2.3")
                 default:
-                    XCTFail("invalid pin state")
+                    XCTFail("invalid resolved package state")
                 }
                 try checkBar(5)
             }
 
-            // Try pinning a dependency which is in edit mode.
+            // Try resolving a dependency which is in edit mode.
             do {
                 try await execute("edit", "bar", "--branch", "bugfix")
                 await XCTAssertThrowsCommandExecutionError(try await execute("resolve", "bar")) { error in

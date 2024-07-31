@@ -68,7 +68,7 @@ public final class ResolvedPackagesStore {
     private let mirrors: DependencyMirrors
 
     /// storage
-    private let storage: PinsStorage
+    private let storage: ResolvedPackagesStorage
     private let _resolvedPackages: ThreadSafeKeyValueStore<PackageIdentity, ResolvedPackagesStore.ResolvedPackage>
     public let originHash: String?
 
@@ -113,8 +113,8 @@ public final class ResolvedPackagesStore {
         self.mirrors = mirrors
 
         do {
-            let (pins, originHash) = try self.storage.load(mirrors: mirrors)
-            self._resolvedPackages = .init(pins)
+            let (resolvedPackagesStorage, originHash) = try self.storage.load(mirrors: mirrors)
+            self._resolvedPackages = .init(resolvedPackagesStorage)
             self.originHash = originHash
         } catch {
             self._resolvedPackages = .init()
@@ -156,7 +156,7 @@ public final class ResolvedPackagesStore {
     ///
     /// This method does not automatically write to state file.
     public func reset() {
-        // Reset the pins map.
+        // Reset the resolved packages map.
         self._resolvedPackages.clear()
     }
 
@@ -181,7 +181,7 @@ public final class ResolvedPackagesStore {
 
 // MARK: - Serialization
 
-private struct PinsStorage {
+private struct ResolvedPackagesStorage {
     private let path: AbsolutePath
     private let lockFilePath: AbsolutePath
     private let fileSystem: FileSystem
@@ -194,9 +194,9 @@ private struct PinsStorage {
         self.fileSystem = fileSystem
     }
 
-    func load(mirrors: DependencyMirrors) throws -> (pins: ResolvedPackagesStore.ResolvedPackages, originHash: String?) {
+    func load(mirrors: DependencyMirrors) throws -> (resolvedPackages: ResolvedPackagesStore.ResolvedPackages, originHash: String?) {
         if !self.fileSystem.exists(self.path) {
-            return (pins: [:], originHash: .none)
+            return (resolvedPackages: [:], originHash: .none)
         }
 
         return try self.fileSystem.withLock(on: self.lockFilePath, type: .shared) {
@@ -205,7 +205,7 @@ private struct PinsStorage {
             case V1.version:
                 let v1 = try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V1.self)
                 return (
-                    pins: try v1.object.pins
+                    resolvedPackages: try v1.object.pins
                         .map { try ResolvedPackagesStore.ResolvedPackage($0, mirrors: mirrors) }
                         .reduce(into: [PackageIdentity: ResolvedPackagesStore.ResolvedPackage]()) { partial, iterator in
                             if partial.keys.contains(iterator.packageRef.identity) {
@@ -218,7 +218,7 @@ private struct PinsStorage {
             case V2.version:
                 let v2 = try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V2.self)
                 return (
-                    pins: try v2.pins
+                    resolvedPackages: try v2.pins
                         .map { try ResolvedPackagesStore.ResolvedPackage($0, mirrors: mirrors) }
                         .reduce(into: [PackageIdentity: ResolvedPackagesStore.ResolvedPackage]()) { partial, iterator in
                             if partial.keys.contains(iterator.packageRef.identity) {
@@ -231,7 +231,7 @@ private struct PinsStorage {
             case V3.version:
                 let v3 = try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V3.self)
                 return (
-                    pins: try v3.pins
+                    resolvedPackages: try v3.pins
                         .map { try ResolvedPackagesStore.ResolvedPackage($0, mirrors: mirrors) }
                         .reduce(into: [PackageIdentity: ResolvedPackagesStore.ResolvedPackage]()) { partial, iterator in
                             if partial.keys.contains(iterator.packageRef.identity) {
@@ -519,7 +519,7 @@ private struct PinsStorage {
 }
 
 extension ResolvedPackagesStore.ResolvedPackage {
-    fileprivate init(_ pin: PinsStorage.V1.Pin, mirrors: DependencyMirrors) throws {
+    fileprivate init(_ pin: ResolvedPackagesStorage.V1.Pin, mirrors: DependencyMirrors) throws {
         // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
         let location = mirrors.effective(for: pin.repositoryURL)
         let identity = PackageIdentity(urlString: location) // FIXME: pin store should also encode identity
@@ -540,7 +540,7 @@ extension ResolvedPackagesStore.ResolvedPackage {
 }
 
 extension ResolvedPackagesStore.ResolutionState {
-    fileprivate init(_ state: PinsStorage.V1.State) throws {
+    fileprivate init(_ state: ResolvedPackagesStorage.V1.State) throws {
         let revision = state.revision
         if let version = state.version {
             self = try .version(Version(versionString: version), revision: revision)
@@ -553,7 +553,7 @@ extension ResolvedPackagesStore.ResolutionState {
 }
 
 extension ResolvedPackagesStore.ResolvedPackage {
-    fileprivate init(_ pin: PinsStorage.V2.Pin, mirrors: DependencyMirrors) throws {
+    fileprivate init(_ pin: ResolvedPackagesStorage.V2.Pin, mirrors: DependencyMirrors) throws {
         let packageRef: PackageReference
         let identity = pin.identity
         // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
@@ -574,7 +574,7 @@ extension ResolvedPackagesStore.ResolvedPackage {
 }
 
 extension ResolvedPackagesStore.ResolutionState {
-    fileprivate init(_ state: PinsStorage.V2.State) throws {
+    fileprivate init(_ state: ResolvedPackagesStorage.V2.State) throws {
         if let version = state.version {
             self = try .version(Version(versionString: version), revision: state.revision)
         } else if let branch = state.branch, let revision = state.revision {

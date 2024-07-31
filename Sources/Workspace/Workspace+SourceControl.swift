@@ -96,10 +96,10 @@ extension Workspace {
 
     func checkoutRepository(
         package: PackageReference,
-        at pinState: ResolvedPackagesStore.ResolutionState,
+        at resolutionStater: ResolvedPackagesStore.ResolutionState,
         observabilityScope: ObservabilityScope
     ) throws -> AbsolutePath {
-        switch pinState {
+        switch resolutionStater {
         case .version(let version, revision: let revision) where revision != nil:
             return try self.checkoutRepository(
                 package: package,
@@ -119,7 +119,7 @@ extension Workspace {
                 observabilityScope: observabilityScope
             )
         default:
-            throw InternalError("invalid pin state: \(pinState)")
+            throw InternalError("invalid resolution state: \(resolutionStater)")
         }
     }
 

@@ -423,10 +423,10 @@ extension Workspace {
 
     func downloadRegistryArchive(
         package: PackageReference,
-        at pinState: ResolvedPackagesStore.ResolutionState,
+        at resolutionState: ResolvedPackagesStore.ResolutionState,
         observabilityScope: ObservabilityScope
     ) throws -> AbsolutePath {
-        switch pinState {
+        switch resolutionState {
         case .version(let version, _):
             return try self.downloadRegistryArchive(
                 package: package,
@@ -434,7 +434,7 @@ extension Workspace {
                 observabilityScope: observabilityScope
             )
         default:
-            throw InternalError("invalid pin state: \(pinState)")
+            throw InternalError("invalid resolution state: \(resolutionState)")
         }
     }
 

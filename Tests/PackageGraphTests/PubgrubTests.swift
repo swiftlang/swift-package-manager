@@ -1398,7 +1398,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testTrivialPinStore() throws {
+    func testTrivialResolvedPackagesStore() throws {
         try builder.serve("a", at: v1, with: ["a": ["b": (.versionSet(v1Range), .specific(["b"]))]])
         try builder.serve("a", at: v1_1)
         try builder.serve("b", at: v1)
@@ -1409,15 +1409,15 @@ final class PubgrubTests: XCTestCase {
             "a": (.versionSet(v1Range), .specific(["a"])),
         ])
 
-        let pinsStore = try builder.create(pinsStore: [
+        let resolvedPackagesStore = try builder.create(resolvedPackages: [
             "a": (.version(v1), .specific(["a"])),
             "b": (.version(v1), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pins: pinsStore.resolvedPackages)
+        let resolver = builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
         let result = try resolver.solve(root: rootNode, constraints: dependencies)
 
-        // Since a was pinned, we shouldn't have computed bounds for its incomaptibilities.
+        // Since a was pinned, we shouldn't have computed bounds for its incompatibilities.
         let aIncompat = result.state.positiveIncompatibilities(for: .product("a", package: try builder.reference(for: "a")))![0]
         XCTAssertEqual(aIncompat.terms[0].requirement, .exact("1.0.0"))
 
@@ -1427,8 +1427,8 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testPartialPins() throws {
-        // This checks that we can drop pins that are not valid anymore but still keep the ones
+    func testPartialResolvedPackages() throws {
+        // This checks that we can drop resolved packages that are not valid anymore but still keep the ones
         // which fit the constraints.
         try builder.serve("a", at: v1, with: ["a": ["b": (.versionSet(v1Range), .specific(["b"]))]])
         try builder.serve("a", at: v1_1)
@@ -1443,12 +1443,12 @@ final class PubgrubTests: XCTestCase {
 
         // Here b is pinned to v1 but its requirement is now 1.1.0..<2.0.0 in the graph
         // due to addition of a new dependency.
-        let pinsStore = try builder.create(pinsStore: [
+        let resolvedPackagesStore = try builder.create(resolvedPackages: [
             "a": (.version(v1), .specific(["a"])),
             "b": (.version(v1), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pins: pinsStore.resolvedPackages)
+        let resolver = builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
         let result = resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
@@ -1458,8 +1458,8 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testMissingPin() throws {
-        // This checks that we can drop pins that are no longer available but still keep the ones
+    func testMissingResolvedPackage() throws {
+        // This checks that we can drop resolved packages that are no longer available but still keep the ones
         // which fit the constraints.
         try builder.serve("a", at: v1, with: ["a": ["b": (.versionSet(v1Range), .specific(["b"]))]])
         try builder.serve("a", at: v1_1)
@@ -1472,12 +1472,12 @@ final class PubgrubTests: XCTestCase {
 
         // Here c is pinned to v1.1, but it is no longer available, so the resolver should fall back
         // to v1.
-        let pinsStore = try builder.create(pinsStore: [
+        let resolvedPackagesStore = try builder.create(resolvedPackages: [
             "a": (.version(v1), .specific(["a"])),
             "b": (.version("1.2.0"), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pins: pinsStore.resolvedPackages)
+        let resolver = builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
         let result = resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
@@ -1486,7 +1486,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testBranchedBasedPin() throws {
+    func testBranchBasedResolvedPackage() throws {
         // This test ensures that we get the SHA listed in Package.resolved for branch-based
         // dependencies.
         try builder.serve("a", at: .revision("develop-sha-1"))
@@ -1497,12 +1497,12 @@ final class PubgrubTests: XCTestCase {
             "b": (.revision("master"), .specific(["b"])),
         ])
 
-        let pinsStore = try builder.create(pinsStore: [
+        let resolvedPackagesStore = try builder.create(resolvedPackages: [
             "a": (.branch(name: "develop", revision: "develop-sha-1"), .specific(["a"])),
             "b": (.branch(name: "master", revision: "master-sha-2"), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pins: pinsStore.resolvedPackages)
+        let resolver = builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
         let result = resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
@@ -1642,7 +1642,7 @@ final class PubgrubTests: XCTestCase {
                         versionRequirement: .exact(Version(1, 0, 0))
                     )]
                 ]),
-            pins: ResolvedPackagesStore.ResolvedPackages()
+            resolvedPackages: ResolvedPackagesStore.ResolvedPackages()
         )
         let rootLocation = AbsolutePath("/Root")
         let otherLocation = AbsolutePath("/Other")
@@ -2862,7 +2862,7 @@ final class PubGrubBacktrackTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
 
-        let resolver = builder.create(pins: [:], delegate: ObservabilityDependencyResolverDelegate(observabilityScope: observability.topScope))
+        let resolver = builder.create(delegate: ObservabilityDependencyResolverDelegate(observabilityScope: observability.topScope))
         let dependencies = try builder.create(dependencies: [
             "a": (.versionSet(.range("1.0.0"..<"4.0.0")), .specific(["a"])),
             "c": (.versionSet(.range("1.0.0"..<"4.0.0")), .specific(["c"])),
@@ -3394,13 +3394,20 @@ class DependencyGraphBuilder {
         self.containers[packageReference.identity.description] = container
     }
 
-    /// Creates a pins store with the given pins.
-    func create(pinsStore pins: [String: (ResolvedPackagesStore.ResolutionState, ProductFilter)]) throws -> ResolvedPackagesStore {
+    /// Creates a `Package.resolved` store with the given resolution results.
+    func create(
+        resolvedPackages: [String: (ResolvedPackagesStore.ResolutionState, ProductFilter)]
+    ) throws -> ResolvedPackagesStore {
         let fs = InMemoryFileSystem()
-        let store = try! ResolvedPackagesStore(packageResolvedFile: "/tmp/Package.resolved", workingDirectory: .root, fileSystem: fs, mirrors: .init())
+        let store = try! ResolvedPackagesStore(
+            packageResolvedFile: "/tmp/Package.resolved",
+            workingDirectory: .root,
+            fileSystem: fs,
+            mirrors: .init()
+        )
 
-        for (package, pin) in pins {
-            store.track(packageRef: try reference(for: package), state: pin.0)
+        for (package, resolution) in resolvedPackages {
+            store.track(packageRef: try reference(for: package), state: resolution.0)
         }
 
         try! store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
@@ -3408,13 +3415,21 @@ class DependencyGraphBuilder {
     }
 
 
-    func create(pins: ResolvedPackagesStore.ResolvedPackages = [:], delegate: DependencyResolverDelegate? = .none) -> PubGrubDependencyResolver {
+    func create(
+        resolvedPackages: ResolvedPackagesStore.ResolvedPackages = [:],
+        delegate: DependencyResolverDelegate? = .none
+    ) -> PubGrubDependencyResolver {
         defer {
             self.containers = [:]
             self.references = [:]
         }
         let provider = MockProvider(containers: Array(self.containers.values))
-        return PubGrubDependencyResolver(provider :provider, pins: pins, observabilityScope: ObservabilitySystem.NOOP, delegate: delegate)
+        return PubGrubDependencyResolver(
+            provider: provider,
+            resolvedPackages: resolvedPackages,
+            observabilityScope: ObservabilitySystem.NOOP,
+            delegate: delegate
+        )
     }
 }
 

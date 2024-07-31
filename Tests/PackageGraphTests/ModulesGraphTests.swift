@@ -1715,7 +1715,7 @@ final class ModulesGraphTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
-    func testPinsStoreIsResilientAgainstDupes() throws {
+    func testResolvedPackagesStoreIsResilientAgainstDupes() throws {
         let json = """
               {
                 "version": 1,
@@ -1745,11 +1745,11 @@ final class ModulesGraphTests: XCTestCase {
         """
 
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath("/pins")
-        try fs.writeFileContents(pinsFile, string: json)
+        let packageResolvedFile = AbsolutePath("/Package.resolved")
+        try fs.writeFileContents(packageResolvedFile, string: json)
 
-        XCTAssertThrows(StringError("\(pinsFile) file is corrupted or malformed; fix or delete the file to continue: duplicated entry for package \"yams\""), {
-            _ = try ResolvedPackagesStore(packageResolvedFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+        XCTAssertThrows(StringError("\(packageResolvedFile) file is corrupted or malformed; fix or delete the file to continue: duplicated entry for package \"yams\""), {
+            _ = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
         })
     }
 

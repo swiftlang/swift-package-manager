@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -17,25 +17,25 @@ import struct PackageModel.ToolsVersion
 import struct TSCUtility.Version
 
 extension Workspace {
-    /// Pins all of the current managed dependencies at their checkout state.
+    /// Saves all of the current managed dependencies at their checkout state in `Package.resolved` file.
     func saveResolvedFile(
-        pinsStore: ResolvedPackagesStore,
+        resolvedPackagesStore: ResolvedPackagesStore,
         dependencyManifests: DependencyManifests,
         originHash: String,
         rootManifestsMinimumToolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope
     ) throws {
-        var dependenciesToPin = [ManagedDependency]()
-        let requiredDependencies = try dependencyManifests.requiredPackages.filter(\.kind.isPinnable)
+        var dependenciesToSaveAsResolved = [ManagedDependency]()
+        let requiredDependencies = try dependencyManifests.requiredPackages.filter(\.kind.isResolvable)
         for dependency in requiredDependencies {
             if let managedDependency = self.state.dependencies[comparingLocation: dependency] {
-                dependenciesToPin.append(managedDependency)
+                dependenciesToSaveAsResolved.append(managedDependency)
             } else if let managedDependency = self.state.dependencies[dependency.identity] {
                 observabilityScope
                     .emit(
                         info: "required dependency '\(dependency.identity)' from '\(dependency.locationString)' was not found in managed dependencies, using alternative location '\(managedDependency.packageRef.locationString)' instead"
                     )
-                dependenciesToPin.append(ManagedDependency(packageRef: dependency, state: managedDependency.state, subpath: managedDependency.subpath))
+                dependenciesToSaveAsResolved.append(ManagedDependency(packageRef: dependency, state: managedDependency.state, subpath: managedDependency.subpath))
             } else {
                 observabilityScope
                     .emit(
@@ -44,19 +44,19 @@ extension Workspace {
             }
         }
 
-        // try to load the pin store from disk so we can compare for any changes
+        // try to load the `Package.resolved` store from disk so we can compare for any changes
         // this is needed as we want to avoid re-writing the resolved files unless absolutely necessary
         var needsUpdate = false
-        if let storedPinStore = try? self.resolvedPackagesStore.load() {
+        if let persistedResolvedPackagesStore = try? self.resolvedPackagesStore.load() {
             // compare for any differences between the existing state and the stored one
             // subtle changes between versions of SwiftPM could treat URLs differently
             // in which case we don't want to cause unnecessary churn
-            if dependenciesToPin.count != storedPinStore.resolvedPackages.count {
+            if dependenciesToSaveAsResolved.count != persistedResolvedPackagesStore.resolvedPackages.count {
                 needsUpdate = true
             } else {
-                for dependency in dependenciesToPin {
-                    if let pin = storedPinStore.resolvedPackages[comparingLocation: dependency.packageRef] {
-                        if pin.state != ResolvedPackagesStore.ResolvedPackage(dependency)?.state {
+                for dependency in dependenciesToSaveAsResolved {
+                    if let resolvedPackage = persistedResolvedPackagesStore.resolvedPackages[comparingLocation: dependency.packageRef] {
+                        if resolvedPackage.state != ResolvedPackagesStore.ResolvedPackage(dependency)?.state {
                             needsUpdate = true
                             break
                         }
@@ -75,14 +75,14 @@ extension Workspace {
             return
         }
 
-        // reset the pinsStore and start pinning the required dependencies.
-        pinsStore.reset()
-        for dependency in dependenciesToPin {
-            pinsStore.pin(dependency)
+        // reset the `Package.resolved` store and start saving the required dependencies.
+        resolvedPackagesStore.reset()
+        for dependency in dependenciesToSaveAsResolved {
+            resolvedPackagesStore.add(dependency)
         }
 
         observabilityScope.trap {
-            try pinsStore.saveState(
+            try resolvedPackagesStore.saveState(
                 toolsVersion: rootManifestsMinimumToolsVersion,
                 originHash: originHash
             )
@@ -101,23 +101,21 @@ extension Workspace {
     public func watchResolvedFile() throws {
         // Return if we're already watching it.
         guard self.resolvedFileWatcher == nil else { return }
-        self
-            .resolvedFileWatcher = try ResolvedFileWatcher(
-                resolvedFile: self.location
-                    .resolvedVersionsFile
-            ) { [weak self] in
-                self?.delegate?.resolvedFileChanged()
-            }
+        self.resolvedFileWatcher = try ResolvedFileWatcher(
+            resolvedFile: self.location.resolvedVersionsFile
+        ) { [weak self] in
+            self?.delegate?.resolvedFileChanged()
+        }
     }
 }
 
 extension ResolvedPackagesStore {
-    /// Pin a managed dependency at its checkout state.
+    /// Add a managed dependency at its checkout state as resolved.
     ///
     /// This method does nothing if the dependency is in edited state.
-    func pin(_ dependency: Workspace.ManagedDependency) {
-        if let pin = ResolvedPackagesStore.ResolvedPackage(dependency) {
-            self.add(pin)
+    func add(_ dependency: Workspace.ManagedDependency) {
+        if let resolvedPackage = ResolvedPackagesStore.ResolvedPackage(dependency) {
+            self.add(resolvedPackage)
         }
     }
 }
@@ -153,7 +151,7 @@ extension ResolvedPackagesStore.ResolvedPackage {
 }
 
 extension PackageReference.Kind {
-    var isPinnable: Bool {
+    var isResolvable: Bool {
         switch self {
         case .remoteSourceControl, .localSourceControl, .registry:
             return true
@@ -189,8 +187,8 @@ extension ResolvedPackagesStore.ResolutionState {
 
 extension ResolvedPackagesStore.ResolvedPackages {
     subscript(comparingLocation package: PackageReference) -> ResolvedPackagesStore.ResolvedPackage? {
-        if let pin = self[package.identity], pin.packageRef.equalsIncludingLocation(package) {
-            return pin
+        if let resolvedPackage = self[package.identity], resolvedPackage.packageRef.equalsIncludingLocation(package) {
+            return resolvedPackage
         }
         return .none
     }

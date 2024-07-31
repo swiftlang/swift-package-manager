@@ -562,7 +562,7 @@ public final class MockWorkspace {
         let result = try workspace.precomputeResolution(
             root: root,
             dependencyManifests: dependencyManifests,
-            pinsStore: resolvedPackagesStore,
+            resolvedPackagesStore: resolvedPackagesStore,
             constraints: [],
             observabilityScope: observability.topScope
         )
