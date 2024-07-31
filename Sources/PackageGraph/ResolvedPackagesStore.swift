@@ -242,7 +242,7 @@ private struct ResolvedPackagesStorage {
                     originHash: v3.originHash
                 )
             default:
-                throw StringError("unknown 'PinsStorage' version '\(version.version)' at '\(self.path)'.")
+                throw StringError("unknown 'Package.resolved' version '\(version.version)' at '\(self.path)'.")
             }
         }
     }
