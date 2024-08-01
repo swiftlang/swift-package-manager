@@ -438,7 +438,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
             try await run(swiftCommandState, buildParameters: productsBuildParameters, testProducts: testProducts)
 
-            // process code Coverage if request
+            // Process code coverage if requested. We do not process it if the test run failed.
+            // See https://github.com/swiftlang/swift-package-manager/pull/6894 for more info.
             if self.options.enableCodeCoverage, swiftCommandState.executionStatus != .failure {
                 try await processCodeCoverage(testProducts, swiftCommandState: swiftCommandState)
             }
