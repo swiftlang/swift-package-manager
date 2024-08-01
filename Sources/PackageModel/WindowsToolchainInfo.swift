@@ -101,15 +101,21 @@ extension WindowsPlatformInfo: Decodable {
 
 extension WindowsPlatformInfo {
     public init?(reading path: AbsolutePath, observabilityScope: ObservabilityScope?, filesystem: FileSystem) {
+        print("WindowsPlatformInfo:init \(path)")
         guard filesystem.exists(path) else {
+            print("WindowsPlatformInfo:init error missing info.plist at \(path)")
             observabilityScope?.emit(error: "missing Info.plist at '\(path)'")
             return nil
         }
 
         do {
+            print("WindowsPlatformInfo:init fread f \(path)")
             let data: Data = try filesystem.readFileContents(path)
+            print("WindowsPlatformInfo:init decode contents \(path)")
             self = try PropertyListDecoder().decode(WindowsPlatformInfo.self, from: data)
         } catch {
+            print("WindowsPlatformInfo:init failed to load info.plist at \(path)")
+            print(error)
             observabilityScope?.emit(
                 error: "failed to load Info.plist at '\(path)'",
                 underlyingError: error
