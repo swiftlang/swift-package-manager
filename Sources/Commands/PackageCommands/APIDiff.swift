@@ -86,7 +86,7 @@ struct APIDiff: AsyncSwiftCommand {
         let baselineRevision = try repository.resolveRevision(identifier: treeish)
 
         // We turn build manifest caching off because we need the build plan.
-        let buildSystem = try swiftCommandState.createBuildSystem(
+        let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitBuildSystem: .native,
             traitConfiguration: .init(traitOptions: self.traits),
             cacheBuildManifest: false

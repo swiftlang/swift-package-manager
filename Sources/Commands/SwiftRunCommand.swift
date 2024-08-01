@@ -134,7 +134,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
 
             // Construct the build operation.
             // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the REPL. rdar://86112934
-            let buildSystem = try swiftCommandState.createBuildSystem(
+            let buildSystem = try await swiftCommandState.createBuildSystem(
                 explicitBuildSystem: .native,
                 traitConfiguration: .init(traitOptions: self.options.traits),
                 cacheBuildManifest: false,
@@ -156,7 +156,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
 
         case .debugger:
             do {
-                let buildSystem = try swiftCommandState.createBuildSystem(
+                let buildSystem = try await swiftCommandState.createBuildSystem(
                     explicitProduct: options.executable,
                     traitConfiguration: .init(traitOptions: self.options.traits)
                 )
@@ -201,7 +201,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
             }
 
             do {
-                let buildSystem = try swiftCommandState.createBuildSystem(
+                let buildSystem = try await swiftCommandState.createBuildSystem(
                     explicitProduct: options.executable,
                     traitConfiguration: .init(traitOptions: self.options.traits)
                 )
