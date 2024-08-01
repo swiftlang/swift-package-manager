@@ -358,7 +358,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
 
             let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
 
-            let archivePath = try PackageArchiver.archive(
+            let archivePath = try await PackageArchiver.archive(
                 packageIdentity: packageIdentity,
                 packageVersion: "1.3.5",
                 packageDirectory: packageDirectory,
@@ -388,7 +388,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
 
             let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
 
-            let archivePath = try PackageArchiver.archive(
+            let archivePath = try await PackageArchiver.archive(
                 packageIdentity: packageIdentity,
                 packageVersion: "1.5.4",
                 packageDirectory: packageDirectory,
@@ -423,7 +423,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
 
             let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
 
-            let archivePath = try PackageArchiver.archive(
+            let archivePath = try await PackageArchiver.archive(
                 packageIdentity: packageIdentity,
                 packageVersion: "0.3.1",
                 packageDirectory: packageDirectory,
