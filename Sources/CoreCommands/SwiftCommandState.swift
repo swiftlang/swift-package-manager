@@ -764,7 +764,7 @@ public final class SwiftCommandState {
     private func _buildParams(
         toolchain: UserToolchain,
         destination: BuildParameters.Destination,
-        prepareForIndexing: Bool? = nil
+        prepareForIndexing: Bool
     ) throws -> BuildParameters {
         let triple = toolchain.targetTriple
 
@@ -777,7 +777,7 @@ public final class SwiftCommandState {
         }
 
         let prepareForIndexingMode: BuildParameters.PrepareForIndexingMode =
-            switch (options.build.prepareForIndexing, options.build.prepareForIndexingNoLazy) {
+            switch (prepareForIndexing, options.build.prepareForIndexingNoLazy) {
                 case (false, _): .off
                 case (true, false): .on
                 case (true, true): .noLazy
@@ -845,6 +845,7 @@ public final class SwiftCommandState {
 
     private lazy var _toolsBuildParameters: Result<BuildParameters, Swift.Error> = {
         Result(catching: {
+            // Tools need to do a full build
             try _buildParams(toolchain: self.getHostToolchain(), destination: .host, prepareForIndexing: false)
         })
     }()
@@ -857,7 +858,7 @@ public final class SwiftCommandState {
 
     private lazy var _productsBuildParameters: Result<BuildParameters, Swift.Error> = {
         Result(catching: {
-            try _buildParams(toolchain: self.getTargetToolchain(), destination: .target)
+            try _buildParams(toolchain: self.getTargetToolchain(), destination: .target, prepareForIndexing: options.build.prepareForIndexing)
         })
     }()
 
