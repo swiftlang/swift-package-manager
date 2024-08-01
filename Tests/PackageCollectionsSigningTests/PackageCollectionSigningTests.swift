@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import Foundation
 import PackageCollectionsModel
 @testable import PackageCollectionsSigning

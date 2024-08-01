@@ -13,7 +13,6 @@
 import struct Basics.AbsolutePath
 import struct Basics.InternalError
 import class Basics.ObservabilityScope
-import func Basics.temp_await
 import struct Dispatch.DispatchTime
 import enum PackageGraph.PackageRequirement
 import class PackageGraph.PinsStore
@@ -38,11 +37,11 @@ extension Workspace {
         package: PackageReference,
         at checkoutState: CheckoutState,
         observabilityScope: ObservabilityScope
-    ) throws -> AbsolutePath {
+    ) async throws -> AbsolutePath {
         let repository = try package.makeRepositorySpecifier()
 
         // first fetch the repository
-        let checkoutPath = try self.fetchRepository(
+        let checkoutPath = try await self.fetchRepository(
             package: package,
             at: checkoutState.revision,
             observabilityScope: observabilityScope
@@ -98,22 +97,22 @@ extension Workspace {
         package: PackageReference,
         at pinState: PinsStore.PinState,
         observabilityScope: ObservabilityScope
-    ) throws -> AbsolutePath {
+    ) async throws -> AbsolutePath {
         switch pinState {
         case .version(let version, revision: let revision) where revision != nil:
-            return try self.checkoutRepository(
+            return try await self.checkoutRepository(
                 package: package,
                 at: .version(version, revision: .init(identifier: revision!)), // nil checked above
                 observabilityScope: observabilityScope
             )
         case .branch(let branch, revision: let revision):
-            return try self.checkoutRepository(
+            return try await self.checkoutRepository(
                 package: package,
                 at: .branch(name: branch, revision: .init(identifier: revision)),
                 observabilityScope: observabilityScope
             )
         case .revision(let revision):
-            return try self.checkoutRepository(
+            return try await self.checkoutRepository(
                 package: package,
                 at: .revision(.init(identifier: revision)),
                 observabilityScope: observabilityScope
@@ -134,7 +133,7 @@ extension Workspace {
         package: PackageReference,
         at revision: Revision,
         observabilityScope: ObservabilityScope
-    ) throws -> AbsolutePath {
+    ) async throws -> AbsolutePath {
         let repository = try package.makeRepositorySpecifier()
 
         // If we already have it, fetch to update the repo from its remote.
@@ -172,17 +171,14 @@ extension Workspace {
 
         // If not, we need to get the repository from the checkouts.
         // FIXME: this should not block
-        let handle = try temp_await {
-            self.repositoryManager.lookup(
-                package: package.identity,
-                repository: repository,
-                updateStrategy: .never,
-                observabilityScope: observabilityScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+        let handle = try await self.repositoryManager.lookup(
+            package: package.identity,
+            repository: repository,
+            updateStrategy: .never,
+            observabilityScope: observabilityScope,
+            delegateQueue: .sharedConcurrent,
+            callbackQueue: .sharedConcurrent
+        )
 
         // Clone the repository into the checkouts.
         let checkoutPath = self.location.repositoriesCheckoutsDirectory.appending(component: repository.basename)

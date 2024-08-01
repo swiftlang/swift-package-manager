@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import Dispatch
 
 import Basics
@@ -45,7 +46,7 @@ struct PackageVersionChecksumTOFU {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.validateSourceArchive(
                 registry: registry,
                 package: package,
@@ -54,7 +55,7 @@ struct PackageVersionChecksumTOFU {
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -168,7 +169,7 @@ struct PackageVersionChecksumTOFU {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.validateManifest(
                 registry: registry,
                 package: package,
@@ -178,10 +179,11 @@ struct PackageVersionChecksumTOFU {
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue, 
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
+
     @available(*, noasync, message: "Use the async alternative")
     func validateManifest(
         registry: Registry,

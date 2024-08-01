@@ -18,7 +18,7 @@ import PackageModel
 import TSCBasic
 
 extension SwiftPackageCommand {
-    struct Install: SwiftCommand {
+    struct Install: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "experimental-install",
             abstract: "Offers the ability to install executable products of the current package."
@@ -30,7 +30,7 @@ extension SwiftPackageCommand {
         @Option(help: "The name of the executable product to install")
         var product: String?
 
-        func run(_ commandState: SwiftCommandState) throws {
+        func run(_ commandState: SwiftCommandState) async throws {
             let swiftpmBinDir = try commandState.fileSystem.getOrCreateSwiftPMInstalledBinariesDirectory()
 
             let env = Environment.current
@@ -49,7 +49,7 @@ extension SwiftPackageCommand {
             let workspace = try commandState.getActiveWorkspace()
             let packageRoot = try commandState.getPackageRoot()
 
-            let packageGraph = try workspace.loadPackageGraph(
+            let packageGraph = try await workspace.loadPackageGraph(
                 rootPath: packageRoot,
                 observabilityScope: commandState.observabilityScope
             )

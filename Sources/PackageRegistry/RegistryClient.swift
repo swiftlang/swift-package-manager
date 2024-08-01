@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import Dispatch
 import Foundation
 import PackageFingerprint
@@ -154,13 +155,13 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> PackageMetadata {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.getPackageMetadata(
                 package: package,
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -287,7 +288,7 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> PackageVersionMetadata {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.getPackageVersionMetadata(
                 package: package,
                 version: version,
@@ -295,7 +296,7 @@ public final class RegistryClient: Cancellable {
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -509,14 +510,14 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> [String: (toolsVersion: ToolsVersion, content: String?)]{
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.getAvailableManifests(
                 package: package,
                 version: version,
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -757,7 +758,7 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> String {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.getManifestContent(
                 package: package,
                 version: version,
@@ -765,7 +766,7 @@ public final class RegistryClient: Cancellable {
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -989,7 +990,7 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.downloadSourceArchive(
                 package: package,
                 version: version,
@@ -999,7 +1000,7 @@ public final class RegistryClient: Cancellable {
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -1302,13 +1303,13 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> Set<PackageIdentity> {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.lookupIdentities(
                 scmURL: scmURL,
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -1425,13 +1426,13 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.login(
                 loginURL: loginURL,
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -1488,7 +1489,7 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> PublishResult  {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.publish(
                 registryURL: registryURL,
                 packageIdentity: packageIdentity,
@@ -1502,7 +1503,7 @@ public final class RegistryClient: Cancellable {
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -1682,13 +1683,13 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> AvailabilityStatus {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.checkAvailability(
                 registry: registry,
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }

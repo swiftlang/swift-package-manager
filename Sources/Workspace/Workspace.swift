@@ -606,9 +606,9 @@ extension Workspace {
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
         observabilityScope: ObservabilityScope
-    ) {
+    ) async {
         do {
-            try self._edit(
+            try await self._edit(
                 packageName: packageName,
                 path: path,
                 revision: revision,
@@ -636,7 +636,7 @@ extension Workspace {
         forceRemove: Bool,
         root: PackageGraphRootInput,
         observabilityScope: ObservabilityScope
-    ) throws {
+    ) async throws {
         guard let dependency = self.state.dependencies[.plain(packageName)] else {
             observabilityScope.emit(.dependencyNotFound(packageName: packageName))
             return
@@ -647,7 +647,7 @@ extension Workspace {
             metadata: dependency.packageRef.diagnosticsMetadata
         )
 
-        try self.unedit(
+        try await self.unedit(
             dependency: dependency,
             forceRemove: forceRemove,
             root: root,
@@ -667,8 +667,8 @@ extension Workspace {
         forceResolution: Bool = false,
         forceResolvedVersions: Bool = false,
         observabilityScope: ObservabilityScope
-    ) throws {
-        try self._resolve(
+    ) async throws {
+        try await self._resolve(
             root: root,
             explicitProduct: explicitProduct,
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : forceResolution ? .update(forceResolution: true) :
@@ -697,7 +697,7 @@ extension Workspace {
         branch: String? = nil,
         revision: String? = nil,
         observabilityScope: ObservabilityScope
-    ) throws {
+    ) async throws {
         // Look up the dependency and check if we can pin it.
         guard let dependency = self.state.dependencies[.plain(packageName)] else {
             throw StringError("dependency '\(packageName)' was not found")
@@ -740,7 +740,7 @@ extension Workspace {
         )
 
         // Run the resolution.
-        try self.resolveAndUpdateResolvedFile(
+        try await self.resolveAndUpdateResolvedFile(
             root: root,
             forceResolution: false,
             constraints: [constraint],
@@ -755,8 +755,8 @@ extension Workspace {
     public func resolveBasedOnResolvedVersionsFile(
         root: PackageGraphRootInput,
         observabilityScope: ObservabilityScope
-    ) throws {
-        try self._resolveBasedOnResolvedVersionsFile(
+    ) async throws {
+        try await self._resolveBasedOnResolvedVersionsFile(
             root: root,
             explicitProduct: .none,
             observabilityScope: observabilityScope
@@ -864,8 +864,8 @@ extension Workspace {
         packages: [String] = [],
         dryRun: Bool = false,
         observabilityScope: ObservabilityScope
-    ) throws -> [(PackageReference, Workspace.PackageStateChange)]? {
-        try self._updateDependencies(
+    ) async throws -> [(PackageReference, Workspace.PackageStateChange)]? {
+        try await self._updateDependencies(
             root: root,
             packages: packages,
             dryRun: dryRun,
@@ -873,6 +873,29 @@ extension Workspace {
         )
     }
 
+    @discardableResult
+    package func loadPackageGraph(
+        rootInput root: PackageGraphRootInput,
+        explicitProduct: String? = nil,
+        forceResolvedVersions: Bool = false,
+        customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
+        testEntryPointPath: AbsolutePath? = nil,
+        expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
+        observabilityScope: ObservabilityScope
+    ) async throws -> ModulesGraph {
+        try await self.loadPackageGraph(
+            rootInput: root,
+            explicitProduct: explicitProduct,
+            traitConfiguration: nil,
+            forceResolvedVersions: forceResolvedVersions,
+            customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
+            testEntryPointPath: testEntryPointPath,
+            expectedSigningEntities: expectedSigningEntities,
+            observabilityScope: observabilityScope
+        )
+    }
+
+    @available(*, deprecated, message: "Use the async alternative")
     @discardableResult
     public func loadPackageGraph(
         rootInput root: PackageGraphRootInput,
@@ -883,16 +906,18 @@ extension Workspace {
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
         observabilityScope: ObservabilityScope
     ) throws -> ModulesGraph {
-        try self.loadPackageGraph(
-            rootInput: root,
-            explicitProduct: explicitProduct,
-            traitConfiguration: nil,
-            forceResolvedVersions: forceResolvedVersions,
-            customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
-            testEntryPointPath: testEntryPointPath,
-            expectedSigningEntities: expectedSigningEntities,
-            observabilityScope: observabilityScope
-        )
+        try unsafe_await {
+            try await self.loadPackageGraph(
+                rootInput: root,
+                explicitProduct:explicitProduct,
+                traitConfiguration: nil,
+                forceResolvedVersions: forceResolvedVersions,
+                customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
+                testEntryPointPath: testEntryPointPath,
+                expectedSigningEntities: expectedSigningEntities,
+                observabilityScope: observabilityScope
+            )
+        }
     }
 
     @discardableResult
@@ -905,7 +930,7 @@ extension Workspace {
         testEntryPointPath: AbsolutePath? = nil,
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
         observabilityScope: ObservabilityScope
-    ) throws -> ModulesGraph {
+    ) async throws -> ModulesGraph {
         let start = DispatchTime.now()
         self.delegate?.willLoadGraph()
         defer {
@@ -919,7 +944,7 @@ extension Workspace {
         try self.state.reload()
 
         // Perform dependency resolution, if required.
-        let manifests = try self._resolve(
+        let manifests = try await self._resolve(
             root: root,
             explicitProduct: explicitProduct,
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : .bestEffort,
@@ -966,8 +991,8 @@ extension Workspace {
         rootPath: AbsolutePath,
         explicitProduct: String? = nil,
         observabilityScope: ObservabilityScope
-    ) throws -> ModulesGraph {
-        try self.loadPackageGraph(
+    ) async throws -> ModulesGraph {
+        try await self.loadPackageGraph(
             rootPath: rootPath,
             explicitProduct: explicitProduct,
             traitConfiguration: nil,
@@ -981,8 +1006,8 @@ extension Workspace {
         explicitProduct: String? = nil,
         traitConfiguration: TraitConfiguration? = nil,
         observabilityScope: ObservabilityScope
-    ) throws -> ModulesGraph {
-        try self.loadPackageGraph(
+    ) async throws -> ModulesGraph {
+        try await self.loadPackageGraph(
             rootInput: PackageGraphRootInput(packages: [rootPath]),
             explicitProduct: explicitProduct,
             traitConfiguration: traitConfiguration,
@@ -1185,8 +1210,8 @@ extension Workspace {
         packageGraph: ModulesGraph,
         observabilityScope: ObservabilityScope
     ) async throws -> Package {
-        try await safe_async {
-            self.loadPackage(with: identity, packageGraph: packageGraph, observabilityScope: observabilityScope, completion: $0)
+        try await withCheckedThrowingContinuation {
+            self.loadPackage(with: identity, packageGraph: packageGraph, observabilityScope: observabilityScope, completion: $0.resume(with:))
         }
     }
 
@@ -1230,26 +1255,6 @@ extension Workspace {
             }
             completion(result)
         }
-    }
-
-    public func acceptIdentityChange(
-        package: PackageIdentity,
-        version: Version,
-        signingEntity: SigningEntity,
-        origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
-        self.registryClient.changeSigningEntityFromVersion(
-            package: package,
-            version: version,
-            signingEntity: signingEntity,
-            origin: origin,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue,
-            completion: completion
-        )
     }
 }
 

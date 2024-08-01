@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Build
 import SPMBuildCore
 import XCBuildSupport
@@ -41,11 +42,13 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
             toolsBuildParameters: try toolsBuildParameters ?? self.swiftCommandState.toolsBuildParameters,
             cacheBuildManifest: cacheBuildManifest && self.swiftCommandState.canUseCachedBuildManifest(),
             packageGraphLoader: packageGraphLoader ?? {
-                try self.swiftCommandState.loadPackageGraph(
-                    explicitProduct: explicitProduct,
-                    traitConfiguration: traitConfiguration,
-                    testEntryPointPath: testEntryPointPath
-                )
+                try unsafe_await {
+                    try await self.swiftCommandState.loadPackageGraph(
+                        explicitProduct: explicitProduct,
+                        traitConfiguration: traitConfiguration,
+                        testEntryPointPath: testEntryPointPath
+                    )
+                }
             },
             pluginConfiguration: .init(
                 scriptRunner: self.swiftCommandState.getPluginScriptRunner(),
@@ -80,9 +83,11 @@ private struct XcodeBuildSystemFactory: BuildSystemFactory {
         return try XcodeBuildSystem(
             buildParameters: productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
             packageGraphLoader: packageGraphLoader ?? {
-                try self.swiftCommandState.loadPackageGraph(
-                    explicitProduct: explicitProduct
-                )
+                try unsafe_await {
+                    try await self.swiftCommandState.loadPackageGraph(
+                        explicitProduct: explicitProduct
+                    )
+                }
             },
             outputStream: outputStream ?? self.swiftCommandState.outputStream,
             logLevel: logLevel ?? self.swiftCommandState.logLevel,
