@@ -450,6 +450,7 @@ public final class UserToolchain: Toolchain {
                     // SDKROOT points to [PLATFORM].sdk
                     let platform = sdkroot.parentDirectory.parentDirectory.parentDirectory
 
+                    print("reading WindowsPlatformInfo")
                     if let info = WindowsPlatformInfo(
                         reading: platform.appending("Info.plist"),
                         observabilityScope: nil,
@@ -499,6 +500,8 @@ public final class UserToolchain: Toolchain {
                         }
 
                         extraSwiftCFlags = info.defaults.extraSwiftCFlags ?? []
+                    } else {
+                        print("failed to read windows platform info")
                     }
 
                     return ["-sdk", sdkroot.pathString] + runtime + xctest + extraSwiftCFlags
