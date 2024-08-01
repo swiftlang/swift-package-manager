@@ -121,7 +121,7 @@ extension Workspace {
         let resolver = try self.createResolver(pins: pins, observabilityScope: observabilityScope)
         self.activeResolver = resolver
 
-        let updateResults = self.resolveDependencies(
+        let updateResults = await self.resolveDependencies(
             resolver: resolver,
             constraints: updateConstraints,
             observabilityScope: observabilityScope
@@ -455,7 +455,7 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
-        let precomputationResult = try self.precomputeResolution(
+        let precomputationResult = try await self.precomputeResolution(
             root: graphRoot,
             dependencyManifests: currentManifests,
             pinsStore: pinsStore,
@@ -533,7 +533,7 @@ extension Workspace {
         } else if !constraints.isEmpty || forceResolution {
             delegate?.willResolveDependencies(reason: .forced)
         } else {
-            let result = try self.precomputeResolution(
+            let result = try await self.precomputeResolution(
                 root: graphRoot,
                 dependencyManifests: currentManifests,
                 pinsStore: pinsStore,
@@ -574,7 +574,7 @@ extension Workspace {
         let resolver = try self.createResolver(pins: pinsStore.pins, observabilityScope: observabilityScope)
         self.activeResolver = resolver
 
-        let result = self.resolveDependencies(
+        let result = await self.resolveDependencies(
             resolver: resolver,
             constraints: computedConstraints,
             observabilityScope: observabilityScope
@@ -806,7 +806,7 @@ extension Workspace {
         pinsStore: PinsStore,
         constraints: [PackageContainerConstraint],
         observabilityScope: ObservabilityScope
-    ) throws -> ResolutionPrecomputationResult {
+    ) async throws -> ResolutionPrecomputationResult {
         let computedConstraints =
             try root.constraints() +
             // Include constraints from the manifests in the graph root.
@@ -823,7 +823,7 @@ extension Workspace {
             pins: pinsStore.pins,
             observabilityScope: observabilityScope
         )
-        let result = resolver.solve(constraints: computedConstraints)
+        let result = await resolver.solve(constraints: computedConstraints)
 
         guard !observabilityScope.errorsReported else {
             return .required(reason: .errorsPreviouslyReported)
@@ -1120,9 +1120,9 @@ extension Workspace {
         resolver: PubGrubDependencyResolver,
         constraints: [PackageContainerConstraint],
         observabilityScope: ObservabilityScope
-    ) -> [DependencyResolverBinding] {
+    ) async -> [DependencyResolverBinding] {
         os_signpost(.begin, name: SignpostName.pubgrub)
-        let result = resolver.solve(constraints: constraints)
+        let result = await resolver.solve(constraints: constraints)
         os_signpost(.end, name: SignpostName.pubgrub)
 
         // Take an action based on the result.
