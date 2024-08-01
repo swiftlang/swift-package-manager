@@ -469,15 +469,17 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             }
             additionalArguments += commandLineArguments
 
-            if var xunitPath = options.xUnitOutput, options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
-                // We are running Swift Testing, XCTest is also running in this session, and an xUnit path
-                // was specified. Make sure we don't stomp on XCTest's XML output by having Swift Testing
-                // write to a different path.
-                var xunitFileName = "\(xunitPath.basenameWithoutExt)-swift-testing"
-                if let ext = xunitPath.extension {
-                    xunitFileName = "\(xunitFileName).\(ext)"
+            if var xunitPath = options.xUnitOutput {
+                if options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
+                    // We are running Swift Testing, XCTest is also running in this session, and an xUnit path
+                    // was specified. Make sure we don't stomp on XCTest's XML output by having Swift Testing
+                    // write to a different path.
+                    var xunitFileName = "\(xunitPath.basenameWithoutExt)-swift-testing"
+                    if let ext = xunitPath.extension {
+                        xunitFileName = "\(xunitFileName).\(ext)"
+                    }
+                    xunitPath = xunitPath.parentDirectory.appending(xunitFileName)
                 }
-                xunitPath = xunitPath.parentDirectory.appending(xunitFileName)
                 additionalArguments += ["--xunit-output", xunitPath.pathString]
             }
         }
