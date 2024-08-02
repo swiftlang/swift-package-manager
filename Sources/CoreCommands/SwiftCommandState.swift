@@ -12,6 +12,7 @@
 
 import ArgumentParser
 import Basics
+import _Concurrency
 import Dispatch
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
@@ -482,14 +483,14 @@ public final class SwiftCommandState {
         return workspace
     }
 
-    public func getRootPackageInformation() throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
+    public func getRootPackageInformation() async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
         let workspace = try self.getActiveWorkspace()
         let root = try self.getWorkspaceRoot()
-        let rootManifests = try temp_await {
+        let rootManifests = try await withCheckedThrowingContinuation {
             workspace.loadRootManifests(
                 packages: root.packages,
                 observabilityScope: self.observabilityScope,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
 
@@ -730,7 +731,7 @@ public final class SwiftCommandState {
         outputStream: OutputByteStream? = .none,
         logLevel: Basics.Diagnostic.Severity? = .none,
         observabilityScope: ObservabilityScope? = .none
-    ) throws -> BuildSystem {
+    ) async throws -> BuildSystem {
         guard let buildSystemProvider else {
             fatalError("build system provider not initialized")
         }
@@ -738,7 +739,7 @@ public final class SwiftCommandState {
         var productsParameters = try productsBuildParameters ?? self.productsBuildParameters
         productsParameters.linkingParameters.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
 
-        let buildSystem = try buildSystemProvider.createBuildSystem(
+        let buildSystem = try await buildSystemProvider.createBuildSystem(
             kind: explicitBuildSystem ?? options.build.buildSystem,
             explicitProduct: explicitProduct,
             traitConfiguration: traitConfiguration,

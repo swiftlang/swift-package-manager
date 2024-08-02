@@ -49,7 +49,7 @@ extension SwiftPackageCommand {
                 .filter { fileSystem.isDirectory($0) }
         }
 
-        func loadSnippetsAndSnippetGroups(fileSystem: FileSystem, from package: ResolvedPackage) throws -> [SnippetGroup] {
+        func loadSnippetsAndSnippetGroups(fileSystem: FileSystem, from package: ResolvedPackage) async throws -> [SnippetGroup] {
             let snippetsDirectory = package.path.appending("Snippets")
             guard fileSystem.isDirectory(snippetsDirectory) else {
                 return []
@@ -95,11 +95,11 @@ extension SwiftPackageCommand {
             let package = graph.rootPackages[graph.rootPackages.startIndex]
             print(package.products.map { $0.description })
 
-            let snippetGroups = try loadSnippetsAndSnippetGroups(fileSystem: swiftCommandState.fileSystem, from: package)
+            let snippetGroups = try await loadSnippetsAndSnippetGroups(fileSystem: swiftCommandState.fileSystem, from: package)
 
             var cardStack = CardStack(package: package, snippetGroups: snippetGroups, swiftCommandState: swiftCommandState)
 
-            cardStack.run()
+            await cardStack.run()
         }
     }
 }
