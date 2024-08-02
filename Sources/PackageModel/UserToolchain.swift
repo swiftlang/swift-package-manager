@@ -462,7 +462,7 @@ public final class UserToolchain: Toolchain {
                 // Windows uses a variable named SDKROOT to determine the root of
                 // the SDK.  This is not the same value as the SDKROOT parameter
                 // in Xcode, however, the value represents a similar concept.
-                if let SDKROOT = environment["SDKROOT"], let sdkroot = try? AbsolutePath(validating: SDKROOT) {
+                if let sdkroot = environment.windowsSDKRoot {
                     var runtime: [String] = []
                     var xctest: [String] = []
                     var swiftTesting: [String] = []
@@ -703,7 +703,7 @@ public final class UserToolchain: Toolchain {
         }
 
         if triple.isWindows() {
-            if let SDKROOT = environment["SDKROOT"], let root = try? AbsolutePath(validating: SDKROOT) {
+            if let root = environment.windowsSDKRoot {
                 if let settings = WindowsSDKSettings(
                     reading: root.appending("SDKSettings.plist"),
                     observabilityScope: nil,
@@ -881,14 +881,16 @@ public final class UserToolchain: Toolchain {
         environment: Environment,
         fileSystem: any FileSystem
     ) -> (AbsolutePath, WindowsPlatformInfo)? {
-        let sdkRoot: AbsolutePath
-
-        if let sdkDir = swiftSDK.pathsConfiguration.sdkRootPath {
-            sdkRoot = sdkDir
-        } else if let SDKROOT = environment["SDKROOT"], let sdkDir = try? AbsolutePath(validating: SDKROOT) {
-            sdkRoot = sdkDir
+        let sdkRoot: AbsolutePath? = if let sdkDir = swiftSDK.pathsConfiguration.sdkRootPath {
+            sdkDir
+        } else if let sdkDir = environment.windowsSDKRoot {
+            sdkDir
         } else {
-            return .none
+            nil
+        }
+
+        guard let sdkRoot else {
+            return nil
         }
 
         // The layout of the SDK is as follows:
@@ -1080,5 +1082,14 @@ public final class UserToolchain: Toolchain {
         }
 
         return `default`
+    }
+}
+
+extension Environment {
+    fileprivate var windowsSDKRoot: AbsolutePath? {
+        if let SDKROOT = self["SDKROOT"], let sdkDir = try? AbsolutePath(validating: SDKROOT) {
+            return sdkDir
+        }
+        return nil
     }
 }
