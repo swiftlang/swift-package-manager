@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import Dispatch
 import Foundation
 import PackageModel
@@ -98,7 +99,7 @@ public class RepositoryManager: Cancellable {
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue
     ) async throws -> RepositoryHandle {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.lookup(
                 package: package,
                 repository: repository,
@@ -106,7 +107,7 @@ public class RepositoryManager: Cancellable {
                 observabilityScope: observabilityScope,
                 delegateQueue: delegateQueue,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }

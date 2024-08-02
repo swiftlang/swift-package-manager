@@ -45,6 +45,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     /// The delegate used by the build system.
     public weak var delegate: SPMBuildCore.BuildSystemDelegate?
 
+    @available(*, noasync, message: "This must only be called from a dispatch queue")
     public var builtTestProducts: [BuiltTestProduct] {
         do {
             let graph = try getPackageGraph()
@@ -145,6 +146,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         return []
     }
 
+    @available(*, noasync, message: "This must only be called from a dispatch queue")
     public func build(subset: BuildSubset) throws {
         guard !buildParameters.shouldSkipBuilding else {
             return
@@ -309,6 +311,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         return delegate
     }
 
+    @available(*, noasync, message: "This must only be called from a dispatch queue")
     private func getPIFBuilder() throws -> PIFBuilder {
         try memoize(to: &pifBuilder) {
             let graph = try getPackageGraph()
@@ -325,6 +328,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     /// Returns the package graph using the graph loader closure.
     ///
     /// First access will cache the graph.
+    @available(*, noasync, message: "This must only be called from a dispatch queue")
     public func getPackageGraph() throws -> ModulesGraph {
         try memoize(to: &packageGraph) {
             try packageGraphLoader()

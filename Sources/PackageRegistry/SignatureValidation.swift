@@ -64,7 +64,7 @@ struct SignatureValidation {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> SigningEntity? {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.validate(
                 registry: registry,
                 package: package,
@@ -75,7 +75,7 @@ struct SignatureValidation {
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope, 
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -324,7 +324,7 @@ struct SignatureValidation {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> SigningEntity? {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.validate(
                 registry: registry,
                 package: package,
@@ -336,7 +336,7 @@ struct SignatureValidation {
                 fileSystem:fileSystem,
                 observabilityScope: observabilityScope, 
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }

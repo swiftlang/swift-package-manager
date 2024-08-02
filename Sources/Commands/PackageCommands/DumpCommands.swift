@@ -131,7 +131,7 @@ struct DumpPackage: AsyncSwiftCommand {
     }
 }
 
-struct DumpPIF: SwiftCommand {
+struct DumpPIF: AsyncSwiftCommand {
     // hides this command from CLI `--help` output
     static let configuration = CommandConfiguration(shouldDisplay: false) 
 
@@ -141,8 +141,8 @@ struct DumpPIF: SwiftCommand {
     @Flag(help: "Preserve the internal structure of PIF")
     var preserveStructure: Bool = false
 
-    func run(_ swiftCommandState: SwiftCommandState) throws {
-        let graph = try swiftCommandState.loadPackageGraph()
+    func run(_ swiftCommandState: SwiftCommandState) async throws {
+        let graph = try await swiftCommandState.loadPackageGraph()
         let pif = try PIFBuilder.generatePIF(
             buildParameters: swiftCommandState.productsBuildParameters,
             packageGraph: graph,

@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import Dispatch
 import PackageModel
 
@@ -188,13 +189,13 @@ public extension PackageContainerProvider {
         observabilityScope: ObservabilityScope,
         on queue: DispatchQueue
     ) async throws -> PackageContainer {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.getContainer(
                 for: package,
                 updateStrategy: updateStrategy,
                 observabilityScope: observabilityScope,
                 on: queue,
-                completion: $0)
+                completion: $0.resume(with:))
         }
     }
 }

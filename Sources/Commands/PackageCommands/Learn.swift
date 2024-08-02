@@ -17,7 +17,7 @@ import PackageGraph
 import PackageModel
 
 extension SwiftPackageCommand {
-    struct Learn: SwiftCommand {
+    struct Learn: AsyncSwiftCommand {
 
         @OptionGroup()
         var globalOptions: GlobalOptions
@@ -90,8 +90,8 @@ extension SwiftPackageCommand {
             return snippetGroups.filter { !$0.snippets.isEmpty }
         }
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
-            let graph = try swiftCommandState.loadPackageGraph()
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
+            let graph = try await swiftCommandState.loadPackageGraph()
             let package = graph.rootPackages[graph.rootPackages.startIndex]
             print(package.products.map { $0.description })
 

@@ -124,10 +124,12 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         switch options.mode {
         case .repl:
             // Load a custom package graph which has a special product for REPL.
-            let graphLoader = {
-                try swiftCommandState.loadPackageGraph(
-                    explicitProduct: self.options.executable
-                )
+            let asyncUnsafeGraphLoader = {
+                try unsafe_await {
+                    try await swiftCommandState.loadPackageGraph(
+                        explicitProduct: self.options.executable
+                    )
+                }
             }
 
             // Construct the build operation.
@@ -136,7 +138,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                 explicitBuildSystem: .native,
                 traitConfiguration: .init(traitOptions: self.options.traits),
                 cacheBuildManifest: false,
-                packageGraphLoader: graphLoader
+                packageGraphLoader: asyncUnsafeGraphLoader
             )
 
             // Perform build.

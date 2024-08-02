@@ -590,11 +590,11 @@ public final class SwiftCommandState {
     }
 
     /// Resolve the dependencies.
-    public func resolve() throws {
+    public func resolve() async throws {
         let workspace = try getActiveWorkspace()
         let root = try getWorkspaceRoot()
 
-        try workspace.resolve(
+        try await workspace.resolve(
             root: root,
             forceResolution: false,
             forceResolvedVersions: options.resolver.forceResolvedVersions,
@@ -617,8 +617,8 @@ public final class SwiftCommandState {
     public func loadPackageGraph(
         explicitProduct: String? = nil,
         testEntryPointPath: AbsolutePath? = nil
-    ) throws -> ModulesGraph {
-        try self.loadPackageGraph(
+    ) async throws -> ModulesGraph {
+        try await self.loadPackageGraph(
             explicitProduct: explicitProduct,
             traitConfiguration: nil,
             testEntryPointPath: testEntryPointPath
@@ -635,12 +635,12 @@ public final class SwiftCommandState {
         explicitProduct: String? = nil,
         traitConfiguration: TraitConfiguration? = nil,
         testEntryPointPath: AbsolutePath? = nil
-    ) throws -> ModulesGraph {
+    ) async throws -> ModulesGraph {
         do {
             let workspace = try getActiveWorkspace()
 
             // Fetch and load the package graph.
-            let graph = try workspace.loadPackageGraph(
+            let graph = try await workspace.loadPackageGraph(
                 rootInput: getWorkspaceRoot(),
                 explicitProduct: explicitProduct,
                 traitConfiguration: traitConfiguration,

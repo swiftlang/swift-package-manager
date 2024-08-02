@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import Foundation
 import PackageFingerprint
 import PackageModel
@@ -101,7 +102,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         )
 
         // Checksum should have been saved to storage
-        let fingerprint = try await safe_async {
+        let fingerprint = try await withCheckedThrowingContinuation {
             fingerprintStorage.get(
                 package: identity,
                 version: version,
@@ -109,7 +110,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                 contentType: .sourceCode,
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
-                callback: $0
+                callback: $0.resume(with:)
             )
         }
         XCTAssertEqual(SourceControlURL(registryURL), fingerprint.origin.url)
@@ -688,7 +689,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
 
         // Checksums should have been saved to storage
         do {
-            let fingerprint = try await safe_async {
+            let fingerprint = try await withCheckedThrowingContinuation {
                 fingerprintStorage.get(
                     package: identity,
                     version: version,
@@ -696,14 +697,14 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                     contentType: .manifest(.none),
                     observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: .sharedConcurrent,
-                    callback: $0
+                    callback: $0.resume(with:)
                 )
             }
             XCTAssertEqual(SourceControlURL(registryURL), fingerprint.origin.url)
             XCTAssertEqual("Package.swift checksum", fingerprint.value)
         }
         do {
-            let fingerprint = try await safe_async {
+            let fingerprint = try await withCheckedThrowingContinuation {
                 fingerprintStorage.get(
                     package: identity,
                     version: version,
@@ -711,7 +712,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                     contentType: .manifest(.v5_6),
                     observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: .sharedConcurrent,
-                    callback: $0
+                    callback: $0.resume(with:)
                 )
             }
             XCTAssertEqual(SourceControlURL(registryURL), fingerprint.origin.url)

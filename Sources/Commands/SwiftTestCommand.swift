@@ -425,7 +425,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         } else if self.options._deprecated_shouldListTests {
             // backward compatibility 6/2022 for deprecation of flag into a subcommand
             let command = try List.parse()
-            try command.run(swiftCommandState)
+            try await command.run(swiftCommandState)
         } else {
             let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options)
             let testProducts = try buildTestsIfNeeded(swiftCommandState: swiftCommandState)
@@ -564,18 +564,18 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
 
         // Merge all the profraw files to produce a single profdata file.
-        try mergeCodeCovRawDataFiles(swiftCommandState: swiftCommandState)
+        try await mergeCodeCovRawDataFiles(swiftCommandState: swiftCommandState)
 
         let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options)
         for product in testProducts {
             // Export the codecov data as JSON.
             let jsonPath = productsBuildParameters.codeCovAsJSONPath(packageName: rootManifest.displayName)
-            try exportCodeCovAsJSON(to: jsonPath, testBinary: product.binaryPath, swiftCommandState: swiftCommandState)
+            try await exportCodeCovAsJSON(to: jsonPath, testBinary: product.binaryPath, swiftCommandState: swiftCommandState)
         }
     }
 
     /// Merges all profraw profiles in codecoverage directory into default.profdata file.
-    private func mergeCodeCovRawDataFiles(swiftCommandState: SwiftCommandState) throws {
+    private func mergeCodeCovRawDataFiles(swiftCommandState: SwiftCommandState) async throws {
         // Get the llvm-prof tool.
         let llvmProf = try swiftCommandState.getTargetToolchain().getLLVMProf()
 
@@ -593,7 +593,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
         args += ["-o", productsBuildParameters.codeCovDataFile.pathString]
 
-        try AsyncProcess.checkNonZeroExit(arguments: args)
+        try await AsyncProcess.checkNonZeroExit(arguments: args)
     }
 
     /// Exports profdata as a JSON file.
@@ -601,7 +601,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         to path: AbsolutePath,
         testBinary: AbsolutePath,
         swiftCommandState: SwiftCommandState
-    ) throws {
+    ) async throws {
         // Export using the llvm-cov tool.
         let llvmCov = try swiftCommandState.getTargetToolchain().getLLVMCov()
         let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options)
@@ -611,7 +611,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             "-instr-profile=\(productsBuildParameters.codeCovDataFile)",
             testBinary.pathString
         ]
-        let result = try AsyncProcess.popen(arguments: args)
+        let result = try await AsyncProcess.popen(arguments: args)
 
         if result.exitStatus != .terminated(code: 0) {
             let output = try result.utf8Output() + result.utf8stderrOutput()
@@ -699,7 +699,7 @@ extension SwiftTestCommand {
         }
     }
 
-    struct List: SwiftCommand {
+    struct List: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Lists test methods in specifier format"
         )
