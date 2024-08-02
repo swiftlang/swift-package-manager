@@ -86,7 +86,7 @@ public final class MockWorkspace {
         skipDependenciesUpdates: Bool = false,
         sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation = .disabled,
         defaultRegistry: Registry? = .none
-    ) throws {
+    ) async throws {
         try fileSystem.createMockToolchain()
 
         self.sandbox = sandbox
@@ -121,7 +121,7 @@ public final class MockWorkspace {
             archiver: MockArchiver()
         )
         self.customHostToolchain = try UserToolchain.mockHostToolchain(fileSystem)
-        try self.create()
+        try await self.create()
     }
 
     public var rootsDir: AbsolutePath {
@@ -148,7 +148,7 @@ public final class MockWorkspace {
         return try AbsolutePath(validating: name, relativeTo: self.packagesDir)
     }
 
-    private func create() throws {
+    private func create() async throws {
         // Remove the sandbox if present.
         try self.fileSystem.removeFileTree(self.sandbox)
 
@@ -159,7 +159,7 @@ public final class MockWorkspace {
 
         var manifests: [MockManifestLoader.Key: Manifest] = [:]
 
-        func create(package: MockPackage, basePath: AbsolutePath, isRoot: Bool) throws {
+        func create(package: MockPackage, basePath: AbsolutePath, isRoot: Bool) async throws {
             let packagePath: AbsolutePath
             switch package.location {
             case .fileSystem(let path):
@@ -168,7 +168,7 @@ public final class MockWorkspace {
                 if let containerProvider = customPackageContainerProvider {
                     let observability = ObservabilitySystem.makeForTesting()
                     let packageRef = PackageReference(identity: PackageIdentity(url: url), kind: .remoteSourceControl(url))
-                    let container = try temp_await {
+                    let container = try await safe_async {
                         containerProvider.getContainer(
                             for: packageRef,
                             updateStrategy: .never,
@@ -289,12 +289,12 @@ public final class MockWorkspace {
 
         // Create root packages.
         for package in self.roots {
-            try create(package: package, basePath: self.rootsDir, isRoot: true)
+            try await create(package: package, basePath: self.rootsDir, isRoot: true)
         }
 
         // Create dependency packages.
         for package in self.packages {
-            try create(package: package, basePath: self.packagesDir, isRoot: false)
+            try await create(package: package, basePath: self.packagesDir, isRoot: false)
         }
 
         self.manifestLoader = MockManifestLoader(manifests: manifests)
@@ -763,14 +763,14 @@ public final class MockWorkspace {
         roots: [String] = [],
         deps: [MockDependency] = [],
         _ result: (Workspace.DependencyManifests,  [Basics.Diagnostic]) -> Void
-    ) throws {
+    ) async throws {
         let observability = ObservabilitySystem.makeForTesting()
         let dependencies = try deps.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
         let workspace = try self.getOrCreateWorkspace()
         let rootInput = PackageGraphRootInput(
             packages: try rootPaths(for: roots), dependencies: dependencies
         )
-        let rootManifests = try temp_await { workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope, completion: $0) }
+        let rootManifests = try await safe_async { workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope, completion: $0) }
         let graphRoot = PackageGraphRoot(input: rootInput, manifests: rootManifests, observabilityScope: observability.topScope)
         let manifests = try workspace.loadDependencyManifests(root: graphRoot, observabilityScope: observability.topScope)
         result(manifests, observability.diagnostics)

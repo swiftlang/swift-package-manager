@@ -421,7 +421,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
 
         if self.options.shouldPrintCodeCovPath {
-            try printCodeCovPath(swiftCommandState)
+            try await printCodeCovPath(swiftCommandState)
         } else if self.options._deprecated_shouldListTests {
             // backward compatibility 6/2022 for deprecation of flag into a subcommand
             let command = try List.parse()
@@ -438,7 +438,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
             try await run(swiftCommandState, buildParameters: productsBuildParameters, testProducts: testProducts)
 
-            // process code Coverage if request
+            // Process code coverage if requested. We do not process it if the test run failed.
+            // See https://github.com/swiftlang/swift-package-manager/pull/6894 for more info.
             if self.options.enableCodeCoverage, swiftCommandState.executionStatus != .failure {
                 try await processCodeCoverage(testProducts, swiftCommandState: swiftCommandState)
             }
@@ -468,15 +469,17 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             }
             additionalArguments += commandLineArguments
 
-            if var xunitPath = options.xUnitOutput, options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
-                // We are running Swift Testing, XCTest is also running in this session, and an xUnit path
-                // was specified. Make sure we don't stomp on XCTest's XML output by having Swift Testing
-                // write to a different path.
-                var xunitFileName = "\(xunitPath.basenameWithoutExt)-swift-testing"
-                if let ext = xunitPath.extension {
-                    xunitFileName = "\(xunitFileName).\(ext)"
+            if var xunitPath = options.xUnitOutput {
+                if options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
+                    // We are running Swift Testing, XCTest is also running in this session, and an xUnit path
+                    // was specified. Make sure we don't stomp on XCTest's XML output by having Swift Testing
+                    // write to a different path.
+                    var xunitFileName = "\(xunitPath.basenameWithoutExt)-swift-testing"
+                    if let ext = xunitPath.extension {
+                        xunitFileName = "\(xunitFileName).\(ext)"
+                    }
+                    xunitPath = xunitPath.parentDirectory.appending(xunitFileName)
                 }
-                xunitPath = xunitPath.parentDirectory.appending(xunitFileName)
                 additionalArguments += ["--xunit-output", xunitPath.pathString]
             }
         }
@@ -665,10 +668,10 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 }
 
 extension SwiftTestCommand {
-    func printCodeCovPath(_ swiftCommandState: SwiftCommandState) throws {
+    func printCodeCovPath(_ swiftCommandState: SwiftCommandState) async throws {
         let workspace = try swiftCommandState.getActiveWorkspace()
         let root = try swiftCommandState.getWorkspaceRoot()
-        let rootManifests = try temp_await {
+        let rootManifests = try await safe_async {
             workspace.loadRootManifests(
                 packages: root.packages,
                 observabilityScope: swiftCommandState.observabilityScope,
