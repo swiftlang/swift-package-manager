@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import PackageGraph
 import PackageLoading
 import PackageModel
@@ -567,7 +568,7 @@ public final class MockWorkspace {
             observabilityScope: observability.topScope
         )
 
-        let result = try workspace.precomputeResolution(
+        let result = try await workspace.precomputeResolution(
             root: root,
             dependencyManifests: dependencyManifests,
             pinsStore: pinsStore,
