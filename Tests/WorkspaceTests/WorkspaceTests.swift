@@ -1876,7 +1876,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Load the graph with one root.
-        try await workspace.checkPackageGraph(roots: ["Root1"]) { graph, diagnostics in
+        try workspace.checkPackageGraph(roots: ["Root1"]) { graph, diagnostics in
             PackageGraphTester(graph) { result in
                 result.check(packages: "Foo", "Root1")
             }
