@@ -12,8 +12,8 @@
 
 import Basics
 import PackageModel
-import SwiftSyntax
 import SwiftParser
+import SwiftSyntax
 import struct TSCUtility.Version
 
 extension PackageDependency: ManifestSyntaxRepresentable {
@@ -28,7 +28,7 @@ extension PackageDependency: ManifestSyntaxRepresentable {
 
 extension PackageDependency.FileSystem: ManifestSyntaxRepresentable {
     func asSyntax() -> ExprSyntax {
-        fatalError()
+        ".package(path: \(literal: path.description))"
     }
 }
 
@@ -37,8 +37,8 @@ extension PackageDependency.SourceControl: ManifestSyntaxRepresentable {
         // TODO: Not handling identity, nameForTargetDependencyResolutionOnly,
         // or productFilter yet.
         switch location {
-        case .local(let path):
-            ".package(path: \(literal: path.description), \(requirement.asSyntax()))"
+        case .local:
+            fatalError()
         case .remote(let url):
             ".package(url: \(literal: url.description), \(requirement.asSyntax()))"
         }
@@ -47,7 +47,7 @@ extension PackageDependency.SourceControl: ManifestSyntaxRepresentable {
 
 extension PackageDependency.Registry: ManifestSyntaxRepresentable {
     func asSyntax() -> ExprSyntax {
-        fatalError()
+        ".package(id: \(literal: identity.description), \(requirement.asSyntax()))"
     }
 }
 
@@ -86,8 +86,31 @@ extension PackageDependency.SourceControl.Requirement: ManifestSyntaxRepresentab
     }
 }
 
+extension PackageDependency.Registry.Requirement: ManifestSyntaxRepresentable {
+    func asSyntax() -> LabeledExprSyntax {
+        switch self {
+        case .exact(let version):
+            LabeledExprSyntax(
+                label: "exact",
+                expression: version.asSyntax()
+            )
+
+        case .range(let range) where range == .upToNextMajor(from: range.lowerBound):
+            LabeledExprSyntax(
+                label: "from",
+                expression: range.lowerBound.asSyntax()
+            )
+
+        case .range(let range):
+            LabeledExprSyntax(
+                expression: "\(range.lowerBound.asSyntax())..<\(range.upperBound.asSyntax())" as ExprSyntax
+            )
+        }
+    }
+}
+
 extension Version: ManifestSyntaxRepresentable {
     func asSyntax() -> ExprSyntax {
-        return "\(literal: description)"
+        "\(literal: description)"
     }
 }
