@@ -26,8 +26,8 @@ struct Example {
 
         let package = try await workspace.loadRootPackage(at: packagePath, observabilityScope: observability.topScope)
 
-        let graph = try workspace.loadPackageGraph(rootPath: packagePath, observabilityScope: observability.topScope)
-        
+        let graph = try await workspace.loadPackageGraph(rootPath: packagePath, observabilityScope: observability.topScope)
+
         // EXAMPLES
         // ========
 

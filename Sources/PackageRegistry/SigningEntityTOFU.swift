@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import Dispatch
 
 import Basics
@@ -38,7 +39,7 @@ struct PackageSigningEntityTOFU {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.validate(
                 registry: registry,
                 package: package,
@@ -46,7 +47,7 @@ struct PackageSigningEntityTOFU {
                 signingEntity: signingEntity,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }

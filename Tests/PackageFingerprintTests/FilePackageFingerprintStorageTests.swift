@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import struct Foundation.URL
 @testable import PackageFingerprint
 import PackageModel
@@ -405,13 +406,13 @@ extension PackageFingerprintStorage {
         package: PackageIdentity,
         version: Version
     ) async throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.get(
                 package: package,
                 version: version,
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
-                callback: $0
+                callback: $0.resume(with:)
             )
         }
     }
@@ -422,7 +423,7 @@ extension PackageFingerprintStorage {
         kind: Fingerprint.Kind,
         contentType: Fingerprint.ContentType
     ) async throws -> Fingerprint {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.get(
                 package: package,
                 version: version,
@@ -430,7 +431,7 @@ extension PackageFingerprintStorage {
                 contentType: contentType,
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
-                callback: $0
+                callback: $0.resume(with:)
             )
         }
     }
@@ -440,14 +441,14 @@ extension PackageFingerprintStorage {
         version: Version,
         fingerprint: Fingerprint
     ) async throws {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.put(
                 package: package,
                 version: version,
                 fingerprint: fingerprint,
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
-                callback: $0
+                callback: $0.resume(with:)
             )
         }
     }
@@ -456,13 +457,13 @@ extension PackageFingerprintStorage {
         package: PackageReference,
         version: Version
     ) async throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.get(
                 package: package,
                 version: version,
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
-                callback: $0
+                callback: $0.resume(with:)
             )
         }
     }
@@ -473,7 +474,7 @@ extension PackageFingerprintStorage {
         kind: Fingerprint.Kind,
         contentType: Fingerprint.ContentType
     ) async throws -> Fingerprint {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.get(
                 package: package,
                 version: version,
@@ -481,7 +482,7 @@ extension PackageFingerprintStorage {
                 contentType: contentType,
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
-                callback: $0
+                callback: $0.resume(with:)
             )
         }
     }
@@ -491,14 +492,14 @@ extension PackageFingerprintStorage {
         version: Version,
         fingerprint: Fingerprint
     ) async throws {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.put(
                 package: package,
                 version: version,
                 fingerprint: fingerprint,
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
-                callback: $0
+                callback: $0.resume(with:)
             )
         }
     }

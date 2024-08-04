@@ -37,11 +37,11 @@ public protocol Toolchain {
     /// Configuration from the used toolchain.
     var installedSwiftPMConfiguration: InstalledSwiftPMConfiguration { get }
 
-    /// Metadata for libraries provided by the used toolchain.
-    var providedLibraries: [ProvidedLibrary] { get }
-
     /// The root path to the Swift SDK used by this toolchain.
     var sdkRootPath: AbsolutePath? { get }
+
+    /// The manifest and library locations used by this toolchain.
+    var swiftPMLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation { get }
 
     /// Path of the `clang` compiler.
     func getClangCompiler() throws -> AbsolutePath

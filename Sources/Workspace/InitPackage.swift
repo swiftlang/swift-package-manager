@@ -27,7 +27,7 @@ public final class InitPackage {
         public var packageType: PackageType
 
         /// The set of supported testing libraries to include in the package.
-        public var supportedTestingLibraries: Set<BuildParameters.Testing.Library>
+        public var supportedTestingLibraries: Set<TestingLibrary>
 
         /// The list of platforms in the manifest.
         ///
@@ -36,7 +36,7 @@ public final class InitPackage {
 
         public init(
             packageType: PackageType,
-            supportedTestingLibraries: Set<BuildParameters.Testing.Library> = [.xctest],
+            supportedTestingLibraries: Set<TestingLibrary> = [.xctest],
             platforms: [SupportedPlatform] = []
         ) {
             self.packageType = packageType
@@ -93,7 +93,7 @@ public final class InitPackage {
     public convenience init(
         name: String,
         packageType: PackageType,
-        supportedTestingLibraries: Set<BuildParameters.Testing.Library>,
+        supportedTestingLibraries: Set<TestingLibrary>,
         destinationPath: AbsolutePath,
         installedSwiftPMConfiguration: InstalledSwiftPMConfiguration,
         fileSystem: FileSystem
@@ -276,7 +276,7 @@ public final class InitPackage {
                 dependencies.append(#".package(url: "https://github.com/swiftlang/swift-syntax.git", from: "\#(self.installedSwiftPMConfiguration.swiftSyntaxVersionForMacroTemplate.description)")"#)
             }
             if options.supportedTestingLibraries.contains(.swiftTesting) {
-                dependencies.append(#".package(url: "https://github.com/swiftlang/swift-testing.git", from: "0.2.0")"#)
+                dependencies.append(#".package(url: "https://github.com/apple/swift-testing.git", from: "0.11.0")"#)
             }
             if !dependencies.isEmpty {
                 let dependencies = dependencies.map { dependency in
@@ -446,6 +446,7 @@ public final class InitPackage {
                 """
                 .DS_Store
                 /.build
+                /.index-build
                 /Packages
                 xcuserdata/
                 DerivedData/
@@ -896,7 +897,7 @@ public final class InitPackage {
 
 private enum InitError: Swift.Error {
     case manifestAlreadyExists
-    case unsupportedTestingLibraryForPackageType(_ testingLibrary: BuildParameters.Testing.Library, _ packageType: InitPackage.PackageType)
+    case unsupportedTestingLibraryForPackageType(_ testingLibrary: TestingLibrary, _ packageType: InitPackage.PackageType)
 }
 
 extension InitError: CustomStringConvertible {

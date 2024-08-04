@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
@@ -316,7 +317,7 @@ final class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(
+            let packageGraph = try await workspace.loadPackageGraph(
                 rootInput: rootInput,
                 observabilityScope: observability.topScope
             )
@@ -696,7 +697,7 @@ final class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            XCTAssertThrowsError(try workspace.loadPackageGraph(
+            await XCTAssertAsyncThrowsError(try await workspace.loadPackageGraph(
                 rootInput: rootInput,
                 observabilityScope: observability.topScope
             )) { error in
@@ -775,9 +776,10 @@ final class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            XCTAssertThrowsError(try workspace.loadPackageGraph(
+            await XCTAssertAsyncThrowsError(try await workspace.loadPackageGraph(
                 rootInput: rootInput,
-                observabilityScope: observability.topScope)) { error in
+                observabilityScope: observability.topScope
+            )) { error in
                 var diagnosed = false
                 if let realError = error as? PackageGraphError,
                    realError.description == "plugin 'MyPlugin' cannot depend on 'MyLibrary' of type 'library'; this dependency is unsupported" {
@@ -884,7 +886,7 @@ final class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(
+            let packageGraph = try await workspace.loadPackageGraph(
                 rootInput: rootInput,
                 observabilityScope: observability.topScope
             )
@@ -1078,7 +1080,7 @@ final class PluginInvocationTests: XCTestCase {
             )
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
-            let graph = try workspace.loadPackageGraph(
+            let graph = try await workspace.loadPackageGraph(
                 rootInput: rootInput,
                 observabilityScope: observability.topScope
             )
@@ -1225,7 +1227,7 @@ final class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(
+            let packageGraph = try await workspace.loadPackageGraph(
                 rootInput: rootInput,
                 observabilityScope: observability.topScope
             )

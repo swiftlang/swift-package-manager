@@ -348,6 +348,7 @@ final class CancellatorTests: XCTestCase {
         struct Worker {
             func work()  {}
 
+            @Sendable
             func cancel() {
                 Thread.sleep(forTimeInterval: 5)
             }
@@ -391,6 +392,7 @@ fileprivate struct Worker {
         return self.semaphore.wait(timeout: deadline)
     }
 
+    @Sendable
     func cancel() {
         print("\(self.name) cancel")
         self.semaphore.signal()

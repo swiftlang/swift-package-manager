@@ -17,7 +17,7 @@ import PackageGraph
 import PackageModel
 
 extension SwiftPackageCommand {
-    struct Learn: SwiftCommand {
+    struct Learn: AsyncSwiftCommand {
 
         @OptionGroup()
         var globalOptions: GlobalOptions
@@ -49,7 +49,7 @@ extension SwiftPackageCommand {
                 .filter { fileSystem.isDirectory($0) }
         }
 
-        func loadSnippetsAndSnippetGroups(fileSystem: FileSystem, from package: ResolvedPackage) throws -> [SnippetGroup] {
+        func loadSnippetsAndSnippetGroups(fileSystem: FileSystem, from package: ResolvedPackage) async throws -> [SnippetGroup] {
             let snippetsDirectory = package.path.appending("Snippets")
             guard fileSystem.isDirectory(snippetsDirectory) else {
                 return []
@@ -90,16 +90,16 @@ extension SwiftPackageCommand {
             return snippetGroups.filter { !$0.snippets.isEmpty }
         }
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
-            let graph = try swiftCommandState.loadPackageGraph()
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
+            let graph = try await swiftCommandState.loadPackageGraph()
             let package = graph.rootPackages[graph.rootPackages.startIndex]
             print(package.products.map { $0.description })
 
-            let snippetGroups = try loadSnippetsAndSnippetGroups(fileSystem: swiftCommandState.fileSystem, from: package)
+            let snippetGroups = try await loadSnippetsAndSnippetGroups(fileSystem: swiftCommandState.fileSystem, from: package)
 
             var cardStack = CardStack(package: package, snippetGroups: snippetGroups, swiftCommandState: swiftCommandState)
 
-            cardStack.run()
+            await cardStack.run()
         }
     }
 }

@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import Foundation
 import PackageGraph
 import PackageLoading
@@ -86,74 +87,6 @@ private class MockRepository: Repository {
     public func openFileView(tag: String) throws -> FileSystem {
         let revision = try self.resolveRevision(tag: tag)
         return try self.openFileView(revision: revision)
-    }
-}
-
-private class MockRepositories: RepositoryProvider {
-    /// The known repositories, as a map of URL to repository.
-    let repositories: [RepositorySpecifier.Location: MockRepository]
-    var fetchRepositories = ThreadSafeKeyValueStore<RepositorySpecifier, AbsolutePath>()
-
-    /// A mock manifest loader for all repositories.
-    let manifestLoader: MockManifestLoader
-
-    init(repositories repositoryList: [MockRepository]) {
-        var allManifests: [MockManifestLoader.Key: Manifest] = [:]
-        var repositories: [RepositorySpecifier.Location: MockRepository] = [:]
-        for repository in repositoryList {
-            assert(repositories.index(forKey: repository.location) == nil)
-            repositories[repository.location] = repository
-            for (version, manifest) in repository.versions {
-                allManifests[MockManifestLoader.Key(url: repository.location.description, version: version)] = manifest
-            }
-        }
-
-        self.repositories = repositories
-        self.manifestLoader = MockManifestLoader(manifests: allManifests)
-    }
-
-    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
-        assert(self.repositories.index(forKey: repository.location) != nil)
-        self.fetchRepositories[repository] = path
-    }
-
-    func repositoryExists(at path: AbsolutePath) throws -> Bool {
-        self.fetchRepositories.get().contains(where: { key, value in value == path })
-    }
-
-    func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
-        // No-op.
-    }
-
-    func workingCopyExists(at path: AbsolutePath) throws -> Bool {
-        return false
-    }
-
-    func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository {
-        guard let repository = self.repositories[repository.location] else {
-            throw InternalError("unknown repository at \(repository.location)")
-        }
-        return repository
-    }
-
-    func createWorkingCopy(repository: RepositorySpecifier, sourcePath: AbsolutePath, at destinationPath: AbsolutePath, editable: Bool) throws -> WorkingCheckout {
-        fatalError("unexpected API call")
-    }
-
-    func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
-        fatalError("unexpected API call")
-    }
-
-    func isValidDirectory(_ directory: AbsolutePath) throws -> Bool {
-        return true
-    }
-
-    public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
-        return true
-    }
-
-    func cancel(deadline: DispatchTime) throws {
-        // noop
     }
 }
 
@@ -795,13 +728,13 @@ extension PackageContainerProvider {
         for package: PackageReference,
         updateStrategy: ContainerUpdateStrategy = .always
     ) async throws -> PackageContainer {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.getContainer(
                 for: package,
                 updateStrategy: updateStrategy,
                 observabilityScope: ObservabilitySystem.NOOP,
                 on: .global(),
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }

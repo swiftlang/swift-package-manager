@@ -191,13 +191,12 @@ final class TestCommandTests: CommandsTestCase {
         }
 
         try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
-            let (stdout, stderr) = try await SwiftPM.Test.execute(["--skip", "Tests"], packagePath: fixturePath)
+            let (stdout, _) = try await SwiftPM.Test.execute(["--skip", "Tests"], packagePath: fixturePath)
             // in "swift test" test output goes to stdout
             XCTAssertNoMatch(stdout, .contains("testExample1"))
             XCTAssertNoMatch(stdout, .contains("testExample2"))
             XCTAssertNoMatch(stdout, .contains("testExample3"))
             XCTAssertNoMatch(stdout, .contains("testExample4"))
-            XCTAssertMatch(stderr, .contains("No matching test cases were run"))
         }
     }
 
@@ -316,6 +315,13 @@ final class TestCommandTests: CommandsTestCase {
     func testLibraryEnvironmentVariable() async throws {
         try await fixture(name: "Miscellaneous/CheckTestLibraryEnvironmentVariable") { fixturePath in
             await XCTAssertAsyncNoThrow(try await SwiftPM.Test.execute(packagePath: fixturePath))
+        }
+    }
+
+    func testXCTestOnlyDoesNotLogAboutNoMatchingTests() async throws {
+        try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+            let (_, stderr) = try await SwiftPM.Test.execute(["--disable-swift-testing"], packagePath: fixturePath)
+            XCTAssertNoMatch(stderr, .contains("No matching test cases were run"))
         }
     }
 }

@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import Dispatch
 import struct Foundation.Data
 import class Foundation.JSONDecoder
@@ -837,7 +838,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
     }
     internal func populateTargetTrie() async throws {
-        try await safe_async { self.populateTargetTrie(callback: $0) }
+        try await withCheckedThrowingContinuation { self.populateTargetTrie(callback: $0.resume(with:)) }
     }
 
     internal func populateTargetTrie(callback: @escaping (Result<Void, Error>) -> Void = { _ in }) {

@@ -82,36 +82,29 @@ public struct TarArchiver: Archiver {
 
     public func compress(
         directory: AbsolutePath,
-        to destinationPath: AbsolutePath,
-        completion: @escaping @Sendable (Result<Void, Error>) -> Void
-    ) {
-        do {
-            guard self.fileSystem.isDirectory(directory) else {
-                throw FileSystemError(.notDirectory, directory.underlying)
-            }
+        to destinationPath: AbsolutePath
+    ) async throws {
 
-            let process = AsyncProcess(
-                arguments: [self.tarCommand, "acf", destinationPath.pathString, directory.basename],
-                environment: .current,
-                workingDirectory: directory.parentDirectory
-            )
+        guard self.fileSystem.isDirectory(directory) else {
+            throw FileSystemError(.notDirectory, directory.underlying)
+        }
 
-            guard let registrationKey = self.cancellator.register(process) else {
-                throw CancellationError.failedToRegisterProcess(process)
-            }
+        let process = AsyncProcess(
+            arguments: [self.tarCommand, "acf", destinationPath.pathString, directory.basename],
+            environment: .current,
+            workingDirectory: directory.parentDirectory
+        )
 
-            DispatchQueue.sharedConcurrent.async {
-                defer { self.cancellator.deregister(registrationKey) }
-                completion(.init(catching: {
-                    try process.launch()
-                    let processResult = try process.waitUntilExit()
-                    guard processResult.exitStatus == .terminated(code: 0) else {
-                        throw try StringError(processResult.utf8stderrOutput())
-                    }
-                }))
-            }
-        } catch {
-            return completion(.failure(error))
+        guard let registrationKey = self.cancellator.register(process) else {
+            throw CancellationError.failedToRegisterProcess(process)
+        }
+
+        defer { self.cancellator.deregister(registrationKey) }
+
+        try process.launch()
+        let processResult = try await process.waitUntilExit()
+        guard processResult.exitStatus == .terminated(code: 0) else {
+            throw try StringError(processResult.utf8stderrOutput())
         }
     }
 

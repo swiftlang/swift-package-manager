@@ -12,13 +12,19 @@ Swift Next
 Swift 6.0
 -----------
 
+* [#7741]
+
+  Fixed an issue where repositories would be re-cloned each build rather than using the cache due to git validation errors.
+
 * [#7507] 
 
   `swift experimental-sdk` command is deprecated with `swift sdk` command replacing it. `--experimental-swift-sdk` and
   `--experimental-swift-sdks-path` options on `swift build` are deprecated with replacements that don't have the
   `experimental` prefix.
 
-* [#7535] The `swift sdk configuration` subcommand is deprecated with a replacement named `configure` that has options that exactly match
+* [#7535]
+
+  The `swift sdk configuration` subcommand is deprecated with a replacement named `configure` that has options that exactly match
   [SE-0387 proposal text].
 
 * [#7202]
@@ -33,6 +39,9 @@ Swift 6.0
 * [#7118]
 
   Macros cross-compiled by SwiftPM with Swift SDKs are now correctly built, loaded, and evaluated for the host triple.
+
+  Packages with modules that incorrectly imported macro modules directly instead of importing macro interface modules will no longer build
+  with `swift build`.
 
 Swift 5.10
 -----------

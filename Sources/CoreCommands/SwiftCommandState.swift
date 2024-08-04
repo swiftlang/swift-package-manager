@@ -12,6 +12,7 @@
 
 import ArgumentParser
 import Basics
+import _Concurrency
 import Dispatch
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
@@ -39,8 +40,8 @@ import Darwin
 import Glibc
 #elseif canImport(Musl)
 import Musl
-#elseif canImport(Android)
-import Android
+#elseif canImport(Bionic)
+import Bionic
 #endif
 
 import func TSCBasic.exec
@@ -53,7 +54,7 @@ import var TSCBasic.stderrStream
 import class TSCBasic.TerminalController
 import class TSCBasic.ThreadSafeOutputByteStream
 
-import TSCUtility // cannot be scoped because of `String.spm_mangleToC99ExtendedIdentifier()`
+import var TSCUtility.verbosity
 
 typealias Diagnostic = Basics.Diagnostic
 
@@ -271,6 +272,8 @@ public final class SwiftCommandState {
 
     private let hostTriple: Basics.Triple?
 
+    package var preferredBuildConfiguration = BuildConfiguration.debug
+
     /// Create an instance of this tool.
     ///
     /// - parameter options: The command line options to be passed to this tool.
@@ -480,14 +483,14 @@ public final class SwiftCommandState {
         return workspace
     }
 
-    public func getRootPackageInformation() throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
+    public func getRootPackageInformation() async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
         let workspace = try self.getActiveWorkspace()
         let root = try self.getWorkspaceRoot()
-        let rootManifests = try temp_await {
+        let rootManifests = try await withCheckedThrowingContinuation {
             workspace.loadRootManifests(
                 packages: root.packages,
                 observabilityScope: self.observabilityScope,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
 
@@ -502,6 +505,7 @@ public final class SwiftCommandState {
 
         return (identities, targets)
     }
+
 
     private func getEditsDirectory() throws -> AbsolutePath {
         // TODO: replace multiroot-data-file with explicit overrides
@@ -587,11 +591,11 @@ public final class SwiftCommandState {
     }
 
     /// Resolve the dependencies.
-    public func resolve() throws {
+    public func resolve() async throws {
         let workspace = try getActiveWorkspace()
         let root = try getWorkspaceRoot()
 
-        try workspace.resolve(
+        try await workspace.resolve(
             root: root,
             forceResolution: false,
             forceResolvedVersions: options.resolver.forceResolvedVersions,
@@ -614,8 +618,8 @@ public final class SwiftCommandState {
     public func loadPackageGraph(
         explicitProduct: String? = nil,
         testEntryPointPath: AbsolutePath? = nil
-    ) throws -> ModulesGraph {
-        try self.loadPackageGraph(
+    ) async throws -> ModulesGraph {
+        try await self.loadPackageGraph(
             explicitProduct: explicitProduct,
             traitConfiguration: nil,
             testEntryPointPath: testEntryPointPath
@@ -632,12 +636,12 @@ public final class SwiftCommandState {
         explicitProduct: String? = nil,
         traitConfiguration: TraitConfiguration? = nil,
         testEntryPointPath: AbsolutePath? = nil
-    ) throws -> ModulesGraph {
+    ) async throws -> ModulesGraph {
         do {
             let workspace = try getActiveWorkspace()
 
             // Fetch and load the package graph.
-            let graph = try workspace.loadPackageGraph(
+            let graph = try await workspace.loadPackageGraph(
                 rootInput: getWorkspaceRoot(),
                 explicitProduct: explicitProduct,
                 traitConfiguration: traitConfiguration,
@@ -727,7 +731,7 @@ public final class SwiftCommandState {
         outputStream: OutputByteStream? = .none,
         logLevel: Basics.Diagnostic.Severity? = .none,
         observabilityScope: ObservabilityScope? = .none
-    ) throws -> BuildSystem {
+    ) async throws -> BuildSystem {
         guard let buildSystemProvider else {
             fatalError("build system provider not initialized")
         }
@@ -735,7 +739,7 @@ public final class SwiftCommandState {
         var productsParameters = try productsBuildParameters ?? self.productsBuildParameters
         productsParameters.linkingParameters.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
 
-        let buildSystem = try buildSystemProvider.createBuildSystem(
+        let buildSystem = try await buildSystemProvider.createBuildSystem(
             kind: explicitBuildSystem ?? options.build.buildSystem,
             explicitProduct: explicitProduct,
             traitConfiguration: traitConfiguration,
@@ -783,7 +787,7 @@ public final class SwiftCommandState {
         return try BuildParameters(
             destination: destination,
             dataPath: dataPath,
-            configuration: options.build.configuration,
+            configuration: options.build.configuration ?? self.preferredBuildConfiguration,
             toolchain: toolchain,
             triple: triple,
             flags: options.build.buildFlags,
@@ -798,7 +802,7 @@ public final class SwiftCommandState {
                 debugInfoFormat: options.build.debugInfoFormat.buildParameter,
                 triple: triple,
                 shouldEnableDebuggingEntitlement:
-                    options.build.getTaskAllowEntitlement ?? (options.build.configuration == .debug),
+                    options.build.getTaskAllowEntitlement ?? (options.build.configuration ?? self.preferredBuildConfiguration == .debug),
                 omitFramePointers: options.build.omitFramePointers
             ),
             driverParameters: .init(
@@ -825,7 +829,7 @@ public final class SwiftCommandState {
                 isVerbose: self.logLevel <= .info
             ),
             testingParameters: .init(
-                configuration: options.build.configuration,
+                configuration: options.build.configuration ?? self.preferredBuildConfiguration,
                 targetTriple: triple,
                 forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
                 testEntryPointPath: options.build.testEntryPointPath

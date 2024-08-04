@@ -47,6 +47,7 @@ public struct ResolvedProduct {
     /// The list of platforms that are supported by this product.
     public let supportedPlatforms: [SupportedPlatform]
 
+    @_spi(SwiftPMInternal)
     public let platformVersionProvider: PlatformVersionProvider
 
     /// Triple for which this resolved product should be compiled for.

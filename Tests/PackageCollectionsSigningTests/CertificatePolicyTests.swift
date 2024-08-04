@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 @testable import PackageCollectionsSigning
 import _InternalTestSupport
 import SwiftASN1

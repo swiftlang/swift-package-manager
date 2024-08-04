@@ -589,7 +589,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
         try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v5_9)
     }
 
-    func testManifestGenerationWithSwiftLanguageVersion() async throws {
+    func testManifestGenerationWithSwiftLanguageMode() async throws {
         try UserToolchain.default.skipUnlessAtLeastSwift6()
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
@@ -601,22 +601,22 @@ final class ManifestSourceGenerationTests: XCTestCase {
                     name: "v5",
                     type: .executable,
                     settings: [
-                        .init(tool: .swift, kind: .swiftLanguageVersion(.v6))
+                        .init(tool: .swift, kind: .swiftLanguageMode(.v6))
                     ]
                 ),
                 try TargetDescription(
                     name: "custom",
                     type: .executable,
                     settings: [
-                        .init(tool: .swift, kind: .swiftLanguageVersion(.init(string: "5.10")!))
+                        .init(tool: .swift, kind: .swiftLanguageMode(.init(string: "5.10")!))
                     ]
                 ),
                 try TargetDescription(
                     name: "conditional",
                     type: .executable,
                     settings: [
-                        .init(tool: .swift, kind: .swiftLanguageVersion(.v5), condition: .init(platformNames: ["linux"])),
-                        .init(tool: .swift, kind: .swiftLanguageVersion(.v4), condition: .init(platformNames: ["macos"], config: "debug"))
+                        .init(tool: .swift, kind: .swiftLanguageMode(.v5), condition: .init(platformNames: ["linux"])),
+                        .init(tool: .swift, kind: .swiftLanguageMode(.v4), condition: .init(platformNames: ["macos"], config: "debug"))
                     ]
                 )
             ])

@@ -85,15 +85,10 @@ public struct UniversalArchiver: Archiver {
 
     public func compress(
         directory: AbsolutePath,
-        to destinationPath: AbsolutePath,
-        completion: @escaping @Sendable (Result<Void, Swift.Error>) -> Void
-    ) {
-        do {
-            let archiver = try archiver(for: destinationPath)
-            archiver.compress(directory: directory, to: destinationPath, completion: completion)
-        } catch {
-            completion(.failure(error))
-        }
+        to destinationPath: AbsolutePath
+    ) async throws {
+        let archiver = try archiver(for: destinationPath)
+        try await archiver.compress(directory: directory, to: destinationPath)
     }
 
     public func validate(

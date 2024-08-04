@@ -173,6 +173,8 @@ package final class AsyncProcess {
         case stdinUnavailable
     }
 
+    package typealias OutputStream = AsyncStream<[UInt8]>
+
     package enum OutputRedirection {
         /// Do not redirect the output
         case none

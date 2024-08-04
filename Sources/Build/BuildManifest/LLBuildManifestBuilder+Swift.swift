@@ -427,10 +427,8 @@ extension LLBuildManifestBuilder {
             if target.underlying is SystemLibraryModule { return }
             // Ignore Binary Modules.
             if target.underlying is BinaryModule { return }
-            // Ignore Plugin Targets.
+            // Ignore Plugin Modules.
             if target.underlying is PluginModule { return }
-            // Ignore Provided Libraries.
-            if target.underlying is ProvidedLibraryModule { return }
 
             // Depend on the binary for executable targets.
             if target.type == .executable && prepareForIndexing == .off {
@@ -500,9 +498,12 @@ extension LLBuildManifestBuilder {
 
         let additionalInputs = try self.addBuildToolPlugins(.swift(target))
 
-        // Depend on any required macro product's output.
-        try target.requiredMacroProducts.forEach { macro in
-            try inputs.append(.virtual(macro.llbuildTargetName))
+        // Depend on any required macro's output.
+        try target.requiredMacros.forEach { macro in
+            inputs.append(.virtual(getLLBuildTargetName(
+                macro: macro,
+                buildParameters: target.macroBuildParameters
+            )))
         }
 
         return inputs + additionalInputs

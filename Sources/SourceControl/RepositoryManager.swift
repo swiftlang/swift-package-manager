@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import Dispatch
 import Foundation
 import PackageModel
@@ -98,7 +99,7 @@ public class RepositoryManager: Cancellable {
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue
     ) async throws -> RepositoryHandle {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.lookup(
                 package: package,
                 repository: repository,
@@ -106,7 +107,7 @@ public class RepositoryManager: Cancellable {
                 observabilityScope: observabilityScope,
                 delegateQueue: delegateQueue,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -220,7 +221,7 @@ public class RepositoryManager: Cancellable {
         // check if a repository already exists
         // errors when trying to check if a repository already exists are legitimate
         // and recoverable, and as such can be ignored
-        quick: if (try? self.provider.repositoryExists(at: repositoryPath)) ?? false {
+        quick: if (try? self.provider.isValidDirectory(repositoryPath)) ?? false {
             let repository = try handle.open()
 
             guard ((try? self.provider.isValidDirectory(repositoryPath, for: repositorySpecifier)) ?? false) else {

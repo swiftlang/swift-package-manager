@@ -12,6 +12,7 @@
 
 import _CryptoExtras
 import Basics
+import _Concurrency
 import Crypto
 import Foundation
 @testable import PackageCollectionsSigning

@@ -16,9 +16,16 @@ import struct Basics.AbsolutePath
 import struct LLBuildManifest.TestDiscoveryTool
 import struct LLBuildManifest.TestEntryPointTool
 import struct PackageGraph.ModulesGraph
+
+@_spi(SwiftPMInternal)
 import struct PackageGraph.ResolvedPackage
+
+@_spi(SwiftPMInternal)
 import struct PackageGraph.ResolvedProduct
+
+@_spi(SwiftPMInternal)
 import struct PackageGraph.ResolvedModule
+
 import struct PackageModel.Sources
 import class PackageModel.SwiftModule
 import class PackageModel.Module
@@ -34,13 +41,12 @@ extension BuildPlan {
         _ fileSystem: FileSystem,
         _ observabilityScope: ObservabilityScope
     ) throws -> [(product: ResolvedProduct, discoveryTargetBuildDescription: SwiftModuleBuildDescription?, entryPointTargetBuildDescription: SwiftModuleBuildDescription)] {
-        guard destinationBuildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets,
-              case .entryPointExecutable(let explicitlyEnabledDiscovery, let explicitlySpecifiedPath) =
-                destinationBuildParameters.testingParameters.testProductStyle
-        else {
-            throw InternalError("makeTestManifestTargets should not be used for build plan which does not require additional derived test targets")
+        var explicitlyEnabledDiscovery = false
+        var explicitlySpecifiedPath: AbsolutePath?
+        if case let .entryPointExecutable(caseExplicitlyEnabledDiscovery, caseExplicitlySpecifiedPath) = destinationBuildParameters.testingParameters.testProductStyle {
+            explicitlyEnabledDiscovery = caseExplicitlyEnabledDiscovery
+            explicitlySpecifiedPath = caseExplicitlySpecifiedPath
         }
-
         let isEntryPointPathSpecifiedExplicitly = explicitlySpecifiedPath != nil
 
         var isDiscoveryEnabledRedundantly = explicitlyEnabledDiscovery && !isEntryPointPathSpecifiedExplicitly
@@ -100,6 +106,7 @@ extension BuildPlan {
                     target: discoveryResolvedModule,
                     toolsVersion: toolsVersion,
                     buildParameters: testBuildDescription.buildParameters,
+                    macroBuildParameters: toolsBuildParameters,
                     testTargetRole: .discovery,
                     shouldDisableSandbox: shouldDisableSandbox,
                     fileSystem: fileSystem,
@@ -116,7 +123,7 @@ extension BuildPlan {
                 resolvedTargetDependencies: [ResolvedModule.Dependency]
             ) throws -> SwiftModuleBuildDescription {
                 let entryPointDerivedDir = destinationBuildParameters.buildPath.appending(components: "\(testProduct.name).derived")
-                let entryPointMainFileName = TestEntryPointTool.mainFileName(for: destinationBuildParameters.testingParameters.library)
+                let entryPointMainFileName = TestEntryPointTool.mainFileName
                 let entryPointMainFile = entryPointDerivedDir.appending(component: entryPointMainFileName)
                 let entryPointSources = Sources(paths: [entryPointMainFile], root: entryPointDerivedDir)
 
@@ -142,6 +149,7 @@ extension BuildPlan {
                     target: entryPointResolvedTarget,
                     toolsVersion: toolsVersion,
                     buildParameters: testBuildDescription.buildParameters,
+                    macroBuildParameters: toolsBuildParameters,
                     testTargetRole: .entryPoint(isSynthesized: true),
                     shouldDisableSandbox: shouldDisableSandbox,
                     fileSystem: fileSystem,
@@ -153,18 +161,17 @@ extension BuildPlan {
             let swiftTargetDependencies: [Module.Dependency]
             let resolvedTargetDependencies: [ResolvedModule.Dependency]
 
-            switch destinationBuildParameters.testingParameters.library {
-            case .xctest:
+            if destinationBuildParameters.triple.isDarwin() {
+                discoveryTargets = nil
+                swiftTargetDependencies = []
+                resolvedTargetDependencies = []
+            } else {
                 discoveryTargets = try generateDiscoveryTargets()
                 swiftTargetDependencies = [.module(discoveryTargets!.target, conditions: [])]
                 resolvedTargetDependencies = [.module(discoveryTargets!.resolved, conditions: [])]
-            case .swiftTesting:
-                discoveryTargets = nil
-                swiftTargetDependencies = testProduct.modules.map { .module($0.underlying, conditions: []) }
-                resolvedTargetDependencies = testProduct.modules.map { .module($0, conditions: []) }
             }
 
-            if let entryPointResolvedTarget = testProduct.testEntryPointModule {
+            if !destinationBuildParameters.triple.isDarwin(), let entryPointResolvedTarget = testProduct.testEntryPointModule {
                 if isEntryPointPathSpecifiedExplicitly || explicitlyEnabledDiscovery {
                     if isEntryPointPathSpecifiedExplicitly {
                         // Allow using the explicitly-specified test entry point target, but still perform test discovery and thus declare a dependency on the discovery modules.
@@ -187,6 +194,7 @@ extension BuildPlan {
                             target: entryPointResolvedTarget,
                             toolsVersion: toolsVersion,
                             buildParameters: destinationBuildParameters,
+                            macroBuildParameters: toolsBuildParameters,
                             testTargetRole: .entryPoint(isSynthesized: false),
                             shouldDisableSandbox: shouldDisableSandbox,
                             fileSystem: fileSystem,
@@ -209,6 +217,7 @@ extension BuildPlan {
                         target: entryPointResolvedTarget,
                         toolsVersion: toolsVersion,
                         buildParameters: destinationBuildParameters,
+                        macroBuildParameters: toolsBuildParameters,
                         testTargetRole: .entryPoint(isSynthesized: false),
                         shouldDisableSandbox: shouldDisableSandbox,
                         fileSystem: fileSystem,

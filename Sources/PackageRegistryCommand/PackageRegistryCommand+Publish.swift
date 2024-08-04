@@ -171,7 +171,7 @@ extension PackageRegistryCommand {
                     certificateChainPaths: self.certificateChainPaths
                 )
 
-                let result = try PackageArchiveSigner.prepareArchiveAndSign(
+                let result = try await PackageArchiveSigner.prepareArchiveAndSign(
                     packageIdentity: packageIdentity,
                     packageVersion: packageVersion,
                     packageDirectory: packageDirectory,
@@ -190,7 +190,7 @@ extension PackageRegistryCommand {
                 // step 2: generate source archive for the package release
                 // step 3: signing not required
                 swiftCommandState.observabilityScope.emit(info: "archiving the source at '\(packageDirectory)'")
-                archivePath = try PackageArchiver.archive(
+                archivePath = try await PackageArchiver.archive(
                     packageIdentity: self.packageIdentity,
                     packageVersion: self.packageVersion,
                     packageDirectory: packageDirectory,
@@ -314,7 +314,7 @@ enum PackageArchiveSigner {
         cancellator: Cancellator?,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
-    ) throws -> ArchiveAndSignResult {
+    ) async throws -> ArchiveAndSignResult {
         // signing identity
         let (signingIdentity, intermediateCertificates) = try Self.signingIdentityAndIntermediateCertificates(
             mode: mode,
@@ -349,7 +349,7 @@ enum PackageArchiveSigner {
 
         // create the archive
         observabilityScope.emit(info: "archiving the source at '\(packageDirectory)'")
-        let archivePath = try PackageArchiver.archive(
+        let archivePath = try await PackageArchiver.archive(
             packageIdentity: packageIdentity,
             packageVersion: packageVersion,
             packageDirectory: packageDirectory,
@@ -473,7 +473,7 @@ enum PackageArchiver {
         workingFilesToCopy: [String],
         cancellator: Cancellator?,
         observabilityScope: ObservabilityScope
-    ) throws -> AbsolutePath {
+    ) async throws -> AbsolutePath {
         let archivePath = workingDirectory.appending("\(packageIdentity)-\(packageVersion).zip")
 
         // create temp location for sources
@@ -500,7 +500,7 @@ enum PackageArchiver {
             try localFileSystem.writeFileContents(toBeReplacedPath, bytes: replacement)
         }
 
-        try SwiftPackageCommand.archiveSource(
+        try await SwiftPackageCommand.archiveSource(
             at: sourceDirectory,
             to: archivePath,
             fileSystem: localFileSystem,

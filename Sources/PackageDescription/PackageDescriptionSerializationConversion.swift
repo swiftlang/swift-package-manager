@@ -107,7 +107,7 @@ extension Serialization.CXXLanguageStandard {
 }
 
 extension Serialization.SwiftVersion {
-    init(_ swiftVersion: PackageDescription.SwiftVersion) {
+    init(_ swiftVersion: PackageDescription.SwiftLanguageMode) {
         switch swiftVersion {
         case .v3: self = .v3
         case .v4: self = .v4
@@ -397,7 +397,7 @@ extension Serialization.Package {
         self.products = package.products.map { .init($0) }
         self.traits = Set(package.traits.map { Serialization.Trait($0) })
         self.dependencies = package.dependencies.map { .init($0) }
-        self.swiftLanguageVersions = package.swiftLanguageVersions?.map { .init($0) }
+        self.swiftLanguageVersions = package.swiftLanguageModes?.map { .init($0) }
         self.cLanguageStandard = package.cLanguageStandard.map { .init($0) }
         self.cxxLanguageStandard = package.cxxLanguageStandard.map { .init($0) }
     }

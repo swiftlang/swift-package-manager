@@ -82,18 +82,6 @@ let systemSQLitePkgConfig: String? = "sqlite3"
  */
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
-let packageModelResourcesSettings: [SwiftSetting]
-let packageModelResources: [Resource]
-if ProcessInfo.processInfo.environment["SWIFTPM_USE_LIBRARIES_METADATA"] == nil {
-    packageModelResources = []
-    packageModelResourcesSettings = [.define("SKIP_RESOURCE_SUPPORT")]
-} else {
-    packageModelResources = [
-        .copy("InstalledLibrariesSupport/provided-libraries.json"),
-    ]
-    packageModelResourcesSettings = []
-}
-
 let package = Package(
     name: "SwiftPM",
     platforms: [
@@ -245,9 +233,7 @@ let package = Package(
             /** Primitive Package model objects */
             name: "PackageModel",
             dependencies: ["Basics"],
-            exclude: ["CMakeLists.txt", "README.md"],
-            resources: packageModelResources,
-            swiftSettings: packageModelResourcesSettings
+            exclude: ["CMakeLists.txt", "README.md"]
         ),
 
         .target(
@@ -610,7 +596,7 @@ let package = Package(
         ),
 
         .target(
-            /** Test for thread-santizer. */
+            /** Test for thread-sanitizer. */
             name: "tsan_utils",
             dependencies: []
         ),
@@ -633,6 +619,11 @@ let package = Package(
                 "Archiver/Inputs/archive.zip",
                 "Archiver/Inputs/invalid_archive.tar.gz",
                 "Archiver/Inputs/invalid_archive.zip",
+                "processInputs/long-stdout-stderr",
+                "processInputs/exit4",
+                "processInputs/simple-stdout-stderr",
+                "processInputs/deadlock-if-blocking-io",
+                "processInputs/in-to-out",
             ]
         ),
         .testTarget(
@@ -738,6 +729,14 @@ let package = Package(
     swiftLanguageVersions: [.v5]
 )
 
+#if canImport(Darwin)
+package.targets.append(contentsOf: [
+    .executableTarget(
+        name: "swiftpm-testing-helper"
+    )
+])
+#endif
+
 // Workaround SPM's attempt to link in executables which does not work on all
 // platforms.
 #if !os(Windows)
@@ -826,7 +825,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // The 'swift-argument-parser' version declared here must match that
         // used by 'swift-driver' and 'sourcekit-lsp'. Please coordinate
         // dependency version changes here with those projects.
-        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.2.2")),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.4.0")),
         .package(url: "https://github.com/apple/swift-driver.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),

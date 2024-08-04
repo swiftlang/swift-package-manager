@@ -10,7 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
+import _Concurrency
+
 import Foundation
 import PackageModel
 import PackageLoading
@@ -60,7 +63,7 @@ extension PluginModule {
         callbackQueue: DispatchQueue,
         delegate: PluginInvocationDelegate
     ) async throws -> Bool {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.invoke(
                 action: action,
                 buildEnvironment: buildEnvironment,
@@ -79,7 +82,7 @@ extension PluginModule {
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
                 delegate: delegate,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -388,7 +391,7 @@ extension PluginModule {
         modulesGraph: ModulesGraph,
         observabilityScope: ObservabilityScope
     ) async throws -> BuildToolPluginInvocationResult {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.invoke(
                 module: module,
                 action: action,
@@ -406,7 +409,7 @@ extension PluginModule {
                 fileSystem: fileSystem,
                 modulesGraph: modulesGraph,
                 observabilityScope: observabilityScope,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }

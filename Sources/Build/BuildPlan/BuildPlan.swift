@@ -312,12 +312,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 observabilityScope: observabilityScope
             ))
         }
-        let macroProductsByTarget = productMap.values.filter { $0.product.type == .macro }
-            .reduce(into: [ResolvedModule.ID: ResolvedProduct]()) {
-                if let target = $1.product.modules.first {
-                    $0[target.id] = $1.product
-                }
-            }
 
         // Create build target description for each target which we need to plan.
         // Plugin targets are noted, since they need to be compiled, but they do
@@ -392,18 +386,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     throw InternalError("package not found for \(target)")
                 }
 
-                let requiredMacroProducts = try target.recursiveModuleDependencies()
-                    .filter { $0.underlying.type == .macro }
-                    .compactMap {
-                        guard let product = macroProductsByTarget[$0.id],
-                              let description = productMap[product.id] else
-                        {
-                            throw InternalError("macro product not found for \($0)")
-                        }
-
-                        return description.buildDescription
-                    }
-
                 var generateTestObservation = false
                 if target.type == .test && shouldGenerateTestObservation {
                     generateTestObservation = true
@@ -417,9 +399,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         toolsVersion: toolsVersion,
                         additionalFileRules: additionalFileRules,
                         buildParameters: buildParameters,
+                        macroBuildParameters: toolsBuildParameters,
                         buildToolPluginInvocationResults: buildToolPluginInvocationResults[target.id] ?? [],
                         prebuildCommandResults: prebuildCommandResults[target.id] ?? [],
-                        requiredMacroProducts: requiredMacroProducts,
                         shouldGenerateTestObservation: generateTestObservation,
                         shouldDisableSandbox: self.shouldDisableSandbox,
                         fileSystem: fileSystem,
@@ -455,7 +437,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     toolsVersion: toolsVersion,
                     fileSystem: fileSystem
                 ))
-            case is SystemLibraryModule, is BinaryModule, is ProvidedLibraryModule:
+            case is SystemLibraryModule, is BinaryModule:
                 break
             default:
                 throw InternalError("unhandled \(target.underlying)")
@@ -473,31 +455,29 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
 
         // Plan the derived test targets, if necessary.
-        if destinationBuildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets {
-            let derivedTestTargets = try Self.makeDerivedTestTargets(
-                testProducts: productMap.values.filter {
-                    $0.product.type == .test
-                },
-                destinationBuildParameters: destinationBuildParameters,
-                toolsBuildParameters: toolsBuildParameters,
-                shouldDisableSandbox: self.shouldDisableSandbox,
-                self.fileSystem,
-                self.observabilityScope
+        let derivedTestTargets = try Self.makeDerivedTestTargets(
+            testProducts: productMap.values.filter {
+                $0.product.type == .test
+            },
+            destinationBuildParameters: destinationBuildParameters,
+            toolsBuildParameters: toolsBuildParameters,
+            shouldDisableSandbox: self.shouldDisableSandbox,
+            self.fileSystem,
+            self.observabilityScope
+        )
+        for item in derivedTestTargets {
+            var derivedTestTargets = [item.entryPointTargetBuildDescription.target]
+
+            targetMap[item.entryPointTargetBuildDescription.target.id] = .swift(
+                item.entryPointTargetBuildDescription
             )
-            for item in derivedTestTargets {
-                var derivedTestTargets = [item.entryPointTargetBuildDescription.target]
 
-                targetMap[item.entryPointTargetBuildDescription.target.id] = .swift(
-                    item.entryPointTargetBuildDescription
-                )
-
-                if let discoveryTargetBuildDescription = item.discoveryTargetBuildDescription {
-                    targetMap[discoveryTargetBuildDescription.target.id] = .swift(discoveryTargetBuildDescription)
-                    derivedTestTargets.append(discoveryTargetBuildDescription.target)
-                }
-
-                self.derivedTestTargetsMap[item.product.id] = derivedTestTargets
+            if let discoveryTargetBuildDescription = item.discoveryTargetBuildDescription {
+                targetMap[discoveryTargetBuildDescription.target.id] = .swift(discoveryTargetBuildDescription)
+                derivedTestTargets.append(discoveryTargetBuildDescription.target)
             }
+
+            self.derivedTestTargetsMap[item.product.id] = derivedTestTargets
         }
 
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
