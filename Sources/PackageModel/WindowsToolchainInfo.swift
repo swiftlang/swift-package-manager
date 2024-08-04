@@ -80,7 +80,7 @@ public struct WindowsPlatformInfo {
 
         /// SWIFT_TESTING_VERSION
         /// specifies the version string of the bundled swift-testing.
-        public let swiftTestingVersion: String
+        public let swiftTestingVersion: String?
 
         /// SWIFTC_FLAGS
         /// Specifies extra flags to pass to swiftc from Swift Package Manager.

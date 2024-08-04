@@ -546,23 +546,25 @@ public final class UserToolchain: Toolchain {
                             xctest.append(contentsOf: ["-L", implib.parentDirectory.pathString])
                         }
 
-                        let swiftTestingInstallation: AbsolutePath =
-                            platform.appending("Developer")
-                                .appending("Library")
-                                .appending("Testing-\(info.defaults.swiftTestingVersion)")
+                        if let swiftTestingVersion = info.defaults.swiftTestingVersion {
+                            let swiftTestingInstallation: AbsolutePath =
+                                platform.appending("Developer")
+                                    .appending("Library")
+                                    .appending("Testing-\(swiftTestingVersion)")
 
-                        swiftTesting = try [
-                            "-I",
-                            AbsolutePath(
-                                validating: "usr/lib/swift/windows",
-                                relativeTo: swiftTestingInstallation
-                            ).pathString,
-                            "-L",
-                            AbsolutePath(
-                                validating: "usr/lib/swift/windows/\(triple.archName)",
-                                relativeTo: swiftTestingInstallation
-                            ).pathString
-                        ]
+                            swiftTesting = try [
+                                "-I",
+                                AbsolutePath(
+                                    validating: "usr/lib/swift/windows",
+                                    relativeTo: swiftTestingInstallation
+                                ).pathString,
+                                "-L",
+                                AbsolutePath(
+                                    validating: "usr/lib/swift/windows/\(triple.archName)",
+                                    relativeTo: swiftTestingInstallation
+                                ).pathString
+                            ]
+                        }
 
                         extraSwiftCFlags = info.defaults.extraSwiftCFlags ?? []
                     }
@@ -1012,10 +1014,14 @@ public final class UserToolchain: Toolchain {
             return nil
         }
 
+        guard let swiftTestingVersion = info.defaults.swiftTestingVersion else {
+            return nil
+        }
+
         let swiftTesting: AbsolutePath =
             platform.appending("Developer")
                 .appending("Library")
-                .appending("Testing-\(info.defaults.swiftTestingVersion)")
+                .appending("Testing-\(swiftTestingVersion)")
 
         let binPath: AbsolutePath? = switch triple.arch {
         case .x86_64: // amd64 x86_64 x86_64h
