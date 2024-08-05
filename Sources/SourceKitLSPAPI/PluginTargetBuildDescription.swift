@@ -35,8 +35,16 @@ struct PluginTargetBuildDescription: BuildTarget {
         self.isPartOfRootPackage = isPartOfRootPackage
     }
 
+    public var root: URL {
+        return target.sources.root.asURL
+    }
+
     var sources: [URL] {
         return target.sources.paths.map { URL(fileURLWithPath: $0.pathString) }
+    }
+
+    var paths: [URL] {
+        return target.sources.paths.map(\.asURL)
     }
 
     var name: String {

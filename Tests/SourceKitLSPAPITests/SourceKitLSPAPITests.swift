@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import Build
+@testable import Build
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import PackageGraph
@@ -63,7 +63,7 @@ final class SourceKitLSPAPITests: XCTestCase {
 
         try description.checkArguments(
             for: "exe",
-            graph: graph,
+            plan: plan,
             partialArguments: [
                 "-module-name", "exe",
                 "-emit-dependencies",
@@ -74,7 +74,7 @@ final class SourceKitLSPAPITests: XCTestCase {
         )
         try description.checkArguments(
             for: "lib",
-            graph: graph,
+            plan: plan,
             partialArguments: [
                 "-module-name", "lib",
                 "-emit-dependencies",
@@ -85,7 +85,7 @@ final class SourceKitLSPAPITests: XCTestCase {
         )
         try description.checkArguments(
             for: "plugin",
-            graph: graph,
+            plan: plan,
             partialArguments: [
                 "-I", "/fake/manifestLib/path"
             ],
@@ -97,25 +97,26 @@ final class SourceKitLSPAPITests: XCTestCase {
 
 extension SourceKitLSPAPI.BuildDescription {
     @discardableResult func checkArguments(
-        for targetName: String,
-        graph: ModulesGraph,
+        for moduleName: String,
+        plan: BuildPlan,
         partialArguments: [String],
         isPartOfRootPackage: Bool,
         destination: BuildTriple = .destination
     ) throws -> Bool {
-        let target = try XCTUnwrap(graph.module(for: targetName, destination: destination))
-        let buildTarget = try XCTUnwrap(self.getBuildTarget(for: target, in: graph))
+        let buildModule = try XCTUnwrap(self.allModules.first {
+            $0.name == moduleName && $0.buildTriple == destination
+        })
 
-        guard let file = buildTarget.sources.first else {
-            XCTFail("build target \(targetName) contains no files")
+        guard let file = buildModule.sources.first else {
+            XCTFail("build target \(moduleName) contains no files")
             return false
         }
 
-        let arguments = try buildTarget.compileArguments(for: file)
+        let arguments = try buildModule.compileArguments(for: file)
         let result = arguments.contains(partialArguments)
 
         XCTAssertTrue(result, "could not match \(partialArguments) to actual arguments \(arguments)")
-        XCTAssertEqual(buildTarget.isPartOfRootPackage, isPartOfRootPackage)
+        XCTAssertEqual(buildModule.isPartOfRootPackage, isPartOfRootPackage)
         return result
     }
 }

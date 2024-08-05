@@ -29,7 +29,14 @@ internal import class PackageModel.UserToolchain
 public typealias BuildTriple = PackageGraph.BuildTriple
 
 public protocol BuildTarget {
+    /// The root of the sources.
+    var root: URL { get }
+
+    /// A group of source files associates with this module.
     var sources: [URL] { get }
+
+    /// Paths to all source files associated with this module.
+    var paths: [URL] { get }
 
     /// The name of the target. It should be possible to build a target by passing this name to `swift build --target`
     var name: String { get }
@@ -51,8 +58,16 @@ private struct WrappedClangTargetBuildDescription: BuildTarget {
         self.isPartOfRootPackage = isPartOfRootPackage
     }
 
+    public var root: URL {
+        return description.target.sources.root.asURL
+    }
+
     public var sources: [URL] {
         return (try? description.compilePaths().map { URL(fileURLWithPath: $0.source.pathString) }) ?? []
+    }
+
+    public var paths: [URL] {
+        return description.target.sources.paths.map(\.asURL)
     }
 
     public var name: String {
@@ -88,8 +103,16 @@ private struct WrappedSwiftTargetBuildDescription: BuildTarget {
         return description.target.buildTriple
     }
 
+    var root: URL {
+        return description.target.sources.root.asURL
+    }
+
     var sources: [URL] {
         return description.sources.map { URL(fileURLWithPath: $0.pathString) }
+    }
+
+    var paths: [URL] {
+        return description.target.sources.paths.map(\.asURL)
     }
 
     func compileArguments(for fileURL: URL) throws -> [String] {
@@ -114,10 +137,12 @@ public struct BuildDescription {
         self.inputs = buildPlan.inputs
     }
 
-    // FIXME: should not use `ResolvedTarget` in the public interface
-    public func getBuildTarget(for target: ResolvedModule, in modulesGraph: ModulesGraph) -> BuildTarget? {
-        if let description = buildPlan.targetMap[target.id] {
-            switch description {
+    /// Returns all modules registered in the build plan (clang/swift and plugins).
+    /// The ordering of result is not guaranteed.
+    public var allModules: [BuildTarget] {
+        let modulesGraph = self.buildPlan.graph
+        return self.buildPlan.targetMap.values.map {
+            switch $0 {
             case .clang(let description):
                 return WrappedClangTargetBuildDescription(
                     description: description,
@@ -129,24 +154,14 @@ public struct BuildDescription {
                     isPartOfRootPackage: modulesGraph.rootPackages.map(\.id).contains(description.package.id)
                 )
             }
-        } else {
-            if target.type == .plugin, let package = self.buildPlan.graph.package(for: target) {
-                return PluginTargetBuildDescription(
-                    target: target,
+        } + self.buildPlan.pluginDescriptions.map {
+            let package = self.buildPlan.graph.package(for: $0.package)!
+            return PluginTargetBuildDescription(
+                    target: self.buildPlan.graph.module(for: $0.moduleName, destination: .tools)!,
                     toolsVersion: package.manifest.toolsVersion,
                     toolchain: buildPlan.toolsBuildParameters.toolchain,
-                    isPartOfRootPackage: modulesGraph.rootPackages.map(\.id).contains(package.id)
+                    isPartOfRootPackage: modulesGraph.rootPackages.map(\.id).contains($0.package)
                 )
-            }
-            return nil
-        }
-    }
-
-    /// Returns all targets within the module graph in topological order, starting with low-level targets (that have no
-    /// dependencies).
-    public func allTargetsInTopologicalOrder(in modulesGraph: ModulesGraph) throws -> [BuildTarget] {
-        try modulesGraph.allModulesInTopologicalOrder.compactMap {
-            getBuildTarget(for: $0, in: modulesGraph)
         }
     }
 
