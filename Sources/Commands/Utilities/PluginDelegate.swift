@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import CoreCommands
 import Foundation
 import PackageModel
@@ -65,10 +66,12 @@ final class PluginDelegate: PluginInvocationDelegate {
         completion: @escaping (Result<PluginInvocationBuildResult, Error>) -> Void
     ) {
         // Run the build in the background and call the completion handler when done.
-        DispatchQueue.sharedConcurrent.async {
-            completion(Result {
-                return try self.performBuildForPlugin(subset: subset, parameters: parameters)
-            })
+        Task {
+            do {
+                try await completion(.success(self.performBuildForPlugin(subset: subset, parameters: parameters)))
+            } catch {
+                completion(.failure(error))
+            }
         }
     }
 
@@ -109,7 +112,7 @@ final class PluginDelegate: PluginInvocationDelegate {
     private func performBuildForPlugin(
         subset: PluginInvocationBuildSubset,
         parameters: PluginInvocationBuildParameters
-    ) throws -> PluginInvocationBuildResult {
+    ) async throws -> PluginInvocationBuildResult {
         // Configure the build parameters.
         var buildParameters = try self.swiftCommandState.productsBuildParameters
         switch parameters.configuration {
@@ -158,7 +161,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             outputStream.addStream(swiftCommandState.outputStream)
         }
 
-        let buildSystem = try swiftCommandState.createBuildSystem(
+        let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitBuildSystem: .native,
             explicitProduct: explicitProduct,
             traitConfiguration: .init(),
@@ -207,24 +210,26 @@ final class PluginDelegate: PluginInvocationDelegate {
         completion: @escaping (Result<PluginInvocationTestResult, Error>
         ) -> Void) {
         // Run the test in the background and call the completion handler when done.
-        DispatchQueue.sharedConcurrent.async {
-            completion(Result {
-                return try self.performTestsForPlugin(subset: subset, parameters: parameters)
-            })
+        Task {
+            do {
+                try await completion(.success(self.performTestsForPlugin(subset: subset, parameters: parameters)))
+            } catch {
+                completion(.failure(error))
+            }
         }
     }
 
     func performTestsForPlugin(
         subset: PluginInvocationTestSubset,
         parameters: PluginInvocationTestParameters
-    ) throws -> PluginInvocationTestResult {
+    ) async throws -> PluginInvocationTestResult {
         // Build the tests. Ideally we should only build those that match the subset, but we don't have a way to know
         // which ones they are until we've built them and can examine the binaries.
         let toolchain = try swiftCommandState.getHostToolchain()
         var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
         toolsBuildParameters.testingParameters.enableTestability = true
         toolsBuildParameters.testingParameters.enableCodeCoverage = parameters.enableCodeCoverage
-        let buildSystem = try swiftCommandState.createBuildSystem(
+        let buildSystem = try await swiftCommandState.createBuildSystem(
             traitConfiguration: .init(),
             toolsBuildParameters: toolsBuildParameters
         )
@@ -334,7 +339,7 @@ final class PluginDelegate: PluginInvocationDelegate {
                 llvmProfCommand.append(filePath.pathString)
             }
             llvmProfCommand += ["-o", mergedCovFile.pathString]
-            try AsyncProcess.checkNonZeroExit(arguments: llvmProfCommand)
+            try await AsyncProcess.checkNonZeroExit(arguments: llvmProfCommand)
 
             // Use `llvm-cov` to export the merged `.profdata` file contents in JSON form.
             var llvmCovCommand = [try toolchain.getLLVMCov().pathString]
@@ -344,7 +349,7 @@ final class PluginDelegate: PluginInvocationDelegate {
                 llvmCovCommand.append(product.binaryPath.pathString)
             }
             // We get the output on stdout, and have to write it to a JSON ourselves.
-            let jsonOutput = try AsyncProcess.checkNonZeroExit(arguments: llvmCovCommand)
+            let jsonOutput = try await AsyncProcess.checkNonZeroExit(arguments: llvmCovCommand)
             let jsonCovFile = toolsBuildParameters.codeCovDataFile.parentDirectory.appending(
                 component: toolsBuildParameters.codeCovDataFile.basenameWithoutExt + ".json"
             )
@@ -370,22 +375,24 @@ final class PluginDelegate: PluginInvocationDelegate {
         completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void
     ) {
         // Extract the symbol graph in the background and call the completion handler when done.
-        DispatchQueue.sharedConcurrent.async {
-            completion(Result {
-                return try self.createSymbolGraphForPlugin(forTarget: targetName, options: options)
-            })
+        Task {
+            do {
+                try await completion(.success(self.createSymbolGraphForPlugin(forTarget: targetName, options: options)))
+            } catch {
+                completion(.failure(error))
+            }
         }
     }
 
     private func createSymbolGraphForPlugin(
         forTarget targetName: String,
         options: PluginInvocationSymbolGraphOptions
-    ) throws -> PluginInvocationSymbolGraphResult {
+    ) async throws -> PluginInvocationSymbolGraphResult {
         // Current implementation uses `SymbolGraphExtract()`, but in the future we should emit the symbol graph
         // while building.
 
         // Create a build system for building the target., skipping the the cache because we need the build plan.
-        let buildSystem = try swiftCommandState.createBuildSystem(
+        let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitBuildSystem: .native,
             traitConfiguration: .init(),
             cacheBuildManifest: false

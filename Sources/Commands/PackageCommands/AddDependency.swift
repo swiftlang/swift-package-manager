@@ -24,7 +24,8 @@ import Workspace
 extension SwiftPackageCommand {
     struct AddDependency: SwiftCommand {
         package static let configuration = CommandConfiguration(
-            abstract: "Add a package dependency to the manifest")
+            abstract: "Add a package dependency to the manifest"
+        )
 
         @Argument(help: "The URL or directory of the package to add")
         var dependency: String
@@ -50,33 +51,49 @@ extension SwiftPackageCommand {
         @Option(help: "Specify upper bound on the package version range (exclusive)")
         var to: Version?
 
+        @Option(help: "Specify dependency type")
+        var type: DependencyType = .url
+
+        enum DependencyType: String, Codable, CaseIterable, ExpressibleByArgument {
+            case url
+            case path
+            case registry
+        }
+
         func run(_ swiftCommandState: SwiftCommandState) throws {
             let workspace = try swiftCommandState.getActiveWorkspace()
-
             guard let packagePath = try swiftCommandState.getWorkspaceRoot().packages.first else {
                 throw StringError("unknown package")
             }
 
-            // Load the manifest file
-            let fileSystem = workspace.fileSystem
-            let manifestPath = packagePath.appending("Package.swift")
-            let manifestContents: ByteString
-            do {
-                manifestContents = try fileSystem.readFileContents(manifestPath)
-            } catch {
-                throw StringError("cannot find package manifest in \(manifestPath)")
+            switch type {
+            case .url:
+                try self.createSourceControlPackage(
+                    packagePath: packagePath,
+                    workspace: workspace,
+                    url: dependency
+                )
+            case .path:
+                try self.createFileSystemPackage(
+                    packagePath: packagePath,
+                    workspace: workspace,
+                    directory: dependency
+                )
+            case .registry:
+                try self.createRegistryPackage(
+                    packagePath: packagePath,
+                    workspace: workspace,
+                    id: dependency
+                )
             }
+        }
 
-            // Parse the manifest.
-            let manifestSyntax = manifestContents.withData { data in
-                data.withUnsafeBytes { buffer in
-                    buffer.withMemoryRebound(to: UInt8.self) { buffer in
-                        Parser.parse(source: buffer)
-                    }
-                }
-            }
-
-            let identity = PackageIdentity(url: .init(dependency))
+        private func createSourceControlPackage(
+            packagePath: Basics.AbsolutePath,
+            workspace: Workspace,
+            url: String
+        ) throws {
+            let identity = PackageIdentity(url: .init(url))
 
             // Collect all of the possible version requirements.
             var requirements: [PackageDependency.SourceControl.Requirement] = []
@@ -101,44 +118,158 @@ extension SwiftPackageCommand {
             }
 
             if requirements.count > 1 {
-                throw StringError("must specify at most one of --exact, --branch, --revision, --from, or --up-to-next-minor-from")
+                throw StringError(
+                    "must specify at most one of --exact, --branch, --revision, --from, or --up-to-next-minor-from"
+                )
             }
 
             guard let firstRequirement = requirements.first else {
-                throw StringError("must specify one of --exact, --branch, --revision, --from, or --up-to-next-minor-from")
+                throw StringError(
+                    "must specify one of --exact, --branch, --revision, --from, or --up-to-next-minor-from"
+                )
             }
 
             let requirement: PackageDependency.SourceControl.Requirement
             if case .range(let range) = firstRequirement {
                 if let to {
-                    requirement = .range(range.lowerBound..<to)
+                    requirement = .range(range.lowerBound ..< to)
                 } else {
                     requirement = .range(range)
                 }
             } else {
                 requirement = firstRequirement
 
-                if to != nil {
+                if self.to != nil {
                     throw StringError("--to can only be specified with --from or --up-to-next-minor-from")
                 }
-            }
-
-            // Figure out the location of the package.
-            let location: PackageDependency.SourceControl.Location
-            if let path = try? Basics.AbsolutePath(validating: dependency) {
-                location = .local(path)
-            } else {
-                location = .remote(.init(dependency))
             }
 
             let packageDependency: PackageDependency = .sourceControl(
                 identity: identity,
                 nameForTargetDependencyResolutionOnly: nil,
-                location: location,
+                location: .remote(.init(url)),
                 requirement: requirement,
                 productFilter: .everything,
                 traits: []
             )
+
+            try applyEdits(
+                packagePath: packagePath,
+                workspace: workspace,
+                packageDependency: packageDependency
+            )
+        }
+
+        private func createRegistryPackage(
+            packagePath: Basics.AbsolutePath,
+            workspace: Workspace,
+            id: String
+        ) throws {
+            let identity: PackageIdentity = .plain(id)
+
+            // Collect all of the possible version requirements.
+            var requirements: [PackageDependency.Registry.Requirement] = []
+            if let exact {
+                requirements.append(.exact(exact))
+            }
+
+            if let from {
+                requirements.append(.range(.upToNextMajor(from: from)))
+            }
+
+            if let upToNextMinorFrom {
+                requirements.append(.range(.upToNextMinor(from: upToNextMinorFrom)))
+            }
+
+            if requirements.count > 1 {
+                throw StringError(
+                    "must specify at most one of --exact, --from, or --up-to-next-minor-from"
+                )
+            }
+
+            guard let firstRequirement = requirements.first else {
+                throw StringError(
+                    "must specify one of --exact, --from, or --up-to-next-minor-from"
+                )
+            }
+
+            let requirement: PackageDependency.Registry.Requirement
+            if case .range(let range) = firstRequirement {
+                if let to {
+                    requirement = .range(range.lowerBound ..< to)
+                } else {
+                    requirement = .range(range)
+                }
+            } else {
+                requirement = firstRequirement
+
+                if self.to != nil {
+                    throw StringError("--to can only be specified with --from or --up-to-next-minor-from")
+                }
+            }
+
+            let packageDependency: PackageDependency = .registry(
+                identity: identity,
+                requirement: requirement,
+                productFilter: .everything,
+                traits: []
+            )
+
+
+            try applyEdits(
+                packagePath: packagePath,
+                workspace: workspace,
+                packageDependency: packageDependency
+            )
+        }
+
+        private func createFileSystemPackage(
+            packagePath: Basics.AbsolutePath,
+            workspace: Workspace,
+            directory: String
+        ) throws {
+            guard let path = try? Basics.AbsolutePath(validating: directory) else {
+                throw StringError("Package path not found")
+            }
+            let identity = PackageIdentity(path: path)
+            let packageDependency: PackageDependency = .fileSystem(
+                identity: identity,
+                nameForTargetDependencyResolutionOnly: nil,
+                path: path,
+                productFilter: .everything,
+                traits: []
+            )
+
+            try applyEdits(
+                packagePath: packagePath,
+                workspace: workspace,
+                packageDependency: packageDependency
+            )
+        }
+
+        private func applyEdits(
+            packagePath: Basics.AbsolutePath,
+            workspace: Workspace,
+            packageDependency: PackageDependency
+        ) throws {
+            // Load the manifest file
+            let fileSystem = workspace.fileSystem
+            let manifestPath = packagePath.appending(component: Manifest.filename)
+            let manifestContents: ByteString
+            do {
+                manifestContents = try fileSystem.readFileContents(manifestPath)
+            } catch {
+                throw StringError("cannot find package manifest in \(manifestPath)")
+            }
+
+            // Parse the manifest.
+            let manifestSyntax = manifestContents.withData { data in
+                data.withUnsafeBytes { buffer in
+                    buffer.withMemoryRebound(to: UInt8.self) { buffer in
+                        Parser.parse(source: buffer)
+                    }
+                }
+            }
 
             let editResult = try AddPackageDependency.addPackageDependency(
                 packageDependency,
@@ -149,7 +280,7 @@ extension SwiftPackageCommand {
                 to: fileSystem,
                 manifest: manifestSyntax,
                 manifestPath: manifestPath,
-                verbose: !globalOptions.logging.quiet
+                verbose: !self.globalOptions.logging.quiet
             )
         }
     }

@@ -12,6 +12,7 @@
 
 import ArgumentParser
 import Basics
+import _Concurrency
 import Build
 import Dispatch
 
@@ -33,9 +34,11 @@ import var TSCBasic.stdoutStream
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
 
-SwiftBootstrapBuildTool.main()
+await { () async in
+    await SwiftBootstrapBuildTool.main()
+}()
 
-struct SwiftBootstrapBuildTool: ParsableCommand {
+struct SwiftBootstrapBuildTool: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "swift-bootstrap",
         abstract: "Bootstrapping build tool, only use in the context of bootstrapping SwiftPM itself",
@@ -158,7 +161,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
 
     public init() {}
 
-    public func run() throws {
+    public func run() async throws {
         do {
             let fileSystem = localFileSystem
 
@@ -310,8 +313,10 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
 
             let manifestLoader = createManifestLoader(manifestBuildFlags: manifestBuildFlags)
 
-            let packageGraphLoader = {
-                try self.loadPackageGraph(packagePath: packagePath, manifestLoader: manifestLoader)
+            let asyncUnsafePackageGraphLoader = {
+                try unsafe_await {
+                    try await self.loadPackageGraph(packagePath: packagePath, manifestLoader: manifestLoader)
+                }
             }
 
             switch buildSystem {
@@ -321,7 +326,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                     productsBuildParameters: buildParameters,
                     toolsBuildParameters: buildParameters,
                     cacheBuildManifest: false,
-                    packageGraphLoader: packageGraphLoader,
+                    packageGraphLoader: asyncUnsafePackageGraphLoader,
                     scratchDirectory: scratchDirectory,
                     // When bootrapping no special trait build configuration is used
                     traitConfiguration: nil,
@@ -335,7 +340,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             case .xcode:
                 return try XcodeBuildSystem(
                     buildParameters: buildParameters,
-                    packageGraphLoader: packageGraphLoader,
+                    packageGraphLoader: asyncUnsafePackageGraphLoader,
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
                     fileSystem: self.fileSystem,
@@ -357,9 +362,11 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             )
         }
 
-        func loadPackageGraph(packagePath: AbsolutePath, manifestLoader: ManifestLoader) throws -> ModulesGraph {
+        func loadPackageGraph(packagePath: AbsolutePath, manifestLoader: ManifestLoader) async throws -> ModulesGraph {
             let rootPackageRef = PackageReference(identity: .init(path: packagePath), kind: .root(packagePath))
-            let rootPackageManifest =  try temp_await { self.loadManifest(manifestLoader: manifestLoader, package: rootPackageRef, completion: $0) }
+            let rootPackageManifest =  try await withCheckedThrowingContinuation {
+                self.loadManifest(manifestLoader: manifestLoader, package: rootPackageRef, completion: $0.resume(with:))
+            }
 
             var loadedManifests = [PackageIdentity: Manifest]()
             loadedManifests[rootPackageRef.identity] = rootPackageManifest

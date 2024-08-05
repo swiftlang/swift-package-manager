@@ -340,7 +340,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue
     ) async throws -> Manifest {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.load(
                 manifestPath: manifestPath,
                 manifestToolsVersion: manifestToolsVersion,
@@ -354,7 +354,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 observabilityScope: observabilityScope,
                 delegateQueue: delegateQueue, 
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }

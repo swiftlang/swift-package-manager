@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import Dispatch
 import class Foundation.NSLock
 import OrderedCollections
@@ -164,7 +165,7 @@ public struct PubGrubDependencyResolver {
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
-    public func solve(constraints: [Constraint]) -> Result<[DependencyResolverBinding], Error> {
+    public func solve(constraints: [Constraint]) async -> Result<[DependencyResolverBinding], Error> {
         // the graph resolution root
         let root: DependencyResolutionNode
         if constraints.count == 1, let constraint = constraints.first, constraint.package.kind.isRoot {
@@ -180,7 +181,8 @@ public struct PubGrubDependencyResolver {
 
         do {
             // strips state
-            return .success(try self.solve(root: root, constraints: constraints).bindings)
+            let bindings = try await self.solve(root: root, constraints: constraints).bindings
+            return .success(bindings)
         } catch {
             // If version solving failing, build the user-facing diagnostic.
             if let pubGrubError = error as? PubgrubError, let rootCause = pubGrubError.rootCause, let incompatibilities = pubGrubError.incompatibilities {
@@ -204,9 +206,9 @@ public struct PubGrubDependencyResolver {
     /// Find a set of dependencies that fit the given constraints. If dependency
     /// resolution is unable to provide a result, an error is thrown.
     /// - Warning: It is expected that the root package reference has been set  before this is called.
-    internal func solve(root: DependencyResolutionNode, constraints: [Constraint]) throws -> (bindings: [DependencyResolverBinding], state: State) {
+    internal func solve(root: DependencyResolutionNode, constraints: [Constraint]) async throws -> (bindings: [DependencyResolverBinding], state: State) {
         // first process inputs
-        let inputs = try self.processInputs(root: root, with: constraints)
+        let inputs = try await self.processInputs(root: root, with: constraints)
 
         // Prefetch the containers if prefetching is enabled.
         if self.prefetchBasedOnResolvedFile {
@@ -232,7 +234,7 @@ public struct PubGrubDependencyResolver {
             state.addIncompatibility(incompatibility, at: .topLevel)
         }
 
-        try self.run(state: state)
+        try await self.run(state: state)
 
         let decisions = state.solution.assignments.filter(\.isDecision)
         var flattenedAssignments: [PackageReference: (binding: BoundVersion, products: ProductFilter)] = [:]
@@ -250,9 +252,12 @@ public struct PubGrubDependencyResolver {
             }
 
             let products = assignment.term.node.productFilter
-
-            // TODO: replace with async/await when available
-            let container = try temp_await { provider.getContainer(for: assignment.term.node.package, completion: $0) }
+            let container = try await withCheckedThrowingContinuation {
+                self.provider.getContainer(
+                    for: assignment.term.node.package,
+                    completion: $0.resume(with:)
+                )
+            }
             let updatePackage = try container.underlying.loadPackageReference(at: boundVersion)
 
             if var existing = flattenedAssignments[updatePackage] {
@@ -273,8 +278,9 @@ public struct PubGrubDependencyResolver {
 
         // Add overridden packages to the result.
         for (package, override) in state.overriddenPackages {
-            // TODO: replace with async/await when available
-            let container = try temp_await { provider.getContainer(for: package, completion: $0) }
+            let container = try await withCheckedThrowingContinuation {
+                self.provider.getContainer(for: package, completion: $0.resume(with:))
+            }
             let updatePackage = try container.underlying.loadPackageReference(at: override.version)
             finalAssignments.append(.init(
                     package: updatePackage,
@@ -291,7 +297,7 @@ public struct PubGrubDependencyResolver {
     private func processInputs(
         root: DependencyResolutionNode,
         with constraints: [Constraint]
-    ) throws -> (
+    ) async throws -> (
         overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)],
         rootIncompatibilities: [Incompatibility]
     ) {
@@ -334,8 +340,12 @@ public struct PubGrubDependencyResolver {
                 // We collect all version-based dependencies in a separate structure so they can
                 // be process at the end. This allows us to override them when there is a non-version
                 // based (unversioned/branch-based) constraint present in the graph.
-                // TODO: replace with async/await when available
-                let container = try temp_await { provider.getContainer(for: node.package, completion: $0) }
+                let container = try await withCheckedThrowingContinuation {
+                    self.provider.getContainer(
+                        for: node.package,
+                        completion: $0.resume(with:)
+                    )
+                }
                 for dependency in try container.underlying.getUnversionedDependencies(productFilter: node.productFilter) {
                     if let versionedBasedConstraints = VersionBasedConstraint.constraints(dependency) {
                         for constraint in versionedBasedConstraints {
@@ -382,8 +392,9 @@ public struct PubGrubDependencyResolver {
 
             // Process dependencies of this package, similar to the first phase but branch-based dependencies
             // are not allowed to contain local/unversioned packages.
-            // TODO: replace with async/await when avail
-            let container = try temp_await { provider.getContainer(for: package, completion: $0) }
+            let container = try await withCheckedThrowingContinuation {
+                self.provider.getContainer(for: package, completion: $0.resume(with:))
+            }
 
             // If there is a pin for this revision-based dependency, get
             // the dependencies at the pinned revision instead of using
@@ -466,7 +477,7 @@ public struct PubGrubDependencyResolver {
     /// decisions if nothing else is left to be done.
     /// After this method returns `solution` is either populated with a list of
     /// final version assignments or an error is thrown.
-    private func run(state: State) throws {
+    private func run(state: State) async throws {
         var next: DependencyResolutionNode? = state.root
 
         while let nxt = next {
@@ -477,8 +488,9 @@ public struct PubGrubDependencyResolver {
 
             // If decision making determines that no more decisions are to be
             // made, it returns nil to signal that version solving is done.
-            // TODO: replace with async/await when available
-            next = try temp_await { self.makeDecision(state: state, completion: $0) }
+            next = try await withCheckedThrowingContinuation {
+                self.makeDecision(state: state, completion: $0.resume(with:))
+            }
         }
     }
 

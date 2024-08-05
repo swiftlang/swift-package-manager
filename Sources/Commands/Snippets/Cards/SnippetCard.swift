@@ -67,7 +67,7 @@ struct SnippetCard: Card {
         return "\nRun this snippet? [R: run, or press Enter to return]"
     }
 
-    func acceptLineInput<S>(_ line: S) -> CardEvent? where S : StringProtocol {
+    func acceptLineInput<S>(_ line: S) async -> CardEvent? where S : StringProtocol {
         let trimmed = line.drop { $0.isWhitespace }.prefix { !$0.isWhitespace }.lowercased()
         guard !trimmed.isEmpty else {
             return .pop()
@@ -76,7 +76,7 @@ struct SnippetCard: Card {
         switch trimmed {
         case "r", "run":
             do {
-                try runExample()
+                try await runExample()
             } catch {
                 return .pop(SnippetCard.Error.cantRunSnippet(reason: error.localizedDescription))
             }
@@ -91,9 +91,9 @@ struct SnippetCard: Card {
         return .pop()
     }
 
-    func runExample() throws {
+    func runExample() async throws {
         print("Building '\(snippet.path)'\n")
-        let buildSystem = try swiftCommandState.createBuildSystem(explicitProduct: snippet.name, traitConfiguration: .init())
+        let buildSystem = try await swiftCommandState.createBuildSystem(explicitProduct: snippet.name, traitConfiguration: .init())
         try buildSystem.build(subset: .product(snippet.name))
         let executablePath = try swiftCommandState.productsBuildParameters.buildPath.appending(component: snippet.name)
         if let exampleTarget = try buildSystem.getPackageGraph().module(for: snippet.name, destination: .destination) {

@@ -18,7 +18,7 @@ import PackageGraph
 import Workspace
 
 extension SwiftPackageCommand {
-    struct Update: SwiftCommand {
+    struct Update: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Update package dependencies")
         
@@ -32,10 +32,10 @@ extension SwiftPackageCommand {
         @Argument(help: "The packages to update")
         var packages: [String] = []
         
-        func run(_ swiftCommandState: SwiftCommandState) throws {
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
             let workspace = try swiftCommandState.getActiveWorkspace()
             
-            let changes = try workspace.updateDependencies(
+            let changes = try await workspace.updateDependencies(
                 root: swiftCommandState.getWorkspaceRoot(),
                 packages: packages,
                 dryRun: dryRun,

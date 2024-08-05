@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
+import _Concurrency
 import PackageModel
 import _InternalTestSupport
 @testable import SourceControl
@@ -697,7 +698,7 @@ extension RepositoryManager {
         updateStrategy: RepositoryUpdateStrategy = .always,
         observabilityScope: ObservabilityScope
     ) async throws -> RepositoryHandle {
-        return try await safe_async {
+        return try await withCheckedThrowingContinuation {
             self.lookup(
                 package: .init(url: SourceControlURL(repository.url)),
                 repository: repository,
@@ -705,7 +706,7 @@ extension RepositoryManager {
                 observabilityScope: observabilityScope,
                 delegateQueue: .sharedConcurrent,
                 callbackQueue: .sharedConcurrent,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }

@@ -16,7 +16,6 @@ import var Basics.localFileSystem
 import struct Basics.AbsolutePath
 import enum Basics.TestingLibrary
 import struct Basics.Triple
-import func Basics.temp_await
 
 import struct Foundation.URL
 

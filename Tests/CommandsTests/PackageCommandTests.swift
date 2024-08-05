@@ -794,7 +794,7 @@ final class PackageCommandTests: CommandsTestCase {
         }
     }
 
-    func testPackageAddDependency() async throws {
+    func testPackageAddURLDependency() async throws {
         try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("PackageB")
@@ -811,15 +811,168 @@ final class PackageCommandTests: CommandsTestCase {
                 """
             )
 
-            _ = try await execute(["add-dependency", "--branch", "main", "https://github.com/swiftlang/swift-syntax.git"], packagePath: path)
+            _ = try await execute(
+                [
+                    "add-dependency",
+                    "https://github.com/swiftlang/swift-syntax.git",
+                    "--exact",
+                    "1.0.0",
+                ],
+                packagePath: path
+            )
+
+            _ = try await execute(
+                [
+                    "add-dependency",
+                    "https://github.com/swiftlang/swift-syntax.git",
+                    "--branch",
+                    "main",
+                ],
+                packagePath: path
+            )
+
+            _ = try await execute(
+                [
+                    "add-dependency",
+                    "https://github.com/swiftlang/swift-syntax.git",
+                    "--revision",
+                    "58e9de4e7b79e67c72a46e164158e3542e570ab6",
+                ],
+                packagePath: path
+            )
+
+            _ = try await execute(
+                [
+                    "add-dependency",
+                    "https://github.com/swiftlang/swift-syntax.git",
+                    "--from",
+                    "1.0.0",
+                ],
+                packagePath: path
+            )
+
+            _ = try await execute(
+                [
+                    "add-dependency",
+                    "https://github.com/swiftlang/swift-syntax.git",
+                    "--up-to-next-minor-from",
+                    "1.0.0",
+                ],
+                packagePath: path
+            )
+
 
             let manifest = path.appending("Package.swift")
             XCTAssertFileExists(manifest)
             let contents: String = try fs.readFileContents(manifest)
 
+            XCTAssertMatch(contents, .contains(#".package(url: "https://github.com/swiftlang/swift-syntax.git", exact: "1.0.0"),"#))
             XCTAssertMatch(contents, .contains(#".package(url: "https://github.com/swiftlang/swift-syntax.git", branch: "main"),"#))
+            XCTAssertMatch(contents, .contains(#".package(url: "https://github.com/swiftlang/swift-syntax.git", revision: "58e9de4e7b79e67c72a46e164158e3542e570ab6"),"#))
+            XCTAssertMatch(contents, .contains(#".package(url: "https://github.com/swiftlang/swift-syntax.git", from: "1.0.0"),"#))
+            XCTAssertMatch(contents, .contains(#".package(url: "https://github.com/swiftlang/swift-syntax.git", "1.0.0" ..< "1.1.0"),"#))
         }
     }
+
+    func testPackageAddPathDependency() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(path.appending("Package.swift"), string:
+                """
+                // swift-tools-version: 5.9
+                import PackageDescription
+                let package = Package(
+                    name: "client",
+                    targets: [ .target(name: "client", dependencies: [ "library" ]) ]
+                )
+                """
+            )
+
+            _ = try await execute(
+                [
+                    "add-dependency",
+                    "/directory",
+                    "--type",
+                    "path"
+
+                ],
+                packagePath: path
+            )
+
+            let manifest = path.appending("Package.swift")
+            XCTAssertFileExists(manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            XCTAssertMatch(contents, .contains(#".package(path: "/directory"),"#))
+        }
+    }
+
+    func testPackageAddRegistryDependency() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(path.appending("Package.swift"), string:
+                """
+                // swift-tools-version: 5.9
+                import PackageDescription
+                let package = Package(
+                    name: "client",
+                    targets: [ .target(name: "client", dependencies: [ "library" ]) ]
+                )
+                """
+            )
+
+            _ = try await execute(
+                [
+                    "add-dependency",
+                    "scope.name",
+                    "--type",
+                    "registry",
+                    "--exact",
+                    "1.0.0",
+                ],
+                packagePath: path
+            )
+
+            _ = try await execute(
+                [
+                    "add-dependency",
+                    "scope.name",
+                    "--type",
+                    "registry",
+                    "--from",
+                    "1.0.0",
+                ],
+                packagePath: path
+            )
+
+            _ = try await execute(
+                [
+                    "add-dependency",
+                    "scope.name",
+                    "--type",
+                    "registry",
+                    "--up-to-next-minor-from",
+                    "1.0.0",
+                ],
+                packagePath: path
+            )
+
+            let manifest = path.appending("Package.swift")
+            XCTAssertFileExists(manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            XCTAssertMatch(contents, .contains(#".package(id: "scope.name", exact: "1.0.0"),"#))
+            XCTAssertMatch(contents, .contains(#".package(id: "scope.name", from: "1.0.0"),"#))
+            XCTAssertMatch(contents, .contains(#".package(id: "scope.name", "1.0.0" ..< "1.1.0"),"#))
+        }
+    }
+
 
     func testPackageAddTarget() async throws {
         try await testWithTemporaryDirectory { tmpPath in
@@ -3429,7 +3582,10 @@ final class PackageCommandTests: CommandsTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let _ = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            let _ = try await workspace.loadPackageGraph(
+                rootInput: rootInput,
+                observabilityScope: observability.topScope
+            )
             XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }

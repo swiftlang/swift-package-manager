@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import PackageModel
 import Basics
 
@@ -90,23 +91,23 @@ public protocol PackageCollectionsStorage {
 
 public extension PackageCollectionsStorage {
     func put(collection: PackageCollectionsModel.Collection) async throws -> PackageCollectionsModel.Collection {
-        try await safe_async {
-            self.put(collection: collection, callback: $0)
+        try await withCheckedThrowingContinuation {
+            self.put(collection: collection, callback: $0.resume(with:))
         }
     }
     func remove(identifier: PackageCollectionsModel.CollectionIdentifier) async throws {
-        try await safe_async {
-            self.remove(identifier: identifier, callback: $0)
+        try await withCheckedThrowingContinuation {
+            self.remove(identifier: identifier, callback: $0.resume(with:))
         }
     }
     func get(identifier: PackageCollectionsModel.CollectionIdentifier) async throws -> PackageCollectionsModel.Collection {
-        try await safe_async {
-            self.get(identifier: identifier, callback: $0)
+        try await withCheckedThrowingContinuation {
+            self.get(identifier: identifier, callback: $0.resume(with:))
         }
     }
     func list(identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil) async throws -> [PackageCollectionsModel.Collection] {
-        try await safe_async {
-            self.list(identifiers: identifiers, callback: $0)
+        try await withCheckedThrowingContinuation {
+            self.list(identifiers: identifiers, callback: $0.resume(with:))
         }
     }
 
@@ -114,16 +115,16 @@ public extension PackageCollectionsStorage {
         identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil,
         query: String
     ) async throws -> PackageCollectionsModel.PackageSearchResult {
-        try await safe_async {
-            self.searchPackages(identifiers: identifiers, query: query, callback: $0)
+        try await withCheckedThrowingContinuation {
+            self.searchPackages(identifiers: identifiers, query: query, callback: $0.resume(with:))
         }
     }
     func findPackage(
         identifier: PackageIdentity,
         collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil
     ) async throws -> (packages: [PackageCollectionsModel.Package], collections: [PackageCollectionsModel.CollectionIdentifier]) {
-        try await safe_async {
-            self.findPackage(identifier: identifier, collectionIdentifiers: collectionIdentifiers, callback: $0)
+        try await withCheckedThrowingContinuation {
+            self.findPackage(identifier: identifier, collectionIdentifiers: collectionIdentifiers, callback: $0.resume(with:))
         }
     }
 
@@ -132,8 +133,8 @@ public extension PackageCollectionsStorage {
         query: String,
         type: PackageCollectionsModel.TargetSearchType
     ) async throws -> PackageCollectionsModel.TargetSearchResult {
-        try await safe_async {
-            self.searchTargets(identifiers: identifiers, query: query, type: type, callback: $0)
+        try await withCheckedThrowingContinuation {
+            self.searchTargets(identifiers: identifiers, query: query, type: type, callback: $0.resume(with:))
         }
     }
 }
