@@ -425,7 +425,9 @@ final class PackageStructureCommand: CustomLLBuildCommand {
         _: SPMLLBuild.Command,
         _: SPMLLBuild.BuildSystemCommandInterface
     ) -> Bool {
-        self.context.packageStructureDelegate.packageStructureChanged()
+        unsafe_await {
+            await self.context.packageStructureDelegate.packageStructureChanged()
+        }
     }
 }
 

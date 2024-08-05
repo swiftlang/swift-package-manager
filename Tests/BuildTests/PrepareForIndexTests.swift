@@ -23,10 +23,10 @@ import class PackageModel.Manifest
 import struct PackageModel.TargetDescription
 
 class PrepareForIndexTests: XCTestCase {
-    func testPrepare() throws {
+    func testPrepare() async throws {
         let (graph, fs, scope) = try macrosPackageGraph()
 
-        let plan = try BuildPlan(
+        let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(destination: .target, prepareForIndexing: .on),
             toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: .off),
             graph: graph,
@@ -68,10 +68,10 @@ class PrepareForIndexTests: XCTestCase {
         )
     }
 
-    func testCModuleTarget() throws {
+    func testCModuleTarget() async throws {
         let (graph, fs, scope) = try trivialPackageGraph()
 
-        let plan = try BuildPlan(
+        let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(destination: .target, prepareForIndexing: .on),
             toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: .off),
             graph: graph,
@@ -88,7 +88,7 @@ class PrepareForIndexTests: XCTestCase {
     }
 
     // enable-testing requires the non-exportable-decls, make sure they aren't skipped.
-    func testEnableTesting() throws {
+    func testEnableTesting() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/lib/lib.swift",
@@ -115,7 +115,7 @@ class PrepareForIndexTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         // Under debug, enable-testing is turned on by default. Make sure the flag is not added.
-        let debugPlan = try BuildPlan(
+        let debugPlan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(destination: .target, config: .debug, prepareForIndexing: .on),
             toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: .off),
             graph: graph,
@@ -136,7 +136,7 @@ class PrepareForIndexTests: XCTestCase {
         }))
 
         // Under release, enable-testing is turned off by default so we should see our flag
-        let releasePlan = try BuildPlan(
+        let releasePlan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(destination: .target, config: .release, prepareForIndexing: .on),
             toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: .off),
             graph: graph,
@@ -157,10 +157,10 @@ class PrepareForIndexTests: XCTestCase {
         }).count, 1)
     }
 
-    func testPrepareNoLazy() throws {
+    func testPrepareNoLazy() async throws {
         let (graph, fs, scope) = try macrosPackageGraph()
 
-        let plan = try BuildPlan(
+        let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(destination: .target, prepareForIndexing: .noLazy),
             toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: .off),
             graph: graph,

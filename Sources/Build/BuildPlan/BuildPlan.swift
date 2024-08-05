@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import Basics
 import Foundation
 import LLBuildManifest
@@ -250,8 +251,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         graph: ModulesGraph,
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope
-    ) throws {
-        try self.init(
+    ) async throws {
+        try await self.init(
             destinationBuildParameters: productsBuildParameters,
             toolsBuildParameters: toolsBuildParameters,
             graph: graph,
@@ -274,7 +275,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         disableSandbox: Bool = false,
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope
-    ) throws {
+    ) async throws {
         self.destinationBuildParameters = destinationBuildParameters
         self.toolsBuildParameters = toolsBuildParameters
         self.graph = graph
@@ -295,7 +296,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         var pluginDescriptions = [PluginBuildDescription]()
         var shouldGenerateTestObservation = true
 
-        try Self.computeDestinations(
+        try await Self.computeDestinations(
             graph: graph,
             onProduct: { product, destination in
                 if !product.shouldCreateProductDescription {
@@ -344,7 +345,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 }
 
                 if let pluginConfiguration, !buildParameters.shouldSkipBuilding {
-                    let pluginInvocationResults = try Self.invokeBuildToolPlugins(
+                    let pluginInvocationResults = try await Self.invokeBuildToolPlugins(
                         for: module,
                         configuration: pluginConfiguration,
                         buildParameters: toolsBuildParameters,
@@ -737,7 +738,7 @@ extension BuildPlan {
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope,
         surfaceDiagnostics: Bool = false
-    ) throws -> [BuildToolPluginInvocationResult] {
+    ) async throws -> [BuildToolPluginInvocationResult] {
         let outputDir = configuration.workDirectory.appending("outputs")
 
         /// Determine the package that contains the target.
@@ -799,7 +800,7 @@ extension BuildPlan {
                 pluginDerivedResources = []
             }
 
-            let result = try temp_await {
+            let result = try await withCheckedThrowingContinuation {
                 pluginModule.invoke(
                     module: plugin,
                     action: .createBuildToolCommands(
@@ -822,7 +823,7 @@ extension BuildPlan {
                     fileSystem: fileSystem,
                     modulesGraph: modulesGraph,
                     observabilityScope: observabilityScope,
-                    completion: $0
+                    completion: $0.resume(with:)
                 )
             }
 
@@ -916,8 +917,8 @@ extension BuildPlan {
     fileprivate static func computeDestinations(
         graph: ModulesGraph,
         onProduct: (ResolvedProduct, Destination) throws -> Void,
-        onModule: (ResolvedModule, Destination) throws -> Void
-    ) rethrows {
+        onModule: (ResolvedModule, Destination) async throws -> Void
+    ) async rethrows {
         enum Node: Hashable {
             case package(ResolvedPackage)
             case product(ResolvedProduct, Destination)
@@ -1023,7 +1024,7 @@ extension BuildPlan {
             }
         }
 
-        try depthFirstSearch(graph.packages.map { Node.package($0) }) { node in
+        try await depthFirstSearch(graph.packages.map { Node.package($0) }) { node in
             switch node {
             case .package(let package):
                 successors(for: package)
@@ -1040,7 +1041,7 @@ extension BuildPlan {
                 try onProduct(product, destination)
 
             case .module(let module, let destination):
-                try onModule(module, destination)
+                try await onModule(module, destination)
             }
         } onDuplicate: { _, _ in
             // No de-duplication is necessary we only want unique nodes.

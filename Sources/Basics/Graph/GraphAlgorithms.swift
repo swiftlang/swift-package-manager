@@ -59,8 +59,8 @@ public func depthFirstSearch<T: Hashable>(
 public func depthFirstSearch<T: Hashable>(
     _ nodes: [T],
     successors: (T) async throws -> [T],
-    onUnique: (T) -> Void,
-    onDuplicate: (T, T) -> Void
+    onUnique: (T) async throws -> Void,
+    onDuplicate: (T, T) async -> Void
 ) async rethrows {
     var stack = OrderedSet<T>()
     var visited = Set<T>()
@@ -74,9 +74,9 @@ public func depthFirstSearch<T: Hashable>(
 
             let visitResult = visited.insert(curr)
             if visitResult.inserted {
-                onUnique(curr)
+                try await onUnique(curr)
             } else {
-                onDuplicate(visitResult.memberAfterInsert, curr)
+                await onDuplicate(visitResult.memberAfterInsert, curr)
                 continue
             }
 

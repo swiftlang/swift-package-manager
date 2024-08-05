@@ -131,7 +131,7 @@ public final class BuildExecutionContext {
 }
 
 public protocol PackageStructureDelegate {
-    func packageStructureChanged() -> Bool
+    func packageStructureChanged() async -> Bool
 }
 
 /// Convenient llbuild build system delegate implementation

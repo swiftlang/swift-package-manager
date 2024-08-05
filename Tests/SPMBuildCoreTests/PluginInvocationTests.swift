@@ -32,7 +32,7 @@ import struct Build.PluginConfiguration
 import struct TSCUtility.SerializedDiagnostics
 
 final class PluginInvocationTests: XCTestCase {
-    func testBasics() throws {
+    func testBasics() async throws {
         // Construct a canned file system and package graph with a single package and a library that uses a build tool plugin that invokes a tool.
         let fileSystem = InMemoryFileSystem(emptyFiles:
             "/Foo/Plugins/FooPlugin/source.swift",
@@ -216,7 +216,7 @@ final class PluginInvocationTests: XCTestCase {
             environment: BuildEnvironment(platform: .macOS, configuration: .debug)
         )
 
-        let results = try invokeBuildToolPlugins(
+        let results = try await invokeBuildToolPlugins(
             graph: graph,
             buildParameters: buildParameters,
             fileSystem: fileSystem,
@@ -914,7 +914,7 @@ final class PluginInvocationTests: XCTestCase {
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 )
 
-                let result = try invokeBuildToolPlugins(
+                let result = try await invokeBuildToolPlugins(
                     graph: packageGraph,
                     buildParameters: buildParameters,
                     fileSystem: localFileSystem,
@@ -1268,7 +1268,7 @@ final class PluginInvocationTests: XCTestCase {
                 environment: BuildEnvironment(platform: .macOS, configuration: .debug)
             )
 
-            return try invokeBuildToolPlugins(
+            return try await invokeBuildToolPlugins(
                 graph: packageGraph,
                 buildParameters: buildParameters,
                 fileSystem: localFileSystem,
@@ -1331,7 +1331,7 @@ final class PluginInvocationTests: XCTestCase {
         outputDir: AbsolutePath,
         pluginScriptRunner: PluginScriptRunner,
         observabilityScope: ObservabilityScope
-    ) throws -> [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] {
+    ) async throws -> [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] {
         let pluginsPerModule = graph.pluginsPerModule(
             satisfying: buildParameters.buildEnvironment
         )
@@ -1354,7 +1354,7 @@ final class PluginInvocationTests: XCTestCase {
         for (moduleID, _) in pluginsPerModule {
             let module = graph.allModules[moduleID]!
 
-            let results = try BuildPlan.invokeBuildToolPlugins(
+            let results = try await BuildPlan.invokeBuildToolPlugins(
                 for: module,
                 configuration: pluginConfiguration,
                 buildParameters: buildParameters,

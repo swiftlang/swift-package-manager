@@ -161,8 +161,8 @@ public func mockBuildPlan(
     targetSanitizers: EnabledSanitizers = .init(),
     fileSystem fs: any FileSystem,
     observabilityScope: ObservabilityScope
-) throws -> Build.BuildPlan {
-    try mockBuildPlan(
+) async throws -> Build.BuildPlan {
+    try await mockBuildPlan(
         buildPath: buildPath,
         config: environment.configuration ?? .debug,
         platform: environment.platform,
@@ -194,7 +194,7 @@ public func mockBuildPlan(
     targetSanitizers: EnabledSanitizers = .init(),
     fileSystem fs: any FileSystem,
     observabilityScope: ObservabilityScope
-) throws -> Build.BuildPlan {
+) async throws -> Build.BuildPlan {
     let inferredTriple: Basics.Triple
     if let platform {
         precondition(triple == nil)
@@ -248,7 +248,7 @@ public func mockBuildPlan(
     hostParameters.driverParameters = driverParameters
     hostParameters.linkingParameters = linkingParameters
 
-    return try BuildPlan(
+    return try await BuildPlan(
         destinationBuildParameters: destinationParameters,
         toolsBuildParameters: hostParameters,
         graph: graph,

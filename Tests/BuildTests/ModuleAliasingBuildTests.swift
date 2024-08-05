@@ -25,7 +25,7 @@ import Workspace
 import XCTest
 
 final class ModuleAliasingBuildTests: XCTestCase {
-    func testModuleAliasingEmptyAlias() throws {
+    func testModuleAliasingEmptyAlias() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -75,7 +75,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         }
     }
 
-    func testModuleAliasingInvalidIdentifierAlias() throws {
+    func testModuleAliasingInvalidIdentifierAlias() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -128,7 +128,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         }
     }
 
-    func testModuleAliasingDuplicateProductNames() throws {
+    func testModuleAliasingDuplicateProductNames() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -187,7 +187,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -207,7 +207,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
     }
 
-    func testModuleAliasingDuplicateDylibProductNames() throws {
+    func testModuleAliasingDuplicateDylibProductNames() async throws {
         let fooPkg: AbsolutePath = "/fooPkg"
         let barPkg: AbsolutePath = "/barPkg"
         let fs = InMemoryFileSystem(
@@ -269,7 +269,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         }
     }
 
-    func testModuleAliasingDuplicateDylibStaticLibProductNames() throws {
+    func testModuleAliasingDuplicateDylibStaticLibProductNames() async throws {
         let fooPkg: AbsolutePath = "/fooPkg"
         let barPkg: AbsolutePath = "/barPkg"
         let fs = InMemoryFileSystem(
@@ -331,7 +331,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         }
     }
 
-    func testModuleAliasingDuplicateDylibAutomaticProductNames() throws {
+    func testModuleAliasingDuplicateDylibAutomaticProductNames() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -391,7 +391,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -418,7 +418,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         #endif
     }
 
-    func testModuleAliasingDuplicateStaticLibAutomaticProductNames() throws {
+    func testModuleAliasingDuplicateStaticLibAutomaticProductNames() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -477,7 +477,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -504,7 +504,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         #endif
     }
 
-    func testModuleAliasingDuplicateProductNamesUpstream() throws {
+    func testModuleAliasingDuplicateProductNamesUpstream() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -605,7 +605,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -637,7 +637,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         #endif
     }
 
-    func testModuleAliasingDirectDeps() throws {
+    func testModuleAliasingDirectDeps() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -703,7 +703,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -766,7 +766,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         #endif
     }
 
-    func testModuleAliasingDuplicateTargetNameInUpstream() throws {
+    func testModuleAliasingDuplicateTargetNameInUpstream() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -823,7 +823,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -876,7 +876,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         #endif
     }
 
-    func testModuleAliasingMultipleAliasesInProduct() throws {
+    func testModuleAliasingMultipleAliasesInProduct() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -940,7 +940,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         }
     }
 
-    func testModuleAliasingSameNameTargetsWithAliasesInMultiProducts() throws {
+    func testModuleAliasingSameNameTargetsWithAliasesInMultiProducts() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/appPkg/Sources/App/main.swift",
@@ -999,7 +999,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -1022,7 +1022,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
     }
 
-    func testModuleAliasingInvalidSourcesUpstream() throws {
+    func testModuleAliasingInvalidSourcesUpstream() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -1077,7 +1077,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         }
     }
 
-    func testModuleAliasingInvalidSourcesNestedUpstream() throws {
+    func testModuleAliasingInvalidSourcesNestedUpstream() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -1148,7 +1148,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         }
     }
 
-    func testModuleAliasingInvalidSourcesInNonAliasedModulesUpstream() throws {
+    func testModuleAliasingInvalidSourcesInNonAliasedModulesUpstream() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -1200,7 +1200,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         ))
     }
 
-    func testModuleAliasingInvalidSourcesInNonAliasedModulesNestedUpstream() throws {
+    func testModuleAliasingInvalidSourcesInNonAliasedModulesNestedUpstream() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -1268,7 +1268,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         ))
     }
 
-    func testModuleAliasingDuplicateTargetNameInNestedUpstream() throws {
+    func testModuleAliasingDuplicateTargetNameInNestedUpstream() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -1330,7 +1330,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -1356,7 +1356,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
     }
 
-    func testModuleAliasingOverrideMultipleAliases() throws {
+    func testModuleAliasingOverrideMultipleAliases() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -1437,7 +1437,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -1473,7 +1473,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "BarLogging" })
     }
 
-    func testModuleAliasingAliasSkipUpstreamTargets() throws {
+    func testModuleAliasingAliasSkipUpstreamTargets() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/appPkg/Sources/App/main.swift",
@@ -1640,7 +1640,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -1688,7 +1688,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
     }
 
-    func testModuleAliasingAllConflictingAliasesFromMultiProducts() throws {
+    func testModuleAliasingAllConflictingAliasesFromMultiProducts() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/aPkg/Sources/A/main.swift",
@@ -1817,7 +1817,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -1892,7 +1892,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
     }
 
-    func testModuleAliasingSomeConflictingAliasesInMultiProducts() throws {
+    func testModuleAliasingSomeConflictingAliasesInMultiProducts() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/aPkg/Sources/A/main.swift",
@@ -2032,7 +2032,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -2104,7 +2104,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
     }
 
-    func testModuleAliasingMergeAliasesOfSameTargets() throws {
+    func testModuleAliasingMergeAliasesOfSameTargets() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/aPkg/Sources/A/main.swift",
@@ -2251,7 +2251,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -2321,7 +2321,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
     }
 
-    func testModuleAliasingOverrideSameNameTargetAndDepWithAliases() throws {
+    func testModuleAliasingOverrideSameNameTargetAndDepWithAliases() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/appPkg/Sources/App/main.swift",
@@ -2430,7 +2430,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -2474,7 +2474,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "GameUtils" })
     }
 
-    func testModuleAliasingAddOverrideAliasesUpstream() throws {
+    func testModuleAliasingAddOverrideAliasesUpstream() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/appPkg/Sources/App/main.swift",
@@ -2576,7 +2576,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -2612,7 +2612,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
     }
 
-    func testModuleAliasingOverrideUpstreamTargetsWithAliases() throws {
+    func testModuleAliasingOverrideUpstreamTargetsWithAliases() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/appPkg/Sources/App/main.swift",
@@ -2721,7 +2721,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -2761,7 +2761,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
     }
 
-    func testModuleAliasingOverrideUpstreamTargetsWithAliasesMultipleAliasesInProduct() throws {
+    func testModuleAliasingOverrideUpstreamTargetsWithAliasesMultipleAliasesInProduct() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/appPkg/Sources/App/main.swift",
@@ -2873,7 +2873,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -2913,7 +2913,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
     }
 
-    func testModuleAliasingOverrideUpstreamTargetsWithAliasesDownstream() throws {
+    func testModuleAliasingOverrideUpstreamTargetsWithAliasesDownstream() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/appPkg/Sources/App/main.swift",
@@ -3027,7 +3027,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -3071,7 +3071,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
     }
 
-    func testModuleAliasingSameTargetFromUpstreamWithoutAlias() throws {
+    func testModuleAliasingSameTargetFromUpstreamWithoutAlias() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -3142,7 +3142,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -3172,7 +3172,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
     }
 
-    func testModuleAliasingDuplicateTargetNamesFromMultiplePkgs() throws {
+    func testModuleAliasingDuplicateTargetNamesFromMultiplePkgs() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -3255,7 +3255,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -3289,7 +3289,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
     }
 
-    func testModuleAliasingTargetAndProductTargetWithSameName() throws {
+    func testModuleAliasingTargetAndProductTargetWithSameName() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/appPkg/Sources/App/main.swift",
@@ -3335,7 +3335,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -3357,7 +3357,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
     }
 
-    func testModuleAliasingProductTargetsWithSameName1() throws {
+    func testModuleAliasingProductTargetsWithSameName1() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/appPkg/Sources/App/main.swift",
@@ -3483,7 +3483,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -3517,7 +3517,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases == nil })
     }
 
-    func testModuleAliasingUpstreamProductTargetsWithSameName2() throws {
+    func testModuleAliasingUpstreamProductTargetsWithSameName2() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/appPkg/Sources/App/main.swift",
@@ -3659,7 +3659,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -3691,7 +3691,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases == nil })
     }
 
-    func testModuleAliasingUpstreamProductTargetsWithSameName3() throws {
+    func testModuleAliasingUpstreamProductTargetsWithSameName3() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/appPkg/Sources/App/main.swift",
@@ -3794,7 +3794,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -3821,7 +3821,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
     }
 
-    func testModuleAliasingUpstreamProductTargetsWithSameName4() throws {
+    func testModuleAliasingUpstreamProductTargetsWithSameName4() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/appPkg/Sources/App/main.swift",
@@ -3924,7 +3924,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -3951,7 +3951,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases == nil })
     }
 
-    func testModuleAliasingChainedAliases1() throws {
+    func testModuleAliasingChainedAliases1() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/appPkg/Sources/App/main.swift",
@@ -4067,7 +4067,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -4110,7 +4110,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
     }
 
-    func testModuleAliasingChainedAliases2() throws {
+    func testModuleAliasingChainedAliases2() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/appPkg/Sources/App/main.swift",
@@ -4241,7 +4241,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -4278,7 +4278,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
     }
 
-    func testModuleAliasingChainedAliases3() throws {
+    func testModuleAliasingChainedAliases3() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/appPkg/Sources/App/main.swift",
@@ -4413,7 +4413,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -4457,7 +4457,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases == nil })
     }
 
-    func testModuleAliasingChainedAliases5() throws {
+    func testModuleAliasingChainedAliases5() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/appPkg/Sources/App/main.swift",
@@ -4582,7 +4582,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -4619,7 +4619,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
     }
 
-    func testProductAliasingDoesNotBreakPackagesWithOlderToolsVersions() throws {
+    func testProductAliasingDoesNotBreakPackagesWithOlderToolsVersions() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Lunch/Sources/MyTarget/file.swift",
@@ -4679,7 +4679,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: try mockBuildPlan(
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -4690,7 +4690,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         result.checkTargetsCount(3)
     }
 
-    func testProductAliasingWarnsIfPackageWithOlderToolsVersionIsPossibleCauseOfConflict() throws {
+    func testProductAliasingWarnsIfPackageWithOlderToolsVersionIsPossibleCauseOfConflict() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Lunch/Sources/MyTarget/file.swift",

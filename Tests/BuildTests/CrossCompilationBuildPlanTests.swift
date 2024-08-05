@@ -40,7 +40,7 @@ import func _InternalTestSupport.XCTAssertNoDiagnostics
 import XCTest
 
 final class CrossCompilationBuildPlanTests: XCTestCase {
-    func testEmbeddedWasmTarget() throws {
+    func testEmbeddedWasmTarget() async throws {
         var (graph, fs, observabilityScope) = try trivialPackageGraph()
 
         let triple = try Triple("wasm32-unknown-none-wasm")
@@ -49,7 +49,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
             shouldLinkStaticSwiftStdlib: true
         )
 
-        var result = try BuildPlanResult(plan: mockBuildPlan(
+        var result = try await BuildPlanResult(plan: mockBuildPlan(
             triple: triple,
             graph: graph,
             linkingParameters: linkingParameters,
@@ -78,7 +78,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
 
         (graph, fs, observabilityScope) = try embeddedCxxInteropPackageGraph()
 
-        result = try BuildPlanResult(plan: mockBuildPlan(
+        result = try await BuildPlanResult(plan: mockBuildPlan(
             triple: triple,
             graph: graph,
             linkingParameters: linkingParameters,
@@ -106,10 +106,10 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         )
     }
 
-    func testWasmTargetRelease() throws {
+    func testWasmTargetRelease() async throws {
         let (graph, fs, observabilityScope) = try trivialPackageGraph()
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             config: .release,
             triple: .wasi,
             graph: graph,
@@ -138,12 +138,12 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         )
     }
 
-    func testWASITarget() throws {
+    func testWASITarget() async throws {
         let pkgPath = AbsolutePath("/Pkg")
 
         let (graph, fs, observabilityScope) = try trivialPackageGraph()
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             triple: .wasi,
             graph: graph,
             linkingParameters: .init(
@@ -224,12 +224,12 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         XCTAssertEqual(testPathExtension, "wasm")
     }
 
-    func testMacros() throws {
+    func testMacros() async throws {
         let (graph, fs, scope) = try macrosPackageGraph()
 
         let destinationTriple = Triple.arm64Linux
         let toolsTriple = Triple.x86_64MacOS
-        let plan = try BuildPlan(
+        let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
                 destination: .target,
                 shouldLinkStaticSwiftStdlib: true,
@@ -276,12 +276,12 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         )
     }
 
-    func testMacrosTests() throws {
+    func testMacrosTests() async throws {
         let (graph, fs, scope) = try macrosTestsPackageGraph()
 
         let destinationTriple = Triple.arm64Linux
         let toolsTriple = Triple.x86_64MacOS
-        let plan = try BuildPlan(
+        let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
                 destination: .target,
                 shouldLinkStaticSwiftStdlib: true,
@@ -330,13 +330,13 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         )
     }
 
-    func testToolsExplicitLibraries() throws {
+    func testToolsExplicitLibraries() async throws {
         let destinationTriple = Triple.arm64Linux
         let toolsTriple = Triple.x86_64MacOS
 
         for (linkage, productFileName) in [(ProductType.LibraryType.static, "libSwiftSyntax-tool.a"), (.dynamic, "libSwiftSyntax-tool.dylib")] {
             let (graph, fs, scope) = try toolsExplicitLibrariesGraph(linkage: linkage)
-            let plan = try BuildPlan(
+            let plan = try await BuildPlan(
                 destinationBuildParameters: mockBuildParameters(
                     destination: .target,
                     shouldLinkStaticSwiftStdlib: true,

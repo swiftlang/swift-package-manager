@@ -878,7 +878,7 @@ extension Workspace {
     }
 
     @discardableResult
-    package func loadPackageGraph(
+    public func loadPackageGraph(
         rootInput root: PackageGraphRootInput,
         explicitProduct: String? = nil,
         forceResolvedVersions: Bool = false,
@@ -897,31 +897,6 @@ extension Workspace {
             expectedSigningEntities: expectedSigningEntities,
             observabilityScope: observabilityScope
         )
-    }
-
-    @available(*, deprecated, message: "Use the async alternative")
-    @discardableResult
-    public func loadPackageGraph(
-        rootInput root: PackageGraphRootInput,
-        explicitProduct: String? = nil,
-        forceResolvedVersions: Bool = false,
-        customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
-        testEntryPointPath: AbsolutePath? = nil,
-        expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
-        observabilityScope: ObservabilityScope
-    ) throws -> ModulesGraph {
-        try unsafe_await {
-            try await self.loadPackageGraph(
-                rootInput: root,
-                explicitProduct:explicitProduct,
-                traitConfiguration: nil,
-                forceResolvedVersions: forceResolvedVersions,
-                customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
-                testEntryPointPath: testEntryPointPath,
-                expectedSigningEntities: expectedSigningEntities,
-                observabilityScope: observabilityScope
-            )
-        }
     }
 
     @discardableResult
