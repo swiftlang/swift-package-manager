@@ -68,7 +68,7 @@ let rootNode = DependencyResolutionNode.root(package: rootRef)
 let rootCause = try! Incompatibility(Term(rootNode, .exact(v1)), root: rootNode)
 let _cause = try! Incompatibility("cause@0.0.0", root: rootNode)
 
-final class PubgrubTests: XCTestCase {
+final class PubGrubTests: XCTestCase {
     func testTermInverse() {
         let a = Term("a@1.0.0")
         XCTAssertFalse(a.inverse.isPositive)
@@ -541,7 +541,7 @@ final class PubgrubTests: XCTestCase {
         )
 
         XCTAssertThrowsError(try solver.resolve(state: state, conflict: conflict)) { error in
-            XCTAssertTrue(error is PubGrubDependencyResolver.PubgrubError)
+            XCTAssertTrue(error is PubGrubDependencyResolver.PubGrubError)
         }
     }
 
@@ -583,7 +583,7 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolutionPerformingConflictResolution() async throws {
-        // Pubgrub has a listed as >=1.0.0, which we can't really represent here.
+        // PubGrub has a listed as >=1.0.0, which we can't really represent here.
         // It's either .any or 1.0.0..<n.0.0 with n>2. Both should have the same
         // effect though.
         try builder.serve("a", at: v1)
@@ -1459,7 +1459,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testMissingResolvedPackage() await throws {
+    func testMissingResolvedPackage() async throws {
         // This checks that we can drop resolved packages that are no longer available but still keep the ones
         // which fit the constraints.
         try builder.serve("a", at: v1, with: ["a": ["b": (.versionSet(v1Range), .specific(["b"]))]])
@@ -3499,7 +3499,7 @@ extension Result where Success == [DependencyResolverBinding] {
         switch self {
         case .failure(let error):
             switch error {
-            case let err as PubGrubDependencyResolver.PubgrubError:
+            case let err as PubGrubDependencyResolver.PubGrubError:
                 guard case .unresolvable(let msg) = err else {
                     XCTFail("Unexpected result \(self)")
                     return nil

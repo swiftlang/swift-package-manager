@@ -185,7 +185,7 @@ public struct PubGrubDependencyResolver {
             return .success(bindings)
         } catch {
             // If version solving failing, build the user-facing diagnostic.
-            if let pubGrubError = error as? PubgrubError, let rootCause = pubGrubError.rootCause, let incompatibilities = pubGrubError.incompatibilities {
+            if let pubGrubError = error as? PubGrubError, let rootCause = pubGrubError.rootCause, let incompatibilities = pubGrubError.incompatibilities {
                 do {
                     var builder = DiagnosticReportBuilder(
                         root: root,
@@ -193,7 +193,7 @@ public struct PubGrubDependencyResolver {
                         provider: self.provider
                     )
                     let diagnostic = try builder.makeErrorReport(for: rootCause)
-                    return .failure(PubgrubError.unresolvable(diagnostic))
+                    return .failure(PubGrubError.unresolvable(diagnostic))
                 } catch {
                     // failed to construct the report, will report the original error
                     return .failure(error)
@@ -381,7 +381,7 @@ public struct PubGrubDependencyResolver {
             case .revision(let existingRevision, let branch)?:
                 // If this branch-based package was encountered before, ensure the references match.
                 if (branch ?? existingRevision) != revision {
-                    throw PubgrubError.unresolvable("\(package.identity) is required using two different revision-based requirements (\(existingRevision) and \(revision)), which is not supported")
+                    throw PubGrubError.unresolvable("\(package.identity) is required using two different revision-based requirements (\(existingRevision) and \(revision)), which is not supported")
                 } else {
                     // Otherwise, continue since we've already processed this constraint. Any cycles will be diagnosed separately.
                     continue
@@ -656,7 +656,7 @@ public struct PubGrubDependencyResolver {
         }
 
         self.delegate?.failedToResolve(incompatibility: incompatibility)
-        throw PubgrubError._unresolvable(incompatibility, state.incompatibilities)
+        throw PubGrubError._unresolvable(incompatibility, state.incompatibilities)
     }
 
     /// Does a given incompatibility specify that version solving has entirely
@@ -771,7 +771,7 @@ internal enum LogLocation: String {
 }
 
 public extension PubGrubDependencyResolver {
-    enum PubgrubError: Swift.Error, CustomStringConvertible {
+    enum PubGrubError: Swift.Error, CustomStringConvertible {
         case _unresolvable(Incompatibility, [DependencyResolutionNode: [Incompatibility]])
         case unresolvable(String)
 
