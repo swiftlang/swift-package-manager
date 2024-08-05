@@ -1495,7 +1495,7 @@ private func buildTestsIfNeeded(
     try buildSystem.build(subset: subset)
 
     // Find the test product.
-    let testProducts = buildSystem.builtTestProducts
+    let testProducts = await buildSystem.builtTestProducts
     guard !testProducts.isEmpty else {
         if let testProduct {
             throw TestError.productIsNotTest(productName: testProduct)

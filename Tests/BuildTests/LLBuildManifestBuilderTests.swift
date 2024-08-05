@@ -26,7 +26,7 @@ import _InternalTestSupport
 import XCTest
 
 final class LLBuildManifestBuilderTests: XCTestCase {
-    func testCreateProductCommand() throws {
+    func testCreateProductCommand() async throws {
         let pkg = AbsolutePath("/pkg")
         let fs = InMemoryFileSystem(
             emptyFiles:
@@ -50,7 +50,7 @@ final class LLBuildManifestBuilderTests: XCTestCase {
 
         // macOS, release build
 
-        var plan = try mockBuildPlan(
+        var plan = try await mockBuildPlan(
             environment: BuildEnvironment(
                 platform: .macOS,
                 configuration: .release
@@ -83,7 +83,7 @@ final class LLBuildManifestBuilderTests: XCTestCase {
 
         // macOS, debug build
 
-        plan = try mockBuildPlan(
+        plan = try await mockBuildPlan(
             environment: BuildEnvironment(
                 platform: .macOS,
                 configuration: .debug
@@ -135,7 +135,7 @@ final class LLBuildManifestBuilderTests: XCTestCase {
 
         // Linux, release build
 
-        plan = try mockBuildPlan(
+        plan = try await mockBuildPlan(
             environment: BuildEnvironment(
                 platform: .linux,
                 configuration: .release
@@ -164,7 +164,7 @@ final class LLBuildManifestBuilderTests: XCTestCase {
 
         // Linux, debug build
 
-        plan = try mockBuildPlan(
+        plan = try await mockBuildPlan(
             environment: BuildEnvironment(
                 platform: .linux,
                 configuration: .debug
@@ -193,12 +193,12 @@ final class LLBuildManifestBuilderTests: XCTestCase {
     }
     
     /// Verifies that two modules with the same name but different triples don't share same build manifest keys.
-    func testToolsBuildTriple() throws {
+    func testToolsBuildTriple() async throws {
         let (graph, fs, scope) = try macrosPackageGraph()
         let productsTriple = Triple.x86_64MacOS
         let toolsTriple = Triple.arm64Linux
 
-        let plan = try BuildPlan(
+        let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
                 destination: .target,
                 shouldLinkStaticSwiftStdlib: true,

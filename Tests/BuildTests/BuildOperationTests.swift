@@ -49,7 +49,7 @@ private func mockBuildOperation(
 }
 
 final class BuildOperationTests: XCTestCase {
-    func testDetectProductTripleChange() throws {
+    func testDetectProductTripleChange() async throws {
         let observability = ObservabilitySystem.makeForTesting()
         let fs = InMemoryFileSystem(
             emptyFiles: "/Pkg/Sources/ATarget/foo.swift"
@@ -67,7 +67,7 @@ final class BuildOperationTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )
-        try withTemporaryDirectory { tmpDir in
+        try await withTemporaryDirectory { tmpDir in
             let scratchDirectory = tmpDir.appending(".build")
             let fs = localFileSystem
             let triples = try [Triple("x86_64-unknown-linux-gnu"), Triple("wasm32-unknown-wasi")]
@@ -90,7 +90,7 @@ final class BuildOperationTests: XCTestCase {
                     fs: fs, observabilityScope: observability.topScope
                 )
                 // Generate initial llbuild manifest
-                let _ = try buildOp.getBuildDescription()
+                let _ = try await buildOp.getBuildDescription()
                 // Record the initial llbuild manifest as expected one
                 llbuildManifestByTriple[triple.tripleString] = try fs.readFileContents(targetBuildParameters.llbuildManifest)
             }
@@ -123,7 +123,7 @@ final class BuildOperationTests: XCTestCase {
                         fs: fs, observabilityScope: observability.topScope
                     )
                     // Generate llbuild manifest
-                    let _ = try buildOp.getBuildDescription()
+                    let _ = try await buildOp.getBuildDescription()
 
                     // Ensure that llbuild manifest is updated to the expected one
                     let actualManifest: String = try fs.readFileContents(targetBuildParameters.llbuildManifest)

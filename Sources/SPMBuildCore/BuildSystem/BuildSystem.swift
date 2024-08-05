@@ -40,7 +40,7 @@ public protocol BuildSystem: Cancellable {
     var delegate: BuildSystemDelegate? { get }
 
     /// The test products that this build system will build.
-    var builtTestProducts: [BuiltTestProduct] { get }
+    var builtTestProducts: [BuiltTestProduct] { get async }
 
     /// Returns the package graph used by the build system.
     func getPackageGraph() throws -> ModulesGraph

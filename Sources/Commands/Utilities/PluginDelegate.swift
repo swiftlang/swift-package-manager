@@ -252,7 +252,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Iterate over the tests and run those that match the filter.
         var testTargetResults: [PluginInvocationTestResult.TestTarget] = []
         var numFailedTests = 0
-        for testProduct in buildSystem.builtTestProducts {
+        for testProduct in await buildSystem.builtTestProducts {
             // Get the test suites in the bundle. Each is just a container for test cases.
             let testSuites = try TestingSupport.getTestSuites(
                 fromTestAt: testProduct.bundlePath,
@@ -344,7 +344,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             // Use `llvm-cov` to export the merged `.profdata` file contents in JSON form.
             var llvmCovCommand = [try toolchain.getLLVMCov().pathString]
             llvmCovCommand += ["export", "-instr-profile=\(mergedCovFile.pathString)"]
-            for product in buildSystem.builtTestProducts {
+            for product in await buildSystem.builtTestProducts {
                 llvmCovCommand.append("-object")
                 llvmCovCommand.append(product.binaryPath.pathString)
             }
