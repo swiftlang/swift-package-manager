@@ -101,8 +101,8 @@ public struct PubGrubDependencyResolver {
         }
     }
 
-    /// Reference to the pins store, if provided.
-    private let pins: PinsStore.Pins
+    /// `Package.resolved` representation.
+    private let resolvedPackages: ResolvedPackagesStore.ResolvedPackages
 
     /// The container provider used to load package containers.
     private let provider: ContainerProvider
@@ -119,22 +119,46 @@ public struct PubGrubDependencyResolver {
     /// Resolver delegate
     private let delegate: DependencyResolverDelegate?
 
+    @available(*,
+        deprecated,
+        renamed: "init(provider:resolvedPackages:skipDependenciesUpdates:prefetchBasedOnResolvedFile:observabilityScope:delegate:)",
+        message: "Renamed for consistency with the actual name of the feature"
+    )
+    @_disfavoredOverload
     public init(
         provider: PackageContainerProvider,
-        pins: PinsStore.Pins = [:],
+        pins: ResolvedPackagesStore.ResolvedPackages = [:],
+        skipDependenciesUpdates: Bool = false,
+        prefetchBasedOnResolvedFile: Bool = false,
+        observabilityScope: ObservabilityScope,
+        delegate: DependencyResolverDelegate? = nil
+    ) {
+        self.init(
+            provider: provider,
+            resolvedPackages: pins,
+            skipDependenciesUpdates: skipDependenciesUpdates,
+            prefetchBasedOnResolvedFile: prefetchBasedOnResolvedFile,
+            observabilityScope: observabilityScope,
+            delegate: delegate
+        )
+    }
+
+    public init(
+        provider: PackageContainerProvider,
+        resolvedPackages: ResolvedPackagesStore.ResolvedPackages = [:],
         skipDependenciesUpdates: Bool = false,
         prefetchBasedOnResolvedFile: Bool = false,
         observabilityScope: ObservabilityScope,
         delegate: DependencyResolverDelegate? = nil
     ) {
         self.packageContainerProvider = provider
-        self.pins = pins
+        self.resolvedPackages = resolvedPackages
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
         self.provider = ContainerProvider(
             provider: self.packageContainerProvider,
             skipUpdate: self.skipDependenciesUpdates,
-            pins: self.pins,
+            resolvedPackages: self.resolvedPackages,
             observabilityScope: observabilityScope
         )
         self.delegate = delegate
@@ -161,7 +185,7 @@ public struct PubGrubDependencyResolver {
             return .success(bindings)
         } catch {
             // If version solving failing, build the user-facing diagnostic.
-            if let pubGrubError = error as? PubgrubError, let rootCause = pubGrubError.rootCause, let incompatibilities = pubGrubError.incompatibilities {
+            if let pubGrubError = error as? PubGrubError, let rootCause = pubGrubError.rootCause, let incompatibilities = pubGrubError.incompatibilities {
                 do {
                     var builder = DiagnosticReportBuilder(
                         root: root,
@@ -169,7 +193,7 @@ public struct PubGrubDependencyResolver {
                         provider: self.provider
                     )
                     let diagnostic = try builder.makeErrorReport(for: rootCause)
-                    return .failure(PubgrubError.unresolvable(diagnostic))
+                    return .failure(PubGrubError.unresolvable(diagnostic))
                 } catch {
                     // failed to construct the report, will report the original error
                     return .failure(error)
@@ -191,10 +215,10 @@ public struct PubGrubDependencyResolver {
             // We avoid prefetching packages that are overridden since
             // otherwise we'll end up creating a repository container
             // for them.
-            let pins = self.pins.values
+            let resolvedPackageReferences = self.resolvedPackages.values
                 .map(\.packageRef)
                 .filter { !inputs.overriddenPackages.keys.contains($0) }
-            self.provider.prefetch(containers: pins)
+            self.provider.prefetch(containers: resolvedPackageReferences)
         }
 
         let state = State(root: root, overriddenPackages: inputs.overriddenPackages)
@@ -357,7 +381,7 @@ public struct PubGrubDependencyResolver {
             case .revision(let existingRevision, let branch)?:
                 // If this branch-based package was encountered before, ensure the references match.
                 if (branch ?? existingRevision) != revision {
-                    throw PubgrubError.unresolvable("\(package.identity) is required using two different revision-based requirements (\(existingRevision) and \(revision)), which is not supported")
+                    throw PubGrubError.unresolvable("\(package.identity) is required using two different revision-based requirements (\(existingRevision) and \(revision)), which is not supported")
                 } else {
                     // Otherwise, continue since we've already processed this constraint. Any cycles will be diagnosed separately.
                     continue
@@ -377,7 +401,7 @@ public struct PubGrubDependencyResolver {
             // latest commit on that branch. Note that if this revision-based dependency is
             // already a commit, then its pin entry doesn't matter in practice.
             let revisionForDependencies: String
-            if case .branch(revision, let pinRevision) = self.pins[package.identity]?.state {
+            if case .branch(revision, let pinRevision) = self.resolvedPackages[package.identity]?.state {
                 revisionForDependencies = pinRevision
 
                 // Mark the package as overridden with the pinned revision and record the branch as well.
@@ -632,7 +656,7 @@ public struct PubGrubDependencyResolver {
         }
 
         self.delegate?.failedToResolve(incompatibility: incompatibility)
-        throw PubgrubError._unresolvable(incompatibility, state.incompatibilities)
+        throw PubGrubError._unresolvable(incompatibility, state.incompatibilities)
     }
 
     /// Does a given incompatibility specify that version solving has entirely
@@ -747,7 +771,7 @@ internal enum LogLocation: String {
 }
 
 public extension PubGrubDependencyResolver {
-    enum PubgrubError: Swift.Error, CustomStringConvertible {
+    enum PubGrubError: Swift.Error, CustomStringConvertible {
         case _unresolvable(Incompatibility, [DependencyResolutionNode: [Incompatibility]])
         case unresolvable(String)
 

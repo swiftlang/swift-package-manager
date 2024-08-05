@@ -68,7 +68,7 @@ let rootNode = DependencyResolutionNode.root(package: rootRef)
 let rootCause = try! Incompatibility(Term(rootNode, .exact(v1)), root: rootNode)
 let _cause = try! Incompatibility("cause@0.0.0", root: rootNode)
 
-final class PubgrubTests: XCTestCase {
+final class PubGrubTests: XCTestCase {
     func testTermInverse() {
         let a = Term("a@1.0.0")
         XCTAssertFalse(a.inverse.isPositive)
@@ -541,7 +541,7 @@ final class PubgrubTests: XCTestCase {
         )
 
         XCTAssertThrowsError(try solver.resolve(state: state, conflict: conflict)) { error in
-            XCTAssertTrue(error is PubGrubDependencyResolver.PubgrubError)
+            XCTAssertTrue(error is PubGrubDependencyResolver.PubGrubError)
         }
     }
 
@@ -583,7 +583,7 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolutionPerformingConflictResolution() async throws {
-        // Pubgrub has a listed as >=1.0.0, which we can't really represent here.
+        // PubGrub has a listed as >=1.0.0, which we can't really represent here.
         // It's either .any or 1.0.0..<n.0.0 with n>2. Both should have the same
         // effect though.
         try builder.serve("a", at: v1)
@@ -1399,7 +1399,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testTrivialPinStore() async throws {
+    func testTrivialResolvedPackagesStore() async throws {
         try builder.serve("a", at: v1, with: ["a": ["b": (.versionSet(v1Range), .specific(["b"]))]])
         try builder.serve("a", at: v1_1)
         try builder.serve("b", at: v1)
@@ -1410,15 +1410,15 @@ final class PubgrubTests: XCTestCase {
             "a": (.versionSet(v1Range), .specific(["a"])),
         ])
 
-        let pinsStore = try builder.create(pinsStore: [
+        let resolvedPackagesStore = try builder.create(resolvedPackages: [
             "a": (.version(v1), .specific(["a"])),
             "b": (.version(v1), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pins: pinsStore.pins)
+        let resolver = builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
         let result = try await resolver.solve(root: rootNode, constraints: dependencies)
 
-        // Since a was pinned, we shouldn't have computed bounds for its incomaptibilities.
+        // Since a was pinned, we shouldn't have computed bounds for its incompatibilities.
         let aIncompat = result.state.positiveIncompatibilities(for: .product("a", package: try builder.reference(for: "a")))![0]
         XCTAssertEqual(aIncompat.terms[0].requirement, .exact("1.0.0"))
 
@@ -1428,8 +1428,8 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testPartialPins() async throws {
-        // This checks that we can drop pins that are not valid anymore but still keep the ones
+    func testPartialResolvedPackages() async throws {
+        // This checks that we can drop resolved packages that are not valid anymore but still keep the ones
         // which fit the constraints.
         try builder.serve("a", at: v1, with: ["a": ["b": (.versionSet(v1Range), .specific(["b"]))]])
         try builder.serve("a", at: v1_1)
@@ -1444,12 +1444,12 @@ final class PubgrubTests: XCTestCase {
 
         // Here b is pinned to v1 but its requirement is now 1.1.0..<2.0.0 in the graph
         // due to addition of a new dependency.
-        let pinsStore = try builder.create(pinsStore: [
+        let resolvedPackagesStore = try builder.create(resolvedPackages: [
             "a": (.version(v1), .specific(["a"])),
             "b": (.version(v1), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pins: pinsStore.pins)
+        let resolver = builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
         let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
@@ -1459,8 +1459,8 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testMissingPin() async throws {
-        // This checks that we can drop pins that are no longer available but still keep the ones
+    func testMissingResolvedPackage() async throws {
+        // This checks that we can drop resolved packages that are no longer available but still keep the ones
         // which fit the constraints.
         try builder.serve("a", at: v1, with: ["a": ["b": (.versionSet(v1Range), .specific(["b"]))]])
         try builder.serve("a", at: v1_1)
@@ -1473,12 +1473,12 @@ final class PubgrubTests: XCTestCase {
 
         // Here c is pinned to v1.1, but it is no longer available, so the resolver should fall back
         // to v1.
-        let pinsStore = try builder.create(pinsStore: [
+        let resolvedPackagesStore = try builder.create(resolvedPackages: [
             "a": (.version(v1), .specific(["a"])),
             "b": (.version("1.2.0"), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pins: pinsStore.pins)
+        let resolver = builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
         let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
@@ -1487,7 +1487,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testBranchedBasedPin() async throws {
+    func testBranchBasedResolvedPackage() async throws {
         // This test ensures that we get the SHA listed in Package.resolved for branch-based
         // dependencies.
         try builder.serve("a", at: .revision("develop-sha-1"))
@@ -1498,12 +1498,12 @@ final class PubgrubTests: XCTestCase {
             "b": (.revision("master"), .specific(["b"])),
         ])
 
-        let pinsStore = try builder.create(pinsStore: [
+        let resolvedPackagesStore = try builder.create(resolvedPackages: [
             "a": (.branch(name: "develop", revision: "develop-sha-1"), .specific(["a"])),
             "b": (.branch(name: "master", revision: "master-sha-2"), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pins: pinsStore.pins)
+        let resolver = builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
         let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
@@ -1643,7 +1643,7 @@ final class PubgrubTests: XCTestCase {
                         versionRequirement: .exact(Version(1, 0, 0))
                     )]
                 ]),
-            pins: PinsStore.Pins()
+            resolvedPackages: ResolvedPackagesStore.ResolvedPackages()
         )
         let rootLocation = AbsolutePath("/Root")
         let otherLocation = AbsolutePath("/Other")
@@ -2863,7 +2863,7 @@ final class PubGrubBacktrackTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
 
-        let resolver = builder.create(pins: [:], delegate: ObservabilityDependencyResolverDelegate(observabilityScope: observability.topScope))
+        let resolver = builder.create(delegate: ObservabilityDependencyResolverDelegate(observabilityScope: observability.topScope))
         let dependencies = try builder.create(dependencies: [
             "a": (.versionSet(.range("1.0.0"..<"4.0.0")), .specific(["a"])),
             "c": (.versionSet(.range("1.0.0"..<"4.0.0")), .specific(["c"])),
@@ -3040,7 +3040,7 @@ final class PubGrubBacktrackTests: XCTestCase {
     }
 }
 
-fileprivate extension PinsStore.PinState {
+fileprivate extension ResolvedPackagesStore.ResolutionState {
     /// Creates a checkout state with the given version and a mocked revision.
     static func version(_ version: Version) -> Self {
         .version(version, revision: .none)
@@ -3395,13 +3395,20 @@ class DependencyGraphBuilder {
         self.containers[packageReference.identity.description] = container
     }
 
-    /// Creates a pins store with the given pins.
-    func create(pinsStore pins: [String: (PinsStore.PinState, ProductFilter)]) throws -> PinsStore {
+    /// Creates a `Package.resolved` store with the given resolution results.
+    func create(
+        resolvedPackages: [String: (ResolvedPackagesStore.ResolutionState, ProductFilter)]
+    ) throws -> ResolvedPackagesStore {
         let fs = InMemoryFileSystem()
-        let store = try! PinsStore(pinsFile: "/tmp/Package.resolved", workingDirectory: .root, fileSystem: fs, mirrors: .init())
+        let store = try! ResolvedPackagesStore(
+            packageResolvedFile: "/tmp/Package.resolved",
+            workingDirectory: .root,
+            fileSystem: fs,
+            mirrors: .init()
+        )
 
-        for (package, pin) in pins {
-            store.pin(packageRef: try reference(for: package), state: pin.0)
+        for (package, resolution) in resolvedPackages {
+            store.track(packageRef: try reference(for: package), state: resolution.0)
         }
 
         try! store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
@@ -3409,13 +3416,21 @@ class DependencyGraphBuilder {
     }
 
 
-    func create(pins: PinsStore.Pins = [:], delegate: DependencyResolverDelegate? = .none) -> PubGrubDependencyResolver {
+    func create(
+        resolvedPackages: ResolvedPackagesStore.ResolvedPackages = [:],
+        delegate: DependencyResolverDelegate? = .none
+    ) -> PubGrubDependencyResolver {
         defer {
             self.containers = [:]
             self.references = [:]
         }
         let provider = MockProvider(containers: Array(self.containers.values))
-        return PubGrubDependencyResolver(provider :provider, pins: pins, observabilityScope: ObservabilitySystem.NOOP, delegate: delegate)
+        return PubGrubDependencyResolver(
+            provider: provider,
+            resolvedPackages: resolvedPackages,
+            observabilityScope: ObservabilitySystem.NOOP,
+            delegate: delegate
+        )
     }
 }
 
@@ -3484,7 +3499,7 @@ extension Result where Success == [DependencyResolverBinding] {
         switch self {
         case .failure(let error):
             switch error {
-            case let err as PubGrubDependencyResolver.PubgrubError:
+            case let err as PubGrubDependencyResolver.PubGrubError:
                 guard case .unresolvable(let msg) = err else {
                     XCTFail("Unexpected result \(self)")
                     return nil

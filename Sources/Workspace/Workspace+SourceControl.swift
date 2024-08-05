@@ -15,7 +15,7 @@ import struct Basics.InternalError
 import class Basics.ObservabilityScope
 import struct Dispatch.DispatchTime
 import enum PackageGraph.PackageRequirement
-import class PackageGraph.PinsStore
+import class PackageGraph.ResolvedPackagesStore
 import struct PackageModel.PackageReference
 import struct SourceControl.Revision
 import struct TSCUtility.Version
@@ -95,10 +95,10 @@ extension Workspace {
 
     func checkoutRepository(
         package: PackageReference,
-        at pinState: PinsStore.PinState,
+        at resolutionStater: ResolvedPackagesStore.ResolutionState,
         observabilityScope: ObservabilityScope
     ) async throws -> AbsolutePath {
-        switch pinState {
+        switch resolutionStater {
         case .version(let version, revision: let revision) where revision != nil:
             return try await self.checkoutRepository(
                 package: package,
@@ -118,7 +118,7 @@ extension Workspace {
                 observabilityScope: observabilityScope
             )
         default:
-            throw InternalError("invalid pin state: \(pinState)")
+            throw InternalError("invalid resolution state: \(resolutionStater)")
         }
     }
 

@@ -554,7 +554,7 @@ public final class MockWorkspace {
     public func checkPrecomputeResolution() async throws -> ResolutionPrecomputationResult {
         let observability = ObservabilitySystem.makeForTesting()
         let workspace = try self.getOrCreateWorkspace()
-        let pinsStore = try workspace.pinsStore.load()
+        let resolvedPackagesStore = try workspace.resolvedPackagesStore.load()
 
         let rootInput = PackageGraphRootInput(packages: try rootPaths(for: roots.map { $0.name }), dependencies: [])
         let rootManifests = try await workspace.loadRootManifests(
@@ -571,7 +571,7 @@ public final class MockWorkspace {
         let result = try await workspace.precomputeResolution(
             root: root,
             dependencyManifests: dependencyManifests,
-            pinsStore: pinsStore,
+            resolvedPackagesStore: resolvedPackagesStore,
             constraints: [],
             observabilityScope: observability.topScope
         )
@@ -580,11 +580,11 @@ public final class MockWorkspace {
     }
 
     public func set(
-        pins: [PackageReference: CheckoutState] = [:],
+        resolvedPackages: [PackageReference: CheckoutState] = [:],
         managedDependencies: [AbsolutePath: Workspace.ManagedDependency] = [:],
         managedArtifacts: [Workspace.ManagedArtifact] = []
     ) throws {
-        let pins = pins.mapValues { checkoutState -> PinsStore.PinState in
+        let resolvedPackages = resolvedPackages.mapValues { checkoutState -> ResolvedPackagesStore.ResolutionState in
             switch checkoutState {
             case .version(let version, let revision):
                 return .version(version, revision: revision.identifier)
@@ -594,19 +594,19 @@ public final class MockWorkspace {
                 return .revision(revision.identifier)
             }
         }
-        try self.set(pins: pins, managedDependencies: managedDependencies, managedArtifacts: managedArtifacts)
+        try self.set(resolvedPackages: resolvedPackages, managedDependencies: managedDependencies, managedArtifacts: managedArtifacts)
     }
 
     public func set(
-        pins: [PackageReference: PinsStore.PinState],
+        resolvedPackages: [PackageReference: ResolvedPackagesStore.ResolutionState],
         managedDependencies: [AbsolutePath: Workspace.ManagedDependency] = [:],
         managedArtifacts: [Workspace.ManagedArtifact] = []
     ) throws {
         let workspace = try self.getOrCreateWorkspace()
-        let pinsStore = try workspace.pinsStore.load()
+        let resolvedPackagesStore = try workspace.resolvedPackagesStore.load()
 
-        for (ref, state) in pins {
-            pinsStore.pin(packageRef: ref, state: state)
+        for (ref, state) in resolvedPackages {
+            resolvedPackagesStore.track(packageRef: ref, state: state)
         }
 
         for dependency in managedDependencies {
@@ -804,18 +804,18 @@ public final class MockWorkspace {
     }
 
     public struct ResolvedResult {
-        public let store: PinsStore
+        public let store: ResolvedPackagesStore
 
-        public init(_ store: PinsStore) {
+        public init(_ store: ResolvedPackagesStore) {
             self.store = store
         }
 
         public func check(notPresent name: String, file: StaticString = #file, line: UInt = #line) {
-            XCTAssertFalse(self.store.pins.keys.contains(where: { $0.description == name }), "Unexpectedly found \(name) in Package.resolved", file: file, line: line)
+            XCTAssertFalse(self.store.resolvedPackages.keys.contains(where: { $0.description == name }), "Unexpectedly found \(name) in Package.resolved", file: file, line: line)
         }
 
         public func check(dependency package: String, at state: State, file: StaticString = #file, line: UInt = #line) {
-            guard let pin = store.pins.first(where: { $0.key.description == package })?.value else {
+            guard let pin = store.resolvedPackages.first(where: { $0.key.description == package })?.value else {
                 XCTFail("Pin for \(package) not found", file: file, line: line)
                 return
             }
@@ -842,7 +842,7 @@ public final class MockWorkspace {
         }
 
         public func check(dependency package: String, url: String, file: StaticString = #file, line: UInt = #line) {
-            guard let pin = store.pins.first(where: { $0.key.description == package })?.value else {
+            guard let pin = store.resolvedPackages.first(where: { $0.key.description == package })?.value else {
                 XCTFail("Pin for \(package) not found", file: file, line: line)
                 return
             }
@@ -854,7 +854,7 @@ public final class MockWorkspace {
     public func checkResolved(file: StaticString = #file, line: UInt = #line, _ result: (ResolvedResult) throws -> Void) {
         do {
             let workspace = try self.getOrCreateWorkspace()
-            try result(ResolvedResult(workspace.pinsStore.load()))
+            try result(ResolvedResult(workspace.resolvedPackagesStore.load()))
         } catch {
             XCTFail("Failed with error \(error.interpolationDescription)", file: file, line: line)
         }

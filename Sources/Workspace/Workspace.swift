@@ -90,9 +90,13 @@ public class Workspace {
     // public visibility for testing
     public let state: WorkspaceState
 
-    /// The Pins store. The pins file will be created when first pin is added to pins store.
-    // public visibility for testing
-    public let pinsStore: LoadableResult<PinsStore>
+    // `public` visibility for testing
+    @available(*, deprecated, renamed: "resolvedPackagesStore", message: "Renamed for consistency with the actual name of the feature")
+    public var pinsStore: LoadableResult<PinsStore> { self.resolvedPackagesStore }
+
+    /// The `Package.resolved` store. The `Package.resolved` file will be created when first resolved package is added
+    /// to the store.
+    package let resolvedPackagesStore: LoadableResult<ResolvedPackagesStore>
 
     /// The file system on which the workspace will operate.
     package let fileSystem: any FileSystem
@@ -570,9 +574,9 @@ public class Workspace {
         self.dependencyMapper = dependencyMapper
         self.fingerprints = fingerprints
 
-        self.pinsStore = LoadableResult {
-            try PinsStore(
-                pinsFile: location.resolvedVersionsFile,
+        self.resolvedPackagesStore = LoadableResult {
+            try ResolvedPackagesStore(
+                packageResolvedFile: location.resolvedVersionsFile,
                 workingDirectory: location.scratchDirectory,
                 fileSystem: fileSystem,
                 mirrors: mirrors
@@ -658,9 +662,9 @@ extension Workspace {
     /// Perform dependency resolution if needed.
     ///
     /// This method will perform dependency resolution based on the root
-    /// manifests and pins file.  Pins are respected as long as they are
+    /// manifests and `Package.resolved` file. `Package.resolved` values are respected as long as they are
     /// satisfied by the root manifest closure requirements.  Any outdated
-    /// checkout will be restored according to its pin.
+    /// checkout will be restored according to its resolved package.
     public func resolve(
         root: PackageGraphRootInput,
         explicitProduct: String? = .none,
@@ -680,15 +684,15 @@ extension Workspace {
     /// Resolve a package at the given state.
     ///
     /// Only one of version, branch and revision will be used and in the same
-    /// order. If none of these is provided, the dependency will be pinned at
+    /// order. If none of these is provided, the dependency will be resolved to
     /// the current checkout state.
     ///
     /// - Parameters:
     ///   - packageName: The name of the package which is being resolved.
     ///   - root: The workspace's root input.
-    ///   - version: The version to pin at.
-    ///   - branch: The branch to pin at.
-    ///   - revision: The revision to pin at.
+    ///   - version: The version to resolve to.
+    ///   - branch: The branch to resolve to.
+    ///   - revision: The revision to resolve to.
     ///   - observabilityScope: The observability scope that reports errors, warnings, etc
     public func resolve(
         packageName: String,
