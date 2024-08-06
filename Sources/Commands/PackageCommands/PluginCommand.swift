@@ -12,6 +12,7 @@
 
 import ArgumentParser
 import Basics
+import _Concurrency
 import CoreCommands
 import Dispatch
 
@@ -333,13 +334,13 @@ struct PluginCommand: AsyncSwiftCommand {
             packageGraphLoader: { packageGraph }
         )
 
-        let accessibleTools = try plugin.preparePluginTools(
+        let accessibleTools = try await plugin.preparePluginTools(
             fileSystem: swiftCommandState.fileSystem,
             environment: buildParameters.buildEnvironment,
             for: try pluginScriptRunner.hostTriple
         ) { name, _ in
             // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies are not supported within a package, so if the tool happens to be from the same package, we instead find the executable that corresponds to the product. There is always one, because of autogeneration of implicit executables with the same name as the target if there isn't an explicit one.
-            try buildSystem.build(subset: .product(name, for: .host))
+            try await buildSystem.build(subset: .product(name, for: .host))
             if let builtTool = try buildSystem.buildPlan.buildProducts.first(where: {
                 $0.product.name == name && $0.buildParameters.destination == .host
             }) {
@@ -360,7 +361,7 @@ struct PluginCommand: AsyncSwiftCommand {
         let allowNetworkConnectionsCopy = allowNetworkConnections
 
         let buildEnvironment = buildParameters.buildEnvironment
-        let _ = try await safe_async { pluginTarget.invoke(
+        let _ = try await withCheckedThrowingContinuation { pluginTarget.invoke(
             action: .performCommand(package: package, arguments: arguments),
             buildEnvironment: buildEnvironment,
             scriptRunner: pluginScriptRunner,
@@ -378,7 +379,7 @@ struct PluginCommand: AsyncSwiftCommand {
             observabilityScope: swiftCommandState.observabilityScope,
             callbackQueue: delegateQueue,
             delegate: pluginDelegate,
-            completion: $0
+            completion: $0.resume(with:)
         ) }
 
         // TODO: We should also emit a final line of output regarding the result.

@@ -123,7 +123,7 @@ private struct LocalPackageContainer: PackageContainer {
     }
 
     func toolsVersionsAppropriateVersionsDescending() async throws -> [Version] {
-        return try await self.versionsDescending()
+        try await self.versionsDescending()
     }
 
     func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {

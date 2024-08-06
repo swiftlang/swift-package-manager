@@ -134,7 +134,7 @@ final class BuildOperationTests: XCTestCase {
         }
     }
 
-    func testHostProductsAndTargetsWithoutExplicitDestination() throws {
+    func testHostProductsAndTargetsWithoutExplicitDestination() async throws {
         let mock  = try macrosTestsPackageGraph()
 
         let op = mockBuildOperation(
@@ -146,15 +146,17 @@ final class BuildOperationTests: XCTestCase {
             observabilityScope: mock.observabilityScope
         )
 
+        let result = try await op.computeLLBuildTargetName(for: .product("MMIOMacros"))
         XCTAssertEqual(
             "MMIOMacros-\(hostTriple)-debug-tool.exe",
-            try op.computeLLBuildTargetName(for: .product("MMIOMacros"))
+            result
         )
 
         for target in ["MMIOMacros", "MMIOPlugin", "MMIOMacrosTests", "MMIOMacro+PluginTests"] {
+            let targetName = try await op.computeLLBuildTargetName(for: .target(target))
             XCTAssertEqual(
                 "\(target)-\(hostTriple)-debug-tool.module",
-                try op.computeLLBuildTargetName(for: .target(target))
+                targetName
             )
         }
 

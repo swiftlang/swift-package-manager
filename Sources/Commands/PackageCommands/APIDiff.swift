@@ -92,14 +92,14 @@ struct APIDiff: AsyncSwiftCommand {
             cacheBuildManifest: false
         )
 
-        let packageGraph = try buildSystem.getPackageGraph()
+        let packageGraph = try await buildSystem.getPackageGraph()
         let modulesToDiff = try determineModulesToDiff(
             packageGraph: packageGraph,
             observabilityScope: swiftCommandState.observabilityScope
         )
 
         // Build the current package.
-        try buildSystem.build()
+        try await buildSystem.build()
 
         // Dump JSON for the baseline package.
         let baselineDumper = try APIDigesterBaselineDumper(

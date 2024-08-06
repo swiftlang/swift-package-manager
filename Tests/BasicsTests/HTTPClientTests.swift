@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
+import _Concurrency
 import _InternalTestSupport
 import XCTest
 

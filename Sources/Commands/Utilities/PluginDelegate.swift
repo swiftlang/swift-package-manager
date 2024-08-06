@@ -172,7 +172,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         )
 
         // Run the build. This doesn't return until the build is complete.
-        let success = buildSystem.buildIgnoringError(subset: buildSubset)
+        let success = await buildSystem.buildIgnoringError(subset: buildSubset)
 
         // Create and return the build result record based on what the delegate collected and what's in the build plan.
         let builtProducts = try buildSystem.buildPlan.buildProducts.filter {
@@ -233,7 +233,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             traitConfiguration: .init(),
             toolsBuildParameters: toolsBuildParameters
         )
-        try buildSystem.build(subset: .allIncludingTests)
+        try await buildSystem.build(subset: .allIncludingTests)
 
         // Clean out the code coverage directory that may contain stale `profraw` files from a previous run of
         // the code coverage tool.
@@ -399,7 +399,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         )
 
         // Find the target in the build operation's package graph; it's an error if we don't find it.
-        let packageGraph = try buildSystem.getPackageGraph()
+        let packageGraph = try await buildSystem.getPackageGraph()
         guard let target = packageGraph.module(for: targetName) else {
             throw StringError("could not find a target named “\(targetName)”")
         }
@@ -416,7 +416,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             }
 
         // Build the target, if needed.
-        try buildSystem.build(subset: .target(target.name, for: buildParameters.destination))
+        try await buildSystem.build(subset: .target(target.name, for: buildParameters.destination))
 
         // Configure the symbol graph extractor.
         var symbolGraphExtractor = try SymbolGraphExtract(
@@ -472,9 +472,9 @@ final class PluginDelegate: PluginInvocationDelegate {
 }
 
 extension BuildSystem {
-    fileprivate func buildIgnoringError(subset: BuildSubset) -> Bool {
+    fileprivate func buildIgnoringError(subset: BuildSubset) async -> Bool {
         do {
-            try self.build(subset: subset)
+            try await self.build(subset: subset)
             return true
         } catch {
             return false

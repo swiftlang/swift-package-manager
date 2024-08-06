@@ -262,10 +262,10 @@ package func mockPluginTools(
     fileSystem: any FileSystem,
     buildParameters: BuildParameters,
     hostTriple: Basics.Triple
-) throws -> [ResolvedModule.ID: [String: PluginTool]] {
+) async throws -> [ResolvedModule.ID: [String: PluginTool]] {
     var accessibleToolsPerPlugin: [ResolvedModule.ID: [String: PluginTool]] = [:]
     for plugin in plugins where accessibleToolsPerPlugin[plugin.id] == nil {
-        let accessibleTools = try plugin.preparePluginTools(
+        let accessibleTools = try await plugin.preparePluginTools(
             fileSystem: fileSystem,
             environment: buildParameters.buildEnvironment,
             for: hostTriple

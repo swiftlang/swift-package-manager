@@ -9,6 +9,7 @@
  */
 
 import _InternalTestSupport
+import _Concurrency
 import Basics
 import XCTest
 
