@@ -14,6 +14,7 @@ import struct Basics.InternalError
 import class PackageModel.BinaryTarget
 import class PackageModel.ClangTarget
 import class PackageModel.MixedTarget
+import class PackageModel.SwiftTarget
 import class PackageModel.SystemLibraryTarget
 
 extension BuildPlan {
@@ -61,6 +62,27 @@ extension BuildPlan {
 
                 // Add the dependency's public headers.
                 swiftTarget.appendClangFlags("-I", target.publicHeadersDir.pathString)
+            case let underlyingTarget as SwiftTarget where underlyingTarget.type == .library:
+                // The mixed target build description exposes it's public ObjC
+                // headers to it's Swift module in case the Swift source in the
+                // mixed module references types from the ObjC headers.
+                //
+                // In doing so, there is the possibility that one of the
+                // exposedpublic ObjC headers (directly or transitively)
+                // exports a Swift module import. Such a Swift module import
+                // (handled by this case) needs to be added to Swift import
+                // paths of the given mixed target's swift module.
+                guard swiftTarget.isWithinMixedTarget else {
+                    return
+                }
+
+                guard case let .swift(target)? = targetMap[dependency.id] else {
+                    throw InternalError("unexpected swift target \(underlyingTarget)")
+                }
+
+                // NOTE(ncooke3): Could also be `target.moduleMap!.parentDirectory`.
+                swiftTarget.appendClangFlags("-I", target.buildParameters.buildPath.pathString)
+                break
             default:
                 break
             }

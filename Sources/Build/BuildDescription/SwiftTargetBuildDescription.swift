@@ -142,7 +142,7 @@ public final class SwiftTargetBuildDescription {
     /// Whether or not the target belongs to a mixed language target.
     ///
     /// Mixed language targets consist of an underlying Swift and Clang target.
-    private let isWithinMixedTarget: Bool
+    let isWithinMixedTarget: Bool
 
     /// The swift version for this target.
     var swiftVersion: SwiftLanguageVersion {
