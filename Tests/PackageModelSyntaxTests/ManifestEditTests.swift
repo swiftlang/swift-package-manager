@@ -468,7 +468,7 @@ class ManifestEditTests: XCTestCase {
                     // These are the targets
                     .target(name: "MyLib"),
                     .executableTarget(
-                        name: "my-program",
+                        name: "MyProgram target-name",
                         dependencies: [
                             .product(name: "SwiftSyntax", package: "swift-syntax"),
                             .target(name: "TargetLib"),
@@ -479,13 +479,13 @@ class ManifestEditTests: XCTestCase {
             )
             """,
             expectedAuxiliarySources: [
-                RelativePath("Sources/my-program/my-program.swift") : """
+                RelativePath("Sources/MyProgram target-name/MyProgram target-name.swift") : """
                 import MyLib
                 import SwiftSyntax
                 import TargetLib
 
                 @main
-                struct My_programMain {
+                struct MyProgram_target_nameMain {
                     static func main() {
                         print("Hello, world")
                     }
@@ -494,7 +494,7 @@ class ManifestEditTests: XCTestCase {
             ]) { manifest in
             try AddTarget.addTarget(
                 TargetDescription(
-                    name: "my-program",
+                    name: "MyProgram target-name",
                     dependencies: [
                         .product(name: "SwiftSyntax", package: "swift-syntax"),
                         .target(name: "TargetLib", condition: nil),
@@ -528,7 +528,7 @@ class ManifestEditTests: XCTestCase {
                 ],
                 targets: [
                     .macro(
-                        name: "my-macro",
+                        name: "MyMacro target-name",
                         dependencies: [
                             .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
                             .product(name: "SwiftSyntaxMacros", package: "swift-syntax")
@@ -538,33 +538,33 @@ class ManifestEditTests: XCTestCase {
             )
             """,
             expectedAuxiliarySources: [
-                RelativePath("Sources/my-macro/my-macro.swift") : """
+                RelativePath("Sources/MyMacro target-name/MyMacro target-name.swift") : """
                 import SwiftCompilerPlugin
                 import SwiftSyntaxMacros
 
-                struct My_macro: Macro {
+                struct MyMacro_target_name: Macro {
                     /// TODO: Implement one or more of the protocols that inherit
                     /// from Macro. The appropriate macro protocol is determined
-                    /// by the "macro" declaration that My_macro implements.
+                    /// by the "macro" declaration that MyMacro_target_name implements.
                     /// Examples include:
                     ///     @freestanding(expression) macro --> ExpressionMacro
                     ///     @attached(member) macro         --> MemberMacro
                 }
                 """,
-                RelativePath("Sources/my-macro/ProvidedMacros.swift") : """
+                RelativePath("Sources/MyMacro target-name/ProvidedMacros.swift") : """
                 import SwiftCompilerPlugin
 
                 @main
-                struct My_macroMacros: CompilerPlugin {
+                struct MyMacro_target_nameMacros: CompilerPlugin {
                     let providingMacros: [Macro.Type] = [
-                        My_macro.self,
+                        MyMacro_target_name.self,
                     ]
                 }
                 """
                 ]
         ) { manifest in
             try AddTarget.addTarget(
-                TargetDescription(name: "my-macro", type: .macro),
+                TargetDescription(name: "MyMacro target-name", type: .macro),
                 to: manifest
             )
         }
@@ -586,19 +586,19 @@ class ManifestEditTests: XCTestCase {
                 ],
                 targets: [
                     .testTarget(
-                        name: "MyTest",
+                        name: "MyTest target-name",
                         dependencies: [ .product(name: "Testing", package: "swift-testing") ]
                     ),
                 ]
             )
             """,
             expectedAuxiliarySources: [
-                RelativePath("Tests/MyTest/MyTest.swift") : """
+                RelativePath("Tests/MyTest target-name/MyTest target-name.swift") : """
                 import Testing
 
                 @Suite
-                struct MyTestTests {
-                    @Test("MyTest tests")
+                struct MyTest_target_nameTests {
+                    @Test("MyTest_target_name tests")
                     func example() {
                         #expect(42 == 17 + 25)
                     }
@@ -607,7 +607,7 @@ class ManifestEditTests: XCTestCase {
             ]) { manifest in
             try AddTarget.addTarget(
                 TargetDescription(
-                    name: "MyTest",
+                    name: "MyTest target-name",
                     type: .test
                 ),
                 to: manifest,
