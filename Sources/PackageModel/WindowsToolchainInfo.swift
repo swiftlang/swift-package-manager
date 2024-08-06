@@ -78,6 +78,10 @@ public struct WindowsPlatformInfo {
         /// specifies the version string of the bundled XCTest.
         public let xctestVersion: String
 
+        /// SWIFT_TESTING_VERSION
+        /// specifies the version string of the bundled swift-testing.
+        public let swiftTestingVersion: String?
+
         /// SWIFTC_FLAGS
         /// Specifies extra flags to pass to swiftc from Swift Package Manager.
         public let extraSwiftCFlags: [String]?
@@ -89,6 +93,7 @@ public struct WindowsPlatformInfo {
 extension WindowsPlatformInfo.DefaultProperties: Decodable {
     enum CodingKeys: String, CodingKey {
     case xctestVersion = "XCTEST_VERSION"
+    case swiftTestingVersion = "SWIFT_TESTING_VERSION"
     case extraSwiftCFlags = "SWIFTC_FLAGS"
     }
 }

@@ -176,8 +176,11 @@ enum TestingSupport {
         }
         #if !os(macOS)
         #if os(Windows)
-        if let location = toolchain.xctestPath {
-            env.prependPath(key: .path, value: location.pathString)
+        if let xctestLocation = toolchain.xctestPath {
+            env.prependPath(key: .path, value: xctestLocation.pathString)
+        }
+        if let swiftTestingLocation = toolchain.swiftTestingPathOnWindows {
+            env.prependPath(key: .path, value: swiftTestingLocation.pathString)
         }
         #endif
         return env
