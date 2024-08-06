@@ -721,7 +721,7 @@ extension Workspace {
                 // way to get it back out of the resolver which is very
                 // annoying. Maybe we should make an SPI on the provider for this?
                 guard let tag = container.getTag(for: version) else {
-                    throw try InternalError(
+                    throw try await InternalError(
                         "unable to get tag for \(package) \(version); available versions \(container.versionsDescending())"
                     )
                 }

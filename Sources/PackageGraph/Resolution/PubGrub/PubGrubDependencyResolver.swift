@@ -192,7 +192,7 @@ public struct PubGrubDependencyResolver {
                         incompatibilities: incompatibilities,
                         provider: self.provider
                     )
-                    let diagnostic = try builder.makeErrorReport(for: rootCause)
+                    let diagnostic = try await builder.makeErrorReport(for: rootCause)
                     return .failure(PubGrubError.unresolvable(diagnostic))
                 } catch {
                     // failed to construct the report, will report the original error
@@ -258,7 +258,7 @@ public struct PubGrubDependencyResolver {
                     completion: $0.resume(with:)
                 )
             }
-            let updatePackage = try container.underlying.loadPackageReference(at: boundVersion)
+            let updatePackage = try await container.underlying.loadPackageReference(at: boundVersion)
 
             if var existing = flattenedAssignments[updatePackage] {
                 guard existing.binding == boundVersion else {
@@ -281,7 +281,7 @@ public struct PubGrubDependencyResolver {
             let container = try await withCheckedThrowingContinuation {
                 self.provider.getContainer(for: package, completion: $0.resume(with:))
             }
-            let updatePackage = try container.underlying.loadPackageReference(at: override.version)
+            let updatePackage = try await container.underlying.loadPackageReference(at: override.version)
             finalAssignments.append(.init(
                     package: updatePackage,
                     boundVersion: override.version,
@@ -346,7 +346,9 @@ public struct PubGrubDependencyResolver {
                         completion: $0.resume(with:)
                     )
                 }
-                for dependency in try container.underlying.getUnversionedDependencies(productFilter: node.productFilter) {
+                for dependency in try await container.underlying
+                    .getUnversionedDependencies(productFilter: node.productFilter)
+                {
                     if let versionedBasedConstraints = VersionBasedConstraint.constraints(dependency) {
                         for constraint in versionedBasedConstraints {
                             versionBasedDependencies[node, default: []].append(constraint)
@@ -414,7 +416,7 @@ public struct PubGrubDependencyResolver {
             }
 
             for node in constraint.nodes() {
-                var unprocessedDependencies = try container.underlying.getDependencies(
+                var unprocessedDependencies = try await container.underlying.getDependencies(
                     at: revisionForDependencies,
                     productFilter: constraint.products
                 )
@@ -667,31 +669,35 @@ public struct PubGrubDependencyResolver {
     }
 
     private func computeCounts(for terms: [Term], completion: @escaping (Result<[Term: Int], Error>) -> Void) {
-        if terms.isEmpty {
+        guard !terms.isEmpty else {
             return completion(.success([:]))
         }
-
-        let sync = DispatchGroup()
-        let results = ThreadSafeKeyValueStore<Term, Result<Int, Error>>()
-
-        terms.forEach { term in
-            sync.enter()
-            provider.getContainer(for: term.node.package) { result in
-                defer { sync.leave() }
-                results[term] = result.flatMap { container in Result(catching: { try container.versionCount(term.requirement) }) }
-            }
-        }
-
-        sync.notify(queue: .sharedConcurrent) {
-            do {
-                completion(.success(try results.mapValues { try $0.get() }))
-            } catch {
-                completion(.failure(error))
+        Task {
+            await withThrowingTaskGroup(of: (Term, Int).self) { group in
+                for term in terms {
+                    group.addTask {
+                        let container = try await withCheckedThrowingContinuation {
+                            provider.getContainer(for:term.node.package, completion: $0.resume(with:))
+                        }
+                        return try await (term, container.versionCount(term.requirement))
+                    }
+                }
+                do {
+                    let result = try await group.reduce(into: [Term:Int]()) { partialResult, termCount in
+                        partialResult[termCount.0] = partialResult[termCount.0, default: 0] + termCount.1
+                    }
+                    completion(.success(result))
+                } catch {
+                    completion(.failure(error))
+                }
             }
         }
     }
 
-    internal func makeDecision(state: State, completion: @escaping (Result<DependencyResolutionNode?, Error>) -> Void) {
+    internal func makeDecision(
+        state: State,
+        completion: @escaping (Result<DependencyResolutionNode?, Error>) -> Void
+    ) {
         // If there are no more undecided terms, version solving is complete.
         let undecided = state.solution.undecided
         guard !undecided.isEmpty else {
@@ -701,63 +707,65 @@ public struct PubGrubDependencyResolver {
         // Prefer packages with least number of versions that fit the current requirements so we
         // get conflicts (if any) sooner.
         self.computeCounts(for: undecided) { result in
-            do {
-                let start = DispatchTime.now()
-                let counts = try result.get()
-                // forced unwraps safe since we are testing for count and errors above
-                let pkgTerm = undecided.min {
-                    // Prefer packages that don't allow pre-release versions
-                    // to allow propagation logic to find dependencies that
-                    // limit the range before making any decisions. This means
-                    // that we'd always prefer release versions.
-                    if $0.supportsPrereleases != $1.supportsPrereleases {
-                        return !$0.supportsPrereleases
+            Task {
+                do {
+                    let start = DispatchTime.now()
+                    let counts = try result.get()
+                    // forced unwraps safe since we are testing for count and errors above
+                    let pkgTerm = undecided.min {
+                        // Prefer packages that don't allow pre-release versions
+                        // to allow propagation logic to find dependencies that
+                        // limit the range before making any decisions. This means
+                        // that we'd always prefer release versions.
+                        if $0.supportsPrereleases != $1.supportsPrereleases {
+                            return !$0.supportsPrereleases
+                        }
+
+                        return counts[$0]! < counts[$1]!
+                    }!
+                    self.delegate?.willResolve(term: pkgTerm)
+                    // at this point the container is cached
+                    let container = try self.provider.getCachedContainer(for: pkgTerm.node.package)
+
+                    // Get the best available version for this package.
+                    guard let version = try await container.getBestAvailableVersion(for: pkgTerm) else {
+                        state.addIncompatibility(try Incompatibility(pkgTerm, root: state.root, cause: .noAvailableVersion), at: .decisionMaking)
+                        return completion(.success(pkgTerm.node))
                     }
 
-                    return counts[$0]! < counts[$1]!
-                }!
-                self.delegate?.willResolve(term: pkgTerm)
-                // at this point the container is cached
-                let container = try self.provider.getCachedContainer(for: pkgTerm.node.package)
+                    // Add all of this version's dependencies as incompatibilities.
+                    let depIncompatibilities = try await container.incompatibilites(
+                        at: version,
+                        node: pkgTerm.node,
+                        overriddenPackages: state.overriddenPackages,
+                        root: state.root
+                    )
 
-                // Get the best available version for this package.
-                guard let version = try container.getBestAvailableVersion(for: pkgTerm) else {
-                    state.addIncompatibility(try Incompatibility(pkgTerm, root: state.root, cause: .noAvailableVersion), at: .decisionMaking)
-                    return completion(.success(pkgTerm.node))
-                }
+                    var haveConflict = false
+                    for incompatibility in depIncompatibilities {
+                        // Add the incompatibility to our partial solution.
+                        state.addIncompatibility(incompatibility, at: .decisionMaking)
 
-                // Add all of this version's dependencies as incompatibilities.
-                let depIncompatibilities = try container.incompatibilites(
-                    at: version,
-                    node: pkgTerm.node,
-                    overriddenPackages: state.overriddenPackages,
-                    root: state.root
-                )
-
-                var haveConflict = false
-                for incompatibility in depIncompatibilities {
-                    // Add the incompatibility to our partial solution.
-                    state.addIncompatibility(incompatibility, at: .decisionMaking)
-
-                    // Check if this incompatibility will satisfy the solution.
-                    haveConflict = haveConflict || incompatibility.terms.allSatisfy {
-                        // We only need to check if the terms other than this package
-                        // are satisfied because we _know_ that the terms matching
-                        // this package will be satisfied if we make this version
-                        // as a decision.
-                        $0.node == pkgTerm.node || state.solution.satisfies($0)
+                        // Check if this incompatibility will satisfy the solution.
+                        haveConflict = haveConflict || incompatibility.terms.allSatisfy {
+                            // We only need to check if the terms other than this package
+                            // are satisfied because we _know_ that the terms matching
+                            // this package will be satisfied if we make this version
+                            // as a decision.
+                            $0.node == pkgTerm.node || state.solution.satisfies($0)
+                        }
                     }
-                }
 
-                // Decide this version if there was no conflict with its dependencies.
-                if !haveConflict {
-                    self.delegate?.didResolve(term: pkgTerm, version: version, duration: start.distance(to: .now()))
-                    state.decide(pkgTerm.node, at: version)
-                }
+                    // Decide this version if there was no conflict with its dependencies.
+                    if !haveConflict {
+                        self.delegate?.didResolve(term: pkgTerm, version: version, duration: start.distance(to: .now()))
+                        state.decide(pkgTerm.node, at: version)
+                    }
 
-                completion(.success(pkgTerm.node))
-            } catch {
-                completion(.failure(error))
+                    completion(.success(pkgTerm.node))
+                } catch {
+                    completion(.failure(error))
+                }
             }
         }
     }

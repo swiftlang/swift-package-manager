@@ -38,8 +38,8 @@ public class MockPackageContainer: CustomPackageContainer {
     public var requestedVersions: Set<Version> = []
 
     public let _versions: [Version]
-    public func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
-        return try self.versionsDescending()
+    public func toolsVersionsAppropriateVersionsDescending() async throws -> [Version] {
+        return try await self.versionsDescending()
     }
 
     public func versionsAscending() throws -> [Version] {
