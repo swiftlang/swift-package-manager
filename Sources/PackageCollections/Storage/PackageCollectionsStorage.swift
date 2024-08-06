@@ -19,48 +19,35 @@ public protocol PackageCollectionsStorage {
     ///
     /// - Parameters:
     ///   - collection: The `PackageCollection`
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
-    func put(collection: PackageCollectionsModel.Collection,
-             callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void)
+    func put(collection: PackageCollectionsModel.Collection) async throws -> PackageCollectionsModel.Collection
 
     /// Removes `PackageCollection` from storage.
     ///
     /// - Parameters:
     ///   - identifier: The identifier of the `PackageCollection`
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
-    func remove(identifier: PackageCollectionsModel.CollectionIdentifier,
-                callback: @escaping (Result<Void, Error>) -> Void)
+    func remove(identifier: PackageCollectionsModel.CollectionIdentifier) async throws
 
     /// Returns `PackageCollection` for the given identifier.
     ///
     /// - Parameters:
     ///   - identifier: The identifier of the `PackageCollection`
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
-    func get(identifier: PackageCollectionsModel.CollectionIdentifier,
-             callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void)
+    func get(identifier: PackageCollectionsModel.CollectionIdentifier) async throws -> PackageCollectionsModel.Collection
 
     /// Returns `PackageCollection`s for the given identifiers, or all if none specified.
     ///
     /// - Parameters:
     ///   - identifiers: Optional. The identifiers of the `PackageCollection`
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
-    func list(identifiers: [PackageCollectionsModel.CollectionIdentifier]?,
-              callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void)
+    func list(identifiers: [PackageCollectionsModel.CollectionIdentifier]?) async throws -> [PackageCollectionsModel.Collection]
 
     /// Returns `PackageSearchResult` for the given search criteria.
     ///
     /// - Parameters:
     ///   - identifiers: Optional. The identifiers of the `PackageCollection`s
     ///   - query: The search query expression
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
-    func searchPackages(identifiers: [PackageCollectionsModel.CollectionIdentifier]?,
-                        query: String,
-                        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void)
+    func searchPackages(
+        identifiers: [PackageCollectionsModel.CollectionIdentifier]?,
+        query: String
+    ) async throws -> PackageCollectionsModel.PackageSearchResult
 
     /// Returns packages for the given package identity.
     ///
@@ -69,11 +56,10 @@ public protocol PackageCollectionsStorage {
     /// - Parameters:
     ///   - identifier: The package identifier
     ///   - collectionIdentifiers: Optional. The identifiers of the `PackageCollection`s
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
-    func findPackage(identifier: PackageIdentity,
-                     collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]?,
-                     callback: @escaping (Result<(packages: [PackageCollectionsModel.Package], collections: [PackageCollectionsModel.CollectionIdentifier]), Error>) -> Void)
+    func findPackage(
+        identifier: PackageIdentity,
+        collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]?
+    ) async throws -> (packages: [PackageCollectionsModel.Package], collections: [PackageCollectionsModel.CollectionIdentifier])
 
     /// Returns `TargetSearchResult` for the given search criteria.
     ///
@@ -81,60 +67,9 @@ public protocol PackageCollectionsStorage {
     ///   - identifiers: Optional. The identifiers of the `PackageCollection`
     ///   - query: The search query expression
     ///   - type: The search type
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
-    func searchTargets(identifiers: [PackageCollectionsModel.CollectionIdentifier]?,
-                       query: String,
-                       type: PackageCollectionsModel.TargetSearchType,
-                       callback: @escaping (Result<PackageCollectionsModel.TargetSearchResult, Error>) -> Void)
-}
-
-public extension PackageCollectionsStorage {
-    func put(collection: PackageCollectionsModel.Collection) async throws -> PackageCollectionsModel.Collection {
-        try await withCheckedThrowingContinuation {
-            self.put(collection: collection, callback: $0.resume(with:))
-        }
-    }
-    func remove(identifier: PackageCollectionsModel.CollectionIdentifier) async throws {
-        try await withCheckedThrowingContinuation {
-            self.remove(identifier: identifier, callback: $0.resume(with:))
-        }
-    }
-    func get(identifier: PackageCollectionsModel.CollectionIdentifier) async throws -> PackageCollectionsModel.Collection {
-        try await withCheckedThrowingContinuation {
-            self.get(identifier: identifier, callback: $0.resume(with:))
-        }
-    }
-    func list(identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil) async throws -> [PackageCollectionsModel.Collection] {
-        try await withCheckedThrowingContinuation {
-            self.list(identifiers: identifiers, callback: $0.resume(with:))
-        }
-    }
-
-    func searchPackages(
-        identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil,
-        query: String
-    ) async throws -> PackageCollectionsModel.PackageSearchResult {
-        try await withCheckedThrowingContinuation {
-            self.searchPackages(identifiers: identifiers, query: query, callback: $0.resume(with:))
-        }
-    }
-    func findPackage(
-        identifier: PackageIdentity,
-        collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil
-    ) async throws -> (packages: [PackageCollectionsModel.Package], collections: [PackageCollectionsModel.CollectionIdentifier]) {
-        try await withCheckedThrowingContinuation {
-            self.findPackage(identifier: identifier, collectionIdentifiers: collectionIdentifiers, callback: $0.resume(with:))
-        }
-    }
-
     func searchTargets(
-        identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil,
+        identifiers: [PackageCollectionsModel.CollectionIdentifier]?,
         query: String,
         type: PackageCollectionsModel.TargetSearchType
-    ) async throws -> PackageCollectionsModel.TargetSearchResult {
-        try await withCheckedThrowingContinuation {
-            self.searchTargets(identifiers: identifiers, query: query, type: type, callback: $0.resume(with:))
-        }
-    }
+    ) async throws -> PackageCollectionsModel.TargetSearchResult
 }
