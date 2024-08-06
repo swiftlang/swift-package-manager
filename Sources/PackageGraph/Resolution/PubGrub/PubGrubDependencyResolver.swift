@@ -490,9 +490,7 @@ public struct PubGrubDependencyResolver {
 
             // If decision making determines that no more decisions are to be
             // made, it returns nil to signal that version solving is done.
-            next = try await withCheckedThrowingContinuation {
-                self.makeDecision(state: state, completion: $0.resume(with:))
-            }
+            next = try await self.makeDecision(state: state)
         }
     }
 
@@ -691,77 +689,70 @@ public struct PubGrubDependencyResolver {
     }
 
     internal func makeDecision(
-        state: State,
-        completion: @escaping (Result<DependencyResolutionNode?, Error>) -> Void
-    ) {
+        state: State
+    ) async throws -> DependencyResolutionNode? {
         // If there are no more undecided terms, version solving is complete.
         let undecided = state.solution.undecided
         guard !undecided.isEmpty else {
-            return completion(.success(nil))
+            return nil
         }
 
         // Prefer packages with least number of versions that fit the current requirements so we
         // get conflicts (if any) sooner.
-        Task {
-            do {
-                let start = DispatchTime.now()
-                let counts = try await self.computeCounts(for: undecided)
-                // forced unwraps safe since we are testing for count and errors above
-                let pkgTerm = undecided.min {
-                    // Prefer packages that don't allow pre-release versions
-                    // to allow propagation logic to find dependencies that
-                    // limit the range before making any decisions. This means
-                    // that we'd always prefer release versions.
-                    if $0.supportsPrereleases != $1.supportsPrereleases {
-                        return !$0.supportsPrereleases
-                    }
+        let start = DispatchTime.now()
+        let counts = try await self.computeCounts(for: undecided)
+        // forced unwraps safe since we are testing for count and errors above
+        let pkgTerm = undecided.min {
+            // Prefer packages that don't allow pre-release versions
+            // to allow propagation logic to find dependencies that
+            // limit the range before making any decisions. This means
+            // that we'd always prefer release versions.
+            if $0.supportsPrereleases != $1.supportsPrereleases {
+                return !$0.supportsPrereleases
+            }
 
-                    return counts[$0]! < counts[$1]!
-                }!
-                self.delegate?.willResolve(term: pkgTerm)
-                // at this point the container is cached
-                let container = try self.provider.getCachedContainer(for: pkgTerm.node.package)
+            return counts[$0]! < counts[$1]!
+        }!
+        self.delegate?.willResolve(term: pkgTerm)
+        // at this point the container is cached
+        let container = try self.provider.getCachedContainer(for: pkgTerm.node.package)
 
-                // Get the best available version for this package.
-                guard let version = try await container.getBestAvailableVersion(for: pkgTerm) else {
-                    state.addIncompatibility(try Incompatibility(pkgTerm, root: state.root, cause: .noAvailableVersion), at: .decisionMaking)
-                    return completion(.success(pkgTerm.node))
-                }
+        // Get the best available version for this package.
+        guard let version = try await container.getBestAvailableVersion(for: pkgTerm) else {
+            state.addIncompatibility(try Incompatibility(pkgTerm, root: state.root, cause: .noAvailableVersion), at: .decisionMaking)
+            return pkgTerm.node
+        }
 
-                // Add all of this version's dependencies as incompatibilities.
-                let depIncompatibilities = try await container.incompatibilites(
-                    at: version,
-                    node: pkgTerm.node,
-                    overriddenPackages: state.overriddenPackages,
-                    root: state.root
-                )
+        // Add all of this version's dependencies as incompatibilities.
+        let depIncompatibilities = try await container.incompatibilites(
+            at: version,
+            node: pkgTerm.node,
+            overriddenPackages: state.overriddenPackages,
+            root: state.root
+        )
 
-                var haveConflict = false
-                for incompatibility in depIncompatibilities {
-                    // Add the incompatibility to our partial solution.
-                    state.addIncompatibility(incompatibility, at: .decisionMaking)
+        var haveConflict = false
+        for incompatibility in depIncompatibilities {
+            // Add the incompatibility to our partial solution.
+            state.addIncompatibility(incompatibility, at: .decisionMaking)
 
-                    // Check if this incompatibility will satisfy the solution.
-                    haveConflict = haveConflict || incompatibility.terms.allSatisfy {
-                        // We only need to check if the terms other than this package
-                        // are satisfied because we _know_ that the terms matching
-                        // this package will be satisfied if we make this version
-                        // as a decision.
-                        $0.node == pkgTerm.node || state.solution.satisfies($0)
-                    }
-                }
-
-                // Decide this version if there was no conflict with its dependencies.
-                if !haveConflict {
-                    self.delegate?.didResolve(term: pkgTerm, version: version, duration: start.distance(to: .now()))
-                    state.decide(pkgTerm.node, at: version)
-                }
-
-                completion(.success(pkgTerm.node))
-            } catch {
-                completion(.failure(error))
+            // Check if this incompatibility will satisfy the solution.
+            haveConflict = haveConflict || incompatibility.terms.allSatisfy {
+                // We only need to check if the terms other than this package
+                // are satisfied because we _know_ that the terms matching
+                // this package will be satisfied if we make this version
+                // as a decision.
+                $0.node == pkgTerm.node || state.solution.satisfies($0)
             }
         }
+
+        // Decide this version if there was no conflict with its dependencies.
+        if !haveConflict {
+            self.delegate?.didResolve(term: pkgTerm, version: version, duration: start.distance(to: .now()))
+            state.decide(pkgTerm.node, at: version)
+        }
+
+        return pkgTerm.node
     }
 }
 

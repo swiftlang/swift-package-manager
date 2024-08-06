@@ -363,9 +363,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
 
         func loadPackageGraph(packagePath: AbsolutePath, manifestLoader: ManifestLoader) async throws -> ModulesGraph {
             let rootPackageRef = PackageReference(identity: .init(path: packagePath), kind: .root(packagePath))
-            let rootPackageManifest =  try await withCheckedThrowingContinuation {
-                self.loadManifest(manifestLoader: manifestLoader, package: rootPackageRef, completion: $0.resume(with:))
-            }
+            let rootPackageManifest =  try await self.loadManifest(manifestLoader: manifestLoader, package: rootPackageRef)
 
             var loadedManifests = [PackageIdentity: Manifest]()
             loadedManifests[rootPackageRef.identity] = rootPackageManifest
@@ -375,9 +373,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             _ = try await topologicalSort(input) { pair in
                 let dependenciesRequired = pair.item.dependenciesRequired(for: .everything)
                 let dependenciesToLoad = dependenciesRequired.map{ $0.packageRef }.filter { !loadedManifests.keys.contains($0.identity) }
-                let dependenciesManifests = try await withCheckedThrowingContinuation {
-                    self.loadManifests(manifestLoader: manifestLoader, packages: dependenciesToLoad, completion: $0.resume(with:))
-                }
+                let dependenciesManifests = try await self.loadManifests(manifestLoader: manifestLoader, packages: dependenciesToLoad)
                 dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
                 return dependenciesRequired.compactMap { dependency in
                     loadedManifests[dependency.identity].flatMap {
@@ -413,60 +409,42 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
 
         func loadManifests(
             manifestLoader: ManifestLoader,
-            packages: [PackageReference],
-            completion: @escaping (Result<[PackageIdentity: Manifest], Error>) -> Void
-        ) {
-            let sync = DispatchGroup()
-            let manifestsLock = NSLock()
-            var manifests = [PackageIdentity: Manifest]()
-            Set(packages).forEach { package in
-                sync.enter()
-                self.loadManifest(manifestLoader: manifestLoader, package: package) { result in
-                    defer { sync.leave() }
-                    switch result {
-                    case .success(let manifest):
-                        manifestsLock.withLock {
-                            manifests[package.identity] = manifest
-                        }
-                    case .failure(let error):
-                        return completion(.failure(error))
+            packages: [PackageReference]
+        ) async throws -> [PackageIdentity: Manifest] {
+            return try await withThrowingTaskGroup(of: (package:PackageReference, manifest:Manifest).self) { group in
+                for package in packages {
+                    group.addTask {
+                        try await (package, self.loadManifest(manifestLoader: manifestLoader, package: package))
                     }
                 }
-            }
-
-            sync.notify(queue: .sharedConcurrent) {
-                completion(.success(manifestsLock.withLock { manifests }))
+                return try await group.reduce(into: [:]) { partialResult, packageManifest in
+                    partialResult[packageManifest.package.identity] = packageManifest.manifest
+                }
             }
         }
 
         func loadManifest(
             manifestLoader: ManifestLoader,
-            package: PackageReference,
-            completion: @escaping (Result<Manifest, Error>) -> Void
-        ) {
-            do {
-                let packagePath = try AbsolutePath(validating: package.locationString) // FIXME
-                let manifestPath = packagePath.appending(component: Manifest.filename)
-                let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
-                manifestLoader.load(
-                    manifestPath: manifestPath,
-                    manifestToolsVersion: manifestToolsVersion,
-                    packageIdentity: package.identity,
-                    packageKind: package.kind,
-                    packageLocation: package.locationString,
-                    packageVersion: .none,
-                    identityResolver: identityResolver,
-                    dependencyMapper: dependencyMapper,
-                    fileSystem: fileSystem,
-                    observabilityScope: observabilityScope,
-                    delegateQueue: .sharedConcurrent,
-                    callbackQueue: .sharedConcurrent,
-                    completion: completion
-                )
-            } catch {
-                completion(.failure(error))
-            }
-        }        
+            package: PackageReference
+        ) async throws -> Manifest {
+            let packagePath = try AbsolutePath(validating: package.locationString) // FIXME
+            let manifestPath = packagePath.appending(component: Manifest.filename)
+            let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
+            return try await manifestLoader.load(
+                manifestPath: manifestPath,
+                manifestToolsVersion: manifestToolsVersion,
+                packageIdentity: package.identity,
+                packageKind: package.kind,
+                packageLocation: package.locationString,
+                packageVersion: .none,
+                identityResolver: identityResolver,
+                dependencyMapper: dependencyMapper,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope,
+                delegateQueue: .sharedConcurrent,
+                callbackQueue: .sharedConcurrent
+            )
+        }
     }
 }
 

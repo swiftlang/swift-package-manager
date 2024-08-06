@@ -556,16 +556,14 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             preparationStepName: "Compiling plugin \(plugin.moduleName)",
             progressTracker: self.current?.tracker
         )
-        let result = try await withCheckedThrowingContinuation {
-            pluginConfiguration.scriptRunner.compilePluginScript(
-                sourceFiles: plugin.sources.paths,
-                pluginName: plugin.moduleName,
-                toolsVersion: plugin.toolsVersion,
-                observabilityScope: self.observabilityScope,
-                callbackQueue: DispatchQueue.sharedConcurrent,
-                delegate: delegate,
-                completion: $0.resume(with:))
-        }
+        let result = try await pluginConfiguration.scriptRunner.compilePluginScript(
+            sourceFiles: plugin.sources.paths,
+            pluginName: plugin.moduleName,
+            toolsVersion: plugin.toolsVersion,
+            observabilityScope: self.observabilityScope,
+            callbackQueue: DispatchQueue.sharedConcurrent,
+            delegate: delegate
+        )
 
         // Throw an error on failure; we will already have emitted the compiler's output in this case.
         if !result.succeeded {
