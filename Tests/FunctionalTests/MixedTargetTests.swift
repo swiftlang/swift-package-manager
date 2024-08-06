@@ -289,23 +289,23 @@ extension MixedTargetTests {
         // Test that statically linked mixed library is successfully
         // integrated into an Objective-C executable.
         try fixture(name: "MixedTargets") { fixturePath in
-            let output = try executeSwiftRun(
+            let (stdout, _) = try executeSwiftRun(
                 fixturePath.appending(component: "DummyTargets"),
                 "ClangExecutableDependsOnStaticallyLinkedMixedTarget"
             )
             // The program should print "Hello, world!"
-            XCTAssert(output.stderr.contains("Hello, world!"))
+            XCTAssert(stdout.contains("Hello, world!"))
         }
 
         // Test that statically linked mixed library is successfully
         // integrated into a Swift executable.
         try fixture(name: "MixedTargets") { fixturePath in
-            let output = try executeSwiftRun(
+            let (stdout, _) = try executeSwiftRun(
                 fixturePath.appending(component: "DummyTargets"),
                 "SwiftExecutableDependsOnStaticallyLinkedMixedTarget"
             )
             // The program should print "Hello, world!"
-            XCTAssert(output.stdout.contains("Hello, world!"))
+            XCTAssert(stdout.contains("Hello, world!"))
         }
     }
 
@@ -320,23 +320,23 @@ extension MixedTargetTests {
         // Test that dynamically linked mixed library is successfully
         // integrated into an Objective-C executable.
         try fixture(name: "MixedTargets") { fixturePath in
-            let output = try executeSwiftRun(
+            let (stdout, _) = try executeSwiftRun(
                 fixturePath.appending(component: "DummyTargets"),
                 "ClangExecutableDependsOnDynamicallyLinkedMixedTarget"
             )
             // The program should print "Hello, world!"
-            XCTAssert(output.stderr.contains("Hello, world!"))
+            XCTAssert(stdout.contains("Hello, world!"))
         }
 
         // Test that dynamically linked mixed library is successfully
         // integrated into a Swift executable.
         try fixture(name: "MixedTargets") { fixturePath in
-            let output = try executeSwiftRun(
+            let (stdout, _) = try executeSwiftRun(
                 fixturePath.appending(component: "DummyTargets"),
                 "SwiftExecutableDependsOnDynamicallyLinkedMixedTarget"
             )
             // The program should print "Hello, world!"
-            XCTAssert(output.stdout.contains("Hello, world!"))
+            XCTAssert(stdout.contains("Hello, world!"))
         }
     }
 

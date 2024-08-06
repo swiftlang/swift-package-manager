@@ -1817,7 +1817,7 @@ final class BuildPlanTests: XCTestCase {
                 "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
                 "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
                 "-target", defaultTargetTriple, "-framework", "OtherFramework", "-Xlinker", "-add_ast_path",
-                "-Xlinker", buildPath.appending(component: "exe.swiftmodule").pathString,
+                "-Xlinker", buildPath.appending(components: "Modules", "exe.swiftmodule").pathString,
                 "-g"
             ])
         #elseif os(Linux)
@@ -1957,7 +1957,7 @@ final class BuildPlanTests: XCTestCase {
                 "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
                 "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
                 "-target", defaultTargetTriple, "-Xlinker", "-add_ast_path",
-                "-Xlinker", buildPath.appending(component: "exe.swiftmodule").pathString,
+                "-Xlinker", buildPath.appending(components: "Modules", "exe.swiftmodule").pathString,
                 "-g"
             ])
         #elseif os(Linux)
