@@ -416,7 +416,11 @@ public final class UserToolchain: Toolchain {
             validating: "../../Library/Developer/Frameworks",
             relativeTo: resolveSymlinks(derivedSwiftCompiler).parentDirectory
         ), fileSystem.exists(frameworksPath.appending("Testing.framework")) {
-            return ["-F", frameworksPath.pathString]
+            return [
+                "-F", frameworksPath.pathString,
+                "-Xlinker", "-rpath",
+                "-Xlinker", frameworksPath.pathString
+            ]
         }
 
         guard let toolchainLibDir = try? toolchainLibDir(
