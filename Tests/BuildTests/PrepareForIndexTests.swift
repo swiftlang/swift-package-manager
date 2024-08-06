@@ -12,6 +12,8 @@
 
 import Build
 import Foundation
+@testable import Commands
+@testable import CoreCommands
 import LLBuildManifest
 import _InternalTestSupport
 import TSCBasic
@@ -60,6 +62,9 @@ class PrepareForIndexTests: XCTestCase {
         XCTAssertEqual(toolCommands.count, 1)
         let toolSwiftc = try XCTUnwrap(toolCommands.first?.tool as? SwiftCompilerTool)
         XCTAssertFalse(toolSwiftc.otherArguments.contains("-experimental-skip-all-function-bodies"))
+        XCTAssertTrue(toolSwiftc.outputs.contains(where: {
+            $0.name.hasSuffix(".swift.o")
+        }))
 
         // Make sure only object files for tools are built
         XCTAssertTrue(
@@ -183,4 +188,34 @@ class PrepareForIndexTests: XCTestCase {
         XCTAssertTrue(coreSwiftc.otherArguments.contains("-experimental-allow-module-with-compiler-errors"))
     }
 
+    func testToolsDontPrepare() throws {
+        let options = try GlobalOptions.parse(["--experimental-prepare-for-indexing"])
+        let state = try SwiftCommandState(
+            outputStream: stderrStream,
+            options: options,
+            toolWorkspaceConfiguration: .init(shouldInstallSignalHandlers: false),
+            workspaceDelegateProvider: {
+                CommandWorkspaceDelegate(
+                    observabilityScope: $0,
+                    outputHandler: $1,
+                    progressHandler: $2,
+                    inputHandler: $3
+                )
+            },
+            workspaceLoaderProvider: {
+                XcodeWorkspaceLoader(
+                    fileSystem: $0,
+                    observabilityScope: $1
+                )
+            },
+            hostTriple: .arm64Linux,
+            fileSystem: localFileSystem,
+            environment: .current
+        )
+
+        XCTAssertEqual(try state.productsBuildParameters.prepareForIndexing, .on)
+        // Tools builds should never do prepare for indexing since they're needed
+        // for the prepare builds.
+        XCTAssertEqual(try state.toolsBuildParameters.prepareForIndexing, .off)
+    }
 }

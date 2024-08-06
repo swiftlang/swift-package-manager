@@ -628,7 +628,7 @@ let package = Package(
         ),
         .testTarget(
             name: "BuildTests",
-            dependencies: ["Build", "PackageModel", "_InternalTestSupport"]
+            dependencies: ["Build", "PackageModel", "Commands", "_InternalTestSupport"]
         ),
         .testTarget(
             name: "LLBuildManifestTests",
