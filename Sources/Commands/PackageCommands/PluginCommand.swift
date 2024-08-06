@@ -361,7 +361,7 @@ struct PluginCommand: AsyncSwiftCommand {
         let allowNetworkConnectionsCopy = allowNetworkConnections
 
         let buildEnvironment = buildParameters.buildEnvironment
-        let _ = try await withCheckedThrowingContinuation { pluginTarget.invoke(
+        let _ = try await pluginTarget.invoke(
             action: .performCommand(package: package, arguments: arguments),
             buildEnvironment: buildEnvironment,
             scriptRunner: pluginScriptRunner,
@@ -378,9 +378,8 @@ struct PluginCommand: AsyncSwiftCommand {
             modulesGraph: packageGraph,
             observabilityScope: swiftCommandState.observabilityScope,
             callbackQueue: delegateQueue,
-            delegate: pluginDelegate,
-            completion: $0.resume(with:)
-        ) }
+            delegate: pluginDelegate
+        )
 
         // TODO: We should also emit a final line of output regarding the result.
     }

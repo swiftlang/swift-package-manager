@@ -344,7 +344,7 @@ final class PubGrubTests: XCTestCase {
         let state1 = PubGrubDependencyResolver.State(root: rootNode)
 
         // No decision can be made if no unsatisfied terms are available.
-        let decisionNil = try await withCheckedThrowingContinuation { solver1.makeDecision(state: state1, completion: $0.resume(with:)) }
+        let decisionNil = try await solver1.makeDecision(state: state1)
         XCTAssertNil(decisionNil)
 
         let a = MockContainer(package: aRef, dependenciesByVersion: [
@@ -361,7 +361,7 @@ final class PubGrubTests: XCTestCase {
 
         XCTAssertEqual(state2.incompatibilities.count, 0)
 
-        let decision = try await withCheckedThrowingContinuation {solver2.makeDecision(state: state2, completion: $0.resume(with:)) }
+        let decision = try await solver2.makeDecision(state: state2)
         XCTAssertEqual(decision, .product("a", package: "a"))
 
         XCTAssertEqual(state2.incompatibilities.count, 3)

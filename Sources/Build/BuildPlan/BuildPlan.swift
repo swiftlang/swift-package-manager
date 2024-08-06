@@ -800,32 +800,30 @@ extension BuildPlan {
                 pluginDerivedResources = []
             }
 
-            let result = try await withCheckedThrowingContinuation {
-                pluginModule.invoke(
-                    module: plugin,
-                    action: .createBuildToolCommands(
-                        package: package,
-                        target: module,
-                        pluginGeneratedSources: pluginDerivedSources.paths,
-                        pluginGeneratedResources: pluginDerivedResources.map(\.path)
-                    ),
-                    buildEnvironment: buildParameters.buildEnvironment,
-                    scriptRunner: configuration.scriptRunner,
-                    workingDirectory: package.path,
-                    outputDirectory: pluginOutputDir,
-                    toolSearchDirectories: [buildParameters.toolchain.swiftCompilerPath.parentDirectory],
-                    accessibleTools: accessibleTools,
-                    writableDirectories: writableDirectories,
-                    readOnlyDirectories: readOnlyDirectories,
-                    allowNetworkConnections: [],
-                    pkgConfigDirectories: pkgConfigDirectories,
-                    sdkRootPath: buildParameters.toolchain.sdkRootPath,
-                    fileSystem: fileSystem,
-                    modulesGraph: modulesGraph,
-                    observabilityScope: observabilityScope,
-                    completion: $0.resume(with:)
-                )
-            }
+            let result = try await pluginModule.invoke(
+                module: plugin,
+                action: .createBuildToolCommands(
+                    package: package,
+                    target: module,
+                    pluginGeneratedSources: pluginDerivedSources.paths,
+                    pluginGeneratedResources: pluginDerivedResources.map(\.path)
+                ),
+                buildEnvironment: buildParameters.buildEnvironment,
+                scriptRunner: configuration.scriptRunner,
+                workingDirectory: package.path,
+                outputDirectory: pluginOutputDir,
+                toolSearchDirectories: [buildParameters.toolchain.swiftCompilerPath.parentDirectory],
+                accessibleTools: accessibleTools,
+                writableDirectories: writableDirectories,
+                readOnlyDirectories: readOnlyDirectories,
+                allowNetworkConnections: [],
+                pkgConfigDirectories: pkgConfigDirectories,
+                sdkRootPath: buildParameters.toolchain.sdkRootPath,
+                fileSystem: fileSystem,
+                modulesGraph: modulesGraph,
+                observabilityScope: observabilityScope
+            )
+
 
             if surfaceDiagnostics {
                 let diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter {

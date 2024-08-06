@@ -486,13 +486,10 @@ public final class SwiftCommandState {
     public func getRootPackageInformation() async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
         let workspace = try self.getActiveWorkspace()
         let root = try self.getWorkspaceRoot()
-        let rootManifests = try await withCheckedThrowingContinuation {
-            workspace.loadRootManifests(
-                packages: root.packages,
-                observabilityScope: self.observabilityScope,
-                completion: $0.resume(with:)
-            )
-        }
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: self.observabilityScope
+        )
 
         var identities = [PackageIdentity: [PackageIdentity]]()
         var targets = [PackageIdentity: [String]]()
