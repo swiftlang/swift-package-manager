@@ -3843,18 +3843,15 @@ extension RegistryClient {
     func getPackageVersionMetadata(
         package: PackageIdentity.RegistryIdentity,
         version: Version
-    ) throws -> PackageVersionMetadata {
-        // TODO: Finish removing this temp_await
-        // It can't currently be removed because it is passed to
-        // PackageVersionChecksumTOFU which expects a non async method
-        return try temp_await { completion in
+    ) async throws -> PackageVersionMetadata {
+        return try await withCheckedThrowingContinuation {
             self.getPackageVersionMetadata(
                 package: package.underlying,
                 version: version,
                 fileSystem: InMemoryFileSystem(),
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
-                completion: completion
+                completion: $0.resume(with:)
             )
         }
     }
