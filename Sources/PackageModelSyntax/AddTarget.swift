@@ -234,10 +234,10 @@ public struct AddTarget {
         case .macro:
             """
             \(imports)
-            struct ExampleMacro: Macro {
+            struct \(raw: target.sanitizedName): Macro {
                 /// TODO: Implement one or more of the protocols that inherit
                 /// from Macro. The appropriate macro protocol is determined
-                /// by the "macro" declaration that ExampleMacro implements.
+                /// by the "macro" declaration that \(raw: target.sanitizedName) implements.
                 /// Examples include:
                 ///     @freestanding(expression) macro --> ExpressionMacro
                 ///     @attached(member) macro         --> MemberMacro
@@ -255,8 +255,8 @@ public struct AddTarget {
             case .xctest:
                 """
                 \(imports)
-                class ExampleTests: XCTestCase {
-                    func testExample() {
+                class \(raw: target.sanitizedName)Tests: XCTestCase {
+                    func test\(raw: target.sanitizedName)() {
                         XCTAssertEqual(42, 17 + 25)
                     }
                 }
@@ -266,8 +266,8 @@ public struct AddTarget {
                 """
                 \(imports)
                 @Suite
-                struct ExampleTests {
-                    @Test("Example tests")
+                struct \(raw: target.sanitizedName)Tests {
+                    @Test("\(raw: target.sanitizedName) tests")
                     func example() {
                         #expect(42 == 17 + 25)
                     }
@@ -284,7 +284,7 @@ public struct AddTarget {
             """
             \(imports)
             @main
-            struct ExampleMain {
+            struct \(raw: target.sanitizedName)Main {
                 static func main() {
                     print("Hello, world")
                 }
@@ -313,9 +313,9 @@ public struct AddTarget {
             import SwiftCompilerPlugin
 
             @main
-            struct \(raw: target.name)Macros: CompilerPlugin {
+            struct \(raw: target.sanitizedName)Macros: CompilerPlugin {
                 let providingMacros: [Macro.Type] = [
-                    \(raw: target.name).self,
+                    \(raw: target.sanitizedName).self,
                 ]
             }
             """
@@ -413,4 +413,16 @@ fileprivate extension PackageDependency {
             traits: []
         )
     }
+}
+
+fileprivate extension TargetDescription {
+    var sanitizedName: String {
+        name
+            .spm_mangledToC99ExtendedIdentifier()
+            .capitalizingFirstLetter()
+    }
+}
+
+fileprivate extension String {
+    func capitalizingFirstLetter() -> String { prefix(1).uppercased() + dropFirst() }
 }

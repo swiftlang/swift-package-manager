@@ -449,45 +449,6 @@ class ManifestEditTests: XCTestCase {
         }
     }
 
-    func testAddExecutableTargetWithNameAsInvalidSwiftIdentifier() throws {
-        try assertManifestRefactor("""
-            // swift-tools-version: 5.5
-            let package = Package(
-                name: "packages",
-                targets: []
-            )
-            """,
-            expectedManifest: """
-            // swift-tools-version: 5.5
-            let package = Package(
-                name: "packages",
-                targets: [
-                    .executableTarget(name: "$My-Program"),
-                ]
-            )
-            """,
-            expectedAuxiliarySources: [
-                RelativePath("Sources/$My-Program/$My-Program.swift") : """
-
-                @main
-                struct ExampleMain {
-                    static func main() {
-                        print("Hello, world")
-                    }
-                }
-                """
-            ]
-        ) { manifest in
-            try AddTarget.addTarget(
-                TargetDescription(
-                    name: "$My-Program",
-                    type: .executable
-                ),
-                to: manifest
-            )
-        }
-    }
-
     func testAddExecutableTargetWithDependencies() throws {
         try assertManifestRefactor("""
             // swift-tools-version: 5.5
@@ -507,7 +468,7 @@ class ManifestEditTests: XCTestCase {
                     // These are the targets
                     .target(name: "MyLib"),
                     .executableTarget(
-                        name: "MyProgram",
+                        name: "my-program",
                         dependencies: [
                             .product(name: "SwiftSyntax", package: "swift-syntax"),
                             .target(name: "TargetLib"),
@@ -518,13 +479,13 @@ class ManifestEditTests: XCTestCase {
             )
             """,
             expectedAuxiliarySources: [
-                RelativePath("Sources/MyProgram/MyProgram.swift") : """
+                RelativePath("Sources/my-program/my-program.swift") : """
                 import MyLib
                 import SwiftSyntax
                 import TargetLib
 
                 @main
-                struct ExampleMain {
+                struct My_programMain {
                     static func main() {
                         print("Hello, world")
                     }
@@ -533,7 +494,7 @@ class ManifestEditTests: XCTestCase {
             ]) { manifest in
             try AddTarget.addTarget(
                 TargetDescription(
-                    name: "MyProgram",
+                    name: "my-program",
                     dependencies: [
                         .product(name: "SwiftSyntax", package: "swift-syntax"),
                         .target(name: "TargetLib", condition: nil),
@@ -567,7 +528,7 @@ class ManifestEditTests: XCTestCase {
                 ],
                 targets: [
                     .macro(
-                        name: "MyMacro",
+                        name: "my-macro",
                         dependencies: [
                             .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
                             .product(name: "SwiftSyntaxMacros", package: "swift-syntax")
@@ -577,33 +538,33 @@ class ManifestEditTests: XCTestCase {
             )
             """,
             expectedAuxiliarySources: [
-                RelativePath("Sources/MyMacro/MyMacro.swift") : """
+                RelativePath("Sources/my-macro/my-macro.swift") : """
                 import SwiftCompilerPlugin
                 import SwiftSyntaxMacros
 
-                struct ExampleMacro: Macro {
+                struct My_macro: Macro {
                     /// TODO: Implement one or more of the protocols that inherit
                     /// from Macro. The appropriate macro protocol is determined
-                    /// by the "macro" declaration that ExampleMacro implements.
+                    /// by the "macro" declaration that My_macro implements.
                     /// Examples include:
                     ///     @freestanding(expression) macro --> ExpressionMacro
                     ///     @attached(member) macro         --> MemberMacro
                 }
                 """,
-                RelativePath("Sources/MyMacro/ProvidedMacros.swift") : """
+                RelativePath("Sources/my-macro/ProvidedMacros.swift") : """
                 import SwiftCompilerPlugin
 
                 @main
-                struct MyMacroMacros: CompilerPlugin {
+                struct My_macroMacros: CompilerPlugin {
                     let providingMacros: [Macro.Type] = [
-                        MyMacro.self,
+                        My_macro.self,
                     ]
                 }
                 """
                 ]
         ) { manifest in
             try AddTarget.addTarget(
-                TargetDescription(name: "MyMacro", type: .macro),
+                TargetDescription(name: "my-macro", type: .macro),
                 to: manifest
             )
         }
@@ -636,8 +597,8 @@ class ManifestEditTests: XCTestCase {
                 import Testing
 
                 @Suite
-                struct ExampleTests {
-                    @Test("Example tests")
+                struct MyTestTests {
+                    @Test("MyTest tests")
                     func example() {
                         #expect(42 == 17 + 25)
                     }
@@ -647,54 +608,6 @@ class ManifestEditTests: XCTestCase {
             try AddTarget.addTarget(
                 TargetDescription(
                     name: "MyTest",
-                    type: .test
-                ),
-                to: manifest,
-                configuration: .init(
-                    testHarness: .swiftTesting
-                )
-            )
-        }
-    }
-
-    func testAddSwiftTestingTestTargetWithNameAsInvalidSwiftIdentifier() throws {
-        try assertManifestRefactor("""
-            // swift-tools-version: 5.5
-            let package = Package(
-                name: "packages"
-            )
-            """,
-            expectedManifest: """
-            // swift-tools-version: 5.5
-            let package = Package(
-                name: "packages",
-                dependencies: [
-                    .package(url: "https://github.com/apple/swift-testing.git", from: "0.8.0"),
-                ],
-                targets: [
-                    .testTarget(
-                        name: "$My-Test",
-                        dependencies: [ .product(name: "Testing", package: "swift-testing") ]
-                    ),
-                ]
-            )
-            """,
-            expectedAuxiliarySources: [
-                RelativePath("Tests/$My-Test/$My-Test.swift") : """
-                import Testing
-
-                @Suite
-                struct ExampleTests {
-                    @Test("Example tests")
-                    func example() {
-                        #expect(42 == 17 + 25)
-                    }
-                }
-                """
-            ]) { manifest in
-            try AddTarget.addTarget(
-                TargetDescription(
-                    name: "$My-Test",
                     type: .test
                 ),
                 to: manifest,
