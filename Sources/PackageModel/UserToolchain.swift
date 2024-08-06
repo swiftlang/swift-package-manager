@@ -433,7 +433,7 @@ public final class UserToolchain: Toolchain {
             components: ["swift", "host", "plugins", "testing"]
         )
 
-        guard fileSystem.exists(toolchainLibDir), fileSystem.exists(testingPluginsDir) else {
+        guard fileSystem.exists(testingLibDir), fileSystem.exists(testingPluginsDir) else {
             return []
         }
 
