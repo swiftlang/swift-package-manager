@@ -2537,18 +2537,14 @@ final class RegistryClientTests: XCTestCase {
         XCTAssertEqual(contents.sorted(), [RegistryReleaseMetadataStorage.fileName, "Package.swift"].sorted())
 
         // Expected checksum is not found in storage so the metadata API will be called
-        let fingerprint = try await withCheckedThrowingContinuation {
-            fingerprintStorage.get(
-                package: identity,
-                version: version,
-                kind: .registry,
-                contentType: .sourceCode,
-                observabilityScope: ObservabilitySystem
-                    .NOOP,
-                callbackQueue: .sharedConcurrent,
-                callback: $0.resume(with:)
-            )
-        }
+        let fingerprint = try fingerprintStorage.get(
+            package: identity,
+            version: version,
+            kind: .registry,
+            contentType: .sourceCode,
+            observabilityScope: ObservabilitySystem
+                .NOOP
+        )
         XCTAssertEqual(SourceControlURL(registryURL), fingerprint.origin.url)
         XCTAssertEqual(checksum, fingerprint.value)
     }

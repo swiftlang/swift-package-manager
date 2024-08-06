@@ -157,7 +157,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         return try? self.knownVersions()[version]
     }
 
-    func checkIntegrity(version: Version, revision: Revision) async throws {
+    func checkIntegrity(version: Version, revision: Revision) throws {
         guard let fingerprintStorage else {
             return
         }
@@ -168,17 +168,13 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
 
         let fingerprint: Fingerprint
         do {
-            fingerprint = try await withCheckedThrowingContinuation {
-                fingerprintStorage.get(
-                    package: self.package,
-                    version: version,
-                    kind: .sourceControl,
-                    contentType: .sourceCode,
-                    observabilityScope: self.observabilityScope,
-                    callbackQueue: .sharedConcurrent,
-                    callback: $0.resume(with:)
-                )
-            }
+            fingerprint = try fingerprintStorage.get(
+                package: self.package,
+                version: version,
+                kind: .sourceControl,
+                contentType: .sourceCode,
+                observabilityScope: self.observabilityScope
+            )
         } catch PackageFingerprintStorageError.notFound {
             fingerprint = Fingerprint(
                 origin: .sourceControl(sourceControlURL),
@@ -187,16 +183,12 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
             )
             // Write to storage if fingerprint not yet recorded
             do {
-                try await withCheckedThrowingContinuation {
-                    fingerprintStorage.put(
-                        package: self.package,
-                        version: version,
-                        fingerprint: fingerprint,
-                        observabilityScope: self.observabilityScope,
-                        callbackQueue: .sharedConcurrent,
-                        callback: $0.resume(with:)
-                    )
-                }
+                try fingerprintStorage.put(
+                    package: self.package,
+                    version: version,
+                    fingerprint: fingerprint,
+                    observabilityScope: self.observabilityScope
+                )
             } catch PackageFingerprintStorageError.conflict(_, let existing) {
                 let message = "Revision \(revision.identifier) for \(self.package) version \(version) does not match previously recorded value \(existing.value) from \(String(describing: existing.origin.url?.absoluteString))"
                 switch self.fingerprintCheckingMode {

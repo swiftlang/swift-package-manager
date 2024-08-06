@@ -102,17 +102,13 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         )
 
         // Checksum should have been saved to storage
-        let fingerprint = try await withCheckedThrowingContinuation {
-            fingerprintStorage.get(
-                package: identity,
-                version: version,
-                kind: .registry,
-                contentType: .sourceCode,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                callback: $0.resume(with:)
-            )
-        }
+        let fingerprint = try fingerprintStorage.get(
+            package: identity,
+            version: version,
+            kind: .registry,
+            contentType: .sourceCode,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
         XCTAssertEqual(SourceControlURL(registryURL), fingerprint.origin.url)
         XCTAssertEqual(checksum, fingerprint.value)
     }
@@ -671,7 +667,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
 
         // Checksum for package version not found in storage,
         // so we save it to storage for future reference.
-        try await tofu.validateManifest(
+        try tofu.validateManifest(
             registry: registry,
             package: package,
             version: version,
@@ -679,7 +675,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
             checksum: "Package@swift-5.6.swift checksum"
         )
 
-        try await tofu.validateManifest(
+        try tofu.validateManifest(
             registry: registry,
             package: package,
             version: version,
@@ -689,32 +685,24 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
 
         // Checksums should have been saved to storage
         do {
-            let fingerprint = try await withCheckedThrowingContinuation {
-                fingerprintStorage.get(
-                    package: identity,
-                    version: version,
-                    kind: .registry,
-                    contentType: .manifest(.none),
-                    observabilityScope: ObservabilitySystem.NOOP,
-                    callbackQueue: .sharedConcurrent,
-                    callback: $0.resume(with:)
-                )
-            }
+            let fingerprint = try fingerprintStorage.get(
+                package: identity,
+                version: version,
+                kind: .registry,
+                contentType: .manifest(.none),
+                observabilityScope: ObservabilitySystem.NOOP
+            )
             XCTAssertEqual(SourceControlURL(registryURL), fingerprint.origin.url)
             XCTAssertEqual("Package.swift checksum", fingerprint.value)
         }
         do {
-            let fingerprint = try await withCheckedThrowingContinuation {
-                fingerprintStorage.get(
-                    package: identity,
-                    version: version,
-                    kind: .registry,
-                    contentType: .manifest(.v5_6),
-                    observabilityScope: ObservabilitySystem.NOOP,
-                    callbackQueue: .sharedConcurrent,
-                    callback: $0.resume(with:)
-                )
-            }
+            let fingerprint = try fingerprintStorage.get(
+                package: identity,
+                version: version,
+                kind: .registry,
+                contentType: .manifest(.v5_6),
+                observabilityScope: ObservabilitySystem.NOOP
+            )
             XCTAssertEqual(SourceControlURL(registryURL), fingerprint.origin.url)
             XCTAssertEqual("Package@swift-5.6.swift checksum", fingerprint.value)
         }
@@ -771,7 +759,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
 
         // Checksum for package version found in storage,
         // so we just compare that with the given checksum.
-        try await tofu.validateManifest(
+        try tofu.validateManifest(
             registry: registry,
             package: package,
             version: version,
@@ -834,7 +822,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         // Since the checksums don't match, and because of
         // .strict mode, an error is thrown.
         await XCTAssertAsyncThrowsError(
-            try await tofu.validateManifest(
+            try tofu.validateManifest(
                 registry: registry,
                 package: package,
                 version: version,
@@ -903,7 +891,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         // so we just compare that with the given checksum.
         // The checksums don't match, but because of
         // .warn mode, no error is thrown.
-        try await tofu.validateManifest(
+        try tofu.validateManifest(
             registry: registry,
             package: package,
             version: version,
@@ -945,16 +933,15 @@ extension PackageVersionChecksumTOFU {
         toolsVersion: ToolsVersion?,
         checksum: String,
         observabilityScope: ObservabilityScope? = nil
-    ) async throws {
-        try await self.validateManifest(
+    ) throws {
+        try self.validateManifest(
             registry: registry,
             package: package,
             version: version,
             toolsVersion: toolsVersion,
             checksum: checksum,
             timeout: nil,
-            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP
         )
     }
 }
@@ -963,42 +950,34 @@ private class WriteConflictFingerprintStorage: PackageFingerprintStorage {
     func get(
         package: PackageIdentity,
         version: Version,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<[Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]], Error>) -> Void
-    ) {
-        callback(.failure(PackageFingerprintStorageError.notFound))
+        observabilityScope: ObservabilityScope
+    ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
+        throw PackageFingerprintStorageError.notFound
     }
 
     func put(
         package: PackageIdentity,
         version: Version,
         fingerprint: Fingerprint,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) throws {
         let existing = Fingerprint(
             origin: fingerprint.origin,
             value: "xxx-\(fingerprint.value)",
             contentType: fingerprint.contentType
         )
-        callback(.failure(PackageFingerprintStorageError.conflict(given: fingerprint, existing: existing)))
+        throw PackageFingerprintStorageError.conflict(given: fingerprint, existing: existing)
     }
 
     func get(
         package: PackageReference,
         version: Version,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<[Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]], Error>) -> Void
-    ) {
-        self.get(
+        observabilityScope: ObservabilityScope
+    ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]]{
+        try self.get(
             package: package.identity,
             version: version,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue,
-            callback: callback
+            observabilityScope: observabilityScope
         )
     }
 
@@ -1006,17 +985,13 @@ private class WriteConflictFingerprintStorage: PackageFingerprintStorage {
         package: PackageReference,
         version: Version,
         fingerprint: Fingerprint,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
-        self.put(
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.put(
             package: package.identity,
             version: version,
             fingerprint: fingerprint,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue,
-            callback: callback
+            observabilityScope: observabilityScope
         )
     }
 }

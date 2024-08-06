@@ -21,172 +21,56 @@ import struct TSCUtility.Version
 
 public protocol PackageSigningEntityStorage {
     /// For a given package, return the signing entities and the package versions that each of them signed.
-    @available(*, noasync, message: "Use the async alternative")
     func get(
         package: PackageIdentity,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<PackageSigners, Error>) -> Void
-    )
+        observabilityScope: ObservabilityScope
+    ) throws -> PackageSigners
 
     /// Record signer for a given package version.
     ///
     /// This throws `PackageSigningEntityStorageError.conflict` if `signingEntity`
     /// of the package version is different from that in storage.
-    @available(*, noasync, message: "Use the async alternative")
     func put(
         package: PackageIdentity,
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    )
+        observabilityScope: ObservabilityScope
+    ) throws
 
     /// Add signer for a given package version.
     ///
     /// If the package version already has other `SigningEntity`s in storage, this
     /// API **adds** `signingEntity` to the package version's signers rather than
     /// throwing an error.
-    @available(*, noasync, message: "Use the async alternative")
     func add(
         package: PackageIdentity,
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    )
+        observabilityScope: ObservabilityScope
+    ) throws
 
     /// Make `signingEntity` the package's expected signer starting from the given version.
-    @available(*, noasync, message: "Use the async alternative")
     func changeSigningEntityFromVersion(
         package: PackageIdentity,
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    )
+        observabilityScope: ObservabilityScope
+    ) throws
 
     /// Make `signingEntity` the only signer for a given package.
     ///
     /// This API deletes all other existing signers from storage, therefore making
     /// `signingEntity` the package's sole signer.
-    @available(*, noasync, message: "Use the async alternative")
     func changeSigningEntityForAllVersions(
         package: PackageIdentity,
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    )
-}
-
-public extension PackageSigningEntityStorage {
-    func get(
-        package: PackageIdentity,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
-    ) async throws -> PackageSigners {
-        try await withCheckedThrowingContinuation {
-            self.get(
-                package: package,
-                observabilityScope: observabilityScope, 
-                callbackQueue: callbackQueue,
-                callback: $0.resume(with:)
-            )
-        }
-    }
-
-    func put(
-        package: PackageIdentity,
-        version: Version,
-        signingEntity: SigningEntity,
-        origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
-    ) async throws {
-        try await withCheckedThrowingContinuation {
-            self.put(
-                package: package,
-                version: version,
-                signingEntity: signingEntity,
-                origin: origin,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                callback: $0.resume(with:)
-            )
-        }
-    }
-
-    func add(
-        package: PackageIdentity,
-        version: Version,
-        signingEntity: SigningEntity,
-        origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
-    ) async throws {
-        try await withCheckedThrowingContinuation {
-            self.add(
-                package: package,
-                version: version,
-                signingEntity: signingEntity,
-                origin: origin,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                callback: $0.resume(with:)
-            )
-        }
-    }
-
-    func changeSigningEntityFromVersion(
-        package: PackageIdentity,
-        version: Version,
-        signingEntity: SigningEntity,
-        origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
-    ) async throws {
-        try await withCheckedThrowingContinuation {
-            self.changeSigningEntityFromVersion(
-                package: package,
-                version: version,
-                signingEntity: signingEntity,
-                origin: origin,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                callback: $0.resume(with:)
-            )
-        }
-    }
-
-    func changeSigningEntityForAllVersions(
-        package: PackageIdentity,
-        version: Version,
-        signingEntity: SigningEntity,
-        origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
-    ) async throws {
-        try await withCheckedThrowingContinuation {
-            self.changeSigningEntityForAllVersions(
-                package: package,
-                version: version,
-                signingEntity: signingEntity,
-                origin: origin,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                callback: $0.resume(with:)
-            )
-        }
-    }
+        observabilityScope: ObservabilityScope
+    ) throws
 }
 
 // MARK: - Models
