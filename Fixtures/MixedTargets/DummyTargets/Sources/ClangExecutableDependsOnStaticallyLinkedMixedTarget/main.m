@@ -8,7 +8,7 @@ int main(int argc, const char * argv[]) {
         Engine *engine = [[Engine alloc] init];
         OldCar *oldCar = [[OldCar alloc] init];
 
-        NSLog(@"Hello, world!");
+        printf("Hello, world!\n");
     }
     return 0;
 }
