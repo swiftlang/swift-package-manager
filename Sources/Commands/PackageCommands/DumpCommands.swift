@@ -70,14 +70,18 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
 
         // Run the tool once for every library and executable target in the root package.
         let buildPlan = try buildSystem.buildPlan
+        let modulesGraph = try await buildSystem.getPackageGraph()
         let symbolGraphDirectory = buildPlan.destinationBuildParameters.dataPath.appending("symbolgraph")
-        let targets = try await buildSystem.getPackageGraph().rootPackages.flatMap{ $0.modules }.filter{ $0.type == .library }
-        for target in targets {
-            print("-- Emitting symbol graph for", target.name)
+        for description in buildPlan.buildModules {
+            guard description.module.type == .library,
+                  modulesGraph.rootPackages[description.package.id] != nil
+            else {
+                continue
+            }
+
+            print("-- Emitting symbol graph for", description.module.name)
             let result = try symbolGraphExtractor.extractSymbolGraph(
-                module: target,
-                buildPlan: buildPlan,
-                buildParameters: buildPlan.destinationBuildParameters,
+                for: description,
                 outputRedirection: .collect(redirectStderr: true),
                 outputDirectory: symbolGraphDirectory,
                 verboseOutput: swiftCommandState.logLevel <= .info
@@ -87,9 +91,9 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
                 let commandline = "\nUsing commandline: \(result.arguments)"
                 switch result.output {
                 case .success(let value):
-                    swiftCommandState.observabilityScope.emit(error: "Failed to emit symbol graph for '\(target.c99name)': \(String(decoding: value, as: UTF8.self))\(commandline)")
+                    swiftCommandState.observabilityScope.emit(error: "Failed to emit symbol graph for '\(description.module.c99name)': \(String(decoding: value, as: UTF8.self))\(commandline)")
                 case .failure(let error):
-                    swiftCommandState.observabilityScope.emit(error: "Internal error while emitting symbol graph for '\(target.c99name)': \(error)\(commandline)")
+                    swiftCommandState.observabilityScope.emit(error: "Internal error while emitting symbol graph for '\(description.module.c99name)': \(error)\(commandline)")
                 }
             }
         }

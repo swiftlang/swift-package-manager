@@ -285,7 +285,7 @@ enum BuildError: Swift.Error {
 
 public struct BuildPlanResult {
     public let plan: Build.BuildPlan
-    public let targetMap: [ResolvedModule.ID: ModuleBuildDescription]
+    public let targetMap: [ResolvedModule.ID: Build.ModuleBuildDescription]
     public let productMap: [ResolvedProduct.ID: Build.ProductBuildDescription]
 
     public init(plan: Build.BuildPlan) throws {
@@ -316,7 +316,7 @@ public struct BuildPlanResult {
         XCTAssertEqual(self.plan.productMap.count, count, file: file, line: line)
     }
 
-    public func moduleBuildDescription(for name: String) throws -> ModuleBuildDescription {
+    public func moduleBuildDescription(for name: String) throws -> Build.ModuleBuildDescription {
         let matchingIDs = targetMap.keys.filter({ $0.moduleName == name })
         guard matchingIDs.count == 1, let target = targetMap[matchingIDs[0]] else {
             if matchingIDs.isEmpty {
@@ -342,7 +342,7 @@ public struct BuildPlanResult {
     }
 }
 
-extension ModuleBuildDescription {
+extension Build.ModuleBuildDescription {
     public func swift() throws -> SwiftModuleBuildDescription {
         switch self {
         case .swift(let description):

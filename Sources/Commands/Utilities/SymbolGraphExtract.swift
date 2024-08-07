@@ -54,9 +54,7 @@ package struct SymbolGraphExtract {
     /// The `outputDirection` determines how the output from the tool subprocess is handled, and `verbosity` specifies
     /// how much console output to ask the tool to emit.
     package func extractSymbolGraph(
-        module: ResolvedModule,
-        buildPlan: BuildPlan,
-        buildParameters: BuildParameters,
+        for description: ModuleBuildDescription,
         outputRedirection: AsyncProcess.OutputRedirection = .none,
         outputDirectory: AbsolutePath,
         verboseOutput: Bool
@@ -65,12 +63,9 @@ package struct SymbolGraphExtract {
 
         // Construct arguments for extracting symbols for a single target.
         var commandLine = [self.tool.pathString]
-        commandLine += try buildPlan.symbolGraphExtractArguments(for: module)
+        commandLine += try description.symbolGraphExtractArguments()
 
         // FIXME: everything here should be in symbolGraphExtractArguments
-        commandLine += ["-module-name", module.c99name]
-        commandLine += try buildParameters.tripleArgs(for: module)
-        commandLine += ["-module-cache-path", try buildParameters.moduleCache.pathString]
         if verboseOutput {
             commandLine += ["-v"]
         }
@@ -86,7 +81,11 @@ package struct SymbolGraphExtract {
         }
         
         let extensionBlockSymbolsFlag = emitExtensionBlockSymbols ? "-emit-extension-block-symbols" : "-omit-extension-block-symbols"
-        if DriverSupport.checkSupportedFrontendFlags(flags: [extensionBlockSymbolsFlag.trimmingCharacters(in: ["-"])], toolchain: buildParameters.toolchain, fileSystem: fileSystem) {
+        if DriverSupport.checkSupportedFrontendFlags(
+            flags: [extensionBlockSymbolsFlag.trimmingCharacters(in: ["-"])],
+            toolchain: description.buildParameters.toolchain,
+            fileSystem: fileSystem
+        ) {
             commandLine += [extensionBlockSymbolsFlag]
         } else {
             observabilityScope.emit(warning: "dropped \(extensionBlockSymbolsFlag) flag because it is not supported by this compiler version")

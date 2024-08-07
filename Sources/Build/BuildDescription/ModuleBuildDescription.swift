@@ -12,10 +12,12 @@
 
 import Basics
 import struct PackageGraph.ResolvedModule
+import struct PackageGraph.ResolvedPackage
 import struct PackageModel.Resource
 import struct PackageModel.ToolsVersion
 import struct SPMBuildCore.BuildToolPluginInvocationResult
 import struct SPMBuildCore.BuildParameters
+import protocol SPMBuildCore.ModuleBuildDescription
 
 public enum BuildDescriptionError: Swift.Error {
     case requestedFileNotPartOfTarget(targetName: String, requestedFilePath: AbsolutePath)
@@ -25,7 +27,7 @@ public enum BuildDescriptionError: Swift.Error {
 public typealias TargetBuildDescription = ModuleBuildDescription
 
 /// A module build description which can either be for a Swift or Clang module.
-public enum ModuleBuildDescription {
+public enum ModuleBuildDescription: SPMBuildCore.ModuleBuildDescription {
     /// Swift target description.
     case swift(SwiftModuleBuildDescription)
 
@@ -73,6 +75,19 @@ public enum ModuleBuildDescription {
         }
     }
 
+    public var package: ResolvedPackage {
+        switch self {
+        case .swift(let description):
+            description.package
+        case .clang(let description):
+            description.package
+        }
+    }
+
+    public var module: ResolvedModule {
+        self.target
+    }
+
     /// Paths to the binary libraries the target depends on.
     var libraryBinaryPaths: Set<AbsolutePath> {
         switch self {
@@ -101,7 +116,7 @@ public enum ModuleBuildDescription {
         }
     }
 
-    var buildParameters: BuildParameters {
+    public var buildParameters: BuildParameters {
         switch self {
         case .swift(let buildDescription):
             return buildDescription.buildParameters
@@ -121,7 +136,7 @@ public enum ModuleBuildDescription {
 
     /// Determines the arguments needed to run `swift-symbolgraph-extract` for
     /// this module.
-    package func symbolGraphExtractArguments() throws -> [String] {
+    public func symbolGraphExtractArguments() throws -> [String] {
         switch self {
         case .swift(let buildDescription): try buildDescription.symbolGraphExtractArguments()
         case .clang(let buildDescription): try buildDescription.symbolGraphExtractArguments()

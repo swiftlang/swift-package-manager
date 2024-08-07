@@ -80,6 +80,23 @@ extension ProductBuildDescription {
     }
 }
 
+public protocol ModuleBuildDescription {
+    /// The package the module belongs to.
+    var package: ResolvedPackage { get }
+
+    /// The underlying module this description is for.
+    var module: ResolvedModule { get }
+
+    /// The build parameters.
+    var buildParameters: BuildParameters { get }
+
+    /// FIXME: This shouldn't be necessary and ideally
+    /// there should be a way to ask build system to
+    /// introduce these arguments while building for symbol
+    /// graph extraction.
+    func symbolGraphExtractArguments() throws -> [String]
+}
+
 public protocol BuildPlan {
     /// Parameters used when building end products for the destination platform.
     var destinationBuildParameters: BuildParameters { get }
@@ -89,12 +106,10 @@ public protocol BuildPlan {
 
     var buildProducts: AnySequence<ProductBuildDescription> { get }
 
+    var buildModules: AnySequence<ModuleBuildDescription> { get }
+
     func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String]
     func createREPLArguments() throws -> [String]
-
-    /// Determines the arguments needed to run `swift-symbolgraph-extract` for
-    /// a particular module.
-    func symbolGraphExtractArguments(for module: ResolvedModule) throws -> [String]
 }
 
 public protocol BuildSystemFactory {
