@@ -433,9 +433,8 @@ private struct MockRegistryArchiver: Archiver {
 
     func compress(
         directory: AbsolutePath,
-        to destinationPath: AbsolutePath,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
+        to destinationPath: AbsolutePath
+    ) async throws {
         fatalError("not implemented")
     }
 

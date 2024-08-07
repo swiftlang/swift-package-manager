@@ -20,13 +20,13 @@ import XCTest
 
 import struct TSCUtility.Version
 
-final class PinsStoreTests: XCTestCase {
+final class ResolvedPackagesStoreTests: XCTestCase {
 
     let v1: Version = "1.0.0"
 
     func testBasics() throws {
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath("/pinsfile.txt")
+        let packageResolvedFile = AbsolutePath("/Package.resolved")
 
         do {
             let fooPath = AbsolutePath("/foo")
@@ -37,129 +37,129 @@ final class PinsStoreTests: XCTestCase {
             let bar = PackageIdentity(path: barPath)
             let barRef = PackageReference.localSourceControl(identity: bar, path: barPath)
 
-            var store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+            var store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
             
-            // Pins file should not be created right now.
-            XCTAssert(!fs.exists(pinsFile))
-            XCTAssert(store.pins.isEmpty)
+            // `Package.resolved` file should not be created right now.
+            XCTAssert(!fs.exists(packageResolvedFile))
+            XCTAssert(store.resolvedPackages.isEmpty)
 
             let revision = UUID().uuidString
-            let state = PinsStore.PinState.version(v1, revision: revision)
-            store.pin(packageRef: fooRef, state: state)
+            let state = ResolvedPackagesStore.ResolutionState.version(v1, revision: revision)
+            store.track(packageRef: fooRef, state: state)
             try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
 
-            XCTAssert(fs.exists(pinsFile))
+            XCTAssert(fs.exists(packageResolvedFile))
 
             // Load the store again from disk.
-            let store2 = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+            let store2 = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
             // Test basics on the store.
             for s in [store, store2] {
-                XCTAssert(s.pins.count == 1)
-                XCTAssertEqual(s.pins[bar], nil)
-                let fooPin = s.pins[foo]!
-                XCTAssertEqual(fooPin.packageRef, fooRef)
-                XCTAssertEqual(fooPin.state, .version(v1, revision: revision))
-                XCTAssertEqual(fooPin.state.description, v1.description)
+                XCTAssert(s.resolvedPackages.count == 1)
+                XCTAssertEqual(s.resolvedPackages[bar], nil)
+                let fooResolution = s.resolvedPackages[foo]!
+                XCTAssertEqual(fooResolution.packageRef, fooRef)
+                XCTAssertEqual(fooResolution.state, .version(v1, revision: revision))
+                XCTAssertEqual(fooResolution.state.description, v1.description)
             }
 
-            // We should be able to pin again.
-            store.pin(packageRef: fooRef, state: state)
-            store.pin(
+            // We should be able to resolve again.
+            store.track(packageRef: fooRef, state: state)
+            store.track(
                 packageRef: fooRef,
                 state: .version("1.0.2", revision: revision)
             )
-            store.pin(packageRef: barRef, state: state)
+            store.track(packageRef: barRef, state: state)
             try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
 
-            store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
-            XCTAssert(store.pins.count == 2)
+            store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+            XCTAssert(store.resolvedPackages.count == 2)
 
         }
 
-        // Test source control version pin.
+        // Test source control version resolution.
 
         do {
             let path = AbsolutePath("/foo")
             let identity = PackageIdentity(path: path)
             let revision = UUID().uuidString
 
-            var store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
-            store.pin(
+            var store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+            store.track(
                 packageRef: .localSourceControl(identity: identity, path: path),
                 state: .version("1.2.3", revision: revision)
             )
             try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
-            store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+            store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
-            let pin = store.pins[identity]!
-            XCTAssertEqual(pin.state, .version("1.2.3", revision: revision))
-            XCTAssertEqual(pin.state.description, "1.2.3")
+            let resolution = store.resolvedPackages[identity]!
+            XCTAssertEqual(resolution.state, .version("1.2.3", revision: revision))
+            XCTAssertEqual(resolution.state.description, "1.2.3")
         }
 
-        // Test source control branch pin.
+        // Test source control branch resolution.
 
         do {
             let path = AbsolutePath("/foo")
             let identity = PackageIdentity(path: path)
             let revision = UUID().uuidString
 
-            var store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
-            store.pin(
+            var store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+            store.track(
                 packageRef: .localSourceControl(identity: identity, path: path),
                 state: .branch(name: "develop", revision: revision)
             )
             try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
-            store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+            store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
-            let pin = store.pins[identity]!
-            XCTAssertEqual(pin.state, .branch(name: "develop", revision: revision))
-            XCTAssertEqual(pin.state.description, "develop")
+            let resolution = store.resolvedPackages[identity]!
+            XCTAssertEqual(resolution.state, .branch(name: "develop", revision: revision))
+            XCTAssertEqual(resolution.state.description, "develop")
         }
 
-        // Test source control revision pin.
+        // Test source control revision resolution.
 
         do {
             let path = AbsolutePath("/foo")
             let identity = PackageIdentity(path: path)
             let revision = UUID().uuidString
 
-            var store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
-            store.pin(
+            var store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+            store.track(
                 packageRef: .localSourceControl(identity: identity, path: path),
                 state: .revision(revision)
             )
             try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
-            store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+            store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
-            let pin = store.pins[identity]!
-            XCTAssertEqual(pin.state, .revision(revision))
-            XCTAssertEqual(pin.state.description, revision)
+            let resolution = store.resolvedPackages[identity]!
+            XCTAssertEqual(resolution.state, .revision(revision))
+            XCTAssertEqual(resolution.state.description, revision)
         }
 
-        // Test registry pin.
+        // Test registry resolution.
 
         do {
             let identity = PackageIdentity.plain("baz.baz") // FIXME: use scope identifier
 
-            var store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
-            store.pin(
+            var store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+            store.track(
                 packageRef: .registry(identity: identity),
                 state: .version("1.2.3", revision: .none)
             )
             try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
-            store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+            store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
-            let pin = store.pins[identity]!
-            XCTAssertEqual(pin.state, .version("1.2.3", revision: .none))
-            XCTAssertEqual(pin.state.description, "1.2.3")
+            let resolution = store.resolvedPackages[identity]!
+            XCTAssertEqual(resolution.state, .version("1.2.3", revision: .none))
+            XCTAssertEqual(resolution.state.description, "1.2.3")
         }
     }
 
     func testLoadingSchema1() throws {
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath("/pinsfile.txt")
+        let packageResolvedFile = AbsolutePath("/Package.resolved")
 
-        try fs.writeFileContents(pinsFile, string:
+        try fs.writeFileContents(packageResolvedFile, string:
             """
             {
               "version": 1,
@@ -189,15 +189,15 @@ final class PinsStoreTests: XCTestCase {
             """
         )
 
-        let store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
-        XCTAssertEqual(store.pins.keys.map { $0.description }.sorted(), ["clang_c", "commandant"])
+        let store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+        XCTAssertEqual(store.resolvedPackages.keys.map { $0.description }.sorted(), ["clang_c", "commandant"])
     }
 
     func testLoadingSchema2() throws {
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath("/pinsfile.txt")
+        let packageResolvedFile = AbsolutePath("/Package.resolved")
 
-        try fs.writeFileContents(pinsFile, string:
+        try fs.writeFileContents(packageResolvedFile, string:
             """
             {
                 "version": 2,
@@ -233,17 +233,17 @@ final class PinsStoreTests: XCTestCase {
             """
         )
 
-        let store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
-        XCTAssertEqual(store.pins.keys.map { $0.description }.sorted(), ["clang_c", "commandant", "scope.package"])
+        let store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+        XCTAssertEqual(store.resolvedPackages.keys.map { $0.description }.sorted(), ["clang_c", "commandant", "scope.package"])
     }
 
     func testLoadingSchema3() throws {
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath("/pinsfile.txt")
+        let packageResolvedFile = AbsolutePath("/Package.resolved")
 
         let originHash = UUID().uuidString
 
-        try fs.writeFileContents(pinsFile, string:
+        try fs.writeFileContents(packageResolvedFile, string:
             """
             {
                 "version": 3,
@@ -280,60 +280,60 @@ final class PinsStoreTests: XCTestCase {
             """
         )
 
-        let store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
-        XCTAssertEqual(store.pins.keys.map { $0.description }.sorted(), ["clang_c", "commandant", "scope.package"])
+        let store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+        XCTAssertEqual(store.resolvedPackages.keys.map { $0.description }.sorted(), ["clang_c", "commandant", "scope.package"])
         XCTAssertEqual(store.originHash, originHash)
     }
 
     func testLoadingUnknownSchemaVersion() throws {
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath("/pinsfile.txt")
+        let packageResolvedFile = AbsolutePath("/Package.resolved")
 
         let version = -1
-        try fs.writeFileContents(pinsFile, string: "{ \"version\": \(version) }");
+        try fs.writeFileContents(packageResolvedFile, string: "{ \"version\": \(version) }");
 
-        XCTAssertThrowsError(try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init()), "error expected", { error in
-            XCTAssertEqual("\(error)", "\(pinsFile) file is corrupted or malformed; fix or delete the file to continue: unknown 'PinsStorage' version '\(version)' at '\(pinsFile)'.")
+        XCTAssertThrowsError(try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init()), "error expected", { error in
+            XCTAssertEqual("\(error)", "\(packageResolvedFile) file is corrupted or malformed; fix or delete the file to continue: unknown 'Package.resolved' version '\(version)' at '\(packageResolvedFile)'.")
         })
 
     }
 
     func testLoadingBadFormat() throws {
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath("/pinsfile.txt")
+        let packageResolvedFile = AbsolutePath("/Package.resolved")
 
-        try fs.writeFileContents(pinsFile, string: "boom")
+        try fs.writeFileContents(packageResolvedFile, string: "boom")
 
-        XCTAssertThrowsError(try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init()), "error expected", { error in
-            XCTAssertMatch("\(error)", .contains("\(pinsFile) file is corrupted or malformed; fix or delete the file to continue"))
+        XCTAssertThrowsError(try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init()), "error expected", { error in
+            XCTAssertMatch("\(error)", .contains("\(packageResolvedFile) file is corrupted or malformed; fix or delete the file to continue"))
         })
     }
 
-    func testEmptyPins() throws {
+    func testEmptyPackageResolved() throws {
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath("/pinsfile.txt")
-        let store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+        let packageResolvedFile = AbsolutePath("/Package.resolved")
+        let store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
         try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
-        XCTAssertFalse(fs.exists(pinsFile))
+        XCTAssertFalse(fs.exists(packageResolvedFile))
 
         let fooPath = AbsolutePath("/foo")
         let foo = PackageIdentity(path: fooPath)
         let fooRef = PackageReference.localSourceControl(identity: foo, path: fooPath)
         let revision = "81513c8fd220cf1ed1452b98060cd80d3725c5b7"
-        store.pin(packageRef: fooRef, state: .version(v1, revision: revision))
+        store.track(packageRef: fooRef, state: .version(v1, revision: revision))
 
-        XCTAssert(!fs.exists(pinsFile))
+        XCTAssert(!fs.exists(packageResolvedFile))
 
         try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
-        XCTAssert(fs.exists(pinsFile))
+        XCTAssert(fs.exists(packageResolvedFile))
 
-        store.unpinAll()
+        store.reset()
         try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
-        XCTAssertFalse(fs.exists(pinsFile))
+        XCTAssertFalse(fs.exists(packageResolvedFile))
     }
 
-    func testPinsWithMirrors() throws {
+    func testResolutionWithMirrors() throws {
         let fooURL = SourceControlURL("https://github.com/corporate/foo.git")
         let fooIdentity = PackageIdentity(url: fooURL)
         let fooMirroredURL = SourceControlURL("https://github.corporate.com/team/foo.git")
@@ -351,44 +351,44 @@ final class PinsStoreTests: XCTestCase {
         try mirrors.set(mirror: barMirroredURL.absoluteString, for: barURL.absoluteString)
 
         let fileSystem = InMemoryFileSystem()
-        let pinsFile = AbsolutePath("/pins.txt")
+        let packageResolvedFile = AbsolutePath("/Package.resolved")
 
-        let store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
+        let store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
 
-        store.pin(packageRef: .remoteSourceControl(identity: fooIdentity, url: fooMirroredURL),
+        store.track(packageRef: .remoteSourceControl(identity: fooIdentity, url: fooMirroredURL),
                   state: .version(v1, revision: "foo-revision"))
-        store.pin(packageRef: .remoteSourceControl(identity: barIdentity, url: barMirroredURL),
+        store.track(packageRef: .remoteSourceControl(identity: barIdentity, url: barMirroredURL),
                   state: .version(v1, revision: "bar-revision"))
-        store.pin(packageRef: .remoteSourceControl(identity: bazIdentity, url: bazURL),
+        store.track(packageRef: .remoteSourceControl(identity: bazIdentity, url: bazURL),
                   state: .version(v1, revision: "baz-revision"))
 
-        XCTAssert(store.pins.count == 3)
-        XCTAssertEqual(store.pins[fooIdentity]!.packageRef.kind, .remoteSourceControl(fooMirroredURL))
-        XCTAssertEqual(store.pins[barIdentity]!.packageRef.kind, .remoteSourceControl(barMirroredURL))
-        XCTAssertNil(store.pins[barMirroredIdentity])
-        XCTAssertEqual(store.pins[bazIdentity]!.packageRef.kind, .remoteSourceControl(bazURL))
+        XCTAssert(store.resolvedPackages.count == 3)
+        XCTAssertEqual(store.resolvedPackages[fooIdentity]!.packageRef.kind, .remoteSourceControl(fooMirroredURL))
+        XCTAssertEqual(store.resolvedPackages[barIdentity]!.packageRef.kind, .remoteSourceControl(barMirroredURL))
+        XCTAssertNil(store.resolvedPackages[barMirroredIdentity])
+        XCTAssertEqual(store.resolvedPackages[bazIdentity]!.packageRef.kind, .remoteSourceControl(bazURL))
 
         try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
-        XCTAssert(fileSystem.exists(pinsFile))
+        XCTAssert(fileSystem.exists(packageResolvedFile))
 
-        let content: String = try fileSystem.readFileContents(pinsFile)
+        let content: String = try fileSystem.readFileContents(packageResolvedFile)
         XCTAssertMatch(content, .contains(fooURL.absoluteString))
         XCTAssertNoMatch(content, .contains(fooMirroredURL.absoluteString))
 
         // Load the store again from disk, with no mirrors
-        let store2 = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: .init())
-        XCTAssert(store2.pins.count == 3)
-        XCTAssertEqual(store2.pins[fooIdentity]!.packageRef.kind, .remoteSourceControl(fooURL))
-        XCTAssertEqual(store2.pins[barIdentity]!.packageRef.kind, .remoteSourceControl(barURL))
-        XCTAssertEqual(store2.pins[bazIdentity]!.packageRef.kind, .remoteSourceControl(bazURL))
+        let store2 = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: .init())
+        XCTAssert(store2.resolvedPackages.count == 3)
+        XCTAssertEqual(store2.resolvedPackages[fooIdentity]!.packageRef.kind, .remoteSourceControl(fooURL))
+        XCTAssertEqual(store2.resolvedPackages[barIdentity]!.packageRef.kind, .remoteSourceControl(barURL))
+        XCTAssertEqual(store2.resolvedPackages[bazIdentity]!.packageRef.kind, .remoteSourceControl(bazURL))
 
         // Load the store again from disk, with mirrors
-        let store3 = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
-        XCTAssert(store3.pins.count == 3)
-        XCTAssertEqual(store3.pins, store.pins)
+        let store3 = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
+        XCTAssert(store3.resolvedPackages.count == 3)
+        XCTAssertEqual(store3.resolvedPackages, store.resolvedPackages)
     }
 
-    func testPinsWithMirrorsDeterminism() throws {
+    func testResolutionWithMirrorsDeterminism() throws {
         let fooIdentity = PackageIdentity.plain("foo")
         let fooURL1 = SourceControlURL("https://github.com/corporate/foo")
         let fooURL2 = SourceControlURL("https://github.com/corporate/foo.git")
@@ -403,21 +403,21 @@ final class PinsStoreTests: XCTestCase {
         try mirrors.set(mirror: fooMirroredURL.absoluteString, for: fooURL4.absoluteString)
 
         let fileSystem = InMemoryFileSystem()
-        let pinsFile = AbsolutePath("/pins.txt")
+        let packageResolvedFile = AbsolutePath("/Package.resolved")
 
-        let store1 = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
-        store1.pin(
+        let store1 = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
+        store1.track(
             packageRef: .remoteSourceControl(identity: fooIdentity, url: fooMirroredURL),
             state: .version(v1, revision: "revision")
         )
 
-        XCTAssert(store1.pins.count == 1)
-        XCTAssertEqual(store1.pins[fooIdentity]!.packageRef.kind, .remoteSourceControl(fooMirroredURL))
+        XCTAssert(store1.resolvedPackages.count == 1)
+        XCTAssertEqual(store1.resolvedPackages[fooIdentity]!.packageRef.kind, .remoteSourceControl(fooMirroredURL))
 
         try store1.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
-        XCTAssert(fileSystem.exists(pinsFile))
+        XCTAssert(fileSystem.exists(packageResolvedFile))
 
-        let content: String = try fileSystem.readFileContents(pinsFile)
+        let content: String = try fileSystem.readFileContents(packageResolvedFile)
         XCTAssertMatch(content, .contains(fooURL1.absoluteString))
         XCTAssertNoMatch(content, .contains(fooURL2.absoluteString))
         XCTAssertNoMatch(content, .contains(fooURL3.absoluteString))
@@ -425,14 +425,14 @@ final class PinsStoreTests: XCTestCase {
         XCTAssertNoMatch(content, .contains(fooMirroredURL.absoluteString))
 
         // Load the store again from disk, with no mirrors
-        let store2 = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: .init())
-        XCTAssert(store2.pins.count == 1)
-        XCTAssertEqual(store2.pins[fooIdentity]!.packageRef.kind, .remoteSourceControl(fooURL1))
+        let store2 = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: .init())
+        XCTAssert(store2.resolvedPackages.count == 1)
+        XCTAssertEqual(store2.resolvedPackages[fooIdentity]!.packageRef.kind, .remoteSourceControl(fooURL1))
 
         // Load the store again from disk, with mirrors
-        let store3 = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
-        XCTAssert(store3.pins.count == 1)
-        XCTAssertEqual(store3.pins, store1.pins)
+        let store3 = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
+        XCTAssert(store3.resolvedPackages.count == 1)
+        XCTAssertEqual(store3.resolvedPackages, store1.resolvedPackages)
     }
 
     func testMirrorsDeterminism() throws {

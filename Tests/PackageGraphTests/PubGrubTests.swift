@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import OrderedCollections
 @testable import PackageGraph
 import PackageLoading
@@ -67,7 +68,7 @@ let rootNode = DependencyResolutionNode.root(package: rootRef)
 let rootCause = try! Incompatibility(Term(rootNode, .exact(v1)), root: rootNode)
 let _cause = try! Incompatibility("cause@0.0.0", root: rootNode)
 
-final class PubgrubTests: XCTestCase {
+final class PubGrubTests: XCTestCase {
     func testTermInverse() {
         let a = Term("a@1.0.0")
         XCTAssertFalse(a.inverse.isPositive)
@@ -191,7 +192,7 @@ final class PubgrubTests: XCTestCase {
         XCTAssertFalse(partiallySatisfied.isValidDecision(for: solution100_150))
     }
 
-    func testIncompatibilityNormalizeTermsOnInit() throws {
+    func testIncompatibilityNormalizeTermsOnInit() async throws {
         let i1 = try Incompatibility(Term("a^1.0.0"), Term("a^1.5.0"), Term("¬b@1.0.0"),
                                  root: rootNode)
         XCTAssertEqual(i1.terms.count, 2)
@@ -226,7 +227,7 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(a2?.requirement, .range(v1..<v1_5))
     }
 
-    func testSolutionUndecided() throws {
+    func testSolutionUndecided() async throws {
         var solution = PartialSolution()
         solution.derive("a^1.0.0", cause: rootCause)
         solution.decide(.empty(package: "b"), at: v2)
@@ -239,7 +240,7 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(undecided, [Term("a^1.5.0"), Term("d^1.9.9")])
     }
 
-    func testSolutionAddAssignments() throws {
+    func testSolutionAddAssignments() async throws {
         let root = Term(rootNode, .exact("1.0.0"))
         let a = Term("a@1.0.0")
         let b = Term("b@2.0.0")
@@ -289,7 +290,7 @@ final class PubgrubTests: XCTestCase {
                        v1_5Range)
     }
 
-    func testResolverAddIncompatibility() throws {
+    func testResolverAddIncompatibility() async throws {
         let state = PubGrubDependencyResolver.State(root: rootNode)
 
         let a = try Incompatibility(Term("a@1.0.0"), root: rootNode)
@@ -303,7 +304,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testUpdatePackageIdentifierAfterResolution() throws {
+    func testUpdatePackageIdentifierAfterResolution() async throws {
         let fooURL = SourceControlURL("https://example.com/foo")
         let fooRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: fooURL), url: fooURL)
         let foo = MockContainer(package: fooRef, dependenciesByVersion: [v1: [:]])
@@ -315,7 +316,7 @@ final class PubgrubTests: XCTestCase {
         let deps = try builder.create(dependencies: [
             "foo": (.versionSet(v1Range), .specific(["foo"]))
         ])
-        let result = resolver.solve(constraints: deps)
+        let result = await resolver.solve(constraints: deps)
 
         switch result {
         case .failure(let error):
@@ -327,7 +328,7 @@ final class PubgrubTests: XCTestCase {
         }
     }
 
-    func testResolverConflictResolution() throws  {
+    func testResolverConflictResolution() async throws {
         let solver1 = PubGrubDependencyResolver(provider: emptyProvider, observabilityScope: ObservabilitySystem.NOOP)
         let state1 = PubGrubDependencyResolver.State(root: rootNode)
 
@@ -338,12 +339,13 @@ final class PubgrubTests: XCTestCase {
         XCTAssertThrowsError(try solver1.resolve(state: state1, conflict: notRoot))
     }
 
-    func testResolverDecisionMaking() throws {
+    func testResolverDecisionMaking() async throws {
         let solver1 = PubGrubDependencyResolver(provider: emptyProvider, observabilityScope: ObservabilitySystem.NOOP)
         let state1 = PubGrubDependencyResolver.State(root: rootNode)
 
         // No decision can be made if no unsatisfied terms are available.
-        XCTAssertNil(try temp_await { solver1.makeDecision(state: state1, completion: $0) })
+        let decisionNil = try await solver1.makeDecision(state: state1)
+        XCTAssertNil(decisionNil)
 
         let a = MockContainer(package: aRef, dependenciesByVersion: [
             "0.0.0": [:],
@@ -359,7 +361,7 @@ final class PubgrubTests: XCTestCase {
 
         XCTAssertEqual(state2.incompatibilities.count, 0)
 
-        let decision = try temp_await { solver2.makeDecision(state: state2, completion: $0) }
+        let decision = try await solver2.makeDecision(state: state2)
         XCTAssertEqual(decision, .product("a", package: "a"))
 
         XCTAssertEqual(state2.incompatibilities.count, 3)
@@ -373,7 +375,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testResolverUnitPropagation() throws {
+    func testResolverUnitPropagation() async throws {
         let solver1 = PubGrubDependencyResolver(provider: emptyProvider, observabilityScope: ObservabilitySystem.NOOP)
         let state1 = PubGrubDependencyResolver.State(root: rootNode)
 
@@ -403,7 +405,7 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(state2.solution.assignments.count, 2)
     }
 
-    func testSolutionFindSatisfiers() throws {
+    func testSolutionFindSatisfiers() async throws {
         var solution = PartialSolution()
         solution.decide(rootNode, at: v1) // ← previous, but actually nil because this is the root decision
         solution.derive(Term(.product("a", package: aRef), .any), cause: _cause) // ← satisfier
@@ -416,7 +418,7 @@ final class PubgrubTests: XCTestCase {
     }
 
     // this test reconstruct the conditions described in radar/93335995
-    func testRadar93335995() throws  {
+    func testRadar93335995() async throws {
         let observability = ObservabilitySystem.makeForTesting()
         let delegate = ObservabilityDependencyResolverDelegate(observabilityScope: observability.topScope)
         let solver = PubGrubDependencyResolver(provider: emptyProvider, observabilityScope: observability.topScope, delegate: delegate)
@@ -481,7 +483,7 @@ final class PubgrubTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
-    func testNoInfiniteLoop() throws  {
+    func testNoInfiniteLoop() async throws {
         let observability = ObservabilitySystem.makeForTesting()
         let delegate = ObservabilityDependencyResolverDelegate(observabilityScope: observability.topScope)
         let solver = PubGrubDependencyResolver(provider: emptyProvider, observabilityScope: observability.topScope, delegate: delegate)
@@ -539,11 +541,11 @@ final class PubgrubTests: XCTestCase {
         )
 
         XCTAssertThrowsError(try solver.resolve(state: state, conflict: conflict)) { error in
-            XCTAssertTrue(error is PubGrubDependencyResolver.PubgrubError)
+            XCTAssertTrue(error is PubGrubDependencyResolver.PubGrubError)
         }
     }
 
-    func testResolutionNoConflicts() throws {
+    func testResolutionNoConflicts() async throws {
         try builder.serve("a", at: v1, with: ["a": ["b": (.versionSet(v1Range), .specific(["b"]))]])
         try builder.serve("b", at: v1)
         try builder.serve("b", at: v2)
@@ -552,7 +554,7 @@ final class PubgrubTests: XCTestCase {
         let dependencies = try builder.create(dependencies: [
             "a": (.versionSet(v1Range), .specific(["a"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("a", .version(v1)),
@@ -560,7 +562,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testResolutionAvoidingConflictResolutionDuringDecisionMaking() throws {
+    func testResolutionAvoidingConflictResolutionDuringDecisionMaking() async throws {
         try builder.serve("a", at: v1)
         try builder.serve("a", at: v1_1, with: ["a": ["b": (.versionSet(v2Range), .specific(["b"]))]])
         try builder.serve("b", at: v1)
@@ -572,7 +574,7 @@ final class PubgrubTests: XCTestCase {
             "a": (.versionSet(v1Range), .specific(["a"])),
             "b": (.versionSet(v1Range), .specific(["b"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("a", .version(v1)),
@@ -580,8 +582,8 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testResolutionPerformingConflictResolution() throws {
-        // Pubgrub has a listed as >=1.0.0, which we can't really represent here.
+    func testResolutionPerformingConflictResolution() async throws {
+        // PubGrub has a listed as >=1.0.0, which we can't really represent here.
         // It's either .any or 1.0.0..<n.0.0 with n>2. Both should have the same
         // effect though.
         try builder.serve("a", at: v1)
@@ -592,14 +594,14 @@ final class PubgrubTests: XCTestCase {
         let dependencies = try builder.create(dependencies: [
             "a": (.versionSet(v1to3Range), .specific(["a"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("a", .version(v1))
         ])
     }
 
-    func testResolutionConflictResolutionWithAPartialSatisfier() throws {
+    func testResolutionConflictResolutionWithAPartialSatisfier() async throws {
         try builder.serve("foo", at: v1)
         try builder.serve("foo", at: v1_1, with: [
             "foo": ["left": (.versionSet(v1Range), .specific(["left"]))],
@@ -621,7 +623,7 @@ final class PubgrubTests: XCTestCase {
             "foo": (.versionSet(v1Range), .specific(["foo"])),
             "target": (.versionSet(v2Range), .specific(["target"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .version(v1)),
@@ -629,7 +631,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testUsecase1() throws {
+    func testUsecase1() async throws {
         try builder.serve("a",
                       at: "1.0.0",
                       with: [
@@ -671,7 +673,7 @@ final class PubgrubTests: XCTestCase {
             "a": (.versionSet(v1Range), .everything),
             "c": (.versionSet(v1Range), .everything)
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("a", .version(v1)),
@@ -681,21 +683,21 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testCycle1() throws {
+    func testCycle1() async throws {
         try builder.serve("foo", at: v1_1, with: ["foo": ["foo": (.versionSet(v1Range), .specific(["foo"]))]])
 
         let resolver = builder.create()
         let dependencies = try builder.create(dependencies: [
             "foo": (.versionSet(v1Range), .specific(["foo"]))
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .version(v1_1)),
         ])
     }
 
-    func testCycle2() throws {
+    func testCycle2() async throws {
         try builder.serve("foo", at: v1_1, with: ["foo": ["bar": (.versionSet(v1Range), .specific(["bar"]))]])
         try builder.serve("bar", at: v1, with: ["bar": ["baz": (.versionSet(v1Range), .specific(["baz"]))]])
         try builder.serve("baz", at: v1, with: ["baz": ["bam": (.versionSet(v1Range), .specific(["bam"]))]])
@@ -705,7 +707,7 @@ final class PubgrubTests: XCTestCase {
         let dependencies = try builder.create(dependencies: [
             "foo": (.versionSet(v1Range), .specific(["foo"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .version(v1_1)),
@@ -715,7 +717,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testLocalPackageCycle() throws {
+    func testLocalPackageCycle() async throws {
         try builder.serve("foo", at: .unversioned, with: [
             "foo": ["bar": (.unversioned, .specific(["bar"]))],
         ])
@@ -730,7 +732,7 @@ final class PubgrubTests: XCTestCase {
         let dependencies = try builder.create(dependencies: [
             "foo": (.unversioned, .specific(["foo"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .unversioned),
@@ -739,7 +741,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testBranchBasedPackageCycle() throws {
+    func testBranchBasedPackageCycle() async throws {
         try builder.serve("foo", at: .revision("develop"), with: [
             "foo": ["bar": (.revision("develop"), .specific(["bar"]))],
         ])
@@ -754,7 +756,7 @@ final class PubgrubTests: XCTestCase {
         let dependencies = try builder.create(dependencies: [
             "foo": (.revision("develop"), .specific(["foo"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .revision("develop")),
@@ -763,17 +765,17 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testNonExistentPackage() throws {
+    func testNonExistentPackage() async throws {
         let resolver = builder.create()
         let dependencies = try builder.create(dependencies: [
             "package": (.versionSet(.exact(v1)), .specific(["package"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertError(result, _MockLoadingError.unknownModule)
     }
 
-    func testUnversioned1() throws {
+    func testUnversioned1() async throws {
         try builder.serve("foo", at: .unversioned)
         try builder.serve("bar", at: v1_5)
         try builder.serve("bar", at: v2)
@@ -783,7 +785,7 @@ final class PubgrubTests: XCTestCase {
             "foo": (.unversioned, .specific(["foo"])),
             "bar": (.versionSet(v1Range), .specific(["bar"]))
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .unversioned),
@@ -791,7 +793,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testUnversioned2() throws {
+    func testUnversioned2() async throws {
         try builder.serve("foo", at: .unversioned, with: [
             "foo": ["bar": (.versionSet(.range(v1..<"1.2.0")), .specific(["bar"]))]
         ])
@@ -806,7 +808,7 @@ final class PubgrubTests: XCTestCase {
             "foo": (.unversioned, .specific(["foo"])),
             "bar": (.versionSet(v1Range), .specific(["bar"]))
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .unversioned),
@@ -814,7 +816,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testUnversioned3() throws {
+    func testUnversioned3() async throws {
         try builder.serve("foo", at: .unversioned)
         try builder.serve("bar", at: v1, with: [
             "bar": ["foo": (.versionSet(.exact(v1)), .specific(["foo"]))]
@@ -825,7 +827,7 @@ final class PubgrubTests: XCTestCase {
             "foo": (.unversioned, .specific(["foo"])),
             "bar": (.versionSet(v1Range), .specific(["bar"]))
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .unversioned),
@@ -833,7 +835,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testUnversioned4() throws {
+    func testUnversioned4() async throws {
         try builder.serve("foo", at: .unversioned)
         try builder.serve("bar", at: .revision("master"), with: [
             "bar": ["foo": (.versionSet(v1Range), .specific(["foo"]))]
@@ -844,7 +846,7 @@ final class PubgrubTests: XCTestCase {
             "foo": (.unversioned, .specific(["foo"])),
             "bar": (.revision("master"), .specific(["bar"]))
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .unversioned),
@@ -852,7 +854,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testUnversioned5() throws {
+    func testUnversioned5() async throws {
         try builder.serve("foo", at: .unversioned)
         try builder.serve("foo", at: .revision("master"))
         try builder.serve("bar", at: .revision("master"), with: [
@@ -864,7 +866,7 @@ final class PubgrubTests: XCTestCase {
             "foo": (.unversioned, .specific(["foo"])),
             "bar": (.revision("master"), .specific(["bar"]))
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .unversioned),
@@ -872,7 +874,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testUnversioned7() throws {
+    func testUnversioned7() async throws {
         try builder.serve("local", at: .unversioned, with: [
             "local": ["remote": (.unversioned, .specific(["remote"]))]
         ])
@@ -884,7 +886,7 @@ final class PubgrubTests: XCTestCase {
             "local": (.unversioned, .specific(["local"])),
             "remote": (.versionSet(v1Range), .specific(["remote"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("remote", .unversioned),
@@ -892,7 +894,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testUnversioned8() throws {
+    func testUnversioned8() async throws {
         try builder.serve("entry", at: .unversioned, with: [
             "entry": [
                 "remote": (.versionSet(v1Range), .specific(["remote"])),
@@ -909,7 +911,7 @@ final class PubgrubTests: XCTestCase {
         let dependencies = try builder.create(dependencies: [
             "entry": (.unversioned, .specific(["entry"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("entry", .unversioned),
@@ -918,7 +920,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testUnversioned9() throws {
+    func testUnversioned9() async throws {
         try builder.serve("entry", at: .unversioned, with: [
             "entry": [
                 "local": (.unversioned, .specific(["local"])),
@@ -935,7 +937,7 @@ final class PubgrubTests: XCTestCase {
         let dependencies = try builder.create(dependencies: [
             "entry": (.unversioned, .specific(["entry"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("entry", .unversioned),
@@ -946,7 +948,7 @@ final class PubgrubTests: XCTestCase {
 
     // root -> version -> version
     // root -> version -> version
-    func testHappyPath1() throws {
+    func testHappyPath1() async throws {
         try builder.serve("foo", at: v1_1, with: ["foo": ["config": (.versionSet(v1Range), .specific(["config"]))]])
         try builder.serve("bar", at: v1_1, with: ["bar": ["config": (.versionSet(v1_1Range), .specific(["config"]))]])
         try builder.serve("config", at: v1)
@@ -958,7 +960,7 @@ final class PubgrubTests: XCTestCase {
             "bar": (.versionSet(v1Range), .specific(["bar"]))
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .version(v1_1)),
@@ -969,7 +971,7 @@ final class PubgrubTests: XCTestCase {
 
     // root -> version -> version
     // root -> non-versioned -> version
-    func testHappyPath2() throws {
+    func testHappyPath2() async throws {
         try builder.serve("foo", at: v1_1, with: ["foo": ["config": (.versionSet(v1Range), .specific(["config"]))]])
         try builder.serve("bar", at: .unversioned, with: ["bar": ["config": (.versionSet(v1_1Range), .specific(["config"]))]])
         try builder.serve("config", at:  v1)
@@ -981,7 +983,7 @@ final class PubgrubTests: XCTestCase {
             "bar": (.unversioned, .specific(["bar"]))
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .version(v1_1)),
@@ -992,7 +994,7 @@ final class PubgrubTests: XCTestCase {
 
     // root -> version -> version
     // root -> non-versioned -> non-versioned -> version
-    func testHappyPath3() throws {
+    func testHappyPath3() async throws {
         try builder.serve("foo", at: v1_1, with: ["foo": ["config": (.versionSet(v1Range), .specific(["config"]))]])
         try builder.serve("bar", at: .unversioned, with: ["bar": ["baz": (.unversioned, .specific(["baz"]))]])
         try builder.serve("baz", at: .unversioned, with: ["baz": ["config": (.versionSet(v1_1Range), .specific(["config"]))]])
@@ -1005,7 +1007,7 @@ final class PubgrubTests: XCTestCase {
             "bar": (.unversioned, .specific(["bar"]))
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .version(v1_1)),
@@ -1017,7 +1019,7 @@ final class PubgrubTests: XCTestCase {
 
     // root -> version
     // root -> version -> version
-    func testHappyPath4() throws {
+    func testHappyPath4() async throws {
         try builder.serve("foo", at: v1_1, with: ["foo": ["config": (.versionSet(v1_1Range), .specific(["config"]))]])
         try builder.serve("config", at: v1)
         try builder.serve("config", at: v1_1)
@@ -1028,7 +1030,7 @@ final class PubgrubTests: XCTestCase {
             "foo": (.versionSet(v1Range), .specific(["foo"]))
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .version(v1_1)),
@@ -1038,7 +1040,7 @@ final class PubgrubTests: XCTestCase {
 
     // root -> version
     // root -> non-versioned -> version
-    func testHappyPath5() throws {
+    func testHappyPath5() async throws {
         try builder.serve("foo", at: .unversioned, with: ["foo": ["config": (.versionSet(v1_1Range), .specific(["config"]))]])
         try builder.serve("config", at: v1)
         try builder.serve("config", at: v1_1)
@@ -1049,7 +1051,7 @@ final class PubgrubTests: XCTestCase {
             "foo": (.unversioned, .specific(["foo"]))
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .unversioned),
@@ -1057,10 +1059,9 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-
     // root -> version
     // root -> non-versioned -> non-versioned -> version
-    func testHappyPath6() throws {
+    func testHappyPath6() async throws {
         try builder.serve("foo", at: .unversioned, with: ["foo": ["bar": (.unversioned, .specific(["bar"]))]])
         try builder.serve("bar", at: .unversioned, with: ["bar": ["config": (.versionSet(v1_1Range), .specific(["config"]))]])
         try builder.serve("config", at: v1)
@@ -1072,7 +1073,7 @@ final class PubgrubTests: XCTestCase {
             "foo": (.unversioned, .specific(["foo"]))
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .unversioned),
@@ -1083,7 +1084,7 @@ final class PubgrubTests: XCTestCase {
 
     // top level package -> version
     // top level package -> version -> version
-    func testHappyPath7() throws {
+    func testHappyPath7() async throws {
         let package = PackageReference.root(identity: .plain("package"), path: .root)
         try builder.serve(package, at: .unversioned, with: [
             "module": [
@@ -1099,7 +1100,7 @@ final class PubgrubTests: XCTestCase {
             package: (.unversioned, .everything)
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("package", .unversioned),
@@ -1111,7 +1112,7 @@ final class PubgrubTests: XCTestCase {
 
     // top level package -> version
     // top level package -> non-versioned -> version
-    func testHappyPath8() throws {
+    func testHappyPath8() async throws {
         let package = PackageReference.root(identity: .plain("package"), path: .root)
         try builder.serve(package, at: .unversioned, with: [
             "module": [
@@ -1127,7 +1128,7 @@ final class PubgrubTests: XCTestCase {
             package: (.unversioned, .everything)
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("package", .unversioned),
@@ -1138,7 +1139,7 @@ final class PubgrubTests: XCTestCase {
 
     // top level package -> version
     // top level package -> non-versioned -> non-versioned -> version
-    func testHappyPath9() throws {
+    func testHappyPath9() async throws {
         let package = PackageReference.root(identity: .plain("package"), path: .root)
         try builder.serve(package, at: .unversioned, with: [
             "module": [
@@ -1156,7 +1157,7 @@ final class PubgrubTests: XCTestCase {
             package: (.unversioned, .everything)
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("package", .unversioned),
@@ -1169,7 +1170,7 @@ final class PubgrubTests: XCTestCase {
 
     // top level package -> beta version
     //  beta version -> version
-    func testHappyPath10() throws {
+    func testHappyPath10() async throws {
         let package = PackageReference.root(identity: .plain("package"), path: .root)
         try builder.serve(package, at: .unversioned, with: [
             "module": [
@@ -1189,7 +1190,7 @@ final class PubgrubTests: XCTestCase {
             package: (.unversioned, .everything)
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("package", .unversioned),
@@ -1198,7 +1199,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testResolutionWithSimpleBranchBasedDependency() throws {
+    func testResolutionWithSimpleBranchBasedDependency() async throws {
         try builder.serve("foo", at: .revision("master"), with: ["foo": ["bar": (.versionSet(v1Range), .specific(["bar"]))]])
         try builder.serve("bar", at: v1)
 
@@ -1207,7 +1208,7 @@ final class PubgrubTests: XCTestCase {
             "foo": (.revision("master"), .specific(["foo"])),
             "bar": (.versionSet(v1Range), .specific(["bar"]))
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .revision("master")),
@@ -1215,7 +1216,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testResolutionWithSimpleBranchBasedDependency2() throws {
+    func testResolutionWithSimpleBranchBasedDependency2() async throws {
         try builder.serve("foo", at: .revision("master"), with: ["foo": ["bar": (.versionSet(v1Range), .specific(["bar"]))]])
         try builder.serve("bar", at: v1)
 
@@ -1223,7 +1224,7 @@ final class PubgrubTests: XCTestCase {
         let dependencies = try builder.create(dependencies: [
             "foo": (.revision("master"), .specific(["foo"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .revision("master")),
@@ -1231,7 +1232,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testResolutionWithOverridingBranchBasedDependency() throws {
+    func testResolutionWithOverridingBranchBasedDependency() async throws {
         try builder.serve("foo", at: .revision("master"))
         try builder.serve("bar", at: v1, with: ["bar": ["foo": (.versionSet(v1Range), .specific(["foo"]))]])
 
@@ -1241,7 +1242,7 @@ final class PubgrubTests: XCTestCase {
             "bar": (.versionSet(.exact(v1)), .specific(["bar"])),
 
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .revision("master")),
@@ -1249,7 +1250,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testResolutionWithOverridingBranchBasedDependency2() throws {
+    func testResolutionWithOverridingBranchBasedDependency2() async throws {
         try builder.serve("foo", at: .revision("master"))
         try builder.serve("bar", at: v1, with: ["bar": ["foo": (.versionSet(v1Range), .specific(["foo"]))]])
 
@@ -1258,7 +1259,7 @@ final class PubgrubTests: XCTestCase {
             "bar": (.versionSet(.exact(v1)), .specific(["bar"])),
             "foo": (.revision("master"), .specific(["foo"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .revision("master")),
@@ -1266,7 +1267,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testResolutionWithOverridingBranchBasedDependency3() throws {
+    func testResolutionWithOverridingBranchBasedDependency3() async throws {
         try builder.serve("foo", at: .revision("master"), with: ["foo": ["bar": (.revision("master"), .specific(["bar"]))]])
 
         try builder.serve("bar", at: .revision("master"))
@@ -1279,7 +1280,7 @@ final class PubgrubTests: XCTestCase {
             "foo": (.revision("master"), .specific(["foo"])),
             "baz": (.revision("master"), .specific(["baz"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .revision("master")),
@@ -1288,19 +1289,19 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testResolutionWithUnavailableRevision() throws {
+    func testResolutionWithUnavailableRevision() async throws {
         try builder.serve("foo", at: .version(v1))
 
         let resolver = builder.create()
         let dependencies = try builder.create(dependencies: [
             "foo": (.revision("master"), .specific(["foo"]))
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertError(result, _MockLoadingError.unknownRevision)
     }
 
-    func testResolutionWithRevisionConflict() throws {
+    func testResolutionWithRevisionConflict() async throws {
         try builder.serve("foo", at: .revision("master"), with: ["foo": ["bar": (.revision("master"), .specific(["bar"]))]])
         try builder.serve("bar", at: .version(v1))
         try builder.serve("bar", at: .revision("master"))
@@ -1310,7 +1311,7 @@ final class PubgrubTests: XCTestCase {
             "bar": (.versionSet(v1Range), .specific(["bar"])),
             "foo": (.revision("master"), .specific(["foo"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .revision("master")),
@@ -1318,7 +1319,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testBranchOverriding3() throws {
+    func testBranchOverriding3() async throws {
         try builder.serve("swift-nio", at: v1)
         try builder.serve("swift-nio", at: .revision("master"))
         try builder.serve("swift-nio-ssl", at: .revision("master"), with: [
@@ -1334,7 +1335,7 @@ final class PubgrubTests: XCTestCase {
             "swift-nio": (.revision("master"), .specific(["swift-nio"])),
             "swift-nio-ssl": (.revision("master"), .specific(["swift-nio-ssl"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("swift-nio-ssl", .revision("master")),
@@ -1343,7 +1344,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testBranchOverriding4() throws {
+    func testBranchOverriding4() async throws {
         try builder.serve("swift-nio", at: v1)
         try builder.serve("swift-nio", at: .revision("master"))
         try builder.serve("swift-nio-ssl", at: .revision("master"), with: [
@@ -1371,7 +1372,7 @@ final class PubgrubTests: XCTestCase {
             "http-client": (.versionSet(v1Range), .specific(["https-client"])),
             "boring-ssl": (.versionSet(v1Range), .specific(["boring-ssl"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("swift-nio-ssl", .revision("master")),
@@ -1382,7 +1383,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testNonVersionDependencyInVersionDependency2() throws {
+    func testNonVersionDependencyInVersionDependency2() async throws {
         try builder.serve("foo", at: v1_1, with: [
             "foo": ["bar": (.revision("master"), .specific(["bar"]))]
         ])
@@ -1391,14 +1392,14 @@ final class PubgrubTests: XCTestCase {
         let dependencies = try builder.create(dependencies: [
             "foo": (.versionSet(v1Range), .specific(["foo"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .version(v1)),
         ])
     }
 
-    func testTrivialPinStore() throws {
+    func testTrivialResolvedPackagesStore() async throws {
         try builder.serve("a", at: v1, with: ["a": ["b": (.versionSet(v1Range), .specific(["b"]))]])
         try builder.serve("a", at: v1_1)
         try builder.serve("b", at: v1)
@@ -1409,15 +1410,15 @@ final class PubgrubTests: XCTestCase {
             "a": (.versionSet(v1Range), .specific(["a"])),
         ])
 
-        let pinsStore = try builder.create(pinsStore: [
+        let resolvedPackagesStore = try builder.create(resolvedPackages: [
             "a": (.version(v1), .specific(["a"])),
             "b": (.version(v1), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pins: pinsStore.pins)
-        let result = try resolver.solve(root: rootNode, constraints: dependencies)
+        let resolver = builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
+        let result = try await resolver.solve(root: rootNode, constraints: dependencies)
 
-        // Since a was pinned, we shouldn't have computed bounds for its incomaptibilities.
+        // Since a was pinned, we shouldn't have computed bounds for its incompatibilities.
         let aIncompat = result.state.positiveIncompatibilities(for: .product("a", package: try builder.reference(for: "a")))![0]
         XCTAssertEqual(aIncompat.terms[0].requirement, .exact("1.0.0"))
 
@@ -1427,8 +1428,8 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testPartialPins() throws {
-        // This checks that we can drop pins that are not valid anymore but still keep the ones
+    func testPartialResolvedPackages() async throws {
+        // This checks that we can drop resolved packages that are not valid anymore but still keep the ones
         // which fit the constraints.
         try builder.serve("a", at: v1, with: ["a": ["b": (.versionSet(v1Range), .specific(["b"]))]])
         try builder.serve("a", at: v1_1)
@@ -1443,13 +1444,13 @@ final class PubgrubTests: XCTestCase {
 
         // Here b is pinned to v1 but its requirement is now 1.1.0..<2.0.0 in the graph
         // due to addition of a new dependency.
-        let pinsStore = try builder.create(pinsStore: [
+        let resolvedPackagesStore = try builder.create(resolvedPackages: [
             "a": (.version(v1), .specific(["a"])),
             "b": (.version(v1), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pins: pinsStore.pins)
-        let result = resolver.solve(constraints: dependencies)
+        let resolver = builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("a", .version(v1)),
@@ -1458,8 +1459,8 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testMissingPin() throws {
-        // This checks that we can drop pins that are no longer available but still keep the ones
+    func testMissingResolvedPackage() async throws {
+        // This checks that we can drop resolved packages that are no longer available but still keep the ones
         // which fit the constraints.
         try builder.serve("a", at: v1, with: ["a": ["b": (.versionSet(v1Range), .specific(["b"]))]])
         try builder.serve("a", at: v1_1)
@@ -1472,13 +1473,13 @@ final class PubgrubTests: XCTestCase {
 
         // Here c is pinned to v1.1, but it is no longer available, so the resolver should fall back
         // to v1.
-        let pinsStore = try builder.create(pinsStore: [
+        let resolvedPackagesStore = try builder.create(resolvedPackages: [
             "a": (.version(v1), .specific(["a"])),
             "b": (.version("1.2.0"), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pins: pinsStore.pins)
-        let result = resolver.solve(constraints: dependencies)
+        let resolver = builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("a", .version(v1)),
@@ -1486,7 +1487,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testBranchedBasedPin() throws {
+    func testBranchBasedResolvedPackage() async throws {
         // This test ensures that we get the SHA listed in Package.resolved for branch-based
         // dependencies.
         try builder.serve("a", at: .revision("develop-sha-1"))
@@ -1497,13 +1498,13 @@ final class PubgrubTests: XCTestCase {
             "b": (.revision("master"), .specific(["b"])),
         ])
 
-        let pinsStore = try builder.create(pinsStore: [
+        let resolvedPackagesStore = try builder.create(resolvedPackages: [
             "a": (.branch(name: "develop", revision: "develop-sha-1"), .specific(["a"])),
             "b": (.branch(name: "master", revision: "master-sha-2"), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pins: pinsStore.pins)
-        let result = resolver.solve(constraints: dependencies)
+        let resolver = builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("a", .revision("develop-sha-1", branch: "develop")),
@@ -1511,7 +1512,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testIncompatibleToolsVersion2() throws {
+    func testIncompatibleToolsVersion2() async throws {
         try builder.serve("a", at: v1_1, toolsVersion: ToolsVersion.v5)
         try builder.serve("a", at: v1)
 
@@ -1520,14 +1521,14 @@ final class PubgrubTests: XCTestCase {
             "a": (.versionSet(v1Range), .specific(["a"])),
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("a", .version(v1)),
         ])
     }
 
-    func testUnreachableProductsSkipped() throws {
+    func testUnreachableProductsSkipped() async throws {
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         #else
         try XCTSkipIf(true)
@@ -1554,7 +1555,7 @@ final class PubgrubTests: XCTestCase {
         let dependencies = try builder.create(dependencies: [
             "root": (.unversioned, .everything)
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("root", .unversioned),
@@ -1563,7 +1564,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testDelegate() throws {
+    func testDelegate() async throws {
         class TestDelegate: DependencyResolverDelegate {
             var events = [String]()
             let lock = NSLock()
@@ -1614,7 +1615,7 @@ final class PubgrubTests: XCTestCase {
             "foo": (.versionSet(v1Range), .specific(["foo"])),
             "bar": (.versionSet(v2Range), .specific(["bar"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .version("1.1.0")),
@@ -1628,7 +1629,7 @@ final class PubgrubTests: XCTestCase {
         XCTAssertMatch(delegate.events, ["solved: 'bar' at '2.0.1', 'foo' at '1.1.0'"])
     }
 
-    func testPubGrubPackageContainerCacheParameterization() throws {
+    func testPubGrubPackageContainerCacheParameterization() async throws {
         let container = PubGrubPackageContainer(
             underlying: try MockPackageContainer(
                 name: "Package",
@@ -1642,7 +1643,7 @@ final class PubgrubTests: XCTestCase {
                         versionRequirement: .exact(Version(1, 0, 0))
                     )]
                 ]),
-            pins: PinsStore.Pins()
+            resolvedPackages: ResolvedPackagesStore.ResolvedPackages()
         )
         let rootLocation = AbsolutePath("/Root")
         let otherLocation = AbsolutePath("/Other")
@@ -1652,16 +1653,17 @@ final class PubgrubTests: XCTestCase {
         let other = PackageReference.localSourceControl(identity: .init(path: otherLocation), path: otherLocation)
         let dependencyA = PackageReference.localSourceControl(identity: .init(path: dependencyALocation), path: dependencyALocation)
         let dependencyB = PackageReference.localSourceControl(identity: .init(path: dependencyBLocation), path: dependencyBLocation)
-        XCTAssertEqual(
-            try container.incompatibilites(
-                at: Version(1, 0, 0),
-                node: .product(
-                    "FilterA",
-                    package: other
-                ),
-                overriddenPackages: [:],
-                root: .root(package: root)
+        let result = try await container.incompatibilites(
+            at: Version(1, 0, 0),
+            node: .product(
+                "FilterA",
+                package: other
             ),
+            overriddenPackages: [:],
+            root: .root(package: root)
+        )
+        XCTAssertEqual(
+            result,
             [
                 Incompatibility(
                     terms: [
@@ -1691,16 +1693,17 @@ final class PubgrubTests: XCTestCase {
                 )
             ]
         )
-        XCTAssertEqual(
-            try container.incompatibilites(
-                at: Version(1, 0, 0),
-                node: .product(
-                    "FilterB",
-                    package: other
-                ),
-                overriddenPackages: [:],
-                root: .root(package: root)
+        let result2 = try await container.incompatibilites(
+            at: Version(1, 0, 0),
+            node: .product(
+                "FilterB",
+                package: other
             ),
+            overriddenPackages: [:],
+            root: .root(package: root)
+        )
+        XCTAssertEqual(
+            result2,
             [
                 Incompatibility(
                     terms: [
@@ -1734,7 +1737,7 @@ final class PubgrubTests: XCTestCase {
 }
 
 final class PubGrubTestsBasicGraphs: XCTestCase {
-    func testSimple1() throws {
+    func testSimple1() async throws {
         try builder.serve("a", at: v1, with: [
             "a": [
                 "aa": (.versionSet(.exact("1.0.0")), .specific(["aa"])),
@@ -1758,7 +1761,7 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
             "b": (.versionSet(.exact("1.0.0")), .specific(["b"])),
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
         AssertResult(result, [
             ("a", .version(v1)),
             ("aa", .version(v1)),
@@ -1769,7 +1772,7 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
         ])
     }
 
-    func testSharedDependency1() throws {
+    func testSharedDependency1() async throws {
         try builder.serve("a", at: v1, with: [
             "a": ["shared": (.versionSet(.range("2.0.0"..<"4.0.0")), .specific(["shared"]))],
         ])
@@ -1788,7 +1791,7 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
             "b": (.versionSet(.exact("1.0.0")), .specific(["b"])),
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
         AssertResult(result, [
             ("a", .version(v1)),
             ("b", .version(v1)),
@@ -1796,7 +1799,7 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
         ])
     }
 
-    func testSharedDependency2() throws {
+    func testSharedDependency2() async throws {
         try builder.serve("foo", at: "1.0.0")
         try builder.serve("foo", at: "1.0.1", with: [
             "foo": ["bang": (.versionSet(.exact("1.0.0")), .specific(["bang"]))],
@@ -1820,7 +1823,7 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
             "bar": (.versionSet(.exact("1.0.0")), .specific(["bar"])),
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
         AssertResult(result, [
             ("foo", .version("1.0.1")),
             ("bar", .version(v1)),
@@ -1828,7 +1831,7 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
         ])
     }
 
-    func testFallbacksToOlderVersion() throws {
+    func testFallbacksToOlderVersion() async throws {
         try builder.serve("foo", at: "1.0.0")
         try builder.serve("foo", at: "2.0.0")
         try builder.serve("bar", at: "1.0.0")
@@ -1845,7 +1848,7 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
             "foo": (.versionSet(.exact("1.0.0")), .specific(["foo"])),
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
         AssertResult(result, [
             ("foo", .version(v1)),
             ("bar", .version(v1)),
@@ -1855,49 +1858,49 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
 
 final class PubGrubDiagnosticsTests: XCTestCase {
 
-    func testMissingVersion() throws {
+    func testMissingVersion() async throws {
         try builder.serve("package", at: v1_1)
 
         let resolver = builder.create()
         let dependencies = try builder.create(dependencies: [
             "package": (.versionSet(v2Range), .specific(["package"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because no versions of 'package' match the requirement 2.0.0..<3.0.0 and root depends on 'package' 2.0.0..<3.0.0.
             """)
     }
 
-    func testResolutionNonExistentVersion() throws {
+    func testResolutionNonExistentVersion() async throws {
         try builder.serve("package", at: v2)
 
         let resolver = builder.create()
         let dependencies = try builder.create(dependencies: [
             "package": (.versionSet(.exact(v1)), .specific(["package"]))
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because no versions of 'package' match the requirement 1.0.0 and root depends on 'package' 1.0.0.
             """)
     }
 
-    func testResolutionNonExistentBetaVersion() throws {
+    func testResolutionNonExistentBetaVersion() async throws {
         try builder.serve("package", at: "0.0.1")
 
         let resolver = builder.create()
         let dependencies = try builder.create(dependencies: [
             "package": (.versionSet(.range("1.0.0-beta" ..< "2.0.0")), .specific(["package"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because no versions of 'package' match the requirement 1.0.0-beta..<2.0.0 and root depends on 'package' 1.0.0-beta..<2.0.0.
             """)
     }
 
-    func testResolutionNonExistentTransitiveVersion() throws {
+    func testResolutionNonExistentTransitiveVersion() async throws {
         try builder.serve("package", at: v1_5, with: [
             "package": ["foo": (.versionSet(v1Range), .specific(["foo"]))]
         ])
@@ -1907,7 +1910,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let dependencies = try builder.create(dependencies: [
             "package": (.versionSet(v1Range), .specific(["package"]))
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because no versions of 'foo' match the requirement 1.0.0..<2.0.0 and root depends on 'package' 1.0.0..<2.0.0.
@@ -1915,7 +1918,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             """)
     }
 
-    func testResolutionNonExistentTransitiveBetaVersion() throws {
+    func testResolutionNonExistentTransitiveBetaVersion() async throws {
         try builder.serve("package", at: v1_5, with: [
             "package": ["foo": (.versionSet(.range("1.0.0-beta" ..< "2.0.0")), .specific(["foo"]))]
         ])
@@ -1925,7 +1928,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let dependencies = try builder.create(dependencies: [
             "package": (.versionSet(v1Range), .specific(["package"]))
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because no versions of 'foo' match the requirement 1.0.0-beta..<2.0.0 and root depends on 'package' 1.0.0..<2.0.0.
@@ -1933,7 +1936,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             """)
     }
 
-    func testResolutionBetaVersionNonExistentTransitiveVersion() throws {
+    func testResolutionBetaVersionNonExistentTransitiveVersion() async throws {
         try builder.serve("package", at: "1.0.0-beta.1", with: [
             "package": ["foo": (.versionSet(v1Range), .specific(["foo"]))]
         ])
@@ -1943,7 +1946,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let dependencies = try builder.create(dependencies: [
             "package": (.versionSet(.range("1.0.0-beta" ..< "2.0.0")), .specific(["package"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because no versions of 'foo' match the requirement 1.0.0..<2.0.0 and root depends on 'package' 1.0.0-beta..<2.0.0.
@@ -1951,7 +1954,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             """)
     }
 
-    func testResolutionLinearErrorReporting() throws {
+    func testResolutionLinearErrorReporting() async throws {
         try builder.serve("foo", at: v1, with: ["foo": ["bar": (.versionSet(v2Range), .specific(["bar"]))]])
         try builder.serve("bar", at: v2, with: ["bar": ["baz": (.versionSet(.range("3.0.0"..<"4.0.0")), .specific(["baz"]))]])
         try builder.serve("baz", at: v1)
@@ -1965,7 +1968,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "foo": (.versionSet(v1Range), .specific(["foo"])),
             "baz": (.versionSet(v1Range), .specific(["baz"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0 and root depends on 'baz' 1.0.0..<2.0.0.
@@ -1975,7 +1978,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             """)
     }
 
-    func testResolutionBranchingErrorReporting() throws {
+    func testResolutionBranchingErrorReporting() async throws {
         try builder.serve("foo", at: v1, with: [
             "foo": [
                 "a": (.versionSet(v1Range), .specific(["a"])),
@@ -1999,7 +2002,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let dependencies = try builder.create(dependencies: [
             "foo": (.versionSet(v1Range), .specific(["foo"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         print(result.errorMsg!)
 
@@ -2014,7 +2017,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             """)
     }
 
-    func testConflict1() throws {
+    func testConflict1() async throws {
         try builder.serve("foo", at: v1, with: ["foo": ["config": (.versionSet(v1Range), .specific(["config"]))]])
         try builder.serve("bar", at: v1, with: ["bar": ["config": (.versionSet(v2Range), .specific(["config"]))]])
         try builder.serve("config", at: v1)
@@ -2025,7 +2028,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "foo": (.versionSet(v1Range), .specific(["foo"])),
             "bar": (.versionSet(v1Range), .specific(["bar"]))
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0 and root depends on 'bar' 1.0.0..<2.0.0.
@@ -2034,8 +2037,8 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             """)
     }
 
-    func testConflict2() throws {
-        func addDeps() throws {
+    func testConflict2() async throws {
+        func addDeps() async throws {
             try builder.serve("foo", at: v1, with: ["foo": ["config": (.versionSet(v1Range), .specific(["config"]))]])
             try builder.serve("config", at: v1)
             try builder.serve("config", at: v2)
@@ -2045,9 +2048,9 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "config": (.versionSet(v2Range), .specific(["config"])),
             "foo": (.versionSet(v1Range), .specific(["foo"])),
         ])
-        try addDeps()
+        try await addDeps()
         let resolver1 = builder.create()
-        let result1 = resolver1.solve(constraints: dependencies1)
+        let result1 = await resolver1.solve(constraints: dependencies1)
 
         XCTAssertEqual(result1.errorMsg, """
             Dependencies could not be resolved because root depends on 'config' 2.0.0..<3.0.0 and root depends on 'foo' 1.0.0..<2.0.0.
@@ -2058,9 +2061,9 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "foo": (.versionSet(v1Range), .specific(["foo"])),
             "config": (.versionSet(v2Range), .specific(["config"])),
         ])
-        try addDeps()
+        try await addDeps()
         let resolver2 = builder.create()
-        let result2 = resolver2.solve(constraints: dependencies2)
+        let result2 = await resolver2.solve(constraints: dependencies2)
 
         XCTAssertEqual(result2.errorMsg, """
             Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0 and root depends on 'config' 2.0.0..<3.0.0.
@@ -2068,7 +2071,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             """)
     }
 
-    func testConflict3() throws {
+    func testConflict3() async throws {
         try builder.serve("foo", at: v1, with: ["foo": ["config": (.versionSet(v1Range), .specific(["config"]))]])
         try builder.serve("config", at: v1)
 
@@ -2077,14 +2080,14 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "config": (.versionSet(v2Range), .specific(["config"])),
             "foo": (.versionSet(v1Range), .specific(["foo"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because no versions of 'config' match the requirement 2.0.0..<3.0.0 and root depends on 'config' 2.0.0..<3.0.0.
             """)
     }
 
-    func testConflict4() throws {
+    func testConflict4() async throws {
         try builder.serve("foo", at: v1, with: [
             "foo": ["shared": (.versionSet(.range("2.0.0"..<"3.0.0")), .specific(["shared"]))],
         ])
@@ -2100,7 +2103,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "foo": (.versionSet(.exact(v1)), .specific(["foo"])),
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because root depends on 'bar' 1.0.0 and root depends on 'foo' 1.0.0.
@@ -2109,7 +2112,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             """)
     }
 
-    func testConflict5() throws {
+    func testConflict5() async throws {
         try builder.serve("a", at: v1, with: [
             "a": ["b": (.versionSet(.exact("1.0.0")), .specific(["b"]))],
         ])
@@ -2129,7 +2132,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "a": (.versionSet(.range("0.0.0"..<"5.0.0")), .specific(["a"])),
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because root depends on 'a' 0.0.0..<5.0.0.
@@ -2142,7 +2145,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
     // root -> version -> version
     // root -> version -> conflicting version
-    func testConflict6() throws {
+    func testConflict6() async throws {
         try builder.serve("foo", at: v1, with: ["foo": ["config": (.versionSet(v1Range), .specific(["config"]))]])
         try builder.serve("bar", at: v1, with: ["bar": ["config": (.versionSet(v2Range), .specific(["config"]))]])
         try builder.serve("config", at: v1)
@@ -2154,7 +2157,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "bar": (.versionSet(v1Range), .specific(["bar"]))
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0 and root depends on 'bar' 1.0.0..<2.0.0.
@@ -2165,7 +2168,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
     // root -> version -> version
     // root -> non-versioned -> conflicting version
-    func testConflict7() throws {
+    func testConflict7() async throws {
         try builder.serve("foo", at: v1, with: ["foo": ["config": (.versionSet(v1Range), .specific(["config"]))]])
         try builder.serve("bar", at: .unversioned, with: ["bar": ["config": (.versionSet(v2Range), .specific(["config"]))]])
         try builder.serve("config", at: v1)
@@ -2177,7 +2180,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "bar": (.unversioned, .specific(["bar"]))
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because 'bar' depends on 'config' 2.0.0..<3.0.0 and root depends on 'foo' 1.0.0..<2.0.0.
@@ -2187,7 +2190,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
     // root -> version -> version
     // root -> non-versioned -> non-versioned -> conflicting version
-    func testConflict8() throws {
+    func testConflict8() async throws {
         try builder.serve("foo", at: v1, with: ["foo": ["config": (.versionSet(v1Range), .specific(["config"]))]])
         try builder.serve("bar", at: .unversioned, with: ["bar": ["baz": (.unversioned, .specific(["baz"]))]])
         try builder.serve("baz", at: .unversioned, with: ["baz": ["config": (.versionSet(v2Range), .specific(["config"]))]])
@@ -2200,7 +2203,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "bar": (.unversioned, .specific(["bar"]))
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because 'baz' depends on 'config' 2.0.0..<3.0.0 and root depends on 'foo' 1.0.0..<2.0.0.
@@ -2210,7 +2213,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
     // root -> version -> version
     // root -> non-versioned -> non-existing version
-    func testConflict9() throws {
+    func testConflict9() async throws {
         try builder.serve("foo", at: v1, with: ["foo": ["config": (.versionSet(v1Range), .specific(["config"]))]])
         try builder.serve("bar", at: .unversioned, with: ["bar": ["config": (.versionSet(v2Range), .specific(["config"]))]])
         try builder.serve("config", at: v1)
@@ -2221,7 +2224,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "bar": (.unversioned, .specific(["bar"]))
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because no versions of 'config' match the requirement 2.0.0..<3.0.0 and 'bar' depends on 'config' 2.0.0..<3.0.0.
@@ -2230,7 +2233,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
     // root -> version
     // root -> non-versioned -> conflicting version
-    func testConflict10() throws {
+    func testConflict10() async throws {
         try builder.serve("foo", at: .unversioned, with: ["foo": ["config": (.versionSet(v2Range), .specific(["config"]))]])
         try builder.serve("config", at: v1)
         try builder.serve("config", at: v2)
@@ -2241,7 +2244,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "foo": (.unversioned, .specific(["foo"]))
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because 'foo' depends on 'config' 2.0.0..<3.0.0 and root depends on 'config' 1.0.0..<2.0.0.
@@ -2250,7 +2253,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
     // root -> version
     // root -> non-versioned -> non-existing version
-    func testConflict11() throws {
+    func testConflict11() async throws {
         try builder.serve("foo", at: .unversioned, with: ["foo": ["config": (.versionSet(v2Range), .specific(["config"]))]])
         try builder.serve("config", at: v1)
 
@@ -2260,7 +2263,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "foo": (.unversioned, .specific(["foo"]))
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because 'foo' depends on 'config' 2.0.0..<3.0.0 and root depends on 'config' 1.0.0..<2.0.0.
@@ -2269,7 +2272,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
     // root -> version
     // root -> non-versioned -> non-versioned -> conflicting version
-    func testConflict12() throws {
+    func testConflict12() async throws {
         try builder.serve("foo", at: .unversioned, with: ["foo": ["bar": (.unversioned, .specific(["bar"]))]])
         try builder.serve("bar", at: .unversioned, with: ["bar": ["baz": (.unversioned, .specific(["baz"]))]])
         try builder.serve("baz", at: .unversioned, with: ["baz": ["config": (.versionSet(v2Range), .specific(["config"]))]])
@@ -2281,7 +2284,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "foo": (.unversioned, .specific(["foo"]))
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because 'baz' depends on 'config' 2.0.0..<3.0.0 and root depends on 'config' 1.0.0..<2.0.0.
@@ -2290,7 +2293,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
     // top level package -> version
     // top level package -> version -> conflicting version
-    func testConflict13() throws {
+    func testConflict13() async throws {
         let package = PackageReference.root(identity: .plain("package"), path: .root)
         try builder.serve(package, at: .unversioned, with: [
             "module": [
@@ -2306,7 +2309,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             package: (.unversioned, .everything)
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because root depends on 'config' 1.0.0..<2.0.0 and root depends on 'foo' 1.0.0..<2.0.0.
@@ -2316,7 +2319,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
     // top level package -> version
     // top level package -> version -> non-existing version
-    func testConflict14() throws {
+    func testConflict14() async throws {
         let package = PackageReference.root(identity: .plain("package"), path: .root)
         try builder.serve(package, at: .unversioned, with: [
             "module": [
@@ -2331,7 +2334,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             package: (.unversioned, .everything)
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because root depends on 'config' 1.0.0..<2.0.0 and root depends on 'foo' 1.0.0..<2.0.0.
@@ -2341,7 +2344,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
     // top level package -> version
     // top level package -> non-versioned -> conflicting version
-    func testConflict15() throws {
+    func testConflict15() async throws {
         let package = PackageReference.root(identity: .plain("package"), path: .root)
         try builder.serve(package, at: .unversioned, with: [
             "module": [
@@ -2357,7 +2360,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             package: (.unversioned, .everything)
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because root depends on 'config' 1.0.0..<2.0.0 and 'foo' depends on 'config' 2.0.0..<3.0.0.
@@ -2366,7 +2369,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
     // top level package -> version
     // top level package -> non-versioned -> non-existing version
-    func testConflict16() throws {
+    func testConflict16() async throws {
         let package = PackageReference.root(identity: .plain("package"), path: .root)
         try builder.serve(package, at: .unversioned, with: [
             "module": [
@@ -2381,7 +2384,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             package: (.unversioned, .everything)
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because root depends on 'config' 1.0.0..<2.0.0 and 'foo' depends on 'config' 2.0.0..<3.0.0.
@@ -2390,7 +2393,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
     // top level package -> version
     // top level package -> non-versioned -> non-versioned -> conflicting version
-    func testConflict17() throws {
+    func testConflict17() async throws {
         let package = PackageReference.root(identity: .plain("package"), path: .root)
         try builder.serve(package, at: .unversioned, with: [
             "module": [
@@ -2408,14 +2411,14 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             package: (.unversioned, .everything)
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because root depends on 'config' 1.0.0..<2.0.0 and 'baz' depends on 'config' 2.0.0..<3.0.0.
             """)
     }
 
-    func testUnversioned6() throws {
+    func testUnversioned6() async throws {
         try builder.serve("foo", at: .unversioned)
         try builder.serve("bar", at: .revision("master"), with: [
             "bar": ["foo": (.unversioned, .specific(["foo"]))]
@@ -2426,12 +2429,12 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let dependencies = try builder.create(dependencies: [
             "bar": (.revision("master"), .specific(["bar"]))
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, "package 'bar' is required using a revision-based requirement and it depends on local package 'foo', which is not supported")
     }
 
-    func testResolutionWithOverridingBranchBasedDependency4() throws {
+    func testResolutionWithOverridingBranchBasedDependency4() async throws {
         try builder.serve("foo", at: .revision("master"), with: ["foo": ["bar": (.revision("master"), .specific(["bar"]))]])
 
         try builder.serve("bar", at: .revision("master"))
@@ -2444,12 +2447,12 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "foo": (.revision("master"), .specific(["foo"])),
             "baz": (.revision("master"), .specific(["baz"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, "bar is required using two different revision-based requirements (master and develop), which is not supported")
     }
 
-    func testNonVersionDependencyInVersionDependency1() throws {
+    func testNonVersionDependencyInVersionDependency1() async throws {
         try builder.serve("foo", at: v1_1, with: [
             "foo": ["bar": (.revision("master"), .specific(["bar"]))]
         ])
@@ -2459,7 +2462,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let dependencies = try builder.create(dependencies: [
             "foo": (.versionSet(v1Range), .specific(["foo"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0.
@@ -2467,7 +2470,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             """)
     }
 
-    func testNonVersionDependencyInVersionDependency2() throws {
+    func testNonVersionDependencyInVersionDependency2() async throws {
         try builder.serve("foo", at: v1, with: [
             "foo": ["bar": (.unversioned, .specific(["bar"]))]
         ])
@@ -2477,14 +2480,14 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let dependencies = try builder.create(dependencies: [
             "foo": (.versionSet(.exact(v1)), .specific(["foo"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because package 'foo' is required using a stable-version but 'foo' depends on an unstable-version package 'bar' and root depends on 'foo' 1.0.0.
             """)
     }
 
-    func testNonVersionDependencyInVersionDependency3() throws {
+    func testNonVersionDependencyInVersionDependency3() async throws {
         try builder.serve("foo", at: "1.0.0-beta.1", with: [
             "foo": ["bar": (.revision("master"), .specific(["bar"]))]
         ])
@@ -2500,7 +2503,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let dependencies = try builder.create(dependencies: [
             "foo": (.versionSet(.range("1.0.0-beta" ..< "2.0.0")), .specific(["foo"])),
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because package 'foo' is required using a stable-version but 'foo' depends on an unstable-version package 'bar' and root depends on 'foo' 1.0.0-beta..<2.0.0.
@@ -2509,7 +2512,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             """)
     }
 
-    func testIncompatibleToolsVersion1() throws {
+    func testIncompatibleToolsVersion1() async throws {
         try builder.serve("a", at: v1, toolsVersion: .v5)
 
         let resolver = builder.create()
@@ -2517,7 +2520,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "a": (.versionSet(v1Range), .specific(["a"])),
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because root depends on 'a' 1.0.0..<2.0.0.
@@ -2525,7 +2528,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             """)
     }
 
-    func testIncompatibleToolsVersion3() throws {
+    func testIncompatibleToolsVersion3() async throws {
         try builder.serve("a", at: v1_1, with: [
             "a": ["b": (.versionSet(v1Range), .specific(["b"]))]
         ])
@@ -2540,7 +2543,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "b": (.versionSet(v2Range), .specific(["b"])),
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because root depends on 'a' 1.0.0..<2.0.0 and root depends on 'b' 2.0.0..<3.0.0.
@@ -2549,7 +2552,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             """)
     }
 
-    func testIncompatibleToolsVersion4() throws {
+    func testIncompatibleToolsVersion4() async throws {
         try builder.serve("a", at: "3.2.1", toolsVersion: .v3)
         try builder.serve("a", at: "3.2.2", toolsVersion: .v4)
         try builder.serve("a", at: "3.2.3", toolsVersion: .v3)
@@ -2559,14 +2562,14 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "a": (.versionSet(.range("3.2.0"..<"4.0.0")), .specific(["a"])),
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because 'a' contains incompatible tools version (\(ToolsVersion.v3)) and root depends on 'a' 3.2.0..<4.0.0.
             """)
     }
 
-    func testIncompatibleToolsVersion5() throws {
+    func testIncompatibleToolsVersion5() async throws {
         try builder.serve("a", at: "3.2.0", toolsVersion: .v3)
         try builder.serve("a", at: "3.2.1", toolsVersion: .v4)
         try builder.serve("a", at: "3.2.2", toolsVersion: .v5)
@@ -2576,14 +2579,14 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "a": (.versionSet(.range("3.2.0"..<"4.0.0")), .specific(["a"])),
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because 'a' contains incompatible tools version (\(ToolsVersion.v5)) and root depends on 'a' 3.2.0..<4.0.0.
             """)
     }
 
-    func testIncompatibleToolsVersion6() throws {
+    func testIncompatibleToolsVersion6() async throws {
         try builder.serve("a", at: "3.2.1", toolsVersion: .v5)
         try builder.serve("a", at: "3.2.0", with: [
             "a": ["b": (.versionSet(v1Range), .specific(["b"]))],
@@ -2596,7 +2599,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "a": (.versionSet(.range("3.2.0"..<"4.0.0")), .specific(["a"])),
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because 'a' >= 3.2.1 contains incompatible tools version (\(ToolsVersion.v4)) and root depends on 'a' 3.2.0..<4.0.0.
@@ -2605,7 +2608,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             """)
     }
 
-    func testProductsCannotResolveToDifferentVersions() throws {
+    func testProductsCannotResolveToDifferentVersions() async throws {
         try builder.serve("package", at: .unversioned, with: [
             "package": [
                 "intermediate_a": (.versionSet(v1Range), .specific(["Intermediate A"])),
@@ -2635,7 +2638,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let dependencies = try builder.create(dependencies: [
             "package": (.unversioned, .everything)
         ])
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         // TODO: this description could use refinement
         XCTAssertEqual(
@@ -2651,7 +2654,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 }
 
 final class PubGrubBacktrackTests: XCTestCase {
-    func testBacktrack1() throws {
+    func testBacktrack1() async throws {
         try builder.serve("a", at: v1)
         try builder.serve("a", at: "2.0.0", with: [
             "a": ["b": (.versionSet(.exact("1.0.0")), .specific(["b"]))],
@@ -2665,14 +2668,14 @@ final class PubGrubBacktrackTests: XCTestCase {
             "a": (.versionSet(.range("1.0.0"..<"3.0.0")), .specific(["a"])),
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("a", .version(v1)),
         ])
     }
 
-    func testBacktrack2() throws {
+    func testBacktrack2() async throws {
         try builder.serve("a", at: v1)
         try builder.serve("a", at: "2.0.0", with: [
             "a": ["c": (.versionSet(.range("1.0.0"..<"2.0.0")), .specific(["c"]))],
@@ -2695,7 +2698,7 @@ final class PubGrubBacktrackTests: XCTestCase {
             "b": (.versionSet(.range("1.0.0"..<"3.0.0")), .specific(["b"])),
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("a", .version(v1)),
@@ -2704,7 +2707,7 @@ final class PubGrubBacktrackTests: XCTestCase {
         ])
     }
 
-    func testBacktrack3() throws {
+    func testBacktrack3() async throws {
         try builder.serve("a", at: "1.0.0", with: [
             "a": ["x": (.versionSet(.range("1.0.0"..<"5.0.0")), .specific(["x"]))],
         ])
@@ -2735,7 +2738,7 @@ final class PubGrubBacktrackTests: XCTestCase {
             "y": (.versionSet(.range("2.0.0"..<"3.0.0")), .specific(["y"])),
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("c", .version(v1)),
@@ -2743,7 +2746,7 @@ final class PubGrubBacktrackTests: XCTestCase {
         ])
     }
 
-    func testBacktrack4() throws {
+    func testBacktrack4() async throws {
         try builder.serve("a", at: "1.0.0", with: [
             "a": ["x": (.versionSet(.range("1.0.0"..<"5.0.0")), .specific(["x"]))],
         ])
@@ -2774,7 +2777,7 @@ final class PubGrubBacktrackTests: XCTestCase {
             "y": (.versionSet(.range("2.0.0"..<"3.0.0")), .specific(["y"])),
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("c", .version(v1)),
@@ -2782,7 +2785,7 @@ final class PubGrubBacktrackTests: XCTestCase {
         ])
     }
 
-    func testBacktrack5() throws {
+    func testBacktrack5() async throws {
         try builder.serve("foo", at: "1.0.0", with: [
             "foo": ["bar": (.versionSet(.exact("1.0.0")), .specific(["bar"]))],
         ])
@@ -2810,7 +2813,7 @@ final class PubGrubBacktrackTests: XCTestCase {
             "foo": (.versionSet(.range("1.0.0"..<"4.0.0")), .specific(["foo"])),
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .version(v1)),
@@ -2819,7 +2822,7 @@ final class PubGrubBacktrackTests: XCTestCase {
         ])
     }
 
-    func testBacktrack6() throws {
+    func testBacktrack6() async throws {
         try builder.serve("a", at: "1.0.0")
         try builder.serve("a", at: "2.0.0")
         try builder.serve("b", at: "1.0.0", with: [
@@ -2838,7 +2841,7 @@ final class PubGrubBacktrackTests: XCTestCase {
             "d": (.versionSet(.range("1.0.0"..<"4.0.0")), .specific(["d"])),
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("a", .version(v1)),
@@ -2848,7 +2851,7 @@ final class PubGrubBacktrackTests: XCTestCase {
         ])
     }
 
-    func testLogging() throws {
+    func testLogging() async throws {
         try builder.serve("a", at: "1.0.0")
         try builder.serve("a", at: "2.0.0")
         try builder.serve("b", at: "1.0.1", with: [
@@ -2862,14 +2865,14 @@ final class PubGrubBacktrackTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
 
-        let resolver = builder.create(pins: [:], delegate: ObservabilityDependencyResolverDelegate(observabilityScope: observability.topScope))
+        let resolver = builder.create(delegate: ObservabilityDependencyResolverDelegate(observabilityScope: observability.topScope))
         let dependencies = try builder.create(dependencies: [
             "a": (.versionSet(.range("1.0.0"..<"4.0.0")), .specific(["a"])),
             "c": (.versionSet(.range("1.0.0"..<"4.0.0")), .specific(["c"])),
             "d": (.versionSet(.range("1.0.0"..<"4.0.0")), .specific(["d"])),
         ])
 
-        let result = resolver.solve(constraints: dependencies)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("a", .version("1.0.0")),
@@ -2886,7 +2889,7 @@ final class PubGrubBacktrackTests: XCTestCase {
         XCTAssertTrue(observability.diagnostics.contains(where: { $0.message == "[DependencyResolver] resolved 'd' @ '2.3.0'" }))
     }
 
-    func testPrereleaseVersionSelection() throws {
+    func testPrereleaseVersionSelection() async throws {
         try builder.serve("a", at: "1.0.0", with: [
             "a": [
                 "b": (.versionSet(.range("0.0.8"..<"2.0.0")), .specific(["b"]))
@@ -2913,7 +2916,7 @@ final class PubGrubBacktrackTests: XCTestCase {
             "b": (.versionSet(.range("1.0.0-latest"..<"2.0.0")), .specific(["b"]))
         ])
 
-        AssertResult(resolver.solve(constraints: dependencies1), [
+        await AssertResult(resolver.solve(constraints: dependencies1), [
             ("a", .version("1.0.0")),
             ("b", .version("1.0.0-prerelease-20240710"))
         ])
@@ -2923,13 +2926,13 @@ final class PubGrubBacktrackTests: XCTestCase {
             "d": (.versionSet(.range("1.0.0-latest"..<"2.0.0")), .specific(["d"]))
         ])
 
-        AssertResult(resolver.solve(constraints: dependencies2), [
+        await AssertResult(resolver.solve(constraints: dependencies2), [
             ("c", .version("1.0.0")),
             ("d", .version("1.0.6"))
         ])
     }
 
-    func testPrereleaseExactRequirement() throws {
+    func testPrereleaseExactRequirement() async throws {
         try builder.serve("c", at: "1.0.0", with: [
             "c": [
                 "d": (.versionSet(.range("1.0.4"..<"2.0.0")), .specific(["d"]))
@@ -2951,7 +2954,7 @@ final class PubGrubBacktrackTests: XCTestCase {
         // FIXME: This should produce a valid solution but cannot at the
         // moment because "1.0.4"..<"2.0.0" doesn't support pre-release versions
         // and there is no way to infer it.
-        let resultWithExact = resolver.solve(constraints: exactDependencies)
+        let resultWithExact = await resolver.solve(constraints: exactDependencies)
         XCTAssertMatch(
             resultWithExact.errorMsg,
             .contains("Dependencies could not be resolved because root depends on 'd' 1.0.6-prerelease-1")
@@ -2962,14 +2965,14 @@ final class PubGrubBacktrackTests: XCTestCase {
             "d": (.versionSet(.range("1.0.5"..<"1.0.6-prerelease-2")), .specific(["d"]))
         ])
 
-        let resultWithRange = resolver.solve(constraints: rangeDependency)
+        let resultWithRange = await resolver.solve(constraints: rangeDependency)
         AssertResult(resultWithRange, [
             ("c", .version("1.0.0")),
             ("d", .version("1.0.6-prerelease-1"))
         ])
     }
 
-    func testReleaseOverPrerelease() throws {
+    func testReleaseOverPrerelease() async throws {
         try builder.serve("a", at: "1.0.0", with: [
             "a": [
                 "b": (.versionSet(.range("0.0.8"..<"2.0.0")), .specific(["b"]))
@@ -2986,7 +2989,7 @@ final class PubGrubBacktrackTests: XCTestCase {
             "b": (.versionSet(.range("1.0.0-latest"..<"2.0.0")), .specific(["b"]))
         ])
 
-        AssertResult(resolver.solve(constraints: dependencies1), [
+        await AssertResult(resolver.solve(constraints: dependencies1), [
             ("a", .version("1.0.0")),
             ("b", .version("1.0.0"))
         ])
@@ -2996,13 +2999,13 @@ final class PubGrubBacktrackTests: XCTestCase {
             "a": (.versionSet(.exact("1.0.0")), .specific(["a"]))
         ])
 
-        AssertResult(resolver.solve(constraints: dependencies2), [
+        await AssertResult(resolver.solve(constraints: dependencies2), [
             ("a", .version("1.0.0")),
             ("b", .version("1.0.0"))
         ])
     }
 
-    func testPrereleaseInferenceThroughDependencies() throws {
+    func testPrereleaseInferenceThroughDependencies() async throws {
         try builder.serve("a", at: "1.0.0", with: [
             "a": [
                 "b": (.versionSet(.range("1.0.0"..<"2.0.0-latest")), .specific(["b"]))
@@ -3022,7 +3025,7 @@ final class PubGrubBacktrackTests: XCTestCase {
             "b": (.versionSet(.range("0.0.8"..<"2.0.0")), .specific(["b"]))
         ])
 
-        AssertResult(resolver.solve(constraints: dependencies1), [
+        await AssertResult(resolver.solve(constraints: dependencies1), [
             ("a", .version("1.0.0")),
             ("b", .version("1.9.9-prerelease-20240702"))
         ])
@@ -3032,14 +3035,14 @@ final class PubGrubBacktrackTests: XCTestCase {
             "a": (.versionSet(.exact("1.0.0")), .specific(["a"]))
         ])
 
-        AssertResult(resolver.solve(constraints: dependencies2), [
+        await AssertResult(resolver.solve(constraints: dependencies2), [
             ("a", .version("1.0.0")),
             ("b", .version("1.9.9-prerelease-20240702"))
         ])
     }
 }
 
-fileprivate extension PinsStore.PinState {
+fileprivate extension ResolvedPackagesStore.ResolutionState {
     /// Creates a checkout state with the given version and a mocked revision.
     static func version(_ version: Version) -> Self {
         .version(version, revision: .none)
@@ -3394,13 +3397,20 @@ class DependencyGraphBuilder {
         self.containers[packageReference.identity.description] = container
     }
 
-    /// Creates a pins store with the given pins.
-    func create(pinsStore pins: [String: (PinsStore.PinState, ProductFilter)]) throws -> PinsStore {
+    /// Creates a `Package.resolved` store with the given resolution results.
+    func create(
+        resolvedPackages: [String: (ResolvedPackagesStore.ResolutionState, ProductFilter)]
+    ) throws -> ResolvedPackagesStore {
         let fs = InMemoryFileSystem()
-        let store = try! PinsStore(pinsFile: "/tmp/Package.resolved", workingDirectory: .root, fileSystem: fs, mirrors: .init())
+        let store = try! ResolvedPackagesStore(
+            packageResolvedFile: "/tmp/Package.resolved",
+            workingDirectory: .root,
+            fileSystem: fs,
+            mirrors: .init()
+        )
 
-        for (package, pin) in pins {
-            store.pin(packageRef: try reference(for: package), state: pin.0)
+        for (package, resolution) in resolvedPackages {
+            store.track(packageRef: try reference(for: package), state: resolution.0)
         }
 
         try! store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
@@ -3408,13 +3418,21 @@ class DependencyGraphBuilder {
     }
 
 
-    func create(pins: PinsStore.Pins = [:], delegate: DependencyResolverDelegate? = .none) -> PubGrubDependencyResolver {
+    func create(
+        resolvedPackages: ResolvedPackagesStore.ResolvedPackages = [:],
+        delegate: DependencyResolverDelegate? = .none
+    ) -> PubGrubDependencyResolver {
         defer {
             self.containers = [:]
             self.references = [:]
         }
         let provider = MockProvider(containers: Array(self.containers.values))
-        return PubGrubDependencyResolver(provider :provider, pins: pins, observabilityScope: ObservabilitySystem.NOOP, delegate: delegate)
+        return PubGrubDependencyResolver(
+            provider: provider,
+            resolvedPackages: resolvedPackages,
+            observabilityScope: ObservabilitySystem.NOOP,
+            delegate: delegate
+        )
     }
 }
 
@@ -3483,7 +3501,7 @@ extension Result where Success == [DependencyResolverBinding] {
         switch self {
         case .failure(let error):
             switch error {
-            case let err as PubGrubDependencyResolver.PubgrubError:
+            case let err as PubGrubDependencyResolver.PubGrubError:
                 guard case .unresolvable(let msg) = err else {
                     XCTFail("Unexpected result \(self)")
                     return nil

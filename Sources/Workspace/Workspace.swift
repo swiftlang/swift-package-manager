@@ -90,9 +90,13 @@ public class Workspace {
     // public visibility for testing
     public let state: WorkspaceState
 
-    /// The Pins store. The pins file will be created when first pin is added to pins store.
-    // public visibility for testing
-    public let pinsStore: LoadableResult<PinsStore>
+    // `public` visibility for testing
+    @available(*, deprecated, renamed: "resolvedPackagesStore", message: "Renamed for consistency with the actual name of the feature")
+    public var pinsStore: LoadableResult<PinsStore> { self.resolvedPackagesStore }
+
+    /// The `Package.resolved` store. The `Package.resolved` file will be created when first resolved package is added
+    /// to the store.
+    package let resolvedPackagesStore: LoadableResult<ResolvedPackagesStore>
 
     /// The file system on which the workspace will operate.
     package let fileSystem: any FileSystem
@@ -570,9 +574,9 @@ public class Workspace {
         self.dependencyMapper = dependencyMapper
         self.fingerprints = fingerprints
 
-        self.pinsStore = LoadableResult {
-            try PinsStore(
-                pinsFile: location.resolvedVersionsFile,
+        self.resolvedPackagesStore = LoadableResult {
+            try ResolvedPackagesStore(
+                packageResolvedFile: location.resolvedVersionsFile,
                 workingDirectory: location.scratchDirectory,
                 fileSystem: fileSystem,
                 mirrors: mirrors
@@ -606,9 +610,9 @@ extension Workspace {
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
         observabilityScope: ObservabilityScope
-    ) {
+    ) async {
         do {
-            try self._edit(
+            try await self._edit(
                 packageName: packageName,
                 path: path,
                 revision: revision,
@@ -636,7 +640,7 @@ extension Workspace {
         forceRemove: Bool,
         root: PackageGraphRootInput,
         observabilityScope: ObservabilityScope
-    ) throws {
+    ) async throws {
         guard let dependency = self.state.dependencies[.plain(packageName)] else {
             observabilityScope.emit(.dependencyNotFound(packageName: packageName))
             return
@@ -647,7 +651,7 @@ extension Workspace {
             metadata: dependency.packageRef.diagnosticsMetadata
         )
 
-        try self.unedit(
+        try await self.unedit(
             dependency: dependency,
             forceRemove: forceRemove,
             root: root,
@@ -658,17 +662,17 @@ extension Workspace {
     /// Perform dependency resolution if needed.
     ///
     /// This method will perform dependency resolution based on the root
-    /// manifests and pins file.  Pins are respected as long as they are
+    /// manifests and `Package.resolved` file. `Package.resolved` values are respected as long as they are
     /// satisfied by the root manifest closure requirements.  Any outdated
-    /// checkout will be restored according to its pin.
+    /// checkout will be restored according to its resolved package.
     public func resolve(
         root: PackageGraphRootInput,
         explicitProduct: String? = .none,
         forceResolution: Bool = false,
         forceResolvedVersions: Bool = false,
         observabilityScope: ObservabilityScope
-    ) throws {
-        try self._resolve(
+    ) async throws {
+        try await self._resolve(
             root: root,
             explicitProduct: explicitProduct,
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : forceResolution ? .update(forceResolution: true) :
@@ -680,15 +684,15 @@ extension Workspace {
     /// Resolve a package at the given state.
     ///
     /// Only one of version, branch and revision will be used and in the same
-    /// order. If none of these is provided, the dependency will be pinned at
+    /// order. If none of these is provided, the dependency will be resolved to
     /// the current checkout state.
     ///
     /// - Parameters:
     ///   - packageName: The name of the package which is being resolved.
     ///   - root: The workspace's root input.
-    ///   - version: The version to pin at.
-    ///   - branch: The branch to pin at.
-    ///   - revision: The revision to pin at.
+    ///   - version: The version to resolve to.
+    ///   - branch: The branch to resolve to.
+    ///   - revision: The revision to resolve to.
     ///   - observabilityScope: The observability scope that reports errors, warnings, etc
     public func resolve(
         packageName: String,
@@ -697,7 +701,7 @@ extension Workspace {
         branch: String? = nil,
         revision: String? = nil,
         observabilityScope: ObservabilityScope
-    ) throws {
+    ) async throws {
         // Look up the dependency and check if we can pin it.
         guard let dependency = self.state.dependencies[.plain(packageName)] else {
             throw StringError("dependency '\(packageName)' was not found")
@@ -740,7 +744,7 @@ extension Workspace {
         )
 
         // Run the resolution.
-        try self.resolveAndUpdateResolvedFile(
+        try await self.resolveAndUpdateResolvedFile(
             root: root,
             forceResolution: false,
             constraints: [constraint],
@@ -755,8 +759,8 @@ extension Workspace {
     public func resolveBasedOnResolvedVersionsFile(
         root: PackageGraphRootInput,
         observabilityScope: ObservabilityScope
-    ) throws {
-        try self._resolveBasedOnResolvedVersionsFile(
+    ) async throws {
+        try await self._resolveBasedOnResolvedVersionsFile(
             root: root,
             explicitProduct: .none,
             observabilityScope: observabilityScope
@@ -864,8 +868,8 @@ extension Workspace {
         packages: [String] = [],
         dryRun: Bool = false,
         observabilityScope: ObservabilityScope
-    ) throws -> [(PackageReference, Workspace.PackageStateChange)]? {
-        try self._updateDependencies(
+    ) async throws -> [(PackageReference, Workspace.PackageStateChange)]? {
+        try await self._updateDependencies(
             root: root,
             packages: packages,
             dryRun: dryRun,
@@ -882,8 +886,8 @@ extension Workspace {
         testEntryPointPath: AbsolutePath? = nil,
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
         observabilityScope: ObservabilityScope
-    ) throws -> ModulesGraph {
-        try self.loadPackageGraph(
+    ) async throws -> ModulesGraph {
+        try await self.loadPackageGraph(
             rootInput: root,
             explicitProduct: explicitProduct,
             traitConfiguration: nil,
@@ -905,7 +909,7 @@ extension Workspace {
         testEntryPointPath: AbsolutePath? = nil,
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
         observabilityScope: ObservabilityScope
-    ) throws -> ModulesGraph {
+    ) async throws -> ModulesGraph {
         let start = DispatchTime.now()
         self.delegate?.willLoadGraph()
         defer {
@@ -919,7 +923,7 @@ extension Workspace {
         try self.state.reload()
 
         // Perform dependency resolution, if required.
-        let manifests = try self._resolve(
+        let manifests = try await self._resolve(
             root: root,
             explicitProduct: explicitProduct,
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : .bestEffort,
@@ -966,8 +970,8 @@ extension Workspace {
         rootPath: AbsolutePath,
         explicitProduct: String? = nil,
         observabilityScope: ObservabilityScope
-    ) throws -> ModulesGraph {
-        try self.loadPackageGraph(
+    ) async throws -> ModulesGraph {
+        try await self.loadPackageGraph(
             rootPath: rootPath,
             explicitProduct: explicitProduct,
             traitConfiguration: nil,
@@ -981,8 +985,8 @@ extension Workspace {
         explicitProduct: String? = nil,
         traitConfiguration: TraitConfiguration? = nil,
         observabilityScope: ObservabilityScope
-    ) throws -> ModulesGraph {
-        try self.loadPackageGraph(
+    ) async throws -> ModulesGraph {
+        try await self.loadPackageGraph(
             rootInput: PackageGraphRootInput(packages: [rootPath]),
             explicitProduct: explicitProduct,
             traitConfiguration: traitConfiguration,
@@ -1185,8 +1189,8 @@ extension Workspace {
         packageGraph: ModulesGraph,
         observabilityScope: ObservabilityScope
     ) async throws -> Package {
-        try await safe_async {
-            self.loadPackage(with: identity, packageGraph: packageGraph, observabilityScope: observabilityScope, completion: $0)
+        try await withCheckedThrowingContinuation {
+            self.loadPackage(with: identity, packageGraph: packageGraph, observabilityScope: observabilityScope, completion: $0.resume(with:))
         }
     }
 
@@ -1230,26 +1234,6 @@ extension Workspace {
             }
             completion(result)
         }
-    }
-
-    public func acceptIdentityChange(
-        package: PackageIdentity,
-        version: Version,
-        signingEntity: SigningEntity,
-        origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
-        self.registryClient.changeSigningEntityFromVersion(
-            package: package,
-            version: version,
-            signingEntity: signingEntity,
-            origin: origin,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue,
-            completion: completion
-        )
     }
 }
 

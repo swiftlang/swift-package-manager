@@ -22,9 +22,8 @@ package final class MockArchiver: Archiver {
     package typealias CompressionHandler = @Sendable (
         MockArchiver,
         AbsolutePath,
-        AbsolutePath,
-        (Result<Void, Error>) -> Void
-    ) throws -> Void
+        AbsolutePath
+    ) async throws -> Void
     package typealias ValidationHandler = @Sendable (
         MockArchiver,
         AbsolutePath,
@@ -91,19 +90,13 @@ package final class MockArchiver: Archiver {
 
     package func compress(
         directory: AbsolutePath,
-        to destinationPath: AbsolutePath,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
-        do {
-            if let handler = self.compressionHandler {
-                try handler(self, directory, destinationPath, completion)
-            } else {
-                self.compressions.append(Compression(directory: directory, destinationPath: destinationPath))
-                completion(.success(()))
-            }
-        } catch {
-            completion(.failure(error))
+        to destinationPath: AbsolutePath
+    ) async throws {
+        guard let handler = self.compressionHandler else {
+            self.compressions.append(Compression(directory: directory, destinationPath: destinationPath))
+            return
         }
+        try await handler(self, directory, destinationPath)
     }
 
     package func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {

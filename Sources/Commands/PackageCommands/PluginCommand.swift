@@ -12,6 +12,7 @@
 
 import ArgumentParser
 import Basics
+import _Concurrency
 import CoreCommands
 import Dispatch
 
@@ -19,7 +20,7 @@ import PackageGraph
 
 import PackageModel
 
-struct PluginCommand: SwiftCommand {
+struct PluginCommand: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
         commandName: "plugin",
         abstract: "Invoke a command plugin or perform other actions on command plugins"
@@ -137,7 +138,7 @@ struct PluginCommand: SwiftCommand {
     )
     var arguments: [String] = []
 
-    func run(_ swiftCommandState: SwiftCommandState) throws {
+    func run(_ swiftCommandState: SwiftCommandState) async throws {
         // Check for a missing plugin command verb.
         if self.command == "" && !self.listCommands {
             throw ValidationError("Missing expected plugin command")
@@ -145,7 +146,7 @@ struct PluginCommand: SwiftCommand {
 
         // List the available plugins, if asked to.
         if self.listCommands {
-            let packageGraph = try swiftCommandState.loadPackageGraph()
+            let packageGraph = try await swiftCommandState.loadPackageGraph()
             let allPlugins = PluginCommand.availableCommandPlugins(
                 in: packageGraph,
                 limitedTo: self.pluginOptions.packageIdentity
@@ -166,7 +167,7 @@ struct PluginCommand: SwiftCommand {
             return
         }
 
-        try Self.run(
+        try await Self.run(
             command: self.command,
             options: self.pluginOptions,
             arguments: self.arguments,
@@ -179,9 +180,9 @@ struct PluginCommand: SwiftCommand {
         options: PluginOptions,
         arguments: [String],
         swiftCommandState: SwiftCommandState
-    ) throws {
+    ) async throws {
         // Load the workspace and resolve the package graph.
-        let packageGraph = try swiftCommandState.loadPackageGraph()
+        let packageGraph = try await swiftCommandState.loadPackageGraph()
 
         swiftCommandState.observabilityScope.emit(info: "Finding plugin for command ‘\(command)’")
         let matchingPlugins = PluginCommand.findPlugins(matching: command, in: packageGraph, limitedTo: options.packageIdentity)
@@ -203,7 +204,7 @@ struct PluginCommand: SwiftCommand {
             .shouldDisableSandbox
 
         // At this point we know we found exactly one command plugin, so we run it. In SwiftPM CLI, we have only one root package.
-        try PluginCommand.run(
+        try await PluginCommand.run(
             plugin: matchingPlugins[0],
             package: packageGraph.rootPackages[packageGraph.rootPackages.startIndex],
             packageGraph: packageGraph,
@@ -220,7 +221,7 @@ struct PluginCommand: SwiftCommand {
         options: PluginOptions,
         arguments: [String],
         swiftCommandState: SwiftCommandState
-    ) throws {
+    ) async throws {
         let pluginTarget = plugin.underlying as! PluginModule
 
         swiftCommandState.observabilityScope
@@ -324,7 +325,7 @@ struct PluginCommand: SwiftCommand {
 
         let buildParameters = try swiftCommandState.toolsBuildParameters
         // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
-        let buildSystem = try swiftCommandState.createBuildSystem(
+        let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitBuildSystem: .native,
             traitConfiguration: .init(),
             cacheBuildManifest: false,
@@ -333,13 +334,13 @@ struct PluginCommand: SwiftCommand {
             packageGraphLoader: { packageGraph }
         )
 
-        let accessibleTools = try plugin.preparePluginTools(
+        let accessibleTools = try await plugin.preparePluginTools(
             fileSystem: swiftCommandState.fileSystem,
             environment: buildParameters.buildEnvironment,
             for: try pluginScriptRunner.hostTriple
         ) { name, _ in
             // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies are not supported within a package, so if the tool happens to be from the same package, we instead find the executable that corresponds to the product. There is always one, because of autogeneration of implicit executables with the same name as the target if there isn't an explicit one.
-            try buildSystem.build(subset: .product(name, for: .host))
+            try await buildSystem.build(subset: .product(name, for: .host))
             if let builtTool = try buildSystem.buildPlan.buildProducts.first(where: {
                 $0.product.name == name && $0.buildParameters.destination == .host
             }) {
@@ -354,8 +355,13 @@ struct PluginCommand: SwiftCommand {
         let delegateQueue = DispatchQueue(label: "plugin-invocation")
 
         // Run the command plugin.
+
+        // TODO: use region based isolation when swift 6 is available
+        let writableDirectoriesCopy = writableDirectories
+        let allowNetworkConnectionsCopy = allowNetworkConnections
+
         let buildEnvironment = buildParameters.buildEnvironment
-        let _ = try temp_await { pluginTarget.invoke(
+        let _ = try await pluginTarget.invoke(
             action: .performCommand(package: package, arguments: arguments),
             buildEnvironment: buildEnvironment,
             scriptRunner: pluginScriptRunner,
@@ -363,18 +369,17 @@ struct PluginCommand: SwiftCommand {
             outputDirectory: outputDir,
             toolSearchDirectories: toolSearchDirs,
             accessibleTools: accessibleTools,
-            writableDirectories: writableDirectories,
+            writableDirectories: writableDirectoriesCopy,
             readOnlyDirectories: readOnlyDirectories,
-            allowNetworkConnections: allowNetworkConnections,
+            allowNetworkConnections: allowNetworkConnectionsCopy,
             pkgConfigDirectories: swiftCommandState.options.locations.pkgConfigDirectories,
             sdkRootPath: buildParameters.toolchain.sdkRootPath,
             fileSystem: swiftCommandState.fileSystem,
             modulesGraph: packageGraph,
             observabilityScope: swiftCommandState.observabilityScope,
             callbackQueue: delegateQueue,
-            delegate: pluginDelegate,
-            completion: $0
-        ) }
+            delegate: pluginDelegate
+        )
 
         // TODO: We should also emit a final line of output regarding the result.
     }

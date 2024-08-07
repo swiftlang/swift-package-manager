@@ -29,7 +29,7 @@ extension SwiftPackageCommand {
         var packageName: String?
     }
 
-    struct Resolve: SwiftCommand {
+    struct Resolve: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Resolve package dependencies")
 
@@ -39,11 +39,11 @@ extension SwiftPackageCommand {
         @OptionGroup()
         var resolveOptions: ResolveOptions
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
             // If a package is provided, use that to resolve the dependencies.
             if let packageName = resolveOptions.packageName {
                 let workspace = try swiftCommandState.getActiveWorkspace()
-                try workspace.resolve(
+                try await workspace.resolve(
                     packageName: packageName,
                     root: swiftCommandState.getWorkspaceRoot(),
                     version: resolveOptions.version,
@@ -56,12 +56,12 @@ extension SwiftPackageCommand {
                 }
             } else {
                 // Otherwise, run a normal resolve.
-                try swiftCommandState.resolve()
+                try await swiftCommandState.resolve()
             }
         }
     }
 
-    struct Fetch: SwiftCommand {
+    struct Fetch: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(shouldDisplay: false)
 
         @OptionGroup(visibility: .hidden)
@@ -70,11 +70,11 @@ extension SwiftPackageCommand {
         @OptionGroup()
         var resolveOptions: ResolveOptions
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
             swiftCommandState.observabilityScope.emit(warning: "'fetch' command is deprecated; use 'resolve' instead")
 
             let resolveCommand = Resolve(globalOptions: _globalOptions, resolveOptions: _resolveOptions)
-            try resolveCommand.run(swiftCommandState)
+            try await resolveCommand.run(swiftCommandState)
         }
     }
 }

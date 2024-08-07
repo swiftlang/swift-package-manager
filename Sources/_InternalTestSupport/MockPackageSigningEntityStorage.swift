@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import Dispatch
 import class Foundation.NSLock
 import PackageModel
@@ -31,12 +32,12 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> PackageSigners {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.get(
                 package: package,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                callback: $0
+                callback: $0.resume(with:)
             )
         }
     }

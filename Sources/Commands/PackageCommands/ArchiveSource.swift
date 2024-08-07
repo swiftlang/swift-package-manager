@@ -16,7 +16,7 @@ import CoreCommands
 import SourceControl
 
 extension SwiftPackageCommand {
-    struct ArchiveSource: SwiftCommand {
+    struct ArchiveSource: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "archive-source",
             abstract: "Create a source archive for the package"
@@ -31,19 +31,19 @@ extension SwiftPackageCommand {
         )
         var output: AbsolutePath?
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
             let packageDirectory = try globalOptions.locations.packageDirectory ?? swiftCommandState.getPackageRoot()
 
             let archivePath: AbsolutePath
             if let output {
                 archivePath = output
             } else {
-                let graph = try swiftCommandState.loadPackageGraph()
+                let graph = try await swiftCommandState.loadPackageGraph()
                 let packageName = graph.rootPackages[graph.rootPackages.startIndex].manifest.displayName // TODO: use identity instead?
                 archivePath = packageDirectory.appending("\(packageName).zip")
             }
 
-            try SwiftPackageCommand.archiveSource(
+            try await SwiftPackageCommand.archiveSource(
                 at: packageDirectory,
                 to: archivePath,
                 fileSystem: localFileSystem,
@@ -64,16 +64,14 @@ extension SwiftPackageCommand {
         to archivePath: AbsolutePath,
         fileSystem: FileSystem,
         cancellator: Cancellator?
-    ) throws  {
+    ) async throws {
         let gitRepositoryProvider = GitRepositoryProvider()
         if (try? gitRepositoryProvider.isValidDirectory(packageDirectory)) == true {
             let repository = GitRepository(path: packageDirectory, cancellator: cancellator)
             try repository.archive(to: archivePath)
         } else {
             let zipArchiver = ZipArchiver(fileSystem: fileSystem, cancellator: cancellator)
-            try temp_await {
-                zipArchiver.compress(directory: packageDirectory, to: archivePath, completion: $0)
-            }
+            try await zipArchiver.compress(directory: packageDirectory, to: archivePath)
         }
     }
 }

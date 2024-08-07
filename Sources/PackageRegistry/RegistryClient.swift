@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import Dispatch
 import Foundation
 import PackageFingerprint
@@ -154,13 +155,13 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> PackageMetadata {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.getPackageMetadata(
                 package: package,
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -287,7 +288,7 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> PackageVersionMetadata {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.getPackageVersionMetadata(
                 package: package,
                 version: version,
@@ -295,7 +296,7 @@ public final class RegistryClient: Cancellable {
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -368,46 +369,52 @@ public final class RegistryClient: Cancellable {
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue
         ) { result in
-            completion(
-                result.tryMap { versionMetadata in
-                    PackageVersionMetadata(
+            switch result {
+            case .failure(let failure):
+                completion(.failure(failure))
+            case .success(let versionMetadata):
+                Task {
+                    // WIP: async map the signing entity
+
+                    var resourceSigning: [(resource: RegistryClient.Serialization.VersionMetadata.Resource, signingEntity: SigningEntity?)] = []
+                    for resource in versionMetadata.resources {
+                        guard let signing = resource.signing,
+                              let signatureData = Data(base64Encoded: signing.signatureBase64Encoded),
+                              let signatureFormat = SignatureFormat(rawValue: signing.signatureFormat) else {
+                            resourceSigning.append((resource, nil))
+                            continue
+                        }
+                        let configuration = self.configuration.signing(for: package, registry: registry)
+
+                        let result = try? await withCheckedThrowingContinuation { completion in
+                            SignatureValidation.extractSigningEntity(
+                                signature: [UInt8](signatureData),
+                                signatureFormat: signatureFormat,
+                                configuration: configuration,
+                                fileSystem: fileSystem,
+                                completion: completion.resume(with:)
+                            )
+                        }
+                        resourceSigning.append((resource, result))
+                    }
+
+                    let packageVersionMetadata = PackageVersionMetadata(
                         registry: registry,
                         licenseURL: versionMetadata.metadata?.licenseURL.flatMap { URL(string: $0) },
                         readmeURL: versionMetadata.metadata?.readmeURL.flatMap { URL(string: $0) },
                         repositoryURLs: versionMetadata.metadata?.repositoryURLs?.compactMap { SourceControlURL($0) },
-                        resources: versionMetadata.resources.map {
+                        resources: resourceSigning.map {
                             .init(
-                                name: $0.name,
-                                type: $0.type,
-                                checksum: $0.checksum,
-                                signing: $0.signing.flatMap {
+                                name: $0.resource.name,
+                                type: $0.resource.type,
+                                checksum: $0.resource.checksum,
+                                signing: $0.resource.signing.flatMap {
                                     PackageVersionMetadata.Signing(
                                         signatureBase64Encoded: $0.signatureBase64Encoded,
                                         signatureFormat: $0.signatureFormat
                                     )
                                 },
-                                signingEntity: $0.signing.flatMap {
-                                    guard let signatureData = Data(base64Encoded: $0.signatureBase64Encoded) else {
-                                        return nil
-                                    }
-                                    guard let signatureFormat = SignatureFormat(rawValue: $0.signatureFormat) else {
-                                        return nil
-                                    }
-                                    let configuration = self.configuration.signing(for: package, registry: registry)
-                                    return try? temp_await { completion in
-                                        let wrappedCompletion: @Sendable (Result<SigningEntity?, Error>) -> Void = {
-                                            completion($0)
-                                        }
-
-                                        SignatureValidation.extractSigningEntity(
-                                            signature: [UInt8](signatureData),
-                                            signatureFormat: signatureFormat,
-                                            configuration: configuration,
-                                            fileSystem: fileSystem,
-                                            completion: wrappedCompletion
-                                        )
-                                    }
-                                }
+                                signingEntity: $0.signingEntity
                             )
                         },
                         author: versionMetadata.metadata?.author.map {
@@ -429,8 +436,9 @@ public final class RegistryClient: Cancellable {
                         description: versionMetadata.metadata?.description,
                         publishedAt: versionMetadata.metadata?.originalPublicationTime ?? versionMetadata.publishedAt
                     )
+                    completion(.success(packageVersionMetadata))
                 }
-            )
+            }
         }
     }
 
@@ -509,14 +517,14 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> [String: (toolsVersion: ToolsVersion, content: String?)]{
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.getAvailableManifests(
                 package: package,
                 version: version,
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -757,7 +765,7 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> String {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.getManifestContent(
                 package: package,
                 version: version,
@@ -765,7 +773,7 @@ public final class RegistryClient: Cancellable {
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -989,7 +997,7 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.downloadSourceArchive(
                 package: package,
                 version: version,
@@ -999,7 +1007,7 @@ public final class RegistryClient: Cancellable {
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -1302,13 +1310,13 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> Set<PackageIdentity> {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.lookupIdentities(
                 scmURL: scmURL,
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -1425,13 +1433,13 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.login(
                 loginURL: loginURL,
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -1488,7 +1496,7 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> PublishResult  {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.publish(
                 registryURL: registryURL,
                 packageIdentity: packageIdentity,
@@ -1502,7 +1510,7 @@ public final class RegistryClient: Cancellable {
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -1682,13 +1690,13 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> AvailabilityStatus {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.checkAvailability(
                 registry: registry,
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }

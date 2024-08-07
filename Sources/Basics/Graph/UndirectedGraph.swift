@@ -12,7 +12,7 @@
 
 import struct DequeModule.Deque
 
-/// Undirected graph that stores edges in an [adjacency matrix](https://en.wikipedia.org/wiki/Adjacency_list).
+/// Undirected graph that stores edges in an [adjacency matrix](https://en.wikipedia.org/wiki/Adjacency_matrix).
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 public struct UndirectedGraph<Node> {
     public init(nodes: [Node]) {

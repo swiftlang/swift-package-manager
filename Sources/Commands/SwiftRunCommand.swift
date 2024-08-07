@@ -124,23 +124,23 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         switch options.mode {
         case .repl:
             // Load a custom package graph which has a special product for REPL.
-            let graphLoader = {
-                try swiftCommandState.loadPackageGraph(
+            let asyncUnsafeGraphLoader = {
+                try await swiftCommandState.loadPackageGraph(
                     explicitProduct: self.options.executable
                 )
             }
 
             // Construct the build operation.
             // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the REPL. rdar://86112934
-            let buildSystem = try swiftCommandState.createBuildSystem(
+            let buildSystem = try await swiftCommandState.createBuildSystem(
                 explicitBuildSystem: .native,
                 traitConfiguration: .init(traitOptions: self.options.traits),
                 cacheBuildManifest: false,
-                packageGraphLoader: graphLoader
+                packageGraphLoader: asyncUnsafeGraphLoader
             )
 
             // Perform build.
-            try buildSystem.build()
+            try await buildSystem.build()
 
             // Execute the REPL.
             let arguments = try buildSystem.buildPlan.createREPLArguments()
@@ -154,15 +154,15 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
 
         case .debugger:
             do {
-                let buildSystem = try swiftCommandState.createBuildSystem(
+                let buildSystem = try await swiftCommandState.createBuildSystem(
                     explicitProduct: options.executable,
                     traitConfiguration: .init(traitOptions: self.options.traits)
                 )
-                let productName = try findProductName(in: buildSystem.getPackageGraph())
+                let productName = try await findProductName(in: buildSystem.getPackageGraph())
                 if options.shouldBuildTests {
-                    try buildSystem.build(subset: .allIncludingTests)
+                    try await buildSystem.build(subset: .allIncludingTests)
                 } else if options.shouldBuild {
-                    try buildSystem.build(subset: .product(productName))
+                    try await buildSystem.build(subset: .product(productName))
                 }
 
                 let executablePath = try swiftCommandState.productsBuildParameters.buildPath.appending(component: productName)
@@ -199,15 +199,15 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
             }
 
             do {
-                let buildSystem = try swiftCommandState.createBuildSystem(
+                let buildSystem = try await swiftCommandState.createBuildSystem(
                     explicitProduct: options.executable,
                     traitConfiguration: .init(traitOptions: self.options.traits)
                 )
-                let productName = try findProductName(in: buildSystem.getPackageGraph())
+                let productName = try await findProductName(in: buildSystem.getPackageGraph())
                 if options.shouldBuildTests {
-                    try buildSystem.build(subset: .allIncludingTests)
+                    try await buildSystem.build(subset: .allIncludingTests)
                 } else if options.shouldBuild {
-                    try buildSystem.build(subset: .product(productName))
+                    try await buildSystem.build(subset: .product(productName))
                 }
 
                 let executablePath = try swiftCommandState.productsBuildParameters.buildPath.appending(component: productName)

@@ -12,6 +12,7 @@
 
 import ArgumentParser
 import Basics
+import _Concurrency
 import Dispatch
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
@@ -482,16 +483,13 @@ public final class SwiftCommandState {
         return workspace
     }
 
-    public func getRootPackageInformation() throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
+    public func getRootPackageInformation() async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
         let workspace = try self.getActiveWorkspace()
         let root = try self.getWorkspaceRoot()
-        let rootManifests = try temp_await {
-            workspace.loadRootManifests(
-                packages: root.packages,
-                observabilityScope: self.observabilityScope,
-                completion: $0
-            )
-        }
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: self.observabilityScope
+        )
 
         var identities = [PackageIdentity: [PackageIdentity]]()
         var targets = [PackageIdentity: [String]]()
@@ -590,11 +588,11 @@ public final class SwiftCommandState {
     }
 
     /// Resolve the dependencies.
-    public func resolve() throws {
+    public func resolve() async throws {
         let workspace = try getActiveWorkspace()
         let root = try getWorkspaceRoot()
 
-        try workspace.resolve(
+        try await workspace.resolve(
             root: root,
             forceResolution: false,
             forceResolvedVersions: options.resolver.forceResolvedVersions,
@@ -617,8 +615,8 @@ public final class SwiftCommandState {
     public func loadPackageGraph(
         explicitProduct: String? = nil,
         testEntryPointPath: AbsolutePath? = nil
-    ) throws -> ModulesGraph {
-        try self.loadPackageGraph(
+    ) async throws -> ModulesGraph {
+        try await self.loadPackageGraph(
             explicitProduct: explicitProduct,
             traitConfiguration: nil,
             testEntryPointPath: testEntryPointPath
@@ -635,12 +633,12 @@ public final class SwiftCommandState {
         explicitProduct: String? = nil,
         traitConfiguration: TraitConfiguration? = nil,
         testEntryPointPath: AbsolutePath? = nil
-    ) throws -> ModulesGraph {
+    ) async throws -> ModulesGraph {
         do {
             let workspace = try getActiveWorkspace()
 
             // Fetch and load the package graph.
-            let graph = try workspace.loadPackageGraph(
+            let graph = try await workspace.loadPackageGraph(
                 rootInput: getWorkspaceRoot(),
                 explicitProduct: explicitProduct,
                 traitConfiguration: traitConfiguration,
@@ -726,11 +724,11 @@ public final class SwiftCommandState {
         shouldLinkStaticSwiftStdlib: Bool = false,
         productsBuildParameters: BuildParameters? = .none,
         toolsBuildParameters: BuildParameters? = .none,
-        packageGraphLoader: (() throws -> ModulesGraph)? = .none,
+        packageGraphLoader: (() async throws -> ModulesGraph)? = .none,
         outputStream: OutputByteStream? = .none,
         logLevel: Basics.Diagnostic.Severity? = .none,
         observabilityScope: ObservabilityScope? = .none
-    ) throws -> BuildSystem {
+    ) async throws -> BuildSystem {
         guard let buildSystemProvider else {
             fatalError("build system provider not initialized")
         }
@@ -738,7 +736,7 @@ public final class SwiftCommandState {
         var productsParameters = try productsBuildParameters ?? self.productsBuildParameters
         productsParameters.linkingParameters.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
 
-        let buildSystem = try buildSystemProvider.createBuildSystem(
+        let buildSystem = try await buildSystemProvider.createBuildSystem(
             kind: explicitBuildSystem ?? options.build.buildSystem,
             explicitProduct: explicitProduct,
             traitConfiguration: traitConfiguration,
@@ -764,7 +762,7 @@ public final class SwiftCommandState {
     private func _buildParams(
         toolchain: UserToolchain,
         destination: BuildParameters.Destination,
-        prepareForIndexing: Bool? = nil
+        prepareForIndexing: Bool
     ) throws -> BuildParameters {
         let triple = toolchain.targetTriple
 
@@ -777,7 +775,7 @@ public final class SwiftCommandState {
         }
 
         let prepareForIndexingMode: BuildParameters.PrepareForIndexingMode =
-            switch (options.build.prepareForIndexing, options.build.prepareForIndexingNoLazy) {
+            switch (prepareForIndexing, options.build.prepareForIndexingNoLazy) {
                 case (false, _): .off
                 case (true, false): .on
                 case (true, true): .noLazy
@@ -845,6 +843,7 @@ public final class SwiftCommandState {
 
     private lazy var _toolsBuildParameters: Result<BuildParameters, Swift.Error> = {
         Result(catching: {
+            // Tools need to do a full build
             try _buildParams(toolchain: self.getHostToolchain(), destination: .host, prepareForIndexing: false)
         })
     }()
@@ -857,7 +856,7 @@ public final class SwiftCommandState {
 
     private lazy var _productsBuildParameters: Result<BuildParameters, Swift.Error> = {
         Result(catching: {
-            try _buildParams(toolchain: self.getTargetToolchain(), destination: .target)
+            try _buildParams(toolchain: self.getTargetToolchain(), destination: .target, prepareForIndexing: options.build.prepareForIndexing)
         })
     }()
 

@@ -161,8 +161,8 @@ public func mockBuildPlan(
     targetSanitizers: EnabledSanitizers = .init(),
     fileSystem fs: any FileSystem,
     observabilityScope: ObservabilityScope
-) throws -> Build.BuildPlan {
-    try mockBuildPlan(
+) async throws -> Build.BuildPlan {
+    try await mockBuildPlan(
         buildPath: buildPath,
         config: environment.configuration ?? .debug,
         platform: environment.platform,
@@ -194,7 +194,7 @@ public func mockBuildPlan(
     targetSanitizers: EnabledSanitizers = .init(),
     fileSystem fs: any FileSystem,
     observabilityScope: ObservabilityScope
-) throws -> Build.BuildPlan {
+) async throws -> Build.BuildPlan {
     let inferredTriple: Basics.Triple
     if let platform {
         precondition(triple == nil)
@@ -248,7 +248,7 @@ public func mockBuildPlan(
     hostParameters.driverParameters = driverParameters
     hostParameters.linkingParameters = linkingParameters
 
-    return try BuildPlan(
+    return try await BuildPlan(
         destinationBuildParameters: destinationParameters,
         toolsBuildParameters: hostParameters,
         graph: graph,
@@ -262,10 +262,10 @@ package func mockPluginTools(
     fileSystem: any FileSystem,
     buildParameters: BuildParameters,
     hostTriple: Basics.Triple
-) throws -> [ResolvedModule.ID: [String: PluginTool]] {
+) async throws -> [ResolvedModule.ID: [String: PluginTool]] {
     var accessibleToolsPerPlugin: [ResolvedModule.ID: [String: PluginTool]] = [:]
     for plugin in plugins where accessibleToolsPerPlugin[plugin.id] == nil {
-        let accessibleTools = try plugin.preparePluginTools(
+        let accessibleTools = try await plugin.preparePluginTools(
             fileSystem: fileSystem,
             environment: buildParameters.buildEnvironment,
             for: hostTriple

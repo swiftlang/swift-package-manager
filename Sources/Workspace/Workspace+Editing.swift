@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import struct Basics.AbsolutePath
 import class Basics.InMemoryFileSystem
 import class Basics.ObservabilityScope
 import struct Basics.RelativePath
-import func Basics.temp_await
 import struct PackageGraph.PackageGraphRootInput
 import struct SourceControl.Revision
 
@@ -26,7 +26,7 @@ extension Workspace {
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
         observabilityScope: ObservabilityScope
-    ) throws {
+    ) async throws {
         // Look up the dependency and check if we can edit it.
         guard let dependency = self.state.dependencies[.plain(packageName)] else {
             observabilityScope.emit(.dependencyNotFound(packageName: packageName))
@@ -64,14 +64,14 @@ extension Workspace {
         // a valid manifest with name same as the package we are trying to edit.
         if fileSystem.exists(destination) {
             // FIXME: this should not block
-            let manifest = try temp_await {
+            let manifest = try await withCheckedThrowingContinuation { continuation in
                 self.loadManifest(
                     packageIdentity: dependency.packageRef.identity,
                     packageKind: .fileSystem(destination),
                     packagePath: destination,
                     packageLocation: dependency.packageRef.locationString,
                     observabilityScope: observabilityScope,
-                    completion: $0
+                    completion: continuation.resume(with:)
                 )
             }
 
@@ -101,17 +101,14 @@ extension Workspace {
             // Get handle to the repository.
             // TODO: replace with async/await when available
             let repository = try dependency.packageRef.makeRepositorySpecifier()
-            let handle = try temp_await {
-                repositoryManager.lookup(
-                    package: dependency.packageRef.identity,
-                    repository: repository,
-                    updateStrategy: .never,
-                    observabilityScope: observabilityScope,
-                    delegateQueue: .sharedConcurrent,
-                    callbackQueue: .sharedConcurrent,
-                    completion: $0
-                )
-            }
+            let handle = try await repositoryManager.lookup(
+                package: dependency.packageRef.identity,
+                repository: repository,
+                updateStrategy: .never,
+                observabilityScope: observabilityScope,
+                delegateQueue: .sharedConcurrent,
+                callbackQueue: .sharedConcurrent
+            )
             let repo = try handle.open()
 
             // Do preliminary checks on branch and revision, if provided.
@@ -170,7 +167,7 @@ extension Workspace {
         forceRemove: Bool,
         root: PackageGraphRootInput? = nil,
         observabilityScope: ObservabilityScope
-    ) throws {
+    ) async throws {
         // Compute if we need to force remove.
         var forceRemove = forceRemove
 
@@ -216,7 +213,7 @@ extension Workspace {
             // Restore the original checkout.
             //
             // The retrieve method will automatically update the managed dependency state.
-            _ = try self.checkoutRepository(
+            _ = try await self.checkoutRepository(
                 package: dependency.packageRef,
                 at: checkoutState,
                 observabilityScope: observabilityScope
@@ -230,7 +227,7 @@ extension Workspace {
         // Resolve the dependencies if workspace root is provided. We do this to
         // ensure the unedited version of this dependency is resolved properly.
         if let root {
-            try self._resolve(
+            try await self._resolve(
                 root: root,
                 explicitProduct: .none,
                 resolvedFileStrategy: .update(forceResolution: false),

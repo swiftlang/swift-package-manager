@@ -31,11 +31,11 @@ import enum TSCUtility.Diagnostics
 
 public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
-    private let packageGraphLoader: () throws -> ModulesGraph
+    private let packageGraphLoader: () async throws -> ModulesGraph
     private let logLevel: Basics.Diagnostic.Severity
     private let xcbuildPath: AbsolutePath
-    private var packageGraph: ModulesGraph?
-    private var pifBuilder: PIFBuilder?
+    private var packageGraph: AsyncThrowingValueMemoizer<ModulesGraph> = .init()
+    private var pifBuilder: AsyncThrowingValueMemoizer<PIFBuilder> = .init()
     private let fileSystem: FileSystem
     private let observabilityScope: ObservabilityScope
 
@@ -46,29 +46,31 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     public weak var delegate: SPMBuildCore.BuildSystemDelegate?
 
     public var builtTestProducts: [BuiltTestProduct] {
-        do {
-            let graph = try getPackageGraph()
+        get async {
+            do {
+                let graph = try await getPackageGraph()
 
-            var builtProducts: [BuiltTestProduct] = []
+                var builtProducts: [BuiltTestProduct] = []
 
-            for package in graph.rootPackages {
-                for product in package.products where product.type == .test {
-                    let binaryPath = try buildParameters.binaryPath(for: product)
-                    builtProducts.append(
-                        BuiltTestProduct(
-                            productName: product.name,
-                            binaryPath: binaryPath,
-                            packagePath: package.path,
-                            testEntryPointPath: product.underlying.testEntryPointPath
+                for package in graph.rootPackages {
+                    for product in package.products where product.type == .test {
+                        let binaryPath = try buildParameters.binaryPath(for: product)
+                        builtProducts.append(
+                            BuiltTestProduct(
+                                productName: product.name,
+                                binaryPath: binaryPath,
+                                packagePath: package.path,
+                                testEntryPointPath: product.underlying.testEntryPointPath
+                            )
                         )
-                    )
+                    }
                 }
-            }
 
-            return builtProducts
-        } catch {
-            self.observabilityScope.emit(error)
-            return []
+                return builtProducts
+            } catch {
+                self.observabilityScope.emit(error)
+                return []
+            }
         }
     }
 
@@ -80,7 +82,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
 
     public init(
         buildParameters: BuildParameters,
-        packageGraphLoader: @escaping () throws -> ModulesGraph,
+        packageGraphLoader: @escaping () async throws -> ModulesGraph,
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: FileSystem,
@@ -145,12 +147,12 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         return []
     }
 
-    public func build(subset: BuildSubset) throws {
+    public func build(subset: BuildSubset) async throws {
         guard !buildParameters.shouldSkipBuilding else {
             return
         }
 
-        let pifBuilder = try getPIFBuilder()
+        let pifBuilder = try await getPIFBuilder()
         let pif = try pifBuilder.generatePIF()
         try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, string: pif)
 
@@ -207,7 +209,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             outputRedirection: redirection
         )
         try process.launch()
-        let result = try process.waitUntilExit()
+        let result = try await process.waitUntilExit()
 
         if let buildParamsFile {
             try? self.fileSystem.removeFileTree(buildParamsFile)
@@ -309,9 +311,9 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         return delegate
     }
 
-    private func getPIFBuilder() throws -> PIFBuilder {
-        try memoize(to: &pifBuilder) {
-            let graph = try getPackageGraph()
+    private func getPIFBuilder() async throws -> PIFBuilder {
+        try await pifBuilder.memoize {
+            let graph = try await getPackageGraph()
             let pifBuilder = try PIFBuilder(
                 graph: graph,
                 parameters: .init(buildParameters, supportedSwiftVersions: supportedSwiftVersions()),
@@ -325,9 +327,9 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     /// Returns the package graph using the graph loader closure.
     ///
     /// First access will cache the graph.
-    public func getPackageGraph() throws -> ModulesGraph {
-        try memoize(to: &packageGraph) {
-            try packageGraphLoader()
+    public func getPackageGraph() async throws -> ModulesGraph {
+        try await packageGraph.memoize {
+            try await packageGraphLoader()
         }
     }
 }

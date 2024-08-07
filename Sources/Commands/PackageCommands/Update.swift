@@ -18,7 +18,7 @@ import PackageGraph
 import Workspace
 
 extension SwiftPackageCommand {
-    struct Update: SwiftCommand {
+    struct Update: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Update package dependencies")
         
@@ -32,18 +32,18 @@ extension SwiftPackageCommand {
         @Argument(help: "The packages to update")
         var packages: [String] = []
         
-        func run(_ swiftCommandState: SwiftCommandState) throws {
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
             let workspace = try swiftCommandState.getActiveWorkspace()
             
-            let changes = try workspace.updateDependencies(
+            let changes = try await workspace.updateDependencies(
                 root: swiftCommandState.getWorkspaceRoot(),
                 packages: packages,
                 dryRun: dryRun,
                 observabilityScope: swiftCommandState.observabilityScope
             )
 
-            if self.dryRun, let changes = changes, let pinsStore = swiftCommandState.observabilityScope.trap({ try workspace.pinsStore.load() }){
-                self.logPackageChanges(changes: changes, pins: pinsStore)
+            if self.dryRun, let changes = changes, let resolvedPackagesStore = swiftCommandState.observabilityScope.trap({ try workspace.resolvedPackagesStore.load() }){
+                self.logPackageChanges(changes: changes, store: resolvedPackagesStore)
             }
             
             if !self.dryRun {
@@ -55,12 +55,12 @@ extension SwiftPackageCommand {
             }
         }
         
-        private func logPackageChanges(changes: [(PackageReference, Workspace.PackageStateChange)], pins: PinsStore) {
+        private func logPackageChanges(changes: [(PackageReference, Workspace.PackageStateChange)], store: ResolvedPackagesStore) {
             let changes = changes.filter { $0.1 != .unchanged }
             
             var report = "\(changes.count) dependenc\(changes.count == 1 ? "y has" : "ies have") changed\(changes.count > 0 ? ":" : ".")"
             for (package, change) in changes {
-                let currentVersion = pins.pins[package.identity]?.state.description ?? ""
+                let currentVersion = store.resolvedPackages[package.identity]?.state.description ?? ""
                 switch change {
                 case let .added(state):
                     report += "\n"

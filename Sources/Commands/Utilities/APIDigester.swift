@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import Dispatch
 import Foundation
 
@@ -74,7 +75,7 @@ struct APIDigesterBaselineDumper {
         force: Bool,
         logLevel: Basics.Diagnostic.Severity,
         swiftCommandState: SwiftCommandState
-    ) throws -> AbsolutePath {
+    ) async throws -> AbsolutePath {
         var modulesToDiff = modulesToDiff
         let apiDiffDir = productsBuildParameters.apiDiff
         let baselineDir = (baselineDir ?? apiDiffDir).appending(component: baselineRevision.identifier)
@@ -118,7 +119,7 @@ struct APIDigesterBaselineDumper {
             cancellator: swiftCommandState.cancellator
         )
 
-        let graph = try workspace.loadPackageGraph(
+        let graph = try await workspace.loadPackageGraph(
             rootPath: baselinePackageRoot,
             observabilityScope: self.observabilityScope
         )
@@ -137,7 +138,7 @@ struct APIDigesterBaselineDumper {
 
         // Build the baseline module.
         // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the APIDigester. rdar://86112934
-        let buildSystem = try swiftCommandState.createBuildSystem(
+        let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitBuildSystem: .native,
             traitConfiguration: .init(),
             cacheBuildManifest: false,
@@ -145,31 +146,32 @@ struct APIDigesterBaselineDumper {
             toolsBuildParameters: toolsBuildParameters,
             packageGraphLoader: { graph }
         )
-        try buildSystem.build()
+        try await buildSystem.build()
 
         // Dump the SDK JSON.
         try swiftCommandState.fileSystem.createDirectory(baselineDir, recursive: true)
-        let group = DispatchGroup()
-        let semaphore = DispatchSemaphore(value: Int(productsBuildParameters.workers))
-        let errors = ThreadSafeArrayStore<Swift.Error>()
-        for module in modulesToDiff {
-            semaphore.wait()
-            DispatchQueue.sharedConcurrent.async(group: group) {
-                do {
-                    try apiDigesterTool.emitAPIBaseline(
-                        to: baselinePath(module),
-                        for: module,
-                        buildPlan: buildSystem.buildPlan
-                    )
-                } catch {
-                    errors.append(error)
+
+        let errors = await withTaskGroup(of: Error?.self) { group in
+            for module in modulesToDiff {
+                group.addTask {
+                    do {
+                        try apiDigesterTool.emitAPIBaseline(
+                            to: baselinePath(module),
+                            for: module,
+                            buildPlan: buildSystem.buildPlan
+                        )
+                        return nil
+                    } catch {
+                        return error
+                    }
                 }
-                semaphore.signal()
+            }
+            return await group.compactMap { $0 }.reduce(into: []) {
+                $0.append($1)
             }
         }
-        group.wait()
 
-        for error in errors.get() {
+        for error in errors {
             observabilityScope.emit(error)
         }
         if observabilityScope.errorsReported {

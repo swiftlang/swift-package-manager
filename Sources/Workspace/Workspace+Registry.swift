@@ -10,14 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
+
 import struct Basics.AbsolutePath
 import protocol Basics.FileSystem
 import struct Basics.InternalError
 import class Basics.ObservabilityScope
 import struct Basics.SourceControlURL
 import class Basics.ThreadSafeKeyValueStore
-import func Basics.temp_await
-import class PackageGraph.PinsStore
+import class PackageGraph.ResolvedPackagesStore
 import protocol PackageLoading.ManifestLoaderProtocol
 import protocol PackageModel.DependencyMapper
 import protocol PackageModel.IdentityResolver
@@ -391,18 +392,15 @@ extension Workspace {
         package: PackageReference,
         at version: Version,
         observabilityScope: ObservabilityScope
-    ) throws -> AbsolutePath {
+    ) async throws -> AbsolutePath {
         // FIXME: this should not block
-        let downloadPath = try temp_await {
-            self.registryDownloadsManager.lookup(
-                package: package.identity,
-                version: version,
-                observabilityScope: observabilityScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+        let downloadPath = try await self.registryDownloadsManager.lookup(
+            package: package.identity,
+            version: version,
+            observabilityScope: observabilityScope,
+            delegateQueue: .sharedConcurrent,
+            callbackQueue: .sharedConcurrent
+        )
 
         // Record the new state.
         observabilityScope.emit(
@@ -423,18 +421,18 @@ extension Workspace {
 
     func downloadRegistryArchive(
         package: PackageReference,
-        at pinState: PinsStore.PinState,
+        at resolutionState: ResolvedPackagesStore.ResolutionState,
         observabilityScope: ObservabilityScope
-    ) throws -> AbsolutePath {
-        switch pinState {
+    ) async throws -> AbsolutePath {
+        switch resolutionState {
         case .version(let version, _):
-            return try self.downloadRegistryArchive(
+            return try await self.downloadRegistryArchive(
                 package: package,
                 at: version,
                 observabilityScope: observabilityScope
             )
         default:
-            throw InternalError("invalid pin state: \(pinState)")
+            throw InternalError("invalid resolution state: \(resolutionState)")
         }
     }
 

@@ -74,20 +74,24 @@ extension Toolchain {
 
     public var hostLibDir: AbsolutePath {
         get throws {
-            return try toolchainLibDir.appending(components: ["swift", "host"])
+            try Self.toolchainLibDir(swiftCompilerPath: self.swiftCompilerPath).appending(
+                components: ["swift", "host"]
+            )
         }
     }
 
     public var macosSwiftStdlib: AbsolutePath {
         get throws {
-            return try AbsolutePath(validating: "../../lib/swift/macosx", relativeTo: resolveSymlinks(swiftCompilerPath))
+            try Self.toolchainLibDir(swiftCompilerPath: self.swiftCompilerPath).appending(
+                components: ["swift", "macosx"]
+            )
         }
     }
 
     public var toolchainLibDir: AbsolutePath {
         get throws {
             // FIXME: Not sure if it's better to base this off of Swift compiler or our own binary.
-            return try AbsolutePath(validating: "../../lib", relativeTo: resolveSymlinks(swiftCompilerPath))
+            try Self.toolchainLibDir(swiftCompilerPath: self.swiftCompilerPath)
         }
     }
 
@@ -109,5 +113,9 @@ extension Toolchain {
     
     public var extraSwiftCFlags: [String] {
         extraFlags.swiftCompilerFlags
+    }
+
+    package static func toolchainLibDir(swiftCompilerPath: AbsolutePath) throws -> AbsolutePath {
+        try AbsolutePath(validating: "../../lib", relativeTo: resolveSymlinks(swiftCompilerPath))
     }
 }

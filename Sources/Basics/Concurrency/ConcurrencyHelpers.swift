@@ -24,19 +24,20 @@ public enum Concurrency {
     }
 }
 
-// FIXME: mark as deprecated once async/await is available
-// @available(*, deprecated, message: "replace with async/await when available")
-@inlinable
-public func temp_await<T, ErrorType>(_ body: (@escaping (Result<T, ErrorType>) -> Void) -> Void) throws -> T {
-    try tsc_await(body)
+@available(*, noasync, message: "This method blocks the current thread indefinitely. Calling it from the concurrency pool can cause deadlocks")
+public func unsafe_await<T>(_ body: @Sendable @escaping () async -> T) -> T {
+    let semaphore = DispatchSemaphore(value: 0)
+
+    let box = ThreadSafeBox<T>()
+    Task {
+        let localValue: T = await body()
+        box.mutate { _ in localValue }
+        semaphore.signal()
+    }
+    semaphore.wait()
+    return box.get()!
 }
 
-// FIXME: mark as deprecated once async/await is available
-// @available(*, deprecated, message: "replace with async/await when available")
-@inlinable
-public func temp_await<T>(_ body: (@escaping (T) -> Void) -> Void) -> T {
-    tsc_await(body)
-}
 
 extension DispatchQueue {
     // a shared concurrent queue for running concurrent asynchronous operations
@@ -46,35 +47,6 @@ extension DispatchQueue {
     )
 }
 
-/// Bridges between potentially blocking methods that take a result completion closure and async/await
-public func safe_async<T, ErrorType: Error>(
-    _ body: @escaping @Sendable (@escaping @Sendable (Result<T, ErrorType>) -> Void) -> Void
-) async throws -> T {
-    try await withCheckedThrowingContinuation { continuation in
-        // It is possible that body make block indefinitely on a lock, semaphore,
-        // or similar then synchronously call the completion handler. For full safety
-        // it is essential to move the execution off the swift concurrency pool
-        DispatchQueue.sharedConcurrent.async {
-            body {
-                continuation.resume(with: $0)
-            }
-        }
-    }
-}
-
-/// Bridges between potentially blocking methods that take a result completion closure and async/await
-public func safe_async<T>(_ body: @escaping @Sendable (@escaping (Result<T, Never>) -> Void) -> Void) async -> T {
-    await withCheckedContinuation { continuation in
-        // It is possible that body make block indefinitely on a lock, semaphore,
-        // or similar then synchronously call the completion handler. For full safety
-        // it is essential to move the execution off the swift concurrency pool
-        DispatchQueue.sharedConcurrent.async {
-            body {
-                continuation.resume(with: $0)
-            }
-        }
-    }
-}
 
 #if !canImport(Darwin)
 // As of Swift 5.7 and 5.8 swift-corelibs-foundation doesn't have `Sendable` annotations yet.

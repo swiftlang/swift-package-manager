@@ -136,13 +136,13 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
 
         if options.printManifestGraphviz {
             // FIXME: Doesn't seem ideal that we need an explicit build operation, but this concretely uses the `LLBuildManifest`.
-            guard let buildOperation = try swiftCommandState.createBuildSystem(
+            guard let buildOperation = try await swiftCommandState.createBuildSystem(
                 explicitBuildSystem: .native,
                 traitConfiguration: .init(traitOptions: self.options.traits)
             ) as? BuildOperation else {
                 throw StringError("asked for native build system but did not get it")
             }
-            let buildManifest = try buildOperation.getBuildManifest()
+            let buildManifest = try await buildOperation.getBuildManifest()
             var serializer = DOTManifestSerializer(manifest: buildManifest)
             // print to stdout
             let outputStream = stdoutStream
@@ -163,7 +163,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             toolsBuildParameters.testingParameters.enableCodeCoverage = true
         }
 
-        try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
+        try await build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
     }
 
     private func build(
@@ -171,8 +171,8 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         subset: BuildSubset,
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters
-    ) throws {
-        let buildSystem = try swiftCommandState.createBuildSystem(
+    ) async throws {
+        let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitProduct: options.product,
             traitConfiguration: .init(traitOptions: self.options.traits),
             shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
@@ -183,7 +183,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             outputStream: TSCBasic.stdoutStream
         )
         do {
-            try buildSystem.build(subset: subset)
+            try await buildSystem.build(subset: subset)
         } catch _ as Diagnostics {
             throw ExitCode.failure
         }

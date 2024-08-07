@@ -16,7 +16,7 @@ import CoreCommands
 import SourceControl
 
 extension SwiftPackageCommand {
-    struct Edit: SwiftCommand {
+    struct Edit: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Put a package in editable mode")
 
@@ -35,12 +35,12 @@ extension SwiftPackageCommand {
         @Argument(help: "The name of the package to edit")
         var packageName: String
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
-            try swiftCommandState.resolve()
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
+            try await swiftCommandState.resolve()
             let workspace = try swiftCommandState.getActiveWorkspace()
 
             // Put the dependency in edit mode.
-            workspace.edit(
+            await workspace.edit(
                 packageName: packageName,
                 path: path,
                 revision: revision,
@@ -50,7 +50,7 @@ extension SwiftPackageCommand {
         }
     }
 
-    struct Unedit: SwiftCommand {
+    struct Unedit: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Remove a package from editable mode")
 
@@ -64,11 +64,11 @@ extension SwiftPackageCommand {
         @Argument(help: "The name of the package to unedit")
         var packageName: String
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
-            try swiftCommandState.resolve()
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
+            try await swiftCommandState.resolve()
             let workspace = try swiftCommandState.getActiveWorkspace()
 
-            try workspace.unedit(
+            try await workspace.unedit(
                 packageName: packageName,
                 forceRemove: shouldForceRemove,
                 root: swiftCommandState.getWorkspaceRoot(),

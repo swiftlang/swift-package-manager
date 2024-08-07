@@ -27,7 +27,7 @@ import protocol TSCBasic.OutputByteStream
 import var TSCBasic.stderrStream
 
 final class SwiftCommandStateTests: CommandsTestCase {
-    func testVerbosityLogLevel() throws {
+    func testVerbosityLogLevel() async throws {
         try fixture(name: "Miscellaneous/Simple") { fixturePath in
             do {
                 let outputStream = BufferedOutputByteStream()
@@ -164,7 +164,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
         }
     }
 
-    func testAuthorizationProviders() throws {
+    func testAuthorizationProviders() async throws {
         try fixture(name: "DependencyResolution/External/XCFramework") { fixturePath in
             let fs = localFileSystem
 
@@ -199,7 +199,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
         }
     }
 
-    func testRegistryAuthorizationProviders() throws {
+    func testRegistryAuthorizationProviders() async throws {
         try fixture(name: "DependencyResolution/External/XCFramework") { fixturePath in
             let fs = localFileSystem
 
@@ -239,7 +239,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
         }
     }
 
-    func testDebugFormatFlags() throws {
+    func testDebugFormatFlags() async throws {
         let fs = InMemoryFileSystem(emptyFiles: [
             "/Pkg/Sources/exe/main.swift",
         ])
@@ -257,7 +257,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
         /* -debug-info-format dwarf */
         let explicitDwarfOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "dwarf"])
         let explicitDwarf = try SwiftCommandState.makeMockState(options: explicitDwarfOptions)
-        plan = try BuildPlan(
+        plan = try await BuildPlan(
             destinationBuildParameters: explicitDwarf.productsBuildParameters,
             toolsBuildParameters: explicitDwarf.toolsBuildParameters,
             graph: graph,
@@ -272,7 +272,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
         let explicitCodeViewOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "codeview"])
         let explicitCodeView = try SwiftCommandState.makeMockState(options: explicitCodeViewOptions)
 
-        plan = try BuildPlan(
+        plan = try await BuildPlan(
             destinationBuildParameters: explicitCodeView.productsBuildParameters,
             toolsBuildParameters: explicitCodeView.productsBuildParameters,
             graph: graph,
@@ -295,7 +295,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
         /* <<null>> */
         let implicitDwarfOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc"])
         let implicitDwarf = try SwiftCommandState.makeMockState(options: implicitDwarfOptions)
-        plan = try BuildPlan(
+        plan = try await BuildPlan(
             destinationBuildParameters: implicitDwarf.productsBuildParameters,
             toolsBuildParameters: implicitDwarf.toolsBuildParameters,
             graph: graph,
@@ -308,7 +308,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
         /* -debug-info-format none */
         let explicitNoDebugInfoOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "none"])
         let explicitNoDebugInfo = try SwiftCommandState.makeMockState(options: explicitNoDebugInfoOptions)
-        plan = try BuildPlan(
+        plan = try await BuildPlan(
             destinationBuildParameters: explicitNoDebugInfo.productsBuildParameters,
             toolsBuildParameters: explicitNoDebugInfo.toolsBuildParameters,
             graph: graph,
@@ -319,7 +319,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
                            [.anySequence, "-gnone", .anySequence])
     }
 
-    func testToolchainArgument() throws {
+    func testToolchainArgument() async throws {
         let customTargetToolchain = AbsolutePath("/path/to/toolchain")
         let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
         let hostArPath = AbsolutePath("/usr/bin/ar")
@@ -371,7 +371,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
             try swiftCommandState.getTargetToolchain().swiftSDK.toolset.knownTools[.swiftCompiler]?.path,
             nil
         )
-        let plan = try BuildPlan(
+        let plan = try await BuildPlan(
             destinationBuildParameters: swiftCommandState.productsBuildParameters,
             toolsBuildParameters: swiftCommandState.toolsBuildParameters,
             graph: graph,

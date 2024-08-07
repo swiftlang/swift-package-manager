@@ -80,7 +80,7 @@ class DependencyResolutionTests: XCTestCase {
         try await fixture(name: "DependencyResolution/External/Mirror") { fixturePath in
             let prefix = try resolveSymlinks(fixturePath)
             let appPath = prefix.appending("App")
-            let appPinsPath = appPath.appending("Package.resolved")
+            let packageResolvedPath = appPath.appending("Package.resolved")
 
             // prepare the dependencies as git repos
             for directory in ["Foo", "Bar", "BarMirror"] {
@@ -99,16 +99,16 @@ class DependencyResolutionTests: XCTestCase {
                 XCTAssertMatch(output.stdout, .contains("foo<\(prefix.pathString)/Foo@unspecified"))
                 XCTAssertMatch(output.stdout, .contains("bar<\(prefix.pathString)/Bar@unspecified"))
 
-                let pins: String = try localFileSystem.readFileContents(appPinsPath)
-                XCTAssertMatch(pins, .contains("\"\(prefix.pathString)/Foo\""))
-                XCTAssertMatch(pins, .contains("\"\(prefix.pathString)/Bar\""))
+                let resolvedPackages: String = try localFileSystem.readFileContents(packageResolvedPath)
+                XCTAssertMatch(resolvedPackages, .contains("\"\(prefix.pathString)/Foo\""))
+                XCTAssertMatch(resolvedPackages, .contains("\"\(prefix.pathString)/Bar\""))
 
                 await XCTAssertBuilds(appPath)
             }
 
             // clean
             try localFileSystem.removeFileTree(appPath.appending(".build"))
-            try localFileSystem.removeFileTree(appPinsPath)
+            try localFileSystem.removeFileTree(packageResolvedPath)
 
             // set mirror
             _ = try await executeSwiftPackage(appPath, extraArgs: ["config", "set-mirror",
@@ -127,11 +127,11 @@ class DependencyResolutionTests: XCTestCase {
                 XCTAssertMatch(output.stdout, .contains("barmirror<\(prefix.pathString)/BarMirror@unspecified"))
                 XCTAssertNoMatch(output.stdout, .contains("bar<\(prefix.pathString)/Bar@unspecified"))
 
-                // rdar://52529014 mirrors should not be reflected in pins file
-                let pins: String = try localFileSystem.readFileContents(appPinsPath)
-                XCTAssertMatch(pins, .contains("\"\(prefix.pathString)/Foo\""))
-                XCTAssertMatch(pins, .contains("\"\(prefix.pathString)/Bar\""))
-                XCTAssertNoMatch(pins, .contains("\"\(prefix.pathString)/BarMirror\""))
+                // rdar://52529014 mirrors should not be reflected in `Package.resolved` file
+                let resolvedPackages: String = try localFileSystem.readFileContents(packageResolvedPath)
+                XCTAssertMatch(resolvedPackages, .contains("\"\(prefix.pathString)/Foo\""))
+                XCTAssertMatch(resolvedPackages, .contains("\"\(prefix.pathString)/Bar\""))
+                XCTAssertNoMatch(resolvedPackages, .contains("\"\(prefix.pathString)/BarMirror\""))
 
                 await XCTAssertBuilds(appPath)
             }

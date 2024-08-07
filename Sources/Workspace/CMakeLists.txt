@@ -28,8 +28,8 @@ add_library(Workspace
   Workspace+Editing.swift
   Workspace+Manifests.swift
   Workspace+PackageContainer.swift
-  Workspace+Pinning.swift
   Workspace+Registry.swift
+  Workspace+ResolvedPackages.swift
   Workspace+Signing.swift
   Workspace+SourceControl.swift
   Workspace+State.swift)

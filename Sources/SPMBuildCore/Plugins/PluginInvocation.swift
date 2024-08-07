@@ -12,6 +12,7 @@
 
 @_spi(SwiftPMInternal)
 import Basics
+import _Concurrency
 
 import Foundation
 import PackageModel
@@ -62,7 +63,7 @@ extension PluginModule {
         callbackQueue: DispatchQueue,
         delegate: PluginInvocationDelegate
     ) async throws -> Bool {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.invoke(
                 action: action,
                 buildEnvironment: buildEnvironment,
@@ -81,7 +82,7 @@ extension PluginModule {
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
                 delegate: delegate,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -390,7 +391,7 @@ extension PluginModule {
         modulesGraph: ModulesGraph,
         observabilityScope: ObservabilityScope
     ) async throws -> BuildToolPluginInvocationResult {
-        try await safe_async {
+        try await withCheckedThrowingContinuation {
             self.invoke(
                 module: module,
                 action: action,
@@ -408,7 +409,7 @@ extension PluginModule {
                 fileSystem: fileSystem,
                 modulesGraph: modulesGraph,
                 observabilityScope: observabilityScope,
-                completion: $0
+                completion: $0.resume(with:)
             )
         }
     }
@@ -634,8 +635,8 @@ public extension ResolvedModule {
         fileSystem: FileSystem,
         environment: BuildEnvironment,
         for hostTriple: Triple,
-        builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath?
-    ) throws -> [String: PluginTool] {
+        builtToolHandler: (_ name: String, _ path: RelativePath) async throws -> AbsolutePath?
+    ) async throws -> [String: PluginTool] {
         precondition(self.underlying is PluginModule)
 
         var tools: [String: PluginTool] = [:]
@@ -648,7 +649,7 @@ public extension ResolvedModule {
         ) {
             switch tool {
             case .builtTool(let name, let path):
-                if let path = try builtToolHandler(name, path) {
+                if let path = try await builtToolHandler(name, path) {
                     tools[name] = PluginTool(path: path)
                 }
             case .vendedTool(let name, let path, let triples):
