@@ -93,6 +93,72 @@ final class SourceKitLSPAPITests: XCTestCase {
             destination: .tools
         )
     }
+
+    func testModuleTraversal() async throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/lib/lib.swift",
+            "/Pkg/Plugins/plugin/plugin.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["lib"]),
+                        TargetDescription(name: "lib", dependencies: []),
+                        TargetDescription(
+                            name: "plugin",
+                            dependencies: ["exe"],
+                            type: .plugin,
+                            pluginCapability: .buildTool
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let plan = try await BuildPlan(
+            destinationBuildParameters: mockBuildParameters(
+                destination: .target,
+                shouldLinkStaticSwiftStdlib: true
+            ),
+            toolsBuildParameters: mockBuildParameters(
+                destination: .host,
+                shouldLinkStaticSwiftStdlib: true
+            ),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let description = BuildDescription(buildPlan: plan)
+
+        struct Result {
+            let parent: (any BuildTarget)?
+            let module: any BuildTarget
+            let depth: Int
+        }
+
+        var results: [Result] = []
+        description.traverseModules { current, parent, depth in
+            results.append(Result(parent: parent, module: current, depth: depth))
+        }
+
+        XCTAssertEqual(results.count, 6)
+
+        // "lib" is the most interesting here because it appears on multiple depths due to
+        // "exe" being a dependency of the "plugin".
+        XCTAssertEqual(results.filter { $0.module.name == "lib" }.reduce(into: Set<Int>()) {
+            $0.insert($1.depth)
+        }.sorted(), [1, 2, 3])
+    }
 }
 
 extension SourceKitLSPAPI.BuildDescription {
