@@ -639,6 +639,11 @@ public final class SwiftModuleBuildDescription {
     /// this module.
     package func symbolGraphExtractArguments() throws -> [String] {
         var args = [String]()
+
+        args += ["-module-name", self.target.c99name]
+        args += try self.buildParameters.tripleArgs(for: self.target)
+        args += ["-module-cache-path", try self.buildParameters.moduleCache.pathString]
+
         args += try self.cxxInteroperabilityModeArguments(
             propagateFromCurrentModuleOtherSwiftFlags: true)
 

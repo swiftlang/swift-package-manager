@@ -216,6 +216,10 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         AnySequence(self.productMap.values.map { $0 as SPMBuildCore.ProductBuildDescription })
     }
 
+    public var buildModules: AnySequence<SPMBuildCore.ModuleBuildDescription> {
+        AnySequence(self.targetMap.values.map { $0 as SPMBuildCore.ModuleBuildDescription })
+    }
+
     /// The results of invoking any build tool plugins used by targets in this build.
     public let buildToolPluginInvocationResults: [ResolvedModule.ID: [BuildToolPluginInvocationResult]]
 
@@ -672,15 +676,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         try self.externalLibrariesCache.memoize(key: binaryTarget) {
             try binaryTarget.parseXCFrameworks(for: triple, fileSystem: self.fileSystem)
         }
-    }
-
-    /// Determines the arguments needed to run `swift-symbolgraph-extract` for
-    /// a particular module.
-    public func symbolGraphExtractArguments(for module: ResolvedModule) throws -> [String] {
-        guard let description = self.targetMap[module.id] else {
-            throw InternalError("Expected description for module \(module)")
-        }
-        return try description.symbolGraphExtractArguments()
     }
 
     /// Returns the files and directories that affect the build process of this build plan.

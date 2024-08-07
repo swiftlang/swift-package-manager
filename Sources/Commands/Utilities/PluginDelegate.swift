@@ -398,25 +398,30 @@ final class PluginDelegate: PluginInvocationDelegate {
             cacheBuildManifest: false
         )
 
-        // Find the target in the build operation's package graph; it's an error if we don't find it.
-        let packageGraph = try await buildSystem.getPackageGraph()
-        guard let target = packageGraph.module(for: targetName) else {
-            throw StringError("could not find a target named “\(targetName)”")
+        func lookupDescription(
+            for moduleName: String,
+            destination: BuildParameters.Destination
+        ) throws -> ModuleBuildDescription? {
+            try buildSystem.buildPlan.buildModules.first {
+                $0.module.name == moduleName && $0.buildParameters.destination == destination
+            }
         }
 
-        // FIXME: This is currently necessary because `target(for:destination:)` can
-        // produce a module that is targeting host when `targetName`` corresponds to
-        // a macro, plugin, or a test. Ideally we'd ask a build system for a`BuildSubset`
-        // and get the destination from there but there are other places that need
-        // refactoring in that way as well.
-        let buildParameters = if target.buildTriple == .tools {
-                try swiftCommandState.toolsBuildParameters
-            } else {
-                try swiftCommandState.productsBuildParameters
-            }
+        // Build the target, if needed. This would also create a build plan.
+        try await buildSystem.build(subset: .target(targetName))
 
-        // Build the target, if needed.
-        try await buildSystem.build(subset: .target(target.name, for: buildParameters.destination))
+        // FIXME: The name alone doesn't give us enough information to figure out what
+        // the destination is, this logic prefers "target" over "host" because that's
+        // historically how this was setup. Ideally we should be building for both "host"
+        // and "target" if module is configured for them but that would require changing
+        // `PluginInvocationSymbolGraphResult` to carry multiple directories.
+        let description = if let targetDescription = try lookupDescription(for: targetName, destination: .target) {
+            targetDescription
+        } else if let hostDescription = try lookupDescription(for: targetName, destination: .host) {
+            hostDescription
+        } else {
+            throw InternalError("could not find a target named: \(targetName)")
+        }
 
         // Configure the symbol graph extractor.
         var symbolGraphExtractor = try SymbolGraphExtract(
@@ -442,21 +447,16 @@ final class PluginDelegate: PluginInvocationDelegate {
         symbolGraphExtractor.emitExtensionBlockSymbols = options.emitExtensionBlocks
 
         // Determine the output directory, and remove any old version if it already exists.
-        guard let package = packageGraph.package(for: target) else {
-            throw StringError("could not determine the package for target “\(target.name)”")
-        }
-        let outputDir = buildParameters.dataPath.appending(
+        let outputDir = description.buildParameters.dataPath.appending(
             components: "extracted-symbols",
-            package.identity.description,
-            target.name
+            description.package.identity.description,
+            targetName
         )
         try swiftCommandState.fileSystem.removeFileTree(outputDir)
 
         // Run the symbol graph extractor on the target.
         let result = try symbolGraphExtractor.extractSymbolGraph(
-            module: target,
-            buildPlan: try buildSystem.buildPlan,
-            buildParameters: buildParameters,
+            for: description,
             outputRedirection: .collect,
             outputDirectory: outputDir,
             verboseOutput: self.swiftCommandState.logLevel <= .info
