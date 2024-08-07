@@ -29,35 +29,12 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
     
     public func get(
         package: PackageIdentity,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
-    ) async throws -> PackageSigners {
-        try await withCheckedThrowingContinuation {
-            self.get(
-                package: package,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                callback: $0.resume(with:)
-            )
+        observabilityScope: ObservabilityScope
+    ) throws -> PackageSigners {
+        guard let packageSigners = self.lock.withLock({ self.packageSigners[package] }) else {
+            return PackageSigners()
         }
-    }
-
-    @available(*, noasync, message: "Use the async alternative")
-    public func get(
-        package: PackageIdentity,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<PackageSigners, Error>) -> Void
-    ) {
-        if let packageSigners = self.lock.withLock({ self.packageSigners[package] }) {
-            callbackQueue.async {
-                callback(.success(packageSigners))
-            }
-        } else {
-            callbackQueue.async {
-                callback(.success(PackageSigners()))
-            }
-        }
+        return packageSigners
     }
 
     public func put(
@@ -65,39 +42,27 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
-        do {
-            try self.lock.withLock {
-                let otherSigningEntities = self.packageSigners[package]?.signingEntities(of: version)
-                    .filter { $0 != signingEntity } ?? []
-                // Error if we try to write a different signing entity for a version
-                guard otherSigningEntities.isEmpty else {
-                    throw PackageSigningEntityStorageError.conflict(
-                        package: package,
-                        version: version,
-                        given: signingEntity,
-                        existing: otherSigningEntities.first! // !-safe because otherSigningEntities is not empty
-                    )
-                }
-
-                try self.addSigner(
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.lock.withLock {
+            let otherSigningEntities = self.packageSigners[package]?.signingEntities(of: version)
+                .filter { $0 != signingEntity } ?? []
+            // Error if we try to write a different signing entity for a version
+            guard otherSigningEntities.isEmpty else {
+                throw PackageSigningEntityStorageError.conflict(
                     package: package,
-                    signingEntity: signingEntity,
-                    origin: origin,
-                    version: version
+                    version: version,
+                    given: signingEntity,
+                    existing: otherSigningEntities.first! // !-safe because otherSigningEntities is not empty
                 )
             }
 
-            callbackQueue.async {
-                callback(.success(()))
-            }
-        } catch {
-            callbackQueue.async {
-                callback(.failure(error))
-            }
+            try self.addSigner(
+                package: package,
+                signingEntity: signingEntity,
+                origin: origin,
+                version: version
+            )
         }
     }
 
@@ -106,24 +71,15 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
-        do {
-            try self.lock.withLock {
-                try self.addSigner(
-                    package: package,
-                    signingEntity: signingEntity,
-                    origin: origin,
-                    version: version
-                )
-            }
-            callback(.success(()))
-        } catch {
-            callbackQueue.async {
-                callback(.failure(error))
-            }
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.lock.withLock {
+            try self.addSigner(
+                package: package,
+                signingEntity: signingEntity,
+                origin: origin,
+                version: version
+            )
         }
     }
 
@@ -132,29 +88,20 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
-        do {
-            try self.lock.withLock {
-                self.setExpectedSigner(
-                    package: package,
-                    expectedSigningEntity: signingEntity,
-                    expectedFromVersion: version
-                )
-                try self.addSigner(
-                    package: package,
-                    signingEntity: signingEntity,
-                    origin: origin,
-                    version: version
-                )
-            }
-            callback(.success(()))
-        } catch {
-            callbackQueue.async {
-                callback(.failure(error))
-            }
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.lock.withLock {
+            self.setExpectedSigner(
+                package: package,
+                expectedSigningEntity: signingEntity,
+                expectedFromVersion: version
+            )
+            try self.addSigner(
+                package: package,
+                signingEntity: signingEntity,
+                origin: origin,
+                version: version
+            )
         }
     }
 
@@ -163,36 +110,27 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
-        do {
-            try self.lock.withLock {
-                self.setExpectedSigner(
-                    package: package,
-                    expectedSigningEntity: signingEntity,
-                    expectedFromVersion: version
-                )
-                // Delete all other signers
-                if let existing = self.packageSigners[package] {
-                    self.packageSigners[package] = PackageSigners(
-                        expectedSigner: existing.expectedSigner,
-                        signers: existing.signers.filter { $0.key == signingEntity }
-                    )
-                }
-                try self.addSigner(
-                    package: package,
-                    signingEntity: signingEntity,
-                    origin: origin,
-                    version: version
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.lock.withLock {
+            self.setExpectedSigner(
+                package: package,
+                expectedSigningEntity: signingEntity,
+                expectedFromVersion: version
+            )
+            // Delete all other signers
+            if let existing = self.packageSigners[package] {
+                self.packageSigners[package] = PackageSigners(
+                    expectedSigner: existing.expectedSigner,
+                    signers: existing.signers.filter { $0.key == signingEntity }
                 )
             }
-            callback(.success(()))
-        } catch {
-            callbackQueue.async {
-                callback(.failure(error))
-            }
+            try self.addSigner(
+                package: package,
+                signingEntity: signingEntity,
+                origin: origin,
+                version: version
+            )
         }
     }
 

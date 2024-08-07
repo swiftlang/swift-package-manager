@@ -726,7 +726,7 @@ extension Workspace {
                     )
                 }
                 let revision = try container.getRevision(forTag: tag)
-                try await container.checkIntegrity(version: version, revision: revision)
+                try container.checkIntegrity(version: version, revision: revision)
                 return try await self.checkoutRepository(
                     package: package,
                     at: .version(version, revision: revision),

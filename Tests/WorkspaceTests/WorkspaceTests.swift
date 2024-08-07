@@ -2084,7 +2084,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .checkout(.version("1.2.3")))
         }
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.2.3")))
         }
 
@@ -2095,7 +2095,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
         }
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
         }
 
@@ -2108,7 +2108,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
         }
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
         }
     }
@@ -2592,7 +2592,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .edited(nil))
         }
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
@@ -2613,7 +2613,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.2.0")))
             result.check(dependency: "bar", at: .edited(nil))
         }
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.2.0")))
             result.check(notPresent: "bar")
         }
@@ -2626,7 +2626,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
             result.check(dependency: "bar", at: .edited(nil))
         }
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
             result.check(notPresent: "bar")
         }
@@ -2639,7 +2639,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
@@ -2873,7 +2873,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .edited(nil))
         }
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
         }
 
@@ -3683,7 +3683,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
         }
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
         }
 
@@ -3693,7 +3693,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
         }
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             result.check(notPresent: "foo")
         }
     }
@@ -3756,7 +3756,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.checkManagedDependencies { result in
                 result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             }
-            await workspace.checkResolved { result in
+            workspace.checkResolved { result in
                 result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             }
 
@@ -3868,7 +3868,7 @@ final class WorkspaceTests: XCTestCase {
                 "https://localhost/org/bar"
             )
         }
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
             XCTAssertEqual(result.store.resolvedPackages[.plain("foo")]?.packageRef.locationString, "https://localhost/org/foo")
@@ -3903,7 +3903,7 @@ final class WorkspaceTests: XCTestCase {
                 "https://localhost/org/bar.git"
             )
         }
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
             // URLs should be stable since URLs are canonically the same and we kept the resolved file between the two iterations
@@ -3938,7 +3938,7 @@ final class WorkspaceTests: XCTestCase {
                 "https://localhost/org/bar.git"
             )
         }
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.1.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
             // URLs should reflect the actual dependencies since the new version forces rewrite of the resolved file
@@ -3977,7 +3977,7 @@ final class WorkspaceTests: XCTestCase {
                 "https://localhost/org/bar.git"
             )
         }
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
             // URLs should reflect the actual dependencies since we deleted the resolved file
@@ -4075,7 +4075,7 @@ final class WorkspaceTests: XCTestCase {
                 }
             }
 
-            await workspace.checkResolved { result in
+            workspace.checkResolved { result in
                 result.check(dependency: "foo", at: .checkout(.version("1.3.1")))
                 result.check(dependency: "bar", at: .checkout(.version("1.1.1")))
             }
@@ -4905,7 +4905,7 @@ final class WorkspaceTests: XCTestCase {
                 "https://scm.com/org/foo"
             )
         }
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
             XCTAssertEqual(result.store.resolvedPackages[.plain("foo")]?.packageRef.locationString, "https://scm.com/org/foo")
@@ -4932,7 +4932,7 @@ final class WorkspaceTests: XCTestCase {
                 "https://scm.com/other/foo"
             )
         }
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
             XCTAssertEqual(result.store.resolvedPackages[.plain("foo")]?.packageRef.locationString, "https://scm.com/other/foo")
@@ -4994,7 +4994,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
             result.check(dependency: "bar", at: .checkout(.branch("develop")))
         }
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
             result.check(dependency: "bar", at: .checkout(.branch("develop")))
         }
@@ -5030,7 +5030,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.branch("develop")))
         }
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.branch("develop")))
         }
@@ -5043,7 +5043,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
@@ -5056,7 +5056,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
@@ -5406,7 +5406,7 @@ final class WorkspaceTests: XCTestCase {
             .sourceControl(path: "./bazzz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
         ]
 
-        try await await workspace.checkPackageGraphFailure(roots: ["Overridden/bazzz-master"], deps: deps) { diagnostics in
+        try await workspace.checkPackageGraphFailure(roots: ["Overridden/bazzz-master"], deps: deps) { diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: .equal(
@@ -11460,7 +11460,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "https://github.com/org/foo.git")
         }
 
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             XCTAssertEqual(result.store.resolvedPackages["foo"]?.packageRef.locationString, "https://github.com/org/foo.git")
         }
     }
@@ -11597,7 +11597,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
         }
 
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             XCTAssertEqual(result.store.resolvedPackages["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
         }
     }
@@ -11727,7 +11727,7 @@ final class WorkspaceTests: XCTestCase {
              XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
          }
 
-         await workspace.checkResolved { result in
+         workspace.checkResolved { result in
              XCTAssertEqual(result.store.resolvedPackages["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
          }
 
@@ -11753,7 +11753,7 @@ final class WorkspaceTests: XCTestCase {
              XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
          }
 
-         await workspace.checkResolved { result in
+         workspace.checkResolved { result in
              XCTAssertEqual(result.store.resolvedPackages["foo"]?.packageRef.locationString, "https://github.com/org/foo")
          }
      }
@@ -11838,7 +11838,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "https://github.com/org/foo.git")
         }
 
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             XCTAssertEqual(result.store.resolvedPackages["foo"]?.packageRef.locationString, "https://github.com/org/foo.git")
         }
 
@@ -11858,7 +11858,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
         }
 
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             XCTAssertEqual(result.store.resolvedPackages["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
         }
     }
@@ -11991,7 +11991,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "https://github.com/org/foo.git")
         }
 
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             XCTAssertEqual(result.store.resolvedPackages["foo"]?.packageRef.locationString, "https://github.com/org/foo.git")
         }
 
@@ -12017,7 +12017,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
         }
 
-        await workspace.checkResolved { result in
+        workspace.checkResolved { result in
             XCTAssertEqual(result.store.resolvedPackages["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
         }
     }
