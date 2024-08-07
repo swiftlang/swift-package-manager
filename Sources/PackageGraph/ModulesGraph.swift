@@ -107,14 +107,6 @@ public struct ModulesGraph {
     /// Returns all the modules in the graph, regardless if they are reachable from the root modules or not.
     public private(set) var allModules: IdentifiableSet<ResolvedModule>
 
-    /// Returns all modules within the graph in topological order, starting with low-level modules (that have no
-    /// dependencies).
-    package var allModulesInTopologicalOrder: [ResolvedModule] {
-        get throws {
-            try topologicalSort(Array(allModules)) { $0.dependencies.compactMap { $0.module } }.reversed()
-        }
-    }
-
     /// Returns all the products in the graph, regardless if they are reachable from the root modules or not.
     public private(set) var allProducts: IdentifiableSet<ResolvedProduct>
 

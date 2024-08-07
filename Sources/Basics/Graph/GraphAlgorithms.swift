@@ -86,3 +86,50 @@ public func depthFirstSearch<T: Hashable>(
         }
     }
 }
+
+private struct TraversalNode<T: Hashable>: Hashable {
+    let parent: T?
+    let curr: T
+    let depth: Int
+}
+
+/// Implements a pre-order depth-first search that traverses the whole graph and
+/// doesn't distinguish between unique and duplicate nodes. The method expects
+/// the graph to be acyclic but doesn't check that.
+///
+/// - Parameters:
+///   - nodes: The list of input nodes to sort.
+///   - successors: A closure for fetching the successors of a particular node.
+///   - onNext: A callback to indicate the node currently being processed
+///             including its parent (if any) and its depth.
+///
+/// - Complexity: O(v + e) where (v, e) are the number of vertices and edges
+/// reachable from the input nodes via the relation.
+public func depthFirstSearch<T: Hashable>(
+    _ nodes: [T],
+    successors: (T) throws -> [T],
+    onNext: (T, _ parent: T?, _ depth: Int) throws -> Void
+) rethrows {
+    var stack = OrderedSet<TraversalNode<T>>()
+
+    for node in nodes {
+        precondition(stack.isEmpty)
+        stack.append(TraversalNode(parent: nil, curr: node, depth: 0))
+
+        while !stack.isEmpty {
+            let node = stack.removeLast()
+
+            try onNext(node.curr, node.parent, node.depth)
+
+            for succ in try successors(node.curr) {
+                stack.append(
+                    TraversalNode(
+                        parent: node.curr,
+                        curr: succ,
+                        depth: node.depth + 1
+                    )
+                )
+            }
+        }
+    }
+}

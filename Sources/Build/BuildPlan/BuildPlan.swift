@@ -905,6 +905,66 @@ extension BuildPlan {
 extension BuildPlan {
     fileprivate typealias Destination = BuildParameters.Destination
 
+    fileprivate enum TraversalNode: Hashable {
+        case package(ResolvedPackage)
+        case product(ResolvedProduct, BuildParameters.Destination)
+        case module(ResolvedModule, BuildParameters.Destination)
+
+        var destination: BuildParameters.Destination {
+            switch self {
+            case .package:
+                .target
+            case .product(_, let destination):
+                destination
+            case .module(_, let destination):
+                destination
+            }
+        }
+
+        init(
+            product: ResolvedProduct,
+            context destination: BuildParameters.Destination
+        ) {
+            switch product.type {
+            case .macro, .plugin:
+                self = .product(product, .host)
+            case .test:
+                self = .product(product, product.modules.contains(where: Self.hasMacroDependency) ? .host : destination)
+            default:
+                self = .product(product, destination)
+            }
+        }
+
+        init(
+            module: ResolvedModule,
+            context destination: BuildParameters.Destination
+        ) {
+            switch module.type {
+            case .macro, .plugin:
+                // Macros and plugins are ways built for host
+                self = .module(module, .host)
+            case .test:
+                self = .module(module, Self.hasMacroDependency(module: module) ? .host : destination)
+            default:
+                // By default assume the destination of the context.
+                // This means that i.e. test products that reference macros
+                // would force all of their successors to be `host`
+                self = .module(module, destination)
+            }
+        }
+
+        static func hasMacroDependency(module: ResolvedModule) -> Bool {
+            module.dependencies.contains(where: {
+                switch $0 {
+                case .product(let productDependency, _):
+                    productDependency.type == .macro
+                case .module(let moduleDependency, _):
+                    moduleDependency.type == .macro
+                }
+            })
+        }
+    }
+
     /// Traverse the modules graph and find a destination for every product and module.
     /// All non-macro/plugin products and modules have `target` destination with one
     /// notable exception - test products/modules with direct macro dependency.
@@ -913,57 +973,8 @@ extension BuildPlan {
         onProduct: (ResolvedProduct, Destination) throws -> Void,
         onModule: (ResolvedModule, Destination) async throws -> Void
     ) async rethrows {
-        enum Node: Hashable {
-            case package(ResolvedPackage)
-            case product(ResolvedProduct, Destination)
-            case module(ResolvedModule, Destination)
-
-            static func `for`(
-                product: ResolvedProduct,
-                context destination: Destination
-            ) -> Node {
-                switch product.type {
-                case .macro, .plugin:
-                    .product(product, .host)
-                case .test:
-                    .product(product, product.modules.contains(where: self.hasMacroDependency) ? .host : destination)
-                default:
-                    .product(product, destination)
-                }
-            }
-
-            static func `for`(
-                module: ResolvedModule,
-                context destination: Destination
-            ) -> Node {
-                switch module.type {
-                case .macro, .plugin:
-                    // Macros and plugins are ways built for host
-                    .module(module, .host)
-                case .test:
-                    .module(module, self.hasMacroDependency(module: module) ? .host : destination)
-                default:
-                    // By default assume the destination of the context.
-                    // This means that i.e. test products that reference macros
-                    // would force all of their successors to be `host`
-                    .module(module, destination)
-                }
-            }
-
-            static func hasMacroDependency(module: ResolvedModule) -> Bool {
-                module.dependencies.contains(where: {
-                    switch $0 {
-                    case .product(let productDependency, _):
-                        productDependency.type == .macro
-                    case .module(let moduleDependency, _):
-                        moduleDependency.type == .macro
-                    }
-                })
-            }
-        }
-
-        func successors(for package: ResolvedPackage) -> [Node] {
-            var successors: [Node] = []
+        func successors(for package: ResolvedPackage) -> [TraversalNode] {
+            var successors: [TraversalNode] = []
             for product in package.products {
                 if case .test = product.underlying.type,
                    !graph.rootPackages.contains(id: package.id)
@@ -971,7 +982,7 @@ extension BuildPlan {
                     continue
                 }
 
-                successors.append(.for(product: product, context: .target))
+                successors.append(.init(product: product, context: .target))
             }
 
             for module in package.modules {
@@ -981,7 +992,7 @@ extension BuildPlan {
                     continue
                 }
 
-                successors.append(.for(module: module, context: .target))
+                successors.append(.init(module: module, context: .target))
             }
 
             return successors
@@ -990,35 +1001,35 @@ extension BuildPlan {
         func successors(
             for product: ResolvedProduct,
             destination: Destination
-        ) -> [Node] {
+        ) -> [TraversalNode] {
             guard destination == .host else {
                 return []
             }
 
             return product.modules.map { module in
-                .for(module: module, context: destination)
+                TraversalNode(module: module, context: destination)
             }
         }
 
         func successors(
             for module: ResolvedModule,
             destination: Destination
-        ) -> [Node] {
+        ) -> [TraversalNode] {
             guard destination == .host else {
                 return []
             }
 
-            return module.dependencies.reduce(into: [Node]()) { partial, dependency in
+            return module.dependencies.reduce(into: [TraversalNode]()) { partial, dependency in
                 switch dependency {
                 case .product(let product, conditions: _):
-                    partial.append(.for(product: product, context: destination))
+                    partial.append(.init(product: product, context: destination))
                 case .module(let module, _):
-                    partial.append(.for(module: module, context: destination))
+                    partial.append(.init(module: module, context: destination))
                 }
             }
         }
 
-        try await depthFirstSearch(graph.packages.map { Node.package($0) }) { node in
+        try await depthFirstSearch(graph.packages.map { TraversalNode.package($0) }) { node in
             switch node {
             case .package(let package):
                 successors(for: package)
@@ -1039,6 +1050,71 @@ extension BuildPlan {
             }
         } onDuplicate: { _, _ in
             // No de-duplication is necessary we only want unique nodes.
+        }
+    }
+
+    /// Traverses the modules graph, computes destination of every module reference and
+    /// provides the data to the caller by means of `onModule` callback. The products
+    /// are completely transparent to this method and are represented by their module dependencies.
+    package func traverseModules(
+        _ onModule: (
+            (ResolvedModule, BuildParameters.Destination),
+            _ parent: (ResolvedModule, BuildParameters.Destination)?,
+            _ depth: Int
+        ) -> Void
+    ) {
+        func successors(for package: ResolvedPackage) -> [TraversalNode] {
+            package.modules.compactMap {
+                if case .test = $0.underlying.type,
+                   !self.graph.rootPackages.contains(id: package.id)
+                {
+                    return nil
+                }
+                return .init(module: $0, context: .target)
+            }
+        }
+
+        func successors(
+            for module: ResolvedModule,
+            destination: Destination
+        ) -> [TraversalNode] {
+            module.dependencies.reduce(into: [TraversalNode]()) { partial, dependency in
+                switch dependency {
+                case .product(let product, conditions: _):
+                    let parent = TraversalNode(product: product, context: destination)
+                    for module in product.modules {
+                        partial.append(.init(module: module, context: parent.destination))
+                    }
+                case .module(let module, _):
+                    partial.append(.init(module: module, context: destination))
+                }
+            }
+        }
+
+        depthFirstSearch(self.graph.packages.map { TraversalNode.package($0) }) {
+            switch $0 {
+            case .package(let package):
+                successors(for: package)
+            case .module(let module, let destination):
+                successors(for: module, destination: destination)
+            case .product:
+                []
+            }
+        } onNext: { current, parent, depth in
+            let parentModule: (ResolvedModule, BuildParameters.Destination)? = switch parent {
+            case .package, .product, nil:
+                nil
+            case .module(let module, let destination):
+                (module, destination)
+            }
+
+            switch current {
+            case .package, .product:
+                break
+
+            case .module(let module, let destination):
+                onModule((module, destination), parentModule, depth)
+            }
         }
     }
 }
