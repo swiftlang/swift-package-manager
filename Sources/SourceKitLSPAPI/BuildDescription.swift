@@ -142,11 +142,22 @@ public struct BuildDescription {
         }
     }
 
-    /// Returns all targets within the module graph in topological order, starting with low-level targets (that have no
-    /// dependencies).
-    public func allTargetsInTopologicalOrder(in modulesGraph: ModulesGraph) throws -> [BuildTarget] {
-        try modulesGraph.allModulesInTopologicalOrder.compactMap {
-            getBuildTarget(for: $0, in: modulesGraph)
+    public func traverseModules(
+        callback: (any BuildTarget, _ parent: (any BuildTarget)?, _ depth: Int) -> Void
+    ) {
+        // TODO: Once the `targetMap` is switched over to use `IdentifiableSet<ModuleBuildDescription>`
+        // we can introduce `BuildPlan.description(ResolvedModule, BuildParameters.Destination)`
+        // and start using that here.
+        self.buildPlan.traverseModules { module, parent, depth in
+            let parentDescription: (any BuildTarget)? = if let parent {
+                getBuildTarget(for: parent.0, in: self.buildPlan.graph)
+            } else {
+                nil
+            }
+
+            if let description = getBuildTarget(for: module.0, in: self.buildPlan.graph) {
+                callback(description, parentDescription, depth)
+            }
         }
     }
 
