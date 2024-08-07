@@ -377,8 +377,8 @@ struct PluginCommand: AsyncSwiftCommand {
             fileSystem: swiftCommandState.fileSystem,
             modulesGraph: packageGraph,
             observabilityScope: swiftCommandState.observabilityScope,
-            callbackQueue: delegateQueue,
-            delegate: pluginDelegate
+            delegate: pluginDelegate,
+            delegateQueue: delegateQueue
         )
 
         // TODO: We should also emit a final line of output regarding the result.

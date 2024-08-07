@@ -122,13 +122,9 @@ final class PluginInvocationTests: XCTestCase {
                 pluginName: String,
                 toolsVersion: ToolsVersion,
                 observabilityScope: ObservabilityScope,
-                callbackQueue: DispatchQueue,
-                delegate: PluginScriptCompilerDelegate,
-                completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
-            ) {
-                callbackQueue.sync {
-                    completion(.failure(StringError("unimplemented")))
-                }
+                delegate: PluginScriptCompilerDelegate
+            ) async throws -> PluginCompilationResult {
+                throw StringError("unimplemented")
             }
             
             func runPluginScript(
@@ -142,69 +138,59 @@ final class PluginInvocationTests: XCTestCase {
                 allowNetworkConnections: [SandboxNetworkPermission],
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
-                callbackQueue: DispatchQueue,
                 delegate: PluginScriptCompilerDelegate & PluginScriptRunnerDelegate,
-                completion: @escaping (Result<Int32, Error>) -> Void
-            ) {
+                delegateQueue: DispatchQueue
+            ) async throws -> Int32 {
                 // Check that we were given the right sources.
                 XCTAssertEqual(sourceFiles, ["/Foo/Plugins/FooPlugin/source.swift"])
 
-                do {
-                    // Pretend the plugin emitted some output.
-                    callbackQueue.sync {
-                        delegate.handleOutput(data: Data("Hello Plugin!".utf8))
-                    }
-                    
-                    // Pretend it emitted a warning.
-                    try callbackQueue.sync {
-                        let message = Data("""
-                        {   "emitDiagnostic": {
-                                "severity": "warning",
-                                "message": "A warning",
-                                "file": "/Foo/Sources/Foo/SomeFile.abc",
-                                "line": 42
-                            }
-                        }
-                        """.utf8)
-                        try delegate.handleMessage(data: message, responder: { _ in })
-                    }
-
-                    // Pretend it defined a build command.
-                    try callbackQueue.sync {
-                        let message = Data("""
-                        {   "defineBuildCommand": {
-                                "configuration": {
-                                    "version": 2,
-                                    "displayName": "Do something",
-                                    "executable": "/bin/FooTool",
-                                    "arguments": [
-                                        "-c", "/Foo/Sources/Foo/SomeFile.abc"
-                                    ],
-                                    "workingDirectory": "/Foo/Sources/Foo",
-                                    "environment": {
-                                        "X": "Y"
-                                    },
-                                },
-                                "inputFiles": [
-                                ],
-                                "outputFiles": [
-                                ]
-                            }
-                        }
-                        """.utf8)
-                        try delegate.handleMessage(data: message, responder: { _ in })
-                    }
+                // Pretend the plugin emitted some output.
+                delegateQueue.sync {
+                    delegate.handleOutput(data: Data("Hello Plugin!".utf8))
                 }
-                catch {
-                    callbackQueue.sync {
-                        completion(.failure(error))
+
+                // Pretend it emitted a warning.
+                try delegateQueue.sync {
+                    let message = Data("""
+                    {   "emitDiagnostic": {
+                            "severity": "warning",
+                            "message": "A warning",
+                            "file": "/Foo/Sources/Foo/SomeFile.abc",
+                            "line": 42
+                        }
                     }
+                    """.utf8)
+                    try delegate.handleMessage(data: message, responder: { _ in })
+                }
+
+                // Pretend it defined a build command.
+                try delegateQueue.sync {
+                    let message = Data("""
+                    {   "defineBuildCommand": {
+                            "configuration": {
+                                "version": 2,
+                                "displayName": "Do something",
+                                "executable": "/bin/FooTool",
+                                "arguments": [
+                                    "-c", "/Foo/Sources/Foo/SomeFile.abc"
+                                ],
+                                "workingDirectory": "/Foo/Sources/Foo",
+                                "environment": {
+                                    "X": "Y"
+                                },
+                            },
+                            "inputFiles": [
+                            ],
+                            "outputFiles": [
+                            ]
+                        }
+                    }
+                    """.utf8)
+                    try delegate.handleMessage(data: message, responder: { _ in })
                 }
 
                 // If we get this far we succeeded, so invoke the completion handler.
-                callbackQueue.sync {
-                    completion(.success(0))
-                }
+                return 0
             }
         }
 
@@ -365,7 +351,6 @@ final class PluginInvocationTests: XCTestCase {
                     pluginName: buildToolPlugin.name,
                     toolsVersion: buildToolPlugin.apiVersion,
                     observabilityScope: observability.topScope,
-                    callbackQueue: DispatchQueue.sharedConcurrent,
                     delegate: delegate
                 )
 
@@ -417,7 +402,6 @@ final class PluginInvocationTests: XCTestCase {
                     pluginName: buildToolPlugin.name,
                     toolsVersion: buildToolPlugin.apiVersion,
                     observabilityScope: observability.topScope,
-                    callbackQueue: DispatchQueue.sharedConcurrent,
                     delegate: delegate
                 )
 
@@ -467,7 +451,6 @@ final class PluginInvocationTests: XCTestCase {
                     pluginName: buildToolPlugin.name,
                     toolsVersion: buildToolPlugin.apiVersion,
                     observabilityScope: observability.topScope,
-                    callbackQueue: DispatchQueue.sharedConcurrent,
                     delegate: delegate
                 )
 
@@ -529,7 +512,6 @@ final class PluginInvocationTests: XCTestCase {
                     pluginName: buildToolPlugin.name,
                     toolsVersion: buildToolPlugin.apiVersion,
                     observabilityScope: observability.topScope,
-                    callbackQueue: DispatchQueue.sharedConcurrent,
                     delegate: delegate
                 )
 
@@ -582,7 +564,6 @@ final class PluginInvocationTests: XCTestCase {
                     pluginName: buildToolPlugin.name,
                     toolsVersion: buildToolPlugin.apiVersion,
                     observabilityScope: observability.topScope,
-                    callbackQueue: DispatchQueue.sharedConcurrent,
                     delegate: delegate
                 )
 
