@@ -296,6 +296,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         var pluginDescriptions = [PluginBuildDescription]()
         var shouldGenerateTestObservation = true
 
+        let planningObservabilityScope = observabilityScope.makeChildScope(description: "Planning")
         try await Self.computeDestinations(
             graph: graph,
             onProduct: { product, destination in
@@ -313,7 +314,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     toolsVersion: package.manifest.toolsVersion,
                     buildParameters: destination == .host ? toolsBuildParameters : destinationBuildParameters,
                     fileSystem: fileSystem,
-                    observabilityScope: observabilityScope
+                    observabilityScope: planningObservabilityScope
                 ))
             },
             onModule: { module, destination in
@@ -337,7 +338,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                                 product: product,
                                 forTarget: module,
                                 buildEnvironment: buildParameters.buildEnvironment,
-                                observabilityScope: observabilityScope
+                                observabilityScope: planningObservabilityScope
                                                         .makeChildScope(description: "Validate Deployment of Dependency")
                             )
                         }
@@ -354,7 +355,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         additionalFileRules: additionalFileRules,
                         pkgConfigDirectories: pkgConfigDirectories,
                         fileSystem: fileSystem,
-                        observabilityScope: observabilityScope,
+                        observabilityScope: planningObservabilityScope,
                         surfaceDiagnostics: true
                     )
 
@@ -367,7 +368,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         using: pluginConfiguration,
                         for: pluginInvocationResults,
                         fileSystem: fileSystem,
-                        observabilityScope: observabilityScope
+                        observabilityScope: planningObservabilityScope
                     )
                 }
 
@@ -392,7 +393,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                             shouldGenerateTestObservation: generateTestObservation,
                             shouldDisableSandbox: disableSandbox,
                             fileSystem: fileSystem,
-                            observabilityScope: observabilityScope
+                            observabilityScope: planningObservabilityScope
                         )
                     )
                 case is ClangModule:
@@ -406,7 +407,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                             buildToolPluginInvocationResults: buildToolPluginInvocationResults[module.id] ?? [],
                             prebuildCommandResults: prebuildCommandResults[module.id] ?? [],
                             fileSystem: fileSystem,
-                            observabilityScope: observabilityScope
+                            observabilityScope: planningObservabilityScope
                         )
                     )
                 case is PluginModule:
@@ -430,7 +431,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                             toolsVersion: package.manifest.toolsVersion,
                             buildParameters: toolsBuildParameters,
                             fileSystem: fileSystem,
-                            observabilityScope: observabilityScope
+                            observabilityScope: planningObservabilityScope
                         ))
                     }
 
@@ -455,7 +456,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
 
         // Abort now if we have any diagnostics at this point.
-        guard !observabilityScope.errorsReported else {
+        guard !planningObservabilityScope.errorsReported else {
             throw Diagnostics.fatalError
         }
 
