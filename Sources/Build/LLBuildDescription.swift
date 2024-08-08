@@ -109,11 +109,11 @@ public struct BuildDescription: Codable {
         self.traitConfiguration = traitConfiguration
         self.targetDependencyMap = try plan.targets
             .reduce(into: [TargetName: [TargetName]]()) { partial, targetBuildDescription in
-                let deps = try targetBuildDescription.target.recursiveDependencies(
+                let deps = try targetBuildDescription.module.recursiveDependencies(
                     satisfying: targetBuildDescription.buildParameters.buildEnvironment
                 )
                 .compactMap(\.module).map(\.c99name)
-                partial[targetBuildDescription.target.c99name] = deps
+                partial[targetBuildDescription.module.c99name] = deps
             }
         var targetCommandLines: [TargetName: [CommandLineFlag]] = [:]
         var generatedSourceTargets: [TargetName] = []

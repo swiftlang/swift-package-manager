@@ -66,7 +66,7 @@ public enum ModuleBuildDescription: SPMBuildCore.ModuleBuildDescription {
         }
     }
 
-    var target: ResolvedModule {
+    public var module: ResolvedModule {
         switch self {
         case .swift(let buildDescription):
             return buildDescription.target
@@ -82,10 +82,6 @@ public enum ModuleBuildDescription: SPMBuildCore.ModuleBuildDescription {
         case .clang(let description):
             description.package
         }
-    }
-
-    public var module: ResolvedModule {
-        self.target
     }
 
     /// Paths to the binary libraries the target depends on.

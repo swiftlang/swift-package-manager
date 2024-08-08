@@ -192,7 +192,7 @@ extension LLBuildManifestBuilder {
         // Sort the product targets in topological order in order to collect and "bubble up"
         // their respective dependency graphs to the depending targets.
         let nodes = self.plan.targets.compactMap {
-            ResolvedModule.Dependency.module($0.target, conditions: [])
+            ResolvedModule.Dependency.module($0.module, conditions: [])
         }
         let allPackageDependencies = try topologicalSort(nodes, successors: { $0.dependencies })
         // Instantiate the inter-module dependency oracle which will cache commonly-scanned
@@ -319,7 +319,7 @@ extension LLBuildManifestBuilder {
         for targetDescription: ModuleBuildDescription,
         dependencyModuleDetailsMap: inout SwiftDriver.ExternalTargetModuleDetailsMap
     ) throws {
-        for dependency in targetDescription.target.dependencies(satisfying: targetDescription.buildParameters.buildEnvironment) {
+        for dependency in targetDescription.module.dependencies(satisfying: targetDescription.buildParameters.buildEnvironment) {
             switch dependency {
             case .product:
                 // Product dependencies are broken down into the targets that make them up.
@@ -358,7 +358,7 @@ extension LLBuildManifestBuilder {
         guard case .swift(let dependencySwiftTargetDescription) = targetDescription else {
             return
         }
-        dependencyModuleDetailsMap[ModuleDependencyId.swiftPlaceholder(targetDescription.target.c99name)] =
+        dependencyModuleDetailsMap[ModuleDependencyId.swiftPlaceholder(targetDescription.module.c99name)] =
             SwiftDriver.ExternalTargetModuleDetails(
                 path: TSCAbsolutePath(dependencySwiftTargetDescription.moduleOutputPath),
                 isFramework: false
