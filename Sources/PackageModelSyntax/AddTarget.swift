@@ -419,10 +419,10 @@ fileprivate extension TargetDescription {
     var sanitizedName: String {
         name
             .spm_mangledToC99ExtendedIdentifier()
-            .capitalizingFirstLetter()
+            .localizedFirstWordCapitalized()
     }
 }
 
 fileprivate extension String {
-    func capitalizingFirstLetter() -> String { prefix(1).uppercased() + dropFirst() }
+    func localizedFirstWordCapitalized() -> String { prefix(1).localizedCapitalized + dropFirst() }
 }
