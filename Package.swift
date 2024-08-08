@@ -191,7 +191,8 @@ let package = Package(
             name: "Basics",
             dependencies: [
                 "_AsyncFileSystem",
-                "SPMSQLite3",
+                .target(name: "SPMSQLite3", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS, .macCatalyst, .linux])),
+                .product(name: "CSQLite", package: "swift-toolchain-sqlite", condition: .when(platforms: [.windows])),
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
@@ -646,6 +647,7 @@ let package = Package(
                 "processInputs/exit4",
                 "processInputs/simple-stdout-stderr",
                 "processInputs/deadlock-if-blocking-io",
+                "processInputs/echo",
                 "processInputs/in-to-out",
             ]
         ),
@@ -854,7 +856,8 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-system.git", "1.1.1" ..< "1.4.0"),
         .package(url: "https://github.com/apple/swift-collections.git", "1.0.1" ..< "1.2.0"),
-        .package(url: "https://github.com/apple/swift-certificates.git", "1.0.1" ..< "1.4.0"),
+        .package(url: "https://github.com/apple/swift-certificates.git", "1.0.1" ..< "1.6.0"),
+        .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", from: "0.1.0"),
     ]
 } else {
     package.dependencies += [
@@ -866,5 +869,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-system"),
         .package(path: "../swift-collections"),
         .package(path: "../swift-certificates"),
+        .package(path: "../swift-toolchain-sqlite"),
     ]
 }
