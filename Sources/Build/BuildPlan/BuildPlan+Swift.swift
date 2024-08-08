@@ -62,7 +62,7 @@ extension BuildPlan {
 
                 // Add the dependency's public headers.
                 swiftTarget.appendClangFlags("-I", target.publicHeadersDir.pathString)
-            case let underlyingTarget as SwiftTarget where underlyingTarget.type == .library:
+            case let underlyingTarget as SwiftTarget where underlyingTarget.type == .library && swiftTarget.isWithinMixedTarget:
                 // The mixed target build description exposes it's public ObjC
                 // headers to it's Swift module in case the Swift source in the
                 // mixed module references types from the ObjC headers.
@@ -72,9 +72,6 @@ extension BuildPlan {
                 // exports a Swift module import. Such a Swift module import
                 // (handled by this case) needs to be added to Swift import
                 // paths of the given mixed target's swift module.
-                guard swiftTarget.isWithinMixedTarget else {
-                    return
-                }
 
                 guard case let .swift(target)? = targetMap[dependency.id] else {
                     throw InternalError("unexpected swift target \(underlyingTarget)")
