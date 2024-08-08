@@ -128,7 +128,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
 
-        let repoPath = AbsolutePath.root
+        let repoPath = AbsolutePath.root.appending("SourceCache")
         let filePath = repoPath.appending("Package.swift")
 
         let specifier = RepositorySpecifier(path: repoPath)
@@ -173,7 +173,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
 
-        let repoPath = AbsolutePath.root
+        let repoPath = AbsolutePath.root.appending("SourceCache")
         let filePath = repoPath.appending("Package.swift")
 
         let specifier = RepositorySpecifier(path: repoPath)
@@ -269,7 +269,10 @@ final class SourceControlPackageContainerTests: XCTestCase {
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
 
-        let repoPath = AbsolutePath.root
+        // Insert an arc in the path prior to the repository root to prevent
+        // `\Package.swift` being the path that is used.  The
+        // intermediate arc allows processing the tools versions.
+        let repoPath = AbsolutePath.root.appending("SourceCache")
         let filePath = repoPath.appending("Package.swift")
 
         let specifier = RepositorySpecifier(path: repoPath)
@@ -316,7 +319,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
 
-        let repoPath = AbsolutePath.root
+        let repoPath = AbsolutePath.root.appending("SourceCache")
         let filePath = repoPath.appending("Package.swift")
 
         let specifier = RepositorySpecifier(path: repoPath)
