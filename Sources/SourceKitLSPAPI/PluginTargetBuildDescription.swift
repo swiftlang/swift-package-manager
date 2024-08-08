@@ -39,6 +39,8 @@ struct PluginTargetBuildDescription: BuildTarget {
         return target.sources.paths.map { URL(fileURLWithPath: $0.pathString) }
     }
 
+    var headers: [URL] { [] }
+
     var name: String {
         return target.name
     }
