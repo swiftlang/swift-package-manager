@@ -239,11 +239,11 @@ extension LLBuildManifestBuilder {
                 let additionalOutputs: [Node]
                 if command.outputFiles.isEmpty {
                     if target.toolsVersion >= .v6_0 {
-                        additionalOutputs = [.virtual("\(target.target.c99name)-\(command.configuration.displayName ?? "\(pluginNumber)")")]
+                        additionalOutputs = [.virtual("\(target.module.c99name)-\(command.configuration.displayName ?? "\(pluginNumber)")")]
                         phonyOutputs += additionalOutputs
                     } else {
                         additionalOutputs = []
-                        observabilityScope.emit(warning: "Build tool command '\(displayName)' (applied to target '\(target.target.name)') does not declare any output files and therefore will not run. You may want to consider updating the given package to tools-version 6.0 (or higher) which would run such a build tool command even without declared outputs.")
+                        observabilityScope.emit(warning: "Build tool command '\(displayName)' (applied to target '\(target.module.name)') does not declare any output files and therefore will not run. You may want to consider updating the given package to tools-version 6.0 (or higher) which would run such a build tool command even without declared outputs.")
                     }
                     pluginNumber += 1
                 } else {
@@ -334,7 +334,7 @@ extension ModuleBuildDescription {
 
 extension ModuleBuildDescription {
     package var llbuildResourcesCmdName: String {
-        "\(self.target.name)-\(self.buildParameters.triple.tripleString)-\(self.buildParameters.buildConfig)\(self.buildParameters.suffix).module-resources"
+        "\(self.module.name)-\(self.buildParameters.triple.tripleString)-\(self.buildParameters.buildConfig)\(self.buildParameters.suffix).module-resources"
     }
 }
 

@@ -179,8 +179,8 @@ final class BuildPlanTests: XCTestCase {
         ))
         result.checkProductsCount(2)
         result.checkTargetsCount(3)
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "FooLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "BarLogging" })
     }
 
     func testDuplicateProductNamesUpstream1() async throws {
@@ -304,11 +304,11 @@ final class BuildPlanTests: XCTestCase {
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(6)
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BazLogging" })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "XUtils" })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "YUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "FooLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "BarLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "BazLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "XUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "YUtils" })
     }
 
     func testDuplicateProductNamesUpstream2() async throws {
@@ -399,9 +399,9 @@ final class BuildPlanTests: XCTestCase {
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(4)
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Logging" })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BazLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "Logging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "BarLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "BazLogging" })
     }
 
     func testDuplicateProductNamesChained() async throws {
@@ -476,8 +476,8 @@ final class BuildPlanTests: XCTestCase {
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(3)
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "FooLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "BarLogging" })
     }
 
     func testDuplicateProductNamesThrowError() async throws {
@@ -609,8 +609,8 @@ final class BuildPlanTests: XCTestCase {
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(3)
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "FooLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "BarLogging" })
     }
 
     func testPackageNameFlag() async throws {
@@ -6092,8 +6092,8 @@ final class BuildPlanTests: XCTestCase {
         let result = try BuildPlanResult(plan: plan)
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "ASnippet" && $0.target.type == .snippet })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Lib" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "ASnippet" && $0.module.type == .snippet })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "Lib" })
 
         let yaml = buildPath.appending("release.yaml")
         let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
@@ -6438,8 +6438,8 @@ final class BuildPlanTests: XCTestCase {
         ))
         result.checkProductsCount(3)
         result.checkTargetsCount(3)
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "FooLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "BarLogging" })
         let buildProduct = try XCTUnwrap(
             result.productMap[.init(
                 productName: "exe",

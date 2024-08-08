@@ -812,19 +812,19 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     public func provideBuildErrorAdvice(for target: String, command: String, message: String) -> String? {
         // Find the target for which the error was emitted.  If we don't find it, we can't give any advice.
-        guard let _ = self._buildPlan?.targets.first(where: { $0.target.name == target }) else { return nil }
+        guard let _ = self._buildPlan?.targets.first(where: { $0.module.name == target }) else { return nil }
 
         // Check for cases involving modules that cannot be found.
         if let importedModule = try? RegEx(pattern: "no such module '(.+)'").matchGroups(in: message).first?.first {
             // A target is importing a module that can't be found.  We take a look at the build plan and see if can offer any advice.
 
             // Look for a target with the same module name as the one that's being imported.
-            if let importedTarget = self._buildPlan?.targets.first(where: { $0.target.c99name == importedModule }) {
+            if let importedTarget = self._buildPlan?.targets.first(where: { $0.module.c99name == importedModule }) {
                 // For the moment we just check for executables that other targets try to import.
-                if importedTarget.target.type == .executable {
+                if importedTarget.module.type == .executable {
                     return "module '\(importedModule)' is the main module of an executable, and cannot be imported by tests and other targets"
                 }
-                if importedTarget.target.type == .macro {
+                if importedTarget.module.type == .macro {
                     return "module '\(importedModule)' is a macro, and cannot be imported by tests and other targets"
                 }
 
