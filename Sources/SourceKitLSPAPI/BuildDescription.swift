@@ -29,7 +29,11 @@ internal import class PackageModel.UserToolchain
 public typealias BuildTriple = PackageGraph.BuildTriple
 
 public protocol BuildTarget {
+    /// Source files in the target
     var sources: [URL] { get }
+
+    /// Header files in the target
+    var headers: [URL] { get }
 
     /// The name of the target. It should be possible to build a target by passing this name to `swift build --target`
     var name: String { get }
@@ -52,7 +56,14 @@ private struct WrappedClangTargetBuildDescription: BuildTarget {
     }
 
     public var sources: [URL] {
-        return (try? description.compilePaths().map { URL(fileURLWithPath: $0.source.pathString) }) ?? []
+        guard let compilePaths = try? description.compilePaths() else {
+            return []
+        }
+        return compilePaths.map(\.source.asURL)
+    }
+
+    public var headers: [URL] {
+        return description.clangTarget.headers.map(\.asURL)
     }
 
     public var name: String {
@@ -91,6 +102,8 @@ private struct WrappedSwiftTargetBuildDescription: BuildTarget {
     var sources: [URL] {
         return description.sources.map { URL(fileURLWithPath: $0.pathString) }
     }
+
+    var headers: [URL] { [] }
 
     func compileArguments(for fileURL: URL) throws -> [String] {
         // Note: we ignore the `fileURL` here as the expectation is that we get a command line for the entire target
