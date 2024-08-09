@@ -872,3 +872,18 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-toolchain-sqlite"),
     ]
 }
+
+// FIXME: `SourceControl` module needs to be updated to support `InferSendableFromCaptures`.
+for target in package.targets where [.regular, .test].contains(target.type) && target.name != "SourceControl" {
+    let sendableFromCaptures = SwiftSetting.enableUpcomingFeature("InferSendableFromCaptures")
+    let updatedSwiftSettings: [SwiftSetting]
+
+    if var swiftSettings = target.swiftSettings {
+        swiftSettings.append(sendableFromCaptures)
+        updatedSwiftSettings = swiftSettings
+    } else {
+        updatedSwiftSettings = [sendableFromCaptures]
+    }
+
+    target.swiftSettings = updatedSwiftSettings
+}
