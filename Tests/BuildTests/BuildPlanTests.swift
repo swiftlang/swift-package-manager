@@ -6496,4 +6496,126 @@ final class BuildPlanTests: XCTestCase {
             )
         }
     }
+
+    func testTraversalOverModules() async throws {
+        let destinationTriple = Triple.arm64Linux
+        let toolsTriple = Triple.x86_64MacOS
+
+        typealias Dest = BuildParameters.Destination
+
+        struct Result {
+            let parent: (ResolvedModule, Dest)?
+            let module: (ResolvedModule, Dest)
+            let depth: Int
+        }
+
+        func getResults(
+            for module: String,
+            with destination: Dest? = nil,
+            in results: [Result]
+        ) -> [Result] {
+            results.filter { result in
+                if result.module.0.name != module {
+                    return false
+                }
+                guard let destination else {
+                    return true
+                }
+
+                return result.module.1 == destination
+            }
+        }
+
+        func getParents(
+            in results: [Result],
+            for module: String,
+            destination: Dest? = nil
+        ) -> [String] {
+            getResults(
+                for: module,
+                with: destination,
+                in: results
+            ).reduce(into: Set<String>()) {
+                if let parent = $1.parent {
+                    $0.insert(parent.0.name)
+                }
+            }.sorted()
+        }
+
+        func getUniqueOccurrences(
+            in results: [Result],
+            for module: String,
+            destination: Dest? = nil
+        ) -> [Int] {
+            getResults(
+                for: module,
+                with: destination,
+                in: results
+            ).reduce(into: Set<Int>()) {
+                $0.insert($1.depth)
+            }.sorted()
+        }
+
+        do {
+            let (graph, fs, scope) = try trivialPackageGraph()
+            let plan = try await BuildPlan(
+                destinationBuildParameters: mockBuildParameters(
+                    destination: .target,
+                    triple: destinationTriple
+                ),
+                toolsBuildParameters: mockBuildParameters(
+                    destination: .host,
+                    triple: toolsTriple
+                ),
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: scope
+            )
+
+            var results: [Result] = []
+            plan.traverseModules {
+                results.append(Result(parent: $1, module: $0, depth: $2))
+            }
+
+            XCTAssertEqual(getParents(in: results, for: "app"), [])
+            XCTAssertEqual(getParents(in: results, for: "lib"), ["app", "test"])
+            XCTAssertEqual(getParents(in: results, for: "test"), [])
+
+            XCTAssertEqual(getUniqueOccurrences(in: results, for: "app"), [1])
+            XCTAssertEqual(getUniqueOccurrences(in: results, for: "lib"), [1, 2])
+            XCTAssertEqual(getUniqueOccurrences(in: results, for: "test"), [1])
+        }
+
+        do {
+            let (graph, fs, scope) = try macrosPackageGraph()
+            let plan = try await BuildPlan(
+                destinationBuildParameters: mockBuildParameters(
+                    destination: .target,
+                    triple: destinationTriple
+                ),
+                toolsBuildParameters: mockBuildParameters(
+                    destination: .host,
+                    triple: toolsTriple
+                ),
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: scope
+            )
+
+            var results: [Result] = []
+            plan.traverseModules {
+                results.append(Result(parent: $1, module: $0, depth: $2))
+            }
+
+            XCTAssertEqual(getParents(in: results, for: "MMIO"), ["HAL"])
+            XCTAssertEqual(getParents(in: results, for: "SwiftSyntax", destination: .host), ["MMIOMacros"])
+            XCTAssertEqual(getParents(in: results, for: "HAL", destination: .target), ["Core", "HALTests"])
+            XCTAssertEqual(getParents(in: results, for: "HAL", destination: .host), [])
+
+            XCTAssertEqual(getUniqueOccurrences(in: results, for: "MMIO"), [1, 2, 3, 4])
+            XCTAssertEqual(getUniqueOccurrences(in: results, for: "SwiftSyntax", destination: .target), [1])
+            XCTAssertEqual(getUniqueOccurrences(in: results, for: "SwiftSyntax", destination: .host), [2, 3, 4, 5, 6])
+            XCTAssertEqual(getUniqueOccurrences(in: results, for: "HAL"), [1, 2, 3])
+        }
+    }
 }

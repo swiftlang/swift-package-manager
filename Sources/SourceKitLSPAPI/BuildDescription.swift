@@ -29,7 +29,11 @@ internal import class PackageModel.UserToolchain
 public typealias BuildTriple = PackageGraph.BuildTriple
 
 public protocol BuildTarget {
+    /// Source files in the target
     var sources: [URL] { get }
+
+    /// Header files in the target
+    var headers: [URL] { get }
 
     /// The name of the target. It should be possible to build a target by passing this name to `swift build --target`
     var name: String { get }
@@ -52,7 +56,14 @@ private struct WrappedClangTargetBuildDescription: BuildTarget {
     }
 
     public var sources: [URL] {
-        return (try? description.compilePaths().map { URL(fileURLWithPath: $0.source.pathString) }) ?? []
+        guard let compilePaths = try? description.compilePaths() else {
+            return []
+        }
+        return compilePaths.map(\.source.asURL)
+    }
+
+    public var headers: [URL] {
+        return description.clangTarget.headers.map(\.asURL)
     }
 
     public var name: String {
@@ -91,6 +102,8 @@ private struct WrappedSwiftTargetBuildDescription: BuildTarget {
     var sources: [URL] {
         return description.sources.map { URL(fileURLWithPath: $0.pathString) }
     }
+
+    var headers: [URL] { [] }
 
     func compileArguments(for fileURL: URL) throws -> [String] {
         // Note: we ignore the `fileURL` here as the expectation is that we get a command line for the entire target
@@ -142,11 +155,22 @@ public struct BuildDescription {
         }
     }
 
-    /// Returns all targets within the module graph in topological order, starting with low-level targets (that have no
-    /// dependencies).
-    public func allTargetsInTopologicalOrder(in modulesGraph: ModulesGraph) throws -> [BuildTarget] {
-        try modulesGraph.allModulesInTopologicalOrder.compactMap {
-            getBuildTarget(for: $0, in: modulesGraph)
+    public func traverseModules(
+        callback: (any BuildTarget, _ parent: (any BuildTarget)?, _ depth: Int) -> Void
+    ) {
+        // TODO: One the `targetMap` is switched over to use `IdentifiableSet<ModuleBuildDescription>`
+        // we can introduce `BuildPlan.description(ResolvedModule, BuildParameters.Destination)`
+        // and start using that here.
+        self.buildPlan.traverseModules { module, parent, depth in
+            let parentDescription: (any BuildTarget)? = if let parent {
+                getBuildTarget(for: parent.0, in: self.buildPlan.graph)
+            } else {
+                nil
+            }
+
+            if let description = getBuildTarget(for: module.0, in: self.buildPlan.graph) {
+                callback(description, parentDescription, depth)
+            }
         }
     }
 
