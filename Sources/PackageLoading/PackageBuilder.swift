@@ -998,6 +998,7 @@ public final class PackageBuilder {
                 packageAccess: potentialModule.packageAccess,
                 swiftVersion: try swiftVersion(),
                 buildSettings: buildSettings,
+                buildSettingsDescription: manifestTarget.settings,
                 usesUnsafeFlags: manifestTarget.usesUnsafeFlags
 
             )

@@ -39,6 +39,7 @@ public final class MixedTarget: Target {
         packageAccess: Bool,
         swiftVersion: SwiftLanguageVersion,
         buildSettings: BuildSettings.AssignmentTable = .init(),
+        buildSettingsDescription: [TargetBuildSettingDescription.Setting],
         pluginUsages: [PluginUsage] = [],
         usesUnsafeFlags: Bool
     ) throws {
@@ -113,6 +114,7 @@ public final class MixedTarget: Target {
             dependencies: dependencies,
             packageAccess: packageAccess,
             buildSettings: buildSettings,
+            buildSettingsDescription: buildSettingsDescription,
             pluginUsages: pluginUsages,
             usesUnsafeFlags: usesUnsafeFlags
         )
