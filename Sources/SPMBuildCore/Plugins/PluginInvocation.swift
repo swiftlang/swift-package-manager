@@ -44,49 +44,6 @@ public struct PluginTool {
 }
 
 extension PluginModule {
-    public func invoke(
-        action: PluginAction,
-        buildEnvironment: BuildEnvironment,
-        scriptRunner: PluginScriptRunner,
-        workingDirectory: AbsolutePath,
-        outputDirectory: AbsolutePath,
-        toolSearchDirectories: [AbsolutePath],
-        accessibleTools: [String: PluginTool],
-        writableDirectories: [AbsolutePath],
-        readOnlyDirectories: [AbsolutePath],
-        allowNetworkConnections: [SandboxNetworkPermission],
-        pkgConfigDirectories: [AbsolutePath],
-        sdkRootPath: AbsolutePath?,
-        fileSystem: FileSystem,
-        modulesGraph: ModulesGraph,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        delegate: PluginInvocationDelegate
-    ) async throws -> Bool {
-        try await withCheckedThrowingContinuation {
-            self.invoke(
-                action: action,
-                buildEnvironment: buildEnvironment,
-                scriptRunner: scriptRunner,
-                workingDirectory: workingDirectory,
-                outputDirectory: outputDirectory,
-                toolSearchDirectories: toolSearchDirectories,
-                accessibleTools: accessibleTools,
-                writableDirectories: writableDirectories,
-                readOnlyDirectories: readOnlyDirectories,
-                allowNetworkConnections: allowNetworkConnections,
-                pkgConfigDirectories: pkgConfigDirectories,
-                sdkRootPath: sdkRootPath,
-                fileSystem: fileSystem,
-                modulesGraph: modulesGraph,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                delegate: delegate,
-                completion: $0.resume(with:)
-            )
-        }
-    }
-
     /// Invokes the plugin by compiling its source code (if needed) and then running it as a subprocess. The specified
     /// plugin action determines which entry point is called in the subprocess, and the package and the tool mapping
     /// determine the context that is available to the plugin.
@@ -110,7 +67,6 @@ extension PluginModule {
     ///   - fileSystem: The file system to which all of the paths refers.
     ///
     /// - Returns: A PluginInvocationResult that contains the results of invoking the plugin.
-    @available(*, noasync, message: "Use the async alternative")
     public func invoke(
         action: PluginAction,
         buildEnvironment: BuildEnvironment,
@@ -127,16 +83,15 @@ extension PluginModule {
         fileSystem: FileSystem,
         modulesGraph: ModulesGraph,
         observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
         delegate: PluginInvocationDelegate,
-        completion: @escaping (Result<Bool, Error>) -> Void
-    ) {
+        delegateQueue: DispatchQueue
+    ) async throws -> Bool {
         // Create the plugin's output directory if needed (but don't do anything with it if it already exists).
         do {
             try fileSystem.createDirectory(outputDirectory, recursive: true)
         }
         catch {
-            return callbackQueue.async { completion(.failure(PluginEvaluationError.couldNotCreateOuputDirectory(path: outputDirectory, underlyingError: error))) }
+            throw PluginEvaluationError.couldNotCreateOuputDirectory(path: outputDirectory, underlyingError: error)
         }
 
         // Serialize the plugin action to send as the initial message.
@@ -198,14 +153,15 @@ extension PluginModule {
             initialMessage = try actionMessage.toData()
         }
         catch {
-            return callbackQueue.async { completion(.failure(PluginEvaluationError.couldNotSerializePluginInput(underlyingError: error))) }
+            throw PluginEvaluationError.couldNotSerializePluginInput(underlyingError: error)
         }
         
         // Handle messages and output from the plugin.
         class ScriptRunnerDelegate: PluginScriptCompilerDelegate, PluginScriptRunnerDelegate {
             /// Delegate that should be told about events involving the plugin.
             let invocationDelegate: PluginInvocationDelegate
-            
+            let invocationDelegateQueue: DispatchQueue
+
             /// Observability scope for the invoking of the plugin. Diagnostics from the plugin itself are sent through the delegate.
             let observabilityScope: ObservabilityScope
             
@@ -215,26 +171,35 @@ extension PluginModule {
             /// If this is true, we exited early with an error.
             var exitEarly = false
             
-            init(invocationDelegate: PluginInvocationDelegate, observabilityScope: ObservabilityScope) {
+            init(invocationDelegate: PluginInvocationDelegate, invocationDelegateQueue: DispatchQueue, observabilityScope: ObservabilityScope) {
                 self.invocationDelegate = invocationDelegate
+                self.invocationDelegateQueue = invocationDelegateQueue
                 self.observabilityScope = observabilityScope
             }
             
             func willCompilePlugin(commandLine: [String], environment: [String: String]) {
-                invocationDelegate.pluginCompilationStarted(commandLine: commandLine, environment: environment)
+                self.invocationDelegateQueue.async {
+                    self.invocationDelegate.pluginCompilationStarted(commandLine: commandLine, environment: environment)
+                }
             }
             
             func didCompilePlugin(result: PluginCompilationResult) {
-                invocationDelegate.pluginCompilationEnded(result: result)
+                self.invocationDelegateQueue.async {
+                    self.invocationDelegate.pluginCompilationEnded(result: result)
+                }
             }
             
             func skippedCompilingPlugin(cachedResult: PluginCompilationResult) {
-                invocationDelegate.pluginCompilationWasSkipped(cachedResult: cachedResult)
+                self.invocationDelegateQueue.async {
+                    self.invocationDelegate.pluginCompilationWasSkipped(cachedResult: cachedResult)
+                }
             }
             
             /// Invoked when the plugin emits arbitrary data on its stdout/stderr. There is no guarantee that the data is split on UTF-8 character encoding boundaries etc.  The script runner delegate just passes it on to the invocation delegate.
             func handleOutput(data: Data) {
-                invocationDelegate.pluginEmittedOutput(data)
+                self.invocationDelegateQueue.async {
+                    self.invocationDelegate.pluginEmittedOutput(data)
+                }
             }
 
             /// Invoked when the plugin emits a message. The `responder` closure can be used to send any reply messages.
@@ -268,6 +233,7 @@ extension PluginModule {
                     if config.version != 2 {
                         throw PluginEvaluationError.pluginUsesIncompatibleVersion(expected: 2, actual: config.version)
                     }
+
                     self.invocationDelegate.pluginDefinedBuildCommand(
                         displayName: config.displayName,
                         executable: try AbsolutePath(validating: config.executable.path),
@@ -342,10 +308,10 @@ extension PluginModule {
                 }
             }
         }
-        let runnerDelegate = ScriptRunnerDelegate(invocationDelegate: delegate, observabilityScope: observabilityScope)
-        
+        let runnerDelegate = ScriptRunnerDelegate(invocationDelegate: delegate, invocationDelegateQueue: delegateQueue, observabilityScope: observabilityScope)
+
         // Call the plugin script runner to actually invoke the plugin.
-        scriptRunner.runPluginScript(
+        let exitCode = try await scriptRunner.runPluginScript(
             sourceFiles: sources.paths,
             pluginName: self.name,
             initialMessage: initialMessage,
@@ -356,23 +322,22 @@ extension PluginModule {
             allowNetworkConnections: allowNetworkConnections,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue,
-            delegate: runnerDelegate) { result in
-                dispatchPrecondition(condition: .onQueue(callbackQueue))
-                completion(result.map { exitCode in
-                    // Return a result based on the exit code or the `exitEarly` parameter. If the plugin
-                    // exits with an error but hasn't already emitted an error, we do so for it.
-                    let exitedCleanly = (exitCode == 0) && !runnerDelegate.exitEarly
-                    if !exitedCleanly && !runnerDelegate.hasReportedError {
-                        delegate.pluginEmittedDiagnostic(
-                            .error("Plugin ended with exit code \(exitCode)")
-                        )
-                    }
-                    return exitedCleanly
-                })
+            delegate: runnerDelegate,
+            delegateQueue: delegateQueue)
+
+        // Return a result based on the exit code or the `exitEarly` parameter. If the plugin
+        // exits with an error but hasn't already emitted an error, we do so for it.
+        let exitedCleanly = (exitCode == 0) && !runnerDelegate.exitEarly
+        if !exitedCleanly && !runnerDelegate.hasReportedError {
+            delegate.pluginEmittedDiagnostic(
+                .error("Plugin ended with exit code \(exitCode)")
+            )
         }
+        return exitedCleanly
     }
 
+    /// This is a convenient way to get results of the plugin invocation without having
+    /// to deal with delegates and other internal details.
     package func invoke(
         module: ResolvedModule,
         action: PluginAction,
@@ -391,55 +356,9 @@ extension PluginModule {
         modulesGraph: ModulesGraph,
         observabilityScope: ObservabilityScope
     ) async throws -> BuildToolPluginInvocationResult {
-        try await withCheckedThrowingContinuation {
-            self.invoke(
-                module: module,
-                action: action,
-                buildEnvironment: buildEnvironment,
-                scriptRunner: scriptRunner,
-                workingDirectory: workingDirectory,
-                outputDirectory: outputDirectory,
-                toolSearchDirectories: toolSearchDirectories,
-                accessibleTools: accessibleTools,
-                writableDirectories: writableDirectories,
-                readOnlyDirectories: readOnlyDirectories,
-                allowNetworkConnections: allowNetworkConnections,
-                pkgConfigDirectories: pkgConfigDirectories,
-                sdkRootPath: sdkRootPath,
-                fileSystem: fileSystem,
-                modulesGraph: modulesGraph,
-                observabilityScope: observabilityScope,
-                completion: $0.resume(with:)
-            )
-        }
-    }
-
-    /// This is a convenient way to get results of the plugin invocation without having
-    /// to deal with delegates and other internal details.
-    @available(*, noasync, message: "Use the async alternative")
-    package func invoke(
-        module: ResolvedModule,
-        action: PluginAction,
-        buildEnvironment: BuildEnvironment,
-        scriptRunner: PluginScriptRunner,
-        workingDirectory: AbsolutePath,
-        outputDirectory: AbsolutePath,
-        toolSearchDirectories: [AbsolutePath],
-        accessibleTools: [String: PluginTool],
-        writableDirectories: [AbsolutePath],
-        readOnlyDirectories: [AbsolutePath],
-        allowNetworkConnections: [SandboxNetworkPermission],
-        pkgConfigDirectories: [AbsolutePath],
-        sdkRootPath: AbsolutePath?,
-        fileSystem: FileSystem,
-        modulesGraph: ModulesGraph,
-        observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<BuildToolPluginInvocationResult, Error>) -> Void
-    ) {
         /// Determine the package that contains the target.
         guard let package = modulesGraph.package(for: module) else {
-            completion(.failure(InternalError("Could not find package for \(self)")))
-            return
+            throw InternalError("Could not find package for \(self)")
         }
 
         // Set up a delegate to handle callbacks from the build tool plugin.
@@ -459,49 +378,41 @@ extension PluginModule {
 
         let startTime = DispatchTime.now()
 
-        self.invoke(
-            action: action,
-            buildEnvironment: buildEnvironment,
-            scriptRunner: scriptRunner,
-            workingDirectory: workingDirectory,
-            outputDirectory: outputDirectory,
-            toolSearchDirectories: toolSearchDirectories,
-            accessibleTools: accessibleTools,
-            writableDirectories: writableDirectories,
-            readOnlyDirectories: readOnlyDirectories,
-            allowNetworkConnections: allowNetworkConnections,
-            pkgConfigDirectories: pkgConfigDirectories,
-            sdkRootPath: sdkRootPath,
-            fileSystem: fileSystem,
-            modulesGraph: modulesGraph,
-            observabilityScope: observabilityScope,
-            callbackQueue: delegateQueue,
-            delegate: delegate,
-            completion: {
-                let duration = startTime.distance(to: .now())
+        let success: Bool = (
+            try? await self.invoke(
+                action: action,
+                buildEnvironment: buildEnvironment,
+                scriptRunner: scriptRunner,
+                workingDirectory: workingDirectory,
+                outputDirectory: outputDirectory,
+                toolSearchDirectories: toolSearchDirectories,
+                accessibleTools: accessibleTools,
+                writableDirectories: writableDirectories,
+                readOnlyDirectories: readOnlyDirectories,
+                allowNetworkConnections: allowNetworkConnections,
+                pkgConfigDirectories: pkgConfigDirectories,
+                sdkRootPath: sdkRootPath,
+                fileSystem: fileSystem,
+                modulesGraph: modulesGraph,
+                observabilityScope: observabilityScope,
+                delegate: delegate,
+                delegateQueue: delegateQueue
+            )
+        ) ?? false
 
-                let success: Bool = switch $0 {
-                case .success(let result):
-                    result
-                case .failure:
-                    false
-                }
+        let duration = startTime.distance(to: .now())
 
-                let invocationResult = BuildToolPluginInvocationResult(
-                    plugin: self,
-                    pluginOutputDirectory: outputDirectory,
-                    package: package,
-                    target: module,
-                    succeeded: success,
-                    duration: duration,
-                    diagnostics: delegate.diagnostics,
-                    textOutput: String(decoding: delegate.outputData, as: UTF8.self),
-                    buildCommands: delegate.buildCommands,
-                    prebuildCommands: delegate.prebuildCommands
-                )
-
-                completion(.success(invocationResult))
-            }
+        return BuildToolPluginInvocationResult(
+            plugin: self,
+            pluginOutputDirectory: outputDirectory,
+            package: package,
+            target: module,
+            succeeded: success,
+            duration: duration,
+            diagnostics: delegate.diagnostics,
+            textOutput: String(decoding: delegate.outputData, as: UTF8.self),
+            buildCommands: delegate.buildCommands,
+            prebuildCommands: delegate.prebuildCommands
         )
     }
 }
