@@ -291,6 +291,7 @@ class GitRepositoryTests: XCTestCase {
             // Check read of a file.
             XCTAssertEqual(try view.readFileContents("/test-file-1.txt"), test1FileContents)
             XCTAssertEqual(try view.readFileContents("/subdir/test-file-2.txt"), test2FileContents)
+            XCTAssertEqual(try view.readFileContents("/test-file-3.sh"), test3FileContents)
         }
     }
 
@@ -446,7 +447,7 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
-    func testUncommitedChanges() throws {
+    func testUncommittedChanges() throws {
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")

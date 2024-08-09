@@ -17,7 +17,7 @@ import PackageModel
 import struct TSCUtility.Version
 
 extension Manifest {
-    public static func createRootManifest(
+    package static func createRootManifest(
         displayName: String,
         path: AbsolutePath = .root,
         defaultLocalization: String? = nil,
@@ -53,7 +53,7 @@ extension Manifest {
         )
     }
 
-    public static func createFileSystemManifest(
+    package static func createFileSystemManifest(
         displayName: String,
         path: AbsolutePath,
         defaultLocalization: String? = nil,
@@ -89,7 +89,7 @@ extension Manifest {
         )
     }
 
-    public static func createLocalSourceControlManifest(
+    package static func createLocalSourceControlManifest(
         displayName: String,
         path: AbsolutePath,
         defaultLocalization: String? = nil,
@@ -125,7 +125,7 @@ extension Manifest {
         )
     }
 
-    public static func createRemoteSourceControlManifest(
+    package static func createRemoteSourceControlManifest(
         displayName: String,
         url: SourceControlURL,
         path: AbsolutePath,
@@ -162,7 +162,7 @@ extension Manifest {
         )
     }
 
-    public static func createRegistryManifest(
+    package static func createRegistryManifest(
         displayName: String,
         identity: PackageIdentity,
         path: AbsolutePath = .root,
@@ -199,7 +199,7 @@ extension Manifest {
         )
     }
 
-    public static func createManifest(
+    package static func createManifest(
         displayName: String,
         path: AbsolutePath = .root,
         packageKind: PackageReference.Kind,
@@ -238,7 +238,7 @@ extension Manifest {
         )
     }
 
-    public func with(location: String) -> Manifest {
+    package func with(location: String) -> Manifest {
         Manifest(
             displayName: self.displayName,
             path: self.path,

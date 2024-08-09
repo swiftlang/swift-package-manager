@@ -17,7 +17,9 @@ import struct PackageGraph.ResolvedProduct
 import struct PackageGraph.ResolvedTarget
 import class PackageModel.BinaryTarget
 import class PackageModel.ClangTarget
+
 import class PackageModel.Target
+
 import class PackageModel.SwiftTarget
 import class PackageModel.SystemLibraryTarget
 import struct SPMBuildCore.BuildParameters
@@ -28,7 +30,10 @@ extension BuildPlan {
     /// Plan a product.
     func plan(buildProduct: ProductBuildDescription) throws {
         // Compute the product's dependency.
-        let dependencies = try computeDependencies(of: buildProduct.product, buildParameters: buildProduct.buildParameters)
+        let dependencies = try computeDependencies(
+            of: buildProduct.product,
+            buildParameters: buildProduct.buildParameters
+        )
 
         // Add flags for system targets.
         for systemModule in dependencies.systemModules {
@@ -50,19 +55,24 @@ extension BuildPlan {
             }
         }
 
-        // Link C++ if needed.
-        // Note: This will come from build settings in future.
-        for target in dependencies.staticTargets {
-            if case let target as ClangTarget = target.underlying, target.isCXX {
-                let triple = buildProduct.buildParameters.triple
-                if triple.isDarwin() {
-                    buildProduct.additionalFlags += ["-lc++"]
-                } else if triple.isWindows() {
-                    // Don't link any C++ library.
-                } else {
-                    buildProduct.additionalFlags += ["-lstdc++"]
+        // Don't link libc++ or libstd++ when building for Embedded Swift.
+        // Users can still link it manually for embedded platforms when needed,
+        // by providing `-Xlinker -lc++` options via CLI or `Package.swift`.
+        if !buildProduct.product.targets.contains(where: \.underlying.isEmbeddedSwiftTarget) {
+            // Link C++ if needed.
+            // Note: This will come from build settings in future.
+            for target in dependencies.staticTargets {
+                if case let target as ClangTarget = target.underlying, target.isCXX {
+                    let triple = buildProduct.buildParameters.triple
+                    if triple.isDarwin() {
+                        buildProduct.additionalFlags += ["-lc++"]
+                    } else if triple.isWindows() {
+                        // Don't link any C++ library.
+                    } else {
+                        buildProduct.additionalFlags += ["-lstdc++"]
+                    }
+                    break
                 }
-                break
             }
         }
 
@@ -143,6 +153,12 @@ extension BuildPlan {
             topLevelDependencies = []
         }
 
+        // get the dynamic libraries for explicitly linking rdar://108561857
+        func recursiveDynamicLibraries(for product: ResolvedProduct) throws -> [ResolvedProduct] {
+            let dylibs = try computeDependencies(of: product, buildParameters: buildParameters).dylibs
+            return try dylibs + dylibs.flatMap { try recursiveDynamicLibraries(for: $0) }
+        }
+
         // Sort the product targets in topological order.
         let nodes: [ResolvedTarget.Dependency] = product.targets.map { .target($0, conditions: []) }
         let allTargets = try topologicalSort(nodes, successors: { dependency in
@@ -175,7 +191,9 @@ extension BuildPlan {
                     return productDependencies
                 case .plugin:
                     return shouldExcludePlugins ? [] : productDependencies
-                case .library(.dynamic), .test, .executable, .snippet, .macro:
+                case .library(.dynamic):
+                    return try recursiveDynamicLibraries(for: product).map { .product($0, conditions: []) }
+                case .test, .executable, .snippet, .macro:
                     return []
                 }
             }

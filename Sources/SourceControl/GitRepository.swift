@@ -505,7 +505,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 "remote",
                 failureMessage: "Couldn’t get the list of remotes"
             )
-            let remoteNames = remoteNamesOutput.split(separator: "\n").map(String.init)
+            let remoteNames = remoteNamesOutput.split(whereSeparator: { $0.isNewline }).map(String.init)
             return try remoteNames.map { name in
                 // For each remote get the url.
                 let url = try callGit(
@@ -529,7 +529,7 @@ public final class GitRepository: Repository, WorkingCheckout {
         try self.cachedBranches.memoize {
             try self.lock.withLock {
                 let branches = try callGit("branch", "-l", failureMessage: "Couldn’t get the list of branches")
-                return branches.split(separator: "\n").map { $0.dropFirst(2) }.map(String.init)
+                return branches.split(whereSeparator: { $0.isNewline }).map { $0.dropFirst(2) }.map(String.init)
             }
         }
     }
@@ -546,7 +546,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                     "-l",
                     failureMessage: "Couldn’t get the list of tags"
                 )
-                return tagList.split(separator: "\n").map(String.init)
+                return tagList.split(whereSeparator: { $0.isNewline }).map(String.init)
             }
         }
     }
@@ -780,7 +780,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 output = try error.result.utf8Output().spm_chomp()
             }
 
-            return stringPaths.map(output.split(separator: "\n").map {
+            return stringPaths.map(output.split(whereSeparator: { $0.isNewline }).map {
                 let string = String($0).replacingOccurrences(of: "\\\\", with: "\\")
                 if string.utf8.first == UInt8(ascii: "\"") {
                     return String(string.dropFirst(1).dropLast(1))
@@ -1105,7 +1105,7 @@ private class GitFileSystemView: FileSystem {
         case .symlink:
             let path = try repository.readLink(hash: hash)
             return try readFileContents(AbsolutePath(validating: path))
-        case .blob:
+        case .blob, .executableBlob:
             return try self.repository.readBlob(hash: hash)
         default:
             throw InternalError("unsupported git entry type \(entry.type) at path \(path)")

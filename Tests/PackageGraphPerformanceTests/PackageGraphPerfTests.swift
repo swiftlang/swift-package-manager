@@ -85,7 +85,7 @@ final class PackageGraphPerfTests: XCTestCasePerf {
 
         measure {
             let observability = ObservabilitySystem.makeForTesting()
-            let g = try! PackageGraph.load(
+            let g = try! ModulesGraph.load(
                 root: PackageGraphRoot(
                     input: PackageGraphRootInput(packages: [rootManifest.path]),
                     manifests: [rootManifest.path: rootManifest],
@@ -94,6 +94,7 @@ final class PackageGraphPerfTests: XCTestCasePerf {
                 identityResolver: identityResolver,
                 externalManifests: externalManifests,
                 binaryArtifacts: [:],
+                availableLibraries: [], // assume no provided libraries for testing.
                 fileSystem: fs,
                 observabilityScope: observability.topScope
             )

@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import PackageModel
 import SPMTestSupport
 import XCTest
 
@@ -101,8 +100,6 @@ class ResourcesTests: XCTestCase {
     }
 
     func testSwiftResourceAccessorDoesNotCauseInconsistentImportWarning() throws {
-        try XCTSkipIf(!UserToolchain.default.supportsWarningsAsErrors(), "skipping because test environment doesn't support warnings as errors")
-
         try fixture(name: "Resources/FoundationlessClient/UtilsWithFoundationPkg") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
@@ -138,7 +135,7 @@ class ResourcesTests: XCTestCase {
             try localFileSystem.writeFileContents(
                 manifestFile,
                 string: """
-                // swift-tools-version: 5.11
+                // swift-tools-version: 6.0
                 import PackageDescription
                 let package = Package(name: "MyPackage",
                     targets: [

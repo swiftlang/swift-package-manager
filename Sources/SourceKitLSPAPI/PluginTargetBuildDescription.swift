@@ -10,14 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+import struct Foundation.URL
 
-// FIXME: should be an internal import
 import struct PackageGraph.ResolvedTarget
 
-/*private*/ import class PackageLoading.ManifestLoader
-/*private*/ import struct PackageModel.ToolsVersion
-/*private*/ import class PackageModel.UserToolchain
+private import class PackageLoading.ManifestLoader
+internal import struct PackageModel.ToolsVersion
+private import class PackageModel.UserToolchain
 
 struct PluginTargetBuildDescription: BuildTarget {
     private let target: ResolvedTarget

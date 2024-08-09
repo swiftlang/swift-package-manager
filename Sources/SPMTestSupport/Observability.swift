@@ -19,43 +19,43 @@ import struct TSCBasic.StringError
 import TSCTestSupport
 
 extension ObservabilitySystem {
-    public static func makeForTesting(verbose: Bool = true) -> TestingObservability {
+    package static func makeForTesting(verbose: Bool = true) -> TestingObservability {
         let collector = TestingObservability.Collector(verbose: verbose)
         let observabilitySystem = ObservabilitySystem(collector)
         return TestingObservability(collector: collector, topScope: observabilitySystem.topScope)
     }
 
-    public static var NOOP: ObservabilityScope {
+    package static var NOOP: ObservabilityScope {
         ObservabilitySystem { _, _ in }.topScope
     }
 }
 
-public struct TestingObservability {
+package struct TestingObservability {
     private let collector: Collector
-    public let topScope: ObservabilityScope
+    package let topScope: ObservabilityScope
 
     fileprivate init(collector: Collector, topScope: ObservabilityScope) {
         self.collector = collector
         self.topScope = topScope
     }
 
-    public var diagnostics: [Basics.Diagnostic] {
+    package var diagnostics: [Basics.Diagnostic] {
         self.collector.diagnostics.get()
     }
 
-    public var errors: [Basics.Diagnostic] {
+    package var errors: [Basics.Diagnostic] {
         self.diagnostics.filter { $0.severity == .error }
     }
 
-    public var warnings: [Basics.Diagnostic] {
+    package var warnings: [Basics.Diagnostic] {
         self.diagnostics.filter { $0.severity == .warning }
     }
 
-    public var hasErrorDiagnostics: Bool {
+    package var hasErrorDiagnostics: Bool {
         self.collector.hasErrors
     }
 
-    public var hasWarningDiagnostics: Bool {
+    package var hasWarningDiagnostics: Bool {
         self.collector.hasWarnings
     }
 
@@ -72,14 +72,6 @@ public struct TestingObservability {
 
         // TODO: do something useful with scope
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
-            // Filter superfluous diagnostics.
-            guard !diagnostic.message.hasPrefix("<unknown>:0: warning: annotation implies no releases") else {
-                return
-            }
-            guard !diagnostic.message.hasPrefix("<unknown>:0: note: add explicit") else {
-                return
-            }
-
             if self.verbose {
                 print(diagnostic.description)
             }
@@ -101,7 +93,7 @@ public struct TestingObservability {
     }
 }
 
-public func XCTAssertNoDiagnostics(
+package func XCTAssertNoDiagnostics(
     _ diagnostics: [Basics.Diagnostic],
     problemsOnly: Bool = true,
     file: StaticString = #file,
@@ -113,7 +105,7 @@ public func XCTAssertNoDiagnostics(
     XCTFail("Found unexpected diagnostics: \n\(description)", file: file, line: line)
 }
 
-public func testDiagnostics(
+package func testDiagnostics(
     _ diagnostics: [Basics.Diagnostic],
     problemsOnly: Bool = true,
     file: StaticString = #file,
@@ -129,7 +121,7 @@ public func testDiagnostics(
     )
 }
 
-public func testDiagnostics(
+package func testDiagnostics(
     _ diagnostics: [Basics.Diagnostic],
     minSeverity: Basics.Diagnostic.Severity,
     file: StaticString = #file,
@@ -150,7 +142,7 @@ public func testDiagnostics(
     }
 }
 
-public func testPartialDiagnostics(
+package func testPartialDiagnostics(
     _ diagnostics: [Basics.Diagnostic],
     minSeverity: Basics.Diagnostic.Severity,
     file: StaticString = #file,
@@ -168,7 +160,7 @@ public func testPartialDiagnostics(
 }
 
 /// Helper to check diagnostics in the engine.
-public class DiagnosticsTestResult {
+package class DiagnosticsTestResult {
     fileprivate var uncheckedDiagnostics: [Basics.Diagnostic]
 
     init(_ diagnostics: [Basics.Diagnostic]) {
@@ -176,7 +168,7 @@ public class DiagnosticsTestResult {
     }
 
     @discardableResult
-    public func check(
+    package func check(
         diagnostic message: StringPattern,
         severity: Basics.Diagnostic.Severity,
         //metadata: ObservabilityMetadata? = .none,
@@ -200,7 +192,7 @@ public class DiagnosticsTestResult {
     }
 
     @discardableResult
-    public func checkUnordered(
+    package func checkUnordered(
         diagnostic diagnosticPattern: StringPattern,
         severity: Basics.Diagnostic.Severity,
         //metadata: ObservabilityMetadata? = .none,

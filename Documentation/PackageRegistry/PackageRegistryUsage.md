@@ -158,7 +158,7 @@ any package identifier (e.g., `mona.LinkedList`).
 One can control if/how SwiftPM should use registry in conjunction with 
 source control dependencies by setting one of these flags:
 - `--disable-scm-to-registry-transformation` (default): SwiftPM will not transform source control dependency to registry dependency. Source control dependency will be downloaded from its corresponding URL, while registry dependency will be resolved and downloaded using the configured registry (if any).
-- `--use-registry-identity-for-scm`: SwiftPM will look up source control dependencies in the registry and use their registry identity whenever possible to help deduplicate packages across the two origins. In other words, suppose `mona.LinkedList` is the package identifer for `https://github.com/mona/LinkedList`, then SwiftPM will treat both references in the dependency graph as the same package. 
+- `--use-registry-identity-for-scm`: SwiftPM will look up source control dependencies in the registry and use their registry identity whenever possible to help deduplicate packages across the two origins. In other words, suppose `mona.LinkedList` is the package identifier for `https://github.com/mona/LinkedList`, then SwiftPM will treat both references in the dependency graph as the same package. 
 - `--replace-scm-with-registry`: SwiftPM will look up source control dependencies in the registry and use the registry to retrieve them instead of source control when possible. In other words, SwiftPM will attempt to download a source control dependency from the registry first, and fall back to cloning the source repository iff the dependency is not found in the registry.
 
 ## Dependency Download From Registry
@@ -183,7 +183,7 @@ or previous value, SwiftPM will fail the build. This can be
 tuned down from error to warning by setting the build option 
 `--resolver-fingerprint-checking` to `warn` (default is `strict`).
 
-Checkum TOFU is also done for manifests downloaded from registry. 
+Checksum TOFU is also done for manifests downloaded from registry. 
 
 ### Validating signed packages
 
@@ -456,7 +456,7 @@ $ swift package-registry set --scope foo https://local.example.com
 $ swift package-registry set --scope foo --global https://global.example.com  
 ```
 
-To remove a registry assignement, use the `swift package-registry unset` subcommand.
+To remove a registry assignment, use the `swift package-registry unset` subcommand.
   
 ### Security configuration
 

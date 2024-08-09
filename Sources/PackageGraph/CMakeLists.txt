@@ -13,12 +13,13 @@ add_library(PackageGraph
   Diagnostics.swift
   GraphLoadingNode.swift
   ModuleAliasTracker.swift
+  ModulesGraph.swift
+  ModulesGraph+Loading.swift
   PackageContainer.swift
-  PackageGraph.swift
-  PackageGraph+Loading.swift
   PackageGraphRoot.swift
   PackageModel+Extensions.swift
   PackageRequirement.swift
+  PrebuiltPackageContainer.swift
   PinsStore.swift
   Resolution/PubGrub/Assignment.swift
   Resolution/PubGrub/ContainerProvider.swift

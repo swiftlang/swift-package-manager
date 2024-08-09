@@ -879,7 +879,11 @@ public final class PackageBuilder {
         }
 
         // Create the build setting assignment table for this target.
-        let buildSettings = try self.buildSettings(for: manifestTarget, targetRoot: potentialModule.path, cxxLanguageStandard: self.manifest.cxxLanguageStandard)
+        let buildSettings = try self.buildSettings(
+            for: manifestTarget,
+            targetRoot: potentialModule.path,
+            cxxLanguageStandard: self.manifest.cxxLanguageStandard
+        )
 
         // Compute the path to public headers directory.
         let publicHeaderComponent = manifestTarget.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
@@ -1012,6 +1016,7 @@ public final class PackageBuilder {
                 packageAccess: potentialModule.packageAccess,
                 swiftVersion: try self.swiftVersion(),
                 buildSettings: buildSettings,
+                buildSettingsDescription: manifestTarget.settings,
                 usesUnsafeFlags: manifestTarget.usesUnsafeFlags
             )
         } else {
@@ -1047,14 +1052,18 @@ public final class PackageBuilder {
                 ignored: ignored,
                 dependencies: dependencies,
                 buildSettings: buildSettings,
+                buildSettingsDescription: manifestTarget.settings,
                 usesUnsafeFlags: manifestTarget.usesUnsafeFlags
             )
         }
     }
 
     /// Creates build setting assignment table for the given target.
-    func buildSettings(for target: TargetDescription?, targetRoot: AbsolutePath, cxxLanguageStandard: String? = nil) throws -> BuildSettings
-        .AssignmentTable
+    func buildSettings(
+        for target: TargetDescription?,
+        targetRoot: AbsolutePath,
+        cxxLanguageStandard: String? = nil
+    ) throws -> BuildSettings.AssignmentTable
     {
         var table = BuildSettings.AssignmentTable()
         guard let target else { return table }
@@ -1708,23 +1717,21 @@ extension PackageBuilder {
                 let sources = Sources(paths: [sourceFile], root: sourceFile.parentDirectory)
                 let buildSettings: BuildSettings.AssignmentTable
 
-                do {
-                    let targetDescription = try TargetDescription(
-                        name: name,
-                        dependencies: dependencies
-                            .map {
-                                TargetDescription.Dependency.target(name: $0.name)
-                            },
-                        path: sourceFile.parentDirectory.pathString,
-                        sources: [sourceFile.pathString],
-                        type: .executable,
-                        packageAccess: false
-                    )
-                    buildSettings = try self.buildSettings(
-                        for: targetDescription,
-                        targetRoot: sourceFile.parentDirectory
-                    )
-                }
+                let targetDescription = try TargetDescription(
+                    name: name,
+                    dependencies: dependencies
+                        .map {
+                            TargetDescription.Dependency.target(name: $0.name)
+                        },
+                    path: sourceFile.parentDirectory.pathString,
+                    sources: [sourceFile.pathString],
+                    type: .executable,
+                    packageAccess: false
+                )
+                buildSettings = try self.buildSettings(
+                    for: targetDescription,
+                    targetRoot: sourceFile.parentDirectory
+                )
 
                 return SwiftTarget(
                     name: name,
@@ -1735,6 +1742,7 @@ extension PackageBuilder {
                     packageAccess: false,
                     swiftVersion: try swiftVersion(),
                     buildSettings: buildSettings,
+                    buildSettingsDescription: targetDescription.settings,
                     usesUnsafeFlags: false
                 )
             }

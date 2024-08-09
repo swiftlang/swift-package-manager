@@ -58,7 +58,7 @@ public enum WorkspaceResolveReason: Equatable {
 public struct PackageFetchDetails {
     /// Indicates if the package was fetched from the cache or from the remote.
     public let fromCache: Bool
-    /// Indicates wether the wether the package was already present in the cache and updated or if a clean fetch was
+    /// Indicates whether the package was already present in the cache and updated or if a clean fetch was
     /// performed.
     public let updatedCache: Bool
 }
@@ -571,6 +571,11 @@ public class Workspace {
             initializationWarningHandler: initializationWarningHandler
         )
     }
+
+    fileprivate var providedLibraries: [LibraryMetadata] {
+        // Note: Eventually, we should get these from the individual SDKs, but the first step is providing the metadata centrally in the toolchain.
+        return self.hostToolchain.providedLibraries
+    }
 }
 
 // MARK: - Public API
@@ -614,13 +619,14 @@ extension Workspace {
     /// - Parameters:
     ///     - packageName: The name of the package to edit.
     ///     - forceRemove: If true, the dependency will be unedited even if has unpushed
-    ///           or uncommited changes. Otherwise will throw respective errors.
+    ///           or uncommitted changes. Otherwise will throw respective errors.
     ///     - root: The workspace root. This is used to resolve the dependencies post unediting.
     ///     - observabilityScope: The observability scope that reports errors, warnings, etc
     public func unedit(
         packageName: String,
         forceRemove: Bool,
         root: PackageGraphRootInput,
+        availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
     ) throws {
         guard let dependency = self.state.dependencies[.plain(packageName)] else {
@@ -637,6 +643,7 @@ extension Workspace {
             dependency: dependency,
             forceRemove: forceRemove,
             root: root,
+            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
     }
@@ -657,6 +664,7 @@ extension Workspace {
         try self._resolve(
             root: root,
             explicitProduct: explicitProduct,
+            availableLibraries: self.providedLibraries,
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : forceResolution ? .update(forceResolution: true) :
                 .bestEffort,
             observabilityScope: observabilityScope
@@ -728,6 +736,7 @@ extension Workspace {
         // Run the resolution.
         try self.resolveAndUpdateResolvedFile(
             root: root,
+            availableLibraries: self.providedLibraries,
             forceResolution: false,
             constraints: [constraint],
             observabilityScope: observabilityScope
@@ -745,6 +754,7 @@ extension Workspace {
         try self._resolveBasedOnResolvedVersionsFile(
             root: root,
             explicitProduct: .none,
+            availableLibraries: self.providedLibraries,
             observabilityScope: observabilityScope
         )
     }
@@ -855,6 +865,7 @@ extension Workspace {
             root: root,
             packages: packages,
             dryRun: dryRun,
+            availableLibraries: self.providedLibraries,
             observabilityScope: observabilityScope
         )
     }
@@ -866,9 +877,10 @@ extension Workspace {
         forceResolvedVersions: Bool = false,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
+        availableLibraries: [LibraryMetadata],
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
         observabilityScope: ObservabilityScope
-    ) throws -> PackageGraph {
+    ) throws -> ModulesGraph {
         let start = DispatchTime.now()
         self.delegate?.willLoadGraph()
         defer {
@@ -885,6 +897,7 @@ extension Workspace {
         let manifests = try self._resolve(
             root: root,
             explicitProduct: explicitProduct,
+            availableLibraries: availableLibraries,
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : .bestEffort,
             observabilityScope: observabilityScope
         )
@@ -899,7 +912,7 @@ extension Workspace {
             }
 
         // Load the graph.
-        let packageGraph = try PackageGraph.load(
+        let packageGraph = try ModulesGraph.load(
             root: manifests.root,
             identityResolver: self.identityResolver,
             additionalFileRules: self.configuration.additionalFileRules,
@@ -911,6 +924,7 @@ extension Workspace {
             createREPLProduct: self.configuration.createREPLProduct,
             customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
             testEntryPointPath: testEntryPointPath,
+            availableLibraries: self.providedLibraries,
             fileSystem: self.fileSystem,
             observabilityScope: observabilityScope
         )
@@ -928,10 +942,11 @@ extension Workspace {
         rootPath: AbsolutePath,
         explicitProduct: String? = nil,
         observabilityScope: ObservabilityScope
-    ) throws -> PackageGraph {
+    ) throws -> ModulesGraph {
         try self.loadPackageGraph(
             rootInput: PackageGraphRootInput(packages: [rootPath]),
             explicitProduct: explicitProduct,
+            availableLibraries: self.providedLibraries,
             observabilityScope: observabilityScope
         )
     }
@@ -1095,7 +1110,7 @@ extension Workspace {
     }
 
     public func loadPluginImports(
-        packageGraph: PackageGraph
+        packageGraph: ModulesGraph
     ) async throws -> [PackageIdentity: [String: [String]]] {
         let pluginTargets = packageGraph.allTargets.filter { $0.type == .plugin }
         let scanner = SwiftcImportScanner(
@@ -1126,7 +1141,7 @@ extension Workspace {
     
     public func loadPackage(
         with identity: PackageIdentity,
-        packageGraph: PackageGraph,
+        packageGraph: ModulesGraph,
         observabilityScope: ObservabilityScope
     ) async throws -> Package {
         try await safe_async {
@@ -1139,7 +1154,7 @@ extension Workspace {
     @available(*, noasync, message: "Use the async alternative")
     public func loadPackage(
         with identity: PackageIdentity,
-        packageGraph: PackageGraph,
+        packageGraph: ModulesGraph,
         observabilityScope: ObservabilityScope,
         completion: @escaping (Result<Package, Error>) -> Void
     ) {
@@ -1176,7 +1191,7 @@ extension Workspace {
 
     /// Returns `true` if the file at the given path might influence build settings for a `swiftc` or `clang` invocation
     /// generated by SwiftPM.
-    public func fileAffectsSwiftOrClangBuildSettings(filePath: AbsolutePath, packageGraph: PackageGraph) -> Bool {
+    public func fileAffectsSwiftOrClangBuildSettings(filePath: AbsolutePath, packageGraph: ModulesGraph) -> Bool {
         // TODO: Implement a more sophisticated check that also verifies if the file is in the sources directories of the passed in `packageGraph`.
         FileRuleDescription.builtinRules.contains { fileRuleDescription in
             fileRuleDescription.match(path: filePath, toolsVersion: self.currentToolsVersion)
@@ -1456,7 +1471,7 @@ private func warnToStderr(_ message: String) {
 }
 
 // used for manifest validation
-#if swift(<5.11)
+#if swift(<6.0)
 extension RepositoryManager: ManifestSourceControlValidator {}
 #else
 extension RepositoryManager: @retroactive ManifestSourceControlValidator {}

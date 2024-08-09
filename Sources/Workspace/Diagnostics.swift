@@ -36,13 +36,13 @@ public enum WorkspaceDiagnostics {
     // MARK: - Errors
 
     /// The diagnostic triggered when an operation fails because its completion
-    /// would lose the uncommited changes in a repository.
-    public struct UncommitedChanges: Error, CustomStringConvertible {
+    /// would lose the uncommitted changes in a repository.
+    public struct UncommittedChanges: Error, CustomStringConvertible {
         /// The local path to the repository.
         public let repositoryPath: AbsolutePath
 
         public var description: String {
-            "repository '\(self.repositoryPath)' has uncommited changes"
+            "repository '\(self.repositoryPath)' has uncommitted changes"
         }
     }
 
@@ -247,7 +247,7 @@ extension FileSystemError {
     }
 }
 
-#if swift(<5.11)
+#if swift(<6.0)
 extension FileSystemError: CustomStringConvertible {}
 #else
 extension FileSystemError: @retroactive CustomStringConvertible {}

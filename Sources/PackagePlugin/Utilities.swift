@@ -47,7 +47,7 @@ extension Product {
 }
 
 extension Target {
-    /// The transitive closure of all the targets on which the reciver depends,
+    /// The transitive closure of all the targets on which the receiver depends,
     /// ordered such that every dependency appears before any other target that
     /// depends on it (i.e. in "topological sort order").
     public var recursiveTargetDependencies: [Target] {

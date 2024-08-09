@@ -121,7 +121,7 @@ If more aliases need to be defined, they can be added with a comma delimiter, pe
 
 ## Override Module Aliases
 
-If module alias values defined upstream are conflicting downstream, they can be overriden by chaining; add an entry to the `moduleAliases` parameter downstream using the conflicting alias value as a key and provide a unique value. 
+If module alias values defined upstream are conflicting downstream, they can be overridden by chaining; add an entry to the `moduleAliases` parameter downstream using the conflicting alias value as a key and provide a unique value. 
 
 To illustrate, the `swift-draw` and `swift-game` packages are modified to have the following dependencies and module aliases. 
 
@@ -190,7 +190,7 @@ To override it, the `App` manifest can define its own module aliases per below.
             ])
     ]
 ```
-The `Utils` module from package `a-utils` will be renamed as `DrawUtils`, and `Utils` from package `c-utils` will be renamed as `GameUtils`. Each overriden alias will be applied to all of the targets that depend on each module.
+The `Utils` module from package `a-utils` will be renamed as `DrawUtils`, and `Utils` from package `c-utils` will be renamed as `GameUtils`. Each overridden alias will be applied to all of the targets that depend on each module.
 
 ## Requirements
 

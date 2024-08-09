@@ -95,7 +95,7 @@ class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
 
 // MARK: - JSON
 
-public extension MockDependencyGraph {
+extension MockDependencyGraph {
     init(_ json: JSON) {
         guard case .dictionary(let dict) = json else { fatalError() }
         guard case .string(let name)? = dict["name"] else { fatalError() }
@@ -201,7 +201,7 @@ extension ProductFilter {
     }
 }
 
-#if swift(<5.11)
+#if swift(<6.0)
 extension ProductFilter: JSONSerializable, JSONMappable {}
 #else
 extension ProductFilter: @retroactive JSONSerializable, @retroactive JSONMappable {}

@@ -2053,15 +2053,36 @@ final class PackageBuilderTests: XCTestCase {
             package.checkProduct("foo") { _ in }
         }
 
-        manifest = try createManifest(swiftVersions: [])
+        manifest = try createManifest(swiftVersions: [SwiftLanguageVersion(string: "5")!])
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
-            diagnostics.check(diagnostic: "package '\(package.packageIdentity)' supported Swift language versions is empty", severity: .error)
+            package.checkModule("foo") { module in
+                module.check(swiftVersion: "5")
+            }
+            package.checkProduct("foo") { _ in }
         }
 
-        manifest = try createManifest(
-            swiftVersions: [SwiftLanguageVersion(string: "6")!, SwiftLanguageVersion(string: "7")!])
+        manifest = try createManifest(swiftVersions: [SwiftLanguageVersion(string: "6")!])
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
-            diagnostics.check(diagnostic: "package '\(package.packageIdentity)' requires minimum Swift language version 6 which is not supported by the current tools version (\(ToolsVersion.current))", severity: .error)
+            package.checkModule("foo") { module in
+                module.check(swiftVersion: "6")
+            }
+            package.checkProduct("foo") { _ in }
+        }
+
+        manifest = try createManifest(swiftVersions: [])
+        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            diagnostics.check(
+                diagnostic: "package '\(package.packageIdentity)' supported Swift language versions is empty",
+                severity: .error
+            )
+        }
+
+        manifest = try createManifest(swiftVersions: [SwiftLanguageVersion(string: "7")!])
+        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            diagnostics.check(
+                diagnostic: "package '\(package.packageIdentity)' requires minimum Swift language version 7 which is not supported by the current tools version (\(ToolsVersion.current))",
+                severity: .error
+            )
         }
     }
 

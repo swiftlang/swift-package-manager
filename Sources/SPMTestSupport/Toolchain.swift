@@ -38,7 +38,7 @@ private func resolveBinDir() throws -> AbsolutePath {
 }
 
 extension SwiftSDK {
-    public static var `default`: Self {
+    package static var `default`: Self {
         get throws {
             let binDir = try resolveBinDir()
             return try! SwiftSDK.hostSwiftSDK(binDir)
@@ -47,7 +47,7 @@ extension SwiftSDK {
 }
 
 extension UserToolchain {
-    public static var `default`: Self {
+    package static var `default`: Self {
         get throws {
             return try .init(swiftSDK: SwiftSDK.default)
         }
@@ -56,7 +56,7 @@ extension UserToolchain {
 
 extension UserToolchain {
     /// Helper function to determine if async await actually works in the current environment.
-    public func supportsSwiftConcurrency() -> Bool {
+    package func supportsSwiftConcurrency() -> Bool {
       #if os(macOS)
         if #available(macOS 12.0, *) {
             // On macOS 12 and later, concurrency is assumed to work.
@@ -67,7 +67,7 @@ extension UserToolchain {
             do {
                 try testWithTemporaryDirectory { tmpPath in
                     let inputPath = tmpPath.appending("foo.swift")
-                    try localFileSystem.writeFileContents(inputPath, string: "public func foo() async {}\nTask { await foo() }")
+                    try localFileSystem.writeFileContents(inputPath, string: "package func foo() async {}\nTask { await foo() }")
                     let outputPath = tmpPath.appending("foo")
                     let toolchainPath = self.swiftCompilerPath.parentDirectory.parentDirectory
                     let backDeploymentLibPath = toolchainPath.appending(components: "lib", "swift-5.5", "macosx")
@@ -88,7 +88,7 @@ extension UserToolchain {
     }
 
     /// Helper function to determine whether serialized diagnostics work properly in the current environment.
-    public func supportsSerializedDiagnostics(otherSwiftFlags: [String] = []) -> Bool {
+    package func supportsSerializedDiagnostics(otherSwiftFlags: [String] = []) -> Bool {
         do {
             try testWithTemporaryDirectory { tmpPath in
                 let inputPath = tmpPath.appending("best.swift")
@@ -111,47 +111,8 @@ extension UserToolchain {
         }
     }
 
-    public func supportsSuppressWarnings() -> Bool {
-        do {
-            try testWithTemporaryDirectory { tmpPath in
-                let inputPath = tmpPath.appending("best.swift")
-                try localFileSystem.writeFileContents(inputPath, string: "let foo: String? = \"bar\"\nprint(foo)\n")
-                let outputPath = tmpPath.appending("foo")
-                let serializedDiagnosticsPath = tmpPath.appending("out.dia")
-                let toolchainPath = self.swiftCompilerPath.parentDirectory.parentDirectory
-                try Process.checkNonZeroExit(arguments: ["/usr/bin/xcrun", "--toolchain", toolchainPath.pathString, "swiftc", inputPath.pathString, "-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", serializedDiagnosticsPath.pathString, "-o", outputPath.pathString, "-suppress-warnings"])
-
-                let diaFileContents = try localFileSystem.readFileContents(serializedDiagnosticsPath)
-                let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
-
-                if diagnosticsSet.diagnostics.contains(where: { $0.text.contains("warning") }) {
-                    throw StringError("does not support suppressing warnings")
-                }
-            }
-            return true
-        } catch {
-            return false
-        }
-    }
-
-    // This builds a trivial program with `-warnings-as-errors`, if it fails, the compiler in use generates warnings by default and is not suitable for testing warnings as errors behaviors.
-    public func supportsWarningsAsErrors() -> Bool {
-        do {
-            try testWithTemporaryDirectory { tmpPath in
-                let inputPath = tmpPath.appending("best.swift")
-                try localFileSystem.writeFileContents(inputPath, string: "print(\"hello\")")
-                let outputPath = tmpPath.appending("foo")
-                let toolchainPath = self.swiftCompilerPath.parentDirectory.parentDirectory
-                try Process.checkNonZeroExit(arguments: ["/usr/bin/xcrun", "--toolchain", toolchainPath.pathString, "swiftc", inputPath.pathString, "-o", outputPath.pathString, "-warnings-as-errors"])
-            }
-            return true
-        } catch {
-            return false
-        }
-    }
-
     /// Helper function to determine whether we should run SDK-dependent tests.
-    public func supportsSDKDependentTests() -> Bool {
+    package func supportsSDKDependentTests() -> Bool {
         return ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] == nil
     }
 }

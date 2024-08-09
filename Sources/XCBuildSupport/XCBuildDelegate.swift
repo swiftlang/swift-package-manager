@@ -12,6 +12,7 @@
 
 import Basics
 import Foundation
+
 import SPMBuildCore
 
 import class TSCBasic.ThreadSafeOutputByteStream
@@ -20,7 +21,7 @@ import protocol TSCBasic.OutputByteStream
 import enum TSCUtility.Diagnostics
 import protocol TSCUtility.ProgressAnimationProtocol
 
-public class XCBuildDelegate {
+package class XCBuildDelegate {
     private let buildSystem: SPMBuildCore.BuildSystem
     private var parser: XCBuildOutputParser!
     private let observabilityScope: ObservabilityScope
@@ -145,9 +146,8 @@ private extension Basics.Diagnostic {
     }
 }
 
-// FIXME: Move to TSC.
+@available(*, deprecated, message: "use ProgressAnimation.ninja(stream:) instead")
 public final class VerboseProgressAnimation: ProgressAnimationProtocol {
-
     private let stream: OutputByteStream
 
     public init(stream: OutputByteStream) {

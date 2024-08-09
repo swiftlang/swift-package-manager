@@ -375,7 +375,7 @@ extension PackageDependency.SourceControl.Requirement {
         case .exact(let version):
             return .exact(version)
         case .branch, .revision:
-            throw InternalError("invalid source control to registry requirement tranformation")
+            throw InternalError("invalid source control to registry requirement transformation")
         }
     }
 }

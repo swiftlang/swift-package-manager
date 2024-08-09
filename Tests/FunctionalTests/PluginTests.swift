@@ -34,6 +34,15 @@ class PluginTests: XCTestCase {
         }
     }
 
+    func testUseOfBuildToolPluginTargetNoPreBuildCommands() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        try fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (_, stderr) = try executeSwiftTest(fixturePath.appending("MySourceGenPluginNoPreBuildCommands"))
+            XCTAssertTrue(stderr.contains("file(s) which are unhandled; explicitly declare them as resources or exclude from the target"), "expected warning not emitted")
+        }
+    }
+
     func testUseOfBuildToolPluginProductByExecutableAcrossPackages() throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
@@ -221,7 +230,7 @@ class PluginTests: XCTestCase {
             XCTAssertTrue(stderr.contains("warning: Build tool command 'empty' (applied to target 'SomeTarget') does not declare any output files"), "expected warning not emitted")
             XCTAssertFalse(localFileSystem.exists(pathOfGeneratedFile), "plugin generated file unexpectedly exists at \(pathOfGeneratedFile.pathString)")
 
-            try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v5_11)
+            try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v6_0)
             let (_, stderr2) = try executeSwiftBuild(packageDir)
             XCTAssertEqual("", stderr2)
             XCTAssertTrue(localFileSystem.exists(pathOfGeneratedFile), "plugin did not run, generated file does not exist at \(pathOfGeneratedFile.pathString)")
@@ -433,7 +442,11 @@ class PluginTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            let packageGraph = try workspace.loadPackageGraph(
+                rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
+                observabilityScope: observability.topScope
+            )
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssert(packageGraph.packages.count == 2, "\(packageGraph.packages)")
             XCTAssert(packageGraph.rootPackages.count == 1, "\(packageGraph.rootPackages)")
@@ -465,7 +478,7 @@ class PluginTests: XCTestCase {
                 func pluginEmittedOutput(_ data: Data) {
                     // Add each line of emitted output as a `.info` diagnostic.
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
-                    let textlines = String(decoding: data, as: UTF8.self).split(separator: "\n")
+                    let textlines = String(decoding: data, as: UTF8.self).split(whereSeparator: { $0.isNewline })
                     print(textlines.map{ "[TEXT] \($0)" }.joined(separator: "\n"))
                     diagnostics.append(contentsOf: textlines.map{
                         Basics.Diagnostic(severity: .info, message: String($0), metadata: .none)
@@ -478,6 +491,8 @@ class PluginTests: XCTestCase {
                     print("[DIAG] \(diagnostic)")
                     diagnostics.append(diagnostic)
                 }
+
+                func pluginEmittedProgress(_ message: String) {}
             }
 
             // Helper function to invoke a plugin with given input and to check its outputs.
@@ -614,7 +629,11 @@ class PluginTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            let packageGraph = try workspace.loadPackageGraph(
+                rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
+                observabilityScope: observability.topScope
+            )
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             // Make sure that the use of plugins doesn't bleed into the use of plugins by tools.
@@ -708,7 +727,11 @@ class PluginTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            let packageGraph = try workspace.loadPackageGraph(
+                rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
+                observabilityScope: observability.topScope
+            )
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
             XCTAssert(packageGraph.rootPackages.count == 1, "\(packageGraph.rootPackages)")
@@ -745,7 +768,7 @@ class PluginTests: XCTestCase {
                 func pluginEmittedOutput(_ data: Data) {
                     // Add each line of emitted output as a `.info` diagnostic.
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
-                    let textlines = String(decoding: data, as: UTF8.self).split(separator: "\n")
+                    let textlines = String(decoding: data, as: UTF8.self).split(whereSeparator: { $0.isNewline })
                     diagnostics.append(contentsOf: textlines.map{
                         Basics.Diagnostic(severity: .info, message: String($0), metadata: .none)
                     })
@@ -767,6 +790,8 @@ class PluginTests: XCTestCase {
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
                     diagnostics.append(diagnostic)
                 }
+
+                func pluginEmittedProgress(_ message: String) {}
             }
 
             // Find the relevant plugin.
@@ -786,7 +811,7 @@ class PluginTests: XCTestCase {
             let delegate = PluginDelegate(delegateQueue: delegateQueue)
             try await withThrowingTaskGroup(of: Void.self) { group in
                 group.addTask {
-                    // TODO: have invoke natively support task cancelation instead
+                    // TODO: have invoke natively support task cancellation instead
                     try await withTaskCancellationHandler {
                         _ = try await plugin.invoke(
                             action: .performCommand(package: package, arguments: []),
@@ -1018,7 +1043,11 @@ class PluginTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            let packageGraph = try workspace.loadPackageGraph(
+                rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
+                observabilityScope: observability.topScope
+            )
             XCTAssert(packageGraph.packages.count == 4, "\(packageGraph.packages)")
             XCTAssert(packageGraph.rootPackages.count == 1, "\(packageGraph.rootPackages)")
 

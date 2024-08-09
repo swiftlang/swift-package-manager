@@ -13,7 +13,7 @@
 import Basics
 import PackageLoading
 import PackageModel
-import struct PackageGraph.PackageGraph
+import struct PackageGraph.ModulesGraph
 import struct PackageGraph.ResolvedTarget
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildToolPluginInvocationResult
@@ -135,7 +135,7 @@ public final class ClangTargetBuildDescription {
         if toolsVersion >= .v5_9 {
             self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
 
-            (self.pluginDerivedSources, self.pluginDerivedResources) = PackageGraph.computePluginGeneratedFiles(
+            (self.pluginDerivedSources, self.pluginDerivedResources) = ModulesGraph.computePluginGeneratedFiles(
                 target: target,
                 toolsVersion: toolsVersion,
                 additionalFileRules: additionalFileRules,
@@ -184,7 +184,7 @@ public final class ClangTargetBuildDescription {
         }
     }
 
-    /// An array of tuple containing filename, source, object and dependency path for each of the source in this target.
+    /// An array of tuples containing filename, source, object and dependency path for each of the source in this target.
     public func compilePaths()
         throws -> [(filename: RelativePath, source: AbsolutePath, object: AbsolutePath, deps: AbsolutePath)]
     {
@@ -228,16 +228,11 @@ public final class ClangTargetBuildDescription {
         args += activeCompilationConditions
         args += ["-fblocks"]
 
-        let buildTriple = self.buildParameters.triple
         // Enable index store, if appropriate.
-        //
-        // This feature is not widely available in OSS clang. So, we only enable
-        // index store for Apple's clang or if explicitly asked to.
-        if ProcessEnv.vars.keys.contains("SWIFTPM_ENABLE_CLANG_INDEX_STORE") {
-            args += self.buildParameters.indexStoreArguments(for: target)
-        } else if buildTriple.isDarwin(),
-                  (try? self.buildParameters.toolchain._isClangCompilerVendorApple()) == true
-        {
+        if let supported = try? ClangSupport.supportsFeature(
+            name: "index-unit-output-path",
+            toolchain: self.buildParameters.toolchain
+        ), supported {
             args += self.buildParameters.indexStoreArguments(for: target)
         }
 

@@ -18,9 +18,10 @@ import PackageGraph
 
 import func XCTest.XCTFail
 
+import enum TSCBasic.ProcessEnv
 import struct TSCUtility.Version
 
-public enum MockManifestLoaderError: Swift.Error {
+package enum MockManifestLoaderError: Swift.Error {
     case unknownRequest(String)
 }
 
@@ -33,24 +34,24 @@ public enum MockManifestLoaderError: Swift.Error {
 ///
 /// This implementation will throw an error if a request to load an unknown
 /// manifest is made.
-public final class MockManifestLoader: ManifestLoaderProtocol {
-    public struct Key: Hashable {
-        public let url: String
-        public let version: Version?
+package final class MockManifestLoader: ManifestLoaderProtocol {
+    package struct Key: Hashable {
+        package let url: String
+        package let version: Version?
 
-        public init(url: String, version: Version? = nil) {
+        package init(url: String, version: Version? = nil) {
             self.url = url
             self.version = version
         }
     }
 
-    public let manifests: ThreadSafeKeyValueStore<Key, Manifest>
+    package let manifests: ThreadSafeKeyValueStore<Key, Manifest>
 
-    public init(manifests: [Key: Manifest]) {
+    package init(manifests: [Key: Manifest]) {
         self.manifests = ThreadSafeKeyValueStore<Key, Manifest>(manifests)
     }
 
-    public func load(
+    package func load(
         manifestPath: AbsolutePath,
         manifestToolsVersion: ToolsVersion,
         packageIdentity: PackageIdentity,
@@ -75,12 +76,12 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         }
     }
 
-    public func resetCache(observabilityScope: ObservabilityScope) {}
-    public func purgeCache(observabilityScope: ObservabilityScope) {}
+    package func resetCache(observabilityScope: ObservabilityScope) {}
+    package func purgeCache(observabilityScope: ObservabilityScope) {}
 }
 
 extension ManifestLoader {
-    public func load(
+    package func load(
         manifestPath: AbsolutePath,
         packageKind: PackageReference.Kind,
         toolsVersion manifestToolsVersion: ToolsVersion,
@@ -88,7 +89,7 @@ extension ManifestLoader {
         dependencyMapper: DependencyMapper? = .none,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
-    ) throws -> Manifest{
+    ) async throws -> Manifest{
         let packageIdentity: PackageIdentity
         let packageLocation: String
         switch packageKind {
@@ -109,29 +110,25 @@ extension ManifestLoader {
             // FIXME: placeholder
             packageLocation = identity.description
         }
-        return try temp_await {
-            self.load(
-                manifestPath: manifestPath,
-                manifestToolsVersion: manifestToolsVersion,
-                packageIdentity: packageIdentity,
-                packageKind: packageKind,
-                packageLocation: packageLocation,
-                packageVersion: nil,
-                identityResolver: identityResolver,
-                dependencyMapper: dependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver),
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+        return try await self.load(
+            manifestPath: manifestPath,
+            manifestToolsVersion: manifestToolsVersion,
+            packageIdentity: packageIdentity,
+            packageKind: packageKind,
+            packageLocation: packageLocation,
+            packageVersion: nil,
+            identityResolver: identityResolver,
+            dependencyMapper: dependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver),
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope,
+            delegateQueue: .sharedConcurrent,
+            callbackQueue: .sharedConcurrent
+        )
     }
 }
 
-
 extension ManifestLoader {
-    public func load(
+    package func load(
         packagePath: AbsolutePath,
         packageKind: PackageReference.Kind,
         currentToolsVersion: ToolsVersion,
@@ -139,7 +136,7 @@ extension ManifestLoader {
         dependencyMapper: DependencyMapper? = .none,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
-    ) throws -> Manifest{
+    ) async throws -> Manifest{
         let packageIdentity: PackageIdentity
         let packageLocation: String
         switch packageKind {
@@ -160,22 +157,44 @@ extension ManifestLoader {
             // FIXME: placeholder
             packageLocation = identity.description
         }
-        return try temp_await {
-            self.load(
-                packagePath: packagePath,
-                packageIdentity: packageIdentity,
-                packageKind: packageKind,
-                packageLocation: packageLocation,
-                packageVersion: nil,
-                currentToolsVersion: currentToolsVersion,
-                identityResolver: identityResolver,
-                dependencyMapper: dependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver),
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
+        return try await self.load(
+            packagePath: packagePath,
+            packageIdentity: packageIdentity,
+            packageKind: packageKind,
+            packageLocation: packageLocation,
+            packageVersion: nil,
+            currentToolsVersion: currentToolsVersion,
+            identityResolver: identityResolver,
+            dependencyMapper: dependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver),
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope,
+            delegateQueue: .sharedConcurrent,
+            callbackQueue: .sharedConcurrent
+        )
+    }
+}
+
+/// Temporary override environment variables
+///
+/// WARNING! This method is not thread-safe. POSIX environments are shared
+/// between threads. This means that when this method is called simultaneously
+/// from different threads, the environment will neither be setup nor restored
+/// correctly.
+package func withCustomEnv(_ env: [String: String], body: () async throws -> Void) async throws {
+    let state = env.map { ($0, $1) }
+    let restore = {
+        for (key, value) in state {
+            try ProcessEnv.setVar(key, value: value)
         }
     }
+    do {
+        for (key, value) in env {
+            try ProcessEnv.setVar(key, value: value)
+        }
+        try await body()
+    } catch {
+        try? restore()
+        throw error
+    }
+    try restore()
 }

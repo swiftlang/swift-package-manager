@@ -196,7 +196,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     }
 
     /// The package graph.
-    public let graph: PackageGraph
+    public let graph: ModulesGraph
 
     /// The target build description map.
     public let targetMap: [ResolvedTarget.ID: TargetBuildDescription]
@@ -225,8 +225,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// source files as well as directories to which any changes should cause us to reevaluate the build plan.
     public let prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]]
 
-    @_spi(SwiftPMInternal)
-    public private(set) var derivedTestTargetsMap: [ResolvedProduct.ID: [ResolvedTarget]] = [:]
+    package private(set) var derivedTestTargetsMap: [ResolvedProduct.ID: [ResolvedTarget]] = [:]
 
     /// Cache for pkgConfig flags.
     private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
@@ -249,7 +248,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     @available(*, deprecated, renamed: "init(productsBuildParameters:toolsBuildParameters:graph:)")
     public convenience init(
         buildParameters: BuildParameters,
-        graph: PackageGraph,
+        graph: ModulesGraph,
         additionalFileRules: [FileRuleDescription] = [],
         buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]] = [:],
         prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]] = [:],
@@ -272,7 +271,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     public init(
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
-        graph: PackageGraph,
+        graph: ModulesGraph,
         additionalFileRules: [FileRuleDescription] = [],
         buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]] = [:],
         prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]] = [:],

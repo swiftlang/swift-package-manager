@@ -44,14 +44,19 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     /// The tools version currently in use.
     let currentToolsVersion: ToolsVersion
 
+    /// The available libraries in the SDK.
+    let availableLibraries: [LibraryMetadata]
+
     init(
         root: PackageGraphRoot,
         dependencyManifests: Workspace.DependencyManifests,
-        currentToolsVersion: ToolsVersion = ToolsVersion.current
+        currentToolsVersion: ToolsVersion = ToolsVersion.current,
+        availableLibraries: [LibraryMetadata]
     ) {
         self.root = root
         self.dependencyManifests = dependencyManifests
         self.currentToolsVersion = currentToolsVersion
+        self.availableLibraries = availableLibraries
     }
 
     func getContainer(
@@ -82,6 +87,15 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
                     currentToolsVersion: self.currentToolsVersion
                 )
                 return completion(.success(container))
+            }
+
+            // Match against available prebuilt libraries.
+            if let matchingPrebuiltLibrary = package.matchingPrebuiltLibrary(in: availableLibraries) {
+                do {
+                    return completion(.success(try PrebuiltPackageContainer(metadata: matchingPrebuiltLibrary)))
+                } catch {
+                    return completion(.failure(error))
+                }
             }
 
             // As we don't have anything else locally, error out.
