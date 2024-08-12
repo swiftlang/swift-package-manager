@@ -581,14 +581,8 @@ class ManifestEditTests: XCTestCase {
             // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
-                dependencies: [
-                    .package(url: "https://github.com/apple/swift-testing.git", from: "0.8.0"),
-                ],
                 targets: [
-                    .testTarget(
-                        name: "MyTest",
-                        dependencies: [ .product(name: "Testing", package: "swift-testing") ]
-                    ),
+                    .testTarget(name: "MyTest"),
                 ]
             )
             """,
