@@ -72,8 +72,10 @@ let swiftPMProduct = (
 )
 
 #if os(Windows)
+let includeDynamicLibrary: Bool = false
 let systemSQLitePkgConfig: String? = nil
 #else
+let includeDynamicLibrary: Bool = true
 let systemSQLitePkgConfig: String? = "sqlite3"
 #endif
 
@@ -90,12 +92,15 @@ let package = Package(
     ],
     products:
     autoProducts.flatMap {
-        [
+        (includeDynamicLibrary ? [
             .library(
                 name: $0.name,
                 type: .dynamic,
                 targets: $0.targets
             ),
+        ] : [])
+        +
+        [
             .library(
                 name: "\($0.name)-auto",
                 targets: $0.targets
@@ -167,6 +172,7 @@ let package = Package(
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .enableExperimentalFeature("AccessLevelOnImport"),
+                .unsafeFlags(["-static"]),
             ]
         ),
 
@@ -183,7 +189,8 @@ let package = Package(
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency"),
                 .enableExperimentalFeature("AccessLevelOnImport"),
-                .enableExperimentalFeature("InternalImportsByDefault")
+                .enableExperimentalFeature("InternalImportsByDefault"),
+                .unsafeFlags(["-static"]),
             ]
         ),
 
@@ -202,6 +209,7 @@ let package = Package(
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency"),
                 .enableExperimentalFeature("AccessLevelOnImport"),
+                .unsafeFlags(["-static"]),
             ]
         ),
 
@@ -209,7 +217,10 @@ let package = Package(
             /** The llbuild manifest model */
             name: "LLBuildManifest",
             dependencies: ["Basics"],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
         ),
 
         .target(
@@ -222,7 +233,10 @@ let package = Package(
                 "PackageModel",
                 "PackageSigning",
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
         ),
 
         .target(
@@ -232,14 +246,20 @@ let package = Package(
                 "Basics",
                 "PackageModel",
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
         ),
 
         .target(
             /** Shim for llbuild library */
             name: "SPMLLBuild",
             dependencies: ["Basics"],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
         ),
 
         // MARK: Project Model
@@ -248,7 +268,10 @@ let package = Package(
             /** Primitive Package model objects */
             name: "PackageModel",
             dependencies: ["Basics"],
-            exclude: ["CMakeLists.txt", "README.md"]
+            exclude: ["CMakeLists.txt", "README.md"],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
         ),
 
         .target(
@@ -265,7 +288,10 @@ let package = Package(
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
         ),
 
         .target(
@@ -276,7 +302,10 @@ let package = Package(
                 "PackageModel",
                 "SourceControl",
             ],
-            exclude: ["CMakeLists.txt", "README.md"]
+            exclude: ["CMakeLists.txt", "README.md"],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
         ),
 
         // MARK: Package Dependency Resolution
@@ -289,7 +318,10 @@ let package = Package(
                 "PackageLoading",
                 "PackageModel",
             ],
-            exclude: ["CMakeLists.txt", "README.md"]
+            exclude: ["CMakeLists.txt", "README.md"],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
         ),
 
         // MARK: Package Collections
@@ -300,6 +332,9 @@ let package = Package(
             dependencies: [],
             exclude: [
                 "Formats/v1.md",
+            ],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
             ]
         ),
 
@@ -312,6 +347,9 @@ let package = Package(
                 "PackageCollectionsSigning",
                 "PackageModel",
                 "SourceControl",
+            ],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
             ]
         ),
 
@@ -322,6 +360,9 @@ let package = Package(
                 .product(name: "X509", package: "swift-certificates"),
                 "Basics",
                 "PackageCollectionsModel",
+            ],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
             ]
         ),
 
@@ -331,7 +372,10 @@ let package = Package(
                 "Basics",
                 "PackageModel",
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
         ),
 
         .target(
@@ -342,7 +386,10 @@ let package = Package(
                 "Basics",
                 "PackageModel",
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
         ),
 
         // MARK: Package Manager Functionality
@@ -354,7 +401,10 @@ let package = Package(
                 "Basics",
                 "PackageGraph",
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
         ),
         .target(
             /** Builds Modules and Products */
@@ -368,7 +418,10 @@ let package = Package(
                 .product(name: "SwiftDriver", package: "swift-driver"),
                 "DriverSupport",
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
         ),
         .target(
             name: "DriverSupport",
@@ -377,13 +430,19 @@ let package = Package(
                 "PackageModel",
                 .product(name: "SwiftDriver", package: "swift-driver"),
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
         ),
         .target(
             /** Support for building using Xcode's build system */
             name: "XCBuildSupport",
             dependencies: ["DriverSupport", "SPMBuildCore", "PackageGraph"],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
         ),
         .target(
             /** High level functionality */
@@ -398,7 +457,10 @@ let package = Package(
                 "SourceControl",
                 "SPMBuildCore",
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
         ),
         .target(
             // ** High level interface for package discovery */
@@ -409,6 +471,9 @@ let package = Package(
                 "PackageModel",
                 "PackageRegistry",
                 "PackageSigning",
+            ],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
             ]
         ),
 
@@ -427,7 +492,10 @@ let package = Package(
                 "Workspace",
                 "XCBuildSupport",
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
         ),
 
         .target(
@@ -446,7 +514,10 @@ let package = Package(
                 "Workspace",
                 "XCBuildSupport",
             ],
-            exclude: ["CMakeLists.txt", "README.md"]
+            exclude: ["CMakeLists.txt", "README.md"],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
         ),
 
         .target(
@@ -459,7 +530,10 @@ let package = Package(
                 "SPMBuildCore",
                 "PackageModel",
             ],
-            exclude: ["CMakeLists.txt", "README.md"]
+            exclude: ["CMakeLists.txt", "README.md"],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
         ),
 
         .target(
@@ -472,6 +546,9 @@ let package = Package(
                 "CoreCommands",
                 "PackageCollections",
                 "PackageModel",
+            ],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
             ]
         ),
 
@@ -491,6 +568,9 @@ let package = Package(
                 "SourceControl",
                 "SPMBuildCore",
                 "Workspace",
+            ],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
             ]
         ),
 
@@ -503,6 +583,7 @@ let package = Package(
             ],
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency=complete"),
+                .unsafeFlags(["-static"]),
             ]
         ),
 
@@ -608,13 +689,19 @@ let package = Package(
                 .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
                 "Workspace",
                 "XCBuildSupport",
+            ],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
             ]
         ),
 
         .target(
             /** Test for thread-sanitizer. */
             name: "tsan_utils",
-            dependencies: []
+            dependencies: [],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
         ),
 
         // MARK: SwiftPM tests
