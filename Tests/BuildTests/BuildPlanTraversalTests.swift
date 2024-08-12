@@ -143,4 +143,47 @@ final class BuildPlanTraversalTests: XCTestCase {
         XCTAssertEqual(self.getUniqueOccurrences(in: results, for: "SwiftSyntax", destination: .host), [2, 3, 4, 5, 6])
         XCTAssertEqual(self.getUniqueOccurrences(in: results, for: "HAL"), [1, 2, 3])
     }
+
+    func testRecursiveDependencyTraversal() async throws {
+        let destinationTriple = Triple.arm64Linux
+        let toolsTriple = Triple.x86_64MacOS
+
+        let (graph, fs, scope) = try macrosPackageGraph()
+        let plan = try await BuildPlan(
+            destinationBuildParameters: mockBuildParameters(
+                destination: .target,
+                triple: destinationTriple
+            ),
+            toolsBuildParameters: mockBuildParameters(
+                destination: .host,
+                triple: toolsTriple
+            ),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: scope
+        )
+
+        let mmioModule = try XCTUnwrap(plan.description(for: graph.module(for: "MMIO")!, context: .target))
+
+        var moduleDependencies: [(ResolvedModule, Dest, Build.ModuleBuildDescription?)] = []
+        plan.traverseDependencies(of: mmioModule) { product, destination, description in
+            XCTAssertEqual(product.name, "SwiftSyntax")
+            XCTAssertEqual(destination, .host)
+            XCTAssertNil(description)
+        } onModule: { module, destination, description in
+            moduleDependencies.append((module, destination, description))
+        }
+
+        XCTAssertEqual(moduleDependencies.count, 2)
+
+        // The ordering is guaranteed by the traversal
+
+        XCTAssertEqual(moduleDependencies[0].0.name, "MMIOMacros")
+        XCTAssertEqual(moduleDependencies[1].0.name, "SwiftSyntax")
+
+        for index in 0 ..< moduleDependencies.count {
+            XCTAssertEqual(moduleDependencies[index].1, .host)
+            XCTAssertNotNil(moduleDependencies[index].2)
+        }
+    }
 }
