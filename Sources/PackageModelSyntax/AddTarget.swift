@@ -43,7 +43,7 @@ public struct AddTarget {
         case swiftTesting = "swift-testing"
 
         /// The default testing library to use.
-        public static var `default`: TestHarness = .swiftTesting
+        public static var `default`: TestHarness = .xctest
     }
 
     /// Additional configuration information to guide the package editing
