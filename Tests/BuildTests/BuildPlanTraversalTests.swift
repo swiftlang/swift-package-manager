@@ -185,5 +185,86 @@ final class BuildPlanTraversalTests: XCTestCase {
             XCTAssertEqual(moduleDependencies[index].1, .host)
             XCTAssertNotNil(moduleDependencies[index].2)
         }
+
+        let directDependencies = mmioModule.dependencies(using: plan)
+
+        XCTAssertEqual(directDependencies.count, 1)
+
+        let dependency = try XCTUnwrap(directDependencies.first)
+        if case .module(let module, let description) = dependency {
+            XCTAssertEqual(module.name, "MMIOMacros")
+            try XCTAssertEqual(XCTUnwrap(description).destination, .host)
+        } else {
+            XCTFail("Expected MMIOMacros module")
+        }
+
+        let dependencies = mmioModule.recursiveDependencies(using: plan)
+
+        XCTAssertEqual(dependencies.count, 3)
+
+        // MMIOMacros (module) -> SwiftSyntax (product) -> SwiftSyntax (module)
+
+        if case .module(let module, let description) = dependencies[0] {
+            XCTAssertEqual(module.name, "MMIOMacros")
+            try XCTAssertEqual(XCTUnwrap(description).destination, .host)
+        } else {
+            XCTFail("Expected MMIOMacros module")
+        }
+
+        if case .product(let product, let description) = dependencies[1] {
+            XCTAssertEqual(product.name, "SwiftSyntax")
+            XCTAssertNil(description)
+        } else {
+            XCTFail("Expected SwiftSyntax product")
+        }
+
+        if case .module(let module, let description) = dependencies[2] {
+            XCTAssertEqual(module.name, "SwiftSyntax")
+            try XCTAssertEqual(XCTUnwrap(description).destination, .host)
+        } else {
+            XCTFail("Expected SwiftSyntax module")
+        }
+    }
+
+    func testRecursiveDependencyTraversalWithDuplicates() async throws {
+        let destinationTriple = Triple.arm64Linux
+        let toolsTriple = Triple.x86_64MacOS
+
+        let (graph, fs, scope) = try macrosTestsPackageGraph()
+        let plan = try await BuildPlan(
+            destinationBuildParameters: mockBuildParameters(
+                destination: .target,
+                triple: destinationTriple
+            ),
+            toolsBuildParameters: mockBuildParameters(
+                destination: .host,
+                triple: toolsTriple
+            ),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: scope
+        )
+
+        let testModule = try XCTUnwrap(plan.description(for: graph.module(for: "MMIOMacrosTests")!, context: .host))
+
+        let dependencies = testModule.recursiveDependencies(using: plan)
+        XCTAssertEqual(dependencies.count, 9)
+
+        struct ModuleResult: Hashable {
+            let module: ResolvedModule
+            let destination: Dest
+        }
+
+        var uniqueModules = Set<ModuleResult>()
+        for dependency in dependencies {
+            if case .module(let module, let description) = dependency {
+                XCTAssertNotNil(description)
+                XCTAssertEqual(description!.destination, .host)
+                XCTAssertTrue(
+                    uniqueModules.insert(.init(module: module, destination: description!.destination))
+                        .inserted
+                )
+            }
+        }
     }
 }
