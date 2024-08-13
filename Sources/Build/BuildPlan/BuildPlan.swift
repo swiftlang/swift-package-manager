@@ -197,10 +197,10 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     public let graph: ModulesGraph
 
     /// The target build description map.
-    public let targetMap: [ResolvedModule.ID: ModuleBuildDescription]
+    public let targetMap: IdentifiableSet<ModuleBuildDescription>
 
     /// The product build description map.
-    public let productMap: [ResolvedProduct.ID: ProductBuildDescription]
+    public let productMap: IdentifiableSet<ProductBuildDescription>
 
     /// The plugin descriptions. Plugins are represented in the package graph
     /// as targets, but they are not directly included in the build graph.
@@ -290,13 +290,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         var prebuildCommandResults: [ResolvedModule.ID: [CommandPluginResult]] = [:]
 
         // Create product description for each product we have in the package graph that is eligible.
-        var productMap: [ResolvedProduct.ID: (product: ResolvedProduct, buildDescription: ProductBuildDescription)] =
-            [:]
+        var productMap = IdentifiableSet<ProductBuildDescription>()
         // Create build target description for each target which we need to plan.
         // Plugin targets are noted, since they need to be compiled, but they do
         // not get directly incorporated into the build description that will be
         // given to LLBuild.
-        var targetMap = [ResolvedModule.ID: ModuleBuildDescription]()
+        var targetMap = IdentifiableSet<ModuleBuildDescription>()
         var pluginDescriptions = [PluginBuildDescription]()
         var shouldGenerateTestObservation = true
 
@@ -312,7 +311,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     throw InternalError("Package not found for product: \(product.name)")
                 }
 
-                productMap[product.id] = try (product, ProductBuildDescription(
+                try productMap.insert(ProductBuildDescription(
                     package: package,
                     product: product,
                     toolsVersion: package.manifest.toolsVersion,
@@ -384,7 +383,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         shouldGenerateTestObservation = false // Only generate the code once.
                     }
 
-                    targetMap[module.id] = try .swift(
+                    try targetMap.insert(.swift(
                         SwiftModuleBuildDescription(
                             package: package,
                             target: module,
@@ -399,9 +398,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                             fileSystem: fileSystem,
                             observabilityScope: planningObservabilityScope
                         )
-                    )
+                    ))
                 case is ClangModule:
-                    targetMap[module.id] = try .clang(
+                    try targetMap.insert(.clang(
                         ClangModuleBuildDescription(
                             package: package,
                             target: module,
@@ -413,7 +412,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                             fileSystem: fileSystem,
                             observabilityScope: planningObservabilityScope
                         )
-                    )
+                    ))
                 case is PluginModule:
                     try module.dependencies.compactMap {
                         switch $0 {
@@ -429,7 +428,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                             return nil
                         }
                     }.forEach {
-                        productMap[$0.id] = try ($0, ProductBuildDescription(
+                        try productMap.insert(ProductBuildDescription(
                             package: package,
                             product: $0,
                             toolsVersion: package.manifest.toolsVersion,
@@ -468,7 +467,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
         // Plan the derived test targets, if necessary.
         let derivedTestTargets = try Self.makeDerivedTestTargets(
-            testProducts: productMap.values.filter {
+            testProducts: productMap.filter {
                 $0.product.type == .test
             },
             destinationBuildParameters: destinationBuildParameters,
@@ -480,12 +479,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         for item in derivedTestTargets {
             var derivedTestTargets = [item.entryPointTargetBuildDescription.target]
 
-            targetMap[item.entryPointTargetBuildDescription.target.id] = .swift(
+            targetMap.insert(.swift(
                 item.entryPointTargetBuildDescription
-            )
+            ))
 
             if let discoveryTargetBuildDescription = item.discoveryTargetBuildDescription {
-                targetMap[discoveryTargetBuildDescription.target.id] = .swift(discoveryTargetBuildDescription)
+                targetMap.insert(.swift(discoveryTargetBuildDescription))
                 derivedTestTargets.append(discoveryTargetBuildDescription.target)
             }
 
@@ -495,7 +494,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
 
-        self.productMap = productMap.mapValues(\.buildDescription)
+        self.productMap = productMap
         self.targetMap = targetMap
         self.pluginDescriptions = pluginDescriptions
 
@@ -711,14 +710,28 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         for product: ResolvedProduct,
         context: BuildParameters.Destination
     ) -> ProductBuildDescription? {
-        return self.productMap[product.id]
+        let destination: BuildParameters.Destination = switch product.type {
+        case .macro, .plugin:
+            .host
+        default:
+            context
+        }
+
+        return self.productMap[.init(productID: product.id, destination: destination)]
     }
 
     public func description(
         for module: ResolvedModule,
         context: BuildParameters.Destination
     ) -> ModuleBuildDescription? {
-        return self.targetMap[module.id]
+        let destination: BuildParameters.Destination = switch module.type {
+        case .macro, .plugin:
+            .host
+        default:
+            context
+        }
+
+        return self.targetMap[.init(moduleID: module.id, destination: destination)]
     }
 }
 
