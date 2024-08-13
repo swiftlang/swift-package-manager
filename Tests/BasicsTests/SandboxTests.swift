@@ -217,6 +217,32 @@ final class SandboxTest: XCTestCase {
              XCTAssertNoThrow(try AsyncProcess.checkNonZeroExit(arguments: allowedCommand))
          }
      }
+    
+    func testDeterministicOrdering() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        try withTemporaryDirectory { path in
+            // Ensure the contents of the produced sandbox directory is deterministic, in order
+            // to avoid spurious incremental rebuilds. This test is not guaranteed to catch rare
+            // cases of nondeterminism, but in practice guards well against past issues in this area.
+            let writeable1 = path.appending(component: "w1")
+            let writeable2 = path.appending(component: "w2")
+            let writeable3 = path.appending(component: "w3")
+            let writeable4 = path.appending(component: "w4")
+            
+            let readable1 = path.appending(component: "r1")
+            let readable2 = path.appending(component: "r2")
+            let readable3 = path.appending(component: "r3")
+            let readable4 = path.appending(component: "r4")
+            
+            let command = try Sandbox.apply(command: ["echo", "hello"], strictness: .default, writableDirectories: [writeable1, writeable2, writeable3, writeable4], readOnlyDirectories: [readable1, readable2, readable3, readable4], fileSystem: localFileSystem)
+            for _ in 0..<10 {
+                let newCommand = try Sandbox.apply(command: ["echo", "hello"], strictness: .default, writableDirectories: [writeable1, writeable2, writeable3, writeable4], readOnlyDirectories: [readable1, readable2, readable3, readable4],fileSystem: localFileSystem)
+                XCTAssertEqual(command, newCommand)
+            }
+        }
+    }
 }
 
 extension Sandbox {
@@ -225,11 +251,12 @@ extension Sandbox {
         strictness: Strictness = .default,
         writableDirectories: [AbsolutePath] = [],
         readOnlyDirectories: [AbsolutePath] = [],
-        allowNetworkConnections: [SandboxNetworkPermission] = []
+        allowNetworkConnections: [SandboxNetworkPermission] = [],
+        fileSystem: FileSystem = InMemoryFileSystem()
     ) throws -> [String] {
         return try self.apply(
             command: command,
-            fileSystem: InMemoryFileSystem(),
+            fileSystem: fileSystem,
             strictness: strictness,
             writableDirectories: writableDirectories,
             readOnlyDirectories: readOnlyDirectories,
