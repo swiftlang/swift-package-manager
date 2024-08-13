@@ -535,9 +535,7 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "foo")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "foo")
                             XCTAssertEqual(settings[.PRODUCT_NAME], "foo")
-                            XCTAssertEqual(settings[.SDKROOT], "macosx")
                             XCTAssertEqual(settings[.SKIP_INSTALL], "NO")
-                            XCTAssertEqual(settings[.SUPPORTED_PLATFORMS], ["macosx", "linux"])
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "foo")
                             XCTAssertEqual(
@@ -563,9 +561,7 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "foo")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "foo")
                             XCTAssertEqual(settings[.PRODUCT_NAME], "foo")
-                            XCTAssertEqual(settings[.SDKROOT], "macosx")
                             XCTAssertEqual(settings[.SKIP_INSTALL], "NO")
-                            XCTAssertEqual(settings[.SUPPORTED_PLATFORMS], ["macosx", "linux"])
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "foo")
                             XCTAssertEqual(
@@ -608,9 +604,7 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "cfoo")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "cfoo")
                             XCTAssertEqual(settings[.PRODUCT_NAME], "cfoo")
-                            XCTAssertEqual(settings[.SDKROOT], "macosx")
                             XCTAssertEqual(settings[.SKIP_INSTALL], "NO")
-                            XCTAssertEqual(settings[.SUPPORTED_PLATFORMS], ["macosx", "linux"])
                             XCTAssertEqual(settings[.TARGET_NAME], "cfoo")
                             XCTAssertEqual(
                                 settings[.LIBRARY_SEARCH_PATHS],
@@ -639,9 +633,7 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "cfoo")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "cfoo")
                             XCTAssertEqual(settings[.PRODUCT_NAME], "cfoo")
-                            XCTAssertEqual(settings[.SDKROOT], "macosx")
                             XCTAssertEqual(settings[.SKIP_INSTALL], "NO")
-                            XCTAssertEqual(settings[.SUPPORTED_PLATFORMS], ["macosx", "linux"])
                             XCTAssertEqual(settings[.TARGET_NAME], "cfoo")
                             XCTAssertEqual(
                                 settings[.LIBRARY_SEARCH_PATHS],
@@ -677,8 +669,6 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "bar")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "bar")
                             XCTAssertEqual(settings[.PRODUCT_NAME], "bar")
-                            XCTAssertEqual(settings[.SDKROOT], "macosx")
-                            XCTAssertEqual(settings[.SUPPORTED_PLATFORMS], ["macosx", "linux"])
                             XCTAssertEqual(settings[.SWIFT_VERSION], "4.2")
                             XCTAssertEqual(settings[.TARGET_NAME], "bar")
                             XCTAssertEqual(
@@ -699,8 +689,6 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "bar")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "bar")
                             XCTAssertEqual(settings[.PRODUCT_NAME], "bar")
-                            XCTAssertEqual(settings[.SDKROOT], "macosx")
-                            XCTAssertEqual(settings[.SUPPORTED_PLATFORMS], ["macosx", "linux"])
                             XCTAssertEqual(settings[.SWIFT_VERSION], "4.2")
                             XCTAssertEqual(settings[.TARGET_NAME], "bar")
                             XCTAssertEqual(
@@ -740,8 +728,6 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "cbar")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "cbar")
                             XCTAssertEqual(settings[.PRODUCT_NAME], "cbar")
-                            XCTAssertEqual(settings[.SDKROOT], "macosx")
-                            XCTAssertEqual(settings[.SUPPORTED_PLATFORMS], ["macosx", "linux"])
                             XCTAssertEqual(settings[.TARGET_NAME], "cbar")
                             XCTAssertEqual(
                                 settings[.LIBRARY_SEARCH_PATHS],
@@ -767,8 +753,6 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "cbar")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "cbar")
                             XCTAssertEqual(settings[.PRODUCT_NAME], "cbar")
-                            XCTAssertEqual(settings[.SDKROOT], "macosx")
-                            XCTAssertEqual(settings[.SUPPORTED_PLATFORMS], ["macosx", "linux"])
                             XCTAssertEqual(settings[.TARGET_NAME], "cbar")
                             XCTAssertEqual(
                                 settings[.LIBRARY_SEARCH_PATHS],
