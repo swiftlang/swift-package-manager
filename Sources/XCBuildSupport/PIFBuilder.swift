@@ -468,10 +468,6 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         }
 
         if product.type == .executable {
-            // Command-line tools are only supported for the macOS platforms.
-            settings[.SDKROOT] = "macosx"
-            settings[.SUPPORTED_PLATFORMS] = ["macosx", "linux"]
-
             // Setup install path for executables if it's in root of a pure Swift package.
             if self.isRootPackage {
                 settings[.SKIP_INSTALL] = "NO"
