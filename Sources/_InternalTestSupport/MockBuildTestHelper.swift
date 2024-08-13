@@ -297,13 +297,7 @@ public struct BuildPlanResult {
         )
         self.targetMap = try Dictionary(
             throwingUniqueKeysWithValues: plan.targetMap.compactMap {
-                guard 
-                    let target = plan.graph.allModules[$0] ??
-                        IdentifiableSet(plan.derivedTestTargetsMap.values.flatMap { $0 })[$0]
-                else {
-                    throw BuildError.error("Target \($0) not found.")
-                }
-                return (target.id, $1)
+                ($0.module.id, $0)
             }
         )
     }

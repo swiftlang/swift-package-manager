@@ -297,7 +297,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         )
 
         // Make sure that build plan doesn't have any "target" tests.
-        for (_, description) in plan.targetMap where description.module.underlying.type == .test {
+        for description in plan.targetMap where description.module.underlying.type == .test {
             XCTAssertEqual(description.buildParameters.destination, .host)
         }
 
