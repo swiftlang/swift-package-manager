@@ -339,7 +339,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         httpClient.configuration.requestHeaders = .init()
         httpClient.configuration.requestHeaders!.add(name: "Cache-Control", value: "no-cache")
         var configuration = GitHubPackageMetadataProvider.Configuration(disableCache: true) // Disable cache so we hit the API
-        if let token = ProcessEnv.vars["GITHUB_API_TOKEN"] {
+        if let token = ProcessEnv.block["GITHUB_API_TOKEN"] {
             configuration.authTokens = { [.github("github.com"): token] }
         }
         configuration.apiLimitWarningThreshold = 50

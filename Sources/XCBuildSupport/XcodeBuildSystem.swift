@@ -90,7 +90,7 @@ package final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Xcode Build System")
 
-        if let xcbuildTool = ProcessEnv.vars["XCBUILD_TOOL"] {
+        if let xcbuildTool = ProcessEnv.block["XCBUILD_TOOL"] {
             xcbuildPath = try AbsolutePath(validating: xcbuildTool)
         } else {
             let xcodeSelectOutput = try TSCBasic.Process.popen(args: "xcode-select", "-p").utf8Output().spm_chomp()

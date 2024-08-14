@@ -403,6 +403,9 @@ def install(args):
         config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
         install_file(args, config_path, os.path.join(os.path.join(prefix, "share"), "pm"))
 
+        libs_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "provided-libraries.json")
+        install_file(args, config_path, os.path.join(os.path.join(prefix, "share"), "pm"))
+
     # Install libSwiftPM if an install directory was provided.
     if args.libswiftpm_install_dir:
         libswiftpm_modules = [

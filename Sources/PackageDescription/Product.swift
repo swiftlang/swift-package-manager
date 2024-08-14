@@ -69,7 +69,6 @@ public class Product {
 
     /// The executable product of a Swift package.
     public final class Executable: Product {
-
         /// The names of the targets in this product.
         public let targets: [String]
 
@@ -149,7 +148,7 @@ public class Product {
     ///   - name: The name of the executable product.
     ///   - targets: The targets to bundle into an executable product.
     /// - Returns: A `Product` instance.
-public static func executable(
+    public static func executable(
         name: String,
         targets: [String]
     ) -> Product {
@@ -167,7 +166,7 @@ public static func executable(
     ///   - name: The name of the plugin product.
     ///   - targets: The plugin targets to vend as a product.
     /// - Returns: A `Product` instance.
-@available(_PackageDescription, introduced: 5.5)
+    @available(_PackageDescription, introduced: 5.5)
     public static func plugin(
         name: String,
         targets: [String]

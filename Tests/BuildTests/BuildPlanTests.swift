@@ -807,6 +807,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
@@ -1220,6 +1221,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "-Xlinker", "-dead_strip",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
@@ -1310,6 +1312,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
@@ -1469,6 +1472,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
@@ -1659,6 +1663,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
@@ -2107,6 +2112,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
@@ -2355,6 +2361,7 @@ final class BuildPlanTests: XCTestCase {
                 buildPath.appending(components: "PkgPackageTests.xctest", "Contents", "MacOS", "PkgPackageTests")
                     .pathString,
                 "-module-name", "PkgPackageTests",
+                "-Xlinker", "-no_warn_duplicate_libraries",
                 "-Xlinker", "-bundle",
                 "-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../../",
                 "@\(buildPath.appending(components: "PkgPackageTests.product", "Objects.LinkFileList"))",
@@ -2453,6 +2460,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "-Xlinker", "-dead_strip",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
@@ -2817,6 +2825,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
@@ -2964,6 +2973,7 @@ final class BuildPlanTests: XCTestCase {
             "-o", buildPath.appending(components: "Foo").pathString,
             "-module-name", "Foo",
             "-lBar-Baz",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "Foo.product", "Objects.LinkFileList"))",
@@ -2979,6 +2989,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "libBar-Baz.dylib").pathString,
             "-module-name", "Bar_Baz",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-library",
             "-Xlinker", "-install_name", "-Xlinker", "@rpath/libBar-Baz.dylib",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
@@ -3343,6 +3354,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "liblib.dylib").pathString,
             "-module-name", "lib",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-library",
             "-Xlinker", "-install_name", "-Xlinker", "@rpath/liblib.dylib",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
@@ -3482,6 +3494,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "liblib.dylib").pathString,
             "-module-name", "lib",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-library",
             "-Xlinker", "-install_name", "-Xlinker", "@rpath/liblib.dylib",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
@@ -3496,6 +3509,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
@@ -4555,6 +4569,9 @@ final class BuildPlanTests: XCTestCase {
 
             let testDiscovery = try result.target(for: "APackageDiscoveredTests").swiftTarget().compileArguments()
             XCTAssertMatch(testDiscovery, [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++17"])
+
+            let testEntryPoint = try result.target(for: "APackageTests").swiftTarget().compileArguments()
+            XCTAssertMatch(testEntryPoint, [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++17"])
         }
 
         // omit frame pointers explicitly set to true
@@ -6593,6 +6610,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",

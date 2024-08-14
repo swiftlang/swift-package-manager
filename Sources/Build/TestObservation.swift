@@ -12,7 +12,7 @@
 
 import SPMBuildCore
 
-public func generateTestObservationCode(buildParameters: BuildParameters) -> String {
+package func generateTestObservationCode(buildParameters: BuildParameters) -> String {
     guard buildParameters.triple.supportsTestSummary else {
         return ""
     }

@@ -1312,6 +1312,7 @@ class PIFBuilderTests: XCTestCase {
                             "-fmodule-map-file=$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)/FooLib1.modulemap"
                         ])
                         XCTAssertEqual(settings[.OTHER_LDRFLAGS], [])
+                        XCTAssertEqual(settings[.OTHER_LDFLAGS], ["$(inherited)", "-Wl,-no_warn_duplicate_libraries"])
                     }
                 }
 
@@ -1384,7 +1385,7 @@ class PIFBuilderTests: XCTestCase {
                             "-fmodule-map-file=$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)/FooLib2.modulemap"
                         ])
                         XCTAssertEqual(settings[.OTHER_LDRFLAGS], [])
-                        XCTAssertEqual(settings[.OTHER_LDFLAGS], ["$(inherited)", "-lc++"])
+                        XCTAssertEqual(settings[.OTHER_LDFLAGS], ["$(inherited)", "-lc++", "-Wl,-no_warn_duplicate_libraries"])
                         XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS], [
                             "$(inherited)",
                             "-Xcc", "-fmodule-map-file=$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)/FooLib2.modulemap"
@@ -1463,6 +1464,7 @@ class PIFBuilderTests: XCTestCase {
                             "-fmodule-map-file=$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)/BarLib.modulemap"
                         ])
                         XCTAssertEqual(settings[.OTHER_LDRFLAGS], [])
+                        XCTAssertEqual(settings[.OTHER_LDFLAGS], ["$(inherited)", "-Wl,-no_warn_duplicate_libraries"])
                         XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS], [
                             "$(inherited)",
                             "-Xcc", "-fmodule-map-file=$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)/BarLib.modulemap"
@@ -2406,7 +2408,7 @@ class PIFBuilderTests: XCTestCase {
                     target.checkImpartedBuildSettings { settings in
                         XCTAssertEqual(settings[.GCC_PREPROCESSOR_DEFINITIONS], nil)
                         XCTAssertEqual(settings[.HEADER_SEARCH_PATHS], nil)
-                        XCTAssertEqual(settings[.OTHER_LDFLAGS], ["$(inherited)", "-lz"])
+                        XCTAssertEqual(settings[.OTHER_LDFLAGS], ["$(inherited)", "-Wl,-no_warn_duplicate_libraries", "-lz"])
                         XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS], nil)
                     }
                 }

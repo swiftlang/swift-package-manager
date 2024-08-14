@@ -211,9 +211,14 @@ extension FileSystem {
 
 extension FileSystem {
     /// SwiftPM directory under user's home directory (~/.swiftpm)
+    /// or under $XDG_CONFIG_HOME/swiftpm if the environmental variable is defined
     public var dotSwiftPM: AbsolutePath {
         get throws {
-            try self.homeDirectory.appending(".swiftpm")
+            if let configurationDirectory = EnvironmentVariables.process()["XDG_CONFIG_HOME"] {
+                return try AbsolutePath(validating: configurationDirectory).appending("swiftpm")
+            } else {
+                return try self.homeDirectory.appending(".swiftpm")
+            }
         }
     }
 

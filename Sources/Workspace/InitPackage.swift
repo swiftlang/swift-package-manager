@@ -836,7 +836,7 @@ public final class InitPackage {
                         of node: some FreestandingMacroExpansionSyntax,
                         in context: some MacroExpansionContext
                     ) -> ExprSyntax {
-                        guard let argument = node.argumentList.first?.expression else {
+                        guard let argument = node.arguments.first?.expression else {
                             fatalError("compiler bug: the macro does not have any arguments")
                         }
 

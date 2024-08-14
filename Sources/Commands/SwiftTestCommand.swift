@@ -40,7 +40,8 @@ private enum TestError: Swift.Error {
     case testProductNotFound(productName: String)
     case productIsNotTest(productName: String)
     case multipleTestProducts([String])
-    case xctestNotAvailable
+    case xctestNotAvailable(reason: String)
+    case xcodeNotInstalled
 }
 
 extension TestError: CustomStringConvertible {
@@ -57,8 +58,10 @@ extension TestError: CustomStringConvertible {
             return "invalid list test JSON structure, produced by \(context)\(underlying)"
         case .multipleTestProducts(let products):
             return "found multiple test products: \(products.joined(separator: ", ")); use --test-product to select one"
-        case .xctestNotAvailable:
-            return "XCTest not available"
+        case let .xctestNotAvailable(reason):
+            return "XCTest not available: \(reason)"
+        case .xcodeNotInstalled:
+            return "XCTest not available; download and install Xcode to use XCTest on this platform"
         }
     }
 }
@@ -179,7 +182,7 @@ package enum TestOutput: String, ExpressibleByArgument {
 }
 
 /// swift-test tool namespace
-package struct SwiftTestCommand: SwiftCommand {
+package struct SwiftTestCommand: AsyncSwiftCommand {
     package static var configuration = CommandConfiguration(
         commandName: "test",
         _superCommandName: "swift",
@@ -200,12 +203,17 @@ package struct SwiftTestCommand: SwiftCommand {
 
     // MARK: - XCTest
 
-    private func xctestRun(_ swiftCommandState: SwiftCommandState) throws {
+    private func xctestRun(_ swiftCommandState: SwiftCommandState) async throws {
         // validate XCTest available on darwin based systems
         let toolchain = try swiftCommandState.getTargetToolchain()
-        let isHostTestingAvailable = try swiftCommandState.getHostToolchain().swiftSDK.supportsTesting
-        if (toolchain.targetTriple.isDarwin() && toolchain.xctestPath == nil) || !isHostTestingAvailable {
-            throw TestError.xctestNotAvailable
+        if case let .unsupported(reason) = try swiftCommandState.getHostToolchain().swiftSDK.xctestSupport {
+            if let reason {
+                throw TestError.xctestNotAvailable(reason: reason)
+            } else {
+                throw TestError.xcodeNotInstalled
+            }
+        } else if toolchain.targetTriple.isDarwin() && toolchain.xctestPath == nil {
+            throw TestError.xcodeNotInstalled
         }
 
         let buildParameters = try swiftCommandState.buildParametersForTest(options: self.options, library: .xctest)
@@ -218,7 +226,7 @@ package struct SwiftTestCommand: SwiftCommand {
         let testProducts = try buildTestsIfNeeded(swiftCommandState: swiftCommandState, library: .xctest)
         if !self.options.shouldRunInParallel {
             let xctestArgs = try xctestArgs(for: testProducts, swiftCommandState: swiftCommandState)
-            try runTestProducts(
+            try await runTestProducts(
                 testProducts,
                 additionalArguments: xctestArgs,
                 buildParameters: buildParameters,
@@ -269,7 +277,7 @@ package struct SwiftTestCommand: SwiftCommand {
 
             // process code Coverage if request
             if self.options.enableCodeCoverage, runner.ranSuccessfully {
-                try processCodeCoverage(testProducts, swiftCommandState: swiftCommandState, library: .xctest)
+                try await processCodeCoverage(testProducts, swiftCommandState: swiftCommandState, library: .xctest)
             }
 
             if !runner.ranSuccessfully {
@@ -337,11 +345,11 @@ package struct SwiftTestCommand: SwiftCommand {
 
     // MARK: - swift-testing
 
-    private func swiftTestingRun(_ swiftCommandState: SwiftCommandState) throws {
+    private func swiftTestingRun(_ swiftCommandState: SwiftCommandState) async throws {
         let buildParameters = try swiftCommandState.buildParametersForTest(options: self.options, library: .swiftTesting)
         let testProducts = try buildTestsIfNeeded(swiftCommandState: swiftCommandState, library: .swiftTesting)
         let additionalArguments = Array(CommandLine.arguments.dropFirst())
-        try runTestProducts(
+        try await runTestProducts(
             testProducts,
             additionalArguments: additionalArguments,
             buildParameters: buildParameters,
@@ -352,7 +360,7 @@ package struct SwiftTestCommand: SwiftCommand {
 
     // MARK: - Common implementation
 
-    package func run(_ swiftCommandState: SwiftCommandState) throws {
+    package func run(_ swiftCommandState: SwiftCommandState) async throws {
         do {
             // Validate commands arguments
             try self.validateArguments(observabilityScope: swiftCommandState.observabilityScope)
@@ -369,10 +377,10 @@ package struct SwiftTestCommand: SwiftCommand {
             try command.run(swiftCommandState)
         } else {
             if try options.testLibraryOptions.enableSwiftTestingLibrarySupport(swiftCommandState: swiftCommandState) {
-                try swiftTestingRun(swiftCommandState)
+                try await swiftTestingRun(swiftCommandState)
             }
             if options.testLibraryOptions.enableXCTestSupport {
-                try xctestRun(swiftCommandState)
+                try await xctestRun(swiftCommandState)
             }
         }
     }
@@ -383,7 +391,7 @@ package struct SwiftTestCommand: SwiftCommand {
         buildParameters: BuildParameters,
         swiftCommandState: SwiftCommandState,
         library: BuildParameters.Testing.Library
-    ) throws {
+    ) async throws {
         // Clean out the code coverage directory that may contain stale
         // profraw files from a previous run of the code coverage tool.
         if self.options.enableCodeCoverage {
@@ -418,7 +426,7 @@ package struct SwiftTestCommand: SwiftCommand {
         }
 
         if self.options.enableCodeCoverage, ranSuccessfully {
-            try processCodeCoverage(testProducts, swiftCommandState: swiftCommandState, library: library)
+            try await processCodeCoverage(testProducts, swiftCommandState: swiftCommandState, library: library)
         }
 
         if self.options.enableExperimentalTestOutput, !ranSuccessfully {
@@ -462,16 +470,13 @@ package struct SwiftTestCommand: SwiftCommand {
         _ testProducts: [BuiltTestProduct],
         swiftCommandState: SwiftCommandState,
         library: BuildParameters.Testing.Library
-    ) throws {
+    ) async throws {
         let workspace = try swiftCommandState.getActiveWorkspace()
         let root = try swiftCommandState.getWorkspaceRoot()
-        let rootManifests = try temp_await {
-            workspace.loadRootManifests(
-                packages: root.packages,
-                observabilityScope: swiftCommandState.observabilityScope,
-                completion: $0
-            )
-        }
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: swiftCommandState.observabilityScope
+        )
         guard let rootManifest = rootManifests.values.first else {
             throw StringError("invalid manifests at \(root.packages)")
         }
@@ -817,7 +822,7 @@ final class TestRunner {
         #if os(macOS)
         if library == .xctest {
             guard let xctestPath = self.toolchain.xctestPath else {
-                throw TestError.xctestNotAvailable
+                throw TestError.xcodeNotInstalled
             }
             args = [xctestPath.pathString]
             args += additionalArguments
@@ -936,7 +941,7 @@ final class ParallelTestRunner {
 
         // command's result output goes on stdout
         // ie "swift test" should output to stdout
-        if ProcessEnv.vars["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
+        if ProcessEnv.block["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
             self.progressAnimation = ProgressAnimation.percent(
                 stream: TSCBasic.stdoutStream,
                 verbose: false,
@@ -1295,7 +1300,7 @@ extension TestCommandOptions {
 
     /// Returns the test case specifier if overridden in the env.
     private func skippedTestsOverride(fileSystem: FileSystem) -> TestCaseSpecifier? {
-        guard let override = ProcessEnv.vars["_SWIFTPM_SKIP_TESTS_LIST"] else {
+        guard let override = ProcessEnv.block["_SWIFTPM_SKIP_TESTS_LIST"] else {
             return nil
         }
 
