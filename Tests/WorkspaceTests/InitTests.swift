@@ -182,10 +182,12 @@ final class InitTests: XCTestCase {
             XCTAssertMatch(testFileContents, .contains(#"@Test func example() async throws"#))
             XCTAssertNoMatch(testFileContents, .contains("func testExample() throws"))
 
+#if compiler(>=6)
             // Try building it
             await XCTAssertBuilds(path)
             let triple = try UserToolchain.default.targetTriple
             XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+#endif
         }
     }
 
