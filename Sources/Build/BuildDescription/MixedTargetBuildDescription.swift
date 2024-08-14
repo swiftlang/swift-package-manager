@@ -97,6 +97,7 @@ public final class MixedTargetBuildDescription {
             platformVersionProvider: target.platformVersionProvider
         )
         self.clangTargetBuildDescription = try ClangTargetBuildDescription(
+            package: package,
             target: clangResolvedTarget,
             toolsVersion: toolsVersion,
             buildParameters: buildParameters,

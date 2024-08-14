@@ -1733,7 +1733,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1851,7 +1851,7 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
                 result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
                 "-L", buildPath.pathString, "-o", buildPath.appending(components: "exe").pathString,
-                "-module-name", "exe", "-emit-executable", "-Xlinker", "-rpath",
+                "-module-name", "exe", "-Xlinker", "-no_warn_duplicate_libraries", "-emit-executable", "-Xlinker", "-rpath",
                 "-Xlinker", "@loader_path",
                 "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
                 "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
@@ -1888,7 +1888,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1991,7 +1991,7 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
                 result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
                 "-L", buildPath.pathString, "-o", buildPath.appending(components: "exe").pathString,
-                "-module-name", "exe", "-emit-executable", "-Xlinker", "-rpath",
+                "-module-name", "exe", "-Xlinker", "-no_warn_duplicate_libraries", "-emit-executable", "-Xlinker", "-rpath",
                 "-Xlinker", "@loader_path",
                 "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
                 "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
@@ -3070,7 +3070,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let g = try loadPackageGraph(
+        let g = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -3131,6 +3131,7 @@ final class BuildPlanTests: XCTestCase {
                 "-o", buildPath.appending(components: "Foo").pathString,
                 "-module-name", "Foo",
                 "-lBar-Baz",
+                "-Xlinker", "-no_warn_duplicate_libraries",
                 "-emit-executable",
                 "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
                 "@\(buildPath.appending(components: "Foo.product", "Objects.LinkFileList"))",
@@ -3145,6 +3146,7 @@ final class BuildPlanTests: XCTestCase {
                 "-L", buildPath.pathString,
                 "-o", buildPath.appending(components: "libBar-Baz.dylib").pathString,
                 "-module-name", "Bar_Baz",
+                "-Xlinker", "-no_warn_duplicate_libraries",
                 "-emit-library",
                 "-Xlinker", "-install_name", "-Xlinker", "@rpath/libBar-Baz.dylib",
                 "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
@@ -3188,7 +3190,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let g = try loadPackageGraph(
+        let g = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -3248,6 +3250,7 @@ final class BuildPlanTests: XCTestCase {
                 "-L", buildPath.pathString,
                 "-o", buildPath.appending(components: "Foo").pathString,
                 "-module-name", "Foo",
+                "-Xlinker", "-no_warn_duplicate_libraries",
                 "-emit-executable",
                 "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
                 "@\(buildPath.appending(components: "Foo.product", "Objects.LinkFileList"))",
