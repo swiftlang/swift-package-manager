@@ -351,6 +351,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 if let pluginConfiguration, !buildParameters.shouldSkipBuilding {
                     let pluginInvocationResults = try await Self.invokeBuildToolPlugins(
                         for: module,
+                        destination: destination,
                         configuration: pluginConfiguration,
                         buildParameters: toolsBuildParameters,
                         modulesGraph: graph,
@@ -752,6 +753,7 @@ extension BuildPlan {
     /// structures for later showing to the user, and not added directly to the diagnostics engine.
     static func invokeBuildToolPlugins(
         for module: ResolvedModule,
+        destination: BuildParameters.Destination,
         configuration: PluginConfiguration,
         buildParameters: BuildParameters,
         modulesGraph: ModulesGraph,
@@ -786,7 +788,7 @@ extension BuildPlan {
                 components: [
                     package.identity.description,
                     module.name,
-                    module.buildTriple.rawValue,
+                    destination == .host ? "tools" : "destination",
                     plugin.name,
                 ]
             )
