@@ -154,8 +154,8 @@ final class InitTests: XCTestCase {
         }
     }
 
-    func testInitPackageLibraryWithSwiftTestingOnly() throws {
-        try testWithTemporaryDirectory { tmpPath in
+    func testInitPackageLibraryWithSwiftTestingOnly() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
             let name = path.basename
@@ -182,15 +182,15 @@ final class InitTests: XCTestCase {
             XCTAssertMatch(testFileContents, .contains(#"@Test func example() async throws"#))
             XCTAssertNoMatch(testFileContents, .contains("func testExample() throws"))
 
-            // Try building it -- DISABLED because we cannot pull the swift-testing repository from CI.
-//            XCTAssertBuilds(path)
-//            let triple = try UserToolchain.default.targetTriple
-//            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+            // Try building it
+            await XCTAssertBuilds(path)
+            let triple = try UserToolchain.default.targetTriple
+            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
         }
     }
 
-    func testInitPackageLibraryWithBothSwiftTestingAndXCTest() throws {
-        try testWithTemporaryDirectory { tmpPath in
+    func testInitPackageLibraryWithBothSwiftTestingAndXCTest() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
             let name = path.basename
@@ -217,10 +217,12 @@ final class InitTests: XCTestCase {
             XCTAssertMatch(testFileContents, .contains(#"@Test func example() async throws"#))
             XCTAssertMatch(testFileContents, .contains("func testExample() throws"))
 
-            // Try building it -- DISABLED because we cannot pull the swift-testing repository from CI.
-            //            XCTAssertBuilds(path)
-            //            let triple = try UserToolchain.default.targetTriple
-            //            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+#if compiler(>=6)
+            // Try building it
+            await XCTAssertBuilds(path)
+            let triple = try UserToolchain.default.targetTriple
+            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+#endif
         }
     }
 
@@ -251,10 +253,12 @@ final class InitTests: XCTestCase {
 
             XCTAssertNoSuchPath(path.appending("Tests"))
 
+#if compiler(>=6)
             // Try building it
             await XCTAssertBuilds(path)
             let triple = try UserToolchain.default.targetTriple
             XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+#endif
         }
     }
 
