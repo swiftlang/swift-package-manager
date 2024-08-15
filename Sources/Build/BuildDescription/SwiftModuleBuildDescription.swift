@@ -988,17 +988,3 @@ public final class SwiftModuleBuildDescription {
         return arguments
     }
 }
-
-extension SwiftModuleBuildDescription {
-    package func dependencies(
-        using plan: BuildPlan
-    ) -> [ModuleBuildDescription.Dependency] {
-        ModuleBuildDescription.swift(self).dependencies(using: plan)
-    }
-
-    package func recursiveDependencies(
-        using plan: BuildPlan
-    ) -> [ModuleBuildDescription.Dependency] {
-        ModuleBuildDescription.swift(self).recursiveDependencies(using: plan)
-    }
-}

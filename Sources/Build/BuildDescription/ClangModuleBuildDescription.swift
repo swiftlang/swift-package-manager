@@ -526,17 +526,3 @@ public final class ClangModuleBuildDescription {
         )
     }
 }
-
-extension ClangModuleBuildDescription {
-    package func dependencies(
-        using plan: BuildPlan
-    ) -> [ModuleBuildDescription.Dependency] {
-        ModuleBuildDescription.clang(self).dependencies(using: plan)
-    }
-
-    package func recursiveDependencies(
-        using plan: BuildPlan
-    ) -> [ModuleBuildDescription.Dependency] {
-        ModuleBuildDescription.clang(self).recursiveDependencies(using: plan)
-    }
-}

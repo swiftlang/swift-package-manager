@@ -13,7 +13,6 @@
 import Basics
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedPackage
-import struct PackageGraph.ResolvedProduct
 import struct PackageModel.Resource
 import struct PackageModel.ToolsVersion
 import struct SPMBuildCore.BuildToolPluginInvocationResult
@@ -158,38 +157,5 @@ extension ModuleBuildDescription: Identifiable {
 
     public var id: ID {
         ID(moduleID: self.module.id, destination: self.destination)
-    }
-}
-
-extension ModuleBuildDescription {
-    package enum Dependency {
-        /// Not all of the modules and products have build descriptions
-        case product(ResolvedProduct, ProductBuildDescription?)
-        case module(ResolvedModule, ModuleBuildDescription?)
-    }
-
-    package func dependencies(using plan: BuildPlan) -> [Dependency] {
-        self.module
-            .dependencies(satisfying: self.buildParameters.buildEnvironment)
-            .map {
-                switch $0 {
-                case .product(let product, _):
-                    let productDescription = plan.description(for: product, context: self.destination)
-                    return .product(product, productDescription)
-                case .module(let module, _):
-                    let moduleDescription = plan.description(for: module, context: self.destination)
-                    return .module(module, moduleDescription)
-                }
-            }
-    }
-
-    package func recursiveDependencies(using plan: BuildPlan) -> [Dependency] {
-        var dependencies: [Dependency] = []
-        plan.traverseDependencies(of: self) { product, _, description in
-            dependencies.append(.product(product, description))
-        } onModule: { module, _, description in
-            dependencies.append(.module(module, description))
-        }
-        return dependencies
     }
 }

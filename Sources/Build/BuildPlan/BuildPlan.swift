@@ -1137,15 +1137,12 @@ extension BuildPlan {
         onProduct: (ResolvedProduct, BuildParameters.Destination, ProductBuildDescription?) -> Void,
         onModule: (ResolvedModule, BuildParameters.Destination, ModuleBuildDescription?) -> Void
     ) {
-        var visited = Set<TraversalNode>()
         func successors(
             for product: ResolvedProduct,
             destination: Destination
         ) -> [TraversalNode] {
             product.modules.map { module in
                 TraversalNode(module: module, context: destination)
-            }.filter {
-                visited.insert($0).inserted
             }
         }
 
@@ -1162,8 +1159,6 @@ extension BuildPlan {
                     case .module(let module, _):
                         partial.append(.init(module: module, context: destination))
                     }
-                }.filter {
-                    visited.insert($0).inserted
                 }
         }
 

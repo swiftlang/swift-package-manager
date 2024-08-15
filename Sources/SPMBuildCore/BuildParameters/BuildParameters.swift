@@ -38,7 +38,7 @@ public struct BuildParameters: Encodable {
     }
 
     /// The destination for which code should be compiled for.
-    public enum Destination: Hashable, Encodable {
+    public enum Destination: Encodable {
         /// The destination for which build tools are compiled.
         case host
 
