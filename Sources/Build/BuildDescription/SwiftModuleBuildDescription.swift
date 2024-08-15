@@ -49,11 +49,6 @@ public final class SwiftModuleBuildDescription {
     /// The build parameters for this target.
     let buildParameters: BuildParameters
 
-    /// The destination for while this module is built.
-    public var destination: BuildParameters.Destination {
-        self.buildParameters.destination
-    }
-
     /// The build parameters for the macro dependencies of this target.
     let macroBuildParameters: BuildParameters
 

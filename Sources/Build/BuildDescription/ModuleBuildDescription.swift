@@ -121,15 +121,6 @@ public enum ModuleBuildDescription: SPMBuildCore.ModuleBuildDescription {
         }
     }
 
-    var destination: BuildParameters.Destination {
-        switch self {
-        case .swift(let buildDescription):
-            buildDescription.destination
-        case .clang(let buildDescription):
-            buildDescription.destination
-        }
-    }
-
     var toolsVersion: ToolsVersion {
         switch self {
         case .swift(let buildDescription):
@@ -146,16 +137,5 @@ public enum ModuleBuildDescription: SPMBuildCore.ModuleBuildDescription {
         case .swift(let buildDescription): try buildDescription.symbolGraphExtractArguments()
         case .clang(let buildDescription): try buildDescription.symbolGraphExtractArguments()
         }
-    }
-}
-
-extension ModuleBuildDescription: Identifiable {
-    public struct ID: Hashable {
-        let moduleID: ResolvedModule.ID
-        let destination: BuildParameters.Destination
-    }
-
-    public var id: ID {
-        ID(moduleID: self.module.id, destination: self.destination)
     }
 }
