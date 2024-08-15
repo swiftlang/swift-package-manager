@@ -17,7 +17,8 @@ import Build
 import PackageGraph
 
 import PackageModel
-import SourceKitLSPAPI
+@testable import SourceKitLSPAPI
+import struct SPMBuildCore.BuildParameters
 import _InternalTestSupport
 import XCTest
 
@@ -90,7 +91,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                 "-I", "/fake/manifestLib/path"
             ],
             isPartOfRootPackage: true,
-            destination: .tools
+            destination: .host
         )
     }
 
@@ -167,10 +168,10 @@ extension SourceKitLSPAPI.BuildDescription {
         graph: ModulesGraph,
         partialArguments: [String],
         isPartOfRootPackage: Bool,
-        destination: BuildTriple = .destination
+        destination: BuildParameters.Destination = .target
     ) throws -> Bool {
-        let target = try XCTUnwrap(graph.module(for: targetName, destination: destination))
-        let buildTarget = try XCTUnwrap(self.getBuildTarget(for: target, in: graph))
+        let target = try XCTUnwrap(graph.module(for: targetName))
+        let buildTarget = try XCTUnwrap(self.getBuildTarget(for: target, destination: destination))
 
         guard let file = buildTarget.sources.first else {
             XCTFail("build target \(targetName) contains no files")

@@ -116,7 +116,11 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
                 "SwiftSyntaxMacrosTestSupport",
                 "SwiftSyntaxMacrosTestSupport"
             )
-            result.check(testModules: "MMIOMacrosTests", "MMIOMacro+PluginTests")
+            // TODO: NOOPTests are mentioned twice because in the graph they appear
+            // as if they target both "tools" and "destination", see the test below.
+            // Once the `buildTriple` is gone, there is going to be only one mention
+            // left.
+            result.check(testModules: "MMIOMacrosTests", "MMIOMacro+PluginTests", "NOOPTests", "NOOPTests")
             result.checkTarget("MMIO") { result in
                 result.check(buildTriple: .destination)
                 result.check(dependencies: "MMIOMacros")
@@ -179,6 +183,13 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
                     XCTAssertEqual(result.target.packageIdentity, .plain("swift-syntax"))
                     XCTAssertEqual(graph.package(for: result.target)?.identity, .plain("swift-syntax"))
                 }
+            }
+
+            result.checkTargets("NOOPTests") { results in
+                XCTAssertEqual(results.count, 2)
+
+                XCTAssertEqual(results.filter({ $0.target.buildTriple == .tools }).count, 1)
+                XCTAssertEqual(results.filter({ $0.target.buildTriple == .destination }).count, 1)
             }
         }
     }

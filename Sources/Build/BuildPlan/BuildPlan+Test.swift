@@ -34,7 +34,7 @@ import protocol TSCBasic.FileSystem
 
 extension BuildPlan {
     static func makeDerivedTestTargets(
-        testProducts: [(product: ResolvedProduct, buildDescription: ProductBuildDescription)],
+        testProducts: [ProductBuildDescription],
         destinationBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
         shouldDisableSandbox: Bool,
@@ -51,7 +51,8 @@ extension BuildPlan {
 
         var isDiscoveryEnabledRedundantly = explicitlyEnabledDiscovery && !isEntryPointPathSpecifiedExplicitly
         var result: [(ResolvedProduct, SwiftModuleBuildDescription?, SwiftModuleBuildDescription)] = []
-        for (testProduct, testBuildDescription) in testProducts {
+        for testBuildDescription in testProducts {
+            let testProduct = testBuildDescription.product
             let package = testBuildDescription.package
 
             isDiscoveryEnabledRedundantly = isDiscoveryEnabledRedundantly && nil == testProduct.testEntryPointModule
