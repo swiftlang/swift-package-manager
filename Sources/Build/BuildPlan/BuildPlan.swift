@@ -706,20 +706,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
         return inputs
     }
-
-    public func description(
-        for product: ResolvedProduct,
-        context: BuildParameters.Destination
-    ) -> ProductBuildDescription? {
-        return self.productMap[product.id]
-    }
-
-    public func description(
-        for module: ResolvedModule,
-        context: BuildParameters.Destination
-    ) -> ModuleBuildDescription? {
-        return self.targetMap[module.id]
-    }
 }
 
 extension BuildPlan {
@@ -1128,59 +1114,6 @@ extension BuildPlan {
 
             case .module(let module, let destination):
                 onModule((module, destination), parentModule, depth)
-            }
-        }
-    }
-
-    package func traverseDependencies(
-        of description: ModuleBuildDescription,
-        onProduct: (ResolvedProduct, BuildParameters.Destination, ProductBuildDescription?) -> Void,
-        onModule: (ResolvedModule, BuildParameters.Destination, ModuleBuildDescription?) -> Void
-    ) {
-        func successors(
-            for product: ResolvedProduct,
-            destination: Destination
-        ) -> [TraversalNode] {
-            product.modules.map { module in
-                TraversalNode(module: module, context: destination)
-            }
-        }
-
-        func successors(
-            for module: ResolvedModule,
-            destination: Destination
-        ) -> [TraversalNode] {
-            module
-                .dependencies(satisfying: description.buildParameters.buildEnvironment)
-                .reduce(into: [TraversalNode]()) { partial, dependency in
-                    switch dependency {
-                    case .product(let product, _):
-                        partial.append(.init(product: product, context: destination))
-                    case .module(let module, _):
-                        partial.append(.init(module: module, context: destination))
-                    }
-                }
-        }
-
-        depthFirstSearch(successors(for: description.module, destination: description.destination)) {
-            switch $0 {
-            case .module(let module, let destination):
-                successors(for: module, destination: destination)
-            case .product(let product, let destination):
-                successors(for: product, destination: destination)
-            case .package:
-                []
-            }
-        } onNext: { module, _, _ in
-            switch module {
-            case .package:
-                break
-
-            case .product(let product, let destination):
-                onProduct(product, destination, self.description(for: product, context: destination))
-
-            case .module(let module, let destination):
-                onModule(module, destination, self.description(for: module, context: destination))
             }
         }
     }
