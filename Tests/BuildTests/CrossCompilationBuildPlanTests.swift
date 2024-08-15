@@ -295,15 +295,9 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: scope
         )
-
-        // Make sure that build plan doesn't have any "target" tests.
-        for description in plan.targetMap where description.module.underlying.type == .test {
-            XCTAssertEqual(description.buildParameters.destination, .host)
-        }
-
         let result = try BuildPlanResult(plan: plan)
         result.checkProductsCount(2)
-        result.checkTargetsCount(17)
+        result.checkTargetsCount(16)
 
         XCTAssertTrue(try result.allTargets(named: "SwiftSyntax")
             .map { try $0.swift() }

@@ -32,36 +32,30 @@ extension LLBuildManifestBuilder {
             inputs.append(resourcesNode)
         }
 
-        func addStaticTargetInputs(_ description: ModuleBuildDescription?) {
-            if case .swift(let desc) = description, desc.target.type == .library {
+        func addStaticTargetInputs(_ target: ResolvedModule) {
+            if case .swift(let desc)? = self.plan.targetMap[target.id], target.type == .library {
                 inputs.append(file: desc.moduleOutputPath)
             }
         }
 
-        for dependency in target.dependencies(using: self.plan) {
+        for dependency in target.target.dependencies(satisfying: target.buildEnvironment) {
             switch dependency {
-            case .module(_, let description):
-                addStaticTargetInputs(description)
+            case .module(let target, _):
+                addStaticTargetInputs(target)
 
-            case .product(let product, let productDescription):
+            case .product(let product, _):
                 switch product.type {
                 case .executable, .snippet, .library(.dynamic), .macro:
-                    guard let productDescription else {
-                        throw InternalError("No build description for product: \(product)")
+                    guard let planProduct = plan.productMap[product.id] else {
+                        throw InternalError("unknown product \(product)")
                     }
                     // Establish a dependency on binary of the product.
-                    try inputs.append(file: productDescription.binaryPath)
+                    let binary = try planProduct.binaryPath
+                    inputs.append(file: binary)
 
                 case .library(.automatic), .library(.static), .plugin:
-                    for module in product.modules {
-                        guard let dependencyDescription = self.plan.description(
-                            for: module,
-                            context: product.type == .plugin ? .host : target.destination
-                        ) else
-                        {
-                            throw InternalError("unknown module: \(module)")
-                        }
-                        addStaticTargetInputs(dependencyDescription)
+                    for target in product.modules {
+                        addStaticTargetInputs(target)
                     }
                 case .test:
                     break

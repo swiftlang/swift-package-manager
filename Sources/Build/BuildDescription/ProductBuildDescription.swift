@@ -37,11 +37,6 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     /// The build parameters.
     public let buildParameters: BuildParameters
 
-    /// The destination for while this product is built.
-    public var destination: BuildParameters.Destination {
-        self.buildParameters.destination
-    }
-
     /// All object files to link into this product.
     ///
     // Computed during build planning.
@@ -399,17 +394,6 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
     func codeSigningArguments(plistPath: AbsolutePath, binaryPath: AbsolutePath) -> [String] {
         ["codesign", "--force", "--sign", "-", "--entitlements", plistPath.pathString, binaryPath.pathString]
-    }
-}
-
-extension ProductBuildDescription: Identifiable {
-    public struct ID: Hashable {
-        let productID: ResolvedProduct.ID
-        let destination: BuildParameters.Destination
-    }
-
-    public var id: ID {
-        ID(productID: self.product.id, destination: self.destination)
     }
 }
 

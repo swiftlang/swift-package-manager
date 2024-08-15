@@ -77,12 +77,12 @@ extension BuildPlan {
             }
         }
 
-        for module in dependencies.staticTargets {
-            switch module.underlying {
+        for target in dependencies.staticTargets {
+            switch target.underlying {
             case is SwiftModule:
                 // Swift targets are guaranteed to have a corresponding Swift description.
-                guard case .swift(let description) = self.description(for: module, context: buildProduct.destination) else {
-                    throw InternalError("unknown module \(module)")
+                guard case .swift(let description) = self.targetMap[target.id] else {
+                    throw InternalError("unknown target \(target)")
                 }
 
                 // Based on the debugging strategy, we either need to pass swiftmodule paths to the
@@ -103,16 +103,16 @@ extension BuildPlan {
 
         buildProduct.staticTargets = dependencies.staticTargets
         buildProduct.dylibs = try dependencies.dylibs.map {
-            guard let product = self.description(for: $0, context: buildProduct.destination) else {
+            guard let product = self.productMap[$0.id] else {
                 throw InternalError("unknown product \($0)")
             }
             return product
         }
-        buildProduct.objects += try dependencies.staticTargets.flatMap { module -> [AbsolutePath] in
-            guard let description = self.description(for: module, context: buildProduct.destination) else {
-                throw InternalError("unknown module \(module)")
+        buildProduct.objects += try dependencies.staticTargets.flatMap { targetName -> [AbsolutePath] in
+            guard let target = self.targetMap[targetName.id] else {
+                throw InternalError("unknown target \(targetName)")
             }
-            return try description.objects
+            return try target.objects
         }
         buildProduct.libraryBinaryPaths = dependencies.libraryBinaryPaths
 
