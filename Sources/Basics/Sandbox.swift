@@ -217,9 +217,19 @@ fileprivate func macOSSandboxProfile(
     // Emit rules for paths under which writing is allowed, even if they are descendants directories that are otherwise read-only.
     if writableDirectories.count > 0 {
         contents += "(allow file-write*\n"
-        // For any explicit writable directories, also include the relevant item replacement directories so that Foundation APIs using atomic writes are not blocked by the sandbox.
-        for path in writableDirectories + Set(writableDirectories.compactMap { try? fileSystem.itemReplacementDirectories(for: $0) }.flatMap { $0}) {
+        for path in writableDirectories {
             contents += "    (subpath \(try resolveSymlinks(path).quotedAsSubpathForSandboxProfile))\n"
+            
+            // `itemReplacementDirectories` may return a combination of stable directory paths, and subdirectories which are unique on every call. Avoid including unnecessary subdirectories in the Sandbox profile which may lead to nondeterminism in its construction.
+            if let itemReplacementDirectories = try? fileSystem.itemReplacementDirectories(for: path).sorted(by: { $0.pathString.count < $1.pathString.count }) {
+                var stableItemReplacementDirectories: [AbsolutePath] = []
+                for directory in itemReplacementDirectories {
+                    if !stableItemReplacementDirectories.contains(where: { $0.isAncestorOfOrEqual(to: directory) }) {
+                        stableItemReplacementDirectories.append(directory)
+                        contents += "    (subpath \(try resolveSymlinks(directory).quotedAsSubpathForSandboxProfile))\n"
+                    }
+                }
+            }
         }
         contents += ")\n"
     }
