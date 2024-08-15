@@ -102,7 +102,7 @@ public class LLBuildManifestBuilder {
             try addTargetsToExplicitBuildManifest()
         } else {
             // Create commands for all target descriptions in the plan.
-            for (_, description) in self.plan.targetMap {
+            for description in self.plan.targetMap {
                 switch description {
                 case .swift(let desc):
                     try self.createSwiftCompileCommand(desc)
@@ -116,7 +116,7 @@ public class LLBuildManifestBuilder {
         try self.addTestEntryPointGenerationCommand()
 
         // Create command for all products in the plan.
-        for (_, description) in self.plan.productMap {
+        for description in self.plan.productMap {
             try self.createProductCommand(description)
         }
 
@@ -133,7 +133,7 @@ public class LLBuildManifestBuilder {
 
         addPackageStructureCommand()
 
-        for (_, description) in self.plan.targetMap {
+        for description in self.plan.targetMap {
             switch description {
             case .swift(let desc):
                 try self.createSwiftCompileCommand(desc)
@@ -148,7 +148,7 @@ public class LLBuildManifestBuilder {
             }
         }
 
-        for (_, description) in self.plan.productMap {
+        for description in self.plan.productMap {
             // Need to generate macro products
             switch description.product.type {
             case .macro, .plugin:
@@ -271,7 +271,7 @@ extension LLBuildManifestBuilder {
     private func addTestDiscoveryGenerationCommand() throws {
         for testDiscoveryTarget in self.plan.targets.compactMap(\.testDiscoveryTargetBuildDescription) {
             let testTargets = testDiscoveryTarget.target.dependencies
-                .compactMap(\.module).compactMap { self.plan.targetMap[$0.id] }
+                .compactMap(\.module).compactMap { self.plan.description(for: $0, context: testDiscoveryTarget.destination) }
             let objectFiles = try testTargets.flatMap { try $0.objects }.sorted().map(Node.file)
             let outputs = testDiscoveryTarget.target.sources.paths
 
@@ -288,18 +288,22 @@ extension LLBuildManifestBuilder {
     }
 
     private func addTestEntryPointGenerationCommand() throws {
-        for target in self.plan.targets {
-            guard case .swift(let target) = target,
-                  case .entryPoint(let isSynthesized) = target.testTargetRole,
+        for module in self.plan.targets {
+            guard case .swift(let swiftModule) = module,
+                  case .entryPoint(let isSynthesized) = swiftModule.testTargetRole,
                   isSynthesized else { continue }
 
-            let testEntryPointTarget = target
+            let testEntryPointTarget = swiftModule
 
             // Get the Swift target build descriptions of all discovery modules this synthesized entry point target
             // depends on.
-            let discoveredTargetDependencyBuildDescriptions = testEntryPointTarget.target.dependencies
-                .compactMap(\.module?.id)
-                .compactMap { self.plan.targetMap[$0] }
+            let discoveredTargetDependencyBuildDescriptions = module.dependencies(using: self.plan)
+                .compactMap {
+                    if case .module(_, let description) = $0 {
+                        return description
+                    }
+                    return nil
+                }
                 .compactMap(\.testDiscoveryTargetBuildDescription)
 
             // The module outputs of the discovery modules this synthesized entry point target depends on are

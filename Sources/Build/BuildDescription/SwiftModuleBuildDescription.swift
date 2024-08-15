@@ -49,6 +49,11 @@ public final class SwiftModuleBuildDescription {
     /// The build parameters for this target.
     let buildParameters: BuildParameters
 
+    /// The destination for while this module is built.
+    public var destination: BuildParameters.Destination {
+        self.buildParameters.destination
+    }
+
     /// The build parameters for the macro dependencies of this target.
     let macroBuildParameters: BuildParameters
 
@@ -981,5 +986,19 @@ public final class SwiftModuleBuildDescription {
         }
 
         return arguments
+    }
+}
+
+extension SwiftModuleBuildDescription {
+    package func dependencies(
+        using plan: BuildPlan
+    ) -> [ModuleBuildDescription.Dependency] {
+        ModuleBuildDescription.swift(self).dependencies(using: plan)
+    }
+
+    package func recursiveDependencies(
+        using plan: BuildPlan
+    ) -> [ModuleBuildDescription.Dependency] {
+        ModuleBuildDescription.swift(self).recursiveDependencies(using: plan)
     }
 }

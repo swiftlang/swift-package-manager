@@ -42,6 +42,11 @@ public final class ClangModuleBuildDescription {
     /// The build parameters.
     let buildParameters: BuildParameters
 
+    /// The destination for while this module is built.
+    public var destination: BuildParameters.Destination {
+        self.buildParameters.destination
+    }
+
     /// The build environment.
     var buildEnvironment: BuildEnvironment {
         buildParameters.buildEnvironment
@@ -519,5 +524,19 @@ public final class ClangModuleBuildDescription {
             path: headerFile,
             string: headerContent
         )
+    }
+}
+
+extension ClangModuleBuildDescription {
+    package func dependencies(
+        using plan: BuildPlan
+    ) -> [ModuleBuildDescription.Dependency] {
+        ModuleBuildDescription.clang(self).dependencies(using: plan)
+    }
+
+    package func recursiveDependencies(
+        using plan: BuildPlan
+    ) -> [ModuleBuildDescription.Dependency] {
+        ModuleBuildDescription.clang(self).recursiveDependencies(using: plan)
     }
 }
