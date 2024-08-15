@@ -42,10 +42,6 @@ public struct IdentifiableSet<Element: Identifiable>: Collection {
         Index(storageIndex: self.storage.elements.endIndex)
     }
 
-    public var values: some Sequence<Element> {
-        self.storage.values
-    }
-
     public subscript(position: Index) -> Element {
         self.storage.elements[position.storageIndex].value
     }

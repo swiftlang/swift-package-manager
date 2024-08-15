@@ -15,7 +15,7 @@ import struct Foundation.URL
 private import struct Basics.AbsolutePath
 private import func Basics.resolveSymlinks
 
-internal import SPMBuildCore
+private import SPMBuildCore
 
 // FIXME: should import these module with `private` or `internal` access control
 import class Build.BuildPlan
@@ -127,12 +127,9 @@ public struct BuildDescription {
         self.inputs = buildPlan.inputs
     }
 
-    func getBuildTarget(
-        for module: ResolvedModule,
-        destination: BuildParameters.Destination
-    ) -> BuildTarget? {
-        if let description = self.buildPlan.description(for: module, context: destination) {
-            let modulesGraph = self.buildPlan.graph
+    // FIXME: should not use `ResolvedTarget` in the public interface
+    public func getBuildTarget(for target: ResolvedModule, in modulesGraph: ModulesGraph) -> BuildTarget? {
+        if let description = buildPlan.targetMap[target.id] {
             switch description {
             case .clang(let description):
                 return WrappedClangTargetBuildDescription(
@@ -146,10 +143,9 @@ public struct BuildDescription {
                 )
             }
         } else {
-            if module.type == .plugin, let package = self.buildPlan.graph.package(for: module) {
-                let modulesGraph = self.buildPlan.graph
+            if target.type == .plugin, let package = self.buildPlan.graph.package(for: target) {
                 return PluginTargetBuildDescription(
-                    target: module,
+                    target: target,
                     toolsVersion: package.manifest.toolsVersion,
                     toolchain: buildPlan.toolsBuildParameters.toolchain,
                     isPartOfRootPackage: modulesGraph.rootPackages.map(\.id).contains(package.id)
@@ -162,14 +158,17 @@ public struct BuildDescription {
     public func traverseModules(
         callback: (any BuildTarget, _ parent: (any BuildTarget)?, _ depth: Int) -> Void
     ) {
+        // TODO: Once the `targetMap` is switched over to use `IdentifiableSet<ModuleBuildDescription>`
+        // we can introduce `BuildPlan.description(ResolvedModule, BuildParameters.Destination)`
+        // and start using that here.
         self.buildPlan.traverseModules { module, parent, depth in
             let parentDescription: (any BuildTarget)? = if let parent {
-                getBuildTarget(for: parent.0, destination: parent.1)
+                getBuildTarget(for: parent.0, in: self.buildPlan.graph)
             } else {
                 nil
             }
 
-            if let description = getBuildTarget(for: module.0, destination: module.1) {
+            if let description = getBuildTarget(for: module.0, in: self.buildPlan.graph) {
                 callback(description, parentDescription, depth)
             }
         }
