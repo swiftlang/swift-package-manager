@@ -986,9 +986,9 @@ extension BuildPlan {
             }
 
             for module in package.modules {
-                // Tests are discovered through an aggregate product which also
-                // informs their destination.
-                if case .test = module.underlying.type {
+                if case .test = module.underlying.type,
+                   !graph.rootPackages.contains(id: package.id)
+                {
                     continue
                 }
 
@@ -1002,7 +1002,7 @@ extension BuildPlan {
             for product: ResolvedProduct,
             destination: Destination
         ) -> [TraversalNode] {
-            guard destination == .host || product.underlying.type == .test else {
+            guard destination == .host else {
                 return []
             }
 

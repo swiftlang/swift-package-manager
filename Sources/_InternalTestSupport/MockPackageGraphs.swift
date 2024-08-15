@@ -137,7 +137,6 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
         "/swift-mmio/Sources/MMIOMacros/source.swift",
         "/swift-mmio/Sources/MMIOMacrosTests/source.swift",
         "/swift-mmio/Sources/MMIOMacro+PluginTests/source.swift",
-        "/swift-mmio/Sources/NOOPTests/source.swift",
         "/swift-syntax/Sources/SwiftSyntax/source.swift",
         "/swift-syntax/Sources/SwiftSyntaxMacrosTestSupport/source.swift",
         "/swift-syntax/Sources/SwiftSyntaxMacros/source.swift",
@@ -203,11 +202,6 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
                             .target(name: "MMIOPlugin"),
                             .target(name: "MMIOMacros")
                         ],
-                        type: .test
-                    ),
-                    TargetDescription(
-                        name: "NOOPTests",
-                        dependencies: [],
                         type: .test
                     )
                 ]
