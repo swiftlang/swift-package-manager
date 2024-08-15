@@ -191,8 +191,10 @@ extension LLBuildManifestBuilder {
     public func addTargetsToExplicitBuildManifest() throws {
         // Sort the product targets in topological order in order to collect and "bubble up"
         // their respective dependency graphs to the depending targets.
-        let allPackageDependencies = self.plan.targets.flatMap { $0.recursiveDependencies(using: self.plan) }
-
+        let nodes = self.plan.targets.compactMap {
+            ResolvedModule.Dependency.module($0.module, conditions: [])
+        }
+        let allPackageDependencies = try topologicalSort(nodes, successors: { $0.dependencies })
         // Instantiate the inter-module dependency oracle which will cache commonly-scanned
         // modules across targets' Driver instances.
         let dependencyOracle = InterModuleDependencyOracle()
@@ -204,15 +206,14 @@ extension LLBuildManifestBuilder {
 
         // Create commands for all module descriptions in the plan.
         for dependency in allPackageDependencies.reversed() {
-            guard case .module(let module, let description) = dependency else {
+            guard case .module(let target, _) = dependency else {
                 // Product dependency build jobs are added after the fact.
                 // Targets that depend on product dependencies will expand the corresponding
                 // product into its constituent targets.
                 continue
             }
-
-            guard module.underlying.type != .systemModule,
-                  module.underlying.type != .binary
+            guard target.underlying.type != .systemModule,
+                  target.underlying.type != .binary
             else {
                 // Much like non-Swift targets, system modules will consist of a modulemap
                 // somewhere in the filesystem, with the path to that module being either
@@ -224,11 +225,9 @@ extension LLBuildManifestBuilder {
                 // be able to detect such targets' modules.
                 continue
             }
-
-            guard let description else {
-                throw InternalError("Expected description for module \(module)")
+            guard let description = plan.targetMap[target.id] else {
+                throw InternalError("Expected description for target \(target)")
             }
-
             switch description {
             case .swift(let desc):
                 try self.createExplicitSwiftTargetCompileCommand(
@@ -320,29 +319,32 @@ extension LLBuildManifestBuilder {
         for targetDescription: ModuleBuildDescription,
         dependencyModuleDetailsMap: inout SwiftDriver.ExternalTargetModuleDetailsMap
     ) throws {
-        for dependency in targetDescription.dependencies(using: self.plan) {
+        for dependency in targetDescription.module.dependencies(satisfying: targetDescription.buildParameters.buildEnvironment) {
             switch dependency {
-            case .product(let product, let productDescription):
-                for productDependency in product.modules {
-                    guard let dependencyModuleDescription = self.plan.description(
-                        for: productDependency,
-                        context: productDescription?.destination ?? targetDescription.destination
-                    ) else
-                    {
-                        throw InternalError("unknown dependency target for \(productDependency)")
+            case .product:
+                // Product dependencies are broken down into the targets that make them up.
+                guard let dependencyProduct = dependency.product else {
+                    throw InternalError("unknown dependency product for \(dependency)")
+                }
+                for dependencyProductTarget in dependencyProduct.modules {
+                    guard let dependencyTargetDescription = self.plan.targetMap[dependencyProductTarget.id] else {
+                        throw InternalError("unknown dependency target for \(dependencyProductTarget)")
                     }
                     try self.addTargetDependencyInfo(
-                        for: dependencyModuleDescription,
+                        for: dependencyTargetDescription,
                         dependencyModuleDetailsMap: &dependencyModuleDetailsMap
                     )
                 }
-            case .module(let dependencyModule, let dependencyDescription):
-                guard let dependencyDescription else {
-                    throw InternalError("No build description for module: \(dependencyModule)")
-                }
+            case .module:
                 // Product dependencies are broken down into the targets that make them up.
+                guard
+                    let dependencyTarget = dependency.module,
+                    let dependencyTargetDescription = self.plan.targetMap[dependencyTarget.id]
+                else {
+                    throw InternalError("unknown dependency target for \(dependency)")
+                }
                 try self.addTargetDependencyInfo(
-                    for: dependencyDescription,
+                    for: dependencyTargetDescription,
                     dependencyModuleDetailsMap: &dependencyModuleDetailsMap
                 )
             }
@@ -420,73 +422,63 @@ extension LLBuildManifestBuilder {
 
         let prepareForIndexing = target.buildParameters.prepareForIndexing
 
-        func addStaticTargetInputs(_ module: ResolvedModule, _ description: ModuleBuildDescription?) throws {
+        func addStaticTargetInputs(_ target: ResolvedModule) throws {
             // Ignore C Modules.
-            if module.underlying is SystemLibraryModule { return }
+            if target.underlying is SystemLibraryModule { return }
             // Ignore Binary Modules.
-            if module.underlying is BinaryModule { return }
+            if target.underlying is BinaryModule { return }
             // Ignore Plugin Modules.
-            if module.underlying is PluginModule { return }
-
-            guard let description else {
-                throw InternalError("No build description for module: \(module)")
-            }
+            if target.underlying is PluginModule { return }
 
             // Depend on the binary for executable targets.
-            if module.type == .executable && prepareForIndexing == .off {
-                // FIXME: Optimize. Build plan could build a mapping between executable modules
-                // and their products to speed up search here, which is inefficient if the plan
-                // contains a lot of products.
+            if target.type == .executable && prepareForIndexing == .off {
+                // FIXME: Optimize.
                 if let productDescription = try plan.productMap.values.first(where: {
-                    try $0.product.type == .executable &&
-                        $0.product.executableModule.id == module.id &&
-                        $0.destination == description.destination
+                    try $0.product.type == .executable && $0.product.executableModule.id == target.id
                 }) {
                     try inputs.append(file: productDescription.binaryPath)
                 }
                 return
             }
 
-            switch description {
-            case .swift(let swiftDescription):
-                inputs.append(file: swiftDescription.moduleOutputPath)
-            case .clang(let clangDescription):
+            switch self.plan.targetMap[target.id] {
+            case .swift(let target)?:
+                inputs.append(file: target.moduleOutputPath)
+            case .clang(let target)?:
                 if prepareForIndexing != .off {
                     // In preparation, we're only building swiftmodules
                     // propagate the dependency to the header files in this target
-                    for header in clangDescription.clangTarget.headers {
+                    for header in target.clangTarget.headers {
                         inputs.append(file: header)
                     }
                 } else {
-                    for object in try clangDescription.objects {
+                    for object in try target.objects {
                         inputs.append(file: object)
                     }
                 }
+            case nil:
+                throw InternalError("unexpected: target \(target) not in target map \(self.plan.targetMap)")
             }
         }
 
-        for dependency in target.dependencies(using: self.plan) {
+        for dependency in target.target.dependencies(satisfying: target.buildParameters.buildEnvironment) {
             switch dependency {
-            case .module(let module, let description):
-                try addStaticTargetInputs(module, description)
+            case .module(let target, _):
+                try addStaticTargetInputs(target)
 
-            case .product(let product, let productDescription):
+            case .product(let product, _):
                 switch product.type {
                 case .executable, .snippet, .library(.dynamic), .macro:
-                    guard let productDescription else {
-                        throw InternalError("No description for product: \(product)")
+                    guard let planProduct = plan.productMap[product.id] else {
+                        throw InternalError("unknown product \(product)")
                     }
                     // Establish a dependency on binary of the product.
-                    try inputs.append(file: productDescription.binaryPath)
+                    try inputs.append(file: planProduct.binaryPath)
 
                 // For automatic and static libraries, and plugins, add their targets as static input.
                 case .library(.automatic), .library(.static), .plugin:
-                    for module in product.modules {
-                        let description = self.plan.description(
-                            for: module,
-                            context: product.type == .plugin ? .host : target.destination
-                        )
-                        try addStaticTargetInputs(module, description)
+                    for target in product.modules {
+                        try addStaticTargetInputs(target)
                     }
 
                 case .test:

@@ -18,12 +18,12 @@ import class PackageModel.SystemLibraryModule
 extension BuildPlan {
     /// Plan a Clang target.
     func plan(clangTarget: ClangModuleBuildDescription) throws {
-        let dependencies = clangTarget.recursiveDependencies(using: self)
+        let dependencies = try clangTarget.target.recursiveDependencies(satisfying: clangTarget.buildEnvironment)
 
-        for case .module(let dependency, let description) in dependencies {
+        for case .module(let dependency, _) in dependencies {
             switch dependency.underlying {
             case is SwiftModule:
-                if case let .swift(dependencyTargetDescription)? = description {
+                if case let .swift(dependencyTargetDescription)? = targetMap[dependency.id] {
                     if let moduleMap = dependencyTargetDescription.moduleMap {
                         clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
                     }
@@ -34,7 +34,7 @@ extension BuildPlan {
                 clangTarget.additionalFlags += ["-I", target.includeDir.pathString]
 
                 // Add the modulemap of the dependency if it has one.
-                if case let .clang(dependencyTargetDescription)? = description {
+                if case let .clang(dependencyTargetDescription)? = targetMap[dependency.id] {
                     if let moduleMap = dependencyTargetDescription.moduleMap {
                         clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
                     }
