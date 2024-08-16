@@ -23,10 +23,12 @@ import class Build.ClangModuleBuildDescription
 import class Build.SwiftModuleBuildDescription
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ModulesGraph
-import enum PackageGraph.BuildTriple
 internal import class PackageModel.UserToolchain
 
-public typealias BuildTriple = PackageGraph.BuildTriple
+public enum BuildDestination {
+    case host
+    case target
+}
 
 public protocol BuildTarget {
     /// Source files in the target
@@ -38,7 +40,7 @@ public protocol BuildTarget {
     /// The name of the target. It should be possible to build a target by passing this name to `swift build --target`
     var name: String { get }
 
-    var buildTriple: BuildTriple { get }
+    var destination: BuildDestination { get }
 
     /// Whether the target is part of the root package that the user opened or if it's part of a package dependency.
     var isPartOfRootPackage: Bool { get }
@@ -70,8 +72,8 @@ private struct WrappedClangTargetBuildDescription: BuildTarget {
         return description.clangTarget.name
     }
 
-    public var buildTriple: BuildTriple {
-        return description.target.buildTriple
+    public var destination: BuildDestination {
+        return description.destination == .host ? .host : .target
     }
 
     public func compileArguments(for fileURL: URL) throws -> [String] {
@@ -95,8 +97,8 @@ private struct WrappedSwiftTargetBuildDescription: BuildTarget {
         return description.target.name
     }
 
-    public var buildTriple: BuildTriple {
-        return description.target.buildTriple
+    public var destination: BuildDestination {
+        return description.destination == .host ? .host : .target
     }
 
     var sources: [URL] {
