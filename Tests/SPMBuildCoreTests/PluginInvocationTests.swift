@@ -1356,6 +1356,7 @@ final class PluginInvocationTests: XCTestCase {
 
             let results = try await BuildPlan.invokeBuildToolPlugins(
                 for: module,
+                destination: .target,
                 configuration: pluginConfiguration,
                 buildParameters: buildParameters,
                 modulesGraph: graph,
