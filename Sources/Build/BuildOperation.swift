@@ -573,6 +573,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Compute the llbuild target name using the given subset.
     func computeLLBuildTargetName(for subset: BuildSubset) async throws -> String {
+        func inferTestsDestination(graph: ModulesGraph) -> BuildParameters.Destination {
+            if graph.allProducts.filter({ $0.type == .test }).first(where: \.hasDirectMacroDependencies) != nil {
+                return .host
+            }
+            return .target
+        }
+
         switch subset {
         case .allExcludingTests:
             return LLBuildManifestBuilder.TargetKind.main.targetName
@@ -582,25 +589,22 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             // FIXME: This is super unfortunate that we might need to load the package graph.
             let graph = try await getPackageGraph()
 
-            let buildTriple: BuildTriple? = if let destination {
-                destination == .host ? .tools : .destination
-            } else {
-                nil
-            }
-
-            let product = graph.product(
-                for: productName,
-                destination: buildTriple
-            )
+            let product = graph.product(for: productName)
 
             guard let product else {
                 observabilityScope.emit(error: "no product named '\(productName)'")
                 throw Diagnostics.fatalError
             }
 
-            let buildParameters = config.buildParameters(
-                for: product.buildTriple == .tools ? .host : .target
-            )
+            let buildParameters = if let destination {
+                config.buildParameters(for: destination)
+            } else if product.type == .macro || product.type == .plugin {
+                config.buildParameters(for: .host)
+            } else if product.type == .test {
+                config.buildParameters(for: inferTestsDestination(graph: graph))
+            } else {
+                config.buildParameters(for: .target)
+            }
 
             // If the product is automatic, we build the main target because automatic products
             // do not produce a binary right now.
@@ -616,27 +620,24 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             // FIXME: This is super unfortunate that we might need to load the package graph.
             let graph = try await getPackageGraph()
 
-            let buildTriple: BuildTriple? = if let destination {
-                destination == .host ? .tools : .destination
-            } else {
-                nil
-            }
+            let module = graph.module(for: targetName)
 
-            let target = graph.module(
-                for: targetName,
-                destination: buildTriple
-            )
-
-            guard let target else {
+            guard let module else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 throw Diagnostics.fatalError
             }
 
-            let buildParameters = config.buildParameters(
-                for: target.buildTriple == .tools ? .host : .target
-            )
+            let buildParameters = if let destination {
+                config.buildParameters(for: destination)
+            } else if module.type == .macro || module.type == .plugin {
+                config.buildParameters(for: .host)
+            } else if module.type == .test {
+                config.buildParameters(for: inferTestsDestination(graph: graph))
+            } else {
+                config.buildParameters(for: .target)
+            }
 
-            return target.getLLBuildTargetName(buildParameters: buildParameters)
+            return module.getLLBuildTargetName(buildParameters: buildParameters)
         }
     }
 
@@ -1008,32 +1009,14 @@ extension BuildSubset {
             return Array(graph.reachableModules)
         case .allExcludingTests:
             return graph.reachableModules.filter { $0.type != .test }
-        case .product(let productName, let destination):
-            let buildTriple: BuildTriple? = if let destination {
-                destination == .host ? .tools : .destination
-            } else {
-                nil
-            }
-
-            guard let product = graph.product(
-                for: productName,
-                destination: buildTriple
-            ) else {
+        case .product(let productName, _):
+            guard let product = graph.product(for: productName) else {
                 observabilityScope.emit(error: "no product named '\(productName)'")
                 return nil
             }
             return try product.recursiveModuleDependencies()
-        case .target(let targetName, let destination):
-            let buildTriple: BuildTriple? = if let destination {
-                destination == .host ? .tools : .destination
-            } else {
-                nil
-            }
-
-            guard let target = graph.module(
-                for: targetName,
-                destination: buildTriple
-            ) else {
+        case .target(let targetName, _):
+            guard let target = graph.module(for: targetName) else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 return nil
             }

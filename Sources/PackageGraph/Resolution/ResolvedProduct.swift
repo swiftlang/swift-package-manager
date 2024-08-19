@@ -77,6 +77,10 @@ public struct ResolvedProduct {
         }
     }
 
+    package var hasDirectMacroDependencies: Bool {
+        self.modules.contains(where: \.hasDirectMacroDependencies)
+    }
+
     @available(*, deprecated, renamed: "init(packageIdentity:product:modules:)")
     public init(
         packageIdentity: PackageIdentity,
