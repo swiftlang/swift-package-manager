@@ -92,7 +92,7 @@ extension BuildPlan {
                     packageAccess: true, // test target is allowed access to package decls by default
                     testDiscoverySrc: Sources(paths: discoveryPaths, root: discoveryDerivedDir)
                 )
-                var discoveryResolvedModule = ResolvedModule(
+                let discoveryResolvedModule = ResolvedModule(
                     packageIdentity: testProduct.packageIdentity,
                     underlying: discoveryTarget,
                     dependencies: testProduct.modules.map { .module($0, conditions: []) },
@@ -100,7 +100,6 @@ extension BuildPlan {
                     supportedPlatforms: testProduct.supportedPlatforms,
                     platformVersionProvider: testProduct.platformVersionProvider
                 )
-                discoveryResolvedModule.buildTriple = testProduct.buildTriple
 
                 let discoveryTargetBuildDescription = try SwiftModuleBuildDescription(
                     package: package,
@@ -135,7 +134,7 @@ extension BuildPlan {
                     packageAccess: true, // test target is allowed access to package decls
                     testEntryPointSources: entryPointSources
                 )
-                var entryPointResolvedTarget = ResolvedModule(
+                let entryPointResolvedTarget = ResolvedModule(
                     packageIdentity: testProduct.packageIdentity,
                     underlying: entryPointTarget,
                     dependencies: testProduct.modules.map { .module($0, conditions: []) } + resolvedTargetDependencies,
@@ -143,7 +142,6 @@ extension BuildPlan {
                     supportedPlatforms: testProduct.supportedPlatforms,
                     platformVersionProvider: testProduct.platformVersionProvider
                 )
-                entryPointResolvedTarget.buildTriple = testProduct.buildTriple
 
                 return try SwiftModuleBuildDescription(
                     package: package,

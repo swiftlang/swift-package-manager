@@ -87,7 +87,7 @@ class PrepareForIndexTests: XCTestCase {
         let manifest = try builder.generatePrepareManifest(at: "/manifest")
 
         // Ensure our C module is here.
-        let lib = try XCTUnwrap(graph.module(for: "lib", destination: .destination))
+        let lib = try XCTUnwrap(graph.module(for: "lib"))
         let name = lib.getLLBuildTargetName(buildParameters: plan.destinationBuildParameters)
         XCTAssertTrue(manifest.targets.keys.contains(name))
     }

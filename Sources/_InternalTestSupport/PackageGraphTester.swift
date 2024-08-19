@@ -88,12 +88,11 @@ public final class PackageGraphResult {
 
     public func checkTarget(
         _ name: String,
-        destination: BuildTriple? = .none,
         file: StaticString = #file,
         line: UInt = #line,
         body: (ResolvedTargetResult) -> Void
     ) {
-        let target = graph.module(for: name, destination: destination)
+        let target = graph.module(for: name)
 
         guard let target else {
             return XCTFail("Target \(name) not found", file: file, line: line)
@@ -113,12 +112,11 @@ public final class PackageGraphResult {
 
     public func checkProduct(
         _ name: String,
-        destination: BuildTriple? = .none,
         file: StaticString = #file,
         line: UInt = #line,
         body: (ResolvedProductResult) -> Void
     ) {
-        let product = graph.product(for: name, destination: destination)
+        let product = graph.product(for: name)
 
         guard let product else {
             return XCTFail("Product \(name) not found", file: file, line: line)
@@ -242,9 +240,6 @@ public final class ResolvedTargetResult {
             line: line
         )
     }
-    public func check(buildTriple: BuildTriple, file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(self.target.buildTriple, buildTriple, file: file, line: line)
-    }
 }
 
 public final class ResolvedTargetDependencyResult {
@@ -321,10 +316,6 @@ public final class ResolvedProductResult {
     public func checkDerivedPlatformOptions(_ platform: PackageModel.Platform, options: [String], file: StaticString = #file, line: UInt = #line) {
         let platform = product.getSupportedPlatform(for: platform, usingXCTest: product.isLinkingXCTest)
         XCTAssertEqual(platform.options, options, file: file, line: line)
-    }
-
-    public func check(buildTriple: BuildTriple, file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(self.product.buildTriple, buildTriple, file: file, line: line)
     }
 
     public func checkTarget(
