@@ -934,7 +934,7 @@ extension BuildPlan {
 extension BuildPlan {
     fileprivate typealias Destination = BuildParameters.Destination
 
-    fileprivate enum TraversalNode: Hashable {
+    enum TraversalNode: Hashable {
         case package(ResolvedPackage)
         case product(ResolvedProduct, BuildParameters.Destination)
         case module(ResolvedModule, BuildParameters.Destination)
