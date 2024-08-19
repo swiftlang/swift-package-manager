@@ -99,8 +99,10 @@ struct BuildCommandOptions: ParsableArguments {
 
     /// Testing library options.
     ///
-    /// These options are no longer used but are needed by older versions of the
-    /// Swift VSCode plugin. They will be removed in a future update.
+    /// These options affect the generated main function of the package's test product(s). In general, developers
+    /// should not need to specify them, but any package (i.e. Foundation) that is a dependency of one testing library
+    /// or the other may need to specify them to avoid circular dependencies. If a developer's test code includes
+    /// references to one library or the other, that code will still be built.
     @OptionGroup(visibility: .private)
     var testLibraryOptions: TestLibraryOptions
 
@@ -162,6 +164,13 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             productsBuildParameters.testingParameters.enableCodeCoverage = true
             toolsBuildParameters.testingParameters.enableCodeCoverage = true
         }
+
+        // Enable/disable building testing libraries based on command-line arguments.
+        var enabledTestingLibraries = [TestingLibrary.xctest, .swiftTesting].filter { library in
+            options.testLibraryOptions.isEnabled(library, swiftCommandState: swiftCommandState)
+        }
+        productsBuildParameters.testingParameters.enabledLibraries = enabledTestingLibraries
+        toolsBuildParameters.testingParameters.enabledLibraries = enabledTestingLibraries
 
         try await build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
     }

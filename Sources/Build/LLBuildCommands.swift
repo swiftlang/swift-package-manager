@@ -225,10 +225,23 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             testObservabilitySetup = ""
         }
 
-        let isXCTMainAvailable: String = switch buildParameters.testingParameters.testProductStyle {
-        case .entryPointExecutable:
-            "canImport(XCTest)"
-        case .loadableBundle:
+        let enabledLibraries = buildParameters.testingParameters.enabledLibraries
+        let isSwiftTestingAvailable: String = if enabledLibraries.contains(.swiftTesting) {
+            "canImport(Testing)"
+        } else {
+            // Swift Testing is disabled, so don't bother calling its entry point function.
+            "false"
+        }
+
+        let isXCTMainAvailable: String = if enabledLibraries.contains(.xctest) {
+            switch buildParameters.testingParameters.testProductStyle {
+            case .entryPointExecutable:
+                "canImport(XCTest)"
+            case .loadableBundle:
+                "false"
+            }
+        } else {
+            // XCTest is disabled, so don't bother calling XCTMain().
             "false"
         }
 
@@ -252,7 +265,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
 
         stream.send(
             #"""
-            #if canImport(Testing)
+            #if \#(isSwiftTestingAvailable)
             import Testing
             #endif
 
@@ -286,7 +299,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
 
                 static func main() \#(needsAsyncMainWorkaround ? "" : "async") {
                     let testingLibrary = Self.testingLibrary()
-                    #if canImport(Testing)
+                    #if \#(isSwiftTestingAvailable)
                     if testingLibrary == "swift-testing" {
                         #if \#(needsAsyncMainWorkaround)
                         _runAsyncMain {

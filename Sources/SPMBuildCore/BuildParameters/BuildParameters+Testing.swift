@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import struct Basics.AbsolutePath
+import enum Basics.TestingLibrary
 import struct Basics.Triple
 import enum PackageModel.BuildConfiguration
 
@@ -86,6 +87,13 @@ extension BuildParameters {
         /// The style of test product to produce.
         public var testProductStyle: TestProductStyle
 
+        /// The set of testing libraries enabled in the current build.
+        ///
+        /// This property's value should reflect the testing libraries enabled
+        /// for _building_, not running or testing. In other words, typically
+        /// it is only set by `swift build`.
+        public var enabledLibraries: [TestingLibrary]
+
         public init(
             configuration: BuildConfiguration,
             targetTriple: Triple,
@@ -93,7 +101,8 @@ extension BuildParameters {
             enableTestability: Bool? = nil,
             experimentalTestOutput: Bool = false,
             forceTestDiscovery: Bool = false,
-            testEntryPointPath: AbsolutePath? = nil
+            testEntryPointPath: AbsolutePath? = nil,
+            enabledLibraries: [TestingLibrary] = [.xctest, .swiftTesting]
         ) {
             self.enableCodeCoverage = enableCodeCoverage
             self.experimentalTestOutput = experimentalTestOutput
@@ -109,6 +118,7 @@ extension BuildParameters {
                 explicitlyEnabledDiscovery: forceTestDiscovery,
                 explicitlySpecifiedPath: testEntryPointPath
             )
+            self.enabledLibraries = enabledLibraries
         }
     }
 }

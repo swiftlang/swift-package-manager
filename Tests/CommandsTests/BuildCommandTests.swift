@@ -182,7 +182,7 @@ final class BuildCommandTests: CommandsTestCase {
             )
 
             // Print correct path when building with XCBuild.
-            #if os(macOS)
+#if os(macOS)
             let xcodeDebugOutput = try await execute(["--build-system", "xcode", "--show-bin-path"], packagePath: fullPath)
                 .stdout
             let xcodeReleaseOutput = try await execute(
@@ -197,7 +197,7 @@ final class BuildCommandTests: CommandsTestCase {
                 xcodeReleaseOutput,
                 "\(xcbuildTargetPath.appending(components: "Products", "Release").pathString)\n"
             )
-            #endif
+#endif
 
             // Test symlink.
             try await self.execute(packagePath: fullPath)
@@ -332,8 +332,8 @@ final class BuildCommandTests: CommandsTestCase {
 
                 // FIXME: We create the modulemap during build planning, hence this ugliness.
                 let bTargetBuildDir =
-                    ((try? localFileSystem.getDirectoryContents(result.binPath.appending("BTarget1.build"))) ?? [])
-                        .filter { $0 != moduleMapFilename }
+                ((try? localFileSystem.getDirectoryContents(result.binPath.appending("BTarget1.build"))) ?? [])
+                    .filter { $0 != moduleMapFilename }
                 XCTAssertTrue(bTargetBuildDir.isEmpty, "bTargetBuildDir should be empty")
 
                 XCTAssertNoMatch(result.binContents, ["cexec"])
@@ -412,9 +412,9 @@ final class BuildCommandTests: CommandsTestCase {
     }
 
     func testXcodeBuildSystemDefaultSettings() async throws {
-        #if !os(macOS)
+#if !os(macOS)
         try XCTSkipIf(true, "test requires `xcbuild` and is therefore only supported on macOS")
-        #endif
+#endif
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             // try await building using XCBuild with default parameters.  This should succeed.  We build verbosely so we get
             // full command lines.
@@ -434,9 +434,9 @@ final class BuildCommandTests: CommandsTestCase {
             "Disabled for now because it is hitting 'IR generation failure: Cannot read legacy layout file' in CI (rdar://88828632)"
         )
 
-        #if !os(macOS)
+#if !os(macOS)
         try XCTSkipIf(true, "test requires `xcbuild` and is therefore only supported on macOS")
-        #endif
+#endif
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableMixed") { fixturePath in
             // try await building using XCBuild with additional flags.  This should succeed.  We build verbosely so we get
             // full command lines.
@@ -461,9 +461,9 @@ final class BuildCommandTests: CommandsTestCase {
     }
 
     func testXcodeBuildSystemOverrides() async throws {
-        #if !os(macOS)
+#if !os(macOS)
         try XCTSkipIf(true, "test requires `xcbuild` and is therefore only supported on macOS")
-        #endif
+#endif
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             // try await building using XCBuild without specifying overrides.  This should succeed, and should use the default
             // compiler path.
@@ -575,7 +575,7 @@ final class BuildCommandTests: CommandsTestCase {
 
     func testGetTaskAllowEntitlement() async throws {
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
-            #if os(macOS)
+#if os(macOS)
             // try await building with default parameters.  This should succeed. We build verbosely so we get full command
             // lines.
             var buildResult = try await build(["-v"], packagePath: fixturePath)
@@ -617,7 +617,7 @@ final class BuildCommandTests: CommandsTestCase {
             )
 
             XCTAssertNoMatch(buildResult.stdout, .contains("codesign --force --sign - --entitlements"))
-            #else
+#else
             var buildResult = try await self.build(["-v"], packagePath: fixturePath)
 
             XCTAssertNoMatch(buildResult.stdout, .contains("codesign --force --sign - --entitlements"))
@@ -643,7 +643,7 @@ final class BuildCommandTests: CommandsTestCase {
 
             XCTAssertNoMatch(buildResult.stdout, .contains("codesign --force --sign - --entitlements"))
             XCTAssertMatch(buildResult.stderr, .contains(SwiftCommandState.entitlementsMacOSWarning))
-            #endif
+#endif
 
             buildResult = try await self.build(["-c", "release", "-v"], packagePath: fixturePath, isRelease: true)
 
@@ -678,4 +678,42 @@ final class BuildCommandTests: CommandsTestCase {
             XCTAssertGreaterThan(codeCovFiles.count, 0)
         }
     }
+
+    func testEnableAndDisableSwiftTesting() async throws {
+        try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
+            let buildResult = try await self.build(["--build-tests", "--enable-swift-testing"], packagePath: path, cleanAfterward: false)
+            let runnerPath = buildResult.binPath.appending("SimplePackageTests.derived", "runner.swift")
+            let runnerContents = try localFileSystem.readFileContents(runnerPath)
+            XCTAssertNoMatch(runnerContents.validDescription, .contains("#if false\nimport Testing\n"))
+            XCTAssertMatch(runnerContents.validDescription, .contains("canImport(Testing)"))
+        }
+
+        try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
+            let buildResult = try await self.build(["--build-tests", "--disable-swift-testing"], packagePath: path, cleanAfterward: false)
+            let runnerPath = buildResult.binPath.appending("SimplePackageTests.derived", "runner.swift")
+            let runnerContents = try localFileSystem.readFileContents(runnerPath)
+            XCTAssertMatch(runnerContents.validDescription, .contains("#if false\nimport Testing\n"))
+            XCTAssertNoMatch(runnerContents.validDescription, .contains("#if canImport(Testing)"))
+        }
+    }
+
+#if !os(macOS)
+    func testEnableAndDisableXCTest() async throws {
+        try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
+            let buildResult = try await self.build(["--build-tests", "--enable-xctest"], packagePath: path, cleanAfterward: false)
+            let runnerPath = buildResult.binPath.appending("SimplePackageTests.derived", "runner.swift")
+            let runnerContents = try localFileSystem.readFileContents(runnerPath)
+            XCTAssertNoMatch(runnerContents.validDescription, .contains("#if false\nimport XCTest\n"))
+            XCTAssertMatch(runnerContents.validDescription, .contains("canImport(XCTest)"))
+        }
+
+        try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
+            let buildResult = try await self.build(["--build-tests", "--disable-xctest"], packagePath: path, cleanAfterward: false)
+            let runnerPath = buildResult.binPath.appending("SimplePackageTests.derived", "runner.swift")
+            let runnerContents = try localFileSystem.readFileContents(runnerPath)
+            XCTAssertMatch(runnerContents.validDescription, .contains("#if false\nimport XCTest\n"))
+            XCTAssertNoMatch(runnerContents.validDescription, .contains("#if canImport(XCTest)"))
+        }
+    }
+#endif
 }

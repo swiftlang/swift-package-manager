@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 /// The testing libraries supported by the package manager.
-public enum TestingLibrary: Sendable, CustomStringConvertible {
+public enum TestingLibrary: Sendable, CustomStringConvertible, Encodable {
   /// The XCTest library.
   ///
   /// This case represents both the open-source swift-corelibs-xctest
@@ -28,6 +28,11 @@ public enum TestingLibrary: Sendable, CustomStringConvertible {
     case .swiftTesting:
       "Swift Testing"
     }
+  }
+
+  public func encode(to encoder: any Encoder) throws {
+    var container = encoder.singleValueContainer()
+    try container.encode(String(describing: self))
   }
 }
 
