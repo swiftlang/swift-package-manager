@@ -175,6 +175,17 @@ public struct ResolvedModule {
         }
     }
 
+    package var hasDirectMacroDependencies: Bool {
+        self.dependencies.contains(where: {
+            switch $0 {
+            case .product(let productDependency, _):
+                productDependency.type == .macro
+            case .module(let moduleDependency, _):
+                moduleDependency.type == .macro
+            }
+        })
+    }
+
     /// Create a resolved module instance.
     public init(
         packageIdentity: PackageIdentity,

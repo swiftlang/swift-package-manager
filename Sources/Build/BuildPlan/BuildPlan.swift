@@ -958,7 +958,7 @@ extension BuildPlan {
             case .macro, .plugin:
                 self = .product(product, .host)
             case .test:
-                self = .product(product, product.modules.contains(where: Self.hasMacroDependency) ? .host : destination)
+                self = .product(product, product.hasDirectMacroDependencies ? .host : destination)
             default:
                 self = .product(product, destination)
             }
@@ -973,24 +973,13 @@ extension BuildPlan {
                 // Macros and plugins are ways built for host
                 self = .module(module, .host)
             case .test:
-                self = .module(module, Self.hasMacroDependency(module: module) ? .host : destination)
+                self = .module(module, module.hasDirectMacroDependencies ? .host : destination)
             default:
                 // By default assume the destination of the context.
                 // This means that i.e. test products that reference macros
                 // would force all of their successors to be `host`
                 self = .module(module, destination)
             }
-        }
-
-        static func hasMacroDependency(module: ResolvedModule) -> Bool {
-            module.dependencies.contains(where: {
-                switch $0 {
-                case .product(let productDependency, _):
-                    productDependency.type == .macro
-                case .module(let moduleDependency, _):
-                    moduleDependency.type == .macro
-                }
-            })
         }
     }
 
