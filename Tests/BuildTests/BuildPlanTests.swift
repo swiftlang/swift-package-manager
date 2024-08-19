@@ -1145,7 +1145,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         ))
 
-        XCTAssertEqual(Set(result.productMap.keys.map(\.productName)), ["APackageTests"])
+        XCTAssertEqual(Set(result.productMap.map(\.product.name)), ["APackageTests"])
         var expectedTargets: Set<String> = [
             "APackageTests",
             "ATarget",
@@ -1155,7 +1155,7 @@ final class BuildPlanTests: XCTestCase {
 #if !os(macOS)
         expectedTargets.insert("APackageDiscoveredTests")
 #endif
-        XCTAssertEqual(Set(result.targetMap.keys.map(\.moduleName)), expectedTargets)
+        XCTAssertEqual(Set(result.targetMap.map(\.module.name)), expectedTargets)
     }
 
     func testBasicReleasePackage() async throws {
@@ -1503,9 +1503,8 @@ final class BuildPlanTests: XCTestCase {
 
         let buildProduct = try XCTUnwrap(
             result.productMap[.init(
-                productName: "exe",
-                packageIdentity: "Pkg",
-                buildTriple: .destination
+                productID: .init(productName: "exe", packageIdentity: "Pkg"),
+                destination: .target
             )]
         )
         XCTAssertEqual(Array(buildProduct.objects), [
@@ -6273,10 +6272,9 @@ final class BuildPlanTests: XCTestCase {
         ))
 
         switch try XCTUnwrap(
-            result.targetMap[.init(
-                moduleName: "ExtLib",
-                packageIdentity: "ExtPkg",
-                buildTriple: .destination
+            result.plan.targetMap[.init(
+                moduleID: .init(moduleName: "ExtLib", packageIdentity: "ExtPkg"),
+                destination: .target
             )]
         ) {
         case .swift(let swiftTarget):
@@ -6441,10 +6439,9 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "FooLogging" })
         XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "BarLogging" })
         let buildProduct = try XCTUnwrap(
-            result.productMap[.init(
-                productName: "exe",
-                packageIdentity: "thisPkg",
-                buildTriple: .destination
+            result.plan.productMap[.init(
+                productID: .init(productName: "exe", packageIdentity: "thisPkg"),
+                destination: .target
             )]
         )
         let dylibs = Array(buildProduct.dylibs.map({$0.product.name})).sorted()

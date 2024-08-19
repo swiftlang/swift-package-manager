@@ -167,9 +167,5 @@ final class BuildOperationTests: XCTestCase {
 
         XCTAssertNotNil(dependencies)
         XCTAssertTrue(dependencies!.count > 0)
-
-        for dependency in dependencies! {
-            XCTAssertEqual(dependency.buildTriple, .tools)
-        }
     }
 }

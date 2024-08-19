@@ -15,10 +15,9 @@ import class Basics.InMemoryFileSystem
 import class Basics.ObservabilitySystem
 import class Build.BuildPlan
 import class Build.ProductBuildDescription
-import enum Build.ModuleBuildDescription
+@testable import enum Build.ModuleBuildDescription
 import class Build.SwiftModuleBuildDescription
 import struct Basics.Triple
-import enum PackageGraph.BuildTriple
 import class PackageModel.Manifest
 import struct PackageModel.TargetDescription
 import enum PackageModel.ProductType
@@ -162,7 +161,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         let lib = try XCTUnwrap(
             result.allTargets(named: "lib")
                 .map { try $0.clang() }
-                .first { $0.target.buildTriple == .destination }
+                .first { $0.destination == .target }
         )
 
         XCTAssertEqual(try lib.basicArguments(isCXX: false), [
@@ -249,11 +248,11 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
 
         XCTAssertTrue(try result.allTargets(named: "SwiftSyntax")
             .map { try $0.swift() }
-            .contains { $0.target.buildTriple == .tools })
-        try result.check(buildTriple: .tools, triple: toolsTriple, for: "MMIOMacros")
-        try result.check(buildTriple: .destination, triple: destinationTriple, for: "MMIO")
-        try result.check(buildTriple: .destination, triple: destinationTriple, for: "Core")
-        try result.check(buildTriple: .destination, triple: destinationTriple, for: "HAL")
+            .contains { $0.destination == .host })
+        try result.check(destination: .host, triple: toolsTriple, for: "MMIOMacros")
+        try result.check(destination: .target, triple: destinationTriple, for: "MMIO")
+        try result.check(destination: .target, triple: destinationTriple, for: "Core")
+        try result.check(destination: .target, triple: destinationTriple, for: "HAL")
 
         let macroProducts = result.allProducts(named: "MMIOMacros")
         XCTAssertEqual(macroProducts.count, 1)
@@ -307,13 +306,13 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
 
         XCTAssertTrue(try result.allTargets(named: "SwiftSyntax")
             .map { try $0.swift() }
-            .contains { $0.target.buildTriple == .tools })
+            .contains { $0.destination == .host })
 
-        try result.check(buildTriple: .tools, triple: toolsTriple, for: "swift-mmioPackageTests")
-        try result.check(buildTriple: .tools, triple: toolsTriple, for: "swift-mmioPackageDiscoveredTests")
-        try result.check(buildTriple: .tools, triple: toolsTriple, for: "MMIOMacros")
-        try result.check(buildTriple: .destination, triple: destinationTriple, for: "MMIO")
-        try result.check(buildTriple: .tools, triple: toolsTriple, for: "MMIOMacrosTests")
+        try result.check(destination: .host, triple: toolsTriple, for: "swift-mmioPackageTests")
+        try result.check(destination: .host, triple: toolsTriple, for: "swift-mmioPackageDiscoveredTests")
+        try result.check(destination: .host, triple: toolsTriple, for: "MMIOMacros")
+        try result.check(destination: .target, triple: destinationTriple, for: "MMIO")
+        try result.check(destination: .host, triple: toolsTriple, for: "MMIOMacrosTests")
 
         let macroProducts = result.allProducts(named: "MMIOMacros")
         XCTAssertEqual(macroProducts.count, 1)
@@ -362,12 +361,12 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
 
             XCTAssertTrue(try result.allTargets(named: "SwiftSyntax")
                 .map { try $0.swift() }
-                .contains { $0.target.buildTriple == .tools })
+                .contains { $0.destination == .host })
 
-            try result.check(buildTriple: .tools, triple: toolsTriple, for: "swift-mmioPackageTests")
-            try result.check(buildTriple: .tools, triple: toolsTriple, for: "swift-mmioPackageDiscoveredTests")
-            try result.check(buildTriple: .tools, triple: toolsTriple, for: "MMIOMacros")
-            try result.check(buildTriple: .tools, triple: toolsTriple, for: "MMIOMacrosTests")
+            try result.check(destination: .host, triple: toolsTriple, for: "swift-mmioPackageTests")
+            try result.check(destination: .host, triple: toolsTriple, for: "swift-mmioPackageDiscoveredTests")
+            try result.check(destination: .host, triple: toolsTriple, for: "MMIOMacros")
+            try result.check(destination: .host, triple: toolsTriple, for: "MMIOMacrosTests")
 
             let macroProducts = result.allProducts(named: "MMIOMacros")
             XCTAssertEqual(macroProducts.count, 1)
@@ -376,7 +375,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
 
             let swiftSyntaxProducts = result.allProducts(named: "SwiftSyntax")
             XCTAssertEqual(swiftSyntaxProducts.count, 2)
-            let swiftSyntaxToolsProduct = try XCTUnwrap(swiftSyntaxProducts.first { $0.product.buildTriple == .tools })
+            let swiftSyntaxToolsProduct = try XCTUnwrap(swiftSyntaxProducts.first { $0.destination == .host })
             let archiveArguments = try swiftSyntaxToolsProduct.archiveArguments()
 
             // Verify that produced library file has a correct name
@@ -388,30 +387,28 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
 extension BuildPlanResult {
     func allTargets(named name: String) throws -> some Collection<ModuleBuildDescription> {
         self.targetMap
-            .filter { $0.0.moduleName == name }
-            .values
+            .filter { $0.module.name == name }
     }
 
     func allProducts(named name: String) -> some Collection<ProductBuildDescription> {
         self.productMap
-            .filter { $0.0.productName == name }
-            .values
+            .filter { $0.product.name == name }
     }
 
     func check(
-        buildTriple: BuildTriple,
+        destination: BuildParameters.Destination,
         triple: Triple,
         for target: String,
         file: StaticString = #file,
         line: UInt = #line
     ) throws {
         let targets = self.targetMap.filter {
-            $0.key.moduleName == target && $0.key.buildTriple == buildTriple
+            $0.module.name == target && $0.destination == destination
         }
         XCTAssertEqual(targets.count, 1, file: file, line: line)
 
         let target = try XCTUnwrap(
-            targets.first?.value,
+            targets.first,
             file: file,
             line: line
         ).swift()

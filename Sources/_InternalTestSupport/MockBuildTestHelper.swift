@@ -285,54 +285,50 @@ enum BuildError: Swift.Error {
 
 public struct BuildPlanResult {
     public let plan: Build.BuildPlan
-    public let targetMap: [ResolvedModule.ID: Build.ModuleBuildDescription]
-    public let productMap: [ResolvedProduct.ID: Build.ProductBuildDescription]
+
+    public var productMap: IdentifiableSet<Build.ProductBuildDescription> {
+        self.plan.productMap
+    }
+
+    public var targetMap: IdentifiableSet<Build.ModuleBuildDescription> {
+        self.plan.targetMap
+    }
 
     public init(plan: Build.BuildPlan) throws {
         self.plan = plan
-        self.productMap = try Dictionary(
-            throwingUniqueKeysWithValues: plan.buildProducts
-                .compactMap { $0 as? Build.ProductBuildDescription }
-                .map { ($0.product.id, $0) }
-        )
-        self.targetMap = try Dictionary(
-            throwingUniqueKeysWithValues: plan.targetMap.compactMap {
-                ($0.module.id, $0)
-            }
-        )
     }
 
     public func checkTargetsCount(_ count: Int, file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(self.plan.targetMap.count, count, file: file, line: line)
+        XCTAssertEqual(self.targetMap.count, count, file: file, line: line)
     }
 
     public func checkProductsCount(_ count: Int, file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(self.plan.productMap.count, count, file: file, line: line)
+        XCTAssertEqual(self.productMap.count, count, file: file, line: line)
     }
 
     public func moduleBuildDescription(for name: String) throws -> Build.ModuleBuildDescription {
-        let matchingIDs = targetMap.keys.filter({ $0.moduleName == name })
-        guard matchingIDs.count == 1, let target = targetMap[matchingIDs[0]] else {
-            if matchingIDs.isEmpty {
+        let matches = self.targetMap.filter({ $0.module.name == name })
+        guard matches.count == 1 else {
+            if matches.isEmpty {
                 throw BuildError.error("Target \(name) not found.")
             } else {
                 throw BuildError.error("More than one target \(name) found.")
             }
         }
-        return target
+        return matches.first!
     }
 
     public func buildProduct(for name: String) throws -> Build.ProductBuildDescription {
-        let matchingIDs = productMap.keys.filter({ $0.productName == name })
-        guard matchingIDs.count == 1, let product = productMap[matchingIDs[0]] else {
-            if matchingIDs.isEmpty {
+        let matches = self.productMap.filter({ $0.product.name == name })
+        guard matches.count == 1 else {
+            if matches.isEmpty {
                 // <rdar://problem/30162871> Display the thrown error on macOS
                 throw BuildError.error("Product \(name) not found.")
             } else {
                 throw BuildError.error("More than one target \(name) found.")
             }
         }
-        return product
+        return matches.first!
     }
 }
 

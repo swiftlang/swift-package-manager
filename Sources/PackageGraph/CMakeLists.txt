@@ -8,7 +8,6 @@
 
 add_library(PackageGraph
   BoundVersion.swift
-  BuildTriple.swift
   DependencyMirrors.swift
   Diagnostics.swift
   GraphLoadingNode.swift

@@ -419,10 +419,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         switch $0 {
                         case .module(let moduleDependency, _):
                             if moduleDependency.type == .executable {
-                                return graph.product(
-                                    for: moduleDependency.name,
-                                    destination: .tools
-                                )
+                                return graph.product(for: moduleDependency.name)
                             }
                             return nil
                         default:
@@ -613,7 +610,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         arguments.append("-l" + replProductName)
 
         // The graph should have the REPL product.
-        assert(self.graph.product(for: replProductName, destination: .destination) != nil)
+        assert(self.graph.product(for: replProductName) != nil)
 
         // Add the search path to the directory containing the modulemap file.
         for target in self.targets {
