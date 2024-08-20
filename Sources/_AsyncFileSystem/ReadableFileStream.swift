@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-import SystemPackage
+internal import SystemPackage
 internal import class Dispatch.DispatchQueue
 
 /// Type-erasure wrapper over underlying file system readable streams.

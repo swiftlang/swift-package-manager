@@ -11,8 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 internal import class Dispatch.DispatchQueue
-@preconcurrency import struct SystemPackage.FileDescriptor
-import struct SystemPackage.FilePath
+@preconcurrency internal import struct SystemPackage.FileDescriptor
+internal import struct SystemPackage.FilePath
 
 /// A write-only thread-safe handle to an open file.
 package actor OpenWritableFile: WritableStream {
