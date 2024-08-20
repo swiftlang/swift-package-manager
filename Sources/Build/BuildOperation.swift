@@ -573,11 +573,17 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Compute the llbuild target name using the given subset.
     func computeLLBuildTargetName(for subset: BuildSubset) async throws -> String {
-        func inferTestsDestination(graph: ModulesGraph) -> BuildParameters.Destination {
-            if graph.allProducts.filter({ $0.type == .test }).first(where: \.hasDirectMacroDependencies) != nil {
-                return .host
+        func inferTestDestination(
+            testModule: ResolvedModule,
+            graph: ModulesGraph
+        ) throws -> BuildParameters.Destination {
+            for product in graph.allProducts where product.type == .test {
+                if product.modules.contains(where: { $0.id == testModule.id }) {
+                    return product.hasDirectMacroDependencies ? .host : .target
+                }
             }
-            return .target
+
+            throw InternalError("Could not find a product for test module: \(testModule)")
         }
 
         switch subset {
@@ -601,7 +607,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             } else if product.type == .macro || product.type == .plugin {
                 config.buildParameters(for: .host)
             } else if product.type == .test {
-                config.buildParameters(for: inferTestsDestination(graph: graph))
+                config.buildParameters(for: product.hasDirectMacroDependencies ? .host : .target)
             } else {
                 config.buildParameters(for: .target)
             }
@@ -632,7 +638,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             } else if module.type == .macro || module.type == .plugin {
                 config.buildParameters(for: .host)
             } else if module.type == .test {
-                config.buildParameters(for: inferTestsDestination(graph: graph))
+                try config.buildParameters(for: inferTestDestination(testModule: module, graph: graph))
             } else {
                 config.buildParameters(for: .target)
             }
