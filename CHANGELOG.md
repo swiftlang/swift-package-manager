@@ -3,12 +3,6 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 Swift Next
 -----------
 
-* [#7530]
-
-  Starting from tools-version 6.0 makes it possible for packages to depend on each other if such dependency doesn't form any target-level cycles.
-  For example, package `A` can depend on `B` and `B` on `A` unless targets in `B` depend on products of `A` that depend on some of the same
-  targets from `B` and vice versa.
-
 Swift 6.0
 -----------
 
@@ -16,6 +10,12 @@ Swift 6.0
 
   Starting from tools-version 6.0, `swiftLanguageMode` can be specified at the target level, allowing for gradual per-target migration to the Swift 6 language mode.
   The `swiftLanguageVersions` setting has been deprecated and renamed to `swiftLanguageModes`.
+
+* [#7530]
+
+  Starting from tools-version 6.0 makes it possible for packages to depend on each other if such dependency doesn't form any target-level cycles.
+  For example, package `A` can depend on `B` and `B` on `A` unless targets in `B` depend on products of `A` that depend on some of the same
+  targets from `B` and vice versa.
 
 * [#7741]
 
