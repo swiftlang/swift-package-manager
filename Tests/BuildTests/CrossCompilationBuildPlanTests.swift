@@ -295,14 +295,17 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
             observabilityScope: scope
         )
 
-        // Make sure that build plan doesn't have any "target" tests.
+        // Make sure that build plan doesn't have any "target" tests except SwiftSyntax ones.
         for description in plan.targetMap where description.module.underlying.type == .test {
-            XCTAssertEqual(description.buildParameters.destination, .host)
+            XCTAssertEqual(
+                description.buildParameters.destination,
+                description.module.name == "SwiftSyntaxTests" ? .target : .host
+            )
         }
 
         let result = try BuildPlanResult(plan: plan)
-        result.checkProductsCount(2)
-        result.checkTargetsCount(17)
+        result.checkProductsCount(3)
+        result.checkTargetsCount(20)
 
         XCTAssertTrue(try result.allTargets(named: "SwiftSyntax")
             .map { try $0.swift() }
@@ -313,6 +316,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         try result.check(destination: .host, triple: toolsTriple, for: "MMIOMacros")
         try result.check(destination: .target, triple: destinationTriple, for: "MMIO")
         try result.check(destination: .host, triple: toolsTriple, for: "MMIOMacrosTests")
+        try result.check(destination: .target, triple: destinationTriple, for: "swift-syntaxPackageTests")
 
         let macroProducts = result.allProducts(named: "MMIOMacros")
         XCTAssertEqual(macroProducts.count, 1)

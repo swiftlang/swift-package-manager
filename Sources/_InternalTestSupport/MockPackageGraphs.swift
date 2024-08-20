@@ -212,7 +212,7 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
                     )
                 ]
             ),
-            Manifest.createFileSystemManifest(
+            Manifest.createRootManifest(
                 displayName: "swift-syntax",
                 path: "/swift-syntax",
                 products: [

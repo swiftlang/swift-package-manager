@@ -137,19 +137,37 @@ final class BuildOperationTests: XCTestCase {
     func testHostProductsAndTargetsWithoutExplicitDestination() async throws {
         let mock  = try macrosTestsPackageGraph()
 
+        let hostParameters = mockBuildParameters(destination: .host)
+        let targetParameters = mockBuildParameters(destination: .target)
         let op = mockBuildOperation(
-            productsBuildParameters: mockBuildParameters(destination: .target),
-            toolsBuildParameters: mockBuildParameters(destination: .host),
+            productsBuildParameters: targetParameters,
+            toolsBuildParameters: hostParameters,
             packageGraphLoader: { mock.graph },
             scratchDirectory: AbsolutePath("/.build/\(hostTriple)"),
             fs: mock.fileSystem,
             observabilityScope: mock.observabilityScope
         )
 
-        let result = try await op.computeLLBuildTargetName(for: .product("MMIOMacros"))
+        let mmioMacrosProductName = try await op.computeLLBuildTargetName(for: .product("MMIOMacros"))
         XCTAssertEqual(
             "MMIOMacros-\(hostTriple)-debug-tool.exe",
-            result
+            mmioMacrosProductName
+        )
+
+        let mmioTestsProductName = try await op.computeLLBuildTargetName(
+            for: .product("swift-mmioPackageTests")
+        )
+        XCTAssertEqual(
+            "swift-mmioPackageTests-\(hostTriple)-debug-tool.test",
+            mmioTestsProductName
+        )
+
+        let swiftSyntaxTestsProductName = try await op.computeLLBuildTargetName(
+            for: .product("swift-syntaxPackageTests")
+        )
+        XCTAssertEqual(
+            "swift-syntaxPackageTests-\(targetParameters.triple)-debug.test",
+            swiftSyntaxTestsProductName
         )
 
         for target in ["MMIOMacros", "MMIOPlugin", "MMIOMacrosTests", "MMIOMacro+PluginTests"] {
@@ -159,6 +177,14 @@ final class BuildOperationTests: XCTestCase {
                 targetName
             )
         }
+
+        let swiftSyntaxTestsTarget = try await op.computeLLBuildTargetName(
+            for: .target("SwiftSyntaxTests")
+        )
+        XCTAssertEqual(
+            "SwiftSyntaxTests-\(targetParameters.triple)-debug.module",
+            swiftSyntaxTestsTarget
+        )
 
         let dependencies = try BuildSubset.target("MMIOMacro+PluginTests").recursiveDependencies(
             for: mock.graph,

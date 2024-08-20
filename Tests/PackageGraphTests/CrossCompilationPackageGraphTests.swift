@@ -91,7 +91,7 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
                 "SwiftSyntaxMacrosTestSupport"
             )
 
-            result.check(testModules: "MMIOMacrosTests", "MMIOMacro+PluginTests", "NOOPTests")
+            result.check(testModules: "MMIOMacrosTests", "MMIOMacro+PluginTests", "NOOPTests", "SwiftSyntaxTests")
             result.checkTarget("MMIO") { result in
                 result.check(dependencies: "MMIOMacros")
             }
