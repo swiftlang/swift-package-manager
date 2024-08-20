@@ -182,7 +182,7 @@ final class InitTests: XCTestCase {
             XCTAssertMatch(testFileContents, .contains(#"@Test func example() async throws"#))
             XCTAssertNoMatch(testFileContents, .contains("func testExample() throws"))
 
-#if compiler(>=6)
+#if canImport(Testing)
             // Try building it
             await XCTAssertBuilds(path)
             let triple = try UserToolchain.default.targetTriple
@@ -219,7 +219,7 @@ final class InitTests: XCTestCase {
             XCTAssertMatch(testFileContents, .contains(#"@Test func example() async throws"#))
             XCTAssertMatch(testFileContents, .contains("func testExample() throws"))
 
-#if compiler(>=6)
+#if canImport(Testing)
             // Try building it
             await XCTAssertBuilds(path)
             let triple = try UserToolchain.default.targetTriple
@@ -255,7 +255,7 @@ final class InitTests: XCTestCase {
 
             XCTAssertNoSuchPath(path.appending("Tests"))
 
-#if compiler(>=6)
+#if canImport(Testing)
             // Try building it
             await XCTAssertBuilds(path)
             let triple = try UserToolchain.default.targetTriple
