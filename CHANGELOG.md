@@ -12,6 +12,11 @@ Swift Next
 Swift 6.0
 -----------
 
+* [#7813]
+
+  Starting from tools-version 6.0, `swiftLanguageMode` can be specified at the target level, allowing for gradual per-target migration to the Swift 6 language mode.
+  The `swiftLanguageVersions` setting has been deprecated and renamed to `swiftLanguageModes`.
+
 * [#7741]
 
   Fixed an issue where repositories would be re-cloned each build rather than using the cache due to git validation errors.
@@ -434,3 +439,4 @@ Swift 3.0
 [#7507]: https://github.com/swiftlang/swift-package-manager/pull/7507
 [#7530]: https://github.com/swiftlang/swift-package-manager/pull/7530
 [#7535]: https://github.com/swiftlang/swift-package-manager/pull/7535
+[#7813]: https://github.com/swiftlang/swift-package-manager/pull/7813
