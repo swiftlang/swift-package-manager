@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import protocol _Concurrency.Actor
+package import _Concurrency
 
 /// An asynchronous output byte stream.
 ///
