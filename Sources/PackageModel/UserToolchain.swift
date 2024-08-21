@@ -410,23 +410,23 @@ public final class UserToolchain: Toolchain {
     static func deriveMacOSSpecificSwiftTestingFlags(
         derivedSwiftCompiler: AbsolutePath,
         fileSystem: any FileSystem
-    ) -> [String] {
+    ) -> (swiftCFlags: [String], linkerFlags: [String]) {
         // If this is CommandLineTools all we need to add is a frameworks path.
         if let frameworksPath = try? AbsolutePath(
             validating: "../../Library/Developer/Frameworks",
             relativeTo: resolveSymlinks(derivedSwiftCompiler).parentDirectory
         ), fileSystem.exists(frameworksPath.appending("Testing.framework")) {
-            return [
-                "-F", frameworksPath.pathString,
-                "-Xlinker", "-rpath",
-                "-Xlinker", frameworksPath.pathString
-            ]
+            return (swiftCFlags: [
+                "-F", frameworksPath.pathString
+            ], linkerFlags: [
+                "-rpath", frameworksPath.pathString
+            ])
         }
 
         guard let toolchainLibDir = try? toolchainLibDir(
             swiftCompilerPath: derivedSwiftCompiler
         ) else {
-            return []
+            return (swiftCFlags: [], linkerFlags: [])
         }
 
         let testingLibDir = toolchainLibDir.appending(
@@ -438,15 +438,16 @@ public final class UserToolchain: Toolchain {
         )
 
         guard fileSystem.exists(testingLibDir), fileSystem.exists(testingPluginsDir) else {
-            return []
+            return (swiftCFlags: [], linkerFlags: [])
         }
 
-        return [
+        return (swiftCFlags: [
             "-I", testingLibDir.pathString,
             "-L", testingLibDir.pathString,
-            "-plugin-path", testingPluginsDir.pathString,
-            "-Xlinker", "-rpath", "-Xlinker", testingLibDir.pathString,
-        ]
+            "-plugin-path", testingPluginsDir.pathString
+        ], linkerFlags: [
+            "-rpath", testingLibDir.pathString
+        ])
     }
 
     internal static func deriveSwiftCFlags(
@@ -669,11 +670,15 @@ public final class UserToolchain: Toolchain {
         self.targetTriple = triple
 
         var swiftCompilerFlags: [String] = []
+        var extraLinkerFlags: [String] = []
+
         #if os(macOS)
-        swiftCompilerFlags += Self.deriveMacOSSpecificSwiftTestingFlags(
+        let (swiftCFlags, linkerFlags) = Self.deriveMacOSSpecificSwiftTestingFlags(
             derivedSwiftCompiler: swiftCompilers.compile,
             fileSystem: fileSystem
         )
+        swiftCompilerFlags += swiftCFlags
+        extraLinkerFlags += linkerFlags
         #endif
 
         swiftCompilerFlags += try Self.deriveSwiftCFlags(
@@ -683,11 +688,13 @@ public final class UserToolchain: Toolchain {
             fileSystem: fileSystem
         )
 
+        extraLinkerFlags += swiftSDK.toolset.knownTools[.linker]?.extraCLIOptions ?? []
+
         self.extraFlags = BuildFlags(
             cCompilerFlags: swiftSDK.toolset.knownTools[.cCompiler]?.extraCLIOptions ?? [],
             cxxCompilerFlags: swiftSDK.toolset.knownTools[.cxxCompiler]?.extraCLIOptions ?? [],
             swiftCompilerFlags: swiftCompilerFlags,
-            linkerFlags: swiftSDK.toolset.knownTools[.linker]?.extraCLIOptions ?? [],
+            linkerFlags: extraLinkerFlags,
             xcbuildFlags: swiftSDK.toolset.knownTools[.xcbuild]?.extraCLIOptions ?? [])
 
         self.includeSearchPaths = swiftSDK.pathsConfiguration.includeSearchPaths ?? []

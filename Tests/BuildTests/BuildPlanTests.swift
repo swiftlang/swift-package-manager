@@ -4649,6 +4649,119 @@ final class BuildPlanTests: XCTestCase {
         ])
     }
 
+    func testSwiftTestingFlagsOnMacOSWithCustomToolchain() async throws {
+        #if !os(macOS)
+        // This is testing swift-testing in a toolchain which is macOS only feature.
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/fake/path/lib/swift/macosx/testing/Testing.swiftmodule",
+            "/fake/path/lib/swift/host/plugins/testing/libTesting.dylib",
+            "/Pkg/Sources/Lib/main.swift",
+            "/Pkg/Tests/LibTest/test.swift"
+        )
+        try fs.createMockToolchain()
+
+        let userSwiftSDK = SwiftSDK(
+            hostTriple: .x86_64MacOS,
+            targetTriple: .x86_64MacOS,
+            toolset: .init(
+                knownTools: [
+                    .cCompiler: .init(extraCLIOptions: []),
+                    .swiftCompiler: .init(extraCLIOptions: []),
+                ],
+                rootPaths: ["/fake/path/to"]
+            ),
+            pathsConfiguration: .init(
+                sdkRootPath: "/fake/sdk",
+                swiftResourcesPath: "/fake/lib/swift",
+                swiftStaticResourcesPath: "/fake/lib/swift_static"
+            )
+        )
+        let mockToolchain = try UserToolchain(
+            swiftSDK: userSwiftSDK,
+            environment: .mockEnvironment,
+            fileSystem: fs
+        )
+
+        XCTAssertEqual(
+            mockToolchain.extraFlags.swiftCompilerFlags,
+            [
+                "-I", "/fake/path/lib/swift/macosx/testing",
+                "-L", "/fake/path/lib/swift/macosx/testing",
+                "-plugin-path", "/fake/path/lib/swift/host/plugins/testing",
+                "-sdk", "/fake/sdk",
+            ]
+        )
+        XCTAssertEqual(
+            mockToolchain.extraFlags.linkerFlags,
+            ["-rpath", "/fake/path/lib/swift/macosx/testing"]
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "Lib", dependencies: []),
+                        TargetDescription(
+                            name: "LibTest",
+                            dependencies: ["Lib"],
+                            type: .test
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
+            toolchain: mockToolchain,
+            graph: graph,
+            commonFlags: .init(),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(2)
+        result.checkTargetsCount(3)
+
+        let testProductLinkArgs = try result.buildProduct(for: "Lib").linkArguments()
+        XCTAssertMatch(testProductLinkArgs, [
+            .anySequence,
+            "-I", "/fake/path/lib/swift/macosx/testing",
+            "-L", "/fake/path/lib/swift/macosx/testing",
+            .anySequence,
+            "-Xlinker", "-rpath",
+            "-Xlinker", "/fake/path/lib/swift/macosx/testing",
+        ])
+
+        let libModuleArgs = try result.moduleBuildDescription(for: "Lib").swift().compileArguments()
+        XCTAssertMatch(libModuleArgs, [
+            .anySequence,
+            "-I", "/fake/path/lib/swift/macosx/testing",
+            "-L", "/fake/path/lib/swift/macosx/testing",
+            "-plugin-path", "/fake/path/lib/swift/host/plugins/testing",
+            .anySequence,
+        ])
+        XCTAssertNoMatch(libModuleArgs, ["-Xlinker"])
+
+        let testModuleArgs = try result.moduleBuildDescription(for: "LibTest").swift().compileArguments()
+        XCTAssertMatch(testModuleArgs, [
+            .anySequence,
+            "-I", "/fake/path/lib/swift/macosx/testing",
+            "-L", "/fake/path/lib/swift/macosx/testing",
+            "-plugin-path", "/fake/path/lib/swift/host/plugins/testing",
+            .anySequence,
+        ])
+        XCTAssertNoMatch(testModuleArgs, ["-Xlinker"])
+    }
+
     func testUserToolchainWithToolsetCompileFlags() async throws {
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
