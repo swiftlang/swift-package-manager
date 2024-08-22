@@ -11,7 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import _Concurrency
+internal import _Concurrency
 internal import class Dispatch.DispatchQueue
 
 extension DispatchQueue {

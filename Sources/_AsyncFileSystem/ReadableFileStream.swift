@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import _Concurrency
+package import _Concurrency
 internal import SystemPackage
 internal import class Dispatch.DispatchQueue
 

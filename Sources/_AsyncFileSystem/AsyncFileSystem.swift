@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import protocol _Concurrency.Actor
+package import _Concurrency
 @preconcurrency package import struct SystemPackage.Errno
 @preconcurrency package import struct SystemPackage.FilePath
 
