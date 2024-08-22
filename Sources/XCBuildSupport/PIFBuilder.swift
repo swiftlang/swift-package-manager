@@ -447,7 +447,6 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.PRODUCT_NAME] = product.name
         settings[.PRODUCT_MODULE_NAME] = mainTarget.c99name
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = product.name
-        settings[.EXECUTABLE_NAME] = product.name
         settings[.CLANG_ENABLE_MODULES] = "YES"
         settings[.DEFINES_MODULE] = "YES"
 
@@ -584,7 +583,6 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             settings[.PRODUCT_NAME] = executableName
             settings[.PRODUCT_MODULE_NAME] = product.name
             settings[.PRODUCT_BUNDLE_IDENTIFIER] = product.name
-            settings[.EXECUTABLE_NAME] = executableName
             settings[.CLANG_ENABLE_MODULES] = "YES"
             settings[.DEFINES_MODULE] = "YES"
             settings[.SKIP_INSTALL] = "NO"
@@ -630,7 +628,11 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.PRODUCT_NAME] = "\(target.name).o"
         settings[.PRODUCT_MODULE_NAME] = target.c99name
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = target.name
+
+        // EXECUTABLE_NAME is normally EXECUTABLE_PREFIX + PRODUCT_NAME + EXECUTABLE_SUFFIX
+        // So we need to override EXECUTABLE_NAME in this case to avoid doubling up the file extension because it is also part of the product name.
         settings[.EXECUTABLE_NAME] = "\(target.name).o"
+
         settings[.CLANG_ENABLE_MODULES] = "YES"
         settings[.DEFINES_MODULE] = "YES"
         settings[.MACH_O_TYPE] = "mh_object"
