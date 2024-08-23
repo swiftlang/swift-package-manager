@@ -525,6 +525,7 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
+                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "foo")
                             XCTAssertEqual(settings[.INSTALL_PATH], "/usr/local/bin")
                             XCTAssertEqual(
                                 settings[.LD_RUNPATH_SEARCH_PATHS],
@@ -550,6 +551,7 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
+                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "foo")
                             XCTAssertEqual(settings[.INSTALL_PATH], "/usr/local/bin")
                             XCTAssertEqual(
                                 settings[.LD_RUNPATH_SEARCH_PATHS],
@@ -588,6 +590,7 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
+                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "cfoo")
                             XCTAssertEqual(
                                 settings[.HEADER_SEARCH_PATHS],
                                 ["$(inherited)", "/Foo/Sources/cfoo/include"]
@@ -616,6 +619,7 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
+                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "cfoo")
                             XCTAssertEqual(
                                 settings[.HEADER_SEARCH_PATHS],
                                 ["$(inherited)", "/Foo/Sources/cfoo/include"]
@@ -660,6 +664,7 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
+                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "bar")
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "bar")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "bar")
@@ -679,6 +684,7 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
+                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "bar")
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "bar")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "bar")
@@ -712,6 +718,7 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.CLANG_CXX_LANGUAGE_STANDARD], "c++14")
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
+                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "cbar")
                             XCTAssertEqual(settings[.GCC_C_LANGUAGE_STANDARD], "c11")
                             XCTAssertEqual(
                                 settings[.HEADER_SEARCH_PATHS],
@@ -736,6 +743,7 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.CLANG_CXX_LANGUAGE_STANDARD], "c++14")
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
+                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "cbar")
                             XCTAssertEqual(settings[.GCC_C_LANGUAGE_STANDARD], "c11")
                             XCTAssertEqual(
                                 settings[.HEADER_SEARCH_PATHS],
@@ -866,6 +874,7 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
+                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "FooTests")
                             XCTAssertEqual(settings[.GENERATE_INFOPLIST_FILE], "YES")
                             XCTAssertEqual(settings[.LD_RUNPATH_SEARCH_PATHS], [
                                 "$(inherited)",
@@ -913,6 +922,7 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
+                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "FooTests")
                             XCTAssertEqual(settings[.GENERATE_INFOPLIST_FILE], "YES")
                             XCTAssertEqual(settings[.LD_RUNPATH_SEARCH_PATHS], [
                                 "$(inherited)",
@@ -971,6 +981,7 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
+                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "CFooTests")
                             XCTAssertEqual(settings[.GENERATE_INFOPLIST_FILE], "YES")
                             XCTAssertEqual(settings[.HEADER_SEARCH_PATHS], [
                                 "$(inherited)",
@@ -1021,6 +1032,7 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
+                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "CFooTests")
                             XCTAssertEqual(settings[.GENERATE_INFOPLIST_FILE], "YES")
                             XCTAssertEqual(settings[.HEADER_SEARCH_PATHS], [
                                 "$(inherited)",
@@ -1237,6 +1249,7 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.CURRENT_PROJECT_VERSION], "1")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
+                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "BarLib")
                             XCTAssertEqual(settings[.GENERATE_INFOPLIST_FILE], "YES")
                             XCTAssertEqual(settings[.INSTALL_PATH], "/usr/local/lib")
                             XCTAssertEqual(settings[.MARKETING_VERSION], "1.0")
@@ -1262,6 +1275,7 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.CURRENT_PROJECT_VERSION], "1")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
+                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "BarLib")
                             XCTAssertEqual(settings[.GENERATE_INFOPLIST_FILE], "YES")
                             XCTAssertEqual(settings[.INSTALL_PATH], "/usr/local/lib")
                             XCTAssertEqual(settings[.MARKETING_VERSION], "1.0")
