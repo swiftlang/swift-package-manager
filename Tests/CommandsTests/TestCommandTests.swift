@@ -279,10 +279,28 @@ final class TestCommandTests: CommandsTestCase {
     }
 
     func testBasicSwiftTestingIntegration() async throws {
+#if !canImport(Testing)
         try XCTSkipUnless(
             nil != Environment.current["SWIFT_PM_SWIFT_TESTING_TESTS_ENABLED"],
             "Skipping \(#function) because swift-testing tests are not explicitly enabled"
         )
+#endif
+
+        try await fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
+            do {
+                let (stdout, _) = try await SwiftPM.Test.execute(["--enable-swift-testing", "--disable-xctest"], packagePath: fixturePath)
+                XCTAssertMatch(stdout, .contains(#"Test "SOME TEST FUNCTION" started"#))
+            }
+        }
+    }
+
+    func testBasicSwiftTestingIntegration_ExperimentalFlag() async throws {
+#if !canImport(Testing)
+        try XCTSkipUnless(
+            nil != Environment.current["SWIFT_PM_SWIFT_TESTING_TESTS_ENABLED"],
+            "Skipping \(#function) because swift-testing tests are not explicitly enabled"
+        )
+#endif
 
         try await fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
             do {

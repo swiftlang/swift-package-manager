@@ -84,11 +84,6 @@ public struct AddTarget {
             // SwiftSyntax.
             target.dependencies.append(contentsOf: macroTargetDependencies)
 
-        case .test where configuration.testHarness == .swiftTesting:
-            // Testing targets using swift-testing need to depend on
-            // SwiftTesting from the swift-testing package.
-            target.dependencies.append(contentsOf: swiftTestingTestTargetDependencies)
-
         default:
             break;
         }
@@ -163,17 +158,6 @@ public struct AddTarget {
                 }
             }
 
-        case .test where configuration.testHarness == .swiftTesting:
-            if !manifest.description.contains("swift-testing") {
-                newPackageCall = try AddPackageDependency
-                    .addPackageDependencyLocal(
-                        .swiftTesting(
-                          configuration: installedSwiftPMConfiguration
-                        ),
-                        to: newPackageCall
-                    )
-            }
-
         default: break;
         }
 
@@ -212,8 +196,7 @@ public struct AddTarget {
                 importModuleNames.append("XCTest")
 
             case .swiftTesting: 
-                // Import is handled by the added dependency.
-                break
+                importModuleNames.append("Testing")
             }
         }
 
@@ -376,38 +359,6 @@ fileprivate extension PackageDependency {
             nameForTargetDependencyResolutionOnly: nil,
             location: .remote(swiftSyntaxURL),
             requirement: .range(.upToNextMajor(from: swiftSyntaxVersion)),
-            productFilter: .everything
-        )
-    }
-}
-
-/// The set of dependencies we need to introduce to a newly-created macro
-/// target.
-fileprivate let swiftTestingTestTargetDependencies: [TargetDescription.Dependency] = [
-    .product(name: "Testing", package: "swift-testing"),
-]
-
-
-/// The package dependency for swift-testing, for use in test files.
-fileprivate extension PackageDependency {
-    /// Source control URL for the swift-syntax package.
-    static var swiftTestingURL: SourceControlURL {
-        "https://github.com/apple/swift-testing.git"
-    }
-
-    /// Package dependency on the swift-testing package.
-    static func swiftTesting(
-      configuration: InstalledSwiftPMConfiguration
-    ) -> PackageDependency {
-        let swiftTestingVersionDefault =
-            configuration.swiftTestingVersionForTestTemplate
-        let swiftTestingVersion = Version(swiftTestingVersionDefault.description)!
-
-        return .sourceControl(
-            identity: PackageIdentity(url: swiftTestingURL),
-            nameForTargetDependencyResolutionOnly: nil,
-            location: .remote(swiftTestingURL),
-            requirement: .range(.upToNextMajor(from: swiftTestingVersion)),
             productFilter: .everything
         )
     }
