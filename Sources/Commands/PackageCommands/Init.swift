@@ -56,14 +56,16 @@ extension SwiftPackageCommand {
 
             let packageName = self.packageName ?? cwd.basename
 
-            // Which testing libraries should be used? XCTest is on by default,
-            // but Swift Testing must remain off by default until it is present
-            // in the Swift toolchain.
+            // Testing is on by default, with XCTest only enabled explicitly.
+            // For macros this is reversed, since we don't support testing
+            // macros with Swift Testing yet.
             var supportedTestingLibraries = Set<BuildParameters.Testing.Library>()
-            if testLibraryOptions.isEnabled(.xctest) {
+            if testLibraryOptions.isExplicitlyEnabled(.xctest) ||
+                (initMode == .macro && testLibraryOptions.isEnabled(.xctest)) {
                 supportedTestingLibraries.insert(.xctest)
             }
-            if testLibraryOptions.isExplicitlyEnabled(.swiftTesting) {
+            if testLibraryOptions.isExplicitlyEnabled(.swiftTesting) ||
+                (initMode != .macro && testLibraryOptions.isEnabled(.swiftTesting)) {
                 supportedTestingLibraries.insert(.swiftTesting)
             }
 

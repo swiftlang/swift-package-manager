@@ -474,7 +474,7 @@ extension InitPackage {
     public convenience init(
         name: String,
         packageType: PackageType,
-        supportedTestingLibraries: Set<BuildParameters.Testing.Library> = [.xctest],
+        supportedTestingLibraries: Set<BuildParameters.Testing.Library> = [.swiftTesting],
         destinationPath: AbsolutePath,
         fileSystem: FileSystem
     ) throws {
