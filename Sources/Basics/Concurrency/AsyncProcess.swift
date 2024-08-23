@@ -173,20 +173,31 @@ package final class AsyncProcess {
         case stdinUnavailable
     }
 
-    package typealias OutputStream = AsyncStream<[UInt8]>
+    package typealias ReadableStream = AsyncStream<[UInt8]>
 
-    package enum OutputRedirection {
+    package enum OutputRedirection: Sendable {
         /// Do not redirect the output
         case none
-        /// Collect stdout and stderr output and provide it back via ProcessResult object. If redirectStderr is true,
-        /// stderr be redirected to stdout.
+
+        /// Collect stdout and stderr output and provide it back via ``AsyncProcessResult`` object. If
+        /// `redirectStderr` is `true`, `stderr` be redirected to `stdout`.
         case collect(redirectStderr: Bool)
-        /// Stream stdout and stderr via the corresponding closures. If redirectStderr is true, stderr be redirected to
-        /// stdout.
+
+        /// Stream `stdout` and `stderr` via the corresponding closures. If `redirectStderr` is `true`, `stderr` will
+        /// be redirected to `stdout`.
         case stream(stdout: OutputClosure, stderr: OutputClosure, redirectStderr: Bool)
 
+        /// Stream stdout and stderr as `AsyncSequence` provided as an argument to closures passed to
+        /// ``AsyncProcess/launch(stdoutStream:stderrStream:)``.
+        case asyncStream(
+            stdoutStream: ReadableStream,
+            stdoutContinuation: ReadableStream.Continuation,
+            stderrStream: ReadableStream,
+            stderrContinuation: ReadableStream.Continuation
+        )
+
         /// Default collect OutputRedirection that defaults to not redirect stderr. Provided for API compatibility.
-        package static let collect: OutputRedirection = .collect(redirectStderr: false)
+        package static let collect: Self = .collect(redirectStderr: false)
 
         /// Default stream OutputRedirection that defaults to not redirect stderr. Provided for API compatibility.
         package static func stream(stdout: @escaping OutputClosure, stderr: @escaping OutputClosure) -> Self {
@@ -197,15 +208,19 @@ package final class AsyncProcess {
             switch self {
             case .none:
                 false
-            case .collect, .stream:
+            case .collect, .stream, .asyncStream:
                 true
             }
         }
 
         package var outputClosures: (stdoutClosure: OutputClosure, stderrClosure: OutputClosure)? {
             switch self {
-            case .stream(let stdoutClosure, let stderrClosure, _):
+            case let .stream(stdoutClosure, stderrClosure, _):
                 (stdoutClosure: stdoutClosure, stderrClosure: stderrClosure)
+
+            case let .asyncStream(stdoutStream, stdoutContinuation, stderrStream, stderrContinuation):
+                (stdoutClosure: { stdoutContinuation.yield($0) }, stderrClosure: { stderrContinuation.yield($0) })
+
             case .collect, .none:
                 nil
             }
@@ -437,7 +452,7 @@ package final class AsyncProcess {
     /// stdin. If needed, the stream can be closed using the close() API. Otherwise, the stream will be closed
     /// automatically.
     @discardableResult
-    package func launch() throws -> WritableByteStream {
+    package func launch() throws -> any WritableByteStream {
         precondition(
             self.arguments.count > 0 && !self.arguments[0].isEmpty,
             "Need at least one argument to launch the process."
@@ -944,6 +959,65 @@ extension AsyncProcess {
         loggingHandler: LoggingHandler? = .none
     ) async throws -> AsyncProcessResult {
         try await self.popen(arguments: args, environment: environment, loggingHandler: loggingHandler)
+    }
+
+    package typealias DuplexStreamHandler =
+        @Sendable (_ stdinStream: WritableByteStream, _ stdoutStream: ReadableStream) async throws -> ()
+    package typealias ReadableStreamHandler =
+        @Sendable (_ stderrStream: ReadableStream) async throws -> ()
+
+    /// Launches a new `AsyncProcess` instances, allowing the caller to consume `stdout` and `stderr` output
+    /// with handlers that support structured concurrency.
+    /// - Parameters:
+    ///   - arguments: CLI command used to launch the process.
+    ///   - environment: environment variables passed to the launched process.
+    ///   - loggingHandler: handler used for logging,
+    ///   - stdoutHandler: asynchronous bidirectional handler closure that receives `stdin` and `stdout` streams as
+    ///   arguments.
+    ///   - stderrHandler: asynchronous unidirectional handler closure that receives `stderr` stream as an argument.
+    /// - Returns: ``AsyncProcessResult`` value as received from the underlying ``AsyncProcess/waitUntilExit()`` call
+    /// made on ``AsyncProcess`` instance.
+    package static func popen(
+        arguments: [String],
+        environment: Environment = .current,
+        loggingHandler: LoggingHandler? = .none,
+        stdoutHandler: @escaping DuplexStreamHandler,
+        stderrHandler: ReadableStreamHandler? = nil
+    ) async throws -> AsyncProcessResult {
+        let (stdoutStream, stdoutContinuation) = ReadableStream.makeStream()
+        let (stderrStream, stderrContinuation) = ReadableStream.makeStream()
+
+        let process = AsyncProcess(
+            arguments: arguments,
+            environment: environment,
+            outputRedirection: .stream {
+                stdoutContinuation.yield($0)
+            } stderr: {
+                stderrContinuation.yield($0)
+            },
+            loggingHandler: loggingHandler
+        )
+
+        return try await withThrowingTaskGroup(of: Void.self) { group in
+            let stdinStream = try process.launch()
+
+            group.addTask {
+                try await stdoutHandler(stdinStream, stdoutStream)
+            }
+
+            if let stderrHandler {
+                group.addTask {
+                    try await stderrHandler(stderrStream)
+                }
+            }
+
+            defer {
+                stdoutContinuation.finish()
+                stderrContinuation.finish()
+            }
+
+            return try await process.waitUntilExit()
+        }
     }
 
     /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.

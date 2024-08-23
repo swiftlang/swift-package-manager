@@ -10,7 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import class Basics.ObservabilitySystem
+import _AsyncFileSystem
+import Basics
 import struct Foundation.Data
 @testable import QueryEngine
 import struct SystemPackage.FilePath
@@ -27,9 +28,7 @@ private extension AsyncFileSystem {
       for try await chunk in try await $0.read() {
         data.append(contentsOf: chunk)
 
-        guard data.count < bufferLimit else {
-          throw FileSystemError.bufferLimitExceeded(path)
-        }
+        assert(data.count < bufferLimit)
       }
       return data
     }
@@ -102,7 +101,7 @@ final class QueryEngineTests: XCTestCase {
   func testSimpleCaching() async throws {
     let observabilitySystem = ObservabilitySystem.makeForTesting()
     let engine = QueryEngine(
-      VirtualFileSystem(),
+      MockFileSystem(),
       observabilitySystem.topScope,
       cacheLocation: .memory
     )

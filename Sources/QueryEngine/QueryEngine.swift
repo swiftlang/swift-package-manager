@@ -10,12 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _AsyncFileSystem
 import Basics
 import Crypto
 @preconcurrency import SystemPackage
 
 package func withQueryEngine(
-    _ fileSystem: any AsyncFileSystem,
+    _ fileSystem: some AsyncFileSystem,
     _ observabilityScope: ObservabilityScope,
     cacheLocation: SQLite.Location,
     _ body: @Sendable (QueryEngine) async throws -> Void

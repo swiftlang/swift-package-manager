@@ -486,13 +486,10 @@ public final class SwiftCommandState {
     public func getRootPackageInformation() async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
         let workspace = try self.getActiveWorkspace()
         let root = try self.getWorkspaceRoot()
-        let rootManifests = try await withCheckedThrowingContinuation {
-            workspace.loadRootManifests(
-                packages: root.packages,
-                observabilityScope: self.observabilityScope,
-                completion: $0.resume(with:)
-            )
-        }
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: self.observabilityScope
+        )
 
         var identities = [PackageIdentity: [PackageIdentity]]()
         var targets = [PackageIdentity: [String]]()
@@ -727,7 +724,7 @@ public final class SwiftCommandState {
         shouldLinkStaticSwiftStdlib: Bool = false,
         productsBuildParameters: BuildParameters? = .none,
         toolsBuildParameters: BuildParameters? = .none,
-        packageGraphLoader: (() throws -> ModulesGraph)? = .none,
+        packageGraphLoader: (() async throws -> ModulesGraph)? = .none,
         outputStream: OutputByteStream? = .none,
         logLevel: Basics.Diagnostic.Severity? = .none,
         observabilityScope: ObservabilityScope? = .none
@@ -765,7 +762,7 @@ public final class SwiftCommandState {
     private func _buildParams(
         toolchain: UserToolchain,
         destination: BuildParameters.Destination,
-        prepareForIndexing: Bool? = nil
+        prepareForIndexing: Bool
     ) throws -> BuildParameters {
         let triple = toolchain.targetTriple
 
@@ -778,7 +775,7 @@ public final class SwiftCommandState {
         }
 
         let prepareForIndexingMode: BuildParameters.PrepareForIndexingMode =
-            switch (options.build.prepareForIndexing, options.build.prepareForIndexingNoLazy) {
+            switch (prepareForIndexing, options.build.prepareForIndexingNoLazy) {
                 case (false, _): .off
                 case (true, false): .on
                 case (true, true): .noLazy
@@ -846,6 +843,7 @@ public final class SwiftCommandState {
 
     private lazy var _toolsBuildParameters: Result<BuildParameters, Swift.Error> = {
         Result(catching: {
+            // Tools need to do a full build
             try _buildParams(toolchain: self.getHostToolchain(), destination: .host, prepareForIndexing: false)
         })
     }()
@@ -858,7 +856,7 @@ public final class SwiftCommandState {
 
     private lazy var _productsBuildParameters: Result<BuildParameters, Swift.Error> = {
         Result(catching: {
-            try _buildParams(toolchain: self.getTargetToolchain(), destination: .target)
+            try _buildParams(toolchain: self.getTargetToolchain(), destination: .target, prepareForIndexing: options.build.prepareForIndexing)
         })
     }()
 

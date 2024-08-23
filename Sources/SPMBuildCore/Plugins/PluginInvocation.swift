@@ -635,8 +635,8 @@ public extension ResolvedModule {
         fileSystem: FileSystem,
         environment: BuildEnvironment,
         for hostTriple: Triple,
-        builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath?
-    ) throws -> [String: PluginTool] {
+        builtToolHandler: (_ name: String, _ path: RelativePath) async throws -> AbsolutePath?
+    ) async throws -> [String: PluginTool] {
         precondition(self.underlying is PluginModule)
 
         var tools: [String: PluginTool] = [:]
@@ -649,7 +649,7 @@ public extension ResolvedModule {
         ) {
             switch tool {
             case .builtTool(let name, let path):
-                if let path = try builtToolHandler(name, path) {
+                if let path = try await builtToolHandler(name, path) {
                     tools[name] = PluginTool(path: path)
                 }
             case .vendedTool(let name, let path, let triples):

@@ -140,9 +140,6 @@ final class TestCommandTests: CommandsTestCase {
             let xUnitOutput = fixturePath.appending("result.xml")
             // Run tests in parallel with verbose output.
             let stdout = try await SwiftPM.Test.execute(["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString], packagePath: fixturePath).stdout
-            // in "swift test" test output goes to stdout
-            XCTAssertNoMatch(stdout, .contains("passed"))
-            XCTAssertNoMatch(stdout, .contains("failed"))
 
             // Check the xUnit output.
             XCTAssertFileExists(xUnitOutput)
@@ -279,10 +276,28 @@ final class TestCommandTests: CommandsTestCase {
     }
 
     func testBasicSwiftTestingIntegration() async throws {
+#if !canImport(Testing)
         try XCTSkipUnless(
             nil != Environment.current["SWIFT_PM_SWIFT_TESTING_TESTS_ENABLED"],
             "Skipping \(#function) because swift-testing tests are not explicitly enabled"
         )
+#endif
+
+        try await fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
+            do {
+                let (stdout, _) = try await SwiftPM.Test.execute(["--enable-swift-testing", "--disable-xctest"], packagePath: fixturePath)
+                XCTAssertMatch(stdout, .contains(#"Test "SOME TEST FUNCTION" started"#))
+            }
+        }
+    }
+
+    func testBasicSwiftTestingIntegration_ExperimentalFlag() async throws {
+#if !canImport(Testing)
+        try XCTSkipUnless(
+            nil != Environment.current["SWIFT_PM_SWIFT_TESTING_TESTS_ENABLED"],
+            "Skipping \(#function) because swift-testing tests are not explicitly enabled"
+        )
+#endif
 
         try await fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
             do {

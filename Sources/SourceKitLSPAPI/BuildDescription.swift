@@ -15,7 +15,7 @@ import struct Foundation.URL
 private import struct Basics.AbsolutePath
 private import func Basics.resolveSymlinks
 
-private import SPMBuildCore
+internal import SPMBuildCore
 
 // FIXME: should import these module with `private` or `internal` access control
 import class Build.BuildPlan
@@ -23,18 +23,24 @@ import class Build.ClangModuleBuildDescription
 import class Build.SwiftModuleBuildDescription
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ModulesGraph
-import enum PackageGraph.BuildTriple
 internal import class PackageModel.UserToolchain
 
-public typealias BuildTriple = PackageGraph.BuildTriple
+public enum BuildDestination {
+    case host
+    case target
+}
 
 public protocol BuildTarget {
+    /// Source files in the target
     var sources: [URL] { get }
+
+    /// Header files in the target
+    var headers: [URL] { get }
 
     /// The name of the target. It should be possible to build a target by passing this name to `swift build --target`
     var name: String { get }
 
-    var buildTriple: BuildTriple { get }
+    var destination: BuildDestination { get }
 
     /// Whether the target is part of the root package that the user opened or if it's part of a package dependency.
     var isPartOfRootPackage: Bool { get }
@@ -52,15 +58,22 @@ private struct WrappedClangTargetBuildDescription: BuildTarget {
     }
 
     public var sources: [URL] {
-        return (try? description.compilePaths().map { URL(fileURLWithPath: $0.source.pathString) }) ?? []
+        guard let compilePaths = try? description.compilePaths() else {
+            return []
+        }
+        return compilePaths.map(\.source.asURL)
+    }
+
+    public var headers: [URL] {
+        return description.clangTarget.headers.map(\.asURL)
     }
 
     public var name: String {
         return description.clangTarget.name
     }
 
-    public var buildTriple: BuildTriple {
-        return description.target.buildTriple
+    public var destination: BuildDestination {
+        return description.destination == .host ? .host : .target
     }
 
     public func compileArguments(for fileURL: URL) throws -> [String] {
@@ -84,13 +97,15 @@ private struct WrappedSwiftTargetBuildDescription: BuildTarget {
         return description.target.name
     }
 
-    public var buildTriple: BuildTriple {
-        return description.target.buildTriple
+    public var destination: BuildDestination {
+        return description.destination == .host ? .host : .target
     }
 
     var sources: [URL] {
         return description.sources.map { URL(fileURLWithPath: $0.pathString) }
     }
+
+    var headers: [URL] { [] }
 
     func compileArguments(for fileURL: URL) throws -> [String] {
         // Note: we ignore the `fileURL` here as the expectation is that we get a command line for the entire target
@@ -114,9 +129,12 @@ public struct BuildDescription {
         self.inputs = buildPlan.inputs
     }
 
-    // FIXME: should not use `ResolvedTarget` in the public interface
-    public func getBuildTarget(for target: ResolvedModule, in modulesGraph: ModulesGraph) -> BuildTarget? {
-        if let description = buildPlan.targetMap[target.id] {
+    func getBuildTarget(
+        for module: ResolvedModule,
+        destination: BuildParameters.Destination
+    ) -> BuildTarget? {
+        if let description = self.buildPlan.description(for: module, context: destination) {
+            let modulesGraph = self.buildPlan.graph
             switch description {
             case .clang(let description):
                 return WrappedClangTargetBuildDescription(
@@ -130,9 +148,10 @@ public struct BuildDescription {
                 )
             }
         } else {
-            if target.type == .plugin, let package = self.buildPlan.graph.package(for: target) {
+            if module.type == .plugin, let package = self.buildPlan.graph.package(for: module) {
+                let modulesGraph = self.buildPlan.graph
                 return PluginTargetBuildDescription(
-                    target: target,
+                    target: module,
                     toolsVersion: package.manifest.toolsVersion,
                     toolchain: buildPlan.toolsBuildParameters.toolchain,
                     isPartOfRootPackage: modulesGraph.rootPackages.map(\.id).contains(package.id)
@@ -142,11 +161,19 @@ public struct BuildDescription {
         }
     }
 
-    /// Returns all targets within the module graph in topological order, starting with low-level targets (that have no
-    /// dependencies).
-    public func allTargetsInTopologicalOrder(in modulesGraph: ModulesGraph) throws -> [BuildTarget] {
-        try modulesGraph.allModulesInTopologicalOrder.compactMap {
-            getBuildTarget(for: $0, in: modulesGraph)
+    public func traverseModules(
+        callback: (any BuildTarget, _ parent: (any BuildTarget)?, _ depth: Int) -> Void
+    ) {
+        self.buildPlan.traverseModules { module, parent, depth in
+            let parentDescription: (any BuildTarget)? = if let parent {
+                getBuildTarget(for: parent.0, destination: parent.1)
+            } else {
+                nil
+            }
+
+            if let description = getBuildTarget(for: module.0, destination: module.1) {
+                callback(description, parentDescription, depth)
+            }
         }
     }
 

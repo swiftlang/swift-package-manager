@@ -15,6 +15,8 @@ import ArgumentParser
 @_spi(SwiftPMInternal)
 import Basics
 
+import _Concurrency
+
 @_spi(SwiftPMInternal)
 import CoreCommands
 
@@ -671,13 +673,10 @@ extension SwiftTestCommand {
     func printCodeCovPath(_ swiftCommandState: SwiftCommandState) async throws {
         let workspace = try swiftCommandState.getActiveWorkspace()
         let root = try swiftCommandState.getWorkspaceRoot()
-        let rootManifests = try await safe_async {
-            workspace.loadRootManifests(
-                packages: root.packages,
-                observabilityScope: swiftCommandState.observabilityScope,
-                completion: $0
-            )
-        }
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: swiftCommandState.observabilityScope
+        )
         guard let rootManifest = rootManifests.values.first else {
             throw StringError("invalid manifests at \(root.packages)")
         }
@@ -1492,10 +1491,10 @@ private func buildTestsIfNeeded(
         .allIncludingTests
     }
 
-    try buildSystem.build(subset: subset)
+    try await buildSystem.build(subset: subset)
 
     // Find the test product.
-    let testProducts = buildSystem.builtTestProducts
+    let testProducts = await buildSystem.builtTestProducts
     guard !testProducts.isEmpty else {
         if let testProduct {
             throw TestError.productIsNotTest(productName: testProduct)

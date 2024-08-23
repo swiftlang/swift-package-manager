@@ -45,8 +45,8 @@ final class EnvironmentKeyTests: XCTestCase {
 
         #if os(Windows)
         // Test case insensitivity on windows
-        let key2 = EnvironmentKey("teSt")
-        XCTAssertEqual(key0, key2)
+        let key3 = EnvironmentKey("teSt")
+        XCTAssertEqual(key0, key3)
         #endif
     }
 

@@ -12,10 +12,13 @@
 
 import Basics
 import struct PackageGraph.ResolvedModule
+import struct PackageGraph.ResolvedPackage
+import struct PackageGraph.ResolvedProduct
 import struct PackageModel.Resource
 import struct PackageModel.ToolsVersion
 import struct SPMBuildCore.BuildToolPluginInvocationResult
 import struct SPMBuildCore.BuildParameters
+import protocol SPMBuildCore.ModuleBuildDescription
 
 public enum BuildDescriptionError: Swift.Error {
     case requestedFileNotPartOfTarget(targetName: String, requestedFilePath: AbsolutePath)
@@ -25,7 +28,7 @@ public enum BuildDescriptionError: Swift.Error {
 public typealias TargetBuildDescription = ModuleBuildDescription
 
 /// A module build description which can either be for a Swift or Clang module.
-public enum ModuleBuildDescription {
+public enum ModuleBuildDescription: SPMBuildCore.ModuleBuildDescription {
     /// Swift target description.
     case swift(SwiftModuleBuildDescription)
 
@@ -64,12 +67,21 @@ public enum ModuleBuildDescription {
         }
     }
 
-    var target: ResolvedModule {
+    public var module: ResolvedModule {
         switch self {
         case .swift(let buildDescription):
             return buildDescription.target
         case .clang(let buildDescription):
             return buildDescription.target
+        }
+    }
+
+    public var package: ResolvedPackage {
+        switch self {
+        case .swift(let description):
+            description.package
+        case .clang(let description):
+            description.package
         }
     }
 
@@ -101,12 +113,21 @@ public enum ModuleBuildDescription {
         }
     }
 
-    var buildParameters: BuildParameters {
+    public var buildParameters: BuildParameters {
         switch self {
         case .swift(let buildDescription):
             return buildDescription.buildParameters
         case .clang(let buildDescription):
             return buildDescription.buildParameters
+        }
+    }
+
+    var destination: BuildParameters.Destination {
+        switch self {
+        case .swift(let buildDescription):
+            buildDescription.destination
+        case .clang(let buildDescription):
+            buildDescription.destination
         }
     }
 
@@ -121,10 +142,54 @@ public enum ModuleBuildDescription {
 
     /// Determines the arguments needed to run `swift-symbolgraph-extract` for
     /// this module.
-    package func symbolGraphExtractArguments() throws -> [String] {
+    public func symbolGraphExtractArguments() throws -> [String] {
         switch self {
         case .swift(let buildDescription): try buildDescription.symbolGraphExtractArguments()
         case .clang(let buildDescription): try buildDescription.symbolGraphExtractArguments()
         }
+    }
+}
+
+extension ModuleBuildDescription: Identifiable {
+    public struct ID: Hashable {
+        let moduleID: ResolvedModule.ID
+        let destination: BuildParameters.Destination
+    }
+
+    public var id: ID {
+        ID(moduleID: self.module.id, destination: self.destination)
+    }
+}
+
+extension ModuleBuildDescription {
+    package enum Dependency {
+        /// Not all of the modules and products have build descriptions
+        case product(ResolvedProduct, ProductBuildDescription?)
+        case module(ResolvedModule, ModuleBuildDescription?)
+    }
+
+    package func dependencies(using plan: BuildPlan) -> [Dependency] {
+        self.module
+            .dependencies(satisfying: self.buildParameters.buildEnvironment)
+            .map {
+                switch $0 {
+                case .product(let product, _):
+                    let productDescription = plan.description(for: product, context: self.destination)
+                    return .product(product, productDescription)
+                case .module(let module, _):
+                    let moduleDescription = plan.description(for: module, context: self.destination)
+                    return .module(module, moduleDescription)
+                }
+            }
+    }
+
+    package func recursiveDependencies(using plan: BuildPlan) -> [Dependency] {
+        var dependencies: [Dependency] = []
+        plan.traverseDependencies(of: self) { product, _, description in
+            dependencies.append(.product(product, description))
+        } onModule: { module, _, description in
+            dependencies.append(.module(module, description))
+        }
+        return dependencies
     }
 }

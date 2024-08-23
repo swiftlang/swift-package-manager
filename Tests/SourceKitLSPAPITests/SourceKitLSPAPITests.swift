@@ -17,12 +17,13 @@ import Build
 import PackageGraph
 
 import PackageModel
-import SourceKitLSPAPI
+@testable import SourceKitLSPAPI
+import struct SPMBuildCore.BuildParameters
 import _InternalTestSupport
 import XCTest
 
 final class SourceKitLSPAPITests: XCTestCase {
-    func testBasicSwiftPackage() throws {
+    func testBasicSwiftPackage() async throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
             "/Pkg/Sources/lib/lib.swift",
@@ -46,7 +47,7 @@ final class SourceKitLSPAPITests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let plan = try BuildPlan(
+        let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
                 destination: .target,
                 shouldLinkStaticSwiftStdlib: true
@@ -90,8 +91,74 @@ final class SourceKitLSPAPITests: XCTestCase {
                 "-I", "/fake/manifestLib/path"
             ],
             isPartOfRootPackage: true,
-            destination: .tools
+            destination: .host
         )
+    }
+
+    func testModuleTraversal() async throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/lib/lib.swift",
+            "/Pkg/Plugins/plugin/plugin.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["lib"]),
+                        TargetDescription(name: "lib", dependencies: []),
+                        TargetDescription(
+                            name: "plugin",
+                            dependencies: ["exe"],
+                            type: .plugin,
+                            pluginCapability: .buildTool
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let plan = try await BuildPlan(
+            destinationBuildParameters: mockBuildParameters(
+                destination: .target,
+                shouldLinkStaticSwiftStdlib: true
+            ),
+            toolsBuildParameters: mockBuildParameters(
+                destination: .host,
+                shouldLinkStaticSwiftStdlib: true
+            ),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let description = BuildDescription(buildPlan: plan)
+
+        struct Result {
+            let parent: (any BuildTarget)?
+            let module: any BuildTarget
+            let depth: Int
+        }
+
+        var results: [Result] = []
+        description.traverseModules { current, parent, depth in
+            results.append(Result(parent: parent, module: current, depth: depth))
+        }
+
+        XCTAssertEqual(results.count, 6)
+
+        // "lib" is the most interesting here because it appears on multiple depths due to
+        // "exe" being a dependency of the "plugin".
+        XCTAssertEqual(results.filter { $0.module.name == "lib" }.reduce(into: Set<Int>()) {
+            $0.insert($1.depth)
+        }.sorted(), [1, 2, 3])
     }
 }
 
@@ -101,10 +168,10 @@ extension SourceKitLSPAPI.BuildDescription {
         graph: ModulesGraph,
         partialArguments: [String],
         isPartOfRootPackage: Bool,
-        destination: BuildTriple = .destination
+        destination: BuildParameters.Destination = .target
     ) throws -> Bool {
-        let target = try XCTUnwrap(graph.module(for: targetName, destination: destination))
-        let buildTarget = try XCTUnwrap(self.getBuildTarget(for: target, in: graph))
+        let target = try XCTUnwrap(graph.module(for: targetName))
+        let buildTarget = try XCTUnwrap(self.getBuildTarget(for: target, destination: destination))
 
         guard let file = buildTarget.sources.first else {
             XCTFail("build target \(targetName) contains no files")

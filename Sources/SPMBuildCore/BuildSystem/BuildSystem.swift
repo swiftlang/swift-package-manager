@@ -40,23 +40,23 @@ public protocol BuildSystem: Cancellable {
     var delegate: BuildSystemDelegate? { get }
 
     /// The test products that this build system will build.
-    var builtTestProducts: [BuiltTestProduct] { get }
+    var builtTestProducts: [BuiltTestProduct] { get async }
 
     /// Returns the package graph used by the build system.
-    func getPackageGraph() throws -> ModulesGraph
+    func getPackageGraph() async throws -> ModulesGraph
 
     /// Builds a subset of the package graph.
     /// - Parameters:
     ///   - subset: The subset of the package graph to build.
-    func build(subset: BuildSubset) throws
+    func build(subset: BuildSubset) async throws
 
     var buildPlan: BuildPlan { get throws }
 }
 
 extension BuildSystem {
     /// Builds the default subset: all targets excluding tests.
-    public func build() throws {
-        try build(subset: .allExcludingTests)
+    public func build() async throws {
+        try await build(subset: .allExcludingTests)
     }
 }
 
@@ -80,6 +80,23 @@ extension ProductBuildDescription {
     }
 }
 
+public protocol ModuleBuildDescription {
+    /// The package the module belongs to.
+    var package: ResolvedPackage { get }
+
+    /// The underlying module this description is for.
+    var module: ResolvedModule { get }
+
+    /// The build parameters.
+    var buildParameters: BuildParameters { get }
+
+    /// FIXME: This shouldn't be necessary and ideally
+    /// there should be a way to ask build system to
+    /// introduce these arguments while building for symbol
+    /// graph extraction.
+    func symbolGraphExtractArguments() throws -> [String]
+}
+
 public protocol BuildPlan {
     /// Parameters used when building end products for the destination platform.
     var destinationBuildParameters: BuildParameters { get }
@@ -89,12 +106,10 @@ public protocol BuildPlan {
 
     var buildProducts: AnySequence<ProductBuildDescription> { get }
 
+    var buildModules: AnySequence<ModuleBuildDescription> { get }
+
     func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String]
     func createREPLArguments() throws -> [String]
-
-    /// Determines the arguments needed to run `swift-symbolgraph-extract` for
-    /// a particular module.
-    func symbolGraphExtractArguments(for module: ResolvedModule) throws -> [String]
 }
 
 public protocol BuildSystemFactory {
@@ -104,7 +119,7 @@ public protocol BuildSystemFactory {
         cacheBuildManifest: Bool,
         productsBuildParameters: BuildParameters?,
         toolsBuildParameters: BuildParameters?,
-        packageGraphLoader: (() throws -> ModulesGraph)?,
+        packageGraphLoader: (() async throws -> ModulesGraph)?,
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?
@@ -131,7 +146,7 @@ public struct BuildSystemProvider {
         cacheBuildManifest: Bool = true,
         productsBuildParameters: BuildParameters? = .none,
         toolsBuildParameters: BuildParameters? = .none,
-        packageGraphLoader: (() throws -> ModulesGraph)? = .none,
+        packageGraphLoader: (() async throws -> ModulesGraph)? = .none,
         outputStream: OutputByteStream? = .none,
         logLevel: Diagnostic.Severity? = .none,
         observabilityScope: ObservabilityScope? = .none

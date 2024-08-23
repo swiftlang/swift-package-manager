@@ -19,7 +19,6 @@ import struct PackageGraph.ResolvedModule
 private import class PackageLoading.ManifestLoader
 internal import struct PackageModel.ToolsVersion
 internal import protocol PackageModel.Toolchain
-import enum PackageGraph.BuildTriple
 
 struct PluginTargetBuildDescription: BuildTarget {
     private let target: ResolvedModule
@@ -39,12 +38,15 @@ struct PluginTargetBuildDescription: BuildTarget {
         return target.sources.paths.map { URL(fileURLWithPath: $0.pathString) }
     }
 
+    var headers: [URL] { [] }
+
     var name: String {
         return target.name
     }
 
-    var buildTriple: BuildTriple {
-        return target.buildTriple
+    var destination: BuildDestination {
+        // Plugins are always built for the host.
+        .host
     }
 
     func compileArguments(for fileURL: URL) throws -> [String] {

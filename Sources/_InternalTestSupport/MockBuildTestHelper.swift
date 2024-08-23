@@ -161,8 +161,8 @@ public func mockBuildPlan(
     targetSanitizers: EnabledSanitizers = .init(),
     fileSystem fs: any FileSystem,
     observabilityScope: ObservabilityScope
-) throws -> Build.BuildPlan {
-    try mockBuildPlan(
+) async throws -> Build.BuildPlan {
+    try await mockBuildPlan(
         buildPath: buildPath,
         config: environment.configuration ?? .debug,
         platform: environment.platform,
@@ -194,7 +194,7 @@ public func mockBuildPlan(
     targetSanitizers: EnabledSanitizers = .init(),
     fileSystem fs: any FileSystem,
     observabilityScope: ObservabilityScope
-) throws -> Build.BuildPlan {
+) async throws -> Build.BuildPlan {
     let inferredTriple: Basics.Triple
     if let platform {
         precondition(triple == nil)
@@ -248,7 +248,7 @@ public func mockBuildPlan(
     hostParameters.driverParameters = driverParameters
     hostParameters.linkingParameters = linkingParameters
 
-    return try BuildPlan(
+    return try await BuildPlan(
         destinationBuildParameters: destinationParameters,
         toolsBuildParameters: hostParameters,
         graph: graph,
@@ -262,10 +262,10 @@ package func mockPluginTools(
     fileSystem: any FileSystem,
     buildParameters: BuildParameters,
     hostTriple: Basics.Triple
-) throws -> [ResolvedModule.ID: [String: PluginTool]] {
+) async throws -> [ResolvedModule.ID: [String: PluginTool]] {
     var accessibleToolsPerPlugin: [ResolvedModule.ID: [String: PluginTool]] = [:]
     for plugin in plugins where accessibleToolsPerPlugin[plugin.id] == nil {
-        let accessibleTools = try plugin.preparePluginTools(
+        let accessibleTools = try await plugin.preparePluginTools(
             fileSystem: fileSystem,
             environment: buildParameters.buildEnvironment,
             for: hostTriple
@@ -285,64 +285,54 @@ enum BuildError: Swift.Error {
 
 public struct BuildPlanResult {
     public let plan: Build.BuildPlan
-    public let targetMap: [ResolvedModule.ID: ModuleBuildDescription]
-    public let productMap: [ResolvedProduct.ID: Build.ProductBuildDescription]
+
+    public var productMap: IdentifiableSet<Build.ProductBuildDescription> {
+        self.plan.productMap
+    }
+
+    public var targetMap: IdentifiableSet<Build.ModuleBuildDescription> {
+        self.plan.targetMap
+    }
 
     public init(plan: Build.BuildPlan) throws {
         self.plan = plan
-        self.productMap = try Dictionary(
-            throwingUniqueKeysWithValues: plan.buildProducts
-                .compactMap { $0 as? Build.ProductBuildDescription }
-                .map { ($0.product.id, $0) }
-        )
-        self.targetMap = try Dictionary(
-            throwingUniqueKeysWithValues: plan.targetMap.compactMap {
-                guard 
-                    let target = plan.graph.allModules[$0] ??
-                        IdentifiableSet(plan.derivedTestTargetsMap.values.flatMap { $0 })[$0]
-                else {
-                    throw BuildError.error("Target \($0) not found.")
-                }
-                return (target.id, $1)
-            }
-        )
     }
 
     public func checkTargetsCount(_ count: Int, file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(self.plan.targetMap.count, count, file: file, line: line)
+        XCTAssertEqual(self.targetMap.count, count, file: file, line: line)
     }
 
     public func checkProductsCount(_ count: Int, file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(self.plan.productMap.count, count, file: file, line: line)
+        XCTAssertEqual(self.productMap.count, count, file: file, line: line)
     }
 
-    public func moduleBuildDescription(for name: String) throws -> ModuleBuildDescription {
-        let matchingIDs = targetMap.keys.filter({ $0.moduleName == name })
-        guard matchingIDs.count == 1, let target = targetMap[matchingIDs[0]] else {
-            if matchingIDs.isEmpty {
+    public func moduleBuildDescription(for name: String) throws -> Build.ModuleBuildDescription {
+        let matches = self.targetMap.filter({ $0.module.name == name })
+        guard matches.count == 1 else {
+            if matches.isEmpty {
                 throw BuildError.error("Target \(name) not found.")
             } else {
                 throw BuildError.error("More than one target \(name) found.")
             }
         }
-        return target
+        return matches.first!
     }
 
     public func buildProduct(for name: String) throws -> Build.ProductBuildDescription {
-        let matchingIDs = productMap.keys.filter({ $0.productName == name })
-        guard matchingIDs.count == 1, let product = productMap[matchingIDs[0]] else {
-            if matchingIDs.isEmpty {
+        let matches = self.productMap.filter({ $0.product.name == name })
+        guard matches.count == 1 else {
+            if matches.isEmpty {
                 // <rdar://problem/30162871> Display the thrown error on macOS
                 throw BuildError.error("Product \(name) not found.")
             } else {
                 throw BuildError.error("More than one target \(name) found.")
             }
         }
-        return product
+        return matches.first!
     }
 }
 
-extension ModuleBuildDescription {
+extension Build.ModuleBuildDescription {
     public func swift() throws -> SwiftModuleBuildDescription {
         switch self {
         case .swift(let description):

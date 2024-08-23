@@ -52,7 +52,7 @@ final class BuildPlanTests: XCTestCase {
         "-j3"
     }
 
-    func testDuplicateProductNamesWithNonDefaultLibsThrowError() throws {
+    func testDuplicateProductNamesWithNonDefaultLibsThrowError() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles: "/thisPkg/Sources/exe/main.swift",
             "/fooPkg/Sources/FooLogging/file.swift",
@@ -111,7 +111,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testDuplicateProductNamesWithADylib() throws {
+    func testDuplicateProductNamesWithADylib() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -169,7 +169,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -179,11 +179,11 @@ final class BuildPlanTests: XCTestCase {
         ))
         result.checkProductsCount(2)
         result.checkTargetsCount(3)
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "FooLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "BarLogging" })
     }
 
-    func testDuplicateProductNamesUpstream1() throws {
+    func testDuplicateProductNamesUpstream1() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -294,7 +294,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -304,14 +304,14 @@ final class BuildPlanTests: XCTestCase {
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(6)
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BazLogging" })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "XUtils" })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "YUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "FooLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "BarLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "BazLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "XUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "YUtils" })
     }
 
-    func testDuplicateProductNamesUpstream2() throws {
+    func testDuplicateProductNamesUpstream2() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -389,7 +389,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -399,12 +399,12 @@ final class BuildPlanTests: XCTestCase {
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(4)
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Logging" })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BazLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "Logging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "BarLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "BazLogging" })
     }
 
-    func testDuplicateProductNamesChained() throws {
+    func testDuplicateProductNamesChained() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -466,7 +466,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -476,11 +476,11 @@ final class BuildPlanTests: XCTestCase {
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(3)
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "FooLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "BarLogging" })
     }
 
-    func testDuplicateProductNamesThrowError() throws {
+    func testDuplicateProductNamesThrowError() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -541,7 +541,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testDuplicateProductNamesAllowed() throws {
+    func testDuplicateProductNamesAllowed() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -599,7 +599,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -609,8 +609,8 @@ final class BuildPlanTests: XCTestCase {
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(3)
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "FooLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "BarLogging" })
     }
 
     func testPackageNameFlag() async throws {
@@ -720,7 +720,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testBasicSwiftPackage() throws {
+    func testBasicSwiftPackage() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -744,7 +744,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let plan = try mockBuildPlan(
+        let plan = try await mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -851,10 +851,10 @@ final class BuildPlanTests: XCTestCase {
         #endif
     }
 
-    func testExplicitSwiftPackageBuild() throws {
+    func testExplicitSwiftPackageBuild() async throws {
         // <rdar://82053045> Fix and re-enable SwiftPM test `testExplicitSwiftPackageBuild`
         try XCTSkipIf(true)
-        try withTemporaryDirectory { path in
+        try await withTemporaryDirectory { path in
             // Create a test package with three targets:
             // A -> B -> C
             let fs = localFileSystem
@@ -912,7 +912,7 @@ final class BuildPlanTests: XCTestCase {
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
             do {
-                let plan = try mockBuildPlan(
+                let plan = try await mockBuildPlan(
                     config: .release,
                     triple: UserToolchain.default.targetTriple,
                     toolchain: UserToolchain.default,
@@ -950,7 +950,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testSwiftConditionalDependency() throws {
+    func testSwiftConditionalDependency() async throws {
         let Pkg: AbsolutePath = "/Pkg"
 
         let fs: FileSystem = InMemoryFileSystem(
@@ -1022,7 +1022,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         do {
-            let plan = try mockBuildPlan(
+            let plan = try await mockBuildPlan(
                 environment: BuildEnvironment(
                     platform: .linux,
                     configuration: .release
@@ -1064,7 +1064,7 @@ final class BuildPlanTests: XCTestCase {
         }
 
         do {
-            let plan = try mockBuildPlan(
+            let plan = try await mockBuildPlan(
                 environment: BuildEnvironment(
                     platform: .macOS,
                     configuration: .debug
@@ -1099,7 +1099,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testBasicExtPackages() throws {
+    func testBasicExtPackages() async throws {
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
             "/A/Sources/ATarget/foo.swift",
@@ -1139,13 +1139,13 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             fileSystem: fileSystem,
             observabilityScope: observability.topScope
         ))
 
-        XCTAssertEqual(Set(result.productMap.keys.map(\.productName)), ["APackageTests"])
+        XCTAssertEqual(Set(result.productMap.map(\.product.name)), ["APackageTests"])
         var expectedTargets: Set<String> = [
             "APackageTests",
             "ATarget",
@@ -1155,10 +1155,10 @@ final class BuildPlanTests: XCTestCase {
 #if !os(macOS)
         expectedTargets.insert("APackageDiscoveredTests")
 #endif
-        XCTAssertEqual(Set(result.targetMap.keys.map(\.moduleName)), expectedTargets)
+        XCTAssertEqual(Set(result.targetMap.map(\.module.name)), expectedTargets)
     }
 
-    func testBasicReleasePackage() throws {
+    func testBasicReleasePackage() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift"
@@ -1180,7 +1180,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             config: .release,
             graph: graph,
             fileSystem: fs,
@@ -1249,7 +1249,7 @@ final class BuildPlanTests: XCTestCase {
         #endif
     }
 
-    func testBasicReleasePackageNoDeadStrip() throws {
+    func testBasicReleasePackageNoDeadStrip() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift"
@@ -1271,7 +1271,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             config: .release,
             graph: graph,
             linkingParameters: .init(
@@ -1340,7 +1340,7 @@ final class BuildPlanTests: XCTestCase {
         #endif
     }
 
-    func testBasicClangPackage() throws {
+    func testBasicClangPackage() async throws {
         let Pkg: AbsolutePath = "/Pkg"
         let ExtPkg: AbsolutePath = "/ExtPkg"
 
@@ -1387,7 +1387,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -1503,9 +1503,8 @@ final class BuildPlanTests: XCTestCase {
 
         let buildProduct = try XCTUnwrap(
             result.productMap[.init(
-                productName: "exe",
-                packageIdentity: "Pkg",
-                buildTriple: .destination
+                productID: .init(productName: "exe", packageIdentity: "Pkg"),
+                destination: .target
             )]
         )
         XCTAssertEqual(Array(buildProduct.objects), [
@@ -1515,7 +1514,7 @@ final class BuildPlanTests: XCTestCase {
         ])
     }
 
-    func testClangConditionalDependency() throws {
+    func testClangConditionalDependency() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.c",
@@ -1568,7 +1567,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         do {
-            let result = try BuildPlanResult(plan: mockBuildPlan(
+            let result = try await BuildPlanResult(plan: mockBuildPlan(
                 environment: BuildEnvironment(
                     platform: .linux,
                     configuration: .release
@@ -1587,7 +1586,7 @@ final class BuildPlanTests: XCTestCase {
         }
 
         do {
-            let result = try BuildPlanResult(plan: mockBuildPlan(
+            let result = try await BuildPlanResult(plan: mockBuildPlan(
                 environment: BuildEnvironment(
                     platform: .macOS,
                     configuration: .debug
@@ -1605,7 +1604,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testCLanguageStandard() throws {
+    func testCLanguageStandard() async throws {
         let Pkg: AbsolutePath = "/Pkg"
 
         let fs: FileSystem = InMemoryFileSystem(
@@ -1643,7 +1642,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let plan = try mockBuildPlan(
+        let plan = try await mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -1746,7 +1745,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testSwiftCMixed() throws {
+    func testSwiftCMixed() async throws {
         let Pkg: AbsolutePath = "/Pkg"
 
         let fs = InMemoryFileSystem(
@@ -1773,7 +1772,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let plan = try mockBuildPlan(
+        let plan = try await mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -1875,7 +1874,7 @@ final class BuildPlanTests: XCTestCase {
         #endif
     }
 
-    func testSwiftCAsmMixed() throws {
+    func testSwiftCAsmMixed() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -1902,7 +1901,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -1917,7 +1916,7 @@ final class BuildPlanTests: XCTestCase {
         ])
     }
 
-    func testSwiftSettings_interoperabilityMode_cxx() throws {
+    func testSwiftSettings_interoperabilityMode_cxx() async throws {
         let Pkg: AbsolutePath = "/Pkg"
 
         let fs: FileSystem = InMemoryFileSystem(
@@ -1951,7 +1950,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let plan = try mockBuildPlan(
+        let plan = try await mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -1999,7 +1998,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func test_symbolGraphExtract_arguments() throws {
+    func test_symbolGraphExtract_arguments() async throws {
         // ModuleGraph:
         // .
         // ├── A (Swift)
@@ -2043,7 +2042,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let plan = try mockBuildPlan(
+        let plan = try await mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -2108,7 +2107,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testREPLArguments() throws {
+    func testREPLArguments() async throws {
         let Dep = AbsolutePath("/Dep")
         let fs = InMemoryFileSystem(
             emptyFiles:
@@ -2155,7 +2154,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let plan = try mockBuildPlan(
+        let plan = try await mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -2181,7 +2180,7 @@ final class BuildPlanTests: XCTestCase {
         ])
     }
 
-    func testTestModule() throws {
+    func testTestModule() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/Foo/foo.swift",
@@ -2206,7 +2205,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -2312,7 +2311,7 @@ final class BuildPlanTests: XCTestCase {
         #endif
     }
 
-    func testConcurrencyInOS() throws {
+    func testConcurrencyInOS() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift"
@@ -2337,7 +2336,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             config: .release,
             graph: graph,
             fileSystem: fs,
@@ -2383,7 +2382,7 @@ final class BuildPlanTests: XCTestCase {
         #endif
     }
 
-    func testParseAsLibraryFlagForExe() throws {
+    func testParseAsLibraryFlagForExe() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             // executable has a single source file not named `main.swift`, without @main.
@@ -2594,7 +2593,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -2669,7 +2668,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(atMainSnippet, ["-parse-as-library"])
     }
 
-    func testCModule() throws {
+    func testCModule() async throws {
         let Clibgit = AbsolutePath("/Clibgit")
 
         let fs = InMemoryFileSystem(
@@ -2704,7 +2703,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -2774,7 +2773,7 @@ final class BuildPlanTests: XCTestCase {
         #endif
     }
 
-    func testCppModule() throws {
+    func testCppModule() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -2799,7 +2798,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        var result = try BuildPlanResult(plan: mockBuildPlan(
+        var result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -2815,7 +2814,7 @@ final class BuildPlanTests: XCTestCase {
         #endif
 
         // Verify that `-lstdc++` is passed instead of `-lc++` when cross-compiling to Linux.
-        result = try BuildPlanResult(plan: mockBuildPlan(
+        result = try await BuildPlanResult(plan: mockBuildPlan(
             triple: .arm64Linux,
             graph: graph,
             fileSystem: fs,
@@ -2828,7 +2827,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(linkArgs, ["-lstdc++"])
     }
 
-    func testDynamicProducts() throws {
+    func testDynamicProducts() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Foo/Sources/Foo/main.swift",
@@ -2864,7 +2863,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: g,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -2972,7 +2971,7 @@ final class BuildPlanTests: XCTestCase {
         #endif
     }
 
-    func testExecAsDependency() throws {
+    func testExecAsDependency() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -2999,7 +2998,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -3092,7 +3091,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), linkArguments)
     }
 
-    func testClangTargets() throws {
+    func testClangTargets() async throws {
         let Pkg: AbsolutePath = "/Pkg"
 
         let fs = InMemoryFileSystem(
@@ -3122,7 +3121,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -3269,7 +3268,7 @@ final class BuildPlanTests: XCTestCase {
         #endif
     }
 
-    func testNonReachableProductsAndTargets() throws {
+    func testNonReachableProductsAndTargets() async throws {
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
             "/A/Sources/ATarget/main.swift",
@@ -3342,7 +3341,7 @@ final class BuildPlanTests: XCTestCase {
         graphResult.check(modules: "ATarget", "BTarget1", "BTarget2", "CTarget")
         #endif
 
-        let planResult = try BuildPlanResult(plan: mockBuildPlan(
+        let planResult = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             fileSystem: fileSystem,
             observabilityScope: observability.topScope
@@ -3357,7 +3356,7 @@ final class BuildPlanTests: XCTestCase {
         #endif
     }
 
-    func testReachableBuildProductsAndTargets() throws {
+    func testReachableBuildProductsAndTargets() async throws {
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
             "/A/Sources/ATarget/main.swift",
@@ -3438,7 +3437,7 @@ final class BuildPlanTests: XCTestCase {
             try graphResult.check(reachableBuildProducts: "aexec", "BLibrary1", "BLibrary2", in: linuxDebug)
             try graphResult.check(reachableBuildTargets: "ATarget", "BTarget1", "BTarget2", in: linuxDebug)
 
-            let planResult = try BuildPlanResult(plan: mockBuildPlan(
+            let planResult = try await BuildPlanResult(plan: mockBuildPlan(
                 environment: linuxDebug,
                 graph: graph,
                 fileSystem: fileSystem,
@@ -3453,7 +3452,7 @@ final class BuildPlanTests: XCTestCase {
             try graphResult.check(reachableBuildProducts: "aexec", "BLibrary2", in: macosDebug)
             try graphResult.check(reachableBuildTargets: "ATarget", "BTarget2", "BTarget3", in: macosDebug)
 
-            let planResult = try BuildPlanResult(plan: mockBuildPlan(
+            let planResult = try await BuildPlanResult(plan: mockBuildPlan(
                 environment: macosDebug,
                 graph: graph,
                 fileSystem: fileSystem,
@@ -3468,7 +3467,7 @@ final class BuildPlanTests: XCTestCase {
             try graphResult.check(reachableBuildProducts: "aexec", "CLibrary", in: androidRelease)
             try graphResult.check(reachableBuildTargets: "ATarget", "CTarget", in: androidRelease)
 
-            let planResult = try BuildPlanResult(plan: mockBuildPlan(
+            let planResult = try await BuildPlanResult(plan: mockBuildPlan(
                 environment: androidRelease,
                 graph: graph,
                 fileSystem: fileSystem,
@@ -3479,7 +3478,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testSystemPackageBuildPlan() throws {
+    func testSystemPackageBuildPlan() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/module.modulemap"
@@ -3498,16 +3497,23 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        XCTAssertThrows(BuildPlan.Error.noBuildableTarget) {
-            _ = try mockBuildPlan(
+        do {
+            _ = try await mockBuildPlan(
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
             )
+            XCTFail()
+        } catch {
+            if let buildError = error as? Build.BuildPlan.Error {
+                XCTAssert(buildError == .noBuildableTarget)
+            } else {
+                XCTFail()
+            }
         }
     }
 
-    func testPkgConfigHintDiagnostic() throws {
+    func testPkgConfigHintDiagnostic() async throws {
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
             "/A/Sources/ATarget/foo.swift",
@@ -3539,7 +3545,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        _ = try mockBuildPlan(
+        _ = try await mockBuildPlan(
             graph: graph,
             fileSystem: fileSystem,
             observabilityScope: observability.topScope
@@ -3553,7 +3559,7 @@ final class BuildPlanTests: XCTestCase {
         #endif
     }
 
-    func testPkgConfigGenericDiagnostic() throws {
+    func testPkgConfigGenericDiagnostic() async throws {
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
             "/A/Sources/ATarget/foo.swift",
@@ -3580,7 +3586,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        _ = try mockBuildPlan(
+        _ = try await mockBuildPlan(
             graph: graph,
             fileSystem: fileSystem,
             observabilityScope: observability.topScope
@@ -3594,7 +3600,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(diagnostic.metadata?.pcFile, "BTarget.pc")
     }
 
-    func testWindowsTarget() throws {
+    func testWindowsTarget() async throws {
         let Pkg: AbsolutePath = "/Pkg"
         let fs = InMemoryFileSystem(
             emptyFiles:
@@ -3620,7 +3626,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             triple: .windows,
             graph: graph,
             fileSystem: fs,
@@ -3679,7 +3685,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(executablePathExtension, "exe")
     }
 
-    func testEntrypointRenaming() throws {
+    func testEntrypointRenaming() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift"
@@ -3701,8 +3707,8 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        func createResult(for triple: Basics.Triple) throws -> BuildPlanResult {
-            try BuildPlanResult(plan: mockBuildPlan(
+        func createResult(for triple: Basics.Triple) async throws -> BuildPlanResult {
+            try await BuildPlanResult(plan: mockBuildPlan(
                 triple: triple,
                 graph: graph,
                 driverParameters: .init(
@@ -3714,7 +3720,7 @@ final class BuildPlanTests: XCTestCase {
         }
         let supportingTriples: [Basics.Triple] = [.x86_64Linux, .x86_64MacOS]
         for triple in supportingTriples {
-            let result = try createResult(for: triple)
+            let result = try await createResult(for: triple)
             let exe = try result.moduleBuildDescription(for: "exe").swift().compileArguments()
             XCTAssertMatch(exe, ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "exe_main"])
             let linkExe = try result.buildProduct(for: "exe").linkArguments()
@@ -3723,13 +3729,13 @@ final class BuildPlanTests: XCTestCase {
 
         let unsupportingTriples: [Basics.Triple] = [.wasi, .windows]
         for triple in unsupportingTriples {
-            let result = try createResult(for: triple)
+            let result = try await createResult(for: triple)
             let exe = try result.moduleBuildDescription(for: "exe").swift().compileArguments()
             XCTAssertNoMatch(exe, ["-entry-point-function-name"])
         }
     }
 
-    func testIndexStore() throws {
+    func testIndexStore() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -3754,8 +3760,8 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        func check(for mode: BuildParameters.IndexStoreMode, config: BuildConfiguration) throws {
-            let result = try BuildPlanResult(plan: mockBuildPlan(
+        func check(for mode: BuildParameters.IndexStoreMode, config: BuildConfiguration) async throws {
+            let result = try await BuildPlanResult(plan: mockBuildPlan(
                 config: config,
                 toolchain: try UserToolchain.default,
                 graph: graph,
@@ -3776,12 +3782,12 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(exe, [.anySequence, "-index-store-path", path, .anySequence])
         }
 
-        try check(for: .auto, config: .debug)
-        try check(for: .on, config: .debug)
-        try check(for: .on, config: .release)
+        try await check(for: .auto, config: .debug)
+        try await check(for: .on, config: .debug)
+        try await check(for: .on, config: .release)
     }
 
-    func testPlatforms() throws {
+    func testPlatforms() async throws {
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
             "/A/Sources/ATarget/foo.swift",
@@ -3825,7 +3831,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             fileSystem: fileSystem,
             observabilityScope: observability.topScope
@@ -3852,7 +3858,7 @@ final class BuildPlanTests: XCTestCase {
         #endif
     }
 
-    func testPlatformsCustomTriple() throws {
+    func testPlatformsCustomTriple() async throws {
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
             "/A/Sources/ATarget/foo.swift",
@@ -3898,7 +3904,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             triple: .init("arm64-apple-ios"),
             graph: graph,
             fileSystem: fileSystem,
@@ -3924,7 +3930,7 @@ final class BuildPlanTests: XCTestCase {
         ])
     }
 
-    func testPlatformsValidationComparesSpecifiedDarwinTriple() throws {
+    func testPlatformsValidationComparesSpecifiedDarwinTriple() async throws {
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
             "/A/Sources/ATarget/foo.swift",
@@ -3974,23 +3980,27 @@ final class BuildPlanTests: XCTestCase {
         // however our build triple *only specifies* `iOS`.
         // Therefore, we expect no error, as the iOS version
         // constraints above are valid.
-        XCTAssertNoThrow(
-            _ = try mockBuildPlan(
-                triple: .arm64iOS,
-                graph: graph,
-                fileSystem: fileSystem,
-                observabilityScope: observability.topScope
-            )
+
+        _ = try await mockBuildPlan(
+            triple: .arm64iOS,
+            graph: graph,
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope
         )
 
+
         // For completeness, the invalid target should still throw an error.
-        XCTAssertThrows(Diagnostics.fatalError) {
-            _ = try mockBuildPlan(
+        do {
+            _ = try await mockBuildPlan(
                 triple: .x86_64MacOS,
                 graph: graph,
                 fileSystem: fileSystem,
                 observabilityScope: observability.topScope
             )
+            XCTFail()
+        } catch Diagnostics.fatalError {
+        } catch {
+            XCTFail()
         }
 
         testDiagnostics(observability.diagnostics) { result in
@@ -4003,7 +4013,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testPlatformsValidationWhenADependencyRequiresHigherOSVersionThanPackage() throws {
+    func testPlatformsValidationWhenADependencyRequiresHigherOSVersionThanPackage() async throws {
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
             "/A/Sources/ATarget/foo.swift",
@@ -4047,13 +4057,17 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        XCTAssertThrows(Diagnostics.fatalError) {
-            _ = try mockBuildPlan(
+        do {
+            _ = try await mockBuildPlan(
                 triple: .x86_64MacOS,
                 graph: graph,
                 fileSystem: fileSystem,
                 observabilityScope: observability.topScope
             )
+            XCTFail()
+        } catch Diagnostics.fatalError {
+        } catch {
+            XCTFail()
         }
 
         testDiagnostics(observability.diagnostics) { result in
@@ -4066,7 +4080,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testBuildSettings() throws {
+    func testBuildSettings() async throws {
         let A = AbsolutePath("/A")
 
         let fs = InMemoryFileSystem(
@@ -4213,8 +4227,8 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        func createResult(for dest: Basics.Triple) throws -> BuildPlanResult {
-            try BuildPlanResult(plan: mockBuildPlan(
+        func createResult(for dest: Basics.Triple) async throws -> BuildPlanResult {
+            try await BuildPlanResult(plan: mockBuildPlan(
                 triple: dest,
                 graph: graph,
                 fileSystem: fs,
@@ -4223,7 +4237,7 @@ final class BuildPlanTests: XCTestCase {
         }
 
         do {
-            let result = try createResult(for: .x86_64Linux)
+            let result = try await createResult(for: .x86_64Linux)
 
             let dep = try result.moduleBuildDescription(for: "t1").swift().compileArguments()
             XCTAssertMatch(dep, [.anySequence, "-DDEP", .anySequence])
@@ -4281,7 +4295,7 @@ final class BuildPlanTests: XCTestCase {
 
         // omit frame pointers explicitly set to true
         do {
-            let result = try BuildPlanResult(plan: mockBuildPlan(
+            let result = try await BuildPlanResult(plan: mockBuildPlan(
                 triple: .x86_64Linux,
                 graph: graph,
                 omitFramePointers: true,
@@ -4336,7 +4350,7 @@ final class BuildPlanTests: XCTestCase {
 
         // omit frame pointers explicitly set to false
         do {
-            let result = try BuildPlanResult(plan: mockBuildPlan(
+            let result = try await BuildPlanResult(plan: mockBuildPlan(
                 triple: .x86_64Linux,
                 graph: graph,
                 omitFramePointers: false,
@@ -4390,7 +4404,7 @@ final class BuildPlanTests: XCTestCase {
         }
 
         do {
-            let result = try createResult(for: .x86_64MacOS)
+            let result = try await createResult(for: .x86_64MacOS)
 
             let cbar = try result.moduleBuildDescription(for: "cbar").clang().basicArguments(isCXX: false)
             XCTAssertMatch(
@@ -4460,7 +4474,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testExtraBuildFlags() throws {
+    func testExtraBuildFlags() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/A/Sources/exe/main.swift",
@@ -4486,7 +4500,7 @@ final class BuildPlanTests: XCTestCase {
 
         var flags = BuildFlags()
         flags.linkerFlags = ["-L", "/path/to/foo", "-L/path/to/foo", "-rpath=foo", "-rpath", "foo"]
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             commonFlags: flags,
             fileSystem: fs,
@@ -4507,7 +4521,7 @@ final class BuildPlanTests: XCTestCase {
         )
     }
 
-    func testUserToolchainCompileFlags() throws {
+    func testUserToolchainCompileFlags() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -4558,7 +4572,7 @@ final class BuildPlanTests: XCTestCase {
             swiftCompilerFlags: ["-swift-command-line-flag"]
         )
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             toolchain: mockToolchain,
             graph: graph,
             commonFlags: commonFlags,
@@ -4606,7 +4620,7 @@ final class BuildPlanTests: XCTestCase {
             .anySequence,
         ])
 
-        let staticResult = try BuildPlanResult(plan: mockBuildPlan(
+        let staticResult = try await BuildPlanResult(plan: mockBuildPlan(
             triple: .x86_64Linux,
             toolchain: mockToolchain,
             graph: graph,
@@ -4635,7 +4649,120 @@ final class BuildPlanTests: XCTestCase {
         ])
     }
 
-    func testUserToolchainWithToolsetCompileFlags() throws {
+    func testSwiftTestingFlagsOnMacOSWithCustomToolchain() async throws {
+        #if !os(macOS)
+        // This is testing swift-testing in a toolchain which is macOS only feature.
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/fake/path/lib/swift/macosx/testing/Testing.swiftmodule",
+            "/fake/path/lib/swift/host/plugins/testing/libTesting.dylib",
+            "/Pkg/Sources/Lib/main.swift",
+            "/Pkg/Tests/LibTest/test.swift"
+        )
+        try fs.createMockToolchain()
+
+        let userSwiftSDK = SwiftSDK(
+            hostTriple: .x86_64MacOS,
+            targetTriple: .x86_64MacOS,
+            toolset: .init(
+                knownTools: [
+                    .cCompiler: .init(extraCLIOptions: []),
+                    .swiftCompiler: .init(extraCLIOptions: []),
+                ],
+                rootPaths: ["/fake/path/to"]
+            ),
+            pathsConfiguration: .init(
+                sdkRootPath: "/fake/sdk",
+                swiftResourcesPath: "/fake/lib/swift",
+                swiftStaticResourcesPath: "/fake/lib/swift_static"
+            )
+        )
+        let mockToolchain = try UserToolchain(
+            swiftSDK: userSwiftSDK,
+            environment: .mockEnvironment,
+            fileSystem: fs
+        )
+
+        XCTAssertEqual(
+            mockToolchain.extraFlags.swiftCompilerFlags,
+            [
+                "-I", "/fake/path/lib/swift/macosx/testing",
+                "-L", "/fake/path/lib/swift/macosx/testing",
+                "-plugin-path", "/fake/path/lib/swift/host/plugins/testing",
+                "-sdk", "/fake/sdk",
+            ]
+        )
+        XCTAssertEqual(
+            mockToolchain.extraFlags.linkerFlags,
+            ["-rpath", "/fake/path/lib/swift/macosx/testing"]
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "Lib", dependencies: []),
+                        TargetDescription(
+                            name: "LibTest",
+                            dependencies: ["Lib"],
+                            type: .test
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
+            toolchain: mockToolchain,
+            graph: graph,
+            commonFlags: .init(),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(2)
+        result.checkTargetsCount(3)
+
+        let testProductLinkArgs = try result.buildProduct(for: "Lib").linkArguments()
+        XCTAssertMatch(testProductLinkArgs, [
+            .anySequence,
+            "-I", "/fake/path/lib/swift/macosx/testing",
+            "-L", "/fake/path/lib/swift/macosx/testing",
+            .anySequence,
+            "-Xlinker", "-rpath",
+            "-Xlinker", "/fake/path/lib/swift/macosx/testing",
+        ])
+
+        let libModuleArgs = try result.moduleBuildDescription(for: "Lib").swift().compileArguments()
+        XCTAssertMatch(libModuleArgs, [
+            .anySequence,
+            "-I", "/fake/path/lib/swift/macosx/testing",
+            "-L", "/fake/path/lib/swift/macosx/testing",
+            "-plugin-path", "/fake/path/lib/swift/host/plugins/testing",
+            .anySequence,
+        ])
+        XCTAssertNoMatch(libModuleArgs, ["-Xlinker"])
+
+        let testModuleArgs = try result.moduleBuildDescription(for: "LibTest").swift().compileArguments()
+        XCTAssertMatch(testModuleArgs, [
+            .anySequence,
+            "-I", "/fake/path/lib/swift/macosx/testing",
+            "-L", "/fake/path/lib/swift/macosx/testing",
+            "-plugin-path", "/fake/path/lib/swift/host/plugins/testing",
+            .anySequence,
+        ])
+        XCTAssertNoMatch(testModuleArgs, ["-Xlinker"])
+    }
+
+    func testUserToolchainWithToolsetCompileFlags() async throws {
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -4690,7 +4817,7 @@ final class BuildPlanTests: XCTestCase {
             )
         )
         let toolchain = try UserToolchain(swiftSDK: swiftSDK, environment: .mockEnvironment, fileSystem: fileSystem)
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             triple: targetTriple,
             toolchain: toolchain,
             graph: graph,
@@ -4803,7 +4930,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertCount(1, exeLinkArguments, cliFlag(tool: .linker))
     }
 
-    func testUserToolchainWithSDKSearchPaths() throws {
+    func testUserToolchainWithSDKSearchPaths() async throws {
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -4844,7 +4971,7 @@ final class BuildPlanTests: XCTestCase {
             ])
         )
         let toolchain = try UserToolchain(swiftSDK: swiftSDK, environment: .mockEnvironment, fileSystem: fileSystem)
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             toolchain: toolchain,
             graph: graph,
             fileSystem: fileSystem,
@@ -4869,7 +4996,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(exeLinkArguments, exeLinkArgumentsPattern)
     }
 
-    func testExecBuildTimeDependency() throws {
+    func testExecBuildTimeDependency() async throws {
         let PkgA = AbsolutePath("/PkgA")
 
         let fs: FileSystem = InMemoryFileSystem(
@@ -4914,7 +5041,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let plan = try mockBuildPlan(
+        let plan = try await mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -4952,7 +5079,7 @@ final class BuildPlanTests: XCTestCase {
         """))
         }
 
-    func testObjCHeader1() throws {
+    func testObjCHeader1() async throws {
         let PkgA = AbsolutePath("/PkgA")
 
         // This has a Swift and ObjC target in the same package.
@@ -4979,7 +5106,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let plan = try mockBuildPlan(
+        let plan = try await mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -5039,7 +5166,7 @@ final class BuildPlanTests: XCTestCase {
         """))
     }
 
-    func testObjCHeader2() throws {
+    func testObjCHeader2() async throws {
         let PkgA = AbsolutePath("/PkgA")
 
         // This has a Swift and ObjC target in different packages with automatic product type.
@@ -5078,7 +5205,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let plan = try mockBuildPlan(
+        let plan = try await mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -5148,7 +5275,7 @@ final class BuildPlanTests: XCTestCase {
         """))
     }
 
-    func testObjCHeader3() throws {
+    func testObjCHeader3() async throws {
         let PkgA = AbsolutePath("/PkgA")
 
         // This has a Swift and ObjC target in different packages with dynamic product type.
@@ -5187,7 +5314,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let plan = try mockBuildPlan(
+        let plan = try await mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -5265,7 +5392,7 @@ final class BuildPlanTests: XCTestCase {
         """))
     }
 
-    func testModulewrap() throws {
+    func testModulewrap() async throws {
         let fs: FileSystem = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -5289,7 +5416,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             triple: .x86_64Linux,
             graph: graph,
             fileSystem: fs,
@@ -5349,7 +5476,7 @@ final class BuildPlanTests: XCTestCase {
         """))
     }
 
-    func testArchiving() throws {
+    func testArchiving() async throws {
         let fs: FileSystem = InMemoryFileSystem(
             emptyFiles:
             "/Package/Sources/rary/rary.swift"
@@ -5374,7 +5501,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -5487,7 +5614,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testSwiftBundleAccessor() throws {
+    func testSwiftBundleAccessor() async throws {
         // This has a Swift and ObjC target in the same package.
         let fs = InMemoryFileSystem(
             emptyFiles:
@@ -5525,7 +5652,7 @@ final class BuildPlanTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let plan = try mockBuildPlan(
+        let plan = try await mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -5554,7 +5681,7 @@ final class BuildPlanTests: XCTestCase {
         ])
     }
 
-    func testSwiftWASIBundleAccessor() throws {
+    func testSwiftWASIBundleAccessor() async throws {
         // This has a Swift and ObjC target in the same package.
         let fs = InMemoryFileSystem(
             emptyFiles:
@@ -5592,7 +5719,7 @@ final class BuildPlanTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let plan = try mockBuildPlan(
+        let plan = try await mockBuildPlan(
             triple: .wasi,
             graph: graph,
             fileSystem: fs,
@@ -5622,7 +5749,7 @@ final class BuildPlanTests: XCTestCase {
         ])
     }
 
-    func testClangBundleAccessor() throws {
+    func testClangBundleAccessor() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/Foo/include/Foo.h",
@@ -5659,7 +5786,7 @@ final class BuildPlanTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let plan = try mockBuildPlan(
+        let plan = try await mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -5698,7 +5825,7 @@ final class BuildPlanTests: XCTestCase {
         )
     }
 
-    func testShouldLinkStaticSwiftStdlib() throws {
+    func testShouldLinkStaticSwiftStdlib() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -5724,7 +5851,7 @@ final class BuildPlanTests: XCTestCase {
 
         let supportingTriples: [Basics.Triple] = [.x86_64Linux, .arm64Linux, .wasi]
         for triple in supportingTriples {
-            let result = try BuildPlanResult(plan: mockBuildPlan(
+            let result = try await BuildPlanResult(plan: mockBuildPlan(
                 triple: triple,
                 graph: graph,
                 linkingParameters: .init(
@@ -5743,7 +5870,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testXCFrameworkBinaryTargets(platform: String, arch: String, targetTriple: Basics.Triple) throws {
+    func testXCFrameworkBinaryTargets(platform: String, arch: String, targetTriple: Basics.Triple) async throws {
         let Pkg: AbsolutePath = "/Pkg"
 
         let fs = InMemoryFileSystem(
@@ -5852,7 +5979,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             triple: targetTriple,
             graph: graph,
             fileSystem: fs,
@@ -5913,20 +6040,20 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(dynamicLibraryPathExtension, "dylib")
     }
 
-    func testXCFrameworkBinaryTargets() throws {
-        try self.testXCFrameworkBinaryTargets(platform: "macos", arch: "x86_64", targetTriple: .x86_64MacOS)
+    func testXCFrameworkBinaryTargets() async throws {
+        try await self.testXCFrameworkBinaryTargets(platform: "macos", arch: "x86_64", targetTriple: .x86_64MacOS)
 
         let arm64Triple = try Basics.Triple("arm64-apple-macosx")
-        try self.testXCFrameworkBinaryTargets(platform: "macos", arch: "arm64", targetTriple: arm64Triple)
+        try await self.testXCFrameworkBinaryTargets(platform: "macos", arch: "arm64", targetTriple: arm64Triple)
 
         let arm64eTriple = try Basics.Triple("arm64e-apple-macosx")
-        try self.testXCFrameworkBinaryTargets(platform: "macos", arch: "arm64e", targetTriple: arm64eTriple)
+        try await self.testXCFrameworkBinaryTargets(platform: "macos", arch: "arm64e", targetTriple: arm64eTriple)
     }
 
     func testArtifactsArchiveBinaryTargets(
         artifactTriples: [Basics.Triple],
         targetTriple: Basics.Triple
-    ) throws -> Bool {
+    ) async throws -> Bool {
         let fs = InMemoryFileSystem(emptyFiles: "/Pkg/Sources/exe/main.swift")
 
         let artifactName = "my-tool"
@@ -5981,7 +6108,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             triple: targetTriple,
             graph: graph,
             fileSystem: fs,
@@ -5996,47 +6123,50 @@ final class BuildPlanTests: XCTestCase {
         return availableTools.contains(where: { $0.key == artifactName })
     }
 
-    func testArtifactsArchiveBinaryTargets() throws {
-        XCTAssertTrue(try self.testArtifactsArchiveBinaryTargets(
+    func testArtifactsArchiveBinaryTargets() async throws {
+        let result = try await self.testArtifactsArchiveBinaryTargets(
             artifactTriples: [.x86_64MacOS],
             targetTriple: .x86_64MacOS
-        ))
+        )
+        XCTAssertTrue(result)
 
         do {
             let triples = try ["arm64-apple-macosx", "x86_64-apple-macosx", "x86_64-unknown-linux-gnu"]
                 .map(Basics.Triple.init)
-            XCTAssertTrue(try self.testArtifactsArchiveBinaryTargets(
+            let result2 = try await self.testArtifactsArchiveBinaryTargets(
                 artifactTriples: triples,
                 targetTriple: triples.first!
-            ))
+            )
+            XCTAssertTrue(result2)
         }
 
         do {
             let triples = try ["x86_64-unknown-linux-gnu"].map(Basics.Triple.init)
-            XCTAssertFalse(try self.testArtifactsArchiveBinaryTargets(
+            let result3 = try await self.testArtifactsArchiveBinaryTargets(
                 artifactTriples: triples,
                 targetTriple: .x86_64MacOS
-            ))
+            )
+            XCTAssertFalse(result3)
         }
     }
 
-    func testAddressSanitizer() throws {
-        try self.sanitizerTest(.address, expectedName: "address")
+    func testAddressSanitizer() async throws {
+        try await self.sanitizerTest(.address, expectedName: "address")
     }
 
-    func testThreadSanitizer() throws {
-        try self.sanitizerTest(.thread, expectedName: "thread")
+    func testThreadSanitizer() async throws {
+        try await self.sanitizerTest(.thread, expectedName: "thread")
     }
 
-    func testUndefinedSanitizer() throws {
-        try self.sanitizerTest(.undefined, expectedName: "undefined")
+    func testUndefinedSanitizer() async throws {
+        try await self.sanitizerTest(.undefined, expectedName: "undefined")
     }
 
-    func testScudoSanitizer() throws {
-        try self.sanitizerTest(.scudo, expectedName: "scudo")
+    func testScudoSanitizer() async throws {
+        try await self.sanitizerTest(.scudo, expectedName: "scudo")
     }
 
-    func testSnippets() throws {
+    func testSnippets() async throws {
         let fs: FileSystem = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/Lib/Lib.swift",
@@ -6064,7 +6194,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let plan = try mockBuildPlan(
+        let plan = try await mockBuildPlan(
             buildPath: buildPath,
             graph: graph,
             fileSystem: fs,
@@ -6074,8 +6204,8 @@ final class BuildPlanTests: XCTestCase {
         let result = try BuildPlanResult(plan: plan)
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "ASnippet" && $0.target.type == .snippet })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Lib" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "ASnippet" && $0.module.type == .snippet })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "Lib" })
 
         let yaml = buildPath.appending("release.yaml")
         let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
@@ -6091,7 +6221,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(yamlContents, .contains(inputs.underlying))
     }
 
-    private func sanitizerTest(_ sanitizer: PackageModel.Sanitizer, expectedName: String) throws {
+    private func sanitizerTest(_ sanitizer: PackageModel.Sanitizer, expectedName: String) async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -6118,7 +6248,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -6146,7 +6276,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(try result.buildProduct(for: "exe").linkArguments(), ["-sanitize=\(expectedName)"])
     }
 
-    func testBuildParameterLTOMode() throws {
+    func testBuildParameterLTOMode() async throws {
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -6172,7 +6302,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let toolchain = try UserToolchain.default
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             toolchain: toolchain,
             graph: graph,
             linkingParameters: .init(
@@ -6207,7 +6337,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testPackageDependencySetsUserModuleVersion() throws {
+    func testPackageDependencySetsUserModuleVersion() async throws {
         let fs = InMemoryFileSystem(emptyFiles: "/Pkg/Sources/exe/main.swift", "/ExtPkg/Sources/ExtLib/best.swift")
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -6244,7 +6374,7 @@ final class BuildPlanTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             environment: BuildEnvironment(
                 platform: .linux,
                 configuration: .release
@@ -6255,10 +6385,9 @@ final class BuildPlanTests: XCTestCase {
         ))
 
         switch try XCTUnwrap(
-            result.targetMap[.init(
-                moduleName: "ExtLib",
-                packageIdentity: "ExtPkg",
-                buildTriple: .destination
+            result.plan.targetMap[.init(
+                moduleID: .init(moduleName: "ExtLib", packageIdentity: "ExtPkg"),
+                destination: .target
             )]
         ) {
         case .swift(let swiftTarget):
@@ -6270,7 +6399,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testBasicSwiftPackageWithoutLocalRpath() throws {
+    func testBasicSwiftPackageWithoutLocalRpath() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -6294,7 +6423,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldDisableLocalRpath: true
@@ -6354,7 +6483,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     // testing of deriving dynamic libraries for explicitly linking rdar://108561857
-    func testDerivingDylibs() throws {
+    func testDerivingDylibs() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -6410,7 +6539,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try BuildPlanResult(plan: mockBuildPlan(
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             linkingParameters: .init(
                 shouldLinkStaticSwiftStdlib: true
@@ -6420,20 +6549,19 @@ final class BuildPlanTests: XCTestCase {
         ))
         result.checkProductsCount(3)
         result.checkTargetsCount(3)
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" })
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "FooLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "BarLogging" })
         let buildProduct = try XCTUnwrap(
-            result.productMap[.init(
-                productName: "exe",
-                packageIdentity: "thisPkg",
-                buildTriple: .destination
+            result.plan.productMap[.init(
+                productID: .init(productName: "exe", packageIdentity: "thisPkg"),
+                destination: .target
             )]
         )
         let dylibs = Array(buildProduct.dylibs.map({$0.product.name})).sorted()
         XCTAssertEqual(dylibs, ["BarLogging", "FooLogging"])
     }
 
-    func testDefaultVersions() throws {
+    func testDefaultVersions() async throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/foo/foo.swift"
         )
@@ -6464,7 +6592,7 @@ final class BuildPlanTests: XCTestCase {
               observabilityScope: observability.topScope
             )
 
-            let result = try BuildPlanResult(plan: mockBuildPlan(
+            let result = try await BuildPlanResult(plan: mockBuildPlan(
               graph: graph,
               fileSystem: fs,
               observabilityScope: observability.topScope

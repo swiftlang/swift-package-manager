@@ -18,7 +18,7 @@ import struct Basics.InternalError
 import class Basics.ObservabilityScope
 import struct Basics.SourceControlURL
 import class Basics.ThreadSafeKeyValueStore
-import class PackageGraph.PinsStore
+import class PackageGraph.ResolvedPackagesStore
 import protocol PackageLoading.ManifestLoaderProtocol
 import protocol PackageModel.DependencyMapper
 import protocol PackageModel.IdentityResolver
@@ -421,10 +421,10 @@ extension Workspace {
 
     func downloadRegistryArchive(
         package: PackageReference,
-        at pinState: PinsStore.PinState,
+        at resolutionState: ResolvedPackagesStore.ResolutionState,
         observabilityScope: ObservabilityScope
     ) async throws -> AbsolutePath {
-        switch pinState {
+        switch resolutionState {
         case .version(let version, _):
             return try await self.downloadRegistryArchive(
                 package: package,
@@ -432,7 +432,7 @@ extension Workspace {
                 observabilityScope: observabilityScope
             )
         default:
-            throw InternalError("invalid pin state: \(pinState)")
+            throw InternalError("invalid resolution state: \(resolutionState)")
         }
     }
 

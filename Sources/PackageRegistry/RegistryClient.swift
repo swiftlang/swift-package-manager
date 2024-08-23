@@ -134,18 +134,14 @@ public final class RegistryClient: Cancellable {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
-        self.signingEntityStorage?.changeSigningEntityFromVersion(
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.signingEntityStorage?.changeSigningEntityFromVersion(
             package: package,
             version: version,
             signingEntity: signingEntity,
             origin: origin,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue,
-            callback: completion
+            observabilityScope: observabilityScope
         )
     }
     
@@ -369,46 +365,52 @@ public final class RegistryClient: Cancellable {
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue
         ) { result in
-            completion(
-                result.tryMap { versionMetadata in
-                    PackageVersionMetadata(
+            switch result {
+            case .failure(let failure):
+                completion(.failure(failure))
+            case .success(let versionMetadata):
+                Task {
+                    // WIP: async map the signing entity
+
+                    var resourceSigning: [(resource: RegistryClient.Serialization.VersionMetadata.Resource, signingEntity: SigningEntity?)] = []
+                    for resource in versionMetadata.resources {
+                        guard let signing = resource.signing,
+                              let signatureData = Data(base64Encoded: signing.signatureBase64Encoded),
+                              let signatureFormat = SignatureFormat(rawValue: signing.signatureFormat) else {
+                            resourceSigning.append((resource, nil))
+                            continue
+                        }
+                        let configuration = self.configuration.signing(for: package, registry: registry)
+
+                        let result = try? await withCheckedThrowingContinuation { completion in
+                            SignatureValidation.extractSigningEntity(
+                                signature: [UInt8](signatureData),
+                                signatureFormat: signatureFormat,
+                                configuration: configuration,
+                                fileSystem: fileSystem,
+                                completion: completion.resume(with:)
+                            )
+                        }
+                        resourceSigning.append((resource, result))
+                    }
+
+                    let packageVersionMetadata = PackageVersionMetadata(
                         registry: registry,
                         licenseURL: versionMetadata.metadata?.licenseURL.flatMap { URL(string: $0) },
                         readmeURL: versionMetadata.metadata?.readmeURL.flatMap { URL(string: $0) },
                         repositoryURLs: versionMetadata.metadata?.repositoryURLs?.compactMap { SourceControlURL($0) },
-                        resources: versionMetadata.resources.map {
+                        resources: resourceSigning.map {
                             .init(
-                                name: $0.name,
-                                type: $0.type,
-                                checksum: $0.checksum,
-                                signing: $0.signing.flatMap {
+                                name: $0.resource.name,
+                                type: $0.resource.type,
+                                checksum: $0.resource.checksum,
+                                signing: $0.resource.signing.flatMap {
                                     PackageVersionMetadata.Signing(
                                         signatureBase64Encoded: $0.signatureBase64Encoded,
                                         signatureFormat: $0.signatureFormat
                                     )
                                 },
-                                signingEntity: $0.signing.flatMap {
-                                    guard let signatureData = Data(base64Encoded: $0.signatureBase64Encoded) else {
-                                        return nil
-                                    }
-                                    guard let signatureFormat = SignatureFormat(rawValue: $0.signatureFormat) else {
-                                        return nil
-                                    }
-                                    let configuration = self.configuration.signing(for: package, registry: registry)
-                                    return try? temp_await { completion in
-                                        let wrappedCompletion: @Sendable (Result<SigningEntity?, Error>) -> Void = {
-                                            completion($0)
-                                        }
-
-                                        SignatureValidation.extractSigningEntity(
-                                            signature: [UInt8](signatureData),
-                                            signatureFormat: signatureFormat,
-                                            configuration: configuration,
-                                            fileSystem: fileSystem,
-                                            completion: wrappedCompletion
-                                        )
-                                    }
-                                }
+                                signingEntity: $0.signingEntity
                             )
                         },
                         author: versionMetadata.metadata?.author.map {
@@ -430,8 +432,9 @@ public final class RegistryClient: Cancellable {
                         description: versionMetadata.metadata?.description,
                         publishedAt: versionMetadata.metadata?.originalPublicationTime ?? versionMetadata.publishedAt
                     )
+                    completion(.success(packageVersionMetadata))
                 }
-            )
+            }
         }
     }
 
@@ -671,49 +674,46 @@ public final class RegistryClient: Cancellable {
                                         let actualChecksum = self.checksumAlgorithm.hash(.init(data))
                                             .hexadecimalRepresentation
 
-                                        checksumTOFU.validateManifest(
-                                            registry: registry,
-                                            package: package,
-                                            version: version,
-                                            toolsVersion: .none,
-                                            checksum: actualChecksum,
-                                            timeout: timeout,
-                                            observabilityScope: observabilityScope,
-                                            callbackQueue: callbackQueue
-                                        ) { checksumResult in
-                                            switch checksumResult {
-                                            case .success:
-                                                do {
-                                                    var result =
-                                                        [String: (toolsVersion: ToolsVersion, content: String?)]()
-                                                    let toolsVersion = try ToolsVersionParser
-                                                        .parse(utf8String: manifestContent)
-                                                    result[Manifest.filename] = (
-                                                        toolsVersion: toolsVersion,
-                                                        content: manifestContent
-                                                    )
+                                        do {
+                                            try checksumTOFU.validateManifest(
+                                                registry: registry,
+                                                package: package,
+                                                version: version,
+                                                toolsVersion: .none,
+                                                checksum: actualChecksum,
+                                                timeout: timeout,
+                                                observabilityScope: observabilityScope
+                                            )
+                                            do {
+                                                var result =
+                                                    [String: (toolsVersion: ToolsVersion, content: String?)]()
+                                                let toolsVersion = try ToolsVersionParser
+                                                    .parse(utf8String: manifestContent)
+                                                result[Manifest.filename] = (
+                                                    toolsVersion: toolsVersion,
+                                                    content: manifestContent
+                                                )
 
-                                                    let alternativeManifests = try response.headers.parseManifestLinks()
-                                                    for alternativeManifest in alternativeManifests {
-                                                        result[alternativeManifest.filename] = (
-                                                            toolsVersion: alternativeManifest.toolsVersion,
-                                                            content: .none
-                                                        )
-                                                    }
-                                                    completion(.success(result))
-                                                } catch {
-                                                    completion(.failure(
-                                                        RegistryError.failedRetrievingManifest(
-                                                            registry: registry,
-                                                            package: package.underlying,
-                                                            version: version,
-                                                            error: error
-                                                        )
-                                                    ))
+                                                let alternativeManifests = try response.headers.parseManifestLinks()
+                                                for alternativeManifest in alternativeManifests {
+                                                    result[alternativeManifest.filename] = (
+                                                        toolsVersion: alternativeManifest.toolsVersion,
+                                                        content: .none
+                                                    )
                                                 }
-                                            case .failure(let error):
-                                                completion(.failure(error))
+                                                completion(.success(result))
+                                            } catch {
+                                                completion(.failure(
+                                                    RegistryError.failedRetrievingManifest(
+                                                        registry: registry,
+                                                        package: package.underlying,
+                                                        version: version,
+                                                        error: error
+                                                    )
+                                                ))
                                             }
+                                        } catch {
+                                            completion(.failure(error))
                                         }
                                     case .failure(let error):
                                         completion(.failure(error))
@@ -928,22 +928,19 @@ public final class RegistryClient: Cancellable {
                                         let actualChecksum = self.checksumAlgorithm.hash(.init(data))
                                             .hexadecimalRepresentation
 
-                                        checksumTOFU.validateManifest(
-                                            registry: registry,
-                                            package: package,
-                                            version: version,
-                                            toolsVersion: customToolsVersion,
-                                            checksum: actualChecksum,
-                                            timeout: timeout,
-                                            observabilityScope: observabilityScope,
-                                            callbackQueue: callbackQueue
-                                        ) { checksumResult in
-                                            switch checksumResult {
-                                            case .success:
-                                                completion(.success(manifestContent))
-                                            case .failure(let error):
-                                                completion(.failure(error))
-                                            }
+                                        do {
+                                            try checksumTOFU.validateManifest(
+                                                registry: registry,
+                                                package: package,
+                                                version: version,
+                                                toolsVersion: customToolsVersion,
+                                                checksum: actualChecksum,
+                                                timeout: timeout,
+                                                observabilityScope: observabilityScope
+                                            )
+                                            completion(.success(manifestContent))
+                                        } catch {
+                                            completion(.failure(error))
                                         }
                                     case .failure(let error):
                                         completion(.failure(error))

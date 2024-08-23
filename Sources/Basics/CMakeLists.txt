@@ -11,13 +11,13 @@ add_library(Basics
   Archiver/TarArchiver.swift
   Archiver/ZipArchiver.swift
   Archiver/UniversalArchiver.swift
-  AsyncProcess.swift
   AuthorizationProvider.swift
   Cancellator.swift
   Collections/ByteString+Extensions.swift
   Collections/Dictionary+Extensions.swift
   Collections/IdentifiableSet.swift
   Collections/String+Extensions.swift
+  Concurrency/AsyncProcess.swift
   Concurrency/ConcurrencyHelpers.swift
   Concurrency/NSLock+Extensions.swift
   Concurrency/SendableBox.swift
@@ -77,6 +77,7 @@ add_library(Basics
   Vendor/Triple.swift
   Vendor/Triple+Platforms.swift)
 target_link_libraries(Basics PUBLIC
+  _AsyncFileSystem
   SwiftCollections::DequeModule
   SwiftCollections::OrderedCollections
   SwiftSystem::SystemPackage

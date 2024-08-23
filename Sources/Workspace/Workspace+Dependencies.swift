@@ -34,7 +34,7 @@ import struct PackageGraph.ObservabilityDependencyResolverDelegate
 import struct PackageGraph.PackageContainerConstraint
 import struct PackageGraph.PackageGraphRoot
 import struct PackageGraph.PackageGraphRootInput
-import class PackageGraph.PinsStore
+import class PackageGraph.ResolvedPackagesStore
 import struct PackageGraph.PubGrubDependencyResolver
 import struct PackageGraph.Term
 import class PackageLoading.ManifestLoader
@@ -89,8 +89,8 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
-        // Abort if we're unable to load the pinsStore or have any diagnostics.
-        guard let pinsStore = observabilityScope.trap({ try self.pinsStore.load() }) else { return nil }
+        // Abort if we're unable to load the `Package.resolved` store or have any diagnostics.
+        guard let resolvedPackagesStore = observabilityScope.trap({ try self.resolvedPackagesStore.load() }) else { return nil }
 
         // Ensure we don't have any error at this point.
         guard !observabilityScope.errorsReported else {
@@ -100,17 +100,17 @@ extension Workspace {
         // Add unversioned constraints for edited packages.
         var updateConstraints = currentManifests.editedPackagesConstraints
 
-        // Create constraints based on root manifest and pins for the update resolution.
+        // Create constraints based on root manifest and `Package.resolved` for the update resolution.
         updateConstraints += try graphRoot.constraints()
 
-        let pins: PinsStore.Pins
+        let resolvedPackages: ResolvedPackagesStore.ResolvedPackages
         if packages.isEmpty {
-            // No input packages so we have to do a full update. Set pins map to empty.
-            pins = [:]
+            // No input packages so we have to do a full update. Set resolved packages map to empty.
+            resolvedPackages = [:]
         } else {
             // We have input packages so we have to partially update the package graph. Remove
-            // the pins for the input packages so only those packages are updated.
-            pins = pinsStore.pins
+            // resolved packages for the input packages so only those packages are updated.
+            resolvedPackages = resolvedPackagesStore.resolvedPackages
                 .filter {
                     !packages.contains($0.value.packageRef.identity.description) && !packages
                         .contains($0.value.packageRef.deprecatedName)
@@ -118,7 +118,7 @@ extension Workspace {
         }
 
         // Resolve the dependencies.
-        let resolver = try self.createResolver(pins: pins, observabilityScope: observabilityScope)
+        let resolver = try self.createResolver(resolvedPackages: resolvedPackages, observabilityScope: observabilityScope)
         self.activeResolver = resolver
 
         let updateResults = await self.resolveDependencies(
@@ -170,7 +170,7 @@ extension Workspace {
 
         // Update the resolved file.
         try self.saveResolvedFile(
-            pinsStore: pinsStore,
+            resolvedPackagesStore: resolvedPackagesStore,
             dependencyManifests: updatedDependencyManifests,
             originHash: resolvedFileOriginHash,
             rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
@@ -219,7 +219,7 @@ extension Workspace {
                 return try await resolveAndUpdateResolvedFile(forceResolution: false)
             }
 
-            guard let pinsStore = try? self.pinsStore.load(), let storedHash = pinsStore.originHash else {
+            guard let resolvedPackagesStore = try? self.resolvedPackagesStore.load(), let storedHash = resolvedPackagesStore.originHash else {
                 observabilityScope
                     .emit(
                         debug: "'\(self.location.resolvedVersionsFile.basename)' origin hash is missing. resolving and updating accordingly"
@@ -347,8 +347,8 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
-        // Load the pins store or abort now.
-        guard let pinsStore = observabilityScope.trap({ try self.pinsStore.load() }),
+        // Load the `Package.resolved` store or abort now.
+        guard let resolvedPackagesStore = observabilityScope.trap({ try self.resolvedPackagesStore.load() }),
               !observabilityScope.errorsReported
         else {
             return try await (
@@ -365,18 +365,18 @@ extension Workspace {
         // We just request the packages here, repository manager will
         // automatically manage the parallelism.
         let group = DispatchGroup()
-        for pin in pinsStore.pins.values {
+        for resolvedPackage in resolvedPackagesStore.resolvedPackages.values {
             group.enter()
             let observabilityScope = observabilityScope.makeChildScope(
                 description: "requesting package containers",
-                metadata: pin.packageRef.diagnosticsMetadata
+                metadata: resolvedPackage.packageRef.diagnosticsMetadata
             )
 
             let updateStrategy: ContainerUpdateStrategy = {
                 if self.configuration.skipDependenciesUpdates {
                     return .never
                 } else {
-                    switch pin.state {
+                    switch resolvedPackage.state {
                     case .branch(_, let revision):
                         return .ifNeeded(revision: revision)
                     case .revision(let revision):
@@ -390,7 +390,7 @@ extension Workspace {
             }()
 
             self.packageContainerProvider.getContainer(
-                for: pin.packageRef,
+                for: resolvedPackage.packageRef,
                 updateStrategy: updateStrategy,
                 observabilityScope: observabilityScope,
                 on: .sharedConcurrent,
@@ -399,11 +399,11 @@ extension Workspace {
         }
         group.wait()
 
-        // Compute the pins that we need to actually clone.
+        // Compute resolved packages that we need to actually clone.
         //
         // We require cloning if there is no checkout or if the checkout doesn't
         // match with the pin.
-        let requiredPins = pinsStore.pins.values.filter { pin in
+        let requiredResolvedPackages = resolvedPackagesStore.resolvedPackages.values.filter { pin in
             // also compare the location in case it has changed
             guard let dependency = state.dependencies[comparingLocation: pin.packageRef] else {
                 return true
@@ -418,27 +418,27 @@ extension Workspace {
             }
         }
 
-        // Retrieve the required pins.
-        for pin in requiredPins {
+        // Retrieve the required resolved packages.
+        for resolvedPackage in requiredResolvedPackages {
             await observabilityScope.makeChildScope(
-                description: "retrieving dependency pins",
-                metadata: pin.packageRef.diagnosticsMetadata
+                description: "retrieving resolved package versions for dependencies",
+                metadata: resolvedPackage.packageRef.diagnosticsMetadata
             ).trap {
-                switch pin.packageRef.kind {
+                switch resolvedPackage.packageRef.kind {
                 case .localSourceControl, .remoteSourceControl:
                     _ = try await self.checkoutRepository(
-                        package: pin.packageRef,
-                        at: pin.state,
+                        package: resolvedPackage.packageRef,
+                        at: resolvedPackage.state,
                         observabilityScope: observabilityScope
                     )
                 case .registry:
                     _ = try await self.downloadRegistryArchive(
-                        package: pin.packageRef,
-                        at: pin.state,
+                        package: resolvedPackage.packageRef,
+                        at: resolvedPackage.state,
                         observabilityScope: observabilityScope
                     )
                 default:
-                    throw InternalError("invalid pin type \(pin.packageRef.kind)")
+                    throw InternalError("invalid resolved package type \(resolvedPackage.packageRef.kind)")
                 }
             }
         }
@@ -458,7 +458,7 @@ extension Workspace {
         let precomputationResult = try await self.precomputeResolution(
             root: graphRoot,
             dependencyManifests: currentManifests,
-            pinsStore: pinsStore,
+            resolvedPackagesStore: resolvedPackagesStore,
             constraints: [],
             observabilityScope: observabilityScope
         )
@@ -470,7 +470,7 @@ extension Workspace {
     ///
     /// The extra constraints will be added to the main requirements.
     /// It is useful in situations where a requirement is being
-    /// imposed outside of manifest and pins file. E.g., when using a command
+    /// imposed outside of manifest and `Package.resolved` file. E.g., when using a command
     /// like `$ swift package resolve foo --version 1.0.0`.
     @discardableResult
     func resolveAndUpdateResolvedFile(
@@ -508,18 +508,13 @@ extension Workspace {
             return currentManifests
         }
 
-        // load and update the pins store with any changes from loading the top level dependencies
-        guard let pinsStore = self.loadAndUpdatePinsStore(
+        // load and update the `Package.resolved` store with any changes from loading the top level dependencies
+        guard let resolvedPackagesStore = self.loadAndUpdateResolvedPackagesStore(
             dependencyManifests: currentManifests,
             rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
             observabilityScope: observabilityScope
-        ) else {
-            // abort if PinsStore reported any errors.
-            return currentManifests
-        }
-
-        // abort if PinsStore reported any errors.
-        guard !observabilityScope.errorsReported else {
+        ), !observabilityScope.errorsReported else {
+            // abort if `Package.resolved` store reported any errors.
             return currentManifests
         }
 
@@ -536,7 +531,7 @@ extension Workspace {
             let result = try await self.precomputeResolution(
                 root: graphRoot,
                 dependencyManifests: currentManifests,
-                pinsStore: pinsStore,
+                resolvedPackagesStore: resolvedPackagesStore,
                 constraints: constraints,
                 observabilityScope: observabilityScope
             )
@@ -546,7 +541,7 @@ extension Workspace {
                 // since nothing changed we can exit early,
                 // but need update resolved file and download an missing binary artifact
                 try self.saveResolvedFile(
-                    pinsStore: pinsStore,
+                    resolvedPackagesStore: resolvedPackagesStore,
                     dependencyManifests: currentManifests,
                     originHash: resolvedFileOriginHash,
                     rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
@@ -571,7 +566,7 @@ extension Workspace {
         computedConstraints += try graphRoot.constraints() + constraints
 
         // Perform dependency resolution.
-        let resolver = try self.createResolver(pins: pinsStore.pins, observabilityScope: observabilityScope)
+        let resolver = try self.createResolver(resolvedPackages: resolvedPackagesStore.resolvedPackages, observabilityScope: observabilityScope)
         self.activeResolver = resolver
 
         let result = await self.resolveDependencies(
@@ -597,7 +592,7 @@ extension Workspace {
             return currentManifests
         }
 
-        // Update the pinsStore.
+        // Update the `Package.resolved` store.
         let updatedDependencyManifests = try await self.loadDependencyManifests(
             root: graphRoot,
             observabilityScope: observabilityScope
@@ -611,7 +606,7 @@ extension Workspace {
 
         // Update the resolved file.
         try self.saveResolvedFile(
-            pinsStore: pinsStore,
+            resolvedPackagesStore: resolvedPackagesStore,
             dependencyManifests: updatedDependencyManifests,
             originHash: resolvedFileOriginHash,
             rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
@@ -726,12 +721,12 @@ extension Workspace {
                 // way to get it back out of the resolver which is very
                 // annoying. Maybe we should make an SPI on the provider for this?
                 guard let tag = container.getTag(for: version) else {
-                    throw try InternalError(
+                    throw try await InternalError(
                         "unable to get tag for \(package) \(version); available versions \(container.versionsDescending())"
                     )
                 }
                 let revision = try container.getRevision(forTag: tag)
-                try await container.checkIntegrity(version: version, revision: revision)
+                try container.checkIntegrity(version: version, revision: revision)
                 return try await self.checkoutRepository(
                     package: package,
                     at: .version(version, revision: revision),
@@ -796,14 +791,31 @@ extension Workspace {
         }
     }
 
-    /// Computes if dependency resolution is required based on input constraints and pins.
+    @available(*, deprecated, renamed: "precomputeResolution(root:dependencyManifests:resolvedPackagesStore:constraints:observabilityScope:)", message: "Renamed for consistency with the actual name of the feature")
+    public func precomputeResolution(
+        root: PackageGraphRoot,
+        dependencyManifests: DependencyManifests,
+        pinsStore: ResolvedPackagesStore,
+        constraints: [PackageContainerConstraint],
+        observabilityScope: ObservabilityScope
+    ) async throws -> ResolutionPrecomputationResult {
+        try await self.precomputeResolution(
+            root: root,
+            dependencyManifests: dependencyManifests,
+            resolvedPackagesStore: pinsStore,
+            constraints: constraints,
+            observabilityScope: observabilityScope
+        )
+    }
+
+    /// Computes if dependency resolution is required based on input constraints and `Package.resolved` file.
     ///
     /// - Returns: Returns a result defining whether dependency resolution is required and the reason for it.
     // @testable internal
     public func precomputeResolution(
         root: PackageGraphRoot,
         dependencyManifests: DependencyManifests,
-        pinsStore: PinsStore,
+        resolvedPackagesStore: ResolvedPackagesStore,
         constraints: [PackageContainerConstraint],
         observabilityScope: ObservabilityScope
     ) async throws -> ResolutionPrecomputationResult {
@@ -820,7 +832,7 @@ extension Workspace {
         )
         let resolver = PubGrubDependencyResolver(
             provider: precomputationProvider,
-            pins: pinsStore.pins,
+            resolvedPackages: resolvedPackagesStore.resolvedPackages,
             observabilityScope: observabilityScope
         )
         let result = await resolver.solve(constraints: computedConstraints)
@@ -845,36 +857,36 @@ extension Workspace {
         }
     }
 
-    /// Validates that each checked out managed dependency has an entry in pinsStore.
-    private func loadAndUpdatePinsStore(
+    /// Validates that each checked out managed dependency has an entry in `Package.resolved` store.
+    private func loadAndUpdateResolvedPackagesStore(
         dependencyManifests: DependencyManifests,
         rootManifestsMinimumToolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope
-    ) -> PinsStore? {
-        guard let pinsStore = observabilityScope.trap({ try self.pinsStore.load() }) else {
+    ) -> ResolvedPackagesStore? {
+        guard let resolvedPackagesStore = observabilityScope.trap({ try self.resolvedPackagesStore.load() }) else {
             return nil
         }
 
         guard let requiredDependencies = observabilityScope
-            .trap({ try dependencyManifests.requiredPackages.filter(\.kind.isPinnable) })
+            .trap({ try dependencyManifests.requiredPackages.filter(\.kind.isResolvable) })
         else {
             return nil
         }
-        for dependency in self.state.dependencies.filter(\.packageRef.kind.isPinnable) {
-            // a required dependency that is already loaded (managed) should be represented in the pins store.
+        for dependency in self.state.dependencies.filter(\.packageRef.kind.isResolvable) {
+            // a required dependency that is already loaded (managed) should be represented in the `Package.resolved` store.
             // also comparing location as it may have changed at this point
             if requiredDependencies.contains(where: { $0.equalsIncludingLocation(dependency.packageRef) }) {
-                // if pin not found, or location is different (it may have changed at this point) pin it
-                if pinsStore.pins[comparingLocation: dependency.packageRef] == .none {
-                    pinsStore.pin(dependency)
+                // if resolved package is not found, or location is different (it may have changed at this point) add it
+                if resolvedPackagesStore.resolvedPackages[comparingLocation: dependency.packageRef] == .none {
+                    resolvedPackagesStore.add(dependency)
                 }
-            } else if let pin = pinsStore.pins[dependency.packageRef.identity] {
-                // otherwise, it should *not* be in the pins store.
-                pinsStore.remove(pin)
+            } else if let pin = resolvedPackagesStore.resolvedPackages[dependency.packageRef.identity] {
+                // otherwise, it should *not* be in the `Package.resolved` store.
+                resolvedPackagesStore.remove(pin)
             }
         }
 
-        return pinsStore
+        return resolvedPackagesStore
     }
 
     /// This enum represents state of an external package.
@@ -963,8 +975,8 @@ extension Workspace {
         updateBranches: Bool,
         observabilityScope: ObservabilityScope
     ) async throws -> [(PackageReference, PackageStateChange)] {
-        // Load pins store and managed dependencies.
-        let pinsStore = try self.pinsStore.load()
+        // Load `Package.resolved` store and managed dependencies.
+        let resolvedPackagesStore = try self.resolvedPackagesStore.load()
         var packageStateChanges: [PackageIdentity: (PackageReference, PackageStateChange)] = [:]
 
         // Set the states from resolved dependencies results.
@@ -1027,12 +1039,12 @@ extension Workspace {
                 let branch = branch ?? (identifier == revision.identifier ? nil : identifier)
 
                 // If we have a branch and we shouldn't be updating the
-                // branches, use the revision from pin instead (if present).
+                // branches, use the revision from resolved package instead (if present).
                 if branch != nil, !updateBranches {
-                    if case .branch(branch, let pinRevision) = pinsStore.pins.values
+                    if case .branch(branch, let resolvedPackageRevision) = resolvedPackagesStore.resolvedPackages.values
                         .first(where: { $0.packageRef == binding.package })?.state
                     {
-                        revision = Revision(identifier: pinRevision)
+                        revision = Revision(identifier: resolvedPackageRevision)
                     }
                 }
 
@@ -1091,7 +1103,7 @@ extension Workspace {
 
     /// Creates resolver for the workspace.
     fileprivate func createResolver(
-        pins: PinsStore.Pins,
+        resolvedPackages: ResolvedPackagesStore.ResolvedPackages,
         observabilityScope: ObservabilityScope
     ) throws -> PubGrubDependencyResolver {
         var delegate: DependencyResolverDelegate
@@ -1107,7 +1119,7 @@ extension Workspace {
 
         return PubGrubDependencyResolver(
             provider: packageContainerProvider,
-            pins: pins,
+            resolvedPackages: resolvedPackages,
             skipDependenciesUpdates: self.configuration.skipDependenciesUpdates,
             prefetchBasedOnResolvedFile: self.configuration.prefetchBasedOnResolvedFile,
             observabilityScope: observabilityScope,

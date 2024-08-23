@@ -32,7 +32,7 @@ import struct Build.PluginConfiguration
 import struct TSCUtility.SerializedDiagnostics
 
 final class PluginInvocationTests: XCTestCase {
-    func testBasics() throws {
+    func testBasics() async throws {
         // Construct a canned file system and package graph with a single package and a library that uses a build tool plugin that invokes a tool.
         let fileSystem = InMemoryFileSystem(emptyFiles:
             "/Foo/Plugins/FooPlugin/source.swift",
@@ -87,26 +87,43 @@ final class PluginInvocationTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
         PackageGraphTester(graph) { graph in
             graph.check(packages: "Foo")
-            // "FooTool{Lib}" duplicated as it's present for both build tools and end products triples.
-            graph.check(modules: "Foo", "FooPlugin", "FooTool", "FooTool", "FooToolLib", "FooToolLib")
+            graph.check(modules: "Foo", "FooPlugin", "FooTool", "FooToolLib")
             graph.checkTarget("Foo") { target in
                 target.check(dependencies: "FooPlugin")
             }
-            graph.checkTarget("FooPlugin", destination: .tools) { target in
+            graph.checkTarget("FooPlugin") { target in
                 target.check(type: .plugin)
                 target.check(dependencies: "FooTool")
             }
-            for destination: BuildTriple in [.tools, .destination] {
-                graph.checkTarget("FooTool", destination: destination) { target in
-                    target.check(type: .executable)
-                    target.check(buildTriple: destination)
-                    target.checkDependency("FooToolLib") { dependency in
-                        dependency.checkTarget {
-                            $0.check(buildTriple: destination)
-                        }
+            graph.checkTarget("FooTool") { target in
+                target.check(type: .executable)
+                target.checkDependency("FooToolLib") { dependency in
+                    dependency.checkTarget { _ in
                     }
                 }
             }
+        }
+
+        // "FooTool{Lib}" duplicated as it's present for both build host and end target.
+        do {
+            let buildPlanResult = try await BuildPlanResult(plan: mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fileSystem,
+                observabilityScope: observability.topScope
+            ))
+            buildPlanResult.checkProductsCount(3)
+            buildPlanResult.checkTargetsCount(5) // Note: plugins are not included here.
+
+            buildPlanResult.check(destination: .target, for: "Foo")
+            
+            buildPlanResult.check(destination: .host, for: "FooTool")
+            buildPlanResult.check(destination: .target, for: "FooTool")
+            
+            buildPlanResult.check(destination: .host, for: "FooToolLib")
+            buildPlanResult.check(destination: .target, for: "FooToolLib")
         }
 
         // A fake PluginScriptRunner that just checks the input conditions and returns canned output.
@@ -216,7 +233,7 @@ final class PluginInvocationTests: XCTestCase {
             environment: BuildEnvironment(platform: .macOS, configuration: .debug)
         )
 
-        let results = try invokeBuildToolPlugins(
+        let results = try await invokeBuildToolPlugins(
             graph: graph,
             buildParameters: buildParameters,
             fileSystem: fileSystem,
@@ -914,7 +931,7 @@ final class PluginInvocationTests: XCTestCase {
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 )
 
-                let result = try invokeBuildToolPlugins(
+                let result = try await invokeBuildToolPlugins(
                     graph: packageGraph,
                     buildParameters: buildParameters,
                     fileSystem: localFileSystem,
@@ -1268,7 +1285,7 @@ final class PluginInvocationTests: XCTestCase {
                 environment: BuildEnvironment(platform: .macOS, configuration: .debug)
             )
 
-            return try invokeBuildToolPlugins(
+            return try await invokeBuildToolPlugins(
                 graph: packageGraph,
                 buildParameters: buildParameters,
                 fileSystem: localFileSystem,
@@ -1331,7 +1348,7 @@ final class PluginInvocationTests: XCTestCase {
         outputDir: AbsolutePath,
         pluginScriptRunner: PluginScriptRunner,
         observabilityScope: ObservabilityScope
-    ) throws -> [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] {
+    ) async throws -> [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] {
         let pluginsPerModule = graph.pluginsPerModule(
             satisfying: buildParameters.buildEnvironment
         )
@@ -1354,8 +1371,9 @@ final class PluginInvocationTests: XCTestCase {
         for (moduleID, _) in pluginsPerModule {
             let module = graph.allModules[moduleID]!
 
-            let results = try BuildPlan.invokeBuildToolPlugins(
+            let results = try await BuildPlan.invokeBuildToolPlugins(
                 for: module,
+                destination: .target,
                 configuration: pluginConfiguration,
                 buildParameters: buildParameters,
                 modulesGraph: graph,
@@ -1376,4 +1394,18 @@ final class PluginInvocationTests: XCTestCase {
 
         return pluginInvocationResults
     }
+}
+
+extension BuildPlanResult {
+    func check(
+        destination: BuildParameters.Destination,
+        for target: String,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) {
+        let targets = self.targetMap.filter {
+            $0.module.name == target && $0.destination == destination
+        }
+        XCTAssertEqual(targets.count, 1, file: file, line: line)
+    }    
 }

@@ -42,6 +42,10 @@ public struct ToolchainConfiguration {
     /// This is optional for example on macOS w/o Xcode.
     public var xctestPath: AbsolutePath?
 
+    /// Path to the swift-testing utility.
+    /// Currently computed only for Windows.
+    public var swiftTestingPath: AbsolutePath?
+
     /// Creates the set of manifest resources associated with a `swiftc` executable.
     ///
     /// - Parameters:
@@ -59,7 +63,8 @@ public struct ToolchainConfiguration {
         swiftCompilerEnvironment: Environment = .current,
         swiftPMLibrariesLocation: SwiftPMLibrariesLocation? = nil,
         sdkRootPath: AbsolutePath? = nil,
-        xctestPath: AbsolutePath? = nil
+        xctestPath: AbsolutePath? = nil,
+        swiftTestingPath: AbsolutePath? = nil
     ) {
         let swiftPMLibrariesLocation = swiftPMLibrariesLocation ?? {
             return .init(swiftCompilerPath: swiftCompilerPath)
@@ -72,6 +77,7 @@ public struct ToolchainConfiguration {
         self.swiftPMLibrariesLocation = swiftPMLibrariesLocation
         self.sdkRootPath = sdkRootPath
         self.xctestPath = xctestPath
+        self.swiftTestingPath = swiftTestingPath
     }
 }
 

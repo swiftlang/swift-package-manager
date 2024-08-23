@@ -2537,18 +2537,14 @@ final class RegistryClientTests: XCTestCase {
         XCTAssertEqual(contents.sorted(), [RegistryReleaseMetadataStorage.fileName, "Package.swift"].sorted())
 
         // Expected checksum is not found in storage so the metadata API will be called
-        let fingerprint = try await withCheckedThrowingContinuation {
-            fingerprintStorage.get(
-                package: identity,
-                version: version,
-                kind: .registry,
-                contentType: .sourceCode,
-                observabilityScope: ObservabilitySystem
-                    .NOOP,
-                callbackQueue: .sharedConcurrent,
-                callback: $0.resume(with:)
-            )
-        }
+        let fingerprint = try fingerprintStorage.get(
+            package: identity,
+            version: version,
+            kind: .registry,
+            contentType: .sourceCode,
+            observabilityScope: ObservabilitySystem
+                .NOOP
+        )
         XCTAssertEqual(SourceControlURL(registryURL), fingerprint.origin.url)
         XCTAssertEqual(checksum, fingerprint.value)
     }
@@ -3843,18 +3839,15 @@ extension RegistryClient {
     func getPackageVersionMetadata(
         package: PackageIdentity.RegistryIdentity,
         version: Version
-    ) throws -> PackageVersionMetadata {
-        // TODO: Finish removing this temp_await
-        // It can't currently be removed because it is passed to
-        // PackageVersionChecksumTOFU which expects a non async method
-        return try temp_await { completion in
+    ) async throws -> PackageVersionMetadata {
+        return try await withCheckedThrowingContinuation {
             self.getPackageVersionMetadata(
                 package: package.underlying,
                 version: version,
                 fileSystem: InMemoryFileSystem(),
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
-                completion: completion
+                completion: $0.resume(with:)
             )
         }
     }

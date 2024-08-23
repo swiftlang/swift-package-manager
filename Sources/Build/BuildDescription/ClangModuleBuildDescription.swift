@@ -42,6 +42,11 @@ public final class ClangModuleBuildDescription {
     /// The build parameters.
     let buildParameters: BuildParameters
 
+    /// The destination for while this module is built.
+    public var destination: BuildParameters.Destination {
+        self.buildParameters.destination
+    }
+
     /// The build environment.
     var buildEnvironment: BuildEnvironment {
         buildParameters.buildEnvironment
@@ -212,6 +217,11 @@ public final class ClangModuleBuildDescription {
     /// this module.
     package func symbolGraphExtractArguments() throws -> [String] {
         var args = [String]()
+
+        args += ["-module-name", self.target.c99name]
+        args += try self.buildParameters.tripleArgs(for: self.target)
+        args += ["-module-cache-path", try self.buildParameters.moduleCache.pathString]
+
         if self.clangTarget.isCXX {
             args += ["-cxx-interoperability-mode=default"]
         }
@@ -514,5 +524,19 @@ public final class ClangModuleBuildDescription {
             path: headerFile,
             string: headerContent
         )
+    }
+}
+
+extension ClangModuleBuildDescription {
+    package func dependencies(
+        using plan: BuildPlan
+    ) -> [ModuleBuildDescription.Dependency] {
+        ModuleBuildDescription.clang(self).dependencies(using: plan)
+    }
+
+    package func recursiveDependencies(
+        using plan: BuildPlan
+    ) -> [ModuleBuildDescription.Dependency] {
+        ModuleBuildDescription.clang(self).recursiveDependencies(using: plan)
     }
 }

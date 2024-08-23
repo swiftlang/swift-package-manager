@@ -12,6 +12,8 @@
 
 import Build
 import Foundation
+@testable import Commands
+@testable import CoreCommands
 import LLBuildManifest
 import _InternalTestSupport
 import TSCBasic
@@ -23,10 +25,10 @@ import class PackageModel.Manifest
 import struct PackageModel.TargetDescription
 
 class PrepareForIndexTests: XCTestCase {
-    func testPrepare() throws {
+    func testPrepare() async throws {
         let (graph, fs, scope) = try macrosPackageGraph()
 
-        let plan = try BuildPlan(
+        let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(destination: .target, prepareForIndexing: .on),
             toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: .off),
             graph: graph,
@@ -60,6 +62,9 @@ class PrepareForIndexTests: XCTestCase {
         XCTAssertEqual(toolCommands.count, 1)
         let toolSwiftc = try XCTUnwrap(toolCommands.first?.tool as? SwiftCompilerTool)
         XCTAssertFalse(toolSwiftc.otherArguments.contains("-experimental-skip-all-function-bodies"))
+        XCTAssertTrue(toolSwiftc.outputs.contains(where: {
+            $0.name.hasSuffix(".swift.o")
+        }))
 
         // Make sure only object files for tools are built
         XCTAssertTrue(
@@ -68,10 +73,10 @@ class PrepareForIndexTests: XCTestCase {
         )
     }
 
-    func testCModuleTarget() throws {
+    func testCModuleTarget() async throws {
         let (graph, fs, scope) = try trivialPackageGraph()
 
-        let plan = try BuildPlan(
+        let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(destination: .target, prepareForIndexing: .on),
             toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: .off),
             graph: graph,
@@ -82,13 +87,13 @@ class PrepareForIndexTests: XCTestCase {
         let manifest = try builder.generatePrepareManifest(at: "/manifest")
 
         // Ensure our C module is here.
-        let lib = try XCTUnwrap(graph.module(for: "lib", destination: .destination))
+        let lib = try XCTUnwrap(graph.module(for: "lib"))
         let name = lib.getLLBuildTargetName(buildParameters: plan.destinationBuildParameters)
         XCTAssertTrue(manifest.targets.keys.contains(name))
     }
 
     // enable-testing requires the non-exportable-decls, make sure they aren't skipped.
-    func testEnableTesting() throws {
+    func testEnableTesting() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/lib/lib.swift",
@@ -115,7 +120,7 @@ class PrepareForIndexTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         // Under debug, enable-testing is turned on by default. Make sure the flag is not added.
-        let debugPlan = try BuildPlan(
+        let debugPlan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(destination: .target, config: .debug, prepareForIndexing: .on),
             toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: .off),
             graph: graph,
@@ -136,7 +141,7 @@ class PrepareForIndexTests: XCTestCase {
         }))
 
         // Under release, enable-testing is turned off by default so we should see our flag
-        let releasePlan = try BuildPlan(
+        let releasePlan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(destination: .target, config: .release, prepareForIndexing: .on),
             toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: .off),
             graph: graph,
@@ -157,10 +162,10 @@ class PrepareForIndexTests: XCTestCase {
         }).count, 1)
     }
 
-    func testPrepareNoLazy() throws {
+    func testPrepareNoLazy() async throws {
         let (graph, fs, scope) = try macrosPackageGraph()
 
-        let plan = try BuildPlan(
+        let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(destination: .target, prepareForIndexing: .noLazy),
             toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: .off),
             graph: graph,
@@ -183,4 +188,34 @@ class PrepareForIndexTests: XCTestCase {
         XCTAssertTrue(coreSwiftc.otherArguments.contains("-experimental-allow-module-with-compiler-errors"))
     }
 
+    func testToolsDontPrepare() throws {
+        let options = try GlobalOptions.parse(["--experimental-prepare-for-indexing"])
+        let state = try SwiftCommandState(
+            outputStream: stderrStream,
+            options: options,
+            toolWorkspaceConfiguration: .init(shouldInstallSignalHandlers: false),
+            workspaceDelegateProvider: {
+                CommandWorkspaceDelegate(
+                    observabilityScope: $0,
+                    outputHandler: $1,
+                    progressHandler: $2,
+                    inputHandler: $3
+                )
+            },
+            workspaceLoaderProvider: {
+                XcodeWorkspaceLoader(
+                    fileSystem: $0,
+                    observabilityScope: $1
+                )
+            },
+            hostTriple: .arm64Linux,
+            fileSystem: localFileSystem,
+            environment: .current
+        )
+
+        XCTAssertEqual(try state.productsBuildParameters.prepareForIndexing, .on)
+        // Tools builds should never do prepare for indexing since they're needed
+        // for the prepare builds.
+        XCTAssertEqual(try state.toolsBuildParameters.prepareForIndexing, .off)
+    }
 }

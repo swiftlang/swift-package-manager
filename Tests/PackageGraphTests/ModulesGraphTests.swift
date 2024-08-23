@@ -83,12 +83,12 @@ final class ModulesGraphTests: XCTestCase {
         }
 
         let fooPackage = try XCTUnwrap(g.package(for: .plain("Foo")))
-        let fooTarget = try XCTUnwrap(g.module(for: "Foo", destination: .destination))
-        let fooDepTarget = try XCTUnwrap(g.module(for: "FooDep", destination: .destination))
+        let fooTarget = try XCTUnwrap(g.module(for: "Foo"))
+        let fooDepTarget = try XCTUnwrap(g.module(for: "FooDep"))
         XCTAssertEqual(g.package(for: fooTarget)?.id, fooPackage.id)
         XCTAssertEqual(g.package(for: fooDepTarget)?.id, fooPackage.id)
         let barPackage = try XCTUnwrap(g.package(for: .plain("Bar")))
-        let barTarget = try XCTUnwrap(g.module(for: "Bar", destination: .destination))
+        let barTarget = try XCTUnwrap(g.module(for: "Bar"))
         XCTAssertEqual(g.package(for: barTarget)?.id, barPackage.id)
     }
 
@@ -1715,7 +1715,7 @@ final class ModulesGraphTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
-    func testPinsStoreIsResilientAgainstDupes() throws {
+    func testResolvedPackagesStoreIsResilientAgainstDupes() throws {
         let json = """
               {
                 "version": 1,
@@ -1745,11 +1745,11 @@ final class ModulesGraphTests: XCTestCase {
         """
 
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath("/pins")
-        try fs.writeFileContents(pinsFile, string: json)
+        let packageResolvedFile = AbsolutePath("/Package.resolved")
+        try fs.writeFileContents(packageResolvedFile, string: json)
 
-        XCTAssertThrows(StringError("\(pinsFile) file is corrupted or malformed; fix or delete the file to continue: duplicated entry for package \"yams\""), {
-            _ = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+        XCTAssertThrows(StringError("\(packageResolvedFile) file is corrupted or malformed; fix or delete the file to continue: duplicated entry for package \"yams\""), {
+            _ = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
         })
     }
 

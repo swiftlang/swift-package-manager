@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import PackageModel
 import PackageLoading
 @testable import PackageRegistry

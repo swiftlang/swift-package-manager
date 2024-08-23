@@ -18,20 +18,6 @@ import class Foundation.JSONDecoder
 import class Foundation.JSONEncoder
 import struct Foundation.URL
 
-extension DispatchQueue {
-    func awaitingAsync<T>(_ closure: @escaping () throws -> T) async throws -> T {
-        try await withCheckedThrowingContinuation { continuation in
-            self.async {
-                do {
-                    try continuation.resume(returning: closure())
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
-        }
-    }
-}
-
 struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
     let fileSystem: FileSystem
     let path: AbsolutePath
@@ -48,63 +34,51 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
     }
 
     func list() async throws -> [PackageCollectionsModel.CollectionSource] {
-        try await DispatchQueue.sharedConcurrent.awaitingAsync {
-            try self.withLock {
-                try self.loadFromDisk()
-            }
+        try self.withLock {
+            try self.loadFromDisk()
         }
     }
 
     func add(source: PackageCollectionsModel.CollectionSource, order: Int? = nil) async throws {
-        try await DispatchQueue.sharedConcurrent.awaitingAsync {
-            try self.withLock {
-                var sources = try self.loadFromDisk()
-                sources = sources.filter { $0 != source }
-                let order = order.flatMap { $0 >= 0 && $0 < sources.endIndex ? order : sources.endIndex } ?? sources.endIndex
-                sources.insert(source, at: order)
-                try self.saveToDisk(sources)
-            }
+        try self.withLock {
+            var sources = try self.loadFromDisk()
+            sources = sources.filter { $0 != source }
+            let order = order.flatMap { $0 >= 0 && $0 < sources.endIndex ? order : sources.endIndex } ?? sources.endIndex
+            sources.insert(source, at: order)
+            try self.saveToDisk(sources)
         }
     }
 
     func remove(source: PackageCollectionsModel.CollectionSource) async throws {
-        try await DispatchQueue.sharedConcurrent.awaitingAsync {
-            try self.withLock {
-                var sources = try self.loadFromDisk()
-                sources = sources.filter { $0 != source }
-                try self.saveToDisk(sources)
-            }
+        try self.withLock {
+            var sources = try self.loadFromDisk()
+            sources = sources.filter { $0 != source }
+            try self.saveToDisk(sources)
         }
     }
 
     func move(source: PackageCollectionsModel.CollectionSource, to order: Int) async throws {
-        try await DispatchQueue.sharedConcurrent.awaitingAsync {
-            try self.withLock {
-                var sources = try self.loadFromDisk()
-                sources = sources.filter { $0 != source }
-                let order = order >= 0 && order < sources.endIndex ? order : sources.endIndex
-                sources.insert(source, at: order)
-                try self.saveToDisk(sources)
-            }
+        try self.withLock {
+            var sources = try self.loadFromDisk()
+            sources = sources.filter { $0 != source }
+            let order = order >= 0 && order < sources.endIndex ? order : sources.endIndex
+            sources.insert(source, at: order)
+            try self.saveToDisk(sources)
         }
     }
 
     func exists(source: PackageCollectionsModel.CollectionSource) async throws -> Bool {
-        try await DispatchQueue.sharedConcurrent.awaitingAsync {
-            try self.withLock {
-                try self.loadFromDisk()
-            }.contains(source)
-        }
+        try self.withLock {
+            try self.loadFromDisk()
+        }.contains(source)
     }
 
     func update(source: PackageCollectionsModel.CollectionSource) async throws {
-        try await DispatchQueue.sharedConcurrent.awaitingAsync {
-            try self.withLock {
-                var sources = try self.loadFromDisk()
-                if let index = sources.firstIndex(where: { $0 == source }) {
-                    sources[index] = source
-                    try self.saveToDisk(sources)
-                }
+        try self.withLock {
+            var sources = try self.loadFromDisk()
+            if let index = sources.firstIndex(where: { $0 == source }) {
+                sources[index] = source
+                try self.saveToDisk(sources)
             }
         }
     }

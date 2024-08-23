@@ -142,7 +142,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             ) as? BuildOperation else {
                 throw StringError("asked for native build system but did not get it")
             }
-            let buildManifest = try buildOperation.getBuildManifest()
+            let buildManifest = try await buildOperation.getBuildManifest()
             var serializer = DOTManifestSerializer(manifest: buildManifest)
             // print to stdout
             let outputStream = stdoutStream
@@ -183,7 +183,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             outputStream: TSCBasic.stdoutStream
         )
         do {
-            try buildSystem.build(subset: subset)
+            try await buildSystem.build(subset: subset)
         } catch _ as Diagnostics {
             throw ExitCode.failure
         }

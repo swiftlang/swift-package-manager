@@ -2097,11 +2097,10 @@ private struct AcceptingSignatureValidationDelegate: SignatureValidation.Delegat
 }
 
 extension PackageSigningEntityStorage {
-    fileprivate func get(package: PackageIdentity) async throws -> PackageSigners {
-        try await self.get(
+    fileprivate func get(package: PackageIdentity) throws -> PackageSigners {
+        try self.get(
             package: package,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 }

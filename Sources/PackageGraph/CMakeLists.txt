@@ -8,7 +8,6 @@
 
 add_library(PackageGraph
   BoundVersion.swift
-  BuildTriple.swift
   DependencyMirrors.swift
   Diagnostics.swift
   GraphLoadingNode.swift
@@ -19,7 +18,7 @@ add_library(PackageGraph
   PackageGraphRoot.swift
   PackageModel+Extensions.swift
   PackageRequirement.swift
-  PinsStore.swift
+  ResolvedPackagesStore.swift
   TraitConfiguration.swift
   Resolution/PubGrub/Assignment.swift
   Resolution/PubGrub/ContainerProvider.swift

@@ -50,13 +50,6 @@ public struct ResolvedProduct {
     @_spi(SwiftPMInternal)
     public let platformVersionProvider: PlatformVersionProvider
 
-    /// Triple for which this resolved product should be compiled for.
-    public internal(set) var buildTriple: BuildTriple {
-        didSet {
-            self.updateBuildTriplesOfDependencies()
-        }
-    }
-
     @available(*, deprecated, renamed: "executableModule")
     public var executableTarget: ResolvedModule { get throws { try self.executableModule } }
 
@@ -75,6 +68,10 @@ public struct ResolvedProduct {
             }
             return executableModule
         }
+    }
+
+    package var hasDirectMacroDependencies: Bool {
+        self.modules.contains(where: \.hasDirectMacroDependencies)
     }
 
     @available(*, deprecated, renamed: "init(packageIdentity:product:modules:)")
@@ -123,42 +120,6 @@ public struct ResolvedProduct {
                 platformVersionProvider: platformVersionProvider
             )
         }
-        
-        if product.type == .test {
-            // Make sure that test products are built for the tools triple if it has tools as direct dependencies.
-            // Without this workaround, `assertMacroExpansion` in tests can't be built, as it requires macros
-            // and SwiftSyntax to be built for the same triple as the tests.
-            // See https://github.com/swiftlang/swift-package-manager/pull/7349 for more context.
-            var inferredBuildTriple = BuildTriple.destination
-            modulesLoop: for module in modules {
-                for dependency in module.dependencies {
-                    switch dependency {
-                    case .module(let moduleDependency, _):
-                        if moduleDependency.type == .macro {
-                            inferredBuildTriple = .tools
-                            break modulesLoop
-                        }
-                    case .product(let productDependency, _):
-                        if productDependency.type == .macro {
-                            inferredBuildTriple = .tools
-                            break modulesLoop
-                        }
-                    }
-                }
-            }
-            self.buildTriple = inferredBuildTriple
-        } else {
-            self.buildTriple = product.buildTriple
-        }
-        self.updateBuildTriplesOfDependencies()
-    }
-
-    mutating func updateBuildTriplesOfDependencies() {
-        self.modules = IdentifiableSet(self.modules.map {
-            var module = $0
-            module.buildTriple = self.buildTriple
-            return module
-        })
     }
 
     @available(*, deprecated, renamed: "containsSwiftModules")
@@ -218,7 +179,7 @@ public struct ResolvedProduct {
 
 extension ResolvedProduct: CustomStringConvertible {
     public var description: String {
-        "<ResolvedProduct: \(self.name), \(self.type), \(self.buildTriple)>"
+        "<ResolvedProduct: \(self.name), \(self.type)>"
     }
 }
 
@@ -235,11 +196,10 @@ extension ResolvedProduct: Identifiable {
     public struct ID: Hashable {
         public let productName: String
         let packageIdentity: PackageIdentity
-        public var buildTriple: BuildTriple
     }
 
     public var id: ID {
-        ID(productName: self.name, packageIdentity: self.packageIdentity, buildTriple: self.buildTriple)
+        ID(productName: self.name, packageIdentity: self.packageIdentity)
     }
 }
 

@@ -581,14 +581,8 @@ class ManifestEditTests: XCTestCase {
             // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
-                dependencies: [
-                    .package(url: "https://github.com/apple/swift-testing.git", from: "0.8.0"),
-                ],
                 targets: [
-                    .testTarget(
-                        name: "MyTest target-name",
-                        dependencies: [ .product(name: "Testing", package: "swift-testing") ]
-                    ),
+                    .testTarget(name: "MyTest target-name"),
                 ]
             )
             """,
@@ -624,7 +618,7 @@ class ManifestEditTests: XCTestCase {
             let package = Package(
                 name: "packages",
                 dependencies: [
-                    .package(url: "https://github.com/apple/swift-testing.git", from: "0.8.0"),
+                    .package(url: "https://github.com/swiftlang/swift-example.git", from: "1.2.3"),
                 ],
                 targets: [
                     .testTarget(
@@ -638,20 +632,20 @@ class ManifestEditTests: XCTestCase {
             let package = Package(
                 name: "packages",
                 dependencies: [
-                    .package(url: "https://github.com/apple/swift-testing.git", from: "0.8.0"),
+                    .package(url: "https://github.com/swiftlang/swift-example.git", from: "1.2.3"),
                 ],
                 targets: [
                     .testTarget(
                         name: "MyTest",
                         dependencies: [
-                            .product(name: "Testing", package: "swift-testing"),
+                            .product(name: "SomethingOrOther", package: "swift-example"),
                         ]
                     ),
                 ]
             )
             """) { manifest in
             try AddTargetDependency.addTargetDependency(
-                .product(name: "Testing", package: "swift-testing"),
+                .product(name: "SomethingOrOther", package: "swift-example"),
                 targetName: "MyTest",
                 to: manifest
             )

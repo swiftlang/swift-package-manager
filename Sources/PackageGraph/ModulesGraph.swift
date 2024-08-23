@@ -107,14 +107,6 @@ public struct ModulesGraph {
     /// Returns all the modules in the graph, regardless if they are reachable from the root modules or not.
     public private(set) var allModules: IdentifiableSet<ResolvedModule>
 
-    /// Returns all modules within the graph in topological order, starting with low-level modules (that have no
-    /// dependencies).
-    package var allModulesInTopologicalOrder: [ResolvedModule] {
-        get throws {
-            try topologicalSort(Array(allModules)) { $0.dependencies.compactMap { $0.module } }.reversed()
-        }
-    }
-
     /// Returns all the products in the graph, regardless if they are reachable from the root modules or not.
     public private(set) var allProducts: IdentifiableSet<ResolvedProduct>
 
@@ -174,65 +166,19 @@ public struct ModulesGraph {
 
     /// Find a product given a name and an optional destination. If a destination is not specified
     /// this method uses `.destination` and falls back to `.tools` for macros, plugins, and tests.
-    public func product(for name: String, destination: BuildTriple? = .none) -> ResolvedProduct? {
-        func findProduct(name: String, destination: BuildTriple) -> ResolvedProduct? {
-            self.allProducts.first { $0.name == name && $0.buildTriple == destination }
-        }
-
-        if let destination {
-            return findProduct(name: name, destination: destination)
-        }
-
-        if let product = findProduct(name: name, destination: .destination) {
-            return product
-        }
-
-        // It's possible to request a build of a macro, a plugin, or a test via `swift build`
-        // which won't have the right destination set because it's impossible to indicate it.
-        //
-        // Same happens with `--test-product` - if one of the test modules directly references
-        // a macro then all if its modules and the product itself become `host`.
-        if let toolsProduct = findProduct(name: name, destination: .tools),
-            toolsProduct.type == .macro || toolsProduct.type == .plugin || toolsProduct.type == .test
-        {
-            return toolsProduct
-        }
-
-        return nil
+    public func product(for name: String) -> ResolvedProduct? {
+        self.allProducts.first { $0.name == name }
     }
 
-    @available(*, deprecated, renamed: "module(for:destination:)")
-    public func target(for name: String, destination: BuildTriple? = .none) -> ResolvedModule? {
-        self.module(for: name, destination: destination)
+    @available(*, deprecated, renamed: "module(for:)")
+    public func target(for name: String) -> ResolvedModule? {
+        self.module(for: name)
     }
 
     /// Find a module given a name and an optional destination. If a destination is not specified
     /// this method uses `.destination` and falls back to `.tools` for macros, plugins, and tests.
-    public func module(for name: String, destination: BuildTriple? = .none) -> ResolvedModule? {
-        func findModule(name: String, destination: BuildTriple) -> ResolvedModule? {
-            self.allModules.first { $0.name == name && $0.buildTriple == destination }
-        }
-
-        if let destination {
-            return findModule(name: name, destination: destination)
-        }
-
-        if let module = findModule(name: name, destination: .destination) {
-            return module
-        }
-
-        // It's possible to request a build of a macro, a plugin or a test via `swift build`
-        // which won't have the right destination set because it's impossible to indicate it.
-        //
-        // Same happens with `--test-product` - if one of the test modules directly references
-        // a macro then all if its modules and the product itself become `host`.
-        if let toolsModule = findModule(name: name, destination: .tools),
-            toolsModule.type == .macro || toolsModule.type == .plugin || toolsModule.type == .test
-        {
-            return toolsModule
-        }
-
-        return nil
+    public func module(for name: String) -> ResolvedModule? {
+        self.allModules.first { $0.name == name }
     }
 
     /// All root and root dependency packages provided as input to the graph.
@@ -258,61 +204,16 @@ public struct ModulesGraph {
         var allModules = IdentifiableSet<ResolvedModule>()
         var allProducts = IdentifiableSet<ResolvedProduct>()
         for package in self.packages {
-            let modulesToInclude: [ResolvedModule]
-            if rootPackages.contains(id: package.id) {
-                modulesToInclude = Array(package.modules)
+            let modulesToInclude = if rootPackages.contains(id: package.id) {
+                Array(package.modules)
             } else {
                 // Don't include tests modules from non-root packages so swift-test doesn't
                 // try to run them.
-                modulesToInclude = package.modules.filter { $0.type != .test }
+                package.modules.filter { $0.type != .test }
             }
 
             for module in modulesToInclude {
                 allModules.insert(module)
-
-                // Explicitly include dependencies of host tools in the maps of all modules or all products
-                if module.buildTriple == .tools {
-                    for dependency in try module.recursiveDependencies() {
-                        switch dependency {
-                        case .module(let moduleDependency, _):
-                            allModules.insert(moduleDependency)
-                        case .product(let productDependency, _):
-                            allProducts.insert(productDependency)
-                        }
-                    }
-                }
-
-                // Create a new executable product if plugin depends on an executable module.
-                // This is necessary, even though PackageBuilder creates one already, because
-                // that product is going to be built for `destination`, and this one has to
-                // be built for `tools`.
-                if module.underlying is PluginModule {
-                    for dependency in module.dependencies {
-                        switch dependency {
-                        case .product(_, conditions: _):
-                            break
-
-                        case .module(let module, conditions: _):
-                            if module.type != .executable {
-                                continue
-                            }
-
-                            var product = try ResolvedProduct(
-                                packageIdentity: module.packageIdentity,
-                                product: .init(
-                                    package: module.packageIdentity,
-                                    name: module.name,
-                                    type: .executable,
-                                    modules: [module.underlying]
-                                ),
-                                modules: IdentifiableSet([module])
-                            )
-                            product.buildTriple = .tools
-
-                            allProducts.insert(product)
-                        }
-                    }
-                }
             }
 
             if rootPackages.contains(id: package.id) {
