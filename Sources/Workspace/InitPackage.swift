@@ -36,7 +36,7 @@ public final class InitPackage {
 
         public init(
             packageType: PackageType,
-            supportedTestingLibraries: Set<TestingLibrary> = [.xctest],
+            supportedTestingLibraries: Set<TestingLibrary>,
             platforms: [SupportedPlatform] = []
         ) {
             self.packageType = packageType
@@ -186,8 +186,8 @@ public final class InitPackage {
 
             var platforms = options.platforms
 
-            // Macros and swift-testing require macOS 10.15, iOS 13, etc.
-            if packageType == .macro || options.supportedTestingLibraries.contains(.swiftTesting) {
+            // Macros require macOS 10.15, iOS 13, etc.
+            if packageType == .macro {
                 func addIfMissing(_ newPlatform: SupportedPlatform) {
                   if platforms.contains(where: { platform in
                       platform.platform == newPlatform.platform
@@ -274,9 +274,6 @@ public final class InitPackage {
                 dependencies.append(#".package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.2.0")"#)
             } else if packageType == .macro {
                 dependencies.append(#".package(url: "https://github.com/swiftlang/swift-syntax.git", from: "\#(self.installedSwiftPMConfiguration.swiftSyntaxVersionForMacroTemplate.description)")"#)
-            }
-            if options.supportedTestingLibraries.contains(.swiftTesting) {
-                dependencies.append(#".package(url: "https://github.com/apple/swift-testing.git", from: "0.11.0")"#)
             }
             if !dependencies.isEmpty {
                 let dependencies = dependencies.map { dependency in
@@ -384,17 +381,7 @@ public final class InitPackage {
                     """
                 } else {
                     let testTarget: String
-                    if options.supportedTestingLibraries.contains(.swiftTesting) {
-                        testTarget = """
-                                .testTarget(
-                                    name: "\(pkgname)Tests",
-                                    dependencies: [
-                                        "\(pkgname)",
-                                        .product(name: "Testing", package: "swift-testing"),
-                                    ]
-                                ),
-                        """
-                    } else if options.supportedTestingLibraries.contains(.xctest) {
+                    if !options.supportedTestingLibraries.isEmpty {
                         testTarget = """
                                 .testTarget(
                                     name: "\(pkgname)Tests",
@@ -688,6 +675,10 @@ public final class InitPackage {
     private func writeLibraryTestsFile(_ path: AbsolutePath) throws {
         var content = ""
 
+        // XCTest is only added if it was explicitly asked for, so add tests
+        // for it *and* Testing if it is enabled (or just XCTest if Testing
+        // is explicitly disabled).
+
         if options.supportedTestingLibraries.contains(.swiftTesting) {
             content += "import Testing\n"
         }
@@ -696,20 +687,18 @@ public final class InitPackage {
         }
         content += "@testable import \(moduleName)\n"
 
-        // Prefer swift-testing if specified, otherwise XCTest. If both are
-        // specified, the developer is free to write tests using both
-        // libraries, but we still only want to present a single library's
-        // example tests.
+
         if options.supportedTestingLibraries.contains(.swiftTesting) {
             content += """
 
-                @Test func example() throws {
-                    // swift-testing Documentation
-                    // https://swiftpackageindex.com/apple/swift-testing/main/documentation/testing
+                @Test func example() async throws {
+                    // Write your test here and use APIs like `#expect(...)` to check expected conditions.
                 }
 
                 """
-        } else if options.supportedTestingLibraries.contains(.xctest) {
+        }
+
+        if options.supportedTestingLibraries.contains(.xctest) {
             content += """
 
                 final class \(moduleName)Tests: XCTestCase {
@@ -762,13 +751,15 @@ public final class InitPackage {
 
             """##
 
-        // Prefer swift-testing if specified, otherwise XCTest. If both are
-        // specified, the developer is free to write tests using both
-        // libraries, but we still only want to present a single library's
-        // example tests.
+
+        // XCTest is only added if it was explicitly asked for, so add tests
+        // for it *and* Testing if it is enabled.
+
         if options.supportedTestingLibraries.contains(.swiftTesting) {
             // FIXME: https://github.com/swiftlang/swift-syntax/issues/2400
-        } else if options.supportedTestingLibraries.contains(.xctest) {
+        }
+
+        if options.supportedTestingLibraries.contains(.xctest) {
             content += ##"""
                 final class \##(moduleName)Tests: XCTestCase {
                     func testMacro() throws {
