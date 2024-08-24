@@ -209,15 +209,15 @@ final class XCBuildTests: XCTestCase {
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode")
             let debugPath = binaryPath.appending(component: "Debug")
-            XCTAssertFileExists(debugPath.appending(component: "FooLib.o"))
-            XCTAssertFileExists(debugPath.appending(component: "CFooLib.o"))
-            XCTAssertFileExists(debugPath.appending(component: "BarLib.o"))
+            XCTAssertFileExists(debugPath.appending(component: "FooLib_Module.o"))
+            XCTAssertFileExists(debugPath.appending(component: "CFooLib_Module.o"))
+            XCTAssertFileExists(debugPath.appending(component: "BarLib_Module.o"))
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode", "-c", "release")
             let releasePath = binaryPath.appending(component: "Release")
-            XCTAssertFileExists(releasePath.appending(component: "FooLib.o"))
-            XCTAssertFileExists(releasePath.appending(component: "CFooLib.o"))
-            XCTAssertFileExists(releasePath.appending(component: "BarLib.o"))
+            XCTAssertFileExists(releasePath.appending(component: "FooLib_Module.o"))
+            XCTAssertFileExists(releasePath.appending(component: "CFooLib_Module.o"))
+            XCTAssertFileExists(releasePath.appending(component: "BarLib_Module.o"))
         }
 
         fixture(name: "XCBuild/Libraries") { path in
@@ -226,15 +226,15 @@ final class XCBuildTests: XCTestCase {
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode", "--target", "FooLib")
             let debugPath = binaryPath.appending(component: "Debug")
-            XCTAssertFileExists(debugPath.appending(component: "FooLib.o"))
-            XCTAssertFileExists(debugPath.appending(component: "CFooLib.o"))
-            XCTAssertFileExists(debugPath.appending(component: "BarLib.o"))
+            XCTAssertFileExists(debugPath.appending(component: "FooLib_Module.o"))
+            XCTAssertFileExists(debugPath.appending(component: "CFooLib_Module.o"))
+            XCTAssertFileExists(debugPath.appending(component: "BarLib_Module.o"))
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode", "--target", "FooLib", "-c", "release")
             let releasePath = binaryPath.appending(component: "Release")
-            XCTAssertFileExists(releasePath.appending(component: "FooLib.o"))
-            XCTAssertFileExists(releasePath.appending(component: "CFooLib.o"))
-            XCTAssertFileExists(releasePath.appending(component: "BarLib.o"))
+            XCTAssertFileExists(releasePath.appending(component: "FooLib_Module.o"))
+            XCTAssertFileExists(releasePath.appending(component: "CFooLib_Module.o"))
+            XCTAssertFileExists(releasePath.appending(component: "BarLib_Module.o"))
         }
 
         fixture(name: "XCBuild/Libraries") { path in
@@ -243,15 +243,15 @@ final class XCBuildTests: XCTestCase {
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode", "--target", "CFooLib")
             let debugPath = binaryPath.appending(component: "Debug")
-            XCTAssertNoSuchPath(debugPath.appending(component: "FooLib.o"))
-            XCTAssertFileExists(debugPath.appending(component: "CFooLib.o"))
-            XCTAssertFileExists(debugPath.appending(component: "BarLib.o"))
+            XCTAssertNoSuchPath(debugPath.appending(component: "FooLib_Module.o"))
+            XCTAssertFileExists(debugPath.appending(component: "CFooLib_Module.o"))
+            XCTAssertFileExists(debugPath.appending(component: "BarLib_Module.o"))
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode", "--target", "CFooLib", "-c", "release")
             let releasePath = binaryPath.appending(component: "Release")
-            XCTAssertNoSuchPath(releasePath.appending(component: "FooLib.o"))
-            XCTAssertFileExists(releasePath.appending(component: "CFooLib.o"))
-            XCTAssertFileExists(releasePath.appending(component: "BarLib.o"))
+            XCTAssertNoSuchPath(releasePath.appending(component: "FooLib_Module.o"))
+            XCTAssertFileExists(releasePath.appending(component: "CFooLib_Module.o"))
+            XCTAssertFileExists(releasePath.appending(component: "BarLib_Module.o"))
         }
 
         fixture(name: "XCBuild/Libraries") { path in
@@ -260,15 +260,15 @@ final class XCBuildTests: XCTestCase {
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode", "--target", "BarLib")
             let debugPath = binaryPath.appending(component: "Debug")
-            XCTAssertNoSuchPath(debugPath.appending(component: "FooLib.o"))
-            XCTAssertNoSuchPath(debugPath.appending(component: "CFooLib.o"))
-            XCTAssertFileExists(debugPath.appending(component: "BarLib.o"))
+            XCTAssertNoSuchPath(debugPath.appending(component: "FooLib_Module.o"))
+            XCTAssertNoSuchPath(debugPath.appending(component: "CFooLib_Module.o"))
+            XCTAssertFileExists(debugPath.appending(component: "BarLib_Module.o"))
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode", "--target", "BarLib", "-c", "release")
             let releasePath = binaryPath.appending(component: "Release")
-            XCTAssertNoSuchPath(releasePath.appending(component: "FooLib.o"))
-            XCTAssertNoSuchPath(releasePath.appending(component: "CFooLib.o"))
-            XCTAssertFileExists(releasePath.appending(component: "BarLib.o"))
+            XCTAssertNoSuchPath(releasePath.appending(component: "FooLib_Module.o"))
+            XCTAssertNoSuchPath(releasePath.appending(component: "CFooLib_Module.o"))
+            XCTAssertFileExists(releasePath.appending(component: "BarLib_Module.o"))
         }
     }
 
