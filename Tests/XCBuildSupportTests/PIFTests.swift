@@ -68,7 +68,6 @@ class PIFTests: XCTestCase {
                                     buildSettings: {
                                         var settings = PIF.BuildSettings()
                                         settings[.TARGET_NAME] = "MyExecutable"
-                                        settings[.EXECUTABLE_NAME] = "my-exe"
                                         return settings
                                     }()
                                 ),
@@ -78,7 +77,6 @@ class PIFTests: XCTestCase {
                                     buildSettings: {
                                         var settings = PIF.BuildSettings()
                                         settings[.TARGET_NAME] = "MyExecutable"
-                                        settings[.EXECUTABLE_NAME] = "my-exe"
                                         settings[.SKIP_INSTALL] = "NO"
                                         return settings
                                     }()
@@ -368,7 +366,6 @@ class PIFTests: XCTestCase {
             XCTAssertEqual(debugConfiguration["name"]?.string, "Debug")
             let debugSettings = debugConfiguration["buildSettings"]
             XCTAssertEqual(debugSettings?["TARGET_NAME"]?.string, "MyExecutable")
-            XCTAssertEqual(debugSettings?["EXECUTABLE_NAME"]?.string, "my-exe")
             XCTAssertEqual(debugConfiguration["impartedBuildProperties"]?.dictionary, ["buildSettings": JSON([:])])
 
             let releaseConfiguration = configurations[1]
@@ -376,7 +373,6 @@ class PIFTests: XCTestCase {
             XCTAssertEqual(releaseConfiguration["name"]?.string, "Release")
             let releaseSettings = releaseConfiguration["buildSettings"]
             XCTAssertEqual(releaseSettings?["TARGET_NAME"]?.string, "MyExecutable")
-            XCTAssertEqual(releaseSettings?["EXECUTABLE_NAME"]?.string, "my-exe")
             XCTAssertEqual(releaseSettings?["SKIP_INSTALL"]?.string, "NO")
             XCTAssertEqual(releaseConfiguration["impartedBuildProperties"]?.dictionary, ["buildSettings": JSON([:])])
         } else {

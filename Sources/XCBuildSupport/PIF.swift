@@ -913,7 +913,7 @@ public enum PIF {
             case ENABLE_TESTABILITY
             case ENABLE_TESTING_SEARCH_PATHS
             case ENTITLEMENTS_REQUIRED
-            case EXECUTABLE_NAME
+            case EXECUTABLE_PREFIX
             case GENERATE_INFOPLIST_FILE
             case GCC_C_LANGUAGE_STANDARD
             case GCC_OPTIMIZATION_LEVEL
