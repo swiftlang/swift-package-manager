@@ -276,7 +276,7 @@ final class TestCommandTests: CommandsTestCase {
     }
 
     func testBasicSwiftTestingIntegration() async throws {
-#if !canImport(Testing)
+#if !canImport(TestingDisabled)
         try XCTSkipUnless(
             nil != Environment.current["SWIFT_PM_SWIFT_TESTING_TESTS_ENABLED"],
             "Skipping \(#function) because swift-testing tests are not explicitly enabled"
@@ -292,7 +292,7 @@ final class TestCommandTests: CommandsTestCase {
     }
 
     func testBasicSwiftTestingIntegration_ExperimentalFlag() async throws {
-#if !canImport(Testing)
+#if !canImport(TestingDisabled)
         try XCTSkipUnless(
             nil != Environment.current["SWIFT_PM_SWIFT_TESTING_TESTS_ENABLED"],
             "Skipping \(#function) because swift-testing tests are not explicitly enabled"
