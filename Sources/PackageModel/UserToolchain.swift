@@ -672,14 +672,15 @@ public final class UserToolchain: Toolchain {
         var swiftCompilerFlags: [String] = []
         var extraLinkerFlags: [String] = []
 
-        #if os(macOS)
-        let (swiftCFlags, linkerFlags) = Self.deriveMacOSSpecificSwiftTestingFlags(
-            derivedSwiftCompiler: swiftCompilers.compile,
-            fileSystem: fileSystem
-        )
-        swiftCompilerFlags += swiftCFlags
-        extraLinkerFlags += linkerFlags
-        #endif
+        if triple.isMacOSX {
+            let (swiftCFlags, linkerFlags) = Self.deriveMacOSSpecificSwiftTestingFlags(
+                derivedSwiftCompiler: swiftCompilers.compile,
+                fileSystem: fileSystem
+            )
+
+            swiftCompilerFlags += swiftCFlags
+            extraLinkerFlags += linkerFlags
+        }
 
         swiftCompilerFlags += try Self.deriveSwiftCFlags(
             triple: triple,
