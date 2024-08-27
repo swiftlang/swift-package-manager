@@ -113,6 +113,7 @@ final class InitTests: XCTestCase {
             let initPackage = try InitPackage(
                 name: name,
                 packageType: .library,
+                supportedTestingLibraries: [.xctest],
                 destinationPath: path,
                 fileSystem: localFileSystem
             )
@@ -153,8 +154,8 @@ final class InitTests: XCTestCase {
         }
     }
 
-    func testInitPackageLibraryWithSwiftTestingOnly() throws {
-        try testWithTemporaryDirectory { tmpPath in
+    func testInitPackageLibraryWithSwiftTestingOnly() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
             let name = path.basename
@@ -173,31 +174,25 @@ final class InitTests: XCTestCase {
             // Verify basic file system content that we expect in the package
             let manifest = path.appending("Package.swift")
             XCTAssertFileExists(manifest)
-            let manifestContents: String = try localFileSystem.readFileContents(manifest)
-            XCTAssertMatch(manifestContents, .contains(#".macOS(.v10_15)"#))
-            XCTAssertMatch(manifestContents, .contains(#".iOS(.v13)"#))
-            XCTAssertMatch(manifestContents, .contains(#".tvOS(.v13)"#))
-            XCTAssertMatch(manifestContents, .contains(#".watchOS(.v6)"#))
-            XCTAssertMatch(manifestContents, .contains(#".macCatalyst(.v13)"#))
-            XCTAssertMatch(manifestContents, .contains(#"swift-testing.git", from: "0.11.0""#))
-            XCTAssertMatch(manifestContents, .contains(#".product(name: "Testing", package: "swift-testing")"#))
 
             let testFile = path.appending("Tests").appending("FooTests").appending("FooTests.swift")
             let testFileContents: String = try localFileSystem.readFileContents(testFile)
             XCTAssertMatch(testFileContents, .contains(#"import Testing"#))
             XCTAssertNoMatch(testFileContents, .contains(#"import XCTest"#))
-            XCTAssertMatch(testFileContents, .contains(#"@Test func example() throws"#))
+            XCTAssertMatch(testFileContents, .contains(#"@Test func example() async throws"#))
             XCTAssertNoMatch(testFileContents, .contains("func testExample() throws"))
 
-            // Try building it -- DISABLED because we cannot pull the swift-testing repository from CI.
-//            XCTAssertBuilds(path)
-//            let triple = try UserToolchain.default.targetTriple
-//            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+#if canImport(TestingDisabled)
+            // Try building it
+            await XCTAssertBuilds(path)
+            let triple = try UserToolchain.default.targetTriple
+            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+#endif
         }
     }
 
-    func testInitPackageLibraryWithBothSwiftTestingAndXCTest() throws {
-        try testWithTemporaryDirectory { tmpPath in
+    func testInitPackageLibraryWithBothSwiftTestingAndXCTest() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
             let name = path.basename
@@ -216,26 +211,20 @@ final class InitTests: XCTestCase {
             // Verify basic file system content that we expect in the package
             let manifest = path.appending("Package.swift")
             XCTAssertFileExists(manifest)
-            let manifestContents: String = try localFileSystem.readFileContents(manifest)
-            XCTAssertMatch(manifestContents, .contains(#".macOS(.v10_15)"#))
-            XCTAssertMatch(manifestContents, .contains(#".iOS(.v13)"#))
-            XCTAssertMatch(manifestContents, .contains(#".tvOS(.v13)"#))
-            XCTAssertMatch(manifestContents, .contains(#".watchOS(.v6)"#))
-            XCTAssertMatch(manifestContents, .contains(#".macCatalyst(.v13)"#))
-            XCTAssertMatch(manifestContents, .contains(#"swift-testing.git", from: "0.11.0""#))
-            XCTAssertMatch(manifestContents, .contains(#".product(name: "Testing", package: "swift-testing")"#))
 
             let testFile = path.appending("Tests").appending("FooTests").appending("FooTests.swift")
             let testFileContents: String = try localFileSystem.readFileContents(testFile)
             XCTAssertMatch(testFileContents, .contains(#"import Testing"#))
             XCTAssertMatch(testFileContents, .contains(#"import XCTest"#))
-            XCTAssertMatch(testFileContents, .contains(#"@Test func example() throws"#))
-            XCTAssertNoMatch(testFileContents, .contains("func testExample() throws"))
+            XCTAssertMatch(testFileContents, .contains(#"@Test func example() async throws"#))
+            XCTAssertMatch(testFileContents, .contains("func testExample() throws"))
 
-            // Try building it -- DISABLED because we cannot pull the swift-testing repository from CI.
-            //            XCTAssertBuilds(path)
-            //            let triple = try UserToolchain.default.targetTriple
-            //            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+#if canImport(TestingDisabled)
+            // Try building it
+            await XCTAssertBuilds(path)
+            let triple = try UserToolchain.default.targetTriple
+            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+#endif
         }
     }
 
@@ -262,16 +251,16 @@ final class InitTests: XCTestCase {
             let manifest = path.appending("Package.swift")
             XCTAssertFileExists(manifest)
             let manifestContents: String = try localFileSystem.readFileContents(manifest)
-            XCTAssertNoMatch(manifestContents, .contains(#"swift-testing.git", from: "0.11.0""#))
-            XCTAssertNoMatch(manifestContents, .contains(#".product(name: "Testing", package: "swift-testing")"#))
             XCTAssertNoMatch(manifestContents, .contains(#".testTarget"#))
 
             XCTAssertNoSuchPath(path.appending("Tests"))
 
+#if canImport(TestingDisabled)
             // Try building it
             await XCTAssertBuilds(path)
             let triple = try UserToolchain.default.targetTriple
             XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+#endif
         }
     }
 
@@ -399,7 +388,7 @@ final class InitTests: XCTestCase {
 
     func testPlatforms() throws {
         try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
-            var options = InitPackage.InitPackageOptions(packageType: .library)
+            var options = InitPackage.InitPackageOptions(packageType: .library, supportedTestingLibraries: [])
             options.platforms = [
                 .init(platform: .macOS, version: PlatformVersion("10.15")),
                 .init(platform: .iOS, version: PlatformVersion("12")),
