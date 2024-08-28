@@ -61,9 +61,9 @@ extension Error {
     /// - Returns: An ``AsyncFileSystemError`` value augmented by the given file path.
     func attach(_ path: FilePath) -> any Error {
         if let error = self as? Errno {
-            AsyncFileSystemError.systemError(path, error)
+            return AsyncFileSystemError.systemError(path, error)
         } else {
-            self
+            return self
         }
     }
 }
