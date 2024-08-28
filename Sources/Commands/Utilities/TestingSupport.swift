@@ -112,7 +112,8 @@ enum TestingSupport {
         var args = [String]()
         #if os(macOS)
         let targetTriple = try swiftCommandState.getTargetToolchain().targetTriple
-        guard targetTriple.darwinPlatform == .macOS else {
+        let hostTriple = try swiftCommandState.getHostToolchain().targetTriple
+        guard hostTriple.isRuntimeCompatible(with: targetTriple) else {
             swiftCommandState.observabilityScope.emit(error: """
             Attempting to run tests cross-compiled for non-macOS target '\(targetTriple)'; \
             this is currently unsupported.
