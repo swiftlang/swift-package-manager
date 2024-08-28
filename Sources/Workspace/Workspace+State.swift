@@ -73,11 +73,10 @@ public final class WorkspaceState {
 
     /// Returns true if the state file exists on the filesystem.
     func stateFileExists() -> Bool {
-        return self.storage.fileExists()
+        self.storage.fileExists()
     }
 
-    /// Returns true if the state file exists on the filesystem.
-    func reload() throws  {
+    func reload() throws {
         let storedState = try self.storage.load()
         self.dependencies = storedState.dependencies
         self.artifacts = storedState.artifacts
@@ -86,7 +85,7 @@ public final class WorkspaceState {
 
 // MARK: - Serialization
 
-fileprivate struct WorkspaceStateStorage {
+private struct WorkspaceStateStorage {
     private let path: AbsolutePath
     private let fileSystem: FileSystem
     private let encoder = JSONEncoder.makeWithDefaults()
@@ -97,7 +96,7 @@ fileprivate struct WorkspaceStateStorage {
         self.fileSystem = fileSystem
     }
 
-    func load() throws -> (dependencies: Workspace.ManagedDependencies, artifacts: Workspace.ManagedArtifacts){
+    func load() throws -> (dependencies: Workspace.ManagedDependencies, artifacts: Workspace.ManagedArtifacts) {
         if !self.fileSystem.exists(self.path) {
             return (dependencies: .init(), artifacts: .init())
         }
@@ -105,20 +104,20 @@ fileprivate struct WorkspaceStateStorage {
         return try self.fileSystem.withLock(on: self.path, type: .shared) {
             let version = try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: Version.self)
             switch version.version {
-            case 1,2,3,4:
+            case 1, 2, 3, 4:
                 let v4 = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V4.self)
-                let dependencies = try v4.object.dependencies.map{ try Workspace.ManagedDependency($0) }
-                let artifacts = try v4.object.artifacts.map{ try Workspace.ManagedArtifact($0) }
+                let dependencies = try v4.object.dependencies.map { try Workspace.ManagedDependency($0) }
+                let artifacts = try v4.object.artifacts.map { try Workspace.ManagedArtifact($0) }
                 return try (dependencies: .init(dependencies), artifacts: .init(artifacts))
             case 5:
                 let v5 = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V5.self)
-                let dependencies = try v5.object.dependencies.map{ try Workspace.ManagedDependency($0) }
-                let artifacts = try v5.object.artifacts.map{ try Workspace.ManagedArtifact($0) }
+                let dependencies = try v5.object.dependencies.map { try Workspace.ManagedDependency($0) }
+                let artifacts = try v5.object.artifacts.map { try Workspace.ManagedArtifact($0) }
                 return try (dependencies: .init(dependencies), artifacts: .init(artifacts))
             case 6:
                 let v6 = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V6.self)
-                let dependencies = try v6.object.dependencies.map{ try Workspace.ManagedDependency($0) }
-                let artifacts = try v6.object.artifacts.map{ try Workspace.ManagedArtifact($0) }
+                let dependencies = try v6.object.dependencies.map { try Workspace.ManagedDependency($0) }
+                let artifacts = try v6.object.artifacts.map { try Workspace.ManagedArtifact($0) }
                 return try (dependencies: .init(dependencies), artifacts: .init(artifacts))
             default:
                 throw StringError("unknown 'WorkspaceStateStorage' version '\(version.version)' at '\(self.path)'")
@@ -149,7 +148,7 @@ fileprivate struct WorkspaceStateStorage {
     }
 
     func fileExists() -> Bool {
-        return self.fileSystem.exists(self.path)
+        self.fileSystem.exists(self.path)
     }
 }
 
@@ -168,7 +167,7 @@ extension WorkspaceStateStorage {
         let version: Int
         let object: Container
 
-        init (dependencies: Workspace.ManagedDependencies, artifacts: Workspace.ManagedArtifacts) {
+        init(dependencies: Workspace.ManagedDependencies, artifacts: Workspace.ManagedArtifacts) {
             self.version = 6
             self.object = .init(
                 dependencies: dependencies.map { .init($0) }.sorted { $0.packageRef.identity < $1.packageRef.identity },
@@ -241,7 +240,10 @@ extension WorkspaceStateStorage {
                     self.underlying = underlying
                 }
 
-                static func decode(container: KeyedDecodingContainer<Self.CodingKeys>, basedOn: Dependency?) throws -> State {
+                static func decode(
+                    container: KeyedDecodingContainer<Self.CodingKeys>,
+                    basedOn: Dependency?
+                ) throws -> State {
                     let kind = try container.decode(String.self, forKey: .name)
                     switch kind {
                     case "local", "fileSystem":
@@ -252,14 +254,21 @@ extension WorkspaceStateStorage {
                         return try self.init(underlying: .sourceControlCheckout(.init(checkout)))
                     case "registryDownload":
                         let version = try container.decode(String.self, forKey: .version)
-                        return try self.init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version)))
+                        return try self
+                            .init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version)))
                     case "edited":
                         let path = try container.decode(AbsolutePath?.self, forKey: .path)
-                        return try self.init(underlying: .edited(basedOn: basedOn.map { try .init($0) }, unmanagedPath: path))
+                        return try self.init(underlying: .edited(
+                            basedOn: basedOn.map { try .init($0) },
+                            unmanagedPath: path
+                        ))
                     case "custom":
                         let version = try container.decode(String.self, forKey: .version)
                         let path = try container.decode(AbsolutePath.self, forKey: .path)
-                        return try self.init(underlying: .custom(version: TSCUtility.Version(versionString: version), path: path))
+                        return try self.init(underlying: .custom(
+                            version: TSCUtility.Version(versionString: version),
+                            path: path
+                        ))
                     default:
                         throw StringError("unknown dependency state \(kind)")
                     }
@@ -382,7 +391,7 @@ extension WorkspaceStateStorage {
                 case artifactsArchive
                 case unknown
 
-                init(_ underlying: BinaryTarget.Kind) {
+                init(_ underlying: BinaryModule.Kind) {
                     switch underlying {
                     case .xcframework:
                         self = .xcframework
@@ -393,7 +402,7 @@ extension WorkspaceStateStorage {
                     }
                 }
 
-                var underlying: BinaryTarget.Kind {
+                var underlying: BinaryModule.Kind {
                     switch self {
                     case .xcframework:
                         return .xcframework
@@ -412,7 +421,7 @@ extension WorkspaceStateStorage {
             let location: String
             let name: String
 
-            init (_ reference: PackageModel.PackageReference) {
+            init(_ reference: PackageModel.PackageReference) {
                 self.identity = reference.identity.description
                 switch reference.kind {
                 case .root(let path):
@@ -451,7 +460,7 @@ extension Workspace.ManagedDependency {
         try self.init(
             packageRef: .init(dependency.packageRef),
             state: dependency.state.underlying,
-            subpath: try RelativePath(validating: dependency.subpath)
+            subpath: RelativePath(validating: dependency.subpath)
         )
     }
 }
@@ -462,7 +471,7 @@ extension Workspace.ManagedArtifact {
             packageRef: .init(artifact.packageRef),
             targetName: artifact.targetName,
             source: artifact.source.underlying,
-            path: try AbsolutePath(validating: artifact.path),
+            path: AbsolutePath(validating: artifact.path),
             kind: artifact.kind.underlying
         )
     }
@@ -514,7 +523,7 @@ extension WorkspaceStateStorage {
         let version: Int
         let object: Container
 
-        init (dependencies: Workspace.ManagedDependencies, artifacts: Workspace.ManagedArtifacts) {
+        init(dependencies: Workspace.ManagedDependencies, artifacts: Workspace.ManagedArtifacts) {
             self.version = 5
             self.object = .init(
                 dependencies: dependencies.map { .init($0) }.sorted { $0.packageRef.identity < $1.packageRef.identity },
@@ -587,7 +596,10 @@ extension WorkspaceStateStorage {
                     self.underlying = underlying
                 }
 
-                static func decode(container: KeyedDecodingContainer<Self.CodingKeys>, basedOn: Dependency?) throws -> State {
+                static func decode(
+                    container: KeyedDecodingContainer<Self.CodingKeys>,
+                    basedOn: Dependency?
+                ) throws -> State {
                     let kind = try container.decode(String.self, forKey: .name)
                     switch kind {
                     case "local", "fileSystem":
@@ -598,14 +610,21 @@ extension WorkspaceStateStorage {
                         return try self.init(underlying: .sourceControlCheckout(.init(checkout)))
                     case "registryDownload":
                         let version = try container.decode(String.self, forKey: .version)
-                        return try self.init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version)))
+                        return try self
+                            .init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version)))
                     case "edited":
                         let path = try container.decode(AbsolutePath?.self, forKey: .path)
-                        return try self.init(underlying: .edited(basedOn: basedOn.map { try .init($0) }, unmanagedPath: path))
+                        return try self.init(underlying: .edited(
+                            basedOn: basedOn.map { try .init($0) },
+                            unmanagedPath: path
+                        ))
                     case "custom":
                         let version = try container.decode(String.self, forKey: .version)
                         let path = try container.decode(AbsolutePath.self, forKey: .path)
-                        return try self.init(underlying: .custom(version: TSCUtility.Version(versionString: version), path: path))
+                        return try self.init(underlying: .custom(
+                            version: TSCUtility.Version(versionString: version),
+                            path: path
+                        ))
                     default:
                         throw StringError("unknown dependency state \(kind)")
                     }
@@ -728,7 +747,7 @@ extension WorkspaceStateStorage {
             let location: String
             let name: String
 
-            init (_ reference: PackageModel.PackageReference) {
+            init(_ reference: PackageModel.PackageReference) {
                 self.identity = reference.identity.description
                 switch reference.kind {
                 case .root(let path):
@@ -823,7 +842,6 @@ extension CheckoutState {
     }
 }
 
-
 // MARK: - V1...4 format (deprecated)
 
 extension WorkspaceStateStorage {
@@ -884,7 +902,11 @@ extension WorkspaceStateStorage {
                     self.underlying = underlying
                 }
 
-                static func decode(container: KeyedDecodingContainer<Self.CodingKeys>, packageRef: PackageReference, basedOn: Dependency?) throws -> State {
+                static func decode(
+                    container: KeyedDecodingContainer<Self.CodingKeys>,
+                    packageRef: PackageReference,
+                    basedOn: Dependency?
+                ) throws -> State {
                     let kind = try container.decode(String.self, forKey: .name)
                     switch kind {
                     case "local":
@@ -894,7 +916,10 @@ extension WorkspaceStateStorage {
                         return try self.init(underlying: .sourceControlCheckout(.init(checkout)))
                     case "edited":
                         let path = try container.decode(AbsolutePath?.self, forKey: .path)
-                        return try self.init(underlying: .edited(basedOn: basedOn.map { try .init($0) }, unmanagedPath: path))
+                        return try self.init(underlying: .edited(
+                            basedOn: basedOn.map { try .init($0) },
+                            unmanagedPath: path
+                        ))
                     default:
                         throw StringError("unknown dependency state \(kind)")
                     }
@@ -1064,9 +1089,9 @@ extension CheckoutState {
 
 // backwards compatibility for older formats
 
-extension BinaryTarget.Kind {
+extension BinaryModule.Kind {
     fileprivate static func forPath(_ path: AbsolutePath) -> Self {
-        if let kind = Self.allCases.first(where: { $0.fileExtension == path.extension }) {
+        if let kind = allCases.first(where: { $0.fileExtension == path.extension }) {
             return kind
         }
         return .unknown

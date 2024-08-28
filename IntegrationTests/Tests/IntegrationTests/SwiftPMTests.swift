@@ -53,6 +53,9 @@ final class SwiftPMTests: XCTestCase {
         #if !os(macOS)
         try XCTSkip("Test requires macOS")
         #endif
+        #if swift(<6.0)
+        try XCTSkipIf(true, "Skipping because test requires at least Swift 6.0")
+        #endif
 
         try withTemporaryDirectory { tmpDir in
             let packagePath = tmpDir.appending(component: "foo")
@@ -63,7 +66,7 @@ final class SwiftPMTests: XCTestCase {
                 try localFileSystem.removeFileTree(packagePath.appending(components: "Sources", entry))
             }
             try localFileSystem.writeFileContents(AbsolutePath(validating: "Sources/main.m", relativeTo: packagePath)) {
-                $0 <<< "int main() {}"
+                $0.send("int main() {}")
             }
             let archs = ["x86_64", "arm64"]
 

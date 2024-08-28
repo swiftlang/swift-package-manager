@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -12,30 +12,28 @@
 
 import Basics
 @testable import PackageCollections
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
-import class TSCBasic.InMemoryFileSystem
-
 final class PackageCollectionsSourcesStorageTest: XCTestCase {
-    func testHappyCase() throws {
+    func testHappyCase() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let storage = FilePackageCollectionsSourcesStorage(fileSystem: mockFileSystem)
 
-        try assertHappyCase(storage: storage)
+        try await assertHappyCase(storage: storage)
 
         let buffer = try mockFileSystem.readFileContents(storage.path)
         XCTAssertNotEqual(buffer.count, 0, "expected file to be written")
         print(buffer)
     }
 
-    func testRealFile() throws {
-        try testWithTemporaryDirectory { tmpPath in
+    func testRealFile() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
             let fileSystem = localFileSystem
             let path = tmpPath.appending("test.json")
             let storage = FilePackageCollectionsSourcesStorage(fileSystem: fileSystem, path: path)
 
-            try assertHappyCase(storage: storage)
+            try await assertHappyCase(storage: storage)
 
             let buffer = try fileSystem.readFileContents(storage.path)
             XCTAssertNotEqual(buffer.count, 0, "expected file to be written")
@@ -43,78 +41,78 @@ final class PackageCollectionsSourcesStorageTest: XCTestCase {
         }
     }
 
-    func assertHappyCase(storage: PackageCollectionsSourcesStorage) throws {
+    func assertHappyCase(storage: PackageCollectionsSourcesStorage) async throws {
         let sources = makeMockSources()
 
-        try sources.forEach { source in
-            _ = try temp_await { callback in storage.add(source: source, order: nil, callback: callback) }
+        for source in sources {
+            _ = try await storage.add(source: source, order: nil)
         }
 
         do {
-            let list = try temp_await { callback in storage.list(callback: callback) }
+            let list = try await storage.list()
             XCTAssertEqual(list.count, sources.count, "sources should match")
         }
 
         let remove = sources.enumerated().filter { index, _ in index % 2 == 0 }.map { $1 }
-        try remove.forEach { source in
-            _ = try temp_await { callback in storage.remove(source: source, callback: callback) }
+        for source in remove {
+            _ = try await storage.remove(source: source)
         }
 
         do {
-            let list = try temp_await { callback in storage.list(callback: callback) }
+            let list = try await storage.list()
             XCTAssertEqual(list.count, sources.count - remove.count, "sources should match")
         }
 
         let remaining = sources.filter { !remove.contains($0) }
-        try sources.forEach { source in
-            XCTAssertEqual(try temp_await { callback in storage.exists(source: source, callback: callback) }, remaining.contains(source))
+        for source in sources {
+            try await XCTAssertAsyncTrue(try await storage.exists(source: source) == remaining.contains(source))
         }
 
         do {
-            _ = try temp_await { callback in storage.move(source: remaining.last!, to: 0, callback: callback) }
-            let list = try temp_await { callback in storage.list(callback: callback) }
+            _ = try await storage.move(source: remaining.last!, to: 0)
+            let list = try await storage.list()
             XCTAssertEqual(list.count, remaining.count, "sources should match")
             XCTAssertEqual(list.first, remaining.last, "item should match")
         }
 
         do {
-            _ = try temp_await { callback in storage.move(source: remaining.last!, to: remaining.count - 1, callback: callback) }
-            let list = try temp_await { callback in storage.list(callback: callback) }
+            _ = try await storage.move(source: remaining.last!, to: remaining.count - 1)
+            let list = try await storage.list()
             XCTAssertEqual(list.count, remaining.count, "sources should match")
             XCTAssertEqual(list.last, remaining.last, "item should match")
         }
 
         do {
-            let list = try temp_await { callback in storage.list(callback: callback) }
+            let list = try await storage.list()
             var source = list.first!
             source.isTrusted = !(source.isTrusted ?? false)
-            _ = try temp_await { callback in storage.update(source: source, callback: callback) }
-            let listAfter = try temp_await { callback in storage.list(callback: callback) }
+            _ = try await storage.update(source: source)
+            let listAfter = try await storage.list()
             XCTAssertEqual(source.isTrusted, listAfter.first!.isTrusted, "isTrusted should match")
         }
 
         do {
-            let list = try temp_await { callback in storage.list(callback: callback) }
+            let list = try await storage.list()
             var source = list.first!
             source.skipSignatureCheck = !source.skipSignatureCheck
-            _ = try temp_await { callback in storage.update(source: source, callback: callback) }
-            let listAfter = try temp_await { callback in storage.list(callback: callback) }
+            _ = try await storage.update(source: source)
+            let listAfter = try await storage.list()
             XCTAssertEqual(source.skipSignatureCheck, listAfter.first!.skipSignatureCheck, "skipSignatureCheck should match")
         }
     }
 
-    func testFileDeleted() throws {
+    func testFileDeleted() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let storage = FilePackageCollectionsSourcesStorage(fileSystem: mockFileSystem)
 
         let sources = makeMockSources()
 
-        try sources.forEach { source in
-            _ = try temp_await { callback in storage.add(source: source, order: nil, callback: callback) }
+        for source in sources {
+            _ = try await storage.add(source: source, order: nil)
         }
 
         do {
-            let list = try temp_await { callback in storage.list(callback: callback) }
+            let list = try await storage.list()
             XCTAssertEqual(list.count, sources.count, "collections should match")
         }
 
@@ -122,23 +120,23 @@ final class PackageCollectionsSourcesStorageTest: XCTestCase {
         XCTAssertFalse(mockFileSystem.exists(storage.path), "expected file to be deleted")
 
         do {
-            let list = try temp_await { callback in storage.list(callback: callback) }
+            let list = try await storage.list()
             XCTAssertEqual(list.count, 0, "collections should match")
         }
     }
 
-    func testFileEmpty() throws {
+    func testFileEmpty() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let storage = FilePackageCollectionsSourcesStorage(fileSystem: mockFileSystem)
 
         let sources = makeMockSources()
 
-        try sources.forEach { source in
-            _ = try temp_await { callback in storage.add(source: source, order: nil, callback: callback) }
+        for source in sources {
+            _ = try await storage.add(source: source, order: nil)
         }
 
         do {
-            let list = try temp_await { callback in storage.list(callback: callback) }
+            let list = try await storage.list()
             XCTAssertEqual(list.count, sources.count, "collections should match")
         }
 
@@ -147,22 +145,22 @@ final class PackageCollectionsSourcesStorageTest: XCTestCase {
         XCTAssertEqual(buffer.count, 0, "expected file to be empty")
 
         do {
-            let list = try temp_await { callback in storage.list(callback: callback) }
+            let list = try await storage.list()
             XCTAssertEqual(list.count, 0, "collections should match")
         }
     }
 
-    func testFileCorrupt() throws {
+    func testFileCorrupt() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let storage = FilePackageCollectionsSourcesStorage(fileSystem: mockFileSystem)
 
         let sources = makeMockSources()
 
-        try sources.forEach { source in
-            _ = try temp_await { callback in storage.add(source: source, order: nil, callback: callback) }
+        for source in sources {
+            _ = try await storage.add(source: source, order: nil)
         }
 
-        let list = try temp_await { callback in storage.list(callback: callback) }
+        let list = try await storage.list()
         XCTAssertEqual(list.count, sources.count, "collections should match")
 
         try mockFileSystem.writeFileContents(storage.path, string: "{")
@@ -171,7 +169,7 @@ final class PackageCollectionsSourcesStorageTest: XCTestCase {
         XCTAssertNotEqual(buffer.count, 0, "expected file to be written")
         print(buffer)
 
-        XCTAssertThrowsError(try temp_await { callback in storage.list(callback: callback) }, "expected an error", { error in
+        await XCTAssertAsyncThrowsError(try await storage.list(), "expected an error", { error in
             XCTAssert(error is DecodingError, "expected error to match")
         })
     }

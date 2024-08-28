@@ -10,16 +10,17 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
+
 import Foundation
 import PackageGraph
 import PackageModel
 import SPMBuildCore
 
 import struct TSCBasic.ByteString
-import struct TSCBasic.ProcessResult
-import enum TSCBasic.ProcessEnv
-import class TSCBasic.Process
+import struct Basics.AsyncProcessResult
+import class Basics.AsyncProcess
 
 import struct TSCUtility.SerializedDiagnostics
 
@@ -141,6 +142,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // Get access to the path containing the PackagePlugin module and library.
         let pluginLibraryPath = self.toolchain.swiftPMLibrariesLocation.pluginLibraryPath
+        let pluginModulesPath = self.toolchain.swiftPMLibrariesLocation.pluginModulesPath
 
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
@@ -196,10 +198,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
-        if pluginLibraryPath.extension == "framework" {
-            commandLine += ["-I", pluginLibraryPath.parentDirectory.parentDirectory.pathString]
+        if pluginModulesPath.extension == "framework" {
+            commandLine += ["-I", pluginModulesPath.parentDirectory.parentDirectory.pathString]
         } else {
-            commandLine += ["-I", pluginLibraryPath.pathString]
+            commandLine += ["-I", pluginModulesPath.pathString]
         }
         #if os(macOS)
         if let sdkRoot = self.toolchain.sdkRootPath ?? self.sdkRoot() {
@@ -208,7 +210,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         #endif
 
         // Honor any module cache override that's set in the environment.
-        let moduleCachePath = ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]
+        let moduleCachePath = Environment.current["SWIFTPM_MODULECACHE_OVERRIDE"] ?? Environment.current["SWIFTPM_TESTS_MODULECACHE"]
         if let moduleCachePath {
             commandLine += ["-module-cache-path", moduleCachePath]
         }
@@ -270,7 +272,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         /// Persisted information about the last time the compiler was invoked.
         struct PersistedCompilationState: Codable {
             var commandLine: [String]
-            var environment: [String:String]
+            var environment: Environment
             var inputHash: String?
             var output: String
             var result: Result
@@ -279,7 +281,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 case abnormal(exception: UInt32)
                 case signal(number: Int32)
                 
-                init(_ processExitStatus: ProcessResult.ExitStatus) {
+                init(_ processExitStatus: AsyncProcessResult.ExitStatus) {
                     switch processExitStatus {
                     case .terminated(let code):
                         self = .exit(code: code)
@@ -338,8 +340,8 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         }
 
         // Otherwise we need to recompile. We start by telling the delegate.
-        delegate.willCompilePlugin(commandLine: commandLine, environment: environment)
-        
+        delegate.willCompilePlugin(commandLine: commandLine, environment: .init(environment))
+
         // Clean up any old files to avoid confusion if the compiler can't be invoked.
         do {
             try fileSystem.removeFileTree(execFilePath)
@@ -351,7 +353,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         }
         
         // Now invoke the compiler asynchronously.
-        TSCBasic.Process.popen(arguments: commandLine, environment: environment, queue: callbackQueue) {
+        AsyncProcess.popen(arguments: commandLine, environment: environment, queue: callbackQueue) {
             // We are now on our caller's requested callback queue, so we just call the completion handler directly.
             dispatchPrecondition(condition: .onQueue(callbackQueue))
             completion($0.tryMap { process in
@@ -364,7 +366,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 // Save the persisted compilation state for possible reuse next time.
                 let compilationState = PersistedCompilationState(
                     commandLine: commandLine,
-                    environment: toolchain.swiftCompilerEnvironment,
+                    environment: toolchain.swiftCompilerEnvironment.cachable,
                     inputHash: compilerInputHash,
                     output: compilerOutput,
                     result: .init(process.exitStatus))
@@ -404,7 +406,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         var sdkRootPath: Basics.AbsolutePath?
         // Find SDKROOT on macOS using xcrun.
         #if os(macOS)
-        let foundPath = try? TSCBasic.Process.checkNonZeroExit(
+        let foundPath = try? AsyncProcess.checkNonZeroExit(
             args: "/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"
         )
         guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
@@ -502,6 +504,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                                         }
                                     }
                                 })
+                            }
+                            catch DecodingError.keyNotFound(let key, _) where key.stringValue == "version" {
+                                print("message from plugin did not contain a 'version' key, likely an incompatible plugin library is being loaded by the plugin")
                             }
                             catch {
                                 print("error while trying to handle message from plugin: \(error.interpolationDescription)")
@@ -664,7 +669,7 @@ fileprivate extension FileHandle {
         guard header.count == 8 else {
             throw PluginMessageError.truncatedHeader
         }
-        let length = header.withUnsafeBytes{ $0.load(as: UInt64.self).littleEndian }
+        let length = header.withUnsafeBytes{ $0.loadUnaligned(as: UInt64.self).littleEndian }
         guard length >= 2 else {
             throw PluginMessageError.invalidPayloadSize
         }

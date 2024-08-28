@@ -13,7 +13,7 @@
 import Foundation
 
 /// Representation of Netrc configuration
-public struct Netrc {
+public struct Netrc: Sendable {
     /// Representation of `machine` connection settings & `default` connection settings.
     /// If `default` connection settings present, they will be last element.
     public let machines: [Machine]
@@ -37,7 +37,7 @@ public struct Netrc {
     }
 
     /// Representation of connection settings
-    public struct Machine: Equatable {
+    public struct Machine: Equatable, Sendable {
         public let name: String
         public let login: String
         public let password: String
@@ -147,7 +147,6 @@ public enum NetrcError: Error, Equatable {
 }
 
 private enum RegexUtil {
-    @frozen
     fileprivate enum Token: String, CaseIterable {
         case machine, login, password, account, macdef, `default`
 

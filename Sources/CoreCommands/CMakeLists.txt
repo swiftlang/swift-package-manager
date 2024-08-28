@@ -8,8 +8,8 @@
 
 add_library(CoreCommands
   BuildSystemSupport.swift
-  SwiftTool.swift
-  SwiftToolObservabilityHandler.swift
+  SwiftCommandState.swift
+  SwiftCommandObservabilityHandler.swift
   Options.swift)
 target_link_libraries(CoreCommands PUBLIC
   ArgumentParser
@@ -27,9 +27,7 @@ target_link_libraries(CoreCommands PRIVATE
 set_target_properties(CoreCommands PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
-if(USE_CMAKE_INSTALL)
 install(TARGETS CoreCommands
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
-endif()

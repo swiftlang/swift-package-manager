@@ -10,12 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
+
 /// `PackageCollection` provider. For example, package feeds, (future) Package Index.
 protocol PackageCollectionProvider {
     /// Retrieves `PackageCollection` from the specified source.
     ///
     /// - Parameters:
     ///   - source: Where the `PackageCollection` is located
-    ///   - callback: The closure to invoke when result becomes available
-    func get(_ source: PackageCollectionsModel.CollectionSource, callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void)
+    func get(_ source: Model.CollectionSource) async throws -> Model.Collection
 }

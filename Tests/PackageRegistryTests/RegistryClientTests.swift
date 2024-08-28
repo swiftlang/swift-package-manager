@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -11,22 +11,21 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import Foundation
 import PackageFingerprint
 import PackageLoading
 import PackageModel
 @testable import PackageRegistry
 import PackageSigning
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 import protocol TSCBasic.HashAlgorithm
-import class TSCBasic.InMemoryFileSystem
-
 import struct TSCUtility.Version
 
 final class RegistryClientTests: XCTestCase {
-    func testGetPackageMetadata() throws {
+    func testGetPackageMetadata() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let releasesURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)")
@@ -87,7 +86,7 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        let metadata = try registryClient.getPackageMetadata(package: identity)
+        let metadata = try await registryClient.getPackageMetadata(package: identity)
         XCTAssertEqual(metadata.versions, ["1.1.1", "1.0.0"])
         XCTAssertEqual(metadata.alternateLocations!, [
             SourceControlURL("https://github.com/mona/LinkedList"),
@@ -97,7 +96,7 @@ final class RegistryClientTests: XCTestCase {
         ])
     }
 
-    func testGetPackageMetadata_NotFound() throws {
+    func testGetPackageMetadata_NotFound() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let releasesURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)")
@@ -117,7 +116,7 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(try registryClient.getPackageMetadata(package: identity)) { error in
+        await XCTAssertAsyncThrowsError(try await registryClient.getPackageMetadata(package: identity)) { error in
             guard case RegistryError.failedRetrievingReleases(
                 registry: configuration.defaultRegistry!,
                 package: identity,
@@ -128,7 +127,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testGetPackageMetadata_ServerError() throws {
+    func testGetPackageMetadata_ServerError() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let releasesURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)")
@@ -148,7 +147,7 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(try registryClient.getPackageMetadata(package: identity)) { error in
+        await XCTAssertAsyncThrowsError(try await registryClient.getPackageMetadata(package: identity)) { error in
             guard case RegistryError
                 .failedRetrievingReleases(
                     registry: configuration.defaultRegistry!,
@@ -164,7 +163,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testGetPackageMetadata_RegistryNotAvailable() throws {
+    func testGetPackageMetadata_RegistryNotAvailable() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
 
@@ -179,7 +178,7 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = registry
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(try registryClient.getPackageMetadata(package: identity)) { error in
+        await XCTAssertAsyncThrowsError(try await registryClient.getPackageMetadata(package: identity)) { error in
             guard case RegistryError.registryNotAvailable(registry) = error
             else {
                 return XCTFail("unexpected error: '\(error)'")
@@ -187,7 +186,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testGetPackageVersionMetadata() throws {
+    func testGetPackageVersionMetadata() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -246,7 +245,7 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        let metadata = try registryClient.getPackageVersionMetadata(package: identity, version: version)
+        let metadata = try await registryClient.getPackageVersionMetadata(package: identity, version: version)
         XCTAssertEqual(metadata.resources.count, 1)
         XCTAssertEqual(metadata.resources[0].name, "source-archive")
         XCTAssertEqual(metadata.resources[0].type, "application/zip")
@@ -264,7 +263,7 @@ final class RegistryClientTests: XCTestCase {
         ])
     }
 
-    func testGetPackageVersionMetadata_404() throws {
+    func testGetPackageVersionMetadata_404() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -285,8 +284,8 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(
-            try registryClient
+        await XCTAssertAsyncThrowsError(
+            try await registryClient
                 .getPackageVersionMetadata(package: identity, version: version)
         ) { error in
             guard case RegistryError
@@ -302,7 +301,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testGetPackageVersionMetadata_ServerError() throws {
+    func testGetPackageVersionMetadata_ServerError() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -323,8 +322,8 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(
-            try registryClient
+        await XCTAssertAsyncThrowsError(
+            try await registryClient
                 .getPackageVersionMetadata(package: identity, version: version)
         ) { error in
             guard case RegistryError
@@ -343,7 +342,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testGetPackageVersionMetadata_RegistryNotAvailable() throws {
+    func testGetPackageVersionMetadata_RegistryNotAvailable() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -359,8 +358,8 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = registry
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(
-            try registryClient
+        await XCTAssertAsyncThrowsError(
+            try await registryClient
                 .getPackageVersionMetadata(package: identity, version: version)
         ) { error in
             guard case RegistryError.registryNotAvailable(registry) = error
@@ -370,7 +369,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testAvailableManifests() throws {
+    func testAvailableManifests() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -439,7 +438,7 @@ final class RegistryClientTests: XCTestCase {
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
-                let defaultManifestData = defaultManifest.data(using: .utf8)!
+                let defaultManifestData = Data(defaultManifest.utf8)
 
                 let links = """
                 <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
@@ -475,7 +474,7 @@ final class RegistryClientTests: XCTestCase {
             httpClient: httpClient,
             checksumAlgorithm: checksumAlgorithm
         )
-        let availableManifests = try registryClient.getAvailableManifests(
+        let availableManifests = try await registryClient.getAvailableManifests(
             package: identity,
             version: version
         )
@@ -490,7 +489,7 @@ final class RegistryClientTests: XCTestCase {
         XCTAssertEqual(availableManifests["Package@swift-5.3.swift"]?.content, .none)
     }
 
-    func testAvailableManifests_matchingChecksumInStorage() throws {
+    func testAvailableManifests_matchingChecksumInStorage() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -559,7 +558,7 @@ final class RegistryClientTests: XCTestCase {
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
-                let defaultManifestData = defaultManifest.data(using: .utf8)!
+                let defaultManifestData = Data(defaultManifest.utf8)
 
                 let links = """
                 <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
@@ -591,7 +590,7 @@ final class RegistryClientTests: XCTestCase {
         configuration.security = .testDefault
 
         let contentType = Fingerprint.ContentType.manifest(.none)
-        let manifestChecksum = checksumAlgorithm.hash(.init(defaultManifest.data(using: .utf8)!))
+        let manifestChecksum = checksumAlgorithm.hash(.init(Data(defaultManifest.utf8)))
             .hexadecimalRepresentation
         let fingerprintStorage = MockPackageFingerprintStorage([
             identity: [
@@ -614,7 +613,7 @@ final class RegistryClientTests: XCTestCase {
             fingerprintCheckingMode: .strict,
             checksumAlgorithm: checksumAlgorithm
         )
-        let availableManifests = try registryClient.getAvailableManifests(
+        let availableManifests = try await registryClient.getAvailableManifests(
             package: identity,
             version: version
         )
@@ -629,7 +628,7 @@ final class RegistryClientTests: XCTestCase {
         XCTAssertEqual(availableManifests["Package@swift-5.3.swift"]?.content, .none)
     }
 
-    func testAvailableManifests_nonMatchingChecksumInStorage_strict() throws {
+    func testAvailableManifests_nonMatchingChecksumInStorage_strict() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -698,7 +697,7 @@ final class RegistryClientTests: XCTestCase {
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
-                let defaultManifestData = defaultManifest.data(using: .utf8)!
+                let defaultManifestData = Data(defaultManifest.utf8)
 
                 let links = """
                 <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
@@ -752,8 +751,8 @@ final class RegistryClientTests: XCTestCase {
             checksumAlgorithm: checksumAlgorithm
         )
 
-        XCTAssertThrowsError(
-            try registryClient.getAvailableManifests(
+        await XCTAssertAsyncThrowsError(
+            try await registryClient.getAvailableManifests(
                 package: identity,
                 version: version
             )
@@ -764,7 +763,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testAvailableManifests_nonMatchingChecksumInStorage_warn() throws {
+    func testAvailableManifests_nonMatchingChecksumInStorage_warn() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -833,7 +832,7 @@ final class RegistryClientTests: XCTestCase {
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
-                let defaultManifestData = defaultManifest.data(using: .utf8)!
+                let defaultManifestData = Data(defaultManifest.utf8)
 
                 let links = """
                 <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
@@ -890,7 +889,7 @@ final class RegistryClientTests: XCTestCase {
         let observability = ObservabilitySystem.makeForTesting()
         // The checksum differs from that in storage, but error is not thrown
         // because fingerprintCheckingMode=.warn
-        let availableManifests = try registryClient.getAvailableManifests(
+        let availableManifests = try await registryClient.getAvailableManifests(
             package: identity,
             version: version,
             observabilityScope: observability.topScope
@@ -911,7 +910,7 @@ final class RegistryClientTests: XCTestCase {
         XCTAssertEqual(availableManifests["Package@swift-5.3.swift"]?.content, .none)
     }
 
-    func testAvailableManifests_404() throws {
+    func testAvailableManifests_404() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -960,7 +959,7 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(try registryClient.getAvailableManifests(package: identity, version: version)) { error in
+        await XCTAssertAsyncThrowsError(try await registryClient.getAvailableManifests(package: identity, version: version)) { error in
             guard case RegistryError
                 .failedRetrievingManifest(
                     registry: configuration.defaultRegistry!,
@@ -974,7 +973,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testAvailableManifests_ServerError() throws {
+    func testAvailableManifests_ServerError() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -1023,7 +1022,7 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(try registryClient.getAvailableManifests(package: identity, version: version)) { error in
+        await XCTAssertAsyncThrowsError(try await registryClient.getAvailableManifests(package: identity, version: version)) { error in
             guard case RegistryError
                 .failedRetrievingManifest(
                     registry: configuration.defaultRegistry!,
@@ -1038,7 +1037,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testAvailableManifests_RegistryNotAvailable() throws {
+    func testAvailableManifests_RegistryNotAvailable() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -1054,7 +1053,7 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = registry
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(try registryClient.getAvailableManifests(package: identity, version: version)) { error in
+        await XCTAssertAsyncThrowsError(try await registryClient.getAvailableManifests(package: identity, version: version)) { error in
             guard case RegistryError.registryNotAvailable(registry) = error
             else {
                 return XCTFail("unexpected error: '\(error)'")
@@ -1062,7 +1061,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testGetManifestContent() throws {
+    func testGetManifestContent() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -1157,7 +1156,7 @@ final class RegistryClientTests: XCTestCase {
         )
 
         do {
-            let manifest = try registryClient.getManifestContent(
+            let manifest = try await registryClient.getManifestContent(
                 package: identity,
                 version: version,
                 customToolsVersion: nil
@@ -1167,7 +1166,7 @@ final class RegistryClientTests: XCTestCase {
         }
 
         do {
-            let manifest = try registryClient.getManifestContent(
+            let manifest = try await registryClient.getManifestContent(
                 package: identity,
                 version: version,
                 customToolsVersion: .v5_3
@@ -1177,7 +1176,7 @@ final class RegistryClientTests: XCTestCase {
         }
 
         do {
-            let manifest = try registryClient.getManifestContent(
+            let manifest = try await registryClient.getManifestContent(
                 package: identity,
                 version: version,
                 customToolsVersion: .v4
@@ -1187,7 +1186,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testGetManifestContent_optionalContentVersion() throws {
+    func testGetManifestContent_optionalContentVersion() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -1282,7 +1281,7 @@ final class RegistryClientTests: XCTestCase {
         )
 
         do {
-            let manifest = try registryClient.getManifestContent(
+            let manifest = try await registryClient.getManifestContent(
                 package: identity,
                 version: version,
                 customToolsVersion: nil
@@ -1292,7 +1291,7 @@ final class RegistryClientTests: XCTestCase {
         }
 
         do {
-            let manifest = try registryClient.getManifestContent(
+            let manifest = try await registryClient.getManifestContent(
                 package: identity,
                 version: version,
                 customToolsVersion: .v5_3
@@ -1302,7 +1301,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testGetManifestContent_matchingChecksumInStorage() throws {
+    func testGetManifestContent_matchingChecksumInStorage() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -1360,7 +1359,7 @@ final class RegistryClientTests: XCTestCase {
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
-                let data = manifestContent(toolsVersion: toolsVersion).data(using: .utf8)!
+                let data = Data(manifestContent(toolsVersion: toolsVersion).utf8)
 
                 completion(.success(.init(
                     statusCode: 200,
@@ -1385,9 +1384,9 @@ final class RegistryClientTests: XCTestCase {
         configuration.security = .testDefault
 
         let defaultManifestChecksum = checksumAlgorithm
-            .hash(.init(manifestContent(toolsVersion: .none).data(using: .utf8)!)).hexadecimalRepresentation
+            .hash(.init(Data(manifestContent(toolsVersion: .none).utf8))).hexadecimalRepresentation
         let versionManifestChecksum = checksumAlgorithm
-            .hash(.init(manifestContent(toolsVersion: .v5_3).data(using: .utf8)!)).hexadecimalRepresentation
+            .hash(.init(Data(manifestContent(toolsVersion: .v5_3).utf8))).hexadecimalRepresentation
         let fingerprintStorage = MockPackageFingerprintStorage([
             identity: [
                 version: [
@@ -1416,7 +1415,7 @@ final class RegistryClientTests: XCTestCase {
         )
 
         do {
-            let manifest = try registryClient.getManifestContent(
+            let manifest = try await registryClient.getManifestContent(
                 package: identity,
                 version: version,
                 customToolsVersion: nil
@@ -1426,7 +1425,7 @@ final class RegistryClientTests: XCTestCase {
         }
 
         do {
-            let manifest = try registryClient.getManifestContent(
+            let manifest = try await registryClient.getManifestContent(
                 package: identity,
                 version: version,
                 customToolsVersion: .v5_3
@@ -1436,7 +1435,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testGetManifestContent_nonMatchingChecksumInStorage_strict() throws {
+    func testGetManifestContent_nonMatchingChecksumInStorage_strict() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -1494,7 +1493,7 @@ final class RegistryClientTests: XCTestCase {
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
-                let data = manifestContent(toolsVersion: toolsVersion).data(using: .utf8)!
+                let data = Data(manifestContent(toolsVersion: toolsVersion).utf8)
 
                 completion(.success(.init(
                     statusCode: 200,
@@ -1545,8 +1544,8 @@ final class RegistryClientTests: XCTestCase {
             checksumAlgorithm: checksumAlgorithm
         )
 
-        XCTAssertThrowsError(
-            try registryClient.getManifestContent(
+        await XCTAssertAsyncThrowsError(
+            try await registryClient.getManifestContent(
                 package: identity,
                 version: version,
                 customToolsVersion: nil
@@ -1557,8 +1556,8 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        XCTAssertThrowsError(
-            try registryClient.getManifestContent(
+        await XCTAssertAsyncThrowsError(
+            try await registryClient.getManifestContent(
                 package: identity,
                 version: version,
                 customToolsVersion: .v5_3
@@ -1570,7 +1569,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testGetManifestContent_matchingChecksumInStorage_warn() throws {
+    func testGetManifestContent_matchingChecksumInStorage_warn() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -1628,7 +1627,7 @@ final class RegistryClientTests: XCTestCase {
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
-                let data = manifestContent(toolsVersion: toolsVersion).data(using: .utf8)!
+                let data = Data(manifestContent(toolsVersion: toolsVersion).utf8)
 
                 completion(.success(.init(
                     statusCode: 200,
@@ -1683,7 +1682,7 @@ final class RegistryClientTests: XCTestCase {
             let observability = ObservabilitySystem.makeForTesting()
             // The checksum differs from that in storage, but error is not thrown
             // because fingerprintCheckingMode=.warn
-            let manifest = try registryClient.getManifestContent(
+            let manifest = try await registryClient.getManifestContent(
                 package: identity,
                 version: version,
                 customToolsVersion: nil,
@@ -1703,7 +1702,7 @@ final class RegistryClientTests: XCTestCase {
             let observability = ObservabilitySystem.makeForTesting()
             // The checksum differs from that in storage, but error is not thrown
             // because fingerprintCheckingMode=.warn
-            let manifest = try registryClient.getManifestContent(
+            let manifest = try await registryClient.getManifestContent(
                 package: identity,
                 version: version,
                 customToolsVersion: .v5_3,
@@ -1720,7 +1719,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testGetManifestContent_404() throws {
+    func testGetManifestContent_404() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -1769,8 +1768,8 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(
-            try registryClient
+        await XCTAssertAsyncThrowsError(
+            try await registryClient
                 .getManifestContent(package: identity, version: version, customToolsVersion: nil)
         ) { error in
             guard case RegistryError
@@ -1786,7 +1785,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testGetManifestContent_ServerError() throws {
+    func testGetManifestContent_ServerError() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -1835,8 +1834,8 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(
-            try registryClient
+        await XCTAssertAsyncThrowsError(
+            try await registryClient
                 .getManifestContent(package: identity, version: version, customToolsVersion: nil)
         ) { error in
             guard case RegistryError
@@ -1853,7 +1852,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testGetManifestContent_RegistryNotAvailable() throws {
+    func testGetManifestContent_RegistryNotAvailable() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -1869,8 +1868,8 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = registry
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(
-            try registryClient
+        await XCTAssertAsyncThrowsError(
+            try await registryClient
                 .getManifestContent(package: identity, version: version, customToolsVersion: nil)
         ) { error in
             guard case RegistryError
@@ -1881,7 +1880,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testDownloadSourceArchive() throws {
+    func testDownloadSourceArchive() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.registry("mona.LinkedList")
         let version = Version("1.1.1")
@@ -1996,7 +1995,7 @@ final class RegistryClientTests: XCTestCase {
         let fileSystem = InMemoryFileSystem()
         let path = try! AbsolutePath(validating: "/\(identity)-\(version)")
 
-        try registryClient.downloadSourceArchive(
+        try await registryClient.downloadSourceArchive(
             package: identity.underlying,
             version: version,
             fileSystem: fileSystem,
@@ -2017,7 +2016,7 @@ final class RegistryClientTests: XCTestCase {
         XCTAssertEqual(storedMetadata.metadata.scmRepositoryURLs, repositoryURLs)
     }
 
-    func testDownloadSourceArchive_matchingChecksumInStorage() throws {
+    func testDownloadSourceArchive_matchingChecksumInStorage() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -2137,7 +2136,7 @@ final class RegistryClientTests: XCTestCase {
         let fileSystem = InMemoryFileSystem()
         let path = AbsolutePath("/LinkedList-1.1.1")
 
-        try registryClient.downloadSourceArchive(
+        try await registryClient.downloadSourceArchive(
             package: identity,
             version: version,
             fileSystem: fileSystem,
@@ -2148,7 +2147,7 @@ final class RegistryClientTests: XCTestCase {
         XCTAssertEqual(contents.sorted(), [RegistryReleaseMetadataStorage.fileName, "Package.swift"].sorted())
     }
 
-    func testDownloadSourceArchive_nonMatchingChecksumInStorage() throws {
+    func testDownloadSourceArchive_nonMatchingChecksumInStorage() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -2268,8 +2267,8 @@ final class RegistryClientTests: XCTestCase {
         let fileSystem = InMemoryFileSystem()
         let path = AbsolutePath("/LinkedList-1.1.1")
 
-        XCTAssertThrowsError(
-            try registryClient.downloadSourceArchive(
+        await XCTAssertAsyncThrowsError(
+            try await registryClient.downloadSourceArchive(
                 package: identity,
                 version: version,
                 fileSystem: fileSystem,
@@ -2285,7 +2284,7 @@ final class RegistryClientTests: XCTestCase {
         XCTAssertFalse(fileSystem.exists(path))
     }
 
-    func testDownloadSourceArchive_nonMatchingChecksumInStorage_fingerprintChecking_warn() throws {
+    func testDownloadSourceArchive_nonMatchingChecksumInStorage_fingerprintChecking_warn() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -2408,7 +2407,7 @@ final class RegistryClientTests: XCTestCase {
 
         // The checksum differs from that in storage, but error is not thrown
         // because fingerprintCheckingMode=.warn
-        try registryClient.downloadSourceArchive(
+        try await registryClient.downloadSourceArchive(
             package: identity,
             version: version,
             fileSystem: fileSystem,
@@ -2425,7 +2424,7 @@ final class RegistryClientTests: XCTestCase {
         XCTAssertEqual(contents.sorted(), [RegistryReleaseMetadataStorage.fileName, "Package.swift"].sorted())
     }
 
-    func testDownloadSourceArchive_checksumNotInStorage() throws {
+    func testDownloadSourceArchive_checksumNotInStorage() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -2527,7 +2526,7 @@ final class RegistryClientTests: XCTestCase {
         let fileSystem = InMemoryFileSystem()
         let path = AbsolutePath("/LinkedList-1.1.1")
 
-        try registryClient.downloadSourceArchive(
+        try await registryClient.downloadSourceArchive(
             package: identity,
             version: version,
             fileSystem: fileSystem,
@@ -2538,23 +2537,19 @@ final class RegistryClientTests: XCTestCase {
         XCTAssertEqual(contents.sorted(), [RegistryReleaseMetadataStorage.fileName, "Package.swift"].sorted())
 
         // Expected checksum is not found in storage so the metadata API will be called
-        let fingerprint = try temp_await { callback in
-            fingerprintStorage.get(
-                package: identity,
-                version: version,
-                kind: .registry,
-                contentType: .sourceCode,
-                observabilityScope: ObservabilitySystem
-                    .NOOP,
-                callbackQueue: .sharedConcurrent,
-                callback: callback
-            )
-        }
+        let fingerprint = try fingerprintStorage.get(
+            package: identity,
+            version: version,
+            kind: .registry,
+            contentType: .sourceCode,
+            observabilityScope: ObservabilitySystem
+                .NOOP
+        )
         XCTAssertEqual(SourceControlURL(registryURL), fingerprint.origin.url)
         XCTAssertEqual(checksum, fingerprint.value)
     }
 
-    func testDownloadSourceArchive_optionalContentVersion() throws {
+    func testDownloadSourceArchive_optionalContentVersion() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -2656,7 +2651,7 @@ final class RegistryClientTests: XCTestCase {
         let fileSystem = InMemoryFileSystem()
         let path = AbsolutePath("/LinkedList-1.1.1")
 
-        try registryClient.downloadSourceArchive(
+        try await registryClient.downloadSourceArchive(
             package: identity,
             version: version,
             fileSystem: fileSystem,
@@ -2668,7 +2663,7 @@ final class RegistryClientTests: XCTestCase {
         XCTAssertEqual(contents.sorted(), [RegistryReleaseMetadataStorage.fileName, "Package.swift"].sorted())
     }
 
-    func testDownloadSourceArchive_404() throws {
+    func testDownloadSourceArchive_404() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -2730,7 +2725,7 @@ final class RegistryClientTests: XCTestCase {
         let fileSystem = InMemoryFileSystem()
         let path = AbsolutePath("/LinkedList-1.1.1")
 
-        XCTAssertThrowsError(try registryClient.downloadSourceArchive(
+        await XCTAssertAsyncThrowsError(try await registryClient.downloadSourceArchive(
             package: identity,
             version: version,
             fileSystem: fileSystem,
@@ -2749,7 +2744,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testDownloadSourceArchive_ServerError() throws {
+    func testDownloadSourceArchive_ServerError() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -2811,7 +2806,7 @@ final class RegistryClientTests: XCTestCase {
         let fileSystem = InMemoryFileSystem()
         let path = AbsolutePath("/LinkedList-1.1.1")
 
-        XCTAssertThrowsError(try registryClient.downloadSourceArchive(
+        await XCTAssertAsyncThrowsError(try await registryClient.downloadSourceArchive(
             package: identity,
             version: version,
             fileSystem: fileSystem,
@@ -2831,7 +2826,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testDownloadSourceArchive_RegistryNotAvailable() throws {
+    func testDownloadSourceArchive_RegistryNotAvailable() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -2861,7 +2856,7 @@ final class RegistryClientTests: XCTestCase {
         let fileSystem = InMemoryFileSystem()
         let path = AbsolutePath("/LinkedList-1.1.1")
 
-        XCTAssertThrowsError(try registryClient.downloadSourceArchive(
+        await XCTAssertAsyncThrowsError(try await registryClient.downloadSourceArchive(
             package: identity,
             version: version,
             fileSystem: fileSystem,
@@ -2875,7 +2870,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testLookupIdentities() throws {
+    func testLookupIdentities() async throws {
         let registryURL = URL("https://packages.example.com")
         let packageURL = SourceControlURL("https://example.com/mona/LinkedList")
         let identifiersURL = URL("\(registryURL)/identifiers?url=\(packageURL.absoluteString)")
@@ -2915,11 +2910,11 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        let identities = try registryClient.lookupIdentities(scmURL: packageURL)
+        let identities = try await registryClient.lookupIdentities(scmURL: packageURL)
         XCTAssertEqual([PackageIdentity.plain("mona.LinkedList")], identities)
     }
 
-    func testLookupIdentities404() throws {
+    func testLookupIdentities404() async throws {
         let registryURL = URL("https://packages.example.com")
         let packageURL = SourceControlURL("https://example.com/mona/LinkedList")
         let identifiersURL = URL("\(registryURL)/identifiers?url=\(packageURL.absoluteString)")
@@ -2942,11 +2937,11 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        let identities = try registryClient.lookupIdentities(scmURL: packageURL)
+        let identities = try await registryClient.lookupIdentities(scmURL: packageURL)
         XCTAssertEqual([], identities)
     }
 
-    func testLookupIdentities_ServerError() throws {
+    func testLookupIdentities_ServerError() async throws {
         let registryURL = URL("https://packages.example.com")
         let packageURL = SourceControlURL("https://example.com/mona/LinkedList")
         let identifiersURL = URL("\(registryURL)/identifiers?url=\(packageURL.absoluteString)")
@@ -2966,7 +2961,7 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(try registryClient.lookupIdentities(scmURL: packageURL)) { error in
+        await XCTAssertAsyncThrowsError(try await registryClient.lookupIdentities(scmURL: packageURL)) { error in
             guard case RegistryError
                 .failedIdentityLookup(
                     registry: configuration.defaultRegistry!,
@@ -2980,7 +2975,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testRequestAuthorization_token() throws {
+    func testRequestAuthorization_token() async throws {
         let registryURL = URL("https://packages.example.com")
         let packageURL = SourceControlURL("https://example.com/mona/LinkedList")
         let identifiersURL = URL("\(registryURL)/identifiers?url=\(packageURL.absoluteString)")
@@ -3030,11 +3025,11 @@ final class RegistryClientTests: XCTestCase {
             httpClient: httpClient,
             authorizationProvider: authorizationProvider
         )
-        let identities = try registryClient.lookupIdentities(scmURL: packageURL)
+        let identities = try await registryClient.lookupIdentities(scmURL: packageURL)
         XCTAssertEqual([PackageIdentity.plain("mona.LinkedList")], identities)
     }
 
-    func testRequestAuthorization_basic() throws {
+    func testRequestAuthorization_basic() async throws {
         let registryURL = URL("https://packages.example.com")
         let packageURL = SourceControlURL("https://example.com/mona/LinkedList")
         let identifiersURL = URL("\(registryURL)/identifiers?url=\(packageURL.absoluteString)")
@@ -3047,7 +3042,7 @@ final class RegistryClientTests: XCTestCase {
             case (.get, identifiersURL):
                 XCTAssertEqual(
                     request.headers.get("Authorization").first,
-                    "Basic \("\(user):\(password)".data(using: .utf8)!.base64EncodedString())"
+                    "Basic \(Data("\(user):\(password)".utf8).base64EncodedString())"
                 )
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
 
@@ -3088,11 +3083,11 @@ final class RegistryClientTests: XCTestCase {
             httpClient: httpClient,
             authorizationProvider: authorizationProvider
         )
-        let identities = try registryClient.lookupIdentities(scmURL: packageURL)
+        let identities = try await registryClient.lookupIdentities(scmURL: packageURL)
         XCTAssertEqual([PackageIdentity.plain("mona.LinkedList")], identities)
     }
 
-    func testLogin() throws {
+    func testLogin() async throws {
         let registryURL = URL("https://packages.example.com")
         let loginURL = URL("\(registryURL)/login")
 
@@ -3129,10 +3124,10 @@ final class RegistryClientTests: XCTestCase {
             httpClient: httpClient,
             authorizationProvider: authorizationProvider
         )
-        XCTAssertNoThrow(try registryClient.login(loginURL: loginURL))
+        try await registryClient.login(loginURL: loginURL)
     }
 
-    func testLogin_missingCredentials() throws {
+    func testLogin_missingCredentials() async throws {
         let registryURL = URL("https://packages.example.com")
         let loginURL = URL("\(registryURL)/login")
 
@@ -3164,14 +3159,14 @@ final class RegistryClientTests: XCTestCase {
             httpClient: httpClient
         )
 
-        XCTAssertThrowsError(try registryClient.login(loginURL: loginURL)) { error in
+        await XCTAssertAsyncThrowsError(try await registryClient.login(loginURL: loginURL)) { error in
             guard case RegistryError.loginFailed(_, _) = error else {
                 return XCTFail("Expected RegistryError.unauthorized, got \(error)")
             }
         }
     }
 
-    func testLogin_authenticationMethodNotSupported() throws {
+    func testLogin_authenticationMethodNotSupported() async throws {
         let registryURL = URL("https://packages.example.com")
         let loginURL = URL("\(registryURL)/login")
 
@@ -3209,14 +3204,14 @@ final class RegistryClientTests: XCTestCase {
             authorizationProvider: authorizationProvider
         )
 
-        XCTAssertThrowsError(try registryClient.login(loginURL: loginURL)) { error in
+        await XCTAssertAsyncThrowsError(try await registryClient.login(loginURL: loginURL)) { error in
             guard case RegistryError.loginFailed = error else {
                 return XCTFail("Expected RegistryError.authenticationMethodNotSupported, got \(error)")
             }
         }
     }
 
-    func testRegistryPublishSync() throws {
+    func testRegistryPublishSync() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -3234,7 +3229,7 @@ final class RegistryClientTests: XCTestCase {
                 XCTAssertNil(request.headers.get("X-Swift-Package-Signature-Format").first)
 
                 // TODO: implement multipart form parsing
-                let body = String(data: request.body!, encoding: .utf8)
+                let body = String(decoding: request.body!, as: UTF8.self)
                 XCTAssertMatch(body, .contains(archiveContent))
                 XCTAssertMatch(body, .contains(metadataContent))
 
@@ -3251,7 +3246,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        try withTemporaryDirectory { temporaryDirectory in
+        try await withTemporaryDirectory { temporaryDirectory in
             let archivePath = temporaryDirectory.appending("\(identity)-\(version).zip")
             try localFileSystem.writeFileContents(archivePath, string: archiveContent)
 
@@ -3266,7 +3261,7 @@ final class RegistryClientTests: XCTestCase {
             configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
             let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-            let result = try registryClient.publish(
+            let result = try await registryClient.publish(
                 registryURL: registryURL,
                 packageIdentity: identity,
                 packageVersion: version,
@@ -3282,7 +3277,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testRegistryPublishAsync() throws {
+    func testRegistryPublishAsync() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -3301,7 +3296,7 @@ final class RegistryClientTests: XCTestCase {
                 XCTAssertNil(request.headers.get("X-Swift-Package-Signature-Format").first)
 
                 // TODO: implement multipart form parsing
-                let body = String(data: request.body!, encoding: .utf8)
+                let body = String(decoding: request.body!, as: UTF8.self)
                 XCTAssertMatch(body, .contains(archiveContent))
                 XCTAssertMatch(body, .contains(metadataContent))
 
@@ -3319,7 +3314,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        try withTemporaryDirectory { temporaryDirectory in
+        try await withTemporaryDirectory { temporaryDirectory in
             let archivePath = temporaryDirectory.appending("\(identity)-\(version).zip")
             try localFileSystem.writeFileContents(archivePath, string: archiveContent)
 
@@ -3334,7 +3329,7 @@ final class RegistryClientTests: XCTestCase {
             configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
             let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-            let result = try registryClient.publish(
+            let result = try await registryClient.publish(
                 registryURL: registryURL,
                 packageIdentity: identity,
                 packageVersion: version,
@@ -3350,7 +3345,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testRegistryPublishWithSignature() throws {
+    func testRegistryPublishWithSignature() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -3371,7 +3366,7 @@ final class RegistryClientTests: XCTestCase {
                 XCTAssertEqual(request.headers.get("X-Swift-Package-Signature-Format").first, signatureFormat.rawValue)
 
                 // TODO: implement multipart form parsing
-                let body = String(data: request.body!, encoding: .utf8)
+                let body = String(decoding: request.body!, as: UTF8.self)
                 XCTAssertMatch(body, .contains(archiveContent))
                 XCTAssertMatch(body, .contains(metadataContent))
                 XCTAssertMatch(body, .contains(signature))
@@ -3390,7 +3385,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        try withTemporaryDirectory { temporaryDirectory in
+        try await withTemporaryDirectory { temporaryDirectory in
             let archivePath = temporaryDirectory.appending(component: "\(identity)-\(version).zip")
             try localFileSystem.writeFileContents(archivePath, string: archiveContent)
 
@@ -3405,7 +3400,7 @@ final class RegistryClientTests: XCTestCase {
             configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
             let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-            let result = try registryClient.publish(
+            let result = try await registryClient.publish(
                 registryURL: registryURL,
                 packageIdentity: identity,
                 packageVersion: version,
@@ -3450,7 +3445,7 @@ final class RegistryClientTests: XCTestCase {
             configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
             let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-            XCTAssertThrowsError(try registryClient.publish(
+            await XCTAssertAsyncThrowsError(try await registryClient.publish(
                 registryURL: registryURL,
                 packageIdentity: identity,
                 packageVersion: version,
@@ -3497,7 +3492,7 @@ final class RegistryClientTests: XCTestCase {
             configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
             let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-            XCTAssertThrowsError(try registryClient.publish(
+            await XCTAssertAsyncThrowsError(try await registryClient.publish(
                 registryURL: registryURL,
                 packageIdentity: identity,
                 packageVersion: version,
@@ -3544,7 +3539,7 @@ final class RegistryClientTests: XCTestCase {
             configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
             let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-            XCTAssertThrowsError(try registryClient.publish(
+            await XCTAssertAsyncThrowsError(try await registryClient.publish(
                 registryURL: registryURL,
                 packageIdentity: identity,
                 packageVersion: version,
@@ -3590,7 +3585,7 @@ final class RegistryClientTests: XCTestCase {
             configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
             let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-            XCTAssertThrowsError(try registryClient.publish(
+            await XCTAssertAsyncThrowsError(try await registryClient.publish(
                 registryURL: registryURL,
                 packageIdentity: identity,
                 packageVersion: version,
@@ -3639,7 +3634,7 @@ final class RegistryClientTests: XCTestCase {
             configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
             let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-            XCTAssertThrowsError(try registryClient.publish(
+            await XCTAssertAsyncThrowsError(try await registryClient.publish(
                 registryURL: registryURL,
                 packageIdentity: identity,
                 packageVersion: version,
@@ -3680,7 +3675,7 @@ final class RegistryClientTests: XCTestCase {
             configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
             let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-            XCTAssertThrowsError(try registryClient.publish(
+            await XCTAssertAsyncThrowsError(try await registryClient.publish(
                 registryURL: registryURL,
                 packageIdentity: identity,
                 packageVersion: version,
@@ -3698,7 +3693,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testRegistryAvailability() throws {
+    func testRegistryAvailability() async throws {
         let registryURL = URL("https://packages.example.com")
         let availabilityURL = URL("\(registryURL)/availability")
 
@@ -3722,11 +3717,11 @@ final class RegistryClientTests: XCTestCase {
             httpClient: httpClient
         )
 
-        let status = try registryClient.checkAvailability(registry: registry)
+        let status = try await registryClient.checkAvailability(registry: registry)
         XCTAssertEqual(status, .available)
     }
 
-    func testRegistryAvailability_NotAvailable() throws {
+    func testRegistryAvailability_NotAvailable() async throws {
         let registryURL = URL("https://packages.example.com")
         let availabilityURL = URL("\(registryURL)/availability")
 
@@ -3751,12 +3746,12 @@ final class RegistryClientTests: XCTestCase {
                 httpClient: httpClient
             )
 
-            let status = try registryClient.checkAvailability(registry: registry)
+            let status = try await registryClient.checkAvailability(registry: registry)
             XCTAssertEqual(status, .unavailable)
         }
     }
 
-    func testRegistryAvailability_ServerError() throws {
+    func testRegistryAvailability_ServerError() async throws {
         let registryURL = URL("https://packages.example.com")
         let availabilityURL = URL("\(registryURL)/availability")
 
@@ -3780,11 +3775,11 @@ final class RegistryClientTests: XCTestCase {
             httpClient: httpClient
         )
 
-        let status = try registryClient.checkAvailability(registry: registry)
+        let status = try await registryClient.checkAvailability(registry: registry)
         XCTAssertEqual(status, .error("unknown server error (500)"))
     }
 
-    func testRegistryAvailability_NotSupported() throws {
+    func testRegistryAvailability_NotSupported() async throws {
         let registryURL = URL("https://packages.example.com")
         let availabilityURL = URL("\(registryURL)/availability")
 
@@ -3808,7 +3803,7 @@ final class RegistryClientTests: XCTestCase {
             httpClient: httpClient
         )
 
-        XCTAssertThrowsError(try registryClient.checkAvailability(registry: registry)) { error in
+        await XCTAssertAsyncThrowsError(try await registryClient.checkAvailability(registry: registry)) { error in
             XCTAssertEqual(
                 error as? StringError,
                 StringError("registry \(registry.url) does not support availability checks.")
@@ -3820,57 +3815,54 @@ final class RegistryClientTests: XCTestCase {
 // MARK: - Sugar
 
 extension RegistryClient {
-    fileprivate func getPackageMetadata(package: PackageIdentity) throws -> RegistryClient.PackageMetadata {
-        try temp_await {
-            self.getPackageMetadata(
-                package: package,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+    fileprivate func getPackageMetadata(package: PackageIdentity) async throws -> RegistryClient.PackageMetadata {
+        try await self.getPackageMetadata(
+            package: package,
+            observabilityScope: ObservabilitySystem.NOOP,
+            callbackQueue: .sharedConcurrent
+        )
     }
 
     func getPackageVersionMetadata(
         package: PackageIdentity,
         version: Version
-    ) throws -> PackageVersionMetadata {
-        try temp_await {
-            self.getPackageVersionMetadata(
-                package: package,
-                version: version,
-                fileSystem: InMemoryFileSystem(),
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+    ) async throws -> PackageVersionMetadata {
+        try await self.getPackageVersionMetadata(
+            package: package,
+            version: version,
+            fileSystem: InMemoryFileSystem(),
+            observabilityScope: ObservabilitySystem.NOOP,
+            callbackQueue: .sharedConcurrent
+        )
     }
 
     func getPackageVersionMetadata(
         package: PackageIdentity.RegistryIdentity,
         version: Version
-    ) throws -> PackageVersionMetadata {
-        try self.getPackageVersionMetadata(
-            package: package.underlying,
-            version: version
-        )
+    ) async throws -> PackageVersionMetadata {
+        return try await withCheckedThrowingContinuation {
+            self.getPackageVersionMetadata(
+                package: package.underlying,
+                version: version,
+                fileSystem: InMemoryFileSystem(),
+                observabilityScope: ObservabilitySystem.NOOP,
+                callbackQueue: .sharedConcurrent,
+                completion: $0.resume(with:)
+            )
+        }
     }
 
     fileprivate func getAvailableManifests(
         package: PackageIdentity,
         version: Version,
         observabilityScope: ObservabilityScope = ObservabilitySystem.NOOP
-    ) throws -> [String: (toolsVersion: ToolsVersion, content: String?)] {
-        try temp_await {
-            self.getAvailableManifests(
-                package: package,
-                version: version,
-                observabilityScope: observabilityScope,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+    ) async throws -> [String: (toolsVersion: ToolsVersion, content: String?)] {
+        try await self.getAvailableManifests(
+            package: package,
+            version: version,
+            observabilityScope: observabilityScope,
+            callbackQueue: .sharedConcurrent
+        )
     }
 
     fileprivate func getManifestContent(
@@ -3878,17 +3870,14 @@ extension RegistryClient {
         version: Version,
         customToolsVersion: ToolsVersion?,
         observabilityScope: ObservabilityScope = ObservabilitySystem.NOOP
-    ) throws -> String {
-        try temp_await {
-            self.getManifestContent(
-                package: package,
-                version: version,
-                customToolsVersion: customToolsVersion,
-                observabilityScope: observabilityScope,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+    ) async throws -> String {
+        try await self.getManifestContent(
+            package: package,
+            version: version,
+            customToolsVersion: customToolsVersion,
+            observabilityScope: observabilityScope,
+            callbackQueue: .sharedConcurrent
+        )
     }
 
     fileprivate func downloadSourceArchive(
@@ -3897,41 +3886,32 @@ extension RegistryClient {
         fileSystem: FileSystem,
         destinationPath: AbsolutePath,
         observabilityScope: ObservabilityScope = ObservabilitySystem.NOOP
-    ) throws {
-        try temp_await {
-            self.downloadSourceArchive(
-                package: package,
-                version: version,
-                destinationPath: destinationPath,
-                progressHandler: .none,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+    ) async throws {
+        try await self.downloadSourceArchive(
+            package: package,
+            version: version,
+            destinationPath: destinationPath,
+            progressHandler: .none,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope,
+            callbackQueue: .sharedConcurrent
+        )
     }
 
-    fileprivate func lookupIdentities(scmURL: SourceControlURL) throws -> Set<PackageIdentity> {
-        try temp_await {
-            self.lookupIdentities(
-                scmURL: scmURL,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+    fileprivate func lookupIdentities(scmURL: SourceControlURL) async throws -> Set<PackageIdentity> {
+        try await self.lookupIdentities(
+            scmURL: scmURL,
+            observabilityScope: ObservabilitySystem.NOOP,
+            callbackQueue: .sharedConcurrent
+        )
     }
 
-    fileprivate func login(loginURL: URL) throws {
-        try temp_await {
-            self.login(
-                loginURL: loginURL,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+    fileprivate func login(loginURL: URL) async throws {
+        try await self.login(
+            loginURL: loginURL,
+            observabilityScope: ObservabilitySystem.NOOP,
+            callbackQueue: .sharedConcurrent
+        )
     }
 
     func publish(
@@ -3944,34 +3924,28 @@ extension RegistryClient {
         metadataSignature: [UInt8]?,
         signatureFormat: SignatureFormat?,
         fileSystem: FileSystem
-    ) throws -> RegistryClient.PublishResult {
-        try temp_await {
-            self.publish(
-                registryURL: registryURL,
-                packageIdentity: packageIdentity,
-                packageVersion: packageVersion,
-                packageArchive: packageArchive,
-                packageMetadata: packageMetadata,
-                signature: signature,
-                metadataSignature: metadataSignature,
-                signatureFormat: signatureFormat,
-                fileSystem: fileSystem,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+    ) async throws -> RegistryClient.PublishResult {
+        try await self.publish(
+            registryURL: registryURL,
+            packageIdentity: packageIdentity,
+            packageVersion: packageVersion,
+            packageArchive: packageArchive,
+            packageMetadata: packageMetadata,
+            signature: signature,
+            metadataSignature: metadataSignature,
+            signatureFormat: signatureFormat,
+            fileSystem: fileSystem,
+            observabilityScope: ObservabilitySystem.NOOP,
+            callbackQueue: .sharedConcurrent
+        )
     }
 
-    func checkAvailability(registry: Registry) throws -> AvailabilityStatus {
-        try temp_await {
-            self.checkAvailability(
-                registry: registry,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+    func checkAvailability(registry: Registry) async throws -> AvailabilityStatus {
+        try await self.checkAvailability(
+            registry: registry,
+            observabilityScope: ObservabilitySystem.NOOP,
+            callbackQueue: .sharedConcurrent
+        )
     }
 }
 

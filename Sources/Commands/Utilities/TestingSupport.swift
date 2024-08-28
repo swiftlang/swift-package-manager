@@ -16,7 +16,7 @@ import PackageModel
 import SPMBuildCore
 import Workspace
 
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 import var TSCBasic.stderrStream
 import var TSCBasic.stdoutStream
 import func TSCBasic.withTemporaryFile
@@ -31,13 +31,15 @@ enum TestingSupport {
     /// Note: It is a fatalError if we are not able to locate the tool.
     ///
     /// - Returns: Path to XCTestHelper tool.
-    static func xctestHelperPath(swiftTool: SwiftTool) throws -> AbsolutePath {
+    static func xctestHelperPath(swiftCommandState: SwiftCommandState) throws -> AbsolutePath {
         var triedPaths = [AbsolutePath]()
 
         func findXCTestHelper(swiftBuildPath: AbsolutePath) -> AbsolutePath? {
             // XCTestHelper tool is installed in libexec.
-            let maybePath = swiftBuildPath.parentDirectory.parentDirectory.appending(components: "libexec", "swift", "pm", "swiftpm-xctest-helper")
-            if swiftTool.fileSystem.isFile(maybePath) {
+            let maybePath = swiftBuildPath.parentDirectory.parentDirectory.appending(
+                components: "libexec", "swift", "pm", "swiftpm-xctest-helper"
+            )
+            if swiftCommandState.fileSystem.isFile(maybePath) {
                 return maybePath
             } else {
                 triedPaths.append(maybePath)
@@ -46,15 +48,18 @@ enum TestingSupport {
         }
 
         if let firstCLIArgument = CommandLine.arguments.first {
-            let runningSwiftBuildPath = try AbsolutePath(validating: firstCLIArgument, relativeTo: swiftTool.originalWorkingDirectory)
+            let runningSwiftBuildPath = try AbsolutePath(validating: firstCLIArgument, relativeTo: swiftCommandState.originalWorkingDirectory)
             if let xctestHelperPath = findXCTestHelper(swiftBuildPath: runningSwiftBuildPath) {
                 return xctestHelperPath
             }
         }
 
         // This will be true during swiftpm development or when using swift.org toolchains.
-        let xcodePath = try TSCBasic.Process.checkNonZeroExit(args: "/usr/bin/xcode-select", "--print-path").spm_chomp()
-        let installedSwiftBuildPath = try TSCBasic.Process.checkNonZeroExit(args: "/usr/bin/xcrun", "--find", "swift-build", environment: ["DEVELOPER_DIR": xcodePath]).spm_chomp()
+        let xcodePath = try AsyncProcess.checkNonZeroExit(args: "/usr/bin/xcode-select", "--print-path").spm_chomp()
+        let installedSwiftBuildPath = try AsyncProcess.checkNonZeroExit(
+            args: "/usr/bin/xcrun", "--find", "swift-build",
+            environment: ["DEVELOPER_DIR": xcodePath]
+        ).spm_chomp()
         if let xctestHelperPath = findXCTestHelper(swiftBuildPath: try AbsolutePath(validating: installedSwiftBuildPath)) {
             return xctestHelperPath
         }
@@ -64,9 +69,10 @@ enum TestingSupport {
 
     static func getTestSuites(
         in testProducts: [BuiltTestProduct],
-        swiftTool: SwiftTool,
+        swiftCommandState: SwiftCommandState,
         enableCodeCoverage: Bool,
         shouldSkipBuilding: Bool,
+        experimentalTestOutput: Bool,
         sanitizers: [Sanitizer]
     ) throws -> [AbsolutePath: [TestSuite]] {
         let testSuitesByProduct = try testProducts
@@ -74,9 +80,10 @@ enum TestingSupport {
                 $0.bundlePath,
                 try Self.getTestSuites(
                     fromTestAt: $0.bundlePath,
-                    swiftTool: swiftTool,
+                    swiftCommandState: swiftCommandState,
                     enableCodeCoverage: enableCodeCoverage,
                     shouldSkipBuilding: shouldSkipBuilding,
+                    experimentalTestOutput: experimentalTestOutput,
                     sanitizers: sanitizers
                 )
             )}
@@ -95,12 +102,14 @@ enum TestingSupport {
     /// - Returns: Array of TestSuite
     static func getTestSuites(
         fromTestAt path: AbsolutePath,
-        swiftTool: SwiftTool,
+        swiftCommandState: SwiftCommandState,
         enableCodeCoverage: Bool,
         shouldSkipBuilding: Bool,
+        experimentalTestOutput: Bool,
         sanitizers: [Sanitizer]
     ) throws -> [TestSuite] {
         // Run the correct tool.
+        var args = [String]()
         #if os(macOS)
         let targetTriple = try swiftTool.getTargetToolchain().targetTriple
         guard targetTriple.darwinPlatform == .macOS else {
@@ -112,14 +121,16 @@ enum TestingSupport {
         }
 
         let data: String = try withTemporaryFile { tempFile in
-            let args = [try Self.xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
-            var env = try Self.constructTestEnvironment(
-                toolchain: try swiftTool.getTargetToolchain(),
-                buildParameters: swiftTool.buildParametersForTest(
+            args = [try Self.xctestHelperPath(swiftCommandState: swiftCommandState).pathString, path.pathString, tempFile.path.pathString]
+            let env = try Self.constructTestEnvironment(
+                toolchain: try swiftCommandState.getTargetToolchain(),
+                destinationBuildParameters: swiftCommandState.buildParametersForTest(
                     enableCodeCoverage: enableCodeCoverage,
-                    shouldSkipBuilding: shouldSkipBuilding
-                ),
-                sanitizers: sanitizers
+                    shouldSkipBuilding: shouldSkipBuilding,
+                    experimentalTestOutput: experimentalTestOutput
+                ).productsBuildParameters,
+                sanitizers: sanitizers,
+                library: .xctest
             )
 
             // Add the sdk platform path if we have it. If this is not present, we might always end up failing.
@@ -129,33 +140,35 @@ enum TestingSupport {
             env.appendPath("DYLD_FRAMEWORK_PATH", value: sdkPlatformPaths.frameworks.pathString)
             env.appendPath("DYLD_LIBRARY_PATH", value: sdkPlatformPaths.libraries.pathString)
 
-            try TSCBasic.Process.checkNonZeroExit(arguments: args, environment: env)
+            try AsyncProcess.checkNonZeroExit(arguments: args, environment: env)
             // Read the temporary file's content.
-            return try swiftTool.fileSystem.readFileContents(AbsolutePath(tempFile.path))
+            return try swiftCommandState.fileSystem.readFileContents(AbsolutePath(tempFile.path))
         }
         #else
         let env = try Self.constructTestEnvironment(
-            toolchain: try swiftTool.getTargetToolchain(),
-            buildParameters: swiftTool.buildParametersForTest(
+            toolchain: try swiftCommandState.getTargetToolchain(),
+            destinationBuildParameters: swiftCommandState.buildParametersForTest(
                 enableCodeCoverage: enableCodeCoverage,
                 shouldSkipBuilding: shouldSkipBuilding
-            ),
-            sanitizers: sanitizers
+            ).productsBuildParameters,
+            sanitizers: sanitizers,
+            library: .xctest
         )
-        let args = [path.description, "--dump-tests-json"]
-        let data = try Process.checkNonZeroExit(arguments: args, environment: env)
+        args = [path.description, "--dump-tests-json"]
+        let data = try AsyncProcess.checkNonZeroExit(arguments: args, environment: env)
         #endif
         // Parse json and return TestSuites.
-        return try TestSuite.parse(jsonString: data)
+        return try TestSuite.parse(jsonString: data, context: args.joined(separator: " "))
     }
 
     /// Creates the environment needed to test related tools.
     static func constructTestEnvironment(
         toolchain: UserToolchain,
-        buildParameters: BuildParameters,
-        sanitizers: [Sanitizer]
-    ) throws -> EnvironmentVariables {
-        var env = EnvironmentVariables.process()
+        destinationBuildParameters buildParameters: BuildParameters,
+        sanitizers: [Sanitizer],
+        library: TestingLibrary
+    ) throws -> Environment {
+        var env = Environment.current
 
         // If the standard output or error stream is NOT a TTY, set the NO_COLOR
         // environment variable. This environment variable is a de facto
@@ -166,7 +179,7 @@ enum TestingSupport {
         }
 
         // Add the code coverage related variables.
-        if buildParameters.enableCodeCoverage {
+        if buildParameters.testingParameters.enableCodeCoverage {
             // Defines the path at which the profraw files will be written on test execution.
             //
             // `%m` will create a pool of profraw files and append the data from
@@ -174,17 +187,32 @@ enum TestingSupport {
             // execution but is required when the tests are running in parallel as
             // SwiftPM repeatedly invokes the test binary with the test case name as
             // the filter.
-            let codecovProfile = buildParameters.buildPath.appending(components: "codecov", "default%m.profraw")
+            let codecovProfile = buildParameters.buildPath.appending(components: "codecov", "\(library)%m.profraw")
             env["LLVM_PROFILE_FILE"] = codecovProfile.pathString
         }
         #if !os(macOS)
         #if os(Windows)
-        if let location = toolchain.xctestPath {
-            env.prependPath("Path", value: location.pathString)
+        if let xctestLocation = toolchain.xctestPath {
+            env.prependPath(key: .path, value: xctestLocation.pathString)
+        }
+        if let swiftTestingLocation = toolchain.swiftTestingPathOnWindows {
+            env.prependPath(key: .path, value: swiftTestingLocation.pathString)
         }
         #endif
         return env
         #else
+        // Add the sdk platform path if we have it.
+        if let sdkPlatformFrameworksPath = try? SwiftSDK.sdkPlatformFrameworkPaths() {
+            // appending since we prefer the user setting (if set) to the one we inject
+            env.appendPath(key: "DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.fwk.pathString)
+            env.appendPath(key: "DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.lib.pathString)
+        }
+
+        // We aren't using XCTest's harness logic to run Swift Testing tests.
+        if library == .xctest {
+            env["SWIFT_TESTING_ENABLED"] = "0"
+        }
+
         // Fast path when no sanitizers are enabled.
         if sanitizers.isEmpty {
             return env
@@ -206,18 +234,61 @@ enum TestingSupport {
     }
 }
 
-extension SwiftTool {
+extension SwiftCommandState {
     func buildParametersForTest(
         enableCodeCoverage: Bool,
         enableTestability: Bool? = nil,
-        shouldSkipBuilding: Bool = false
-    ) throws -> BuildParameters {
-        var parameters = try self.buildParameters()
-        parameters.enableCodeCoverage = enableCodeCoverage
+        shouldSkipBuilding: Bool = false,
+        experimentalTestOutput: Bool = false
+    ) throws -> (productsBuildParameters: BuildParameters, toolsBuildParameters: BuildParameters) {
+        let productsBuildParameters = buildParametersForTest(
+            modifying: try productsBuildParameters,
+            enableCodeCoverage: enableCodeCoverage,
+            enableTestability: enableTestability,
+            shouldSkipBuilding: shouldSkipBuilding,
+            experimentalTestOutput: experimentalTestOutput
+        )
+        let toolsBuildParameters = buildParametersForTest(
+            modifying: try toolsBuildParameters,
+            enableCodeCoverage: enableCodeCoverage,
+            enableTestability: enableTestability,
+            shouldSkipBuilding: shouldSkipBuilding,
+            experimentalTestOutput: experimentalTestOutput
+        )
+        return (productsBuildParameters, toolsBuildParameters)
+    }
+
+    private func buildParametersForTest(
+        modifying parameters: BuildParameters,
+        enableCodeCoverage: Bool,
+        enableTestability: Bool?,
+        shouldSkipBuilding: Bool,
+        experimentalTestOutput: Bool
+    ) -> BuildParameters {
+        var parameters = parameters
+
+        var explicitlyEnabledDiscovery = false
+        var explicitlySpecifiedPath: AbsolutePath?
+        if case let .entryPointExecutable(
+            explicitlyEnabledDiscoveryValue,
+            explicitlySpecifiedPathValue
+        ) = parameters.testingParameters.testProductStyle {
+            explicitlyEnabledDiscovery = explicitlyEnabledDiscoveryValue
+            explicitlySpecifiedPath = explicitlySpecifiedPathValue
+        }
+        parameters.testingParameters = .init(
+            configuration: parameters.configuration,
+            targetTriple: parameters.triple,
+            forceTestDiscovery: explicitlyEnabledDiscovery,
+            testEntryPointPath: explicitlySpecifiedPath
+        )
+
+        parameters.testingParameters.enableCodeCoverage = enableCodeCoverage
         // for test commands, we normally enable building with testability
         // but we let users override this with a flag
-        parameters.enableTestability = enableTestability ?? true
+        parameters.testingParameters.enableTestability = enableTestability ?? true
         parameters.shouldSkipBuilding = shouldSkipBuilding
+        parameters.testingParameters.experimentalTestOutput = experimentalTestOutput
         return parameters
     }
 }

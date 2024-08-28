@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import Foundation
+import Foundation
 import PackageModel
 
 import struct Basics.AbsolutePath
@@ -26,8 +26,6 @@ import struct TSCBasic.StringError
 import struct TSCUtility.Version
 
 enum ManifestJSONParser {
-    private static let filePrefix = "file://"
-
     struct Input: Codable {
         let package: Serialization.Package
         let errors: [String]
@@ -47,6 +45,7 @@ enum ManifestJSONParser {
         var dependencies: [PackageDependency] = []
         var providers: [SystemPackageProviderDescription]?
         var products: [ProductDescription] = []
+        var traits: Set<TraitDescription> = []
         var cxxLanguageStandard: String?
         var cLanguageStandard: String?
     }
@@ -55,7 +54,9 @@ enum ManifestJSONParser {
         v4 jsonString: String,
         toolsVersion: ToolsVersion,
         packageKind: PackageReference.Kind,
+        packagePath: AbsolutePath,
         identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
         fileSystem: FileSystem
     ) throws -> ManifestJSONParser.Result {
         let decoder = JSONDecoder.makeWithDefaults()
@@ -78,12 +79,28 @@ enum ManifestJSONParser {
             throw ManifestParseError.runtimeManifestErrors(input.errors)
         }
 
+        var packagePath = packagePath
+        switch packageKind {
+        case .localSourceControl(let _packagePath):
+            // we have a more accurate path than the virtual one
+            packagePath = _packagePath
+        case .root(let _packagePath), .fileSystem(let _packagePath):
+            // we dont have a more accurate path, and they should be the same
+            // asserting (debug only) to make sure refactoring is correct 11/2023
+            assert(packagePath == _packagePath, "expecting package path '\(packagePath)' to be the same as '\(_packagePath)'")
+            break
+        case .remoteSourceControl, .registry:
+            // we dont have a more accurate path
+            break
+        }
+
         let dependencies = try input.package.dependencies.map {
             try Self.parseDependency(
                 dependency: $0,
                 toolsVersion: toolsVersion,
-                packageKind: packageKind,
+                parentPackagePath: packagePath,
                 identityResolver: identityResolver,
+                dependencyMapper: dependencyMapper,
                 fileSystem: fileSystem
             )
         }
@@ -98,6 +115,7 @@ enum ManifestJSONParser {
             dependencies: dependencies,
             providers: input.package.providers?.map { .init($0) },
             products: try input.package.products.map { try .init($0) },
+            traits: Set(input.package.traits?.map { TraitDescription($0) } ?? []),
             cxxLanguageStandard: input.package.cxxLanguageStandard?.rawValue,
             cLanguageStandard: input.package.cLanguageStandard?.rawValue
         )
@@ -134,6 +152,7 @@ enum ManifestJSONParser {
             case .v4: languageVersionString = "4"
             case .v4_2: languageVersionString = "4.2"
             case .v5: languageVersionString = "5"
+            case .v6: languageVersionString = "6"
             case .version(let version): languageVersionString = version
             }
             guard let languageVersion = SwiftLanguageVersion(string: languageVersionString) else {
@@ -146,182 +165,24 @@ enum ManifestJSONParser {
     private static func parseDependency(
         dependency: Serialization.PackageDependency,
         toolsVersion: ToolsVersion,
-        packageKind: PackageReference.Kind,
+        parentPackagePath: AbsolutePath,
         identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
         fileSystem: FileSystem
     ) throws -> PackageDependency {
-        switch dependency.kind {
-        case .registry(let identity, let requirement):
-            return try Self.parseRegistryDependency(
-                identity: .plain(identity),
-                requirement: .init(requirement),
-                identityResolver: identityResolver
-            )
-        case .sourceControl(let name, let location, let requirement):
-            return try Self.parseSourceControlDependency(
-                packageKind: packageKind,
-                at: location,
-                name: name,
-                requirement: .init(requirement),
-                identityResolver: identityResolver,
-                fileSystem: fileSystem
-            )
-        case .fileSystem(let name, let path):
-            return try Self.parseFileSystemDependency(
-                packageKind: packageKind,
-                at: path,
-                name: name,
-                identityResolver: identityResolver,
-                fileSystem: fileSystem
-            )
-        }
-    }
-
-    private static func parseFileSystemDependency(
-        packageKind: PackageReference.Kind,
-        at location: String,
-        name: String?,
-        identityResolver: IdentityResolver,
-        fileSystem: FileSystem
-    ) throws -> PackageDependency {
-        let location = try sanitizeDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: location)
-        let path: AbsolutePath
         do {
-            path = try AbsolutePath(validating: location)
-        } catch PathValidationError.invalidAbsolutePath(let path) {
-            throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path for path-based dependencies; use relative or absolute path instead.", diagnosticFile: nil, compilerCommandLine: nil)
-        }
-        let identity = try identityResolver.resolveIdentity(for: path)
-        return .fileSystem(identity: identity,
-                           nameForTargetDependencyResolutionOnly: name,
-                           path: path,
-                           productFilter: .everything)
-    }
-
-    private static func parseSourceControlDependency(
-        packageKind: PackageReference.Kind,
-        at location: String,
-        name: String?,
-        requirement: PackageDependency.SourceControl.Requirement,
-        identityResolver: IdentityResolver,
-        fileSystem: FileSystem
-    ) throws -> PackageDependency {
-        // cleans up variants of path based location
-        var location = try sanitizeDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: location)
-        // location mapping (aka mirrors) if any
-        location = identityResolver.mappedLocation(for: location)
-        if PackageIdentity.plain(location).isRegistry {
-            // re-mapped to registry
-            let identity = PackageIdentity.plain(location)
-            let registryRequirement: PackageDependency.Registry.Requirement
-            switch requirement {
-            case .branch, .revision:
-                throw StringError("invalid mapping of source control to registry, requirement information mismatch: cannot map branch or revision based dependencies to registry.")
-            case .exact(let value):
-                registryRequirement = .exact(value)
-            case .range(let value):
-                registryRequirement = .range(value)
+            return try dependencyMapper.mappedDependency(
+                MappablePackageDependency(dependency, parentPackagePath: parentPackagePath),
+                fileSystem: fileSystem
+            )
+        } catch let error as TSCBasic.PathValidationError {
+            if case .fileSystem(_, let path) = dependency.kind {
+                throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path for path-based dependencies; use relative or absolute path instead.", diagnosticFile: nil, compilerCommandLine: nil)
+            } else {
+                throw error
             }
-            return .registry(
-                identity: identity,
-                requirement: registryRequirement,
-                productFilter: .everything
-            )
-        } else if let localPath = try? AbsolutePath(validating: location) {
-            // a package in a git location, may be a remote URL or on disk
-            // in the future this will check with the registries for the identity of the URL
-            let identity = try identityResolver.resolveIdentity(for: localPath)
-            return .localSourceControl(
-                identity: identity,
-                nameForTargetDependencyResolutionOnly: name,
-                path: localPath,
-                requirement: requirement,
-                productFilter: .everything
-            )
-        } else {
-            let url = SourceControlURL(location)
-            // in the future this will check with the registries for the identity of the URL
-            let identity = try identityResolver.resolveIdentity(for: url)
-            return .remoteSourceControl(
-                identity: identity,
-                nameForTargetDependencyResolutionOnly: name,
-                url: url,
-                requirement: requirement,
-                productFilter: .everything
-            )
-        }
-    }
-
-    private static func parseRegistryDependency(
-        identity: PackageIdentity,
-        requirement: PackageDependency.Registry.Requirement,
-        identityResolver: IdentityResolver
-    ) throws -> PackageDependency {
-        // location mapping (aka mirrors) if any
-        let location = identityResolver.mappedLocation(for: identity.description)
-        if PackageIdentity.plain(location).isRegistry {
-            // re-mapped to registry
-            let identity = PackageIdentity.plain(location)
-            return .registry(
-                identity: identity,
-                requirement: requirement,
-                productFilter: .everything
-            )
-        } else if let url = URL(string: location){
-            let SourceControlURL = SourceControlURL(url)
-            // in the future this will check with the registries for the identity of the URL
-            let identity = try identityResolver.resolveIdentity(for: SourceControlURL)
-            let sourceControlRequirement: PackageDependency.SourceControl.Requirement
-            switch requirement {
-            case .exact(let value):
-                sourceControlRequirement = .exact(value)
-            case .range(let value):
-                sourceControlRequirement = .range(value)
-            }
-            return .remoteSourceControl(
-                identity: identity,
-                nameForTargetDependencyResolutionOnly: identity.description,
-                url: SourceControlURL,
-                requirement: sourceControlRequirement,
-                productFilter: .everything
-            )
-        } else {
-            throw StringError("invalid location: \(location)")
-        }
-    }
-
-    private static func sanitizeDependencyLocation(fileSystem: FileSystem, packageKind: PackageReference.Kind, dependencyLocation: String) throws -> String {
-        if dependencyLocation.hasPrefix("~/") {
-            // If the dependency URL starts with '~/', try to expand it.
-            return try AbsolutePath(validating: String(dependencyLocation.dropFirst(2)), relativeTo: fileSystem.homeDirectory).pathString
-        } else if dependencyLocation.hasPrefix(filePrefix) {
-            // FIXME: SwiftPM can't handle file locations with file:// scheme so we need to
-            // strip that. We need to design a Location data structure for SwiftPM.
-            let location = String(dependencyLocation.dropFirst(filePrefix.count))
-            let hostnameComponent = location.prefix(while: { $0 != "/" })
-            guard hostnameComponent.isEmpty else {
-              if hostnameComponent == ".." {
-                throw ManifestParseError.invalidManifestFormat(
-                  "file:// URLs cannot be relative, did you mean to use '.package(path:)'?", diagnosticFile: nil, compilerCommandLine: nil
-                )
-              }
-              throw ManifestParseError.invalidManifestFormat(
-                "file:// URLs with hostnames are not supported, are you missing a '/'?", diagnosticFile: nil, compilerCommandLine: nil
-              )
-            }
-            return try AbsolutePath(validating: location).pathString
-        } else if parseScheme(dependencyLocation) == nil {
-            // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).
-            switch packageKind {
-            case .root(let packagePath), .fileSystem(let packagePath), .localSourceControl(let packagePath):
-                return try AbsolutePath(validating: dependencyLocation, relativeTo: packagePath).pathString
-            case .remoteSourceControl, .registry:
-                // nothing to "fix"
-                return dependencyLocation
-            }
-        } else {
-            // nothing to "fix"
-            return dependencyLocation
+        } catch {
+            throw ManifestParseError.invalidManifestFormat("\(error.interpolationDescription)", diagnosticFile: nil, compilerCommandLine: nil)
         }
     }
 
@@ -390,33 +251,6 @@ enum ManifestJSONParser {
             settings.append(try .init($0))
         }
         return settings
-    }
-
-    /// Parses the URL type of a git repository
-    /// e.g. https://github.com/apple/swift returns "https"
-    /// e.g. git@github.com:apple/swift returns "git"
-    ///
-    /// This is *not* a generic URI scheme parser!
-    private static func parseScheme(_ location: String) -> String? {
-        func prefixOfSplitBy(_ delimiter: String) -> String? {
-            let (head, tail) = location.spm_split(around: delimiter)
-            if tail == nil {
-                //not found
-                return nil
-            } else {
-                //found, return head
-                //lowercase the "scheme", as specified by the URI RFC (just in case)
-                return head.lowercased()
-            }
-        }
-
-        for delim in ["://", "@"] {
-            if let found = prefixOfSplitBy(delim), !found.contains("/") {
-                return found
-            }
-        }
-
-        return nil
     }
 
     /// Looks for Xcode-style build setting macros "$()".
@@ -515,11 +349,14 @@ extension TargetDescription.Dependency {
 
 extension PackageConditionDescription {
     init(_ condition: Serialization.TargetDependency.Condition) {
-        self.init(platformNames: condition.platforms?.map { $0.name } ?? [])
+        self.init(
+            platformNames: condition.platforms?.map { $0.name } ?? [],
+            traits: condition.traits
+        )
     }
 }
 
-extension TargetDescription.TargetType {
+extension TargetDescription.TargetKind {
     init(_ type: Serialization.TargetType) {
         switch type {
         case .regular:
@@ -702,6 +539,21 @@ extension TargetBuildSettingDescription.Kind {
             return .enableExperimentalFeature(value)
         case "unsafeFlags":
             return .unsafeFlags(values)
+
+        case "swiftLanguageVersion", "swiftLanguageMode":
+            guard let rawVersion = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+
+            if values.count > 1 {
+                throw InternalError("invalid build settings value")
+            }
+
+            guard let version = SwiftLanguageVersion(string: rawVersion) else {
+                throw InternalError("unknown swift language version: \(rawVersion)")
+            }
+
+            return .swiftLanguageMode(version)
         default:
             throw InternalError("invalid build setting \(name)")
         }
@@ -710,7 +562,7 @@ extension TargetBuildSettingDescription.Kind {
 
 extension PackageConditionDescription {
     init(_ condition: Serialization.BuildSettingCondition) {
-        self.init(platformNames: condition.platforms?.map { $0.name } ?? [], config: condition.config?.config)
+        self.init(platformNames: condition.platforms?.map { $0.name } ?? [], config: condition.config?.config, traits: condition.traits)
     }
 }
 
@@ -745,5 +597,69 @@ extension TargetBuildSettingDescription.Setting {
             kind: try .from(setting.data.name, values: setting.data.value),
             condition: setting.data.condition.map { .init($0) }
         )
+    }
+}
+
+extension TraitDescription {
+    init(_ trait: Serialization.Trait) {
+        self.init(
+            name: trait.name,
+            description: trait.description,
+            enabledTraits: trait.enabledTraits
+        )
+    }
+}
+
+extension PackageDependency.Trait {
+    init(_ trait: Serialization.PackageDependency.Trait) {
+        self.init(
+            name: trait.name,
+            condition: trait.condition.flatMap { .init($0) }
+        )
+    }
+}
+
+
+extension PackageDependency.Trait.Condition {
+    init(_ condition: Serialization.PackageDependency.Trait.Condition) {
+        self.init(traits: condition.traits)
+    }
+}
+
+extension MappablePackageDependency {
+    fileprivate init(_ seed: Serialization.PackageDependency, parentPackagePath: AbsolutePath) {
+        switch seed.kind {
+        case .fileSystem(let name, let path):
+            self.init(
+                parentPackagePath: parentPackagePath,
+                kind: .fileSystem(
+                    name: name,
+                    path: path
+                ),
+                productFilter: .everything,
+                traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) }
+            )
+        case .sourceControl(let name, let location, let requirement):
+            self.init(
+                parentPackagePath: parentPackagePath,
+                kind: .sourceControl(
+                    name: name,
+                    location: location,
+                    requirement: .init(requirement)
+                ),
+                productFilter: .everything,
+                traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) }
+            )
+        case .registry(let id, let requirement):
+            self.init(
+                parentPackagePath: parentPackagePath,
+                kind: .registry(
+                    id: id,
+                    requirement: .init(requirement)
+                ),
+                productFilter: .everything,
+                traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) }
+            )
+        }
     }
 }

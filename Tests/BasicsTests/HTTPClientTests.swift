@@ -11,7 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
-import SPMTestSupport
+import _Concurrency
+import _InternalTestSupport
 import XCTest
 
 final class HTTPClientTests: XCTestCase {
@@ -40,7 +41,7 @@ final class HTTPClientTests: XCTestCase {
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseStatus = Int.random(in: 201 ..< 500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         let httpClient = HTTPClient { request, _ in
             XCTAssertEqual(request.url, url, "url should match")
@@ -58,10 +59,10 @@ final class HTTPClientTests: XCTestCase {
     func testPost() async throws {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let requestBody = UUID().uuidString.data(using: .utf8)
+        let requestBody = Data(UUID().uuidString.utf8)
         let responseStatus = Int.random(in: 201 ..< 500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         let httpClient = HTTPClient { request, _ in
             XCTAssertEqual(request.url, url, "url should match")
@@ -80,10 +81,10 @@ final class HTTPClientTests: XCTestCase {
     func testPut() async throws {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let requestBody = UUID().uuidString.data(using: .utf8)
+        let requestBody = Data(UUID().uuidString.utf8)
         let responseStatus = Int.random(in: 201 ..< 500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         let httpClient = HTTPClient { request, _ in
             XCTAssertEqual(request.url, url, "url should match")
@@ -104,7 +105,7 @@ final class HTTPClientTests: XCTestCase {
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseStatus = Int.random(in: 201 ..< 500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         let httpClient = HTTPClient { request, _ in
             XCTAssertEqual(request.url, url, "url should match")

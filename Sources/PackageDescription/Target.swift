@@ -1263,18 +1263,6 @@ extension Target.Dependency {
         return .productItem(name: name, package: package, moduleAliases: nil, condition: nil)
     }
 
-    /// Creates a dependency on a product from a dependent package.
-    ///
-    /// - Parameters:
-    ///   - name: The name of the product.
-    ///   - moduleAliases: The module aliases for targets in the product.
-    ///   - package: The name of the package.
-    /// - Returns: A `Target.Dependency` instance.
-    @available(_PackageDescription, introduced: 5.7)
-    public static func product(name: String, package: String? = nil, moduleAliases: [String: String]? = nil) -> Target.Dependency {
-        return .productItem(name: name, package: package, moduleAliases: moduleAliases, condition: nil)
-    }
-
     /// Creates a dependency that resolves to either a target or a product with the specified name.
     ///
     /// - Parameter name: The name of the dependency, either a target or a product.
@@ -1371,9 +1359,11 @@ extension Target.Dependency {
 /// A condition that limits the application of a target's dependency.
 public struct TargetDependencyCondition {
     let platforms: [Platform]?
+    let traits: Set<String>?
 
-    private init(platforms: [Platform]?) {
+    private init(platforms: [Platform]?, traits: Set<String>?) {
         self.platforms = platforms
+        self.traits = traits
     }
 
     /// Creates a target dependency condition.
@@ -1386,7 +1376,7 @@ public struct TargetDependencyCondition {
     ) -> TargetDependencyCondition {
         // FIXME: This should be an error, not a precondition.
         precondition(!(platforms == nil))
-        return TargetDependencyCondition(platforms: platforms)
+        return TargetDependencyCondition(platforms: platforms, traits: nil)
     }
 
     /// Creates a target dependency condition.
@@ -1396,7 +1386,31 @@ public struct TargetDependencyCondition {
     public static func when(
         platforms: [Platform]
     ) -> TargetDependencyCondition? {
-        return !platforms.isEmpty ? TargetDependencyCondition(platforms: platforms) : .none
+        return !platforms.isEmpty ? TargetDependencyCondition(platforms: platforms, traits: nil) : .none
+    }
+
+    /// Creates a target dependency condition.
+    ///
+    /// - Parameter platforms: The applicable platforms for this target dependency condition.
+    /// - Parameter traits: The applicable traits for this target dependency condition.
+    @_spi(ExperimentalTraits)
+    @available(_PackageDescription, introduced: 999.0)
+    public static func when(
+        platforms: [Platform],
+        traits: Set<String>
+    ) -> TargetDependencyCondition? {
+        return TargetDependencyCondition(platforms: platforms, traits: traits)
+    }
+
+    /// Creates a target dependency condition.
+    ///
+    /// - Parameter traits: The applicable traits for this target dependency condition.
+    @_spi(ExperimentalTraits)
+    @available(_PackageDescription, introduced: 999.0)
+    public static func when(
+        traits: Set<String>
+    ) -> TargetDependencyCondition? {
+        return TargetDependencyCondition(platforms: nil, traits: traits)
     }
 }
 

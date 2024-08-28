@@ -1,6 +1,6 @@
 # Package Collections
 
-Package collections, introduced by [SE-0291](https://github.com/apple/swift-evolution/blob/main/proposals/0291-package-collections.md), are
+Package collections, introduced by [SE-0291](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0291-package-collections.md), are
 curated lists of packages and associated metadata that make discovery of existing packages easier. They are authored as static JSON documents 
 and can be published to the web or distributed to local file systems. 
 

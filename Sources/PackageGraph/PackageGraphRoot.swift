@@ -46,15 +46,45 @@ public struct PackageGraphRoot {
         return self.packages.values.map { $0.reference }
     }
 
+    private let _dependencies: [PackageDependency]
+
     /// The top level dependencies.
-    public let dependencies: [PackageDependency]
+    public var dependencies: [PackageDependency] {
+        guard let dependencyMapper else {
+            return self._dependencies
+        }
+
+        return self._dependencies.map { dependency in
+            do {
+                return try dependencyMapper.mappedDependency(
+                    MappablePackageDependency(
+                        dependency,
+                        parentPackagePath: localFileSystem.currentWorkingDirectory ?? .root
+                    ),
+                    fileSystem: localFileSystem
+                )
+            } catch {
+                observabilityScope.emit(warning: "could not map dependency \(dependency.identity): \(error.interpolationDescription)")
+                return dependency
+            }
+        }
+    }
+
+    private let dependencyMapper: DependencyMapper?
+    private let observabilityScope: ObservabilityScope
 
     /// Create a package graph root.
     /// Note this quietly skip inputs for which manifests are not found. this could be because the manifest  failed to load or for some other reasons
     // FIXME: This API behavior wrt to non-found manifests is fragile, but required by IDEs
     // it may lead to incorrect assumption in downstream code which may expect an error if a manifest was not found
     // we should refactor this API to more clearly return errors for inputs that do not have a corresponding manifest
-    public init(input: PackageGraphRootInput, manifests: [AbsolutePath: Manifest], explicitProduct: String? = nil) {
+    public init(
+        input: PackageGraphRootInput,
+        manifests: [AbsolutePath: Manifest],
+        explicitProduct: String? = nil,
+        dependencyMapper: DependencyMapper? = nil,
+        observabilityScope: ObservabilityScope
+    ) {
         self.packages = input.packages.reduce(into: .init(), { partial, inputPath in
             if let manifest = manifests[inputPath]  {
                 let packagePath = manifest.path.parentDirectory
@@ -65,19 +95,22 @@ public struct PackageGraphRoot {
 
         // FIXME: Deprecate special casing once the manifest supports declaring used executable products.
         // Special casing explicit products like this is necessary to pass the test suite and satisfy backwards compatibility.
-        // However, changing the dependencies based on the command line arguments may force pins to temporarily change,
+        // However, changing the dependencies based on the command line arguments may force `Package.resolved` to temporarily change,
         // which can become a nuisance.
         // Such pin switching can currently be worked around by declaring the executable product as a dependency of a dummy target.
         // But in the future it might be worth providing a way of declaring them in the manifest without a dummy target,
         // at which time the current special casing can be deprecated.
         var adjustedDependencies = input.dependencies
         if let explicitProduct {
+            // FIXME: `dependenciesRequired` modifies manifests and prevents conversion of `Manifest` to a value type
             for dependency in manifests.values.lazy.map({ $0.dependenciesRequired(for: .everything) }).joined() {
                 adjustedDependencies.append(dependency.filtered(by: .specific([explicitProduct])))
             }
         }
 
-        self.dependencies = adjustedDependencies
+        self._dependencies = adjustedDependencies
+        self.dependencyMapper = dependencyMapper
+        self.observabilityScope = observabilityScope
     }
 
     /// Returns the constraints imposed by root manifests + dependencies.
@@ -88,7 +121,7 @@ public struct PackageGraphRoot {
         
         let depend = try dependencies.map{
             PackageContainerConstraint(
-                package: $0.createPackageRef(),
+                package: $0.packageRef,
                 requirement: try $0.toConstraintRequirement(),
                 products: $0.productFilter
             )

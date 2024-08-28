@@ -38,7 +38,7 @@ the build option `--resolver-fingerprint-checking` to `warn` (default is `strict
                                                                               
 Note that in case of registry packages, a package version's fingerprint
 must be consistent across registries or else there will be a TOFU failure.
-As an example, suppose a package version was originially downloaded from
+As an example, suppose a package version was originally downloaded from
 registry A and the source archive checksum was saved as the fingerprint. Later
 the package version is downloaded again but from registry B and has a different
 fingerprint. This would trigger a TOFU failure since the fingerprint should

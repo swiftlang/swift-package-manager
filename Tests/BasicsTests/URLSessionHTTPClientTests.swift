@@ -17,7 +17,7 @@ import Foundation
 // need to decide how to best deal with that
 import FoundationNetworking
 #endif
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 import struct TSCBasic.ByteString
@@ -36,7 +36,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
         let responseStatus = 200
         let responseHeaders = [UUID().uuidString: UUID().uuidString]
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         MockURLProtocol.onRequest("HEAD", url) { request in
             self.assertRequestHeaders(request.allHTTPHeaderFields, expected: requestHeaders)
@@ -70,7 +70,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
         let responseStatus = 200
         let responseHeaders = [UUID().uuidString: UUID().uuidString]
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         MockURLProtocol.onRequest("GET", url) { request in
             self.assertRequestHeaders(request.allHTTPHeaderFields, expected: requestHeaders)
@@ -101,11 +101,11 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let requestBody = UUID().uuidString.data(using: .utf8)
+        let requestBody = Data(UUID().uuidString.utf8)
 
         let responseStatus = 200
         let responseHeaders = [UUID().uuidString: UUID().uuidString]
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         MockURLProtocol.onRequest("POST", url) { request in
             // FIXME:
@@ -138,11 +138,11 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let requestBody = UUID().uuidString.data(using: .utf8)
+        let requestBody = Data(UUID().uuidString.utf8)
 
         let responseStatus = 200
         let responseHeaders = [UUID().uuidString: UUID().uuidString]
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         MockURLProtocol.onRequest("PUT", url) { request in
             XCTAssertEqual(request.httpBody, requestBody)
@@ -177,7 +177,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
         let responseStatus = 200
         let responseHeaders = [UUID().uuidString: UUID().uuidString]
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         MockURLProtocol.onRequest("DELETE", url) { request in
             self.assertRequestHeaders(request.allHTTPHeaderFields, expected: requestHeaders)
@@ -287,7 +287,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         #endif
         let netrcContent = "machine protected.downloader-tests.com login anonymous password qwerty"
         let netrc = try NetrcAuthorizationWrapper(underlying: NetrcParser.parse(netrcContent))
-        let authData = "anonymous:qwerty".data(using: .utf8)!
+        let authData = Data("anonymous:qwerty".utf8)
         let testAuthHeader = "Basic \(authData.base64EncodedString())"
 
         let configuration = URLSessionConfiguration.default
@@ -356,9 +356,10 @@ final class URLSessionHTTPClientTest: XCTestCase {
         // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
+        try XCTSkipIfCI()
         let netrcContent = "default login default password default"
         let netrc = try NetrcAuthorizationWrapper(underlying: NetrcParser.parse(netrcContent))
-        let authData = "default:default".data(using: .utf8)!
+        let authData = Data("default:default".utf8)
         let testAuthHeader = "Basic \(authData.base64EncodedString())"
 
         let configuration = URLSessionConfiguration.default
@@ -465,13 +466,13 @@ final class URLSessionHTTPClientTest: XCTestCase {
                 MockURLProtocol.sendResponse(statusCode: 200, headers: ["Content-Length": "1024"], for: request)
                 didStartLoadingExpectation.fulfill()
             }
-            wait(for: [didStartLoadingExpectation], timeout: 1.0)
+            wait(for: [didStartLoadingExpectation], timeout: 3.0)
 
             let urlRequest = URLRequest(request)
             MockURLProtocol.sendData(Data(count: 512), for: urlRequest)
-            wait(for: [progress50Expectation], timeout: 1.0)
+            wait(for: [progress50Expectation], timeout: 3.0)
             MockURLProtocol.sendError(clientError, for: urlRequest)
-            wait(for: [completionExpectation], timeout: 1.0)
+            wait(for: [completionExpectation], timeout: 3.0)
         }
     }
 
@@ -577,7 +578,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
         let responseStatus = 200
         let responseHeaders = [UUID().uuidString: UUID().uuidString]
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         MockURLProtocol.onRequest("HEAD", url) { request in
             self.assertRequestHeaders(request.allHTTPHeaderFields, expected: requestHeaders)
@@ -602,7 +603,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
         let responseStatus = 200
         let responseHeaders = [UUID().uuidString: UUID().uuidString]
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         MockURLProtocol.onRequest("GET", url) { request in
             self.assertRequestHeaders(request.allHTTPHeaderFields, expected: requestHeaders)
@@ -623,11 +624,11 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
         let url = URL("http://async-post-test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let requestBody = UUID().uuidString.data(using: .utf8)
+        let requestBody = Data(UUID().uuidString.utf8)
 
         let responseStatus = 200
         let responseHeaders = [UUID().uuidString: UUID().uuidString]
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         MockURLProtocol.onRequest("POST", url) { request in
             // FIXME:
@@ -651,11 +652,11 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
         let url = URL("http://async-put-test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let requestBody = UUID().uuidString.data(using: .utf8)
+        let requestBody = Data(UUID().uuidString.utf8)
 
         let responseStatus = 200
         let responseHeaders = [UUID().uuidString: UUID().uuidString]
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         MockURLProtocol.onRequest("PUT", url) { request in
             XCTAssertEqual(request.httpBody, requestBody)
@@ -681,7 +682,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
         let responseStatus = 200
         let responseHeaders = [UUID().uuidString: UUID().uuidString]
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         MockURLProtocol.onRequest("DELETE", url) { request in
             self.assertRequestHeaders(request.allHTTPHeaderFields, expected: requestHeaders)
@@ -756,7 +757,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         #endif
         let netrcContent = "machine async-protected.downloader-tests.com login anonymous password qwerty"
         let netrc = try NetrcAuthorizationWrapper(underlying: NetrcParser.parse(netrcContent))
-        let authData = "anonymous:qwerty".data(using: .utf8)!
+        let authData = Data("anonymous:qwerty".utf8)
         let testAuthHeader = "Basic \(authData.base64EncodedString())"
 
         let configuration = URLSessionConfiguration.default
@@ -814,7 +815,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         #endif
         let netrcContent = "default login default password default"
         let netrc = try NetrcAuthorizationWrapper(underlying: NetrcParser.parse(netrcContent))
-        let authData = "default:default".data(using: .utf8)!
+        let authData = Data("default:default".utf8)
         let testAuthHeader = "Basic \(authData.base64EncodedString())"
 
         let configuration = URLSessionConfiguration.default

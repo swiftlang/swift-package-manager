@@ -1,6 +1,6 @@
 # Swift Package Manager Community Proposal
 
-> **PLEASE NOTE** This document represents the initial proposal for Swift Package Manger, and is provided for historical purposes only. It does not represent the current state or future direction of the project. For current documentation, see the main Swift Package Manager [documentation](../README.md).
+> **PLEASE NOTE** This document represents the initial proposal for Swift Package Manager, and is provided for historical purposes only. It does not represent the current state or future direction of the project. For current documentation, see the main Swift Package Manager [documentation](../README.md).
 
 --- 
 
@@ -182,7 +182,7 @@ Again, this initial release of the Swift Package Manager is just a starting poin
 - Package Flavors
 - User-Global Installation
 
-Many of these ideas will eventually become concrete proposals following the [Swift evolution process](https://github.com/apple/swift-evolution). We welcome your input on which features to prioritize or how we might design and implement them. And we're excited to hear about any other ideas for new features.
+Many of these ideas will eventually become concrete proposals following the [Swift evolution process](https://github.com/swiftlang/swift-evolution). We welcome your input on which features to prioritize or how we might design and implement them. And we're excited to hear about any other ideas for new features.
 
 ### Automated Testing
 

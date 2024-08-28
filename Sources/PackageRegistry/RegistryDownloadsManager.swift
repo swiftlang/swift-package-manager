@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import Dispatch
 import Foundation
 import PackageLoading
@@ -43,7 +44,27 @@ public class RegistryDownloadsManager: Cancellable {
         self.registryClient = registryClient
         self.delegate = delegate
     }
+    
+    public func lookup(
+        package: PackageIdentity,
+        version: Version,
+        observabilityScope: ObservabilityScope,
+        delegateQueue: DispatchQueue,
+        callbackQueue: DispatchQueue
+    ) async throws -> AbsolutePath {
+        try await withCheckedThrowingContinuation {
+            self.lookup(
+                package: package,
+                version: version,
+                observabilityScope: observabilityScope,
+                delegateQueue: delegateQueue,
+                callbackQueue: callbackQueue,
+                completion: $0.resume(with:)
+            )
+        }
+    }
 
+    @available(*, noasync, message: "Use the async alternative")
     public func lookup(
         package: PackageIdentity,
         version: Version,
@@ -143,7 +164,7 @@ public class RegistryDownloadsManager: Cancellable {
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<FetchDetails, Error>) -> Void
+        completion: @escaping @Sendable (Result<FetchDetails, Error>) -> Void
     ) {
         if let cachePath {
             do {
@@ -317,7 +338,7 @@ extension RegistryDownloadsManager {
     public struct FetchDetails: Equatable {
         /// Indicates if the repository was fetched from the cache or from the remote.
         public let fromCache: Bool
-        /// Indicates wether the wether the repository was already present in the cache and updated or if a clean fetch was performed.
+        /// Indicates whether the repository was already present in the cache and updated or if a clean fetch was performed.
         public let updatedCache: Bool
     }
 }

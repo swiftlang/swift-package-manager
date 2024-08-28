@@ -116,14 +116,6 @@
       "parallelizable" : true,
       "target" : {
         "containerPath" : "container:",
-        "identifier" : "PackageLoadingPerformanceTests",
-        "name" : "PackageLoadingPerformanceTests"
-      }
-    },
-    {
-      "parallelizable" : true,
-      "target" : {
-        "containerPath" : "container:",
         "identifier" : "PackageLoadingTests",
         "name" : "PackageLoadingTests"
       }
@@ -190,6 +182,22 @@
         "containerPath" : "container:",
         "identifier" : "XCBuildSupportTests",
         "name" : "XCBuildSupportTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "LLBuildManifestTests",
+        "name" : "LLBuildManifestTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "SourceKitLSPAPITests",
+        "name" : "SourceKitLSPAPITests"
       }
     }
   ],

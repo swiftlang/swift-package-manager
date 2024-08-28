@@ -10,14 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(ProcessEnvironmentBlockShim)
 import Basics
 @testable import SourceControl
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 import struct TSCBasic.FileSystemError
 import func TSCBasic.makeDirectories
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 
 import enum TSCUtility.Git
 
@@ -25,11 +26,11 @@ class GitRepositoryTests: XCTestCase {
 
     override func setUp() {
         // needed for submodule tests
-        Git.environment = ["GIT_ALLOW_PROTOCOL": "file"]
+        Git.environmentBlock = ["GIT_ALLOW_PROTOCOL": "file"]
     }
 
     override func tearDown() {
-        Git.environment = ProcessInfo.processInfo.environment
+        Git.environmentBlock = .init(Environment.current)
     }
 
     /// Test the basic provider functions.
@@ -84,7 +85,7 @@ class GitRepositoryTests: XCTestCase {
             let revision = try repository.resolveRevision(tag: tags.first ?? "<invalid>")
             // FIXME: It would be nice if we had a deterministic hash here...
             XCTAssertEqual(revision.identifier,
-                try Process.popen(
+                try AsyncProcess.popen(
                     args: Git.tool, "-C", testRepoPath.pathString, "rev-parse", "--verify", "1.2.3").utf8Output().spm_chomp())
             if let revision = try? repository.resolveRevision(tag: "<invalid>") {
                 XCTFail("unexpected resolution of invalid tag to \(revision)")
@@ -93,7 +94,7 @@ class GitRepositoryTests: XCTestCase {
             let main = try repository.resolveRevision(identifier: "main")
 
             XCTAssertEqual(main.identifier,
-                try Process.checkNonZeroExit(
+                try AsyncProcess.checkNonZeroExit(
                     args: Git.tool, "-C", testRepoPath.pathString, "rev-parse", "--verify", "main").spm_chomp())
 
             // Check that git hashes resolve to themselves.
@@ -195,9 +196,9 @@ class GitRepositoryTests: XCTestCase {
             try makeDirectories(repoPath)
             initGitRepo(repoPath)
 
-            try Process.checkNonZeroExit(
+            try AsyncProcess.checkNonZeroExit(
                 args: Git.tool, "-C", repoPath.pathString, "submodule", "add", testRepoPath.pathString,
-                environment: Git.environment
+                environment: .init(Git.environmentBlock)
             )
             let repo = GitRepository(path: repoPath)
             try repo.stageEverything()
@@ -291,6 +292,7 @@ class GitRepositoryTests: XCTestCase {
             // Check read of a file.
             XCTAssertEqual(try view.readFileContents("/test-file-1.txt"), test1FileContents)
             XCTAssertEqual(try view.readFileContents("/subdir/test-file-2.txt"), test2FileContents)
+            XCTAssertEqual(try view.readFileContents("/test-file-3.sh"), test3FileContents)
         }
     }
 
@@ -446,7 +448,7 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
-    func testUncommitedChanges() throws {
+    func testUncommittedChanges() throws {
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -610,9 +612,9 @@ class GitRepositoryTests: XCTestCase {
 
             // Add submodule to foo and tag it as 1.0.1
             try foo.checkout(newBranch: "submodule")
-            try Process.checkNonZeroExit(
+            try AsyncProcess.checkNonZeroExit(
                 args: Git.tool, "-C", fooPath.pathString, "submodule", "add", barPath.pathString, "bar",
-                environment: Git.environment
+                environment: .init(Git.environmentBlock)
             )
 
             try foo.stageEverything()
@@ -632,9 +634,9 @@ class GitRepositoryTests: XCTestCase {
             // Add something to bar.
             try localFileSystem.writeFileContents(barPath.appending("bar.txt"), bytes: "hello")
             // Add a submodule too to check for recursive submodules.
-            try Process.checkNonZeroExit(
+            try AsyncProcess.checkNonZeroExit(
                 args: Git.tool, "-C", barPath.pathString, "submodule", "add", bazPath.pathString, "baz",
-                environment: Git.environment
+                environment: .init(Git.environmentBlock)
             )
 
             try bar.stageEverything()
@@ -682,11 +684,14 @@ class GitRepositoryTests: XCTestCase {
             let checkoutRepo = try provider.createWorkingCopy(repository: repoSpec, sourcePath: testClonePath, at: checkoutPath, editable: false)
 
             // The object store should be valid.
-            XCTAssertTrue(checkoutRepo.isAlternateObjectStoreValid())
+            XCTAssertTrue(checkoutRepo.isAlternateObjectStoreValid(expected: testClonePath))
+
+            // Wrong path
+            XCTAssertFalse(checkoutRepo.isAlternateObjectStoreValid(expected: testClonePath.appending(UUID().uuidString)))
 
             // Delete the clone (alternative object store).
             try localFileSystem.removeFileTree(testClonePath)
-            XCTAssertFalse(checkoutRepo.isAlternateObjectStoreValid())
+            XCTAssertFalse(checkoutRepo.isAlternateObjectStoreValid(expected: testClonePath))
         }
     }
 
@@ -761,6 +766,144 @@ class GitRepositoryTests: XCTestCase {
 
             // The following will throw if HEAD was set incorrectly and we didn't do a no-checkout clone.
             XCTAssertNoThrow(try checkoutRepo.getCurrentRevision())
+        }
+    }
+    
+    func testValidDirectoryLocalRelativeOrigin() async throws {
+        try testWithTemporaryDirectory { tmpDir in
+            // Create a repository.
+            let packageDir = tmpDir.appending("SomePackage")
+            try localFileSystem.createDirectory(packageDir)
+            
+            // Create a repository manager for it.
+            let repoProvider = GitRepositoryProvider()
+            let repositoryManager = RepositoryManager(
+                fileSystem: localFileSystem,
+                path: packageDir,
+                provider: repoProvider,
+                delegate: .none
+            )
+            
+            let customRemote = "../OriginOfSomePackage.git"
+            
+            // Before initializing the directory with a git repo, it is never valid.
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir))
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(packageDir.pathString))))
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemote))))
+            
+            initGitRepo(packageDir)
+            // Set the remote.
+            try systemQuietly([Git.tool, "-C", packageDir.pathString, "remote", "add", "origin", customRemote])
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir))
+            
+            let customRemoteWithoutPathExtension = (customRemote as NSString).deletingPathExtension
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemote))))
+            // We consider the directory valid even if the remote does not have the same path extension - in this case we expected '.git'.
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemoteWithoutPathExtension))))
+            // We consider the directory valid even if the remote does not have the same path extension - in this case we expected '.git'.
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for:  RepositorySpecifier(url: SourceControlURL((customRemote as NSString).deletingPathExtension + "/"))))
+            
+            // The following ensure that are actually checking the remote's origin.
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: AbsolutePath(validating: "/"))))
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL("/"))))
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: packageDir)))
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(packageDir.pathString))))
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: packageDir.appending(extension: "git"))))
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(packageDir.pathString.appending(".git")))))
+            
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL("https://mycustomdomain/some-package.git"))))
+        }
+    }
+    
+    func testValidDirectoryLocalAbsoluteOrigin() async throws {
+        try testWithTemporaryDirectory { tmpDir in
+            // Create a repository.
+            let packageDir = tmpDir.appending("SomePackage")
+            try localFileSystem.createDirectory(packageDir)
+            
+            // Create a repository manager for it.
+            let repoProvider = GitRepositoryProvider()
+            let repositoryManager = RepositoryManager(
+                fileSystem: localFileSystem,
+                path: packageDir,
+                provider: repoProvider,
+                delegate: .none
+            )
+            
+            let customRemote = tmpDir.appending("OriginOfSomePackage.git")
+            
+            // Before initializing the directory with a git repo, it is never valid.
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir))
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(packageDir.pathString))))
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemote.pathString))))
+            
+            initGitRepo(packageDir)
+            // Set the remote.
+            try systemQuietly([Git.tool, "-C", packageDir.pathString, "remote", "add", "origin", customRemote.pathString])
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir))
+            
+            let customRemotePath = customRemote.pathString
+            let customRemotePathWithoutPathExtension = (customRemotePath as NSString).deletingPathExtension
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: customRemote)))
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemotePath))))
+            // We consider the directory valid even if the remote does not have the same path extension - in this case we expected '.git'.
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: try AbsolutePath(validating: customRemotePathWithoutPathExtension))))
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemotePathWithoutPathExtension))))
+            // We consider the directory valid even if the remote does not have the same path extension - in this case we expected '.git'.
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for:  RepositorySpecifier(path: try AbsolutePath(validating: customRemotePathWithoutPathExtension + "/"))))
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for:  RepositorySpecifier(url: SourceControlURL((customRemotePath as NSString).deletingPathExtension + "/"))))
+            
+            // The following ensure that are actually checking the remote's origin.
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: AbsolutePath(validating: "/"))))
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL("/"))))
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: packageDir)))
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(packageDir.pathString))))
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: packageDir.appending(extension: "git"))))
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(packageDir.pathString.appending(".git")))))
+            
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL("https://mycustomdomain/some-package.git"))))
+        }
+    }
+    
+    func testValidDirectoryRemoteOrigin() async throws {
+        try testWithTemporaryDirectory { tmpDir in
+            // Create a repository.
+            let packageDir = tmpDir.appending("SomePackage")
+            try localFileSystem.createDirectory(packageDir)
+            
+            // Create a repository manager for it.
+            let repoProvider = GitRepositoryProvider()
+            let repositoryManager = RepositoryManager(
+                fileSystem: localFileSystem,
+                path: packageDir,
+                provider: repoProvider,
+                delegate: .none
+            )
+            
+            let customRemote = try XCTUnwrap(URL(string: "https://mycustomdomain/some-package.git"))
+            
+            // Before initializing the directory with a git repo, it is never valid.
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir))
+            XCTAssertThrowsError(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemote))))
+            
+            initGitRepo(packageDir)
+            // Set the remote.
+            try systemQuietly([Git.tool, "-C", packageDir.pathString, "remote", "add", "origin", customRemote.absoluteString])
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir))
+            
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemote))))
+            // We consider the directory valid even if the remote does not have the same path extension - in this case we expected '.git'.
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL("https://mycustomdomain/some-package"))))
+            // We consider the directory valid even if the remote does not have the same path extension - in this case we expected '.git'.
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for:  RepositorySpecifier(url: SourceControlURL("https://mycustomdomain/some-package/"))))
+            
+            // The following ensure that are actually checking the remote's origin.
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: AbsolutePath(validating: "/"))))
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL("/"))))
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: packageDir)))
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(packageDir.pathString))))
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: packageDir.appending(extension: "git"))))
+            XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(packageDir.pathString.appending(".git")))))
         }
     }
 }

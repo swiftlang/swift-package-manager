@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import Dispatch
 import Foundation
 import PackageFingerprint
@@ -28,7 +29,7 @@ public protocol RegistryClientDelegate {
 }
 
 /// Package registry client.
-/// API specification: https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md
+/// API specification: https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md
 public final class RegistryClient: Cancellable {
     public typealias Delegate = RegistryClientDelegate
 
@@ -86,9 +87,7 @@ public final class RegistryClient: Cancellable {
                 switch registryAuthentication.type {
                 case .basic:
                     let authorizationString = "\(user):\(password)"
-                    guard let authorizationData = authorizationString.data(using: .utf8) else {
-                        return nil
-                    }
+                    let authorizationData = Data(authorizationString.utf8)
                     return "Basic \(authorizationData.base64EncodedString())"
                 case .token: // `user` value is irrelevant in this case
                     return "Bearer \(password)"
@@ -135,21 +134,35 @@ public final class RegistryClient: Cancellable {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
-        self.signingEntityStorage?.changeSigningEntityFromVersion(
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.signingEntityStorage?.changeSigningEntityFromVersion(
             package: package,
             version: version,
             signingEntity: signingEntity,
             origin: origin,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue,
-            callback: completion
+            observabilityScope: observabilityScope
         )
     }
+    
+    public func getPackageMetadata(
+        package: PackageIdentity,
+        timeout: DispatchTimeInterval? = .none,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws -> PackageMetadata {
+        try await withCheckedThrowingContinuation {
+            self.getPackageMetadata(
+                package: package,
+                timeout: timeout,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                completion: $0.resume(with:)
+            )
+        }
+    }
 
+    @available(*, noasync, message: "Use the async alternative")
     public func getPackageMetadata(
         package: PackageIdentity,
         timeout: DispatchTimeInterval? = .none,
@@ -262,7 +275,29 @@ public final class RegistryClient: Cancellable {
             )
         }
     }
+    
+    public func getPackageVersionMetadata(
+        package: PackageIdentity,
+        version: Version,
+        timeout: DispatchTimeInterval? = .none,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws -> PackageVersionMetadata {
+        try await withCheckedThrowingContinuation {
+            self.getPackageVersionMetadata(
+                package: package,
+                version: version,
+                timeout: timeout,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                completion: $0.resume(with:)
+            )
+        }
+    }
 
+    @available(*, noasync, message: "Use the async alternative")
     public func getPackageVersionMetadata(
         package: PackageIdentity,
         version: Version,
@@ -330,46 +365,52 @@ public final class RegistryClient: Cancellable {
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue
         ) { result in
-            completion(
-                result.tryMap { versionMetadata in
-                    PackageVersionMetadata(
+            switch result {
+            case .failure(let failure):
+                completion(.failure(failure))
+            case .success(let versionMetadata):
+                Task {
+                    // WIP: async map the signing entity
+
+                    var resourceSigning: [(resource: RegistryClient.Serialization.VersionMetadata.Resource, signingEntity: SigningEntity?)] = []
+                    for resource in versionMetadata.resources {
+                        guard let signing = resource.signing,
+                              let signatureData = Data(base64Encoded: signing.signatureBase64Encoded),
+                              let signatureFormat = SignatureFormat(rawValue: signing.signatureFormat) else {
+                            resourceSigning.append((resource, nil))
+                            continue
+                        }
+                        let configuration = self.configuration.signing(for: package, registry: registry)
+
+                        let result = try? await withCheckedThrowingContinuation { completion in
+                            SignatureValidation.extractSigningEntity(
+                                signature: [UInt8](signatureData),
+                                signatureFormat: signatureFormat,
+                                configuration: configuration,
+                                fileSystem: fileSystem,
+                                completion: completion.resume(with:)
+                            )
+                        }
+                        resourceSigning.append((resource, result))
+                    }
+
+                    let packageVersionMetadata = PackageVersionMetadata(
                         registry: registry,
                         licenseURL: versionMetadata.metadata?.licenseURL.flatMap { URL(string: $0) },
                         readmeURL: versionMetadata.metadata?.readmeURL.flatMap { URL(string: $0) },
                         repositoryURLs: versionMetadata.metadata?.repositoryURLs?.compactMap { SourceControlURL($0) },
-                        resources: versionMetadata.resources.map {
+                        resources: resourceSigning.map {
                             .init(
-                                name: $0.name,
-                                type: $0.type,
-                                checksum: $0.checksum,
-                                signing: $0.signing.flatMap {
+                                name: $0.resource.name,
+                                type: $0.resource.type,
+                                checksum: $0.resource.checksum,
+                                signing: $0.resource.signing.flatMap {
                                     PackageVersionMetadata.Signing(
                                         signatureBase64Encoded: $0.signatureBase64Encoded,
                                         signatureFormat: $0.signatureFormat
                                     )
                                 },
-                                signingEntity: $0.signing.flatMap {
-                                    guard let signatureData = Data(base64Encoded: $0.signatureBase64Encoded) else {
-                                        return nil
-                                    }
-                                    guard let signatureFormat = SignatureFormat(rawValue: $0.signatureFormat) else {
-                                        return nil
-                                    }
-                                    let configuration = self.configuration.signing(for: package, registry: registry)
-                                    return try? temp_await { completion in
-                                        let wrappedCompletion: @Sendable (Result<SigningEntity?, Error>) -> Void = {
-                                            completion($0)
-                                        }
-
-                                        SignatureValidation.extractSigningEntity(
-                                            signature: [UInt8](signatureData),
-                                            signatureFormat: signatureFormat,
-                                            configuration: configuration,
-                                            fileSystem: fileSystem,
-                                            completion: wrappedCompletion
-                                        )
-                                    }
-                                }
+                                signingEntity: $0.signingEntity
                             )
                         },
                         author: versionMetadata.metadata?.author.map {
@@ -391,8 +432,9 @@ public final class RegistryClient: Cancellable {
                         description: versionMetadata.metadata?.description,
                         publishedAt: versionMetadata.metadata?.originalPublicationTime ?? versionMetadata.publishedAt
                     )
+                    completion(.success(packageVersionMetadata))
                 }
-            )
+            }
         }
     }
 
@@ -464,6 +506,26 @@ public final class RegistryClient: Cancellable {
         }
     }
 
+    public func getAvailableManifests(
+        package: PackageIdentity,
+        version: Version,
+        timeout: DispatchTimeInterval? = .none,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws -> [String: (toolsVersion: ToolsVersion, content: String?)]{
+        try await withCheckedThrowingContinuation {
+            self.getAvailableManifests(
+                package: package,
+                version: version,
+                timeout: timeout,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                completion: $0.resume(with:)
+            )
+        }
+    }
+    
+    @available(*, noasync, message: "Use the async alternative")
     public func getAvailableManifests(
         package: PackageIdentity,
         version: Version,
@@ -592,9 +654,7 @@ public final class RegistryClient: Cancellable {
                                 guard let data = response.body else {
                                     throw RegistryError.invalidResponse
                                 }
-                                guard let manifestContent = String(data: data, encoding: .utf8) else {
-                                    throw RegistryError.invalidResponse
-                                }
+                                let manifestContent = String(decoding: data, as: UTF8.self)
 
                                 signatureValidation.validate(
                                     registry: registry,
@@ -614,49 +674,46 @@ public final class RegistryClient: Cancellable {
                                         let actualChecksum = self.checksumAlgorithm.hash(.init(data))
                                             .hexadecimalRepresentation
 
-                                        checksumTOFU.validateManifest(
-                                            registry: registry,
-                                            package: package,
-                                            version: version,
-                                            toolsVersion: .none,
-                                            checksum: actualChecksum,
-                                            timeout: timeout,
-                                            observabilityScope: observabilityScope,
-                                            callbackQueue: callbackQueue
-                                        ) { checksumResult in
-                                            switch checksumResult {
-                                            case .success:
-                                                do {
-                                                    var result =
-                                                        [String: (toolsVersion: ToolsVersion, content: String?)]()
-                                                    let toolsVersion = try ToolsVersionParser
-                                                        .parse(utf8String: manifestContent)
-                                                    result[Manifest.filename] = (
-                                                        toolsVersion: toolsVersion,
-                                                        content: manifestContent
-                                                    )
+                                        do {
+                                            try checksumTOFU.validateManifest(
+                                                registry: registry,
+                                                package: package,
+                                                version: version,
+                                                toolsVersion: .none,
+                                                checksum: actualChecksum,
+                                                timeout: timeout,
+                                                observabilityScope: observabilityScope
+                                            )
+                                            do {
+                                                var result =
+                                                    [String: (toolsVersion: ToolsVersion, content: String?)]()
+                                                let toolsVersion = try ToolsVersionParser
+                                                    .parse(utf8String: manifestContent)
+                                                result[Manifest.filename] = (
+                                                    toolsVersion: toolsVersion,
+                                                    content: manifestContent
+                                                )
 
-                                                    let alternativeManifests = try response.headers.parseManifestLinks()
-                                                    for alternativeManifest in alternativeManifests {
-                                                        result[alternativeManifest.filename] = (
-                                                            toolsVersion: alternativeManifest.toolsVersion,
-                                                            content: .none
-                                                        )
-                                                    }
-                                                    completion(.success(result))
-                                                } catch {
-                                                    completion(.failure(
-                                                        RegistryError.failedRetrievingManifest(
-                                                            registry: registry,
-                                                            package: package.underlying,
-                                                            version: version,
-                                                            error: error
-                                                        )
-                                                    ))
+                                                let alternativeManifests = try response.headers.parseManifestLinks()
+                                                for alternativeManifest in alternativeManifests {
+                                                    result[alternativeManifest.filename] = (
+                                                        toolsVersion: alternativeManifest.toolsVersion,
+                                                        content: .none
+                                                    )
                                                 }
-                                            case .failure(let error):
-                                                completion(.failure(error))
+                                                completion(.success(result))
+                                            } catch {
+                                                completion(.failure(
+                                                    RegistryError.failedRetrievingManifest(
+                                                        registry: registry,
+                                                        package: package.underlying,
+                                                        version: version,
+                                                        error: error
+                                                    )
+                                                ))
                                             }
+                                        } catch {
+                                            completion(.failure(error))
                                         }
                                     case .failure(let error):
                                         completion(.failure(error))
@@ -693,7 +750,28 @@ public final class RegistryClient: Cancellable {
             }
         }
     }
-
+    public func getManifestContent(
+        package: PackageIdentity,
+        version: Version,
+        customToolsVersion: ToolsVersion?,
+        timeout: DispatchTimeInterval? = .none,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws -> String {
+        try await withCheckedThrowingContinuation {
+            self.getManifestContent(
+                package: package,
+                version: version,
+                customToolsVersion: customToolsVersion, 
+                timeout: timeout,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                completion: $0.resume(with:)
+            )
+        }
+    }
+    
+    @available(*, noasync, message: "Use the async alternative")
     public func getManifestContent(
         package: PackageIdentity,
         version: Version,
@@ -830,9 +908,7 @@ public final class RegistryClient: Cancellable {
                                 guard let data = response.body else {
                                     throw RegistryError.invalidResponse
                                 }
-                                guard let manifestContent = String(data: data, encoding: .utf8) else {
-                                    throw RegistryError.invalidResponse
-                                }
+                                let manifestContent = String(decoding: data, as: UTF8.self)
 
                                 signatureValidation.validate(
                                     registry: registry,
@@ -852,22 +928,19 @@ public final class RegistryClient: Cancellable {
                                         let actualChecksum = self.checksumAlgorithm.hash(.init(data))
                                             .hexadecimalRepresentation
 
-                                        checksumTOFU.validateManifest(
-                                            registry: registry,
-                                            package: package,
-                                            version: version,
-                                            toolsVersion: customToolsVersion,
-                                            checksum: actualChecksum,
-                                            timeout: timeout,
-                                            observabilityScope: observabilityScope,
-                                            callbackQueue: callbackQueue
-                                        ) { checksumResult in
-                                            switch checksumResult {
-                                            case .success:
-                                                completion(.success(manifestContent))
-                                            case .failure(let error):
-                                                completion(.failure(error))
-                                            }
+                                        do {
+                                            try checksumTOFU.validateManifest(
+                                                registry: registry,
+                                                package: package,
+                                                version: version,
+                                                toolsVersion: customToolsVersion,
+                                                checksum: actualChecksum,
+                                                timeout: timeout,
+                                                observabilityScope: observabilityScope
+                                            )
+                                            completion(.success(manifestContent))
+                                        } catch {
+                                            completion(.failure(error))
                                         }
                                     case .failure(let error):
                                         completion(.failure(error))
@@ -904,12 +977,37 @@ public final class RegistryClient: Cancellable {
             }
         }
     }
-
     public func downloadSourceArchive(
         package: PackageIdentity,
         version: Version,
         destinationPath: AbsolutePath,
-        progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
+        progressHandler: (@Sendable (_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
+        timeout: DispatchTimeInterval? = .none,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws {
+        try await withCheckedThrowingContinuation {
+            self.downloadSourceArchive(
+                package: package,
+                version: version,
+                destinationPath: destinationPath,
+                progressHandler: progressHandler,
+                timeout: timeout,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                completion: $0.resume(with:)
+            )
+        }
+    }
+
+    @available(*, noasync, message: "Use the async alternative")
+    public func downloadSourceArchive(
+        package: PackageIdentity,
+        version: Version,
+        destinationPath: AbsolutePath,
+        progressHandler: (@Sendable (_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
         timeout: DispatchTimeInterval? = .none,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -963,7 +1061,7 @@ public final class RegistryClient: Cancellable {
         package: PackageIdentity.RegistryIdentity,
         version: Version,
         destinationPath: AbsolutePath,
-        progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
+        progressHandler: (@Sendable (_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
         timeout: DispatchTimeInterval?,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -1195,7 +1293,25 @@ public final class RegistryClient: Cancellable {
             }
         }
     }
+    
+    public func lookupIdentities(
+        scmURL: SourceControlURL,
+        timeout: DispatchTimeInterval? = .none,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws -> Set<PackageIdentity> {
+        try await withCheckedThrowingContinuation {
+            self.lookupIdentities(
+                scmURL: scmURL,
+                timeout: timeout,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                completion: $0.resume(with:)
+            )
+        }
+    }
 
+    @available(*, noasync, message: "Use the async alternative")
     public func lookupIdentities(
         scmURL: SourceControlURL,
         timeout: DispatchTimeInterval? = .none,
@@ -1300,7 +1416,25 @@ public final class RegistryClient: Cancellable {
             )
         }
     }
+    
+    public func login(
+        loginURL: URL,
+        timeout: DispatchTimeInterval? = .none,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws {
+        try await withCheckedThrowingContinuation {
+            self.login(
+                loginURL: loginURL,
+                timeout: timeout,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                completion: $0.resume(with:)
+            )
+        }
+    }
 
+    @available(*, noasync, message: "Use the async alternative")
     public func login(
         loginURL: URL,
         timeout: DispatchTimeInterval? = .none,
@@ -1337,7 +1471,41 @@ public final class RegistryClient: Cancellable {
             }
         }
     }
+    
+    public func publish(
+        registryURL: URL,
+        packageIdentity: PackageIdentity,
+        packageVersion: Version,
+        packageArchive: AbsolutePath,
+        packageMetadata: AbsolutePath?,
+        signature: [UInt8]?,
+        metadataSignature: [UInt8]?,
+        signatureFormat: SignatureFormat?,
+        timeout: DispatchTimeInterval? = .none,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws -> PublishResult  {
+        try await withCheckedThrowingContinuation {
+            self.publish(
+                registryURL: registryURL,
+                packageIdentity: packageIdentity,
+                packageVersion: packageVersion,
+                packageArchive: packageArchive,
+                packageMetadata: packageMetadata,
+                signature: signature,
+                metadataSignature: metadataSignature,
+                signatureFormat: signatureFormat,
+                timeout: timeout,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                completion: $0.resume(with:)
+            )
+        }
+    }
 
+    @available(*, noasync, message: "Use the async alternative")
     public func publish(
         registryURL: URL,
         packageIdentity: PackageIdentity,
@@ -1481,7 +1649,7 @@ public final class RegistryClient: Cancellable {
                 result.tryMap { response in
                     observabilityScope
                         .emit(
-                            debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+                            debug: "server response for \(url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
                         )
                     switch response.statusCode {
                     case 201:
@@ -1505,8 +1673,26 @@ public final class RegistryClient: Cancellable {
             )
         }
     }
+    
+    func checkAvailability(
+        registry: Registry,
+        timeout: DispatchTimeInterval? = .none,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws -> AvailabilityStatus {
+        try await withCheckedThrowingContinuation {
+            self.checkAvailability(
+                registry: registry,
+                timeout: timeout,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                completion: $0.resume(with:)
+            )
+        }
+    }
 
     // marked internal for testing
+    @available(*, noasync, message: "Use the async alternative")
     func checkAvailability(
         registry: Registry,
         timeout: DispatchTimeInterval? = .none,
@@ -1614,14 +1800,14 @@ public final class RegistryClient: Cancellable {
         case 400...499:
             return RegistryError.clientError(
                 code: response.statusCode,
-                details: response.body.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+                details: response.body.map { String(decoding: $0, as: UTF8.self) } ?? ""
             )
         case 501:
             return RegistryError.authenticationMethodNotSupported
         case 500...599:
             return RegistryError.serverError(
                 code: response.statusCode,
-                details: response.body.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+                details: response.body.map { String(decoding: $0, as: UTF8.self) } ?? ""
             )
         default:
             return RegistryError.invalidResponseStatus(expected: expectedStatus, actual: response.statusCode)

@@ -46,8 +46,7 @@ public class ObservabilitySystem {
     private struct SingleDiagnosticsHandler: ObservabilityHandlerProvider, DiagnosticsHandler {
         var diagnosticsHandler: DiagnosticsHandler { self }
 
-        let underlying: @Sendable (ObservabilityScope, Diagnostic)
-            -> Void
+        let underlying: @Sendable (ObservabilityScope, Diagnostic) -> Void
 
         init(_ underlying: @escaping @Sendable (ObservabilityScope, Diagnostic) -> Void) {
             self.underlying = underlying
@@ -56,6 +55,10 @@ public class ObservabilitySystem {
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic) {
             self.underlying(scope, diagnostic)
         }
+    }
+
+    public static var NOOP: ObservabilityScope {
+        ObservabilitySystem { _, _ in }.topScope
     }
 }
 
@@ -247,11 +250,37 @@ extension DiagnosticsEmitterProtocol {
         }
     }
 
+    public func trap<T>(_ closure: () async throws -> T) async -> T? {
+        do {
+            return try await closure()
+        } catch Diagnostics.fatalError {
+            // FIXME: (diagnostics) deprecate this with Diagnostics.fatalError
+            return nil
+        } catch {
+            self.emit(error)
+            return nil
+        }
+    }
+
     /// trap a throwing closure, emitting diagnostics on error and returning boolean representing success
     @discardableResult
     public func trap(_ closure: () throws -> Void) -> Bool {
         do {
             try closure()
+            return true
+        } catch Diagnostics.fatalError {
+            // FIXME: (diagnostics) deprecate this with Diagnostics.fatalError
+            return false
+        } catch {
+            self.emit(error)
+            return false
+        }
+    }
+
+    @discardableResult
+    public func trap(_ closure: () async throws -> Void) async -> Bool {
+        do {
+            try await closure()
             return true
         } catch Diagnostics.fatalError {
             // FIXME: (diagnostics) deprecate this with Diagnostics.fatalError

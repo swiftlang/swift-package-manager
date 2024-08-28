@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -11,11 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import SPMTestSupport
+import _InternalTestSupport
 import Workspace
 import XCTest
-
-import class TSCBasic.InMemoryFileSystem
 
 final class MirrorsConfigurationTests: XCTestCase {
     func testLoadingSchema1() throws {
@@ -73,7 +71,7 @@ final class MirrorsConfigurationTests: XCTestCase {
         let mirrorURL = "https://github.com/mona/swift-argument-parser.git"
 
         try config.apply{ mirrors in
-            mirrors.set(mirror: mirrorURL, for: originalURL)
+            try mirrors.set(mirror: mirrorURL, for: originalURL)
         }
         XCTAssertTrue(fs.exists(configFile))
 
@@ -96,7 +94,7 @@ final class MirrorsConfigurationTests: XCTestCase {
         let mirrorURL = "https://github.com/mona/swift-argument-parser.git"
 
         try config.apply{ mirrors in
-            mirrors.set(mirror: mirrorURL, for: originalURL)
+            try mirrors.set(mirror: mirrorURL, for: originalURL)
         }
         XCTAssertTrue(fs.exists(configFile))
 
@@ -124,7 +122,7 @@ final class MirrorsConfigurationTests: XCTestCase {
         let mirror1URL = "https://github.com/mona/swift-argument-parser.git"
 
         try config.applyShared { mirrors in
-            mirrors.set(mirror: mirror1URL, for: original1URL)
+            try mirrors.set(mirror: mirror1URL, for: original1URL)
         }
 
         XCTAssertEqual(config.mirrors.count, 1)
@@ -137,7 +135,7 @@ final class MirrorsConfigurationTests: XCTestCase {
         let mirror2URL = "https://github.com/mona/swift-nio.git"
 
         try config.applyLocal { mirrors in
-            mirrors.set(mirror: mirror2URL, for: original2URL)
+            try mirrors.set(mirror: mirror2URL, for: original2URL)
         }
 
         XCTAssertEqual(config.mirrors.count, 1)

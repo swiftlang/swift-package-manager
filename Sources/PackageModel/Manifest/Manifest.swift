@@ -80,6 +80,9 @@ public final class Manifest: Sendable {
     /// The products declared in the manifest.
     public let products: [ProductDescription]
 
+    /// The set of traits of this package.
+    public let traits: Set<TraitDescription>
+
     /// The C language standard flag.
     public let cLanguageStandard: String?
 
@@ -118,7 +121,8 @@ public final class Manifest: Sendable {
         swiftLanguageVersions: [SwiftLanguageVersion]?,
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
-        targets: [TargetDescription] = []
+        targets: [TargetDescription] = [],
+        traits: Set<TraitDescription>
     ) {
         self.displayName = displayName
         self.path = path
@@ -138,6 +142,7 @@ public final class Manifest: Sendable {
         self.products = products
         self.targets = targets
         self.targetMap = Dictionary(targets.lazy.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
+        self.traits = traits
     }
 
     /// Returns the targets required for a particular product filter.
@@ -153,14 +158,22 @@ public final class Manifest: Sendable {
                 return self.targets
             case .specific(let productFilter):
                 let products = self.products.filter { productFilter.contains($0.name) }
-                targets = targetsRequired(for: products)
+                targets = self.targetsRequired(for: products)
             }
 
-            _requiredTargets[productFilter] = targets
+            self._requiredTargets[productFilter] = targets
             return targets
         }
         #else
-        return packageKind.isRoot ? self.targets : targetsRequired(for: products)
+        // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
+        if let targets = self._requiredTargets[.nothing] {
+            return targets
+        } else {
+            let targets = self.packageKind.isRoot ? self.targets : self.targetsRequired(for: self.products)
+            // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
+            self._requiredTargets[.nothing] = targets
+            return targets
+        }
         #endif
     }
 
@@ -177,26 +190,34 @@ public final class Manifest: Sendable {
             return dependencies
         }
         #else
-        guard toolsVersion >= .v5_2 && !packageKind.isRoot else {
+        guard self.toolsVersion >= .v5_2 && !self.packageKind.isRoot else {
             return self.dependencies
         }
 
-        var requiredDependencies: Set<PackageIdentity> = []
-        for targetTriple in self.targetsRequired(for: products) {
-            for targetDependency in targetTriple.dependencies {
-                if let dependency = self.packageDependency(referencedBy: targetDependency) {
-                    requiredDependencies.insert(dependency.identity)
+        // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
+        if let dependencies = self._requiredDependencies[.nothing] {
+            return dependencies
+        } else {
+            var requiredDependencies: Set<PackageIdentity> = []
+            for target in self.targetsRequired(for: self.products) {
+                for targetDependency in target.dependencies {
+                    if let dependency = self.packageDependency(referencedBy: targetDependency) {
+                        requiredDependencies.insert(dependency.identity)
+                    }
+                }
+
+                target.pluginUsages?.forEach {
+                    if let dependency = self.packageDependency(referencedBy: $0) {
+                        requiredDependencies.insert(dependency.identity)
+                    }
                 }
             }
 
-            targetTriple.pluginUsages?.forEach {
-                if let dependency = self.packageDependency(referencedBy: $0) {
-                    requiredDependencies.insert(dependency.identity)
-                }
-            }
+            let dependencies = self.dependencies.filter { requiredDependencies.contains($0.identity) }
+            // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
+            self._requiredDependencies[.nothing] = dependencies
+            return dependencies
         }
-
-        return self.dependencies.filter { requiredDependencies.contains($0.identity) }
         #endif
     }
 
@@ -248,20 +269,25 @@ public final class Manifest: Sendable {
 
     /// Returns the package dependencies required for building the provided targets.
     ///
-    /// The returned dependencies have their particular product filters registered. (To determine product filters without removing any dependencies from the list, specify `keepUnused: true`.)
+    /// The returned dependencies have their particular product filters registered. (To determine product filters
+    /// without removing any dependencies from the list, specify `keepUnused: true`.)
     private func dependenciesRequired(
         for targets: [TargetDescription],
         keepUnused: Bool = false
     ) -> [PackageDependency] {
         var registry: (known: [PackageIdentity: ProductFilter], unknown: Set<String>) = ([:], [])
-        let availablePackages = Set(dependencies.lazy.map(\.identity))
+        let availablePackages = Set(self.dependencies.lazy.map(\.identity))
 
         for target in targets {
             for targetDependency in target.dependencies {
-                register(targetDependency: targetDependency, registry: &registry, availablePackages: availablePackages)
+                self.register(
+                    targetDependency: targetDependency,
+                    registry: &registry,
+                    availablePackages: availablePackages
+                )
             }
             for requiredPlugIn in target.pluginUsages ?? [] {
-                register(requiredPlugIn: requiredPlugIn, registry: &registry, availablePackages: availablePackages)
+                self.register(requiredPlugIn: requiredPlugIn, registry: &registry, availablePackages: availablePackages)
             }
         }
 
@@ -275,7 +301,7 @@ public final class Manifest: Sendable {
             }
         }
 
-        return dependencies.compactMap { dependency in
+        return self.dependencies.compactMap { dependency in
             if let filter = associations[dependency.identity] {
                 return dependency.filtered(by: filter)
             } else if keepUnused {
@@ -304,7 +330,7 @@ public final class Manifest: Sendable {
             return nil
         }
 
-        return packageDependency(referencedBy: packageName)
+        return self.packageDependency(referencedBy: packageName)
     }
 
     /// Finds the package dependency referenced by the specified plugin usage.
@@ -314,7 +340,7 @@ public final class Manifest: Sendable {
     ) -> PackageDependency? {
         switch pluginUsage {
         case .plugin(_, .some(let package)):
-            return packageDependency(referencedBy: package)
+            return self.packageDependency(referencedBy: package)
         default:
             return nil
         }
@@ -325,7 +351,7 @@ public final class Manifest: Sendable {
     ) -> PackageDependency? {
         self.dependencies.first(where: {
             // rdar://80594761 make sure validation is case insensitive
-            $0.nameForTargetDependencyResolutionOnly.lowercased() == packageName.lowercased()
+            $0.nameForModuleDependencyResolutionOnly.lowercased() == packageName.lowercased()
         })
     }
 
@@ -335,7 +361,7 @@ public final class Manifest: Sendable {
     /// If none is found, it is assumed that the string is the package identity itself
     /// (although it may actually be a dangling reference diagnosed later).
     private func packageIdentity(referencedBy packageName: String) -> PackageIdentity {
-        packageDependency(referencedBy: packageName)?.identity
+        self.packageDependency(referencedBy: packageName)?.identity
             ?? .plain(packageName)
     }
 
@@ -355,9 +381,9 @@ public final class Manifest: Sendable {
             break
         case .product(let product, let package, _, _):
             if let package { // ≥ 5.2
-                if !register(
+                if !self.register(
                     product: product,
-                    inPackage: packageIdentity(referencedBy: package),
+                    inPackage: self.packageIdentity(referencedBy: package),
                     registry: &registry.known,
                     availablePackages: availablePackages
                 ) {
@@ -369,9 +395,9 @@ public final class Manifest: Sendable {
                 registry.unknown.insert(product)
             }
         case .byName(let product, _):
-            if toolsVersion < .v5_2 {
+            if self.toolsVersion < .v5_2 {
                 // A by‐name entry might be a product from anywhere.
-                if targets.contains(where: { $0.name == product }) {
+                if self.targets.contains(where: { $0.name == product }) {
                     // Save the resolver some effort if it is known to only be a target anyway.
                     break
                 } else {
@@ -379,14 +405,14 @@ public final class Manifest: Sendable {
                 }
             } else { // ≥ 5.2
                 // If a by‐name entry is a product, it must be in a package of the same name.
-                if !register(
+                if !self.register(
                     product: product,
-                    inPackage: packageIdentity(referencedBy: product),
+                    inPackage: self.packageIdentity(referencedBy: product),
                     registry: &registry.known,
                     availablePackages: availablePackages
                 ) {
                     // If it doesn’t match a package, it should be a target, not a product.
-                    if targets.contains(where: { $0.name == product }) {
+                    if self.targets.contains(where: { $0.name == product }) {
                         break
                     } else {
                         // But in case the user is trying to reference a product,
@@ -414,9 +440,9 @@ public final class Manifest: Sendable {
         switch requiredPlugIn {
         case .plugin(let name, let package):
             if let package {
-                if !register(
+                if !self.register(
                     product: name,
-                    inPackage: packageIdentity(referencedBy: package),
+                    inPackage: self.packageIdentity(referencedBy: package),
                     registry: &registry.known,
                     availablePackages: availablePackages
                 ) {
@@ -438,7 +464,8 @@ public final class Manifest: Sendable {
     ///   - registry: The registry in which to record the association.
     ///   - availablePackages: The set of available packages.
     ///
-    /// - Returns: `true` if the particular dependency was found and the product was registered; `false` if no matching dependency was found and the product has not yet been handled.
+    /// - Returns: `true` if the particular dependency was found and the product was registered; `false` if no matching
+    /// dependency was found and the product has not yet been handled.
     private func register(
         product: String,
         inPackage package: PackageIdentity,
@@ -457,23 +484,23 @@ public final class Manifest: Sendable {
     }
 
     /// Returns a list of target descriptions whose root source directory is the same as that for the given type.
-    public func targetsWithCommonSourceRoot(type: TargetDescription.TargetType) -> [TargetDescription] {
+    public func targetsWithCommonSourceRoot(type: TargetDescription.TargetKind) -> [TargetDescription] {
         switch type {
         case .test:
-            return targets.filter { $0.type == .test }
+            return self.targets.filter { $0.type == .test }
         case .plugin:
-            return targets.filter { $0.type == .plugin }
+            return self.targets.filter { $0.type == .plugin }
         default:
-            return targets.filter { $0.type != .test && $0.type != .plugin }
+            return self.targets.filter { $0.type != .test && $0.type != .plugin }
         }
     }
 
     /// Returns true if the tools version is >= 5.9 and the number of targets with a common source root is 1.
-    public func shouldSuggestRelaxedSourceDir(type: TargetDescription.TargetType) -> Bool {
-        guard toolsVersion >= .v5_9 else {
+    public func shouldSuggestRelaxedSourceDir(type: TargetDescription.TargetKind) -> Bool {
+        guard self.toolsVersion >= .v5_9 else {
             return false
         }
-        return targetsWithCommonSourceRoot(type: type).count == 1
+        return self.targetsWithCommonSourceRoot(type: type).count == 1
     }
 }
 
@@ -497,7 +524,7 @@ extension Manifest: Encodable {
     private enum CodingKeys: CodingKey {
         case name, path, url, version, targetMap, toolsVersion,
              pkgConfig, providers, cLanguageStandard, cxxLanguageStandard, swiftLanguageVersions,
-             dependencies, products, targets, platforms, packageKind, revision,
+             dependencies, products, targets, experimentalTraits, platforms, packageKind, revision,
              defaultLocalization
     }
 
@@ -528,6 +555,7 @@ extension Manifest: Encodable {
         try container.encode(self.dependencies, forKey: .dependencies)
         try container.encode(self.products, forKey: .products)
         try container.encode(self.targets, forKey: .targets)
+        try container.encode(self.traits, forKey: .experimentalTraits)
         try container.encode(self.platforms, forKey: .platforms)
         try container.encode(self.packageKind, forKey: .packageKind)
     }

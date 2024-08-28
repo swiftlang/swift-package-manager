@@ -14,18 +14,41 @@ import _Concurrency
 import Foundation
 import struct TSCUtility.Versioning
 #if canImport(FoundationNetworking)
-// FIXME: this brings OpenSSL dependency on Linux
-// need to decide how to best deal with that
+// FIXME: this brings OpenSSL dependency on Linux and needs to be replaced with `swift-server/async-http-client` package
 import FoundationNetworking
 #endif
 
-final class URLSessionHTTPClient {
+final class URLSessionHTTPClient: Sendable {
+    private let dataSession: URLSession
+    private let downloadSession: URLSession
     private let dataTaskManager: DataTaskManager
     private let downloadTaskManager: DownloadTaskManager
 
     init(configuration: URLSessionConfiguration = .default) {
-        self.dataTaskManager = DataTaskManager(configuration: configuration)
-        self.downloadTaskManager = DownloadTaskManager(configuration: configuration)
+        let dataDelegateQueue = OperationQueue()
+        dataDelegateQueue.name = "org.swift.swiftpm.urlsession-http-client-data-delegate"
+        dataDelegateQueue.maxConcurrentOperationCount = 1
+        self.dataTaskManager = DataTaskManager()
+        self.dataSession = URLSession(
+            configuration: configuration,
+            delegate: self.dataTaskManager,
+            delegateQueue: dataDelegateQueue
+        )
+
+        let downloadDelegateQueue = OperationQueue()
+        downloadDelegateQueue.name = "org.swift.swiftpm.urlsession-http-client-download-delegate"
+        downloadDelegateQueue.maxConcurrentOperationCount = 1
+        self.downloadTaskManager = DownloadTaskManager()
+        self.downloadSession = URLSession(
+            configuration: configuration,
+            delegate: self.downloadTaskManager,
+            delegateQueue: downloadDelegateQueue
+        )
+    }
+
+    deinit {
+        dataSession.finishTasksAndInvalidate()
+        downloadSession.finishTasksAndInvalidate()
     }
 
     @Sendable
@@ -38,27 +61,34 @@ final class URLSessionHTTPClient {
             let task: URLSessionTask
             switch request.kind {
             case .generic:
-                task = self.dataTaskManager.makeTask(
+                let dataTask = self.dataSession.dataTask(with: urlRequest)
+                self.dataTaskManager.register(
+                    task: dataTask,
                     urlRequest: urlRequest,
                     authorizationProvider: request.options.authorizationProvider,
                     progress: progress,
-                    completion: continuation.resume(with:)
+                    completion: { continuation.resume(with: $0) }
                 )
+                task = dataTask
             case .download(_, let destination):
-                task = self.downloadTaskManager.makeTask(
+                let downloadTask = self.downloadSession.downloadTask(with: urlRequest)
+                self.downloadTaskManager.register(
+                    task: downloadTask,
                     urlRequest: urlRequest,
-                    // FIXME: always using a synchronous filesystem, because `URLSessionDownloadDelegate`
+                    // FIXME: always using synchronous filesystem, because `URLSessionDownloadDelegate`
                     // needs temporary files to moved out of temporary locations synchronously in delegate callbacks.
                     fileSystem: localFileSystem,
                     destination: destination,
                     progress: progress,
-                    completion: continuation.resume(with:)
+                    completion: { continuation.resume(with: $0) }
                 )
+                task = downloadTask
             }
             task.resume()
         }
     }
 
+    @Sendable
     public func execute(
         _ request: LegacyHTTPClient.Request,
         progress: LegacyHTTPClient.ProgressHandler?,
@@ -68,52 +98,48 @@ final class URLSessionHTTPClient {
         let task: URLSessionTask
         switch request.kind {
         case .generic:
-            task = self.dataTaskManager.makeTask(
+            let dataTask = self.dataSession.dataTask(with: urlRequest)
+            self.dataTaskManager.register(
+                task: dataTask,
                 urlRequest: urlRequest,
                 authorizationProvider: request.options.authorizationProvider,
                 progress: progress,
                 completion: completion
             )
+            task = dataTask
         case .download(let fileSystem, let destination):
-            task = self.downloadTaskManager.makeTask(
+            let downloadTask = self.downloadSession.downloadTask(with: urlRequest)
+            self.downloadTaskManager.register(
+                task: downloadTask,
                 urlRequest: urlRequest,
                 fileSystem: fileSystem,
                 destination: destination,
                 progress: progress,
                 completion: completion
             )
+            task = downloadTask
         }
         task.resume()
     }
 }
 
-private class DataTaskManager: NSObject, URLSessionDataDelegate {
-    private var tasks = ThreadSafeKeyValueStore<Int, DataTask>()
-    private let delegateQueue: OperationQueue
-    private var session: URLSession!
+private final class DataTaskManager: NSObject, URLSessionDataDelegate {
+    private let tasks = ThreadSafeKeyValueStore<Int, DataTask>()
 
-    public init(configuration: URLSessionConfiguration) {
-        self.delegateQueue = OperationQueue()
-        self.delegateQueue.name = "org.swift.swiftpm.urlsession-http-client-data-delegate"
-        self.delegateQueue.maxConcurrentOperationCount = 1
-        super.init()
-        self.session = URLSession(configuration: configuration, delegate: self, delegateQueue: self.delegateQueue)
-    }
-
-    func makeTask(
+    func register(
+        task: URLSessionDataTask,
         urlRequest: URLRequest,
         authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?,
         progress: LegacyHTTPClient.ProgressHandler?,
         completion: @escaping LegacyHTTPClient.CompletionHandler
-    ) -> URLSessionDataTask {
-        let task = self.session.dataTask(with: urlRequest)
+    ) {
         self.tasks[task.taskIdentifier] = DataTask(
             task: task,
             progressHandler: progress,
+            dataTaskManager: self,
             completionHandler: completion,
             authorizationProvider: authorizationProvider
         )
-        return task
     }
 
     public func urlSession(
@@ -122,11 +148,13 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
         didReceive response: URLResponse,
         completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
     ) {
-        guard let task = self.tasks[dataTask.taskIdentifier] else {
+        guard var task = self.tasks[dataTask.taskIdentifier] else {
             return completionHandler(.cancel)
         }
         task.response = response as? HTTPURLResponse
         task.expectedContentLength = response.expectedContentLength
+        self.tasks[dataTask.taskIdentifier] = task
+
         do {
             try task.progressHandler?(0, response.expectedContentLength)
             completionHandler(.allow)
@@ -136,7 +164,7 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
     }
 
     public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-        guard let task = self.tasks[dataTask.taskIdentifier] else {
+        guard var task = self.tasks[dataTask.taskIdentifier] else {
             return
         }
         if task.buffer != nil {
@@ -144,6 +172,7 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
         } else {
             task.buffer = data
         }
+        self.tasks[dataTask.taskIdentifier] = task
 
         do {
             // safe since created in the line above
@@ -189,9 +218,14 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
         completionHandler(request)
     }
 
-    class DataTask {
+    struct DataTask: Sendable {
         let task: URLSessionDataTask
         let completionHandler: LegacyHTTPClient.CompletionHandler
+        /// A strong reference to keep the `DataTaskManager` alive so it can handle the callbacks from the
+        /// `URLSession`.
+        ///
+        /// See comment on `WeakDataTaskManager`.
+        let dataTaskManager: DataTaskManager
         let progressHandler: LegacyHTTPClient.ProgressHandler?
         let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
 
@@ -202,46 +236,38 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
         init(
             task: URLSessionDataTask,
             progressHandler: LegacyHTTPClient.ProgressHandler?,
+            dataTaskManager: DataTaskManager,
             completionHandler: @escaping LegacyHTTPClient.CompletionHandler,
             authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
         ) {
             self.task = task
             self.progressHandler = progressHandler
+            self.dataTaskManager = dataTaskManager
             self.completionHandler = completionHandler
             self.authorizationProvider = authorizationProvider
         }
     }
 }
 
-private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
-    private var tasks = ThreadSafeKeyValueStore<Int, DownloadTask>()
-    private let delegateQueue: OperationQueue
-    private var session: URLSession!
+private final class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
+    private let tasks = ThreadSafeKeyValueStore<Int, DownloadTask>()
 
-    init(configuration: URLSessionConfiguration) {
-        self.delegateQueue = OperationQueue()
-        self.delegateQueue.name = "org.swift.swiftpm.urlsession-http-client-download-delegate"
-        self.delegateQueue.maxConcurrentOperationCount = 1
-        super.init()
-        self.session = URLSession(configuration: configuration, delegate: self, delegateQueue: self.delegateQueue)
-    }
-
-    func makeTask(
+    func register(
+        task: URLSessionDownloadTask,
         urlRequest: URLRequest,
         fileSystem: FileSystem,
         destination: AbsolutePath,
         progress: LegacyHTTPClient.ProgressHandler?,
         completion: @escaping LegacyHTTPClient.CompletionHandler
-    ) -> URLSessionDownloadTask {
-        let task = self.session.downloadTask(with: urlRequest)
+    ) {
         self.tasks[task.taskIdentifier] = DownloadTask(
             task: task,
             fileSystem: fileSystem,
             destination: destination,
+            downloadTaskManager: self,
             progressHandler: progress,
             completionHandler: completion
         )
-        return task
     }
 
     func urlSession(
@@ -270,7 +296,7 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         downloadTask: URLSessionDownloadTask,
         didFinishDownloadingTo location: URL
     ) {
-        guard let task = self.tasks[downloadTask.taskIdentifier] else {
+        guard var task = self.tasks[downloadTask.taskIdentifier] else {
             return
         }
 
@@ -283,6 +309,7 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
             try task.fileSystem.move(from: path, to: task.destination)
         } catch {
             task.moveFileError = error
+            self.tasks[downloadTask.taskIdentifier] = task
         }
     }
 
@@ -310,12 +337,12 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         }
     }
 
-    class DownloadTask {
+    struct DownloadTask: Sendable {
         let task: URLSessionDownloadTask
         let fileSystem: FileSystem
         let destination: AbsolutePath
-        let completionHandler: LegacyHTTPClient.CompletionHandler
         let progressHandler: LegacyHTTPClient.ProgressHandler?
+        let completionHandler: LegacyHTTPClient.CompletionHandler
 
         var moveFileError: Error?
 
@@ -323,6 +350,7 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
             task: URLSessionDownloadTask,
             fileSystem: FileSystem,
             destination: AbsolutePath,
+            downloadTaskManager: DownloadTaskManager,
             progressHandler: LegacyHTTPClient.ProgressHandler?,
             completionHandler: @escaping LegacyHTTPClient.CompletionHandler
         ) {

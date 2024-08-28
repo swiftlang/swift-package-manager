@@ -13,7 +13,7 @@
 import Basics
 import PackageLoading
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 class PackageDescription5_4LoadingTests: PackageDescriptionLoadingTests {
@@ -21,7 +21,7 @@ class PackageDescription5_4LoadingTests: PackageDescriptionLoadingTests {
         .v5_4
     }
 
-    func testExecutableTargets() throws {
+    func testExecutableTargets() async throws {
         let content = """
             import PackageDescription
             let package = Package(
@@ -35,14 +35,14 @@ class PackageDescription5_4LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
         XCTAssertEqual(manifest.targets[0].type, .executable)
     }
 
-    func testPluginsAreUnavailable() throws {
+    func testPluginsAreUnavailable() async throws {
         let content = """
             import PackageDescription
             let package = Package(
@@ -57,7 +57,7 @@ class PackageDescription5_4LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+        await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
             if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
                 XCTAssertMatch(message, .contains("is unavailable"))
                 XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.5"))

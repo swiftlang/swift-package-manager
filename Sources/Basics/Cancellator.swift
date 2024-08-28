@@ -12,15 +12,14 @@
 
 import Dispatch
 import Foundation
-import class TSCBasic.Process
 import class TSCBasic.Thread
 #if canImport(WinSDK)
 import WinSDK
 #endif
 
-public typealias CancellationHandler = (DispatchTime) throws -> Void
+public typealias CancellationHandler = @Sendable (DispatchTime) throws -> Void
 
-public final class Cancellator: Cancellable {
+public final class Cancellator: Cancellable, Sendable {
     public typealias RegistrationKey = String
 
     private let observabilityScope: ObservabilityScope?
@@ -119,11 +118,11 @@ public final class Cancellator: Cancellable {
     }
 
     @discardableResult
-    public func register(name: String, handler: @escaping () throws -> Void) -> RegistrationKey? {
+    public func register(name: String, handler: @escaping @Sendable () throws -> Void) -> RegistrationKey? {
         self.register(name: name, handler: { _ in try handler() })
     }
 
-    public func register(_ process: TSCBasic.Process) -> RegistrationKey? {
+    package func register(_ process: AsyncProcess) -> RegistrationKey? {
         self.register(name: "\(process.arguments.joined(separator: " "))", handler: process.terminate)
     }
 
@@ -202,7 +201,7 @@ public struct CancellationError: Error, CustomStringConvertible {
         self.description = description
     }
 
-    static func failedToRegisterProcess(_ process: TSCBasic.Process) -> Self {
+    static func failedToRegisterProcess(_ process: AsyncProcess) -> Self {
         Self(
             description: """
             failed to register a cancellation handler for this process invocation `\(
@@ -213,7 +212,7 @@ public struct CancellationError: Error, CustomStringConvertible {
     }
 }
 
-extension TSCBasic.Process {
+extension AsyncProcess {
     fileprivate func terminate(timeout: DispatchTime) {
         // send graceful shutdown signal
         self.signal(SIGINT)

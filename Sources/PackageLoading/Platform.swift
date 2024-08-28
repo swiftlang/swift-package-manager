@@ -11,36 +11,34 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@_implementationOnly import Foundation
+import Foundation
 
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 
 private func isAndroid() -> Bool {
     (try? localFileSystem.isFile(AbsolutePath(validating: "/system/bin/toolchain"))) ?? false ||
         (try? localFileSystem.isFile(AbsolutePath(validating: "/system/bin/toybox"))) ?? false
 }
 
-public enum Platform: Equatable {
+public enum Platform: Equatable, Sendable {
     case android
     case darwin
     case linux(LinuxFlavor)
     case windows
 
     /// Recognized flavors of linux.
-    public enum LinuxFlavor: Equatable {
+    public enum LinuxFlavor: Equatable, Sendable {
         case debian
         case fedora
     }
 }
 
 extension Platform {
-    // This is not just a computed property because the ToolchainRegistryTests
-    // change the value.
-    public static var current: Platform? = {
+    public static let current: Platform? = {
         #if os(Windows)
         return .windows
         #else
-        switch try? Process.checkNonZeroExit(args: "uname")
+        switch try? AsyncProcess.checkNonZeroExit(args: "uname")
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
         {

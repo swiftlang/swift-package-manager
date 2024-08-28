@@ -13,7 +13,7 @@
 import Basics
 
 /// The product description
-public struct ProductDescription: Equatable, Codable, Sendable {
+public struct ProductDescription: Hashable, Codable, Sendable {
 
     /// The name of the product.
     public let name: String

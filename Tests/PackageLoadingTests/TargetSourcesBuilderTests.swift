@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2019 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -14,12 +14,10 @@ import Basics
 import Foundation
 import PackageModel
 import PackageLoading
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
-import class TSCBasic.InMemoryFileSystem
-
-class TargetSourcesBuilderTests: XCTestCase {
+final class TargetSourcesBuilderTests: XCTestCase {
     func testBasicFileContentsComputation() throws {
         let target = try TargetDescription(
             name: "Foo",
@@ -291,7 +289,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                     for diagnostic in diagnosticsFound {
                         XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
                         XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                        XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                        XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
                     }
                 }
             }
@@ -320,7 +318,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                     for diagnostic in diagnosticsFound {
                         XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
                         XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                        XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                        XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
                     }
                 }
             }
@@ -367,7 +365,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                     for diagnostic in diagnosticsFound {
                         XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
                         XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                        XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                        XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
                     }
                 }
             }
@@ -396,7 +394,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                     for diagnostic in diagnosticsFound {
                         XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
                         XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                        XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                        XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
                     }
                 }
             }
@@ -423,7 +421,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                     )
                     XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
                     XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                    XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                    XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
                 }
             }
         }
@@ -461,7 +459,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 )
                 XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
                 XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
             }
         }
     }
@@ -486,7 +484,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 )
                 XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
                 XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
             }
         }
     }
@@ -564,7 +562,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 for diagnostic in diagnosticsFound {
                     XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
                     XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                    XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                    XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
                 }
             }
         }
@@ -637,7 +635,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                     )
                     XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
                     XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                    XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                    XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
                 }
             }
         }
@@ -659,7 +657,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                     )
                     XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
                     XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                    XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                    XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
                 }
             }
         }
@@ -706,7 +704,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 for diagnostic in diagnosticsFound {
                     XCTAssertEqual(diagnostic?.metadata?.packageIdentity, builder.packageIdentity)
                     XCTAssertEqual(diagnostic?.metadata?.packageKind, builder.packageKind)
-                    XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                    XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
                 }
             }
         }
@@ -773,7 +771,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 for diagnostic in diagnosticsFound {
                     XCTAssertEqual(diagnostic?.metadata?.packageIdentity, builder.packageIdentity)
                     XCTAssertEqual(diagnostic?.metadata?.packageKind, builder.packageKind)
-                    XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                    XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
                 }
             }
         }
@@ -841,7 +839,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             for diagnostic in diagnosticsFound {
                 XCTAssertEqual(diagnostic?.metadata?.packageIdentity, builder.packageIdentity)
                 XCTAssertEqual(diagnostic?.metadata?.packageKind, builder.packageKind)
-                XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                XCTAssertEqual(diagnostic?.metadata?.moduleName, target.name)
             }
         }
     }
@@ -981,6 +979,56 @@ class TargetSourcesBuilderTests: XCTestCase {
         XCTAssertEqual(outputs.sources.paths, ["/File.swift"])
         XCTAssertEqual(outputs.resources, [])
         XCTAssertEqual(outputs.ignored, ["/Foo.docc"])
+        XCTAssertEqual(outputs.others, [])
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+    }
+
+    func testResourcesAreSorted() throws {
+        let target = try TargetDescription(
+            name: "Foo",
+            path: nil,
+            exclude: [],
+            sources: ["File.swift"],
+            resources: [
+                .init(rule: .copy, path: "a.txt"),
+                .init(rule: .copy, path: "c.txt"),
+                .init(rule: .copy, path: "b.txt"),
+            ],
+            publicHeadersPath: nil,
+            type: .regular
+        )
+
+        let fs = InMemoryFileSystem()
+        fs.createEmptyFiles(at: AbsolutePath.root, files: [
+            "/File.swift",
+            "/a.txt",
+            "/b.txt",
+            "/c.txt",
+        ])
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let builder = TargetSourcesBuilder(
+            packageIdentity: .plain("test"),
+            packageKind: .root(.root),
+            packagePath: .root,
+            target: target,
+            path: .root,
+            defaultLocalization: nil,
+            additionalFileRules: FileRuleDescription.swiftpmFileTypes,
+            toolsVersion: .v5_5,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let outputs = try builder.run()
+        XCTAssertEqual(outputs.sources.paths, ["/File.swift"])
+        XCTAssertEqual(outputs.resources, [
+            .init(rule: .copy, path: try .init(validating: "/a.txt")),
+            .init(rule: .copy, path: try .init(validating: "/b.txt")),
+            .init(rule: .copy, path: try .init(validating: "/c.txt")),
+        ])
+        XCTAssertEqual(outputs.ignored, [])
         XCTAssertEqual(outputs.others, [])
 
         XCTAssertNoDiagnostics(observability.diagnostics)

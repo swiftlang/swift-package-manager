@@ -7,6 +7,7 @@
   * [Creating a Package](#creating-a-package)
     * [Creating a Library Package](#creating-a-library-package)
     * [Creating an Executable Package](#creating-an-executable-package)
+    * [Creating a Macro Package](#creating-a-macro-package)
   * [Defining Dependencies](#defining-dependencies)
   * [Publishing a Package](#publishing-a-package)
   * [Requiring System Libraries](#requiring-system-libraries)
@@ -67,6 +68,25 @@ This creates the directory structure needed for executable targets. Any target
 can be turned into a executable target if there is a `main.swift` file present in
 its sources. The complete reference for layout is
 [here](PackageDescription.md#target).
+
+### Creating a Macro Package
+
+SwiftPM can generate boilerplate for custom macros:
+
+    $ mkdir MyMacro
+    $ cd MyMacro
+    $ swift package init --type macro
+    $ swift build
+    $ swift run
+    The value 42 was produced by the code "a + b"
+
+This creates a package with a `.macro` type target with its required dependencies
+on [swift-syntax](https://github.com/swiftlang/swift-syntax), a library `.target` 
+containing the macro's code, and an `.executableTarget` and `.testTarget` for 
+running the macro. The sample macro, `StringifyMacro`, is documented in the Swift 
+Evolution proposal for [Expression Macros](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0382-expression-macros.md)
+and the WWDC [Write Swift macros](https://developer.apple.com/videos/play/wwdc2023/10166) 
+video. See further documentation on macros in [The Swift Programming Language](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/macros/) book.
 
 ## Defining Dependencies
 
@@ -167,7 +187,7 @@ let package = Package(
     name: "example",
     targets: [
         // systemLibrary is a special type of build target that wraps a system library
-        // in a target that other targets can require as their depencency.
+        // in a target that other targets can require as their dependency.
         .systemLibrary(
             name: "Clibgit",
             pkgConfig: "libgit2",
@@ -206,9 +226,10 @@ The header file should look like this:
 #include <git2.h>
 ```
 
-**Note:** Alternatively, you can provide an absolute path to `git2.h` provided
-by the library in the `modile.modulemap`. However, doing so might break
-cross-platform compatibility of your project.
+**Note:** Avoiding specifying an absolute path to `git2.h` provided
+by the library in the `module.modulemap`. Doing so will break compatibility of 
+your project between machines that may use a different file system layout or
+install libraries to different paths.
 
 > The convention we hope the community will adopt is to prefix such modules
 > with `C` and to camelcase the modules as per Swift module name conventions.
@@ -245,7 +266,7 @@ let package = Package(
         ),
 
         // systemLibrary is a special type of build target that wraps a system library
-        // in a target that other targets can require as their depencency.
+        // in a target that other targets can require as their dependency.
         .systemLibrary(
             name: "Clibgit",
             pkgConfig: "libgit2",
@@ -558,7 +579,7 @@ You can end editing a package using `unedit` command:
 This will remove the edited dependency from `Packages/` and put the originally
 resolved version back.
 
-This command fails if there are uncommited changes or changes which are not
+This command fails if there are uncommitted changes or changes which are not
 pushed to the remote repository. If you want to discard these changes and
 unedit, you can use the `--force` option:
 

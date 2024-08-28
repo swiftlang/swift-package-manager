@@ -13,7 +13,7 @@
 import struct TSCUtility.Version
 
 /// Represents a platform.
-public struct Platform: Equatable, Hashable, Codable {
+public struct Platform: Equatable, Hashable, Codable, Sendable {
     /// The name of the platform.
     public let name: String
 
@@ -39,8 +39,8 @@ public struct Platform: Equatable, Hashable, Codable {
 
     public static let macOS: Platform = Platform(name: "macos", oldestSupportedVersion: "10.13")
     public static let macCatalyst: Platform = Platform(name: "maccatalyst", oldestSupportedVersion: "13.0")
-    public static let iOS: Platform = Platform(name: "ios", oldestSupportedVersion: "11.0")
-    public static let tvOS: Platform = Platform(name: "tvos", oldestSupportedVersion: "11.0")
+    public static let iOS: Platform = Platform(name: "ios", oldestSupportedVersion: "12.0")
+    public static let tvOS: Platform = Platform(name: "tvos", oldestSupportedVersion: "12.0")
     public static let watchOS: Platform = Platform(name: "watchos", oldestSupportedVersion: "4.0")
     public static let visionOS: Platform = Platform(name: "visionos", oldestSupportedVersion: "1.0")
     public static let driverKit: Platform = Platform(name: "driverkit", oldestSupportedVersion: "19.0")
@@ -52,23 +52,8 @@ public struct Platform: Equatable, Hashable, Codable {
 
 }
 
-public struct SupportedPlatforms {
-    public let declared: [SupportedPlatform]
-    public let derived: [SupportedPlatform]
-
-    public init(declared: [SupportedPlatform], derived: [SupportedPlatform]) {
-        self.declared = declared
-        self.derived = derived
-    }
-
-    /// Returns the supported platform instance for the given platform.
-    public func getDerived(for platform: Platform) -> SupportedPlatform? {
-        return self.derived.first(where: { $0.platform == platform })
-    }
-}
-
 /// Represents a platform supported by a target.
-public struct SupportedPlatform: Equatable, Codable {
+public struct SupportedPlatform: Hashable, Codable, Sendable {
     /// The platform.
     public let platform: Platform
 
@@ -86,8 +71,8 @@ public struct SupportedPlatform: Equatable, Codable {
 }
 
 /// Represents a platform version.
-public struct PlatformVersion: Equatable, Hashable, Codable {
-
+public struct PlatformVersion: Equatable, Hashable, Codable, Sendable {
+    // FIXME: this should be optional
     /// The unknown platform version.
     public static let unknown: PlatformVersion = .init("0.0.0")
 

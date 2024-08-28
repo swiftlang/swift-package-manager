@@ -13,12 +13,12 @@
 import struct Basics.Triple
 
 extension Triple {
-    public func platformBuildPathComponent() -> String {
+    public var platformBuildPathComponent: String {
         if isDarwin() {
-            return tripleString(forPlatformVersion: "")
+            return self.tripleString(forPlatformVersion: "")
         }
 
-        return tripleString
+        return self.tripleString
     }
 }
 
@@ -27,6 +27,6 @@ extension Triple {
         // Use "apple" as the subdirectory because in theory Xcode build system
         // can be used to build for any Apple platform and it has its own
         // conventions for build subpaths based on platforms.
-        buildSystem == .xcode ? "apple" : self.platformBuildPathComponent()
+        buildSystem == .xcode ? "apple" : self.platformBuildPathComponent
     }
 }

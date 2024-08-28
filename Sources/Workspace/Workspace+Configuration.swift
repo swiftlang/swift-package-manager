@@ -19,7 +19,6 @@ import PackageModel
 import PackageRegistry
 
 import struct TSCBasic.ByteString
-import enum TSCBasic.ProcessEnv
 
 import protocol TSCUtility.SimplePersistanceProtocol
 import class TSCUtility.SimplePersistence
@@ -89,7 +88,7 @@ extension Workspace {
         public var localMirrorsConfigurationFile: AbsolutePath {
             get throws {
                 // backwards compatibility
-                if let customPath = ProcessEnv.vars["SWIFTPM_MIRROR_CONFIG"] {
+                if let customPath = Environment.current["SWIFTPM_MIRROR_CONFIG"] {
                     return try AbsolutePath(validating: customPath)
                 }
                 return DefaultLocations.mirrorsConfigurationFile(at: self.localConfigurationDirectory)
@@ -145,6 +144,11 @@ extension Workspace {
             self.sharedCacheDirectory.map { $0.appending(components: "registry", "downloads") }
         }
 
+        /// Path to the shared repositories cache.
+        public var sharedBinaryArtifactsCacheDirectory: AbsolutePath? {
+            self.sharedCacheDirectory.map { $0.appending("artifacts") }
+        }
+
         /// Create a new workspace location.
         ///
         /// - Parameters:
@@ -179,14 +183,14 @@ extension Workspace {
         /// - Parameters:
         ///   - rootPath: Path to the root of the package, from which other locations can be derived.
         public init(forRootPackage rootPath: AbsolutePath, fileSystem: FileSystem) throws {
-            self.init(
+            try self.init(
                 scratchDirectory: DefaultLocations.scratchDirectory(forRootPackage: rootPath),
                 editsDirectory: DefaultLocations.editsDirectory(forRootPackage: rootPath),
                 resolvedVersionsFile: DefaultLocations.resolvedVersionsFile(forRootPackage: rootPath),
                 localConfigurationDirectory: DefaultLocations.configurationDirectory(forRootPackage: rootPath),
-                sharedConfigurationDirectory: try fileSystem.swiftPMConfigurationDirectory,
-                sharedSecurityDirectory: try fileSystem.swiftPMSecurityDirectory,
-                sharedCacheDirectory: try fileSystem.swiftPMCacheDirectory
+                sharedConfigurationDirectory: fileSystem.swiftPMConfigurationDirectory,
+                sharedSecurityDirectory: fileSystem.swiftPMSecurityDirectory,
+                sharedCacheDirectory: fileSystem.swiftPMCacheDirectory
             )
         }
     }
@@ -208,7 +212,7 @@ extension Workspace {
         }
 
         public static func resolvedVersionsFile(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
-            rootPath.appending(Self.resolvedFileName)
+            rootPath.appending(self.resolvedFileName)
         }
 
         public static func configurationDirectory(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
@@ -300,7 +304,7 @@ extension Workspace.Configuration {
                 guard fileSystem.exists(path) else {
                     throw StringError("Did not find netrc file at \(path).")
                 }
-                providers.append(try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem))
+                try providers.append(NetrcAuthorizationProvider(path: path, fileSystem: fileSystem))
             case .user:
                 // user .netrc file (most typical)
                 let userHomePath = try fileSystem.homeDirectory.appending(".netrc")
@@ -360,7 +364,7 @@ extension Workspace.Configuration {
                 guard fileSystem.exists(path) else {
                     throw StringError("did not find netrc file at \(path)")
                 }
-                providers.append(try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem))
+                try providers.append(NetrcAuthorizationProvider(path: path, fileSystem: fileSystem))
             case .user:
                 let userHomePath = try fileSystem.homeDirectory.appending(".netrc")
                 // Add user .netrc file unless we don't have access
@@ -462,7 +466,7 @@ extension Workspace.Configuration {
                 .map { .init(path: $0, fileSystem: fileSystem, deleteWhenEmpty: false) }
             self.fileSystem = fileSystem
             // computes the initial mirrors
-            self._mirrors = DependencyMirrors()
+            self._mirrors = try DependencyMirrors()
             try self.computeMirrors()
         }
 
@@ -492,13 +496,13 @@ extension Workspace.Configuration {
                 // prefer local mirrors to shared ones
                 let local = try self.localMirrors.get()
                 if !local.isEmpty {
-                    self._mirrors.append(contentsOf: local)
+                    try self._mirrors.append(contentsOf: local)
                     return
                 }
 
                 // use shared if local was not found or empty
                 if let shared = try self.sharedMirrors?.get(), !shared.isEmpty {
-                    self._mirrors.append(contentsOf: shared)
+                    try self._mirrors.append(contentsOf: shared)
                 }
             }
         }
@@ -520,10 +524,10 @@ extension Workspace.Configuration {
         /// The mirrors in this configuration
         public func get() throws -> DependencyMirrors {
             guard self.fileSystem.exists(self.path) else {
-                return DependencyMirrors()
+                return try DependencyMirrors()
             }
             return try self.fileSystem.withLock(on: self.path.parentDirectory, type: .shared) {
-                return DependencyMirrors(try Self.load(self.path, fileSystem: self.fileSystem))
+                try DependencyMirrors(Self.load(self.path, fileSystem: self.fileSystem))
             }
         }
 
@@ -534,8 +538,8 @@ extension Workspace.Configuration {
                 try self.fileSystem.createDirectory(self.path.parentDirectory, recursive: true)
             }
             return try self.fileSystem.withLock(on: self.path.parentDirectory, type: .exclusive) {
-                let mirrors = DependencyMirrors(try Self.load(self.path, fileSystem: self.fileSystem))
-                var updatedMirrors = DependencyMirrors(mirrors.mapping)
+                let mirrors = try DependencyMirrors(Self.load(self.path, fileSystem: self.fileSystem))
+                var updatedMirrors = try DependencyMirrors(mirrors.mapping)
                 try handler(&updatedMirrors)
                 if updatedMirrors != mirrors {
                     try Self.save(
@@ -773,7 +777,7 @@ public struct WorkspaceConfiguration {
     public var createREPLProduct: Bool
 
     /// Whether or not there should be import restrictions applied when loading manifests
-    public var restrictImports: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
+    public var manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
 
     public init(
         skipDependenciesUpdates: Bool,
@@ -787,7 +791,7 @@ public struct WorkspaceConfiguration {
         skipSignatureValidation: Bool,
         sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation,
         defaultRegistry: Registry?,
-        restrictImports: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
+        manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
     ) {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
@@ -800,7 +804,7 @@ public struct WorkspaceConfiguration {
         self.skipSignatureValidation = skipSignatureValidation
         self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
         self.defaultRegistry = defaultRegistry
-        self.restrictImports = restrictImports
+        self.manifestImportRestrictions = manifestImportRestrictions
     }
 
     /// Default instance of WorkspaceConfiguration
@@ -817,7 +821,7 @@ public struct WorkspaceConfiguration {
             skipSignatureValidation: false,
             sourceControlToRegistryDependencyTransformation: .disabled,
             defaultRegistry: .none,
-            restrictImports: .none
+            manifestImportRestrictions: .none
         )
     }
 

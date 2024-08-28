@@ -10,16 +10,17 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import Basics
 import Dispatch
-@_implementationOnly import Foundation
+import Foundation
 import PackageModel
+import SourceControl
 
 import class TSCBasic.BufferedOutputByteStream
 import struct TSCBasic.ByteString
-import class TSCBasic.Process
-import enum TSCBasic.ProcessEnv
-import struct TSCBasic.ProcessResult
+import class Basics.AsyncProcess
+import struct Basics.AsyncProcessResult
 
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
@@ -108,9 +109,9 @@ public protocol ManifestLoaderProtocol {
     ///   - packageLocation: The location the package the manifest was loaded from.
     ///   - packageVersion: Optional. The version and revision of the package.
     ///   - identityResolver: A helper to resolve identities based on configuration
+    ///   - dependencyMapper: A helper to map dependencies.
     ///   - fileSystem: File system to load from.
     ///   - observabilityScope: Observability scope to emit diagnostics.
-    ///   - delegateQueue: The dispatch queue to call delegate handlers on.
     ///   - callbackQueue: The dispatch queue to perform completion handler on.
     ///   - completion: The completion handler .
     func load(
@@ -121,6 +122,7 @@ public protocol ManifestLoaderProtocol {
         packageLocation: String,
         packageVersion: (version: Version?, revision: String?)?,
         identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
@@ -136,8 +138,51 @@ public protocol ManifestLoaderProtocol {
 }
 
 public protocol ManifestLoaderDelegate {
-    func willLoad(manifest: AbsolutePath)
-    func willParse(manifest: AbsolutePath)
+    func willLoad(
+        packageIdentity: PackageIdentity,
+        packageLocation: String,
+        manifestPath: AbsolutePath
+    )
+    func didLoad(
+        packageIdentity: PackageIdentity,
+        packageLocation: String,
+        manifestPath: AbsolutePath,
+        duration: DispatchTimeInterval
+    )
+
+    func willParse(
+        packageIdentity: PackageIdentity,
+        packageLocation: String
+    )
+    func didParse(
+        packageIdentity: PackageIdentity,
+        packageLocation: String,
+        duration: DispatchTimeInterval
+    )
+
+    func willCompile(
+        packageIdentity: PackageIdentity,
+        packageLocation: String,
+        manifestPath: AbsolutePath
+    )
+    func didCompile(
+        packageIdentity: PackageIdentity,
+        packageLocation: String,
+        manifestPath: AbsolutePath,
+        duration: DispatchTimeInterval
+    )
+
+    func willEvaluate(
+        packageIdentity: PackageIdentity,
+        packageLocation: String,
+        manifestPath: AbsolutePath
+    )
+    func didEvaluate(
+        packageIdentity: PackageIdentity,
+        packageLocation: String,
+        manifestPath: AbsolutePath,
+        duration: DispatchTimeInterval
+    )
 }
 
 // loads a manifest given a package root path
@@ -152,6 +197,7 @@ extension ManifestLoaderProtocol {
         packageVersion: (version: Version?, revision: String?)?,
         currentToolsVersion: ToolsVersion,
         identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
@@ -173,6 +219,7 @@ extension ManifestLoaderProtocol {
                 packageLocation: packageLocation,
                 packageVersion: packageVersion,
                 identityResolver: identityResolver,
+                dependencyMapper: dependencyMapper,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
                 delegateQueue: delegateQueue,
@@ -183,6 +230,39 @@ extension ManifestLoaderProtocol {
             callbackQueue.async {
                 completion(.failure(error))
             }
+        }
+    }    
+
+    public func load(
+        packagePath: AbsolutePath,
+        packageIdentity: PackageIdentity,
+        packageKind: PackageReference.Kind,
+        packageLocation: String,
+        packageVersion: (version: Version?, revision: String?)?,
+        currentToolsVersion: ToolsVersion,
+        identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        delegateQueue: DispatchQueue,
+        callbackQueue: DispatchQueue
+    ) async throws -> Manifest {
+        try await withCheckedThrowingContinuation {
+            self.load(
+                packagePath: packagePath,
+                packageIdentity: packageIdentity,
+                packageKind: packageKind,
+                packageLocation: packageLocation,
+                packageVersion: packageVersion,
+                currentToolsVersion: currentToolsVersion,
+                identityResolver: identityResolver,
+                dependencyMapper: dependencyMapper,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope,
+                delegateQueue: delegateQueue,
+                callbackQueue: callbackQueue,
+                completion: $0.resume(with:)
+            )
         }
     }
 }
@@ -197,16 +277,21 @@ extension ManifestLoaderProtocol {
 /// serialized form of the manifest (as implemented by `PackageDescription`'s
 /// `atexit()` handler) which is then deserialized and loaded.
 public final class ManifestLoader: ManifestLoaderProtocol {
+    public typealias Delegate = ManifestLoaderDelegate
+    
     private let toolchain: UserToolchain
     private let serializedDiagnostics: Bool
     private let isManifestSandboxEnabled: Bool
-    private let delegate: ManifestLoaderDelegate?
     private let extraManifestFlags: [String]
-    private let restrictImports: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
+    private let importRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
+
+    // not thread safe
+    public var delegate: Delegate?
 
     private let databaseCacheDir: AbsolutePath?
 
-    private let sdkRootCache = ThreadSafeBox<AbsolutePath>()
+    private let useInMemoryCache: Bool
+    private let memoryCache = ThreadSafeKeyValueStore<CacheKey, ManifestJSONParser.Result>()
 
     /// DispatchSemaphore to restrict concurrent manifest evaluations
     private let concurrencySemaphore: DispatchSemaphore
@@ -217,18 +302,21 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         toolchain: UserToolchain,
         serializedDiagnostics: Bool = false,
         isManifestSandboxEnabled: Bool = true,
-        cacheDir: AbsolutePath? = nil,
-        delegate: ManifestLoaderDelegate? = nil,
-        extraManifestFlags: [String] = [],
-        restrictImports: (startingToolsVersion: ToolsVersion, allowedImports: [String])? = .none
+        useInMemoryCache: Bool = true,
+        cacheDir: AbsolutePath? = .none,
+        extraManifestFlags: [String]? = .none,
+        importRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])? = .none,
+        delegate: Delegate? = .none
     ) {
         self.toolchain = toolchain
         self.serializedDiagnostics = serializedDiagnostics
         self.isManifestSandboxEnabled = isManifestSandboxEnabled
-        self.delegate = delegate
-        self.extraManifestFlags = extraManifestFlags
-        self.restrictImports = restrictImports
+        self.extraManifestFlags = extraManifestFlags ?? []
+        self.importRestrictions = importRestrictions
 
+        self.delegate = delegate
+
+        self.useInMemoryCache = useInMemoryCache
         self.databaseCacheDir = try? cacheDir.map(resolveSymlinks)
 
         // this queue and semaphore is used to limit the amount of concurrent manifest loading taking place
@@ -237,7 +325,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         self.evaluationQueue.maxConcurrentOperationCount = Concurrency.maxOperations
         self.concurrencySemaphore = DispatchSemaphore(value: Concurrency.maxOperations)
     }
-
+    
     public func load(
         manifestPath: AbsolutePath,
         manifestToolsVersion: ToolsVersion,
@@ -246,6 +334,41 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         packageLocation: String,
         packageVersion: (version: Version?, revision: String?)?,
         identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        delegateQueue: DispatchQueue,
+        callbackQueue: DispatchQueue
+    ) async throws -> Manifest {
+        try await withCheckedThrowingContinuation {
+            self.load(
+                manifestPath: manifestPath,
+                manifestToolsVersion: manifestToolsVersion,
+                packageIdentity: packageIdentity,
+                packageKind: packageKind,
+                packageLocation: packageLocation,
+                packageVersion: packageVersion,
+                identityResolver: identityResolver,
+                dependencyMapper: dependencyMapper,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope,
+                delegateQueue: delegateQueue, 
+                callbackQueue: callbackQueue,
+                completion: $0.resume(with:)
+            )
+        }
+    }
+    
+    @available(*, noasync, message: "Use the async alternative")
+    public func load(
+        manifestPath: AbsolutePath,
+        manifestToolsVersion: ToolsVersion,
+        packageIdentity: PackageIdentity,
+        packageKind: PackageReference.Kind,
+        packageLocation: String,
+        packageVersion: (version: Version?, revision: String?)?,
+        identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
@@ -253,8 +376,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
         // Inform the delegate.
+        let start = DispatchTime.now()
         delegateQueue.async {
-            self.delegate?.willLoad(manifest: manifestPath)
+            self.delegate?.willLoad(
+                packageIdentity: packageIdentity,
+                packageLocation: packageLocation,
+                manifestPath: manifestPath
+            )
         }
 
         // Validate that the file exists.
@@ -269,10 +397,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             toolsVersion: manifestToolsVersion,
             packageIdentity: packageIdentity,
             packageKind: packageKind,
+            packageLocation: packageLocation,
             packageVersion: packageVersion?.version,
             identityResolver: identityResolver,
+            dependencyMapper: dependencyMapper,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
+            delegate: delegate,
             delegateQueue: delegateQueue,
             callbackQueue: callbackQueue
         ) { parseResult in
@@ -317,8 +448,20 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     swiftLanguageVersions: parsedManifest.swiftLanguageVersions,
                     dependencies: parsedManifest.dependencies,
                     products: products,
-                    targets: targets
+                    targets: targets,
+                    traits: parsedManifest.traits
                 )
+
+                // Inform the delegate.
+                delegateQueue.async {
+                    self.delegate?.didLoad(
+                        packageIdentity: packageIdentity,
+                        packageLocation: packageLocation,
+                        manifestPath: manifestPath,
+                        duration: start.distance(to: .now())
+                    )
+                }
+
                 completion(.success(manifest))
             } catch {
                 callbackQueue.async {
@@ -333,10 +476,16 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         _ result: EvaluationResult,
         packageIdentity: PackageIdentity,
         packageKind: PackageReference.Kind,
+        packagePath: AbsolutePath,
+        packageLocation: String,
         toolsVersion: ToolsVersion,
         identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
+        emitCompilerOutput: Bool,
+        observabilityScope: ObservabilityScope,
+        delegate: Delegate?,
+        delegateQueue: DispatchQueue?
     ) throws -> ManifestJSONParser.Result {
         // Throw now if we weren't able to parse the manifest.
         guard let manifestJSON = result.manifestJSON, !manifestJSON.isEmpty else {
@@ -351,7 +500,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // We might have some non-fatal output (warnings/notes) from the compiler even when
         // we were able to parse the manifest successfully.
-        if let compilerOutput = result.compilerOutput {
+        if emitCompilerOutput, let compilerOutput = result.compilerOutput {
             let metadata = result.diagnosticFile.map { diagnosticFile -> ObservabilityMetadata in
                 var metadata = ObservabilityMetadata()
                 metadata.manifestLoadingDiagnosticFile = diagnosticFile
@@ -360,13 +509,31 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             observabilityScope.emit(warning: compilerOutput, metadata: metadata)
         }
 
-        return try ManifestJSONParser.parse(
+        let start = DispatchTime.now()
+        delegateQueue?.async {
+            delegate?.willParse(
+                packageIdentity: packageIdentity,
+                packageLocation: packageLocation
+            )
+        }
+
+        let result = try ManifestJSONParser.parse(
             v4: manifestJSON,
             toolsVersion: toolsVersion,
             packageKind: packageKind,
+            packagePath: packagePath,
             identityResolver: identityResolver,
+            dependencyMapper: dependencyMapper,
             fileSystem: fileSystem
         )
+        delegateQueue?.async {
+            delegate?.didParse(
+                packageIdentity: packageIdentity,
+                packageLocation: packageLocation,
+                duration: start.distance(to: .now())
+            )
+        }
+        return result
     }
 
     private func loadAndCacheManifest(
@@ -374,15 +541,59 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         toolsVersion: ToolsVersion,
         packageIdentity: PackageIdentity,
         packageKind: PackageReference.Kind,
+        packageLocation: String,
         packageVersion: Version?,
         identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue,
+        delegate: Delegate?,
+        delegateQueue: DispatchQueue?,
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<ManifestJSONParser.Result, Error>) -> Void
     ) {
-        let cache = self.databaseCacheDir.map { cacheDir -> SQLiteBackedCache<EvaluationResult> in
+        // put callback on right queue
+        var completion = completion
+        do {
+            let previousCompletion = completion
+            completion = { result in callbackQueue.async { previousCompletion(result) } }
+        }
+
+        let key : CacheKey
+        do {
+            key = try CacheKey(
+                packageIdentity: packageIdentity,
+                packageLocation: packageLocation,
+                manifestPath: path,
+                toolsVersion: toolsVersion,
+                env: Environment.current.cachable,
+                swiftpmVersion: SwiftVersion.current.displayString,
+                extraManifestFlags: self.extraManifestFlags,
+                fileSystem: fileSystem
+            )
+        } catch {
+            return completion(.failure(error))
+        }
+
+        // try from in-memory cache
+        if self.useInMemoryCache, let parsedManifest = self.memoryCache[key] {
+            observabilityScope.emit(debug: "loading manifest for '\(packageIdentity)' v. \(packageVersion?.description ?? "unknown") from memory cache")
+            return completion(.success(parsedManifest))
+        }
+
+        // make sure callback record results in-memory
+        do {
+            let previousCompletion = completion
+            completion = { result in
+                if self.useInMemoryCache, case .success(let parsedManifest) = result {
+                    self.memoryCache[key] = parsedManifest
+                }
+                previousCompletion(result)
+            }
+        }
+
+        // initialize db cache
+        let dbCache = self.databaseCacheDir.map { cacheDir in
             let path = Self.manifestCacheDBPath(cacheDir)
             var configuration = SQLiteBackedCacheConfiguration()
             // FIXME: expose as user-facing configuration
@@ -395,49 +606,42 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             )
         }
 
-        let closingCompletion = { (result: Result<ManifestJSONParser.Result, Error>) in
-            do {
-                try cache?.close()
-            } catch {
-                observabilityScope.emit(
-                    warning: "failed closing cache",
-                    underlyingError: error
-                )
-            }
-
-            callbackQueue.async {
-                completion(result)
-            }
-        }
-
-        let key : CacheKey
+        // make sure callback closes db cache
         do {
-            key = try CacheKey(
-                packageIdentity: packageIdentity,
-                manifestPath: path,
-                toolsVersion: toolsVersion,
-                env: ProcessEnv.vars,
-                swiftpmVersion: SwiftVersion.current.displayString,
-                fileSystem: fileSystem
-            )
-        } catch {
-            return closingCompletion(.failure(error))
+            let previousCompletion = completion
+            completion = { result in
+                do {
+                    try dbCache?.close()
+                } catch {
+                    observabilityScope.emit(
+                        warning: "failed closing manifest db cache",
+                        underlyingError: error
+                    )
+                }
+                previousCompletion(result)
+            }
         }
 
         do {
             // try to get it from the cache
-            if let result = try cache?.get(key: key.sha256Checksum), let manifestJSON = result.manifestJSON, !manifestJSON.isEmpty {
-                observabilityScope.emit(debug: "loading manifest for '\(packageIdentity)' v. \(packageVersion?.description ?? "unknown") from cache")
+            if let evaluationResult = try dbCache?.get(key: key.sha256Checksum), let manifestJSON = evaluationResult.manifestJSON, !manifestJSON.isEmpty {
+                observabilityScope.emit(debug: "loading manifest for '\(packageIdentity)' v. \(packageVersion?.description ?? "unknown") from db cache")
                 let parsedManifest = try self.parseManifest(
-                    result,
+                    evaluationResult,
                     packageIdentity: packageIdentity,
                     packageKind: packageKind,
+                    packagePath: path.parentDirectory,
+                    packageLocation: packageLocation,
                     toolsVersion: toolsVersion,
                     identityResolver: identityResolver,
+                    dependencyMapper: dependencyMapper,
                     fileSystem: fileSystem,
-                    observabilityScope: observabilityScope
+                    emitCompilerOutput: false,
+                    observabilityScope: observabilityScope,
+                    delegate: delegate,
+                    delegateQueue: delegateQueue
                 )
-                return closingCompletion(.success(parsedManifest))
+                return completion(.success(parsedManifest))
             }
         } catch {
             observabilityScope.emit(
@@ -451,9 +655,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         do {
             try self.evaluateManifest(
                 packageIdentity: key.packageIdentity,
+                packageLocation: packageLocation,
                 manifestPath: key.manifestPath,
                 manifestContents: key.manifestContents,
                 toolsVersion: key.toolsVersion,
+                observabilityScope: observabilityScope,
+                delegate: delegate,
                 delegateQueue: delegateQueue,
                 callbackQueue: callbackQueue
             ) { result in
@@ -462,19 +669,25 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 do {
                     let evaluationResult = try result.get()
                     // only cache successfully parsed manifests
-                    let parseManifest = try self.parseManifest(
+                    let parsedManifest = try self.parseManifest(
                         evaluationResult,
                         packageIdentity: packageIdentity,
                         packageKind: packageKind,
+                        packagePath: path.parentDirectory,
+                        packageLocation: packageLocation,
                         toolsVersion: toolsVersion,
                         identityResolver: identityResolver,
+                        dependencyMapper: dependencyMapper,
                         fileSystem: fileSystem,
-                        observabilityScope: observabilityScope
+                        emitCompilerOutput: true,
+                        observabilityScope: observabilityScope,
+                        delegate: delegate,
+                        delegateQueue: delegateQueue
                     )
 
                     do {
-                        // FIXME: (diagnostics) pass in observability scope when we have one
-                        try cache?.put(key: key.sha256Checksum, value: evaluationResult)
+                        self.memoryCache[key] = parsedManifest
+                        try dbCache?.put(key: key.sha256Checksum, value: evaluationResult, observabilityScope: observabilityScope)
                     } catch {
                         observabilityScope.emit(
                             warning: "failed storing manifest for '\(key.packageIdentity)' in cache",
@@ -482,13 +695,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         )
                     }
 
-                    return closingCompletion(.success(parseManifest))
+                    return completion(.success(parsedManifest))
                 } catch {
-                    return closingCompletion(.failure(error))
+                    return completion(.failure(error))
                 }
             }
         } catch {
-            return closingCompletion(.failure(error))
+            return completion(.failure(error))
         }
     }
 
@@ -498,7 +711,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<Void, Error>) -> Void) {
             // If there are no import restrictions, we do not need to validate.
-            guard let restrictImports = restrictImports, toolsVersion >= restrictImports.startingToolsVersion else {
+            guard let importRestrictions = self.importRestrictions, toolsVersion >= importRestrictions.startingToolsVersion else {
                 return callbackQueue.async {
                     completion(.success(()))
                 }
@@ -506,7 +719,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             // Allowed are the expected defaults, plus anything allowed by the configured restrictions.
             let allowedImports = ["PackageDescription", "Swift",
-                                  "SwiftOnoneSupport", "_SwiftConcurrencyShims"] + restrictImports.allowedImports
+                                  "SwiftOnoneSupport", "_SwiftConcurrencyShims"] + importRestrictions.allowedImports
 
             // wrap the completion to free concurrency control semaphore
             let completion: (Result<Void, Error>) -> Void = { result in
@@ -518,23 +731,21 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             // we must not block the calling thread (for concurrency control) so nesting this in a queue
             self.evaluationQueue.addOperation {
-                do {
-                    // park the evaluation thread based on the max concurrency allowed
-                    self.concurrencySemaphore.wait()
+                // park the evaluation thread based on the max concurrency allowed
+                self.concurrencySemaphore.wait()
 
-                    let importScanner = SwiftcImportScanner(swiftCompilerEnvironment: self.toolchain.swiftCompilerEnvironment,
-                                                            swiftCompilerFlags: self.extraManifestFlags,
-                                                            swiftCompilerPath: self.toolchain.swiftCompilerPathForManifests)
+                let importScanner = SwiftcImportScanner(swiftCompilerEnvironment: self.toolchain.swiftCompilerEnvironment,
+                                                        swiftCompilerFlags: self.extraManifestFlags,
+                                                        swiftCompilerPath: self.toolchain.swiftCompilerPathForManifests)
 
-                    importScanner.scanImports(manifestPath, callbackQueue: callbackQueue) { result in
-                        do {
-                            let imports = try result.get().filter { !allowedImports.contains($0) }
-                            guard imports.isEmpty else {
-                                throw ManifestParseError.importsRestrictedModules(imports)
-                            }
-                        } catch {
-                            completion(.failure(error))
+                Task {
+                    let result = try await importScanner.scanImports(manifestPath)
+                    let imports = result.filter { !allowedImports.contains($0) }
+                    guard imports.isEmpty else {
+                        callbackQueue.async {
+                            completion(.failure(ManifestParseError.importsRestrictedModules(imports)))
                         }
+                        return
                     }
                 }
             }
@@ -543,10 +754,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     /// Compiler the manifest at the given path and retrieve the JSON.
     fileprivate func evaluateManifest(
         packageIdentity: PackageIdentity,
+        packageLocation: String,
         manifestPath: AbsolutePath,
         manifestContents: [UInt8],
         toolsVersion: ToolsVersion,
-        delegateQueue: DispatchQueue,
+        observabilityScope: ObservabilityScope,
+        delegate: Delegate?,
+        delegateQueue: DispatchQueue?,
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<EvaluationResult, Error>) -> Void
     ) throws {
@@ -554,21 +768,29 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         if toolsVersion >= .v5_8 {
             manifestPreamble = ByteString()
         } else {
-            manifestPreamble = ByteString("import Foundation\n")
+            manifestPreamble = ByteString("\nimport Foundation")
         }
 
         do {
             try withTemporaryDirectory { tempDir, cleanupTempDir in
                 let manifestTempFilePath = tempDir.appending("manifest.swift")
-                try localFileSystem.writeFileContents(manifestTempFilePath, bytes: ByteString(manifestPreamble.contents + manifestContents))
+                // Since this isn't overwriting the original file, append Foundation library
+                // import to avoid having diagnostics being displayed on the incorrect line.
+                try localFileSystem.writeFileContents(manifestTempFilePath, bytes: ByteString(manifestContents + manifestPreamble.contents))
 
                 let vfsOverlayTempFilePath = tempDir.appending("vfs.yaml")
                 try VFSOverlay(roots: [
-                    VFSOverlay.File(name: manifestPath._normalized.replacingOccurrences(of: #"\"#, with: #"\\"#),
-                                    externalContents: manifestTempFilePath._nativePathString(escaped: true))
+                    VFSOverlay.File(
+                        name: manifestPath._normalized.replacingOccurrences(of: #"\"#, with: #"\\"#),
+                        externalContents: manifestTempFilePath._nativePathString(escaped: true)
+                    )
                 ]).write(to: vfsOverlayTempFilePath, fileSystem: localFileSystem)
 
-                validateImports(manifestPath: manifestTempFilePath, toolsVersion: toolsVersion, callbackQueue: callbackQueue) { result in
+                validateImports(
+                    manifestPath: manifestTempFilePath,
+                    toolsVersion: toolsVersion,
+                    callbackQueue: callbackQueue
+                ) { result in
                     dispatchPrecondition(condition: .onQueue(callbackQueue))
 
                     do {
@@ -578,7 +800,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                             at: manifestPath,
                             vfsOverlayPath: vfsOverlayTempFilePath,
                             packageIdentity: packageIdentity,
+                            packageLocation: packageLocation,
                             toolsVersion: toolsVersion,
+                            observabilityScope: observabilityScope,
+                            delegate: delegate,
                             delegateQueue: delegateQueue,
                             callbackQueue: callbackQueue
                         ) { result in
@@ -606,8 +831,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         at manifestPath: AbsolutePath,
         vfsOverlayPath: AbsolutePath? = nil,
         packageIdentity: PackageIdentity,
+        packageLocation: String,
         toolsVersion: ToolsVersion,
-        delegateQueue: DispatchQueue,
+        observabilityScope: ObservabilityScope,
+        delegate: Delegate?,
+        delegateQueue: DispatchQueue?,
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<EvaluationResult, Error>) -> Void
     ) throws {
@@ -621,10 +849,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         var evaluationResult = EvaluationResult()
 
-        delegateQueue.async {
-            self.delegate?.willParse(manifest: manifestPath)
-        }
-
         // For now, we load the manifest by having Swift interpret it directly.
         // Eventually, we should have two loading processes, one that loads only
         // the declarative package specification using the Swift compiler directly
@@ -635,7 +859,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // FIXME: Workaround for the module cache bug that's been haunting Swift CI
         // <rdar://problem/48443680>
-        let moduleCachePath = try (ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]).flatMap{ try AbsolutePath(validating: $0) }
+        let moduleCachePath = try (
+            Environment.current["SWIFTPM_MODULECACHE_OVERRIDE"] ??
+            Environment.current["SWIFTPM_TESTS_MODULECACHE"]).flatMap { try AbsolutePath(validating: $0) }
 
         var cmd: [String] = []
         cmd += [self.toolchain.swiftCompilerPathForManifests.pathString]
@@ -712,6 +938,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 // park the evaluation thread based on the max concurrency allowed
                 self.concurrencySemaphore.wait()
                 // run the evaluation
+                let compileStart = DispatchTime.now()
+                delegateQueue?.async {
+                    delegate?.willCompile(
+                        packageIdentity: packageIdentity,
+                        packageLocation: packageLocation,
+                        manifestPath: manifestPath
+                    )
+                }
                 try withTemporaryDirectory { tmpDir, cleanupTmpDir in
                     // Set path to compiled manifest executable.
                     #if os(Windows)
@@ -725,13 +959,17 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     evaluationResult.compilerCommandLine = cmd
 
                     // Compile the manifest.
-                    TSCBasic.Process.popen(arguments: cmd, environment: self.toolchain.swiftCompilerEnvironment, queue: callbackQueue) { result in
+                    AsyncProcess.popen(
+                        arguments: cmd,
+                        environment: self.toolchain.swiftCompilerEnvironment,
+                        queue: callbackQueue
+                    ) { result in
                         dispatchPrecondition(condition: .onQueue(callbackQueue))
 
                         var cleanupIfError = DelayableAction(target: tmpDir, action: cleanupTmpDir)
                         defer { cleanupIfError.perform() }
 
-                        let compilerResult : ProcessResult
+                        let compilerResult: AsyncProcessResult
                         do {
                             compilerResult = try result.get()
                             evaluationResult.compilerOutput = try (compilerResult.utf8Output() + compilerResult.utf8stderrOutput()).spm_chuzzle()
@@ -762,7 +1000,23 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
                         do {
                             let packageDirectory = manifestPath.parentDirectory.pathString
-                            let contextModel = ContextModel(packageDirectory: packageDirectory)
+
+                            let gitInformation: ContextModel.GitInformation?
+                            do {
+                                let repo = GitRepository(path: manifestPath.parentDirectory)
+                                gitInformation = ContextModel.GitInformation(
+                                    currentTag: repo.getCurrentTag(),
+                                    currentCommit: try repo.getCurrentRevision().identifier,
+                                    hasUncommittedChanges: repo.hasUncommittedChanges()
+                                )
+                            } catch {
+                                gitInformation = nil
+                            }
+
+                            let contextModel = ContextModel(
+                                packageDirectory: packageDirectory,
+                                gitInformation: gitInformation
+                            )
                             cmd += ["-context", try contextModel.encode()]
                         } catch {
                             return completion(.failure(error))
@@ -772,7 +1026,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         // This provides some safety against arbitrary code execution when parsing manifest files.
                         // We only allow the permissions which are absolutely necessary.
                         if self.isManifestSandboxEnabled {
-                            let cacheDirectories = [self.databaseCacheDir, moduleCachePath].compactMap{ $0 }
+                            let cacheDirectories = [self.databaseCacheDir?.appending("ManifestLoading"), moduleCachePath].compactMap{ $0 }
                             let strictness: Sandbox.Strictness = toolsVersion < .v5_3 ? .manifest_pre_53 : .default
                             do {
                                 cmd = try Sandbox.apply(command: cmd, fileSystem: localFileSystem, strictness: strictness, writableDirectories: cacheDirectories)
@@ -781,15 +1035,38 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                             }
                         }
 
+                        delegateQueue?.async {
+                            delegate?.didCompile(
+                                packageIdentity: packageIdentity,
+                                packageLocation: packageLocation,
+                                manifestPath: manifestPath,
+                                duration: compileStart.distance(to: .now())
+                            )
+                        }
+
                         // Run the compiled manifest.
-                        var environment = ProcessEnv.vars
+
+                        let evaluationStart = DispatchTime.now()
+                        delegateQueue?.async {
+                            delegate?.willEvaluate(
+                                packageIdentity: packageIdentity,
+                                packageLocation: packageLocation,
+                                manifestPath: manifestPath
+                            )
+                        }
+
+                        var environment = Environment.current
                         #if os(Windows)
                         let windowsPathComponent = runtimePath.pathString.replacingOccurrences(of: "/", with: "\\")
                         environment["Path"] = "\(windowsPathComponent);\(environment["Path"] ?? "")"
                         #endif
 
                         let cleanupAfterRunning = cleanupIfError.delay()
-                        TSCBasic.Process.popen(arguments: cmd, environment: environment, queue: callbackQueue) { result in
+                        AsyncProcess.popen(
+                            arguments: cmd,
+                            environment: environment,
+                            queue: callbackQueue
+                        ) { result in
                             dispatchPrecondition(condition: .onQueue(callbackQueue))
 
                             defer { cleanupAfterRunning.perform() }
@@ -805,7 +1082,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                                 // Return now if there was an error.
                                 if runResult.exitStatus != .terminated(code: 0) {
                                     // TODO: should this simply be an error?
-                                    // return completion(.failure(ProcessResult.Error.nonZeroExit(runResult)))
+                                    // return completion(.failure(AsyncProcessResult.Error.nonZeroExit(runResult)))
                                     evaluationResult.errorOutput = evaluationResult.compilerOutput
                                     return completion(.success(evaluationResult))
                                 }
@@ -813,6 +1090,15 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                                 // Read the JSON output that was emitted by libPackageDescription.
                                 let jsonOutput: String = try localFileSystem.readFileContents(jsonOutputFile)
                                 evaluationResult.manifestJSON = jsonOutput
+
+                                delegateQueue?.async {
+                                    delegate?.didEvaluate(
+                                        packageIdentity: packageIdentity,
+                                        packageLocation: packageLocation,
+                                        manifestPath: manifestPath,
+                                        duration: evaluationStart.distance(to: .now())
+                                    )
+                                }
 
                                 completion(.success(evaluationResult))
                             } catch {
@@ -829,50 +1115,34 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
     }
 
-    /// Returns path to the sdk, if possible.
-    private func sdkRoot() -> AbsolutePath? {
-        if let sdkRoot = self.sdkRootCache.get() {
-            return sdkRoot
+    package static func interpreterFlags(
+        for toolsVersion: ToolsVersion,
+        toolchain: some Toolchain
+    ) -> [String] {
+        var cmd = [String]()
+        let modulesPath = toolchain.swiftPMLibrariesLocation.manifestModulesPath
+        cmd += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
+        // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
+        // which produces a framework for dynamic package products.
+        if modulesPath.extension == "framework" {
+            cmd += ["-I", modulesPath.parentDirectory.parentDirectory.pathString]
+        } else {
+            cmd += ["-I", modulesPath.pathString]
         }
-
-        var sdkRootPath: AbsolutePath? = nil
-        // Find SDKROOT on macOS using xcrun.
-        #if os(macOS)
-        let foundPath = try? TSCBasic.Process.checkNonZeroExit(
-            args: "/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path")
-        guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
-            return nil
+      #if os(macOS)
+        if let sdkRoot = toolchain.sdkRootPath {
+            cmd += ["-sdk", sdkRoot.pathString]
         }
-        if let path = try? AbsolutePath(validating: sdkRoot) {
-            sdkRootPath = path
-            self.sdkRootCache.put(path)
-        }
-        #endif
-
-        return sdkRootPath
+      #endif
+        cmd += ["-package-description-version", toolsVersion.description]
+        return cmd
     }
 
     /// Returns the interpreter flags for a manifest.
     public func interpreterFlags(
         for toolsVersion: ToolsVersion
     ) -> [String] {
-        var cmd = [String]()
-        let runtimePath = self.toolchain.swiftPMLibrariesLocation.manifestLibraryPath
-        cmd += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
-        // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
-        // which produces a framework for dynamic package products.
-        if runtimePath.extension == "framework" {
-            cmd += ["-I", runtimePath.parentDirectory.parentDirectory.pathString]
-        } else {
-            cmd += ["-I", runtimePath.pathString]
-        }
-      #if os(macOS)
-        if let sdkRoot = self.toolchain.sdkRootPath ?? self.sdkRoot() {
-            cmd += ["-sdk", sdkRoot.pathString]
-        }
-      #endif
-        cmd += ["-package-description-version", toolsVersion.description]
-        return cmd
+        return Self.interpreterFlags(for: toolsVersion, toolchain: toolchain)
     }
 
     /// Returns path to the manifest database inside the given cache directory.
@@ -882,7 +1152,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     /// reset internal cache
     public func resetCache(observabilityScope: ObservabilityScope) {
-        // nothing needed at this point
+        self.memoryCache.clear()
     }
 
     /// reset internal state and purge shared cache
@@ -914,19 +1184,29 @@ extension ManifestLoader {
         let manifestPath: AbsolutePath
         let manifestContents: [UInt8]
         let toolsVersion: ToolsVersion
-        let env: EnvironmentVariables
+        let env: Environment
         let swiftpmVersion: String
         let sha256Checksum: String
 
         init (packageIdentity: PackageIdentity,
+              packageLocation: String,
               manifestPath: AbsolutePath,
               toolsVersion: ToolsVersion,
-              env: EnvironmentVariables,
+              env: Environment,
               swiftpmVersion: String,
+              extraManifestFlags: [String],
               fileSystem: FileSystem
         ) throws {
             let manifestContents = try fileSystem.readFileContents(manifestPath).contents
-            let sha256Checksum = try Self.computeSHA256Checksum(packageIdentity: packageIdentity, manifestContents: manifestContents, toolsVersion: toolsVersion, env: env, swiftpmVersion: swiftpmVersion)
+            let sha256Checksum = try Self.computeSHA256Checksum(
+                packageIdentity: packageIdentity,
+                packageLocation: packageLocation,
+                manifestContents: manifestContents,
+                toolsVersion: toolsVersion,
+                env: env,
+                extraManifestFlags: extraManifestFlags,
+                swiftpmVersion: swiftpmVersion
+            )
 
             self.packageIdentity = packageIdentity
             self.manifestPath = manifestPath
@@ -943,19 +1223,25 @@ extension ManifestLoader {
 
         private static func computeSHA256Checksum(
             packageIdentity: PackageIdentity,
+            packageLocation: String,
             manifestContents: [UInt8],
             toolsVersion: ToolsVersion,
-            env: EnvironmentVariables,
+            env: Environment,
+            extraManifestFlags: [String],
             swiftpmVersion: String
         ) throws -> String {
             let stream = BufferedOutputByteStream()
             stream.send(packageIdentity)
+            stream.send(packageLocation)
             stream.send(manifestContents)
             stream.send(toolsVersion.description)
             for (key, value) in env.sorted(by: { $0.key > $1.key }) {
-                stream.send(key).send(value)
+                stream.send(key.rawValue).send(value)
             }
             stream.send(swiftpmVersion)
+            for flag in extraManifestFlags {
+                stream.send(flag)
+            }
             return stream.bytes.sha256Checksum
         }
     }

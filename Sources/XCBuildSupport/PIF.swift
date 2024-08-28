@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -941,8 +941,6 @@ public enum PIF {
             case INSTALL_PATH
             case SUPPORTS_MACCATALYST
             case SWIFT_SERIALIZE_DEBUGGING_OPTIONS
-            case SWIFT_FORCE_STATIC_LINK_STDLIB
-            case SWIFT_FORCE_DYNAMIC_LINK_STDLIB
             case SWIFT_INSTALL_OBJC_HEADER
             case SWIFT_OBJC_INTERFACE_HEADER_NAME
             case SWIFT_OBJC_INTERFACE_HEADER_DIR
@@ -1002,7 +1000,7 @@ public enum PIF {
             }
 
             public var conditions: [String] {
-                let filters = [PlatformsCondition(platforms: [packageModelPlatform])].toPlatformFilters().map { (filter: PIF.PlatformFilter) -> String in
+                let filters = [PackageCondition(platforms: [packageModelPlatform])].toPlatformFilters().map { filter in
                     if filter.environment.isEmpty {
                         return filter.platform
                     } else {

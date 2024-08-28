@@ -1,4 +1,5 @@
 .build
+.index-build
 DerivedData
 /.previous-build
 xcuserdata
@@ -17,3 +18,5 @@ Package.resolved
 *.pyc
 .docc-build
 .vscode
+Utilities/InstalledSwiftPMConfiguration/config.json
+.devcontainer

@@ -28,22 +28,21 @@ public struct ManifestParseDiagnostic: CustomStringConvertible {
     }
 
     public var description: String {
-        "manifest parse error(s):\n" + errors.joined(separator: "\n")
+        "manifest parse error(s):\n" + self.errors.joined(separator: "\n")
     }
 }
 
 public enum WorkspaceDiagnostics {
-
     // MARK: - Errors
 
     /// The diagnostic triggered when an operation fails because its completion
-    /// would lose the uncommited changes in a repository.
-    public struct UncommitedChanges: Error, CustomStringConvertible {
+    /// would lose the uncommitted changes in a repository.
+    public struct UncommittedChanges: Error, CustomStringConvertible {
         /// The local path to the repository.
         public let repositoryPath: AbsolutePath
 
         public var description: String {
-            return "repository '\(repositoryPath)' has uncommited changes"
+            "repository '\(self.repositoryPath)' has uncommitted changes"
         }
     }
 
@@ -54,7 +53,7 @@ public enum WorkspaceDiagnostics {
         public let repositoryPath: AbsolutePath
 
         public var description: String {
-            return "repository '\(repositoryPath)' has unpushed changes"
+            "repository '\(self.repositoryPath)' has unpushed changes"
         }
     }
 
@@ -65,7 +64,7 @@ public enum WorkspaceDiagnostics {
         public let dependencyName: String
 
         public var description: String {
-            return "dependency '\(dependencyName)' not in edit mode"
+            "dependency '\(self.dependencyName)' not in edit mode"
         }
     }
 
@@ -76,7 +75,7 @@ public enum WorkspaceDiagnostics {
         public let branch: String
 
         public var description: String {
-            return "branch '\(branch)' already exists"
+            "branch '\(self.branch)' already exists"
         }
     }
 
@@ -87,7 +86,7 @@ public enum WorkspaceDiagnostics {
         public let revision: String
 
         public var description: String {
-            return "revision '\(revision)' does not exist"
+            "revision '\(self.revision)' does not exist"
         }
     }
 }
@@ -98,11 +97,15 @@ extension Basics.Diagnostic {
     }
 
     static func editBranchNotCheckedOut(packageName: String, branchName: String) -> Self {
-        .warning("dependency '\(packageName)' already exists at the edit destination; not checking-out branch '\(branchName)'")
+        .warning(
+            "dependency '\(packageName)' already exists at the edit destination; not checking-out branch '\(branchName)'"
+        )
     }
 
     static func editRevisionNotUsed(packageName: String, revisionIdentifier: String) -> Self {
-        .warning("dependency '\(packageName)' already exists at the edit destination; not using revision '\(revisionIdentifier)'")
+        .warning(
+            "dependency '\(packageName)' already exists at the edit destination; not using revision '\(revisionIdentifier)'"
+        )
     }
 
     static func editedDependencyMissing(packageName: String) -> Self {
@@ -122,27 +125,39 @@ extension Basics.Diagnostic {
     }
 
     static func artifactInvalidArchive(artifactURL: URL, targetName: String) -> Self {
-        .error("invalid archive returned from '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)'")
+        .error(
+            "invalid archive returned from '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)'"
+        )
     }
 
     static func artifactChecksumChanged(targetName: String) -> Self {
-        .error("artifact of binary target '\(targetName)' has changed checksum; this is a potential security risk so the new artifact won't be downloaded")
+        .error(
+            "artifact of binary target '\(targetName)' has changed checksum; this is a potential security risk so the new artifact won't be downloaded"
+        )
     }
 
     static func artifactInvalidChecksum(targetName: String, expectedChecksum: String, actualChecksum: String?) -> Self {
-        .error("checksum of downloaded artifact of binary target '\(targetName)' (\(actualChecksum ?? "none")) does not match checksum specified by the manifest (\(expectedChecksum))")
+        .error(
+            "checksum of downloaded artifact of binary target '\(targetName)' (\(actualChecksum ?? "none")) does not match checksum specified by the manifest (\(expectedChecksum))"
+        )
     }
 
     static func artifactFailedDownload(artifactURL: URL, targetName: String, reason: String) -> Self {
-        .error("failed downloading '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)': \(reason)")
+        .error(
+            "failed downloading '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)': \(reason)"
+        )
     }
 
     static func artifactFailedValidation(artifactURL: URL, targetName: String, reason: String) -> Self {
-        .error("failed validating archive from '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)': \(reason)")
+        .error(
+            "failed validating archive from '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)': \(reason)"
+        )
     }
 
     static func remoteArtifactFailedExtraction(artifactURL: URL, targetName: String, reason: String) -> Self {
-        .error("failed extracting '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)': \(reason)")
+        .error(
+            "failed extracting '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)': \(reason)"
+        )
     }
 
     static func localArtifactFailedExtraction(artifactPath: AbsolutePath, targetName: String, reason: String) -> Self {
@@ -150,7 +165,9 @@ extension Basics.Diagnostic {
     }
 
     static func remoteArtifactNotFound(artifactURL: URL, targetName: String) -> Self {
-        .error("downloaded archive of binary target '\(targetName)' from '\(artifactURL.absoluteString)' does not contain a binary artifact.")
+        .error(
+            "downloaded archive of binary target '\(targetName)' from '\(artifactURL.absoluteString)' does not contain a binary artifact."
+        )
     }
 
     static func localArchivedArtifactNotFound(archivePath: AbsolutePath, targetName: String) -> Self {
@@ -160,11 +177,25 @@ extension Basics.Diagnostic {
     static func localArtifactNotFound(artifactPath: AbsolutePath, targetName: String) -> Self {
         .error("local binary target '\(targetName)' at '\(artifactPath)' does not contain a binary artifact.")
     }
+
+    static func exhaustedAttempts(missing: [PackageReference]) -> Self {
+        let missing = missing.sorted(by: { $0.identity < $1.identity }).map {
+            switch $0.kind {
+            case .registry(let identity):
+                return "'\(identity.description)'"
+            case .remoteSourceControl(let url):
+                return "'\($0.identity)' from \(url)"
+            case .localSourceControl(let path), .fileSystem(let path), .root(let path):
+                return "'\($0.identity)' at \(path)"
+            }
+        }
+        return .error(
+            "exhausted attempts to resolve the dependencies graph, with the following dependencies unresolved:\n* \(missing.joined(separator: "\n* "))"
+        )
+    }
 }
 
-
-extension FileSystemError: CustomStringConvertible {
-
+extension FileSystemError {
     public var description: String {
         guard let path else {
             switch self.kind {
@@ -215,3 +246,9 @@ extension FileSystemError: CustomStringConvertible {
         }
     }
 }
+
+#if compiler(<6.0)
+extension FileSystemError: CustomStringConvertible {}
+#else
+extension FileSystemError: @retroactive CustomStringConvertible {}
+#endif

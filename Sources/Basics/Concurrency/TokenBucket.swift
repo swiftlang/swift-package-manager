@@ -30,7 +30,7 @@ public actor TokenBucket {
     /// invocations of `withToken` will suspend until a "free" token is available.
     /// - Parameter body: The closure to invoke when a token is available.
     /// - Returns: Resulting value returned by `body`.
-    public func withToken<ReturnType>(
+    public func withToken<ReturnType: Sendable>(
         _ body: @Sendable () async throws -> ReturnType
     ) async rethrows -> ReturnType {
         await self.getToken()

@@ -10,7 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import Foundation
+#else
+import Foundation
+#endif
 
 enum Serialization {
     // MARK: - build settings serialization
@@ -22,6 +26,7 @@ enum Serialization {
     struct BuildSettingCondition: Codable {
         let platforms: [Platform]?
         let config: BuildConfiguration?
+        let traits: Set<String>?
     }
 
     struct BuildSettingData: Codable {
@@ -95,6 +100,7 @@ enum Serialization {
         case v4
         case v4_2
         case v5
+        case v6
         case version(String)
     }
 
@@ -111,6 +117,14 @@ enum Serialization {
     // MARK: - package dependency serialization
 
     struct PackageDependency: Codable {
+        struct Trait: Hashable, Codable {
+            struct Condition: Hashable, Codable {
+                let traits: Set<String>?
+            }
+
+            var name: String
+            var condition: Condition?
+        }
         enum SourceControlRequirement: Codable {
             case exact(Version)
             case range(lowerBound: Version, upperBound: Version)
@@ -131,6 +145,7 @@ enum Serialization {
 
         let kind: Kind
         let moduleAliases: [String: String]?
+        let traits: Set<Trait>?
     }
 
     // MARK: - platforms serialization
@@ -149,6 +164,7 @@ enum Serialization {
     enum TargetDependency: Codable {
         struct Condition: Codable {
             let platforms: [Platform]?
+            let traits: Set<String>?
         }
 
         case target(name: String, condition: Condition?)
@@ -249,6 +265,14 @@ enum Serialization {
         let productType: ProductType
     }
 
+    // MARK: - trait serialization
+
+    struct Trait: Hashable, Codable {
+        let name: String
+        let description: String?
+        let enabledTraits: Set<String>
+    }
+
     // MARK: - package serialization
 
     struct LanguageTag: Codable {
@@ -270,6 +294,7 @@ enum Serialization {
         let providers: [SystemPackageProvider]?
         let targets: [Target]
         let products: [Product]
+        let traits: Set<Trait>?
         let dependencies: [PackageDependency]
         let swiftLanguageVersions: [SwiftVersion]?
         let cLanguageStandard: CLanguageStandard?

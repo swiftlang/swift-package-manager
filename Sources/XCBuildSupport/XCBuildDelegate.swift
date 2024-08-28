@@ -81,7 +81,7 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
             }
         case .taskComplete(let info):
             queue.async {
-                self.buildSystem.delegate?.buildSystem(self.buildSystem, didStartCommand: BuildSystemCommand(name: "\(info.taskID)", description: info.result.rawValue))
+                self.buildSystem.delegate?.buildSystem(self.buildSystem, didFinishCommand: BuildSystemCommand(name: "\(info.taskID)", description: info.result.rawValue))
             }
         case .buildDiagnostic(let info):
             queue.async {
@@ -127,7 +127,7 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
                     self.buildSystem.delegate?.buildSystem(self.buildSystem, didFinishWithResult: true)
                 }
             }
-        case .buildStarted, .preparationComplete, .targetUpToDate, .targetStarted, .targetComplete, .taskUpToDate:
+        case .buildStarted, .preparationComplete, .targetUpToDate, .targetStarted, .targetComplete, .taskUpToDate, .unknown:
             break
         }
     }
@@ -145,9 +145,8 @@ private extension Basics.Diagnostic {
     }
 }
 
-// FIXME: Move to TSC.
+@available(*, deprecated, message: "use ProgressAnimation.ninja(stream:) instead")
 public final class VerboseProgressAnimation: ProgressAnimationProtocol {
-
     private let stream: OutputByteStream
 
     public init(stream: OutputByteStream) {
