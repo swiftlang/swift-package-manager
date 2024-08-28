@@ -111,9 +111,9 @@ enum TestingSupport {
         // Run the correct tool.
         var args = [String]()
         #if os(macOS)
-        let targetTriple = try swiftTool.getTargetToolchain().targetTriple
+        let targetTriple = try swiftCommandState.getTargetToolchain().targetTriple
         guard targetTriple.darwinPlatform == .macOS else {
-            swiftTool.observabilityScope.emit(error: """
+            swiftCommandState.observabilityScope.emit(error: """
             Attempting to run tests cross-compiled for non-macOS target '\(targetTriple)'; \
             this is currently unsupported.
             """)
@@ -122,7 +122,7 @@ enum TestingSupport {
 
         let data: String = try withTemporaryFile { tempFile in
             args = [try Self.xctestHelperPath(swiftCommandState: swiftCommandState).pathString, path.pathString, tempFile.path.pathString]
-            let env = try Self.constructTestEnvironment(
+            var env = try Self.constructTestEnvironment(
                 toolchain: try swiftCommandState.getTargetToolchain(),
                 destinationBuildParameters: swiftCommandState.buildParametersForTest(
                     enableCodeCoverage: enableCodeCoverage,
@@ -137,8 +137,8 @@ enum TestingSupport {
             // Since XCTestHelper targets macOS, we need the macOS platform paths here.
             let sdkPlatformPaths = try SwiftSDK.sdkPlatformPaths(for: .macOS)
             // appending since we prefer the user setting (if set) to the one we inject
-            env.appendPath("DYLD_FRAMEWORK_PATH", value: sdkPlatformPaths.frameworks.pathString)
-            env.appendPath("DYLD_LIBRARY_PATH", value: sdkPlatformPaths.libraries.pathString)
+            env.appendPath(key: "DYLD_FRAMEWORK_PATH", value: sdkPlatformPaths.frameworks.pathString)
+            env.appendPath(key: "DYLD_LIBRARY_PATH", value: sdkPlatformPaths.libraries.pathString)
 
             try AsyncProcess.checkNonZeroExit(arguments: args, environment: env)
             // Read the temporary file's content.
