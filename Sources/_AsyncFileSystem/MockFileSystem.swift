@@ -45,6 +45,14 @@ package actor MockFileSystem: AsyncFileSystem {
         self.storage.content.keys.contains(path)
     }
 
+    /// Writes a sequence of bytes to a file. Any existing content is replaced with new content.
+    /// - Parameters:
+    ///   - path: absolute path of the file to write bytes to.
+    ///   - bytes: sequence of bytes to write to file's contents replacing old content.
+    func write(path: FilePath, bytes: some Sequence<UInt8>) {
+        storage.content[path] = Array(bytes)
+    }
+
     /// Appends a sequence of bytes to a file.
     /// - Parameters:
     ///   - path: absolute path of the file to append bytes to.
