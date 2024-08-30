@@ -558,6 +558,8 @@ public struct SwiftSDK: Equatable {
         // Get the SDK.
         if let value = environment["SDKROOT"] {
             sdkPath = try AbsolutePath(validating: value)
+        } else if let value = environment[EnvironmentKey("SDKROOT_\(darwinPlatform.xcrunName)")] {
+            sdkPath = try AbsolutePath(validating: value)
         } else {
             // No value in env, so search for it.
             let sdkPathStr = try AsyncProcess.checkNonZeroExit(

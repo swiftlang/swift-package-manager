@@ -621,15 +621,16 @@ final class DestinationTests: XCTestCase {
         let hostSDK = try SwiftSDK.hostSwiftSDK("/prefix/bin")
 
         #if os(macOS)
+        let iOSRoot = try AbsolutePath(validating: "/usr/share/iPhoneOS.sdk")
         let iOSTriple = try Triple("arm64-apple-ios")
-        let iOS = try XCTUnwrap(SwiftSDK.defaultSwiftSDK(for: iOSTriple, hostSDK: hostSDK))
+        let iOS = try XCTUnwrap(SwiftSDK.defaultSwiftSDK(
+            for: iOSTriple,
+            hostSDK: hostSDK,
+            environment: ["SDKROOT_iphoneos": iOSRoot.pathString]
+        ))
         XCTAssertEqual(iOS.toolset.rootPaths, hostSDK.toolset.rootPaths)
 
-        let sdkPath = try XCTUnwrap(iOS.pathsConfiguration.sdkRootPath)
-        XCTAssertEqual(sdkPath.extension, "sdk")
-
-        let sdkName = try XCTUnwrap(sdkPath.components.last)
-        XCTAssert(sdkName.hasPrefix("iPhoneOS"))
+        XCTAssertEqual(iOS.pathsConfiguration.sdkRootPath, iOSRoot)
 
         let cFlags = iOS.toolset.knownTools[.cCompiler]?.extraCLIOptions ?? []
         XCTAssertFalse(cFlags.contains { $0.lowercased().contains("macos") }, "Found macOS path in \(cFlags)")
