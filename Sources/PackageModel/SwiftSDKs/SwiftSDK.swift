@@ -558,7 +558,7 @@ public struct SwiftSDK: Equatable {
         // Get the SDK.
         if let value = environment["SDKROOT"] {
             sdkPath = try AbsolutePath(validating: value)
-        } else if let value = environment[EnvironmentKey("SDKROOT_\(darwinPlatform.xcrunName)")] {
+        } else if let value = environment[EnvironmentKey("SWIFTPM_SDKROOT_\(darwinPlatform.xcrunName)")] {
             sdkPath = try AbsolutePath(validating: value)
         } else {
             // No value in env, so search for it.
@@ -641,7 +641,9 @@ public struct SwiftSDK: Equatable {
         if let path = _sdkPlatformFrameworkPath[darwinPlatform] {
             return path
         }
-        let platformPath = try AsyncProcess.checkNonZeroExit(
+        let platformPath = try environment[
+            EnvironmentKey("SWIFTPM_PLATFORM_PATH_\(darwinPlatform.platformName)")
+        ] ?? AsyncProcess.checkNonZeroExit(
             arguments: ["/usr/bin/xcrun", "--sdk", darwinPlatform.platformName, "--show-sdk-platform-path"],
             environment: environment
         ).spm_chomp()

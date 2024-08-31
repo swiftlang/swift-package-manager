@@ -621,18 +621,23 @@ final class DestinationTests: XCTestCase {
         let hostSDK = try SwiftSDK.hostSwiftSDK("/prefix/bin")
 
         #if os(macOS)
-        let iOSRoot = try AbsolutePath(validating: "/usr/share/iPhoneOS.sdk")
+        let iOSPlatform = try AbsolutePath(validating: "/usr/share/iPhoneOS.platform")
+        let iOSRoot = try AbsolutePath(validating: "/usr/share/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk")
         let iOSTriple = try Triple("arm64-apple-ios")
         let iOS = try XCTUnwrap(SwiftSDK.defaultSwiftSDK(
             for: iOSTriple,
             hostSDK: hostSDK,
-            environment: ["SDKROOT_iphoneos": iOSRoot.pathString]
+            environment: [
+                "SWIFTPM_PLATFORM_PATH_iphoneos": iOSPlatform.pathString,
+                "SWIFTPM_SDKROOT_iphoneos": iOSRoot.pathString,
+            ]
         ))
         XCTAssertEqual(iOS.toolset.rootPaths, hostSDK.toolset.rootPaths)
 
         XCTAssertEqual(iOS.pathsConfiguration.sdkRootPath, iOSRoot)
 
         let cFlags = iOS.toolset.knownTools[.cCompiler]?.extraCLIOptions ?? []
+        XCTAssert(cFlags.contains(["-F", "\(iOSPlatform.pathString)/Developer/Library/Frameworks"]))
         XCTAssertFalse(cFlags.contains { $0.lowercased().contains("macos") }, "Found macOS path in \(cFlags)")
         #endif
     }
