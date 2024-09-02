@@ -111,16 +111,6 @@ enum TestingSupport {
         // Run the correct tool.
         var args = [String]()
         #if os(macOS)
-        let targetTriple = try swiftCommandState.getTargetToolchain().targetTriple
-        let hostTriple = try swiftCommandState.getHostToolchain().targetTriple
-        guard hostTriple.isRuntimeCompatible(with: targetTriple) else {
-            swiftCommandState.observabilityScope.emit(error: """
-            Attempting to run tests cross-compiled for non-macOS target '\(targetTriple)'; \
-            this is currently unsupported.
-            """)
-            return []
-        }
-
         let data: String = try withTemporaryFile { tempFile in
             args = [try Self.xctestHelperPath(swiftCommandState: swiftCommandState).pathString, path.pathString, tempFile.path.pathString]
             let env = try Self.constructTestEnvironment(
