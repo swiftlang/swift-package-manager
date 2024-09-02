@@ -615,7 +615,7 @@ public struct SwiftSDK: Equatable {
     ///
     /// The referenced directories may contain, for example, test support utilities.
     ///
-    /// - SeeAlso: ``sdkPlatformFrameworkPaths(for:environment:)``
+    /// - SeeAlso: ``sdkPlatformPaths(for:environment:)``
     public struct PlatformPaths {
         /// Path to the directory containing auxiliary platform frameworks.
         public var frameworks: AbsolutePath

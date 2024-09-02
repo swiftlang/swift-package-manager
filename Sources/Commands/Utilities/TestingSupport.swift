@@ -134,13 +134,6 @@ enum TestingSupport {
                 library: .xctest
             )
 
-            // Add the sdk platform path if we have it. If this is not present, we might always end up failing.
-            // Since XCTestHelper targets macOS, we need the macOS platform paths here.
-            let sdkPlatformPaths = try SwiftSDK.sdkPlatformPaths(for: .macOS)
-            // appending since we prefer the user setting (if set) to the one we inject
-            env.appendPath(key: "DYLD_FRAMEWORK_PATH", value: sdkPlatformPaths.frameworks.pathString)
-            env.appendPath(key: "DYLD_LIBRARY_PATH", value: sdkPlatformPaths.libraries.pathString)
-
             try AsyncProcess.checkNonZeroExit(arguments: args, environment: env)
             // Read the temporary file's content.
             return try swiftCommandState.fileSystem.readFileContents(AbsolutePath(tempFile.path))
@@ -203,10 +196,11 @@ enum TestingSupport {
         return env
         #else
         // Add the sdk platform path if we have it.
-        if let sdkPlatformFrameworksPath = try? SwiftSDK.sdkPlatformFrameworkPaths() {
+        // Since XCTestHelper targets macOS, we need the macOS platform paths here.
+        if let sdkPlatformPaths = try? SwiftSDK.sdkPlatformPaths(for: .macOS) {
             // appending since we prefer the user setting (if set) to the one we inject
-            env.appendPath(key: "DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.fwk.pathString)
-            env.appendPath(key: "DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.lib.pathString)
+            env.appendPath(key: "DYLD_FRAMEWORK_PATH", value: sdkPlatformPaths.frameworks.pathString)
+            env.appendPath(key: "DYLD_LIBRARY_PATH", value: sdkPlatformPaths.libraries.pathString)
         }
 
         // We aren't using XCTest's harness logic to run Swift Testing tests.
