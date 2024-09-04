@@ -642,7 +642,7 @@ public struct SwiftSDK: Equatable {
             return path
         }
         let platformPath = try environment[
-            EnvironmentKey("SWIFTPM_PLATFORM_PATH_\(darwinPlatform.platformName)")
+            EnvironmentKey("SWIFTPM_PLATFORM_PATH_\(darwinPlatform.xcrunName)")
         ] ?? AsyncProcess.checkNonZeroExit(
             arguments: ["/usr/bin/xcrun", "--sdk", darwinPlatform.xcrunName, "--show-sdk-platform-path"],
             environment: environment
