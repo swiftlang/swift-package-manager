@@ -29,8 +29,7 @@ Swift 6.0
 
 * [#7722]
 
-  For `swift sdk install` subcommand passed remote URLs as arguments, an additional `--checksum` option is now required, through which users of a Swift SDK can specify a checksum provided by
-  a publisher of the SDK. The latter can produce a checksum by running `swift package compute-checksum` command (introduced in [SE-0272]) with the Swift SDK bundle archive as an argument.
+  An additional `--checksum` option  is now required for `swift sdk install` subcommand with remote URLs as arguments. `--checksum` allows users of a Swift SDK to specify a checksum provided by the SDK publisher. A checksum can be produced by running `swift package compute-checksum` command (introduced in [SE-0272]) with the Swift SDK bundle archive as an argument.
 
 * [#7535]
 
