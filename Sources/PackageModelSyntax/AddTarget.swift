@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import PackageDescription
 import PackageModel
 import SwiftParser
 import SwiftSyntax
@@ -340,7 +341,7 @@ fileprivate let macroTargetDependencies: [TargetDescription.Dependency] = [
 ]
 
 /// The package dependency for swift-syntax, for use in macros.
-fileprivate extension PackageDependency {
+fileprivate extension PackageDescription.Package.Dependency {
     /// Source control URL for the swift-syntax package.
     static var swiftSyntaxURL: SourceControlURL {
         "https://github.com/swiftlang/swift-syntax.git"
@@ -349,18 +350,14 @@ fileprivate extension PackageDependency {
     /// Package dependency on the swift-syntax package.
     static func swiftSyntax(
       configuration: InstalledSwiftPMConfiguration
-    ) -> PackageDependency {
+    ) -> PackageDescription.Package.Dependency {
         let swiftSyntaxVersionDefault = configuration
             .swiftSyntaxVersionForMacroTemplate
-        let swiftSyntaxVersion = Version(swiftSyntaxVersionDefault.description)!
+        let swiftSyntaxVersion = PackageDescription.Version(swiftSyntaxVersionDefault.description)!
 
-        return .sourceControl(
-            identity: PackageIdentity(url: swiftSyntaxURL),
-            nameForTargetDependencyResolutionOnly: nil,
-            location: .remote(swiftSyntaxURL),
-            requirement: .range(.upToNextMajor(from: swiftSyntaxVersion)),
-            productFilter: .everything,
-            traits: []
+        return .package(
+            url: swiftSyntaxURL.absoluteString,
+            .upToNextMajor(from: swiftSyntaxVersion)
         )
     }
 }
