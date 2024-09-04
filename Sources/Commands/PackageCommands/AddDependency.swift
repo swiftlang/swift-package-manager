@@ -13,12 +13,12 @@
 import ArgumentParser
 import Basics
 import CoreCommands
-import PackageModel
+import PackageDescription
+import class PackageModel.Manifest
 import PackageModelSyntax
 import SwiftParser
 import SwiftSyntax
 import TSCBasic
-import TSCUtility
 import Workspace
 
 extension SwiftPackageCommand {
@@ -66,24 +66,24 @@ extension SwiftPackageCommand {
                 throw StringError("unknown package")
             }
 
-            switch type {
+            switch self.type {
             case .url:
                 try self.createSourceControlPackage(
                     packagePath: packagePath,
                     workspace: workspace,
-                    url: dependency
+                    url: self.dependency
                 )
             case .path:
                 try self.createFileSystemPackage(
                     packagePath: packagePath,
                     workspace: workspace,
-                    directory: dependency
+                    directory: self.dependency
                 )
             case .registry:
                 try self.createRegistryPackage(
                     packagePath: packagePath,
                     workspace: workspace,
-                    id: dependency
+                    id: self.dependency
                 )
             }
         }
@@ -93,10 +93,8 @@ extension SwiftPackageCommand {
             workspace: Workspace,
             url: String
         ) throws {
-            let identity = PackageIdentity(url: .init(url))
-
             // Collect all of the possible version requirements.
-            var requirements: [PackageDependency.SourceControl.Requirement] = []
+            var requirements: [PackageDescription.Package.Dependency.SourceControlRequirement] = []
             if let exact {
                 requirements.append(.exact(exact))
             }
@@ -129,7 +127,7 @@ extension SwiftPackageCommand {
                 )
             }
 
-            let requirement: PackageDependency.SourceControl.Requirement
+            let requirement: PackageDescription.Package.Dependency.SourceControlRequirement
             if case .range(let range) = firstRequirement {
                 if let to {
                     requirement = .range(range.lowerBound ..< to)
@@ -144,19 +142,10 @@ extension SwiftPackageCommand {
                 }
             }
 
-            let packageDependency: PackageDependency = .sourceControl(
-                identity: identity,
-                nameForTargetDependencyResolutionOnly: nil,
-                location: .remote(.init(url)),
-                requirement: requirement,
-                productFilter: .everything,
-                traits: []
-            )
-
-            try applyEdits(
+            try self.applyEdits(
                 packagePath: packagePath,
                 workspace: workspace,
-                packageDependency: packageDependency
+                packageDependency: .package(url: url, requirement: requirement)
             )
         }
 
@@ -165,10 +154,8 @@ extension SwiftPackageCommand {
             workspace: Workspace,
             id: String
         ) throws {
-            let identity: PackageIdentity = .plain(id)
-
             // Collect all of the possible version requirements.
-            var requirements: [PackageDependency.Registry.Requirement] = []
+            var requirements: [Package.Dependency.RegistryRequirement] = []
             if let exact {
                 requirements.append(.exact(exact))
             }
@@ -193,7 +180,7 @@ extension SwiftPackageCommand {
                 )
             }
 
-            let requirement: PackageDependency.Registry.Requirement
+            let requirement: Package.Dependency.RegistryRequirement
             if case .range(let range) = firstRequirement {
                 if let to {
                     requirement = .range(range.lowerBound ..< to)
@@ -208,18 +195,10 @@ extension SwiftPackageCommand {
                 }
             }
 
-            let packageDependency: PackageDependency = .registry(
-                identity: identity,
-                requirement: requirement,
-                productFilter: .everything,
-                traits: []
-            )
-
-
-            try applyEdits(
+            try self.applyEdits(
                 packagePath: packagePath,
                 workspace: workspace,
-                packageDependency: packageDependency
+                packageDependency: .package(id: id, requirement: requirement, traits: [])
             )
         }
 
@@ -228,29 +207,17 @@ extension SwiftPackageCommand {
             workspace: Workspace,
             directory: String
         ) throws {
-            guard let path = try? Basics.AbsolutePath(validating: directory) else {
-                throw StringError("Package path not found")
-            }
-            let identity = PackageIdentity(path: path)
-            let packageDependency: PackageDependency = .fileSystem(
-                identity: identity,
-                nameForTargetDependencyResolutionOnly: nil,
-                path: path,
-                productFilter: .everything,
-                traits: []
-            )
-
-            try applyEdits(
+            try self.applyEdits(
                 packagePath: packagePath,
                 workspace: workspace,
-                packageDependency: packageDependency
+                packageDependency: .package(path: directory)
             )
         }
 
         private func applyEdits(
             packagePath: Basics.AbsolutePath,
             workspace: Workspace,
-            packageDependency: PackageDependency
+            packageDependency: PackageDescription.Package.Dependency
         ) throws {
             // Load the manifest file
             let fileSystem = workspace.fileSystem

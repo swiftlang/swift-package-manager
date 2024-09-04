@@ -279,6 +279,7 @@ let package = Package(
             name: "PackageModelSyntax",
             dependencies: [
                 "Basics",
+                "PackageDescription",
                 "PackageLoading",
                 "PackageModel",
                 .product(name: "SwiftBasicFormat", package: "swift-syntax"),
@@ -290,6 +291,7 @@ let package = Package(
             ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
+                .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -508,6 +510,7 @@ let package = Package(
                 "Basics",
                 "Build",
                 "CoreCommands",
+                "PackageDescription",
                 "PackageGraph",
                 "PackageModelSyntax",
                 "SourceControl",
@@ -516,6 +519,7 @@ let package = Package(
             ],
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: [
+                .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-static"]),
             ]
         ),
