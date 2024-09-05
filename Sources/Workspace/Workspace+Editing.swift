@@ -21,15 +21,15 @@ import struct SourceControl.Revision
 extension Workspace {
     /// Edit implementation.
     func _edit(
-        packageName: String,
+        packageIdentity: String,
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
         observabilityScope: ObservabilityScope
     ) async throws {
         // Look up the dependency and check if we can edit it.
-        guard let dependency = self.state.dependencies[.plain(packageName)] else {
-            observabilityScope.emit(.dependencyNotFound(packageName: packageName))
+        guard let dependency = self.state.dependencies[.plain(packageIdentity)] else {
+            observabilityScope.emit(.dependencyNotFound(packageName: packageIdentity))
             return
         }
 
@@ -58,10 +58,10 @@ extension Workspace {
 
         // If a path is provided then we use it as destination. If not, we
         // use the folder with packageName inside editablesPath.
-        let destination = path ?? self.location.editsDirectory.appending(component: packageName)
+        let destination = path ?? self.location.editsDirectory.appending(component: packageIdentity)
 
         // If there is something present at the destination, we confirm it has
-        // a valid manifest with name same as the package we are trying to edit.
+        // a valid manifest with name canonical location as the package we are trying to edit.
         if fileSystem.exists(destination) {
             // FIXME: this should not block
             let manifest = try await withCheckedThrowingContinuation { continuation in
@@ -75,23 +75,23 @@ extension Workspace {
                 )
             }
 
-            guard manifest.displayName == packageName else {
+            guard dependency.packageRef.canonicalLocation == manifest.canonicalPackageLocation else {
                 return observabilityScope
                     .emit(
-                        error: "package at '\(destination)' is \(manifest.displayName) but was expecting \(packageName)"
+                        error: "package at '\(destination)' is \(dependency.packageRef.identity) but was expecting \(packageIdentity)"
                     )
             }
 
             // Emit warnings for branch and revision, if they're present.
             if let checkoutBranch {
                 observabilityScope.emit(.editBranchNotCheckedOut(
-                    packageName: packageName,
+                    packageName: packageIdentity,
                     branchName: checkoutBranch
                 ))
             }
             if let revision {
                 observabilityScope.emit(.editRevisionNotUsed(
-                    packageName: packageName,
+                    packageName: packageIdentity,
                     revisionIdentifier: revision.identifier
                 ))
             }
@@ -133,7 +133,7 @@ extension Workspace {
             try fileSystem.createDirectory(self.location.editsDirectory)
             // FIXME: We need this to work with InMem file system too.
             if !(fileSystem is InMemoryFileSystem) {
-                let symLinkPath = self.location.editsDirectory.appending(component: packageName)
+                let symLinkPath = self.location.editsDirectory.appending(component: packageIdentity)
 
                 // Cleanup any existing symlink.
                 if fileSystem.isSymlink(symLinkPath) {
@@ -156,7 +156,7 @@ extension Workspace {
 
         // Save the new state.
         try self.state.dependencies.add(
-            dependency.edited(subpath: RelativePath(validating: packageName), unmanagedPath: path)
+            dependency.edited(subpath: RelativePath(validating: packageIdentity), unmanagedPath: path)
         )
         try self.state.save()
     }
