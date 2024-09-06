@@ -32,8 +32,11 @@ extension SwiftPackageCommand {
         @Option(help: "Create or use the checkout at this path")
         var path: AbsolutePath?
 
-        @Argument(help: "The identity of the package to edit")
-        var packageIdentity: String
+        @Argument(help: .hidden)
+        var packageName: String?
+
+        @Argument(help: "The identity of the package to edit.")
+        var packageIdentity: String = ""
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             try await swiftCommandState.resolve()
@@ -47,6 +50,14 @@ extension SwiftPackageCommand {
                 checkoutBranch: checkoutBranch,
                 observabilityScope: swiftCommandState.observabilityScope
             )
+        }
+
+        mutating func validate() throws {
+            // Since packageName is deprecated, if it's assigned to a value then propagate
+            // that to packageIdentity.
+            if let packageName, packageIdentity.isEmpty {
+                self.packageIdentity = packageName
+            }
         }
     }
 
