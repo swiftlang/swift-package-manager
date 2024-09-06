@@ -75,7 +75,7 @@ extension SwiftPackageCommand {
         @Argument(help: .hidden)
         var packageName: String?
 
-        @Argument(help: "The identity of the package to edit.")
+        @Argument(help: "The identity of the package to unedit.")
         var packageIdentity: String = ""
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
