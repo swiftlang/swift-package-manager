@@ -89,6 +89,7 @@ public final class PIFBuilder {
     /// Generates the PIF representation.
     /// - Parameters:
     ///   - prettyPrint: Whether to return a formatted JSON.
+    ///   - preservePIFModelStructure: Whether to preserve model structure.
     /// - Returns: The package graph in the JSON PIF format.
     func generatePIF(
         prettyPrint: Bool = true,
