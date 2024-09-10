@@ -218,7 +218,7 @@ package final class AsyncProcess {
             case let .stream(stdoutClosure, stderrClosure, _):
                 (stdoutClosure: stdoutClosure, stderrClosure: stderrClosure)
 
-            case let .asyncStream(stdoutStream, stdoutContinuation, stderrStream, stderrContinuation):
+            case let .asyncStream(_, stdoutContinuation, _, stderrContinuation):
                 (stdoutClosure: { stdoutContinuation.yield($0) }, stderrClosure: { stderrContinuation.yield($0) })
 
             case .collect, .none:
