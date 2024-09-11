@@ -121,7 +121,7 @@ struct APIDiff: AsyncSwiftCommand {
 
         var skippedModules: Set<String> = []
 
-        let results = await withTaskGroup(of: SwiftAPIDigester.ComparisonResult?.self, returning: ThreadSafeArrayStore<SwiftAPIDigester.ComparisonResult>.self) { taskGroup in
+        let results = await withTaskGroup(of: SwiftAPIDigester.ComparisonResult?.self, returning: [SwiftAPIDigester.ComparisonResult].self) { taskGroup in
 
             for module in modulesToDiff {
                 let moduleBaselinePath = baselineDir.appending("\(module).json")
@@ -146,7 +146,7 @@ struct APIDiff: AsyncSwiftCommand {
                     return nil
                 }
             }
-            let results = ThreadSafeArrayStore<SwiftAPIDigester.ComparisonResult>()
+            var results = [SwiftAPIDigester.ComparisonResult]()
             for await result in taskGroup {
                 guard let result else { continue }
                 results.append(result)
@@ -161,11 +161,11 @@ struct APIDiff: AsyncSwiftCommand {
             swiftCommandState.observabilityScope.emit(error: "failed to read API digester output for \(failedModule)")
         }
 
-        for result in results.get() {
+        for result in results {
             try self.printComparisonResult(result, observabilityScope: swiftCommandState.observabilityScope)
         }
 
-        guard failedModules.isEmpty && results.get().allSatisfy(\.hasNoAPIBreakingChanges) else {
+        guard failedModules.isEmpty && results.allSatisfy(\.hasNoAPIBreakingChanges) else {
             throw ExitCode.failure
         }
     }
