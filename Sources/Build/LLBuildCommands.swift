@@ -76,7 +76,6 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
 
                 fileprivate extension \#(className) {
                     @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
-                    @MainActor
                     static let __allTests__\#(className) = [
                         \#(testMethods.map(\.allTestsEntry).joined(separator: ",\n        "))
                     ]
@@ -88,13 +87,12 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
         content +=
             #"""
             @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
-            @MainActor
             func __\#(module)__allTests() -> [XCTestCaseEntry] {
                 return [
                     \#(
                         testsByClassNames.map { "testCase(\($0.key).__allTests__\($0.key))" }
                             .joined(separator: ",\n        ")
-            )
+                    )
                 ]
             }
             """#
@@ -163,7 +161,6 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
             import XCTest
 
             @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
-            @MainActor
             public func __allDiscoveredTests() -> [XCTestCaseEntry] {
                 \#(testsKeyword) tests = [XCTestCaseEntry]()
 
