@@ -119,37 +119,40 @@ struct APIDiff: AsyncSwiftCommand {
                     swiftCommandState: swiftCommandState
         )
 
-        let results = ThreadSafeArrayStore<SwiftAPIDigester.ComparisonResult>()
-        let group = DispatchGroup()
-        let semaphore = DispatchSemaphore(value: Int(try buildSystem.buildPlan.destinationBuildParameters.workers))
         var skippedModules: Set<String> = []
 
-        for module in modulesToDiff {
-            let moduleBaselinePath = baselineDir.appending("\(module).json")
-            guard swiftCommandState.fileSystem.exists(moduleBaselinePath) else {
-                print("\nSkipping \(module) because it does not exist in the baseline")
-                skippedModules.insert(module)
-                continue
-            }
-            semaphore.wait()
-            DispatchQueue.sharedConcurrent.async(group: group) {
-                do {
-                    if let comparisonResult = try apiDigesterTool.compareAPIToBaseline(
-                        at: moduleBaselinePath,
-                        for: module,
-                        buildPlan: try buildSystem.buildPlan,
-                        except: breakageAllowlistPath
-                    ) {
-                        results.append(comparisonResult)
-                    }
-                } catch {
-                    swiftCommandState.observabilityScope.emit(error: "failed to compare API to baseline", underlyingError: error)
-                }
-                semaphore.signal()
-            }
-        }
+        let results = await withTaskGroup(of: SwiftAPIDigester.ComparisonResult?.self, returning: ThreadSafeArrayStore<SwiftAPIDigester.ComparisonResult>.self) { taskGroup in
 
-        group.wait()
+            for module in modulesToDiff {
+                let moduleBaselinePath = baselineDir.appending("\(module).json")
+                guard swiftCommandState.fileSystem.exists(moduleBaselinePath) else {
+                    print("\nSkipping \(module) because it does not exist in the baseline")
+                    skippedModules.insert(module)
+                    continue
+                }
+                taskGroup.addTask {
+                    do {
+                        if let comparisonResult = try apiDigesterTool.compareAPIToBaseline(
+                            at: moduleBaselinePath,
+                            for: module,
+                            buildPlan: try buildSystem.buildPlan,
+                            except: breakageAllowlistPath
+                        ) {
+                            return comparisonResult
+                        }
+                    } catch {
+                        swiftCommandState.observabilityScope.emit(error: "failed to compare API to baseline", underlyingError: error)
+                    }
+                    return nil
+                }
+            }
+            let results = ThreadSafeArrayStore<SwiftAPIDigester.ComparisonResult>()
+            for await result in taskGroup {
+                guard let result else { continue }
+                results.append(result)
+            }
+            return results
+        }
 
         let failedModules = modulesToDiff
             .subtracting(skippedModules)
