@@ -247,7 +247,7 @@ extension ManifestLoaderProtocol {
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue
     ) async throws -> Manifest {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.load(
                 packagePath: packagePath,
                 packageIdentity: packageIdentity,
@@ -261,7 +261,9 @@ extension ManifestLoaderProtocol {
                 observabilityScope: observabilityScope,
                 delegateQueue: delegateQueue,
                 callbackQueue: callbackQueue,
-                completion: $0.resume(with:)
+                completion: {
+                  continuation.resume(with: $0)
+                }
             )
         }
     }
@@ -340,7 +342,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue
     ) async throws -> Manifest {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.load(
                 manifestPath: manifestPath,
                 manifestToolsVersion: manifestToolsVersion,
@@ -354,7 +356,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 observabilityScope: observabilityScope,
                 delegateQueue: delegateQueue, 
                 callbackQueue: callbackQueue,
-                completion: $0.resume(with:)
+                completion: {
+                  continuation.resume(with: $0)
+                }
             )
         }
     }
