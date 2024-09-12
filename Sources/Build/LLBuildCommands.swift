@@ -76,7 +76,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
 
                 fileprivate extension \#(className) {
                     @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
-                    static let __allTests__\#(className) = [
+                    static nonisolated(unsafe) let __allTests__\#(className) = [
                         \#(testMethods.map(\.allTestsEntry).joined(separator: ",\n        "))
                     ]
                 }
