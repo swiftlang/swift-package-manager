@@ -21,16 +21,13 @@ import PackageGraph
 public protocol PluginScriptRunner {
     
     /// Public protocol function that starts compiling the plugin script to an executable. The name is used as the basename for the executable and auxiliary files. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callback queue when compilation ends.
-    @available(*, noasync, message: "Use the async alternative")
     func compilePluginScript(
         sourceFiles: [AbsolutePath],
         pluginName: String,
         toolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        delegate: PluginScriptCompilerDelegate,
-        completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
-    )
+        delegate: PluginScriptCompilerDelegate
+    ) async throws -> PluginCompilationResult
 
     /// Implements the mechanics of running a plugin script implemented as a set of Swift source files, for use
     /// by the package graph when it is evaluating package plugins.
@@ -53,37 +50,13 @@ public protocol PluginScriptRunner {
         allowNetworkConnections: [SandboxNetworkPermission],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
         delegate: PluginScriptCompilerDelegate & PluginScriptRunnerDelegate,
-        completion: @escaping (Result<Int32, Error>) -> Void
-    )
+        delegateQueue: DispatchQueue
+    ) async throws -> Int32
 
     /// Returns the Triple that represents the host for which plugin script tools should be built, or for which binary
     /// tools should be selected.
     var hostTriple: Triple { get throws }
-}
-
-public extension PluginScriptRunner {
-    func compilePluginScript(
-        sourceFiles: [AbsolutePath],
-        pluginName: String,
-        toolsVersion: ToolsVersion,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        delegate: PluginScriptCompilerDelegate
-    ) async throws -> PluginCompilationResult {
-        try await withCheckedThrowingContinuation {
-            self.compilePluginScript(
-                sourceFiles: sourceFiles,
-                pluginName: pluginName,
-                toolsVersion: toolsVersion,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                delegate: delegate,
-                completion: $0.resume(with:)
-            )
-        }
-    }
 }
 
 /// Protocol by which `PluginScriptRunner` communicates back to the caller as it compiles plugins.
