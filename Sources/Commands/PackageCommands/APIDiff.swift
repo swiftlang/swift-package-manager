@@ -17,6 +17,7 @@ import Dispatch
 import PackageGraph
 import PackageModel
 import SourceControl
+import _Concurrency
 
 struct DeprecatedAPIDiff: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "experimental-api-diff",
