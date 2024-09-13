@@ -155,7 +155,7 @@ final class InitTests: XCTestCase {
     }
 
     func testInitPackageLibraryWithSwiftTestingOnly() async throws {
-        try await testWithTemporaryDirectory { tmpPath in
+        try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
             let name = path.basename
@@ -192,7 +192,7 @@ final class InitTests: XCTestCase {
     }
 
     func testInitPackageLibraryWithBothSwiftTestingAndXCTest() async throws {
-        try await testWithTemporaryDirectory { tmpPath in
+        try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
             let name = path.basename
@@ -231,7 +231,7 @@ final class InitTests: XCTestCase {
     func testInitPackageLibraryWithNoTests() async throws {
         try UserToolchain.default.skipUnlessAtLeastSwift6()
 
-        try await testWithTemporaryDirectory { tmpPath in
+        try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
             let name = path.basename

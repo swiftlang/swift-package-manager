@@ -537,7 +537,8 @@ final class PluginTests: XCTestCase {
                     )
 
                     let toolSearchDirectories = [try UserToolchain.default.swiftCompilerPath.parentDirectory]
-                    let success = try await withCheckedThrowingContinuation { plugin.invoke(
+                    let success = try await withCheckedThrowingContinuation { continuation in
+                      plugin.invoke(
                         action: .performCommand(package: package, arguments: arguments),
                         buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
                         scriptRunner: scriptRunner,
@@ -555,7 +556,10 @@ final class PluginTests: XCTestCase {
                         observabilityScope: observability.topScope,
                         callbackQueue: delegateQueue,
                         delegate: delegate,
-                        completion: $0.resume(with:))
+                        completion: {
+                          continuation.resume(with: $0)
+                        }
+                      )
                     }
                     if expectFailure {
                         XCTAssertFalse(success, "expected command to fail, but it succeeded", file: file, line: line)
