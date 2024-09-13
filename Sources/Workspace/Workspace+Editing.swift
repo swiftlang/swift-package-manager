@@ -71,7 +71,9 @@ extension Workspace {
                     packagePath: destination,
                     packageLocation: dependency.packageRef.locationString,
                     observabilityScope: observabilityScope,
-                    completion: continuation.resume(with:)
+                    completion: {
+                      continuation.resume(with: $0)
+                    }
                 )
             }
 

@@ -46,7 +46,7 @@ struct PackageVersionChecksumTOFU {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.validateSourceArchive(
                 registry: registry,
                 package: package,
@@ -55,11 +55,13 @@ struct PackageVersionChecksumTOFU {
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0.resume(with:)
+                completion: {
+                    continuation.resume(with: $0)
+                }
             )
         }
     }
-    
+
     @available(*, noasync, message: "Use the async alternative")
     func validateSourceArchive(
         registry: Registry,

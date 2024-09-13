@@ -169,13 +169,15 @@ public final class MockWorkspace {
                 if let containerProvider = customPackageContainerProvider {
                     let observability = ObservabilitySystem.makeForTesting()
                     let packageRef = PackageReference(identity: PackageIdentity(url: url), kind: .remoteSourceControl(url))
-                    let container = try await withCheckedThrowingContinuation {
+                    let container = try await withCheckedThrowingContinuation { continuation in
                         containerProvider.getContainer(
                             for: packageRef,
                             updateStrategy: .never,
                             observabilityScope: observability.topScope,
                             on: .sharedConcurrent,
-                            completion: $0.resume(with:)
+                            completion: {
+                                continuation.resume(with: $0)
+                            }
                         )
                     }
                     guard let customContainer = container as? CustomPackageContainer else {
@@ -229,7 +231,7 @@ public final class MockWorkspace {
             if let specifier = sourceControlSpecifier {
                 let repository = self.repositoryProvider.specifierMap[specifier] ?? .init(path: packagePath, fs: self.fileSystem)
                 try writePackageContent(fileSystem: repository, root: .root, toolsVersion: packageToolsVersion)
-                
+
                 let versions = packageVersions.compactMap{ $0 }
                 if versions.isEmpty {
                     try repository.commit()

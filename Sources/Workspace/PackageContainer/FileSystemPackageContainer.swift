@@ -79,7 +79,7 @@ public struct FileSystemPackageContainer: PackageContainer {
 
             // Load the manifest.
             // FIXME: this should not block
-            return try await withCheckedThrowingContinuation {
+            return try await withCheckedThrowingContinuation { continuation in
                 manifestLoader.load(
                     packagePath: packagePath,
                     packageIdentity: self.package.identity,
@@ -93,7 +93,9 @@ public struct FileSystemPackageContainer: PackageContainer {
                     observabilityScope: self.observabilityScope,
                     delegateQueue: .sharedConcurrent,
                     callbackQueue: .sharedConcurrent,
-                    completion: $0.resume(with:)
+                    completion: {
+                        continuation.resume(with: $0)
+                    }
                 )
             }
         }
