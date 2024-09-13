@@ -3840,14 +3840,16 @@ extension RegistryClient {
         package: PackageIdentity.RegistryIdentity,
         version: Version
     ) async throws -> PackageVersionMetadata {
-        return try await withCheckedThrowingContinuation {
+        return try await withCheckedThrowingContinuation { continuation in
             self.getPackageVersionMetadata(
                 package: package.underlying,
                 version: version,
                 fileSystem: InMemoryFileSystem(),
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
-                completion: $0.resume(with:)
+                completion: {
+                  continuation.resume(with: $0)
+                }
             )
         }
     }

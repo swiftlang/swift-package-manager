@@ -434,7 +434,7 @@ final class AsyncProcessTests: XCTestCase {
 
             group.addTask {
                 var counter = 0
-                for await output in stderrStream {
+                for await _ in stderrStream {
                     counter += 1
                 }
 
@@ -477,7 +477,7 @@ final class AsyncProcessTests: XCTestCase {
             },
             stderr: { stderr in
                 var counter = 0
-                for await output in stderr {
+                for await _ in stderr {
                     counter += 1
                 }
 
