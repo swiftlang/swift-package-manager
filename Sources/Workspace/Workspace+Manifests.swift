@@ -879,7 +879,9 @@ extension Workspace {
                     updateStrategy: .never,
                     observabilityScope: observabilityScope,
                     on: .sharedConcurrent,
-                    completion: continuation.resume(with:)
+                    completion: {
+                        continuation.resume(with: $0)
+                    }
                 )
             }
             guard let customContainer = container as? CustomPackageContainer else {

@@ -144,20 +144,22 @@ public final class RegistryClient: Cancellable {
             observabilityScope: observabilityScope
         )
     }
-    
+
     public func getPackageMetadata(
         package: PackageIdentity,
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> PackageMetadata {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.getPackageMetadata(
                 package: package,
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0.resume(with:)
+                completion: {
+                    continuation.resume(with: $0)
+                }
             )
         }
     }
@@ -275,7 +277,7 @@ public final class RegistryClient: Cancellable {
             )
         }
     }
-    
+
     public func getPackageVersionMetadata(
         package: PackageIdentity,
         version: Version,
@@ -284,7 +286,7 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> PackageVersionMetadata {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.getPackageVersionMetadata(
                 package: package,
                 version: version,
@@ -292,7 +294,9 @@ public final class RegistryClient: Cancellable {
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0.resume(with:)
+                completion: {
+                    continuation.resume(with: $0)
+                }
             )
         }
     }
@@ -382,13 +386,15 @@ public final class RegistryClient: Cancellable {
                         }
                         let configuration = self.configuration.signing(for: package, registry: registry)
 
-                        let result = try? await withCheckedThrowingContinuation { completion in
+                        let result = try? await withCheckedThrowingContinuation { continuation in
                             SignatureValidation.extractSigningEntity(
                                 signature: [UInt8](signatureData),
                                 signatureFormat: signatureFormat,
                                 configuration: configuration,
                                 fileSystem: fileSystem,
-                                completion: completion.resume(with:)
+                                completion: {
+                                    continuation.resume(with: $0)
+                                }
                             )
                         }
                         resourceSigning.append((resource, result))
@@ -513,18 +519,20 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> [String: (toolsVersion: ToolsVersion, content: String?)]{
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.getAvailableManifests(
                 package: package,
                 version: version,
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0.resume(with:)
+                completion: {
+                    continuation.resume(with: $0)
+                }
             )
         }
     }
-    
+
     @available(*, noasync, message: "Use the async alternative")
     public func getAvailableManifests(
         package: PackageIdentity,
@@ -758,19 +766,21 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> String {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.getManifestContent(
                 package: package,
                 version: version,
-                customToolsVersion: customToolsVersion, 
+                customToolsVersion: customToolsVersion,
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0.resume(with:)
+                completion: {
+                    continuation.resume(with: $0)
+                }
             )
         }
     }
-    
+
     @available(*, noasync, message: "Use the async alternative")
     public func getManifestContent(
         package: PackageIdentity,
@@ -987,7 +997,7 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.downloadSourceArchive(
                 package: package,
                 version: version,
@@ -997,7 +1007,9 @@ public final class RegistryClient: Cancellable {
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0.resume(with:)
+                completion: {
+                    continuation.resume(with: $0)
+                }
             )
         }
     }
@@ -1293,20 +1305,22 @@ public final class RegistryClient: Cancellable {
             }
         }
     }
-    
+
     public func lookupIdentities(
         scmURL: SourceControlURL,
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> Set<PackageIdentity> {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.lookupIdentities(
                 scmURL: scmURL,
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0.resume(with:)
+                completion: {
+                    continuation.resume(with: $0)
+                }
             )
         }
     }
@@ -1416,20 +1430,22 @@ public final class RegistryClient: Cancellable {
             )
         }
     }
-    
+
     public func login(
         loginURL: URL,
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.login(
                 loginURL: loginURL,
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0.resume(with:)
+                completion: {
+                    continuation.resume(with: $0)
+                }
             )
         }
     }
@@ -1471,7 +1487,7 @@ public final class RegistryClient: Cancellable {
             }
         }
     }
-    
+
     public func publish(
         registryURL: URL,
         packageIdentity: PackageIdentity,
@@ -1486,7 +1502,7 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> PublishResult  {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.publish(
                 registryURL: registryURL,
                 packageIdentity: packageIdentity,
@@ -1500,7 +1516,9 @@ public final class RegistryClient: Cancellable {
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0.resume(with:)
+                completion: {
+                    continuation.resume(with: $0)
+                }
             )
         }
     }
@@ -1673,20 +1691,22 @@ public final class RegistryClient: Cancellable {
             )
         }
     }
-    
+
     func checkAvailability(
         registry: Registry,
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> AvailabilityStatus {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.checkAvailability(
                 registry: registry,
                 timeout: timeout,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0.resume(with:)
+                completion: {
+                    continuation.resume(with: $0)
+                }
             )
         }
     }

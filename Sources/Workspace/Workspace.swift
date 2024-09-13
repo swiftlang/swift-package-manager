@@ -1183,14 +1183,16 @@ extension Workspace {
         }
         return importList
     }
-    
+
     public func loadPackage(
         with identity: PackageIdentity,
         packageGraph: ModulesGraph,
         observabilityScope: ObservabilityScope
     ) async throws -> Package {
-        try await withCheckedThrowingContinuation {
-            self.loadPackage(with: identity, packageGraph: packageGraph, observabilityScope: observabilityScope, completion: $0.resume(with:))
+        try await withCheckedThrowingContinuation { continuation in
+            self.loadPackage(with: identity, packageGraph: packageGraph, observabilityScope: observabilityScope, completion: {
+                continuation.resume(with: $0)
+            })
         }
     }
 

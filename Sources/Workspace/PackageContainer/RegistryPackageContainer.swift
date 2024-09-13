@@ -20,7 +20,7 @@ import PackageRegistry
 
 import struct TSCUtility.Version
 
-public class RegistryPackageContainer: PackageContainer {    
+public class RegistryPackageContainer: PackageContainer {
     public let package: PackageReference
 
     private let registryClient: RegistryClient
@@ -72,8 +72,10 @@ public class RegistryPackageContainer: PackageContainer {
 
     public func toolsVersion(for version: Version) async throws -> ToolsVersion {
         try await self.toolsVersionsCache.memoize(version) {
-            let result = try await withCheckedThrowingContinuation {
-                self.getAvailableManifestsFilesystem(version: version, completion: $0.resume(with:))
+            let result = try await withCheckedThrowingContinuation { continuation in
+                self.getAvailableManifestsFilesystem(version: version, completion: {
+                    continuation.resume(with: $0)
+                })
             }
             // find the manifest path and parse it's tools-version
             let manifestPath = try ManifestLoader.findManifest(packagePath: .root, fileSystem: result.fileSystem, currentToolsVersion: self.currentToolsVersion)
@@ -83,12 +85,14 @@ public class RegistryPackageContainer: PackageContainer {
 
     public func versionsDescending() async throws -> [Version] {
         try await self.knownVersionsCache.memoize {
-            let metadata = try await withCheckedThrowingContinuation {
+            let metadata = try await withCheckedThrowingContinuation { continuation in
                 self.registryClient.getPackageMetadata(
                     package: self.package.identity,
                     observabilityScope: self.observabilityScope,
                     callbackQueue: .sharedConcurrent,
-                    completion: $0.resume(with:)
+                    completion: {
+                        continuation.resume(with: $0)
+                    }
                 )
             }
             return metadata.versions.sorted(by: >)
@@ -129,12 +133,14 @@ public class RegistryPackageContainer: PackageContainer {
     // marked internal for testing
     internal func loadManifest(version: Version) async throws -> Manifest {
         return try await self.manifestsCache.memoize(version) {
-            try await withCheckedThrowingContinuation {
-                self.loadManifest(version: version, completion: $0.resume(with:))
+            try await withCheckedThrowingContinuation { continuation in
+                self.loadManifest(version: version, completion: {
+                    continuation.resume(with: $0)
+                })
             }
         }
     }
-    
+
     private func loadManifest(version: Version,  completion: @escaping (Result<Manifest, Error>) -> Void) {
         self.getAvailableManifestsFilesystem(version: version) { result in
             switch result {
