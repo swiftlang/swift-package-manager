@@ -32,7 +32,7 @@ extension SwiftPackageCommand {
         @Option(help: "Create or use the checkout at this path")
         var path: AbsolutePath?
 
-        @Argument(help: "The identity of the package to edit.")
+        @Argument(help: "The identity of the package to edit")
         var packageIdentity: String
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
@@ -61,7 +61,7 @@ extension SwiftPackageCommand {
               help: "Unedit the package even if it has uncommitted and unpushed changes")
         var shouldForceRemove: Bool = false
 
-        @Argument(help: "The identity of the package to unedit.")
+        @Argument(help: "The identity of the package to unedit")
         var packageIdentity: String
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
