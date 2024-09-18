@@ -162,9 +162,9 @@ public struct BuildDescription {
     }
 
     public func traverseModules(
-        callback: (any BuildTarget, _ parent: (any BuildTarget)?, _ depth: Int) -> Void
+        callback: (any BuildTarget, _ parent: (any BuildTarget)?) -> Void
     ) {
-        self.buildPlan.traverseModules { module, parent, depth in
+        self.buildPlan.traverseModules { module, parent in
             let parentDescription: (any BuildTarget)? = if let parent {
                 getBuildTarget(for: parent.0, destination: parent.1)
             } else {
@@ -172,7 +172,7 @@ public struct BuildDescription {
             }
 
             if let description = getBuildTarget(for: module.0, destination: module.1) {
-                callback(description, parentDescription, depth)
+                callback(description, parentDescription)
             }
         }
     }

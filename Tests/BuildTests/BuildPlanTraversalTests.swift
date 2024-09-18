@@ -26,7 +26,6 @@ final class BuildPlanTraversalTests: XCTestCase {
     struct Result {
         let parent: (ResolvedModule, Dest)?
         let module: (ResolvedModule, Dest)
-        let depth: Int
     }
 
     func getResults(
@@ -62,20 +61,6 @@ final class BuildPlanTraversalTests: XCTestCase {
         }.sorted()
     }
 
-    func getUniqueOccurrences(
-        in results: [Result],
-        for module: String,
-        destination: Dest? = nil
-    ) -> [Int] {
-        self.getResults(
-            for: module,
-            with: destination,
-            in: results
-        ).reduce(into: Set<Int>()) {
-            $0.insert($1.depth)
-        }.sorted()
-    }
-
     func testTrivialTraversal() async throws {
         let destinationTriple = Triple.arm64Linux
         let toolsTriple = Triple.x86_64MacOS
@@ -97,16 +82,12 @@ final class BuildPlanTraversalTests: XCTestCase {
 
         var results: [Result] = []
         plan.traverseModules {
-            results.append(Result(parent: $1, module: $0, depth: $2))
+            results.append(Result(parent: $1, module: $0))
         }
 
         XCTAssertEqual(self.getParents(in: results, for: "app"), [])
         XCTAssertEqual(self.getParents(in: results, for: "lib"), ["app", "test"])
         XCTAssertEqual(self.getParents(in: results, for: "test"), [])
-
-        XCTAssertEqual(self.getUniqueOccurrences(in: results, for: "app"), [1])
-        XCTAssertEqual(self.getUniqueOccurrences(in: results, for: "lib"), [1, 2])
-        XCTAssertEqual(self.getUniqueOccurrences(in: results, for: "test"), [1])
     }
 
     func testTraversalWithDifferentDestinations() async throws {
@@ -130,18 +111,13 @@ final class BuildPlanTraversalTests: XCTestCase {
 
         var results: [Result] = []
         plan.traverseModules {
-            results.append(Result(parent: $1, module: $0, depth: $2))
+            results.append(Result(parent: $1, module: $0))
         }
 
         XCTAssertEqual(self.getParents(in: results, for: "MMIO"), ["HAL"])
         XCTAssertEqual(self.getParents(in: results, for: "SwiftSyntax", destination: .host), ["MMIOMacros"])
         XCTAssertEqual(self.getParents(in: results, for: "HAL", destination: .target), ["Core", "HALTests"])
         XCTAssertEqual(self.getParents(in: results, for: "HAL", destination: .host), [])
-
-        XCTAssertEqual(self.getUniqueOccurrences(in: results, for: "MMIO"), [1, 2, 3, 4])
-        XCTAssertEqual(self.getUniqueOccurrences(in: results, for: "SwiftSyntax", destination: .target), [1])
-        XCTAssertEqual(self.getUniqueOccurrences(in: results, for: "SwiftSyntax", destination: .host), [2, 3, 4, 5, 6])
-        XCTAssertEqual(self.getUniqueOccurrences(in: results, for: "HAL"), [1, 2, 3])
     }
 
     func testRecursiveDependencyTraversal() async throws {
