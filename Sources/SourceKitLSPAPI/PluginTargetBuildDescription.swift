@@ -25,6 +25,7 @@ struct PluginTargetBuildDescription: BuildTarget {
     private let toolsVersion: ToolsVersion
     private let toolchain: any Toolchain
     let isPartOfRootPackage: Bool
+    var isTestTarget: Bool { false }
 
     init(target: ResolvedModule, toolsVersion: ToolsVersion, toolchain: any Toolchain, isPartOfRootPackage: Bool) {
         assert(target.type == .plugin)
