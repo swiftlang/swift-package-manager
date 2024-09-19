@@ -597,7 +597,7 @@ extension Workspace {
     /// Puts a dependency in edit mode creating a checkout in editables directory.
     ///
     /// - Parameters:
-    ///     - packageName: The name of the package to edit.
+    ///     - packageIdentity: The identity of the package to edit.
     ///     - path: If provided, creates or uses the checkout at this location.
     ///     - revision: If provided, the revision at which the dependency
     ///       should be checked out to otherwise current revision.
@@ -605,7 +605,7 @@ extension Workspace {
     ///       created from the revision provided.
     ///     - observabilityScope: The observability scope that reports errors, warnings, etc
     public func edit(
-        packageName: String,
+        packageIdentity: String,
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
@@ -613,7 +613,7 @@ extension Workspace {
     ) async {
         do {
             try await self._edit(
-                packageName: packageName,
+                packageIdentity: packageIdentity,
                 path: path,
                 revision: revision,
                 checkoutBranch: checkoutBranch,
@@ -636,13 +636,13 @@ extension Workspace {
     ///     - root: The workspace root. This is used to resolve the dependencies post unediting.
     ///     - observabilityScope: The observability scope that reports errors, warnings, etc
     public func unedit(
-        packageName: String,
+        packageIdentity: String,
         forceRemove: Bool,
         root: PackageGraphRootInput,
         observabilityScope: ObservabilityScope
     ) async throws {
-        guard let dependency = self.state.dependencies[.plain(packageName)] else {
-            observabilityScope.emit(.dependencyNotFound(packageName: packageName))
+        guard let dependency = self.state.dependencies[.plain(packageIdentity)] else {
+            observabilityScope.emit(.dependencyNotFound(packageName: packageIdentity))
             return
         }
 

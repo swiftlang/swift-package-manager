@@ -372,7 +372,7 @@ public final class MockWorkspace {
     }
 
     public func checkEdit(
-        packageName: String,
+        packageIdentity: String,
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
@@ -382,7 +382,7 @@ public final class MockWorkspace {
         await observability.topScope.trap {
             let ws = try self.getOrCreateWorkspace()
             await ws.edit(
-                packageName: packageName,
+                packageIdentity: packageIdentity,
                 path: path,
                 revision: revision,
                 checkoutBranch: checkoutBranch,
@@ -393,7 +393,7 @@ public final class MockWorkspace {
     }
 
     public func checkUnedit(
-        packageName: String,
+        packageIdentity: String,
         roots: [String],
         forceRemove: Bool = false,
         _ result: ([Basics.Diagnostic]) -> Void
@@ -403,7 +403,7 @@ public final class MockWorkspace {
             let rootInput = PackageGraphRootInput(packages: try rootPaths(for: roots))
             let ws = try self.getOrCreateWorkspace()
             try await ws.unedit(
-                packageName: packageName,
+                packageIdentity: packageIdentity,
                 forceRemove: forceRemove,
                 root: rootInput,
                 observabilityScope: observability.topScope
