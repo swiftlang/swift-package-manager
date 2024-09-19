@@ -52,14 +52,14 @@ public class RegistryDownloadsManager: Cancellable {
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue
     ) async throws -> AbsolutePath {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.lookup(
                 package: package,
                 version: version,
                 observabilityScope: observabilityScope,
                 delegateQueue: delegateQueue,
                 callbackQueue: callbackQueue,
-                completion: $0.resume(with:)
+                completion: { continuation.resume(with: $0) }
             )
         }
     }

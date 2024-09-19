@@ -99,7 +99,7 @@ public class RepositoryManager: Cancellable {
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue
     ) async throws -> RepositoryHandle {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.lookup(
                 package: package,
                 repository: repository,
@@ -107,7 +107,7 @@ public class RepositoryManager: Cancellable {
                 observabilityScope: observabilityScope,
                 delegateQueue: delegateQueue,
                 callbackQueue: callbackQueue,
-                completion: $0.resume(with:)
+                completion: { continuation.resume(with: $0) }
             )
         }
     }
