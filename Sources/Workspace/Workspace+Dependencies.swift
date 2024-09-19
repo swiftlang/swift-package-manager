@@ -364,40 +364,40 @@ extension Workspace {
         //
         // We just request the packages here, repository manager will
         // automatically manage the parallelism.
-        let group = DispatchGroup()
-        for resolvedPackage in resolvedPackagesStore.resolvedPackages.values {
-            group.enter()
-            let observabilityScope = observabilityScope.makeChildScope(
-                description: "requesting package containers",
-                metadata: resolvedPackage.packageRef.diagnosticsMetadata
-            )
+        await withThrowingTaskGroup(of: Void.self) { taskGroup in
+            for resolvedPackage in resolvedPackagesStore.resolvedPackages.values {
+                let observabilityScope = observabilityScope.makeChildScope(
+                    description: "requesting package containers",
+                    metadata: resolvedPackage.packageRef.diagnosticsMetadata
+                )
 
-            let updateStrategy: ContainerUpdateStrategy = {
-                if self.configuration.skipDependenciesUpdates {
-                    return .never
-                } else {
-                    switch resolvedPackage.state {
-                    case .branch(_, let revision):
-                        return .ifNeeded(revision: revision)
-                    case .revision(let revision):
-                        return .ifNeeded(revision: revision)
-                    case .version(_, .some(let revision)):
-                        return .ifNeeded(revision: revision)
-                    case .version(_, .none):
-                        return .always
+                let updateStrategy: ContainerUpdateStrategy = {
+                    if self.configuration.skipDependenciesUpdates {
+                        return .never
+                    } else {
+                        switch resolvedPackage.state {
+                            case .branch(_, let revision):
+                                return .ifNeeded(revision: revision)
+                            case .revision(let revision):
+                                return .ifNeeded(revision: revision)
+                            case .version(_, .some(let revision)):
+                                return .ifNeeded(revision: revision)
+                            case .version(_, .none):
+                                return .always
+                        }
                     }
-                }
-            }()
+                }()
 
-            self.packageContainerProvider.getContainer(
-                for: resolvedPackage.packageRef,
-                updateStrategy: updateStrategy,
-                observabilityScope: observabilityScope,
-                on: .sharedConcurrent,
-                completion: { _ in group.leave() }
-            )
+                taskGroup.addTask {
+                    _ = try await self.packageContainerProvider.getContainer(
+                        for: resolvedPackage.packageRef,
+                        updateStrategy: updateStrategy,
+                        observabilityScope: observabilityScope,
+                        on: .sharedConcurrent
+                    )
+                }
+            }
         }
-        group.wait()
 
         // Compute resolved packages that we need to actually clone.
         //
