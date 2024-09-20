@@ -215,7 +215,7 @@ extension BuildPlan {
                 }
 
                 return result.filter { uniqueNodes.insert($0).inserted }
-            } onNext: { node, _, _ in
+            } onNext: { node, _ in
                 switch node {
                 case .package: break
                 case .product(let product, let destination):

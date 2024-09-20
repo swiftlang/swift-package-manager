@@ -141,24 +141,95 @@ final class SourceKitLSPAPITests: XCTestCase {
         )
         let description = BuildDescription(buildPlan: plan)
 
-        struct Result {
-            let parent: (any BuildTarget)?
-            let module: any BuildTarget
-            let depth: Int
+        struct Result: Equatable {
+            let moduleName: String
+            let moduleDestination: BuildDestination
+            let parentName: String?
+            let parentDestination: BuildDestination?
         }
 
         var results: [Result] = []
-        description.traverseModules { current, parent, depth in
-            results.append(Result(parent: parent, module: current, depth: depth))
+        description.traverseModules { current, parent in
+            results.append(
+                Result(
+                    moduleName: current.name,
+                    moduleDestination: current.destination,
+                    parentName: parent?.name,
+                    parentDestination: parent?.destination
+                )
+            )
         }
 
-        XCTAssertEqual(results.count, 6)
+        XCTAssertEqual(
+            results,
+            [
+                Result(moduleName: "lib", moduleDestination: .target, parentName: nil, parentDestination: nil),
+                Result(moduleName: "plugin", moduleDestination: .host, parentName: nil, parentDestination: nil),
+                Result(moduleName: "exe", moduleDestination: .host, parentName: "plugin", parentDestination: .host),
+                Result(moduleName: "lib", moduleDestination: .host, parentName: "exe", parentDestination: .host),
+                Result(moduleName: "exe", moduleDestination: .target, parentName: nil, parentDestination: nil),
+                Result(moduleName: "lib", moduleDestination: .target, parentName: "exe", parentDestination: .target),
+            ]
+        )
+    }
 
-        // "lib" is the most interesting here because it appears on multiple depths due to
-        // "exe" being a dependency of the "plugin".
-        XCTAssertEqual(results.filter { $0.module.name == "lib" }.reduce(into: Set<Int>()) {
-            $0.insert($1.depth)
-        }.sorted(), [1, 2, 3])
+    func testModuleTraversalRecordsDependencyOfVisitedNode() async throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/lib/lib.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["lib"]),
+                        TargetDescription(name: "lib", dependencies: [])
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let plan = try await BuildPlan(
+            destinationBuildParameters: mockBuildParameters(
+                destination: .target,
+                shouldLinkStaticSwiftStdlib: true
+            ),
+            toolsBuildParameters: mockBuildParameters(
+                destination: .host,
+                shouldLinkStaticSwiftStdlib: true
+            ),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let description = BuildDescription(buildPlan: plan)
+
+        struct Result: Equatable {
+            let moduleName: String
+            let parentName: String?
+        }
+
+        var results: [Result] = []
+        description.traverseModules { current, parent in
+            results.append(Result(moduleName: current.name, parentName: parent?.name))
+        }
+
+        XCTAssertEqual(
+            results,
+            [
+                Result(moduleName: "lib", parentName: nil),
+                Result(moduleName: "exe", parentName: nil),
+                Result(moduleName: "lib", parentName: "exe"),
+            ]
+        )
     }
 }
 
