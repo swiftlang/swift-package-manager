@@ -59,7 +59,7 @@ package actor OpenWritableFile: WritableStream {
                 }
             }
         case let .mock(storage):
-            await storage.append(path: self.path, bytes: bytes)
+            await storage.write(path: self.path, bytes: bytes)
         }
     }
 
