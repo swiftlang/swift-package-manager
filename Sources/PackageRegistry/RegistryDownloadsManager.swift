@@ -248,7 +248,7 @@ public class RegistryDownloadsManager: Cancellable {
 
         // utility to update progress
 
-        func updateDownloadProgress(downloaded: Int64, total: Int64?) {
+        @Sendable func updateDownloadProgress(downloaded: Int64, total: Int64?) {
             delegateQueue.async {
                 self.delegate?.fetching(
                     package: package,
