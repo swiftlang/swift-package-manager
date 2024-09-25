@@ -90,7 +90,7 @@ extension BuildPlan {
                     )
                     for library in libraries {
                         library.headersPaths.forEach {
-                            swiftTarget.additionalFlags += ["-I", $0.pathString, "-Xcc", "-I", "-Xcc", $0.pathString]
+                            swiftTarget.frameworkSearchPaths.insert($0)
                         }
                         swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
                     }
