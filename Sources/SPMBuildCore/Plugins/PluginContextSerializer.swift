@@ -236,11 +236,11 @@ internal struct PluginContextSerializer {
             case .fileSystem(let path):
                 return .local(path: try serialize(path: path))
             case .localSourceControl(let path):
-                return .repository(url: path.asURL.absoluteString, displayVersion: String(describing: package.manifest.version), scmRevision: String(describing: package.manifest.revision))
+                return .repository(url: path.asURL.absoluteString, displayVersion: package.manifest.version?.description ?? "no version", scmRevision: package.manifest.revision ?? "no revision")
             case .remoteSourceControl(let url):
-                return .repository(url: url.absoluteString, displayVersion: String(describing: package.manifest.version), scmRevision: String(describing: package.manifest.revision))
+                return .repository(url: url.absoluteString, displayVersion: package.manifest.version?.description ?? "no version", scmRevision: package.manifest.revision ?? "no revision")
             case .registry(let identity):
-                return .registry(identity: identity.description, displayVersion: String(describing: package.manifest.version))
+                return .registry(identity: identity.description, displayVersion: package.manifest.version?.description ?? "no version")
             }
         }
 
