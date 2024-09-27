@@ -15,6 +15,8 @@ import Basics
 import Foundation
 import PackageGraph
 import PackageLoading
+
+@_spi(SwiftPMInternal)
 import PackageModel
 
 @_spi(SwiftPMInternal)
@@ -471,14 +473,9 @@ public final class SwiftModuleBuildDescription {
             args += ["-v"]
         }
 
-        // Enable batch mode in debug mode.
-        //
-        // Technically, it should be enabled whenever WMO is off but we
-        // don't currently make that distinction in SwiftPM
-        switch self.buildParameters.configuration {
-        case .debug:
+        // Enable batch mode whenever WMO is off.
+        if !self.useWholeModuleOptimization {
             args += ["-enable-batch-mode"]
-        case .release: break
         }
 
         args += self.buildParameters.indexStoreArguments(for: self.target)
@@ -749,7 +746,7 @@ public final class SwiftModuleBuildDescription {
             result.append(try self.writeOutputFileMap().pathString)
         }
 
-        if self.buildParameters.useWholeModuleOptimization {
+        if self.useWholeModuleOptimization {
             result.append("-whole-module-optimization")
             result.append("-num-threads")
             result.append(String(ProcessInfo.processInfo.activeProcessorCount))
@@ -783,7 +780,7 @@ public final class SwiftModuleBuildDescription {
 
             """#
 
-        if self.buildParameters.useWholeModuleOptimization {
+        if self.useWholeModuleOptimization {
             let moduleName = self.target.c99name
             content +=
                 #"""
@@ -831,7 +828,7 @@ public final class SwiftModuleBuildDescription {
 
                 """#
 
-            if !self.buildParameters.useWholeModuleOptimization {
+            if !self.useWholeModuleOptimization {
                 let depsPath = self.tempsPath.appending(component: sourceFileName + ".d")
                 content +=
                     #"""
@@ -986,6 +983,19 @@ public final class SwiftModuleBuildDescription {
         }
 
         return arguments
+    }
+
+    /// Whether to build Swift code with whole module optimization (WMO)
+    /// enabled.
+    package var useWholeModuleOptimization: Bool {
+        if self.target.underlying.isEmbeddedSwiftTarget { return true }
+
+        switch self.buildParameters.configuration {
+        case .debug:
+            return false
+        case .release:
+            return true
+        }
     }
 }
 

@@ -347,20 +347,6 @@ private struct _Toolchain: Encodable {
     }
 }
 
-extension BuildParameters {
-    /// Whether to build Swift code with whole module optimization (WMO)
-    /// enabled.
-    public var useWholeModuleOptimization: Bool {
-        switch configuration {
-        case .debug:
-            return false
-
-        case .release:
-            return true
-        }
-    }
-}
-
 extension Triple {
     public var supportsTestSummary: Bool {
         return !self.isWindows()
