@@ -67,6 +67,7 @@ public enum TargetBuildSettingDescription {
         case defaultIsolation(DefaultIsolation)
 
         case bridgingHeader(String, BridgingHeaderVisibility)
+        case enableTestableImport(Bool)
 
         public var isUnsafeFlags: Bool {
             switch self {
@@ -76,7 +77,7 @@ public enum TargetBuildSettingDescription {
             case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode,
                  .enableUpcomingFeature, .enableExperimentalFeature, .strictMemorySafety, .swiftLanguageMode,
                  .treatAllWarnings, .treatWarning, .enableWarning, .disableWarning, .defaultIsolation,
-                 .bridgingHeader:
+                 .bridgingHeader, .enableTestableImport:
                 return false
             }
         }
