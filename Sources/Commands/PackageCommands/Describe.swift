@@ -46,9 +46,11 @@ extension SwiftPackageCommand {
                 traitConfiguration: .init(enableAllTraits: true)
             )
 
-            let rootPackages = try await buildSystem.getPackageGraph().rootPackages.map { $0.identity }
+            let packageGraph = try await buildSystem.getPackageGraph()
 
-            let executables = try await buildSystem.getPackageGraph().allProducts.filter({
+            let rootPackages = packageGraph.rootPackages.map { $0.identity }
+
+            let executables = packageGraph.allProducts.filter({
                 $0.type == .executable || $0.type == .snippet
             }).map { product -> (package: String?, name: String) in
                 if !rootPackages.contains(product.packageIdentity) {
