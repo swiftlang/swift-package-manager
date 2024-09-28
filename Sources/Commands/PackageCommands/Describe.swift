@@ -41,12 +41,29 @@ extension SwiftPackageCommand {
                 observabilityScope: swiftCommandState.observabilityScope
             )
 
-            try self.describe(package, in: type)
+            let buildSystem = try await swiftCommandState.createBuildSystem(
+                // We are enabling all traits for finding the root package executables.
+                traitConfiguration: .init(enableAllTraits: true)
+            )
+
+            let rootPackages = try await buildSystem.getPackageGraph().rootPackages.map { $0.identity }
+
+            let executables = try await buildSystem.getPackageGraph().allProducts.filter({
+                $0.type == .executable || $0.type == .snippet
+            }).map { product -> (package: String?, name: String) in
+                if !rootPackages.contains(product.packageIdentity) {
+                    return (package: product.packageIdentity.description, name: product.name)
+                } else {
+                    return (package: Optional<String>.none, name: product.name)
+                }
+            }
+
+            try self.describe(package, executables: Array(executables), in: type)
         }
         
         /// Emits a textual description of `package` to `stream`, in the format indicated by `mode`.
-        func describe(_ package: Package, in mode: DescribeMode) throws {
-            let desc = DescribedPackage(from: package)
+        func describe(_ package: Package, executables: [(package: String?, name: String)], in mode: DescribeMode) throws {
+            let desc = DescribedPackage(from: package, executables: executables)
             let data: Data
             switch mode {
             case .json:

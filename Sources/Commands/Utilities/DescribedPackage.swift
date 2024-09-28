@@ -28,12 +28,13 @@ struct DescribedPackage: Encodable {
     let defaultLocalization: String?
     let platforms: [DescribedPlatformRestriction]
     let products: [DescribedProduct]
+    let executables: [DescribedExecutable]
     let targets: [DescribedTarget]
     let cLanguageStandard: String?
     let cxxLanguageStandard: String?
     let swiftLanguagesVersions: [String]?
 
-    init(from package: Package) {
+    init(from package: Package, executables: [(package: String?, name: String)]) {
         self.manifestDisplayName = package.manifest.displayName
         self.name = self.manifestDisplayName // TODO: deprecate, backwards compatibility 11/2021
         self.path = package.path.pathString
@@ -47,6 +48,7 @@ struct DescribedPackage: Encodable {
         self.products = nonTestProducts.map {
             DescribedProduct(from: $0, in: package)
         }
+        self.executables = executables.sorted(by: {$0.name < $1.name}).map( { DescribedExecutable(from: $0) })
         // Create a mapping from the targets to the products to which they contribute directly.  This excludes any
         // contributions that occur through `.product()` dependencies, but since those targets are still part of a
         // product of the package, the set of targets that contribute to products still accurately represents the
@@ -144,6 +146,17 @@ struct DescribedPackage: Encodable {
             self.name = product.name
             self.type = product.type
             self.targets = product.modules.map { $0.name }
+        }
+    }
+
+    /// Represents an executable for the sole purpose of generating a description
+    struct DescribedExecutable: Encodable {
+        let name: String
+        let package: String?
+
+        init(from product: (package: String?, name: String)) {
+            self.name = product.name
+            self.package = product.package
         }
     }
 
