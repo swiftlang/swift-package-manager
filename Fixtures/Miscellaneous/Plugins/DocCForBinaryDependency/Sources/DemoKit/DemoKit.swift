@@ -1,8 +1,7 @@
-import MMKV
+import FooKit
 
-public struct Demo {
-    public static func greeting() {
-        let _ = MMKV()
-        print("Hello")
-    }
+public func greeting(_ name: String) {
+    FooKit.foo()
+    print("Hello \(name)")
 }
+

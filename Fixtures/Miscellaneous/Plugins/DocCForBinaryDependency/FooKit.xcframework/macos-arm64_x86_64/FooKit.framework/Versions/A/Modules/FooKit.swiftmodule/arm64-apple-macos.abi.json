@@ -1,0 +1,32 @@
+{
+  "ABIRoot": {
+    "kind": "Root",
+    "name": "FooKit",
+    "printedName": "FooKit",
+    "children": [
+      {
+        "kind": "Function",
+        "name": "foo",
+        "printedName": "foo()",
+        "children": [
+          {
+            "kind": "TypeNominal",
+            "name": "Void",
+            "printedName": "()"
+          }
+        ],
+        "declKind": "Func",
+        "usr": "s:6FooKit3fooyyF",
+        "mangledName": "$s6FooKit3fooyyF",
+        "moduleName": "FooKit",
+        "declAttributes": [
+          "AccessControl",
+          "RawDocComment"
+        ],
+        "funcSelfKind": "NonMutating"
+      }
+    ],
+    "json_format_version": 8
+  },
+  "ConstValues": []
+}
