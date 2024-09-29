@@ -158,12 +158,12 @@ extension Plugin {
                     return (path, tool.triples)
                 }
 
-                context = PluginContext(
+                context = try PluginContext(
                     package: package,
                     pluginWorkDirectory: Path(url: pluginWorkDirectory),
                     pluginWorkDirectoryURL: pluginWorkDirectory,
                     accessibleTools: accessibleTools,
-                    toolSearchDirectories: toolSearchDirectories.map { Path(url: $0) },
+                    toolSearchDirectories: toolSearchDirectories.map { try Path(url: $0) },
                     toolSearchDirectoryURLs: toolSearchDirectories)
 
                 let pluginGeneratedSources = try generatedSources.map { try deserializer.url(for: $0) }
@@ -248,12 +248,12 @@ extension Plugin {
                     let path = try deserializer.url(for: tool.path)
                     return (path, tool.triples)
                 }
-                context = PluginContext(
+                context = try PluginContext(
                     package: package,
                     pluginWorkDirectory: Path(url: pluginWorkDirectory),
                     pluginWorkDirectoryURL: pluginWorkDirectory,
                     accessibleTools: accessibleTools,
-                    toolSearchDirectories: toolSearchDirectories.map { Path(url: $0) },
+                    toolSearchDirectories: toolSearchDirectories.map { try Path(url: $0) },
                     toolSearchDirectoryURLs: toolSearchDirectories)
             }
             catch {
