@@ -255,7 +255,7 @@ package final class AsyncProcess {
     #endif
 
     /// Typealias for stdout/stderr output closure.
-    package typealias OutputClosure = ([UInt8]) -> Void
+    package typealias OutputClosure = @Sendable ([UInt8]) -> Void
 
     /// Typealias for logging handling closure
     package typealias LoggingHandler = (String) -> Void

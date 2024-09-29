@@ -105,20 +105,37 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         progress: FetchProgress.Handler? = nil
     ) throws -> String {
         if let progress {
-            var stdoutBytes: [UInt8] = [], stderrBytes: [UInt8] = []
+            nonisolated(unsafe) var stdoutBytes: [UInt8] = []
+            nonisolated(unsafe) var stderrBytes: [UInt8] = []
+            let queue = DispatchQueue(label: "org.swift.swiftpm.GitRepository.callGit-func-queue")
+            let group = DispatchGroup()
             do {
                 // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the
                 // handler. We count on it being line-buffered.
-                let outputHandler = AsyncProcess.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
-                    stderrBytes += $0
-                    gitFetchStatusFilter($0, progress: progress)
-                })
+                let outputHandler = AsyncProcess.OutputRedirection.stream(
+                    stdout: { @Sendable (bytes: [UInt8]) in
+                        group.enter()
+                        queue.async {
+                            stdoutBytes += bytes
+                            group.leave()
+                        }
+                    },
+                    stderr: { @Sendable (bytes: [UInt8]) in
+                        group.enter()
+                        queue.async {
+                            stderrBytes += bytes
+                            group.leave()
+                        }
+                        gitFetchStatusFilter(bytes, progress: progress)
+                    }
+                )
                 return try self.git.run(
                     args + ["--progress"],
                     environment: environment,
                     outputRedirection: outputHandler
                 )
             } catch let error as GitShellError {
+                group.wait()
                 let result = AsyncProcessResult(
                     arguments: error.result.arguments,
                     environment: error.result.environment,
@@ -443,20 +460,36 @@ public final class GitRepository: Repository, WorkingCheckout {
         progress: FetchProgress.Handler? = nil
     ) throws -> String {
         if let progress {
-            var stdoutBytes: [UInt8] = [], stderrBytes: [UInt8] = []
+            nonisolated(unsafe) var stdoutBytes: [UInt8] = []
+            nonisolated(unsafe) var stderrBytes: [UInt8] = []
+            let queue = DispatchQueue(label: "org.swift.swiftpm.GitRepository.callGit-func-queue")
+            let group = DispatchGroup()
             do {
                 // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the
                 // handler. We count on it being line-buffered.
-                let outputHandler = AsyncProcess.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
-                    stderrBytes += $0
-                    gitFetchStatusFilter($0, progress: progress)
-                })
+                let outputHandler = AsyncProcess.OutputRedirection.stream(
+                    stdout: { @Sendable (bytes: [UInt8]) in
+                        group.enter()
+                        queue.async {
+                            stdoutBytes += bytes
+                            group.leave()
+                        }
+                    }, stderr: { @Sendable (bytes: [UInt8]) in
+                        group.enter()
+                        queue.async {
+                            stderrBytes += bytes
+                            group.leave()
+                        }
+                        gitFetchStatusFilter(bytes, progress: progress)
+                    }
+                )
                 return try self.git.run(
                     ["-C", self.path.pathString] + args,
                     environment: environment,
                     outputRedirection: outputHandler
                 )
             } catch let error as GitShellError {
+                group.wait()
                 let result = AsyncProcessResult(
                     arguments: error.result.arguments,
                     environment: error.result.environment,

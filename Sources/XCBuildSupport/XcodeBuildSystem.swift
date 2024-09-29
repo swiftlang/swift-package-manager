@@ -184,19 +184,28 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         }
 
         let delegate = createBuildDelegate()
-        var hasStdout = false
-        var stdoutBuffer: [UInt8] = []
-        var stderrBuffer: [UInt8] = []
-        let redirection: AsyncProcess.OutputRedirection = .stream(stdout: { bytes in
-            hasStdout = hasStdout || !bytes.isEmpty
-            delegate.parse(bytes: bytes)
-
-            if !delegate.didParseAnyOutput {
-                stdoutBuffer.append(contentsOf: bytes)
+        nonisolated(unsafe) var hasStdout = false
+        nonisolated(unsafe) var stdoutBuffer: [UInt8] = []
+        nonisolated(unsafe) var stderrBuffer: [UInt8] = []
+        let queue = DispatchQueue(label: "org.swift.swiftpm.XcodeBuildSystem.build-func-queue")
+        let redirection: AsyncProcess.OutputRedirection = .stream(
+            stdout: { @Sendable (bytes: [UInt8]) in
+                queue.async {
+                    hasStdout = hasStdout || !bytes.isEmpty
+                }
+                delegate.parse(bytes: bytes)
+                if !delegate.didParseAnyOutput {
+                    queue.async {
+                        stdoutBuffer.append(contentsOf: bytes)
+                    }
+                }
+            },
+            stderr: { @Sendable (bytes: [UInt8]) in
+                queue.async {
+                    stderrBuffer.append(contentsOf: bytes)
+                }
             }
-        }, stderr: { bytes in
-            stderrBuffer.append(contentsOf: bytes)
-        })
+        )
 
         // We need to sanitize the environment we are passing to XCBuild because we could otherwise interfere with its
         // linked dependencies e.g. when we have a custom swift-driver dynamic library in the path.
@@ -216,18 +225,19 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         }
 
         guard result.exitStatus == .terminated(code: 0) else {
-            if hasStdout {
-                if !delegate.didParseAnyOutput {
-                    self.observabilityScope.emit(error: String(decoding: stdoutBuffer, as: UTF8.self))
-                }
-            } else {
-                if !stderrBuffer.isEmpty {
-                    self.observabilityScope.emit(error: String(decoding: stderrBuffer, as: UTF8.self))
+            queue.async {
+                if hasStdout {
+                    if !delegate.didParseAnyOutput {
+                        self.observabilityScope.emit(error: String(decoding: stdoutBuffer, as: UTF8.self))
+                    }
                 } else {
-                    self.observabilityScope.emit(error: "Unknown error: stdout and stderr are empty")
+                    if !stderrBuffer.isEmpty {
+                        self.observabilityScope.emit(error: String(decoding: stderrBuffer, as: UTF8.self))
+                    } else {
+                        self.observabilityScope.emit(error: "Unknown error: stdout and stderr are empty")
+                    }
                 }
             }
-
             throw Diagnostics.fatalError
         }
     }

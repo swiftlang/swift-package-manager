@@ -947,7 +947,7 @@ final class TestRunner {
         let testObservabilityScope = self.observabilityScope.makeChildScope(description: "running test at \(path)")
 
         do {
-            let outputHandler = { (bytes: [UInt8]) in
+            let outputHandler = { @Sendable (bytes: [UInt8]) in
                 if let output = String(bytes: bytes, encoding: .utf8) {
                     outputHandler(output)
                 }
