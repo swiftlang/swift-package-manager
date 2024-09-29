@@ -2107,6 +2107,101 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
+    func test_wholeModuleOptimization_enabledInRelease() async throws {
+        let Pkg: AbsolutePath = "/Pkg"
+        let fs: FileSystem = InMemoryFileSystem(
+            emptyFiles:
+                Pkg.appending(components: "Sources", "A", "A.swift").pathString
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: .init(validating: Pkg.pathString),
+                    targets: [
+                        TargetDescription(name: "A"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        do {
+            // WMO Should be off in debug
+            let plan = try await mockBuildPlan(
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+
+            let a = try BuildPlanResult(plan: plan)
+                .moduleBuildDescription(for: "A").swift().emitCommandLine()
+            XCTAssertNoMatch(a, ["-whole-module-optimization"])
+            XCTAssertNoMatch(a, ["-wmo"])
+        }
+
+        do {
+            // WMO should be on in release
+            let plan = try await mockBuildPlan(
+                environment: BuildEnvironment(
+                    platform: .linux,
+                    configuration: .release
+                ),
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+
+            let a = try BuildPlanResult(plan: plan)
+                .moduleBuildDescription(for: "A").swift().emitCommandLine()
+            XCTAssertMatch(a, ["-whole-module-optimization"])
+            XCTAssertNoMatch(a, ["-wmo"])
+        }
+    }
+
+    func test_wholeModuleOptimization_enabledInEmbedded() async throws {
+        let Pkg: AbsolutePath = "/Pkg"
+        let fs: FileSystem = InMemoryFileSystem(
+            emptyFiles:
+                Pkg.appending(components: "Sources", "A", "A.swift").pathString
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: .init(validating: Pkg.pathString),
+                    targets: [
+                        TargetDescription(
+                            name: "A",
+                            settings: [.init(tool: .swift, kind: .enableExperimentalFeature("Embedded"))]
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        // WMO should always be on with Embedded
+        let plan = try await mockBuildPlan(
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let a = try BuildPlanResult(plan: plan)
+            .moduleBuildDescription(for: "A").swift().emitCommandLine()
+        XCTAssertMatch(a, ["-whole-module-optimization"])
+        XCTAssertNoMatch(a, ["-wmo"])
+    }
+
     func testREPLArguments() async throws {
         let Dep = AbsolutePath("/Dep")
         let fs = InMemoryFileSystem(
