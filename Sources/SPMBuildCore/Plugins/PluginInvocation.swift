@@ -272,12 +272,12 @@ extension PluginModule {
                     }
                     self.invocationDelegate.pluginDefinedBuildCommand(
                         displayName: config.displayName,
-                        executable: try AbsolutePath(validating: config.executable.path),
+                        executable: try config.executable.filePath,
                         arguments: config.arguments,
                         environment: config.environment,
-                        workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0.path) },
-                        inputFiles: try inputFiles.map{ try AbsolutePath(validating: $0.path) },
-                        outputFiles: try outputFiles.map{ try AbsolutePath(validating: $0.path) })
+                        workingDirectory: try config.workingDirectory.map{ try $0.filePath },
+                        inputFiles: try inputFiles.map{ try $0.filePath },
+                        outputFiles: try outputFiles.map{ try $0.filePath })
 
                 case .definePrebuildCommand(let config, let outputFilesDir):
                     if config.version != 2 {
@@ -285,11 +285,11 @@ extension PluginModule {
                     }
                     let success = self.invocationDelegate.pluginDefinedPrebuildCommand(
                         displayName: config.displayName,
-                        executable: try AbsolutePath(validating: config.executable.path),
+                        executable: try config.executable.filePath,
                         arguments: config.arguments,
                         environment: config.environment,
-                        workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0.path) },
-                        outputFilesDirectory: try AbsolutePath(validating: outputFilesDir.path))
+                        workingDirectory: try config.workingDirectory.map{ try $0.filePath },
+                        outputFilesDirectory: try outputFilesDir.filePath)
 
                     if !success {
                         exitEarly = true
