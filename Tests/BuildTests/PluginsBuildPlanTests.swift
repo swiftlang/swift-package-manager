@@ -80,9 +80,14 @@ final class PluginsBuildPlanTests: XCTestCase {
         }
     }
     
-    #if canImport(Darwin) // xcframework support is only supported on Darwin platform
+    #if canImport(Darwin)
+    // binaryTarget/xcframework is only supported on Darwin platform
     func testDocCPluginForBinaryDependency() async throws {
         try await fixture(name: "Miscellaneous/Plugins/DocCForBinaryDependency") { fixturePath in
+            let result = try await AsyncProcess.popen(arguments: [
+                fixturePath.appending(RelativePath("FooKit/Scripts/archive_xcframework.sh")).pathString,
+            ])
+            XCTAssertEqual(result.exitStatus, .terminated(code: 0))
             // Before we add -F support for xcframework, this call will throw since the command will abort with a non-zero exit code
             let _ = try await executeSwiftPackage(fixturePath, extraArgs: ["generate-symbol-graph"])
         }
