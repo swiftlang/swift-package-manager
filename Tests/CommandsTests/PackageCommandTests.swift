@@ -378,10 +378,6 @@ final class PackageCommandTests: CommandsTestCase {
             XCTAssertEqual(jsonTarget2["type"]?.stringValue, "executable")
             XCTAssertEqual(jsonTarget2["module_type"]?.stringValue, "ClangTarget")
             XCTAssertEqual(jsonTarget2["product_memberships"]?.array?[0].stringValue, "CExec")
-            let jsonExecutable0 = try XCTUnwrap(json["executables"]?.array?[0])
-            XCTAssertEqual(jsonExecutable0["name"]?.stringValue, "CExec")
-            let jsonExecutable1 = try XCTUnwrap(json["executables"]?.array?[1])
-            XCTAssertEqual(jsonExecutable1["name"]?.stringValue, "SeaExec")
 
             // Generate the text description.
             let (textOutput, _) = try await SwiftPM.Package.execute(["describe", "--type=text"], packagePath: fixturePath)
@@ -412,34 +408,28 @@ final class PackageCommandTests: CommandsTestCase {
             XCTAssertMatch(textChunk2, .contains("Type:\n        Executable"))
             XCTAssertMatch(textChunk2, .contains("Targets:\n        CExec"))
             let textChunk3 = try XCTUnwrap(textChunks[3])
-            XCTAssertMatch(textChunk3, .contains("Executables:"))
+            XCTAssertMatch(textChunk3, .contains("Targets:"))
             let textChunk4 = try XCTUnwrap(textChunks[4])
-            XCTAssertMatch(textChunk4, .contains("Name: CExec"))
+            XCTAssertMatch(textChunk4, .contains("Name: SeaLib"))
+            XCTAssertMatch(textChunk4, .contains("C99name: SeaLib"))
+            XCTAssertMatch(textChunk4, .contains("Type: library"))
+            XCTAssertMatch(textChunk4, .contains("Module type: ClangTarget"))
+            XCTAssertMatch(textChunk4, .contains("Path: Sources/SeaLib"))
+            XCTAssertMatch(textChunk4, .contains("Sources:\n        Foo.c"))
             let textChunk5 = try XCTUnwrap(textChunks[5])
             XCTAssertMatch(textChunk5, .contains("Name: SeaExec"))
+            XCTAssertMatch(textChunk5, .contains("C99name: SeaExec"))
+            XCTAssertMatch(textChunk5, .contains("Type: executable"))
+            XCTAssertMatch(textChunk5, .contains("Module type: SwiftTarget"))
+            XCTAssertMatch(textChunk5, .contains("Path: Sources/SeaExec"))
+            XCTAssertMatch(textChunk5, .contains("Sources:\n        main.swift"))
             let textChunk6 = try XCTUnwrap(textChunks[6])
-            XCTAssertMatch(textChunk6, .contains("Targets:"))
-            let textChunk7 = try XCTUnwrap(textChunks[7])
-            XCTAssertMatch(textChunk7, .contains("Name: SeaLib"))
-            XCTAssertMatch(textChunk7, .contains("C99name: SeaLib"))
-            XCTAssertMatch(textChunk7, .contains("Type: library"))
-            XCTAssertMatch(textChunk7, .contains("Module type: ClangTarget"))
-            XCTAssertMatch(textChunk7, .contains("Path: Sources/SeaLib"))
-            XCTAssertMatch(textChunk7, .contains("Sources:\n        Foo.c"))
-            let textChunk8 = try XCTUnwrap(textChunks[8])
-            XCTAssertMatch(textChunk8, .contains("Name: SeaExec"))
-            XCTAssertMatch(textChunk8, .contains("C99name: SeaExec"))
-            XCTAssertMatch(textChunk8, .contains("Type: executable"))
-            XCTAssertMatch(textChunk8, .contains("Module type: SwiftTarget"))
-            XCTAssertMatch(textChunk8, .contains("Path: Sources/SeaExec"))
-            XCTAssertMatch(textChunk8, .contains("Sources:\n        main.swift"))
-            let textChunk9 = try XCTUnwrap(textChunks[9])
-            XCTAssertMatch(textChunk9, .contains("Name: CExec"))
-            XCTAssertMatch(textChunk9, .contains("C99name: CExec"))
-            XCTAssertMatch(textChunk9, .contains("Type: executable"))
-            XCTAssertMatch(textChunk9, .contains("Module type: ClangTarget"))
-            XCTAssertMatch(textChunk9, .contains("Path: Sources/CExec"))
-            XCTAssertMatch(textChunk9, .contains("Sources:\n        main.c"))
+            XCTAssertMatch(textChunk6, .contains("Name: CExec"))
+            XCTAssertMatch(textChunk6, .contains("C99name: CExec"))
+            XCTAssertMatch(textChunk6, .contains("Type: executable"))
+            XCTAssertMatch(textChunk6, .contains("Module type: ClangTarget"))
+            XCTAssertMatch(textChunk6, .contains("Path: Sources/CExec"))
+            XCTAssertMatch(textChunk6, .contains("Sources:\n        main.c"))
         }
 
         try await fixture(name: "DependencyResolution/External/Simple/Bar") { fixturePath in
@@ -558,6 +548,26 @@ final class PackageCommandTests: CommandsTestCase {
             let prettyGraphData = try await XCTAsyncUnwrap(await symbolGraph(atPath: fixturePath, withPrettyPrinting: true))
             let prettyJSONText = String(decoding: prettyGraphData, as: UTF8.self)
             XCTAssertGreaterThan(prettyJSONText.components(separatedBy: .newlines).count, 1)
+        }
+    }
+
+    func testShowExecutables() async throws {
+        try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
+            let packageRoot = fixturePath.appending("app")
+            let (textOutput, _) = try await SwiftPM.Package.execute(["show-executables", "--format=flatlist"], packagePath: packageRoot)
+            XCTAssert(textOutput.contains("Dealer"))
+
+            let (jsonOutput, _) = try await SwiftPM.Package.execute(["show-executables", "--format=json"], packagePath: packageRoot)
+            let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
+            guard case let .array(contents) = json else { XCTFail("unexpected result"); return }
+            guard case let first = contents.first else { XCTFail("unexpected result"); return }
+            guard case let .dictionary(dealer) = first else { XCTFail("unexpected result"); return }
+            guard case let .string(name)? = dealer["name"] else { XCTFail("unexpected result"); return }
+            XCTAssertEqual(name, "Dealer")
+            if case let .string(_)? = dealer["package"] {
+                XCTFail("unexpected result")
+                return
+            }
         }
     }
 
