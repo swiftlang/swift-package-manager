@@ -42,7 +42,7 @@ extension SwiftPackageCommand {
             )
 
             let buildSystem = try await swiftCommandState.createBuildSystem(
-                // We are enabling all traits for finding the root package executables.
+                // We are enabling all traits for finding the all of the package executables.
                 traitConfiguration: .init(enableAllTraits: true)
             )
 
