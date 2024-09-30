@@ -1,6 +1,6 @@
 // This source file is part of the Swift.org open source project
 //
-// Copyright (c) 2022-2024 Apple Inc. and the Swift project authors
+// Copyright (c) 2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See https://swift.org/LICENSE.txt for license information
@@ -9,8 +9,8 @@
 import Foundation
 import PackagePlugin
 
-/// Creates a Swift-DocC documentation archive from a Swift Package.
-@main struct GenerateSymbolGraphPlugin: CommandPlugin {
+@main
+struct GenerateSymbolGraphPlugin: CommandPlugin {
     func performCommand(context: PluginContext, arguments: [String]) throws {
         for target in context.package.targets where target is SwiftSourceModuleTarget {
             let _ = try packageManager.getSymbolGraph(for: target, options: .init())
