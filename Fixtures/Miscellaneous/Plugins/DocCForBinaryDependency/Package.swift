@@ -6,10 +6,16 @@ let package = Package(
     products: [
         .library(name: "DemoKit", targets: ["DemoKit"]),
     ],
-    dependencies: [
-        .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.0.0"),
-    ],
     targets: [
+        .plugin(
+            name: "GenerateSymbolGraphPlugin",
+            capability: .command(
+                intent: .custom(
+                    verb: "generate-symbol-graph",
+                    description: "Generate symbol graph for all Swift source targets."
+                )
+            )
+        ),
         .binaryTarget(name: "FooKit", path: "FooKit.xcframework"),
         .target(
             name: "DemoKit",
