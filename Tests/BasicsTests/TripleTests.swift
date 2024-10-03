@@ -214,6 +214,14 @@ final class TripleTests: XCTestCase {
         _ = wasi.dynamicLibraryExtension
     }
 
+    func testNoneOSDynamicLibrary() throws {
+      let noneOS = try Triple("armv7em-apple-none-macho")
+
+      // Dynamic libraries aren't actually supported for OS none, but swiftpm
+      // wants an extension to avoid crashing during build planning.
+      XCTAssertEqual(noneOS.dynamicLibraryExtension, ".dynamiclibrary")
+    }
+
     func testIsRuntimeCompatibleWith() throws {
         try XCTAssertTrue(Triple("x86_64-apple-macosx").isRuntimeCompatible(with: Triple("x86_64-apple-macosx")))
         try XCTAssertTrue(Triple("x86_64-unknown-linux").isRuntimeCompatible(with: Triple("x86_64-unknown-linux")))

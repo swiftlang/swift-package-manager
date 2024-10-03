@@ -146,7 +146,9 @@ extension Triple {
         case .wasi:
             return ".wasm"
         default:
-            fatalError("Cannot create dynamic libraries for os \"\(os)\".")
+            // Fallback to a nonsense extension for operating systems with
+            // unknown conventions.
+            return ".dynamiclibrary"
         }
     }
 
