@@ -58,7 +58,7 @@ public struct SwiftVersion: Sendable {
 extension SwiftVersion {
     /// The current version of the package manager.
     public static let current = SwiftVersion(
-        version: (6, 0, 0),
+        version: (6, 0, 3),
         isDevelopment: true,
         buildIdentifier: getBuildIdentifier()
     )
