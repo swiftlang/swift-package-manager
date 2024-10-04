@@ -133,7 +133,7 @@ extension Triple {
     /// The file extension for dynamic libraries (eg. `.dll`, `.so`, or `.dylib`)
     public var dynamicLibraryExtension: String {
         guard let os = self.os else {
-            fatalError("Cannot create dynamic libraries unknown os.")
+            fatalError("Cannot create dynamic libraries for unknown os.")
         }
 
         switch os {
@@ -146,7 +146,24 @@ extension Triple {
         case .wasi:
             return ".wasm"
         default:
-            fatalError("Cannot create dynamic libraries for os \"\(os)\".")
+          break
+        }
+
+        guard let objectFormat = self.objectFormat else {
+            fatalError("Cannot create dynamic libraries for unknown object format.")
+        }
+
+        switch objectFormat {
+        case .coff:
+            return ".coff"
+        case .elf:
+            return ".elf"
+        case .macho:
+            return ".macho"
+        case .wasm:
+            return ".wasm"
+        case .xcoff:
+            return ".xcoff"
         }
     }
 

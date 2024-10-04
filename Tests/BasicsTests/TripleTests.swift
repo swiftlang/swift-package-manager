@@ -209,9 +209,31 @@ final class TripleTests: XCTestCase {
     func testWASI() throws {
         let wasi = try Triple("wasm32-unknown-wasi")
 
+
+
         // WASI dynamic libraries are only experimental,
         // but SwiftPM requires this property not to crash.
         _ = wasi.dynamicLibraryExtension
+    }
+
+    func testNoneOSDynamicLibrary() throws {
+      // Dynamic libraries aren't actually supported for OS none, but swiftpm
+      // wants an extension to avoid crashing during build planning.
+      try XCTAssertEqual(
+          Triple("armv7em-unknown-none-coff").dynamicLibraryExtension,
+          ".coff")
+      try XCTAssertEqual(
+          Triple("armv7em-unknown-none-elf").dynamicLibraryExtension,
+          ".elf")
+      try XCTAssertEqual(
+          Triple("armv7em-unknown-none-macho").dynamicLibraryExtension,
+          ".macho")
+      try XCTAssertEqual(
+          Triple("armv7em-unknown-none-wasm").dynamicLibraryExtension,
+          ".wasm")
+      try XCTAssertEqual(
+          Triple("armv7em-unknown-none-xcoff").dynamicLibraryExtension,
+          ".xcoff")
     }
 
     func testIsRuntimeCompatibleWith() throws {
