@@ -227,7 +227,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         // which ones they are until we've built them and can examine the binaries.
         let toolchain = try swiftCommandState.getHostToolchain()
         var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
-        toolsBuildParameters.testingParameters.enableTestability = true
+        toolsBuildParameters.testingParameters.explicitlyEnabledTestability = true
         toolsBuildParameters.testingParameters.enableCodeCoverage = parameters.enableCodeCoverage
         let buildSystem = try await swiftCommandState.createBuildSystem(
             traitConfiguration: .init(),

@@ -826,8 +826,6 @@ public final class SwiftCommandState {
                 isVerbose: self.logLevel <= .info
             ),
             testingParameters: .init(
-                configuration: options.build.configuration ?? self.preferredBuildConfiguration,
-                targetTriple: triple,
                 forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
                 testEntryPointPath: options.build.testEntryPointPath
             )

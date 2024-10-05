@@ -163,7 +163,7 @@ public struct BuildParameters: Encodable {
         driverParameters: Driver = .init(),
         linkingParameters: Linking = .init(),
         outputParameters: Output = .init(),
-        testingParameters: Testing? = nil
+        testingParameters: Testing = .init()
     ) throws {
         let triple = try triple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
         self.debuggingParameters = debuggingParameters ?? .init(
@@ -218,7 +218,7 @@ public struct BuildParameters: Encodable {
         self.driverParameters = driverParameters
         self.linkingParameters = linkingParameters
         self.outputParameters = outputParameters
-        self.testingParameters = testingParameters ?? .init(configuration: configuration, targetTriple: triple)
+        self.testingParameters = testingParameters
     }
 
     /// The path to the build directory (inside the data directory).
