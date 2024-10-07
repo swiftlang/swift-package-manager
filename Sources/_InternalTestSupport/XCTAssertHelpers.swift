@@ -74,7 +74,7 @@ package func XCTAssertAsyncNoThrow<T>(
     do {
         _ = try await expression()
     } catch {
-        XCTAssertNoThrow({ throw error }, message(), file: file, line: line)
+        XCTAssertNoThrow(try { throw error }(), message(), file: file, line: line)
     }
 }
 
