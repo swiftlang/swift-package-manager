@@ -16,8 +16,6 @@ import CoreCommands
 import Foundation
 import Workspace
 
-import struct TSCBasic.SHA256
-
 struct ShowExecutables: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
         abstract: "List the available executables from this package.")
@@ -25,7 +23,7 @@ struct ShowExecutables: AsyncSwiftCommand {
     @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
 
-    @Option(help: "flatlist | json")
+    @Option(help: "Set the output format.")
     var format: ShowExecutablesMode = .flatlist
 
     func run(_ swiftCommandState: SwiftCommandState) async throws {
@@ -65,7 +63,7 @@ struct ShowExecutables: AsyncSwiftCommand {
         var name: String
     }
 
-    enum ShowExecutablesMode: String, RawRepresentable, CustomStringConvertible, ExpressibleByArgument {
+    enum ShowExecutablesMode: String, RawRepresentable, CustomStringConvertible, ExpressibleByArgument, CaseIterable {
         case flatlist, json
 
         public init?(rawValue: String) {
