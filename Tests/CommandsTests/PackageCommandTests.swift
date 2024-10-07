@@ -2448,6 +2448,35 @@ final class PackageCommandTests: CommandsTestCase {
         }
     }
 
+    func testCommandPluginBuildTestability() async throws {
+        // Plugin arguments: check-testability <targetName> <config> <shouldTestable>
+
+        // Overall configuration: debug, plugin build request: debug -> without testability
+        try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            try await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "debug", "check-testability", "InternalModule", "debug", "true"], packagePath: fixturePath))
+        }
+
+        // Overall configuration: debug, plugin build request: release -> without testability
+        try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            try await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "debug", "check-testability", "InternalModule", "release", "false"], packagePath: fixturePath))
+        }
+
+        // Overall configuration: release, plugin build request: debug -> with testability
+        try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            try await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "release", "check-testability", "InternalModule", "debug", "true"], packagePath: fixturePath))
+        }
+
+        // Overall configuration: release, plugin build request: release -> with testability
+        try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            try await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "release", "check-testability", "InternalModule", "release", "false"], packagePath: fixturePath))
+        }
+
+        // Overall configuration: release, plugin build request: release including tests -> with testability
+        try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            try await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "release", "check-testability", "all-with-tests", "release", "true"], packagePath: fixturePath))
+        }
+    }
+
     // Test logging of builds initiated by a command plugin
     func testCommandPluginBuildLogs() async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
