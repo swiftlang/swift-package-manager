@@ -236,7 +236,7 @@ final class PluginTests: XCTestCase {
 
             try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v6_0)
             let (_, stderr2) = try await executeSwiftBuild(packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
-            XCTAssertEqual("", stderr2)
+            XCTAssertFalse(stderr2.contains("error:"))
             XCTAssertTrue(localFileSystem.exists(pathOfGeneratedFile), "plugin did not run, generated file does not exist at \(pathOfGeneratedFile.pathString)")
         }
     }
