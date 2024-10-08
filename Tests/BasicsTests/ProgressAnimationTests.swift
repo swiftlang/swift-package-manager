@@ -9,16 +9,17 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 import _Concurrency
-import XCTest
+import Testing
 
 @_spi(SwiftPMInternal)
 @testable
 import Basics
 import TSCBasic
 
-final class ProgressAnimationTests: XCTestCase {
+struct ProgressAnimationTests {
     class TrackingProgressAnimation: ProgressAnimationProtocol {
         var steps: [Int] = []
 
@@ -30,7 +31,8 @@ final class ProgressAnimationTests: XCTestCase {
         func clear() {}
     }
 
-    func testThrottledPercentProgressAnimation() {
+    @Test
+    func throttledPercentProgressAnimation() {
         do {
             let tracking = TrackingProgressAnimation()
             var now = ContinuousClock().now
@@ -46,7 +48,7 @@ final class ProgressAnimationTests: XCTestCase {
                 now += .milliseconds(50)
             }
             animation.complete(success: true)
-            XCTAssertEqual(tracking.steps, [0, 2, 4, 6, 8, 10])
+            #expect(tracking.steps == [0, 2, 4, 6, 8, 10])
         }
 
         do {
@@ -67,10 +69,10 @@ final class ProgressAnimationTests: XCTestCase {
             }
             // The next update is at 1000ms, but we are at 950ms,
             // so "step 9" is not sent yet.
-            XCTAssertEqual(tracking.steps, [0, 2, 4, 6, 8])
+            #expect(tracking.steps == [0, 2, 4, 6, 8])
             // After explicit "completion", the last step is flushed out.
             animation.complete(success: true)
-            XCTAssertEqual(tracking.steps, [0, 2, 4, 6, 8, 9])
+            #expect(tracking.steps == [0, 2, 4, 6, 8, 9])
         }
     }
 }

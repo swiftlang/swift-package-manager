@@ -7,11 +7,12 @@
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
+import Foundation
 
 import _InternalTestSupport
 import _Concurrency
 import Basics
-import XCTest
+import Testing
 
 import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
 
@@ -22,33 +23,39 @@ import class TSCBasic.Thread
 import func TSCBasic.withTemporaryFile
 import func TSCTestSupport.withCustomEnv
 
-final class AsyncProcessTests: XCTestCase {
-    func testBasics() throws {
+@Suite(
+    // because suite is very flaky otherwise. Need to investigate whether the tests can run in parallel
+    .serialized
+)
+struct AsyncProcessTests {
+    @Test
+    func basics() throws {
         do {
             let process = AsyncProcess(args: "echo", "hello")
             try process.launch()
             let result = try process.waitUntilExit()
-            XCTAssertEqual(try result.utf8Output(), "hello\n")
-            XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-            XCTAssertEqual(result.arguments, process.arguments)
+            #expect(try result.utf8Output() == "hello\n")
+            #expect(result.exitStatus == .terminated(code: 0))
+            #expect(result.arguments == process.arguments)
         }
 
         do {
             let process = AsyncProcess(scriptName: "exit4")
             try process.launch()
             let result = try process.waitUntilExit()
-            XCTAssertEqual(result.exitStatus, .terminated(code: 4))
+            #expect(result.exitStatus == .terminated(code: 4))
         }
     }
 
-    func testPopen() throws {
-        #if os(Windows)
+    @Test
+    func popen() throws {
+#if os(Windows)
         let echo = "echo.exe"
-        #else
+#else
         let echo = "echo"
-        #endif
+#endif
         // Test basic echo.
-        XCTAssertEqual(try AsyncProcess.popen(arguments: [echo, "hello"]).utf8Output(), "hello\n")
+        #expect(try AsyncProcess.popen(arguments: [echo, "hello"]).utf8Output() == "hello\n")
 
         // Test buffer larger than that allocated.
         try withTemporaryFile { file in
@@ -56,24 +63,25 @@ final class AsyncProcessTests: XCTestCase {
             let stream = BufferedOutputByteStream()
             stream.send(Format.asRepeating(string: "a", count: count))
             try localFileSystem.writeFileContents(file.path, bytes: stream.bytes)
-            #if os(Windows)
+#if os(Windows)
             let cat = "cat.exe"
-            #else
+#else
             let cat = "cat"
-            #endif
+#endif
             let outputCount = try AsyncProcess.popen(args: cat, file.path.pathString).utf8Output().count
-            XCTAssert(outputCount == count)
+            #expect(outputCount == count)
         }
     }
 
-    func testPopenLegacyAsync() throws {
-        #if os(Windows)
+    @Test
+    func popenLegacyAsync() throws {
+#if os(Windows)
         let args = ["where.exe", "where"]
         let answer = "C:\\Windows\\System32\\where.exe"
-        #else
+#else
         let args = ["whoami"]
         let answer = NSUserName()
-        #endif
+#endif
         var popenResult: Result<AsyncProcessResult, Error>?
         let group = DispatchGroup()
         group.enter()
@@ -83,72 +91,75 @@ final class AsyncProcessTests: XCTestCase {
         }
         group.wait()
         switch popenResult {
-        case .success(let processResult):
-            let output = try processResult.utf8Output()
-            XCTAssertTrue(output.hasPrefix(answer))
-        case .failure(let error):
-            XCTFail("error = \(error)")
-        case nil:
-            XCTFail()
+            case .success(let processResult):
+                let output = try processResult.utf8Output()
+                #expect(output.hasPrefix(answer))
+            case .failure(let error):
+                throw error
+            case nil:
+                Issue.record("AsyncProcess.popen did not yield a result!")
         }
     }
 
+    @Test
     @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
-    func testPopenAsync() async throws {
-        #if os(Windows)
+    func popenAsync() async throws {
+#if os(Windows)
         let args = ["where.exe", "where"]
         let answer = "C:\\Windows\\System32\\where.exe"
-        #else
+#else
         let args = ["whoami"]
         let answer = NSUserName()
-        #endif
+#endif
         let processResult: AsyncProcessResult
         do {
             processResult = try await AsyncProcess.popen(arguments: args)
         } catch {
-            XCTFail("error = \(error)")
-            return
+            throw error
         }
         let output = try processResult.utf8Output()
-        XCTAssertTrue(output.hasPrefix(answer))
+        #expect(output.hasPrefix(answer))
     }
 
-    func testCheckNonZeroExit() throws {
+    @Test
+    func checkNonZeroExit() throws {
         do {
             let output = try AsyncProcess.checkNonZeroExit(args: "echo", "hello")
-            XCTAssertEqual(output, "hello\n")
+            #expect(output == "hello\n")
         }
 
         do {
             let output = try AsyncProcess.checkNonZeroExit(scriptName: "exit4")
-            XCTFail("Unexpected success \(output)")
+            Issue.record("Unexpected success \(output)")
         } catch AsyncProcessResult.Error.nonZeroExit(let result) {
-            XCTAssertEqual(result.exitStatus, .terminated(code: 4))
+            #expect(result.exitStatus == .terminated(code: 4))
         }
     }
 
+    @Test
     @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
-    func testCheckNonZeroExitAsync() async throws {
+    func checkNonZeroExitAsync() async throws {
         do {
             let output = try await AsyncProcess.checkNonZeroExit(args: "echo", "hello")
-            XCTAssertEqual(output, "hello\n")
+            #expect(output == "hello\n")
         }
 
         do {
             let output = try await AsyncProcess.checkNonZeroExit(scriptName: "exit4")
-            XCTFail("Unexpected success \(output)")
+            Issue.record("Unexpected success \(output)")
         } catch AsyncProcessResult.Error.nonZeroExit(let result) {
-            XCTAssertEqual(result.exitStatus, .terminated(code: 4))
+            #expect(result.exitStatus == .terminated(code: 4))
         }
     }
 
-    func testFindExecutable() throws {
+    @Test
+    func findExecutable() throws {
         try testWithTemporaryDirectory { tmpdir in
             // This process should always work.
-            XCTAssertTrue(AsyncProcess.findExecutable("ls") != nil)
+            #expect(AsyncProcess.findExecutable("ls") != nil)
 
-            XCTAssertEqual(AsyncProcess.findExecutable("nonExistantProgram"), nil)
-            XCTAssertEqual(AsyncProcess.findExecutable(""), nil)
+            #expect(AsyncProcess.findExecutable("nonExistantProgram") == nil)
+            #expect(AsyncProcess.findExecutable("") == nil)
 
             // Create a local nonexecutable file to test.
             let tempExecutable = tmpdir.appending(component: "nonExecutableProgram")
@@ -159,12 +170,13 @@ final class AsyncProcessTests: XCTestCase {
             """)
 
             try withCustomEnv(["PATH": tmpdir.pathString]) {
-                XCTAssertEqual(AsyncProcess.findExecutable("nonExecutableProgram"), nil)
+                #expect(AsyncProcess.findExecutable("nonExecutableProgram") == nil)
             }
         }
     }
 
-    func testNonExecutableLaunch() throws {
+    @Test
+    func nonExecutableLaunch() throws {
         try testWithTemporaryDirectory { tmpdir in
             // Create a local nonexecutable file to test.
             let tempExecutable = tmpdir.appending(component: "nonExecutableProgram")
@@ -178,15 +190,16 @@ final class AsyncProcessTests: XCTestCase {
                 do {
                     let process = AsyncProcess(args: "nonExecutableProgram")
                     try process.launch()
-                    XCTFail("Should have failed to validate nonExecutableProgram")
+                    Issue.record("Should have failed to validate nonExecutableProgram")
                 } catch AsyncProcess.Error.missingExecutableProgram(let program) {
-                    XCTAssert(program == "nonExecutableProgram")
+                    #expect(program == "nonExecutableProgram")
                 }
             }
         }
     }
 
-    func testThreadSafetyOnWaitUntilExit() throws {
+    @Test
+    func threadSafetyOnWaitUntilExit() throws {
         let process = AsyncProcess(args: "echo", "hello")
         try process.launch()
 
@@ -206,12 +219,13 @@ final class AsyncProcessTests: XCTestCase {
         t1.join()
         t2.join()
 
-        XCTAssertEqual(result1, "hello\n")
-        XCTAssertEqual(result2, "hello\n")
+        #expect(result1 == "hello\n")
+        #expect(result2 == "hello\n")
     }
 
+    @Test
     @available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *)
-    func testThreadSafetyOnWaitUntilExitAsync() async throws {
+    func threadSafetyOnWaitUntilExitAsync() async throws {
         let process = AsyncProcess(args: "echo", "hello")
         try process.launch()
 
@@ -226,11 +240,12 @@ final class AsyncProcessTests: XCTestCase {
         let result1 = try await t1.value
         let result2 = try await t2.value
 
-        XCTAssertEqual(result1, "hello\n")
-        XCTAssertEqual(result2, "hello\n")
+        #expect(result1 == "hello\n")
+        #expect(result2 == "hello\n")
     }
 
-    func testStdin() throws {
+    @Test
+    func stdin() throws {
         var stdout = [UInt8]()
         let process = AsyncProcess(scriptName: "in-to-out", outputRedirection: .stream(stdout: { stdoutBytes in
             stdout += stdoutBytes
@@ -244,62 +259,63 @@ final class AsyncProcessTests: XCTestCase {
 
         try process.waitUntilExit()
 
-        XCTAssertEqual(String(decoding: stdout, as: UTF8.self), "hello\n")
+        #expect(String(decoding: stdout, as: UTF8.self) == "hello\n")
     }
 
-    func testStdoutStdErr() throws {
-        // A simple script to check that stdout and stderr are captured separatly.
+    @Test
+    func stdoutStdErr() throws {
         do {
             let result = try AsyncProcess.popen(scriptName: "simple-stdout-stderr")
-            XCTAssertEqual(try result.utf8Output(), "simple output\n")
-            XCTAssertEqual(try result.utf8stderrOutput(), "simple error\n")
+            #expect(try result.utf8Output() == "simple output\n")
+            #expect(try result.utf8stderrOutput() == "simple error\n")
         }
 
         // A long stdout and stderr output.
         do {
             let result = try AsyncProcess.popen(scriptName: "long-stdout-stderr")
             let count = 16 * 1024
-            XCTAssertEqual(try result.utf8Output(), String(repeating: "1", count: count))
-            XCTAssertEqual(try result.utf8stderrOutput(), String(repeating: "2", count: count))
+            #expect(try result.utf8Output() == String(repeating: "1", count: count))
+            #expect(try result.utf8stderrOutput() == String(repeating: "2", count: count))
         }
 
         // This script will block if the streams are not read.
         do {
             let result = try AsyncProcess.popen(scriptName: "deadlock-if-blocking-io")
             let count = 16 * 1024
-            XCTAssertEqual(try result.utf8Output(), String(repeating: "1", count: count))
-            XCTAssertEqual(try result.utf8stderrOutput(), String(repeating: "2", count: count))
+            #expect(try result.utf8Output() == String(repeating: "1", count: count))
+            #expect(try result.utf8stderrOutput() == String(repeating: "2", count: count))
         }
     }
 
+    @Test
     @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
-    func testStdoutStdErrAsync() async throws {
-        // A simple script to check that stdout and stderr are captured separatly.
+    func stdoutStdErrAsync() async throws {
+        // A simple script to check that stdout and stderr are captured separatly
         do {
             let result = try await AsyncProcess.popen(scriptName: "simple-stdout-stderr")
-            XCTAssertEqual(try result.utf8Output(), "simple output\n")
-            XCTAssertEqual(try result.utf8stderrOutput(), "simple error\n")
+            #expect(try result.utf8Output() == "simple output\n")
+            #expect(try result.utf8stderrOutput() == "simple error\n")
         }
 
         // A long stdout and stderr output.
         do {
             let result = try await AsyncProcess.popen(scriptName: "long-stdout-stderr")
             let count = 16 * 1024
-            XCTAssertEqual(try result.utf8Output(), String(repeating: "1", count: count))
-            XCTAssertEqual(try result.utf8stderrOutput(), String(repeating: "2", count: count))
+            #expect(try result.utf8Output() == String(repeating: "1", count: count))
+            #expect(try result.utf8stderrOutput() == String(repeating: "2", count: count))
         }
 
         // This script will block if the streams are not read.
         do {
             let result = try await AsyncProcess.popen(scriptName: "deadlock-if-blocking-io")
             let count = 16 * 1024
-            XCTAssertEqual(try result.utf8Output(), String(repeating: "1", count: count))
-            XCTAssertEqual(try result.utf8stderrOutput(), String(repeating: "2", count: count))
+            #expect(try result.utf8Output() == String(repeating: "1", count: count))
+            #expect(try result.utf8stderrOutput() == String(repeating: "2", count: count))
         }
     }
 
-    func testStdoutStdErrRedirected() throws {
-        // A simple script to check that stdout and stderr are captured in the same location.
+    @Test
+    func stdoutStdErrRedirected() throws {
         do {
             let process = AsyncProcess(
                 scriptName: "simple-stdout-stderr",
@@ -307,8 +323,8 @@ final class AsyncProcessTests: XCTestCase {
             )
             try process.launch()
             let result = try process.waitUntilExit()
-            XCTAssertEqual(try result.utf8Output(), "simple error\nsimple output\n")
-            XCTAssertEqual(try result.utf8stderrOutput(), "")
+            #expect(try result.utf8Output() == "simple error\nsimple output\n")
+            #expect(try result.utf8stderrOutput() == "")
         }
 
         // A long stdout and stderr output.
@@ -321,12 +337,13 @@ final class AsyncProcessTests: XCTestCase {
             let result = try process.waitUntilExit()
 
             let count = 16 * 1024
-            XCTAssertEqual(try result.utf8Output(), String(repeating: "12", count: count))
-            XCTAssertEqual(try result.utf8stderrOutput(), "")
+            #expect(try result.utf8Output() == String(repeating: "12", count: count))
+            #expect(try result.utf8stderrOutput() == "")
         }
     }
 
-    func testStdoutStdErrStreaming() throws {
+    @Test
+    func stdoutStdErrStreaming() throws {
         var stdout = [UInt8]()
         var stderr = [UInt8]()
         let process = AsyncProcess(scriptName: "long-stdout-stderr", outputRedirection: .stream(stdout: { stdoutBytes in
@@ -338,11 +355,12 @@ final class AsyncProcessTests: XCTestCase {
         try process.waitUntilExit()
 
         let count = 16 * 1024
-        XCTAssertEqual(String(bytes: stdout, encoding: .utf8), String(repeating: "1", count: count))
-        XCTAssertEqual(String(bytes: stderr, encoding: .utf8), String(repeating: "2", count: count))
+        #expect(String(bytes: stdout, encoding: .utf8) == String(repeating: "1", count: count))
+        #expect(String(bytes: stderr, encoding: .utf8) == String(repeating: "2", count: count))
     }
 
-    func testStdoutStdErrStreamingRedirected() throws {
+    @Test
+    func stdoutStdErrStreamingRedirected() throws {
         var stdout = [UInt8]()
         var stderr = [UInt8]()
         let process = AsyncProcess(scriptName: "long-stdout-stderr", outputRedirection: .stream(stdout: { stdoutBytes in
@@ -354,22 +372,20 @@ final class AsyncProcessTests: XCTestCase {
         try process.waitUntilExit()
 
         let count = 16 * 1024
-        XCTAssertEqual(String(bytes: stdout, encoding: .utf8), String(repeating: "12", count: count))
-        XCTAssertEqual(stderr, [])
+        #expect(String(bytes: stdout, encoding: .utf8) == String(repeating: "12", count: count))
+        #expect(stderr == [])
     }
 
-    func testWorkingDirectory() throws {
-        guard #available(macOS 10.15, *) else {
-            // Skip this test since it's not supported in this OS.
-            return
-        }
+    @Test
+    @available(macOS 10.15, *)
+    func workingDirectory() throws {
 
-        #if os(Linux) || os(Android)
+#if os(Linux) || os(Android)
         guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
             // Skip this test since it's not supported in this OS.
             return
         }
-        #endif
+#endif
 
         try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
             let parentPath = tempDirPath.appending(component: "file")
@@ -383,22 +399,23 @@ final class AsyncProcessTests: XCTestCase {
                 let process = AsyncProcess(arguments: ["cat", "file"], workingDirectory: tempDirPath)
                 try process.launch()
                 let result = try process.waitUntilExit()
-                XCTAssertEqual(try result.utf8Output(), "parent")
+                #expect(try result.utf8Output() == "parent")
             }
 
             do {
                 let process = AsyncProcess(arguments: ["cat", "file"], workingDirectory: childPath.parentDirectory)
                 try process.launch()
                 let result = try process.waitUntilExit()
-                XCTAssertEqual(try result.utf8Output(), "child")
+                #expect(try result.utf8Output() == "child")
             }
         }
     }
 
-    func testAsyncStream() async throws {
-        // rdar://133548796
-        try XCTSkipIfCI()
-
+    @Test(
+        .disabled(if: isRunninginCI(), "Disabled in CI"),
+        .bug("rdar://133548796")
+    )
+    func asyncStream() async throws {
         let (stdoutStream, stdoutContinuation) = AsyncProcess.ReadableStream.makeStream()
         let (stderrStream, stderrContinuation) = AsyncProcess.ReadableStream.makeStream()
 
@@ -420,14 +437,14 @@ final class AsyncProcessTests: XCTestCase {
                 stdin.flush()
 
                 for await output in stdoutStream {
-                    XCTAssertEqual(output, .init("Hello \(counter)\n".utf8))
+                    #expect(output == .init("Hello \(counter)\n".utf8))
                     counter += 1
 
                     stdin.write(.init("Hello \(counter)\n".utf8))
                     stdin.flush()
                 }
 
-                XCTAssertEqual(counter, 5)
+                #expect(counter == 5)
 
                 try stdin.close()
             }
@@ -438,7 +455,7 @@ final class AsyncProcessTests: XCTestCase {
                     counter += 1
                 }
 
-                XCTAssertEqual(counter, 0)
+                #expect(counter == 0)
             }
 
             defer {
@@ -449,13 +466,14 @@ final class AsyncProcessTests: XCTestCase {
             return try await process.waitUntilExit()
         }
 
-        XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+        #expect(result.exitStatus == .terminated(code: 0))
     }
 
-    func testAsyncStreamHighLevelAPI() async throws {
-        // rdar://133548796
-        try XCTSkipIfCI()
-
+    @Test(
+        .disabled(if: isRunninginCI(), "Disabled in CI"),
+        .bug("rdar://133548796")
+    )
+    func asyncStreamHighLevelAPI() async throws {
         let result = try await AsyncProcess.popen(
             scriptName: "echo",
             stdout: { stdin, stdout in
@@ -464,14 +482,14 @@ final class AsyncProcessTests: XCTestCase {
                 stdin.flush()
 
                 for await output in stdout {
-                    XCTAssertEqual(output, .init("Hello \(counter)\n".utf8))
+                    #expect(output == .init("Hello \(counter)\n".utf8))
                     counter += 1
 
                     stdin.write(.init("Hello \(counter)\n".utf8))
                     stdin.flush()
                 }
 
-                XCTAssertEqual(counter, 5)
+                #expect(counter == 5)
 
                 try stdin.close()
             },
@@ -481,11 +499,11 @@ final class AsyncProcessTests: XCTestCase {
                     counter += 1
                 }
 
-                XCTAssertEqual(counter, 0)
+                #expect(counter == 0)
             }
         )
 
-        XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+        #expect(result.exitStatus == .terminated(code: 0))
     }
 }
 

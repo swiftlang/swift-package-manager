@@ -9,36 +9,39 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 @testable import Basics
-import XCTest
+import Testing
 
-final class SerializedJSONTests: XCTestCase {
-    func testPathInterpolation() throws {
+struct SerializedJSONTests {
+    @Test
+    func pathInterpolation() throws {
         var path = try AbsolutePath(validating: #"/test\backslashes"#)
         var json: SerializedJSON = "\(path)"
 
 #if os(Windows)
-        XCTAssertEqual(json.underlying, #"\\test\\backslashes"#)
+        let expected = #"\\test\\backslashes"#
 #else
-        XCTAssertEqual(json.underlying, #"/test\\backslashes"#)
+        let expected = #"/test\\backslashes"#
 #endif
+        #expect(json.underlying == expected)
 
-        #if os(Windows)
+#if os(Windows)
         path = try AbsolutePath(validating: #"\\?\C:\Users"#)
         json = "\(path)"
 
-        XCTAssertEqual(json.underlying, #"C:\\Users"#)
+        #expect(json.underlying == #"C:\\Users"#)
 
         path = try AbsolutePath(validating: #"\\.\UNC\server\share\"#)
         json = "\(path)"
 
-        XCTAssertEqual(json.underlying, #"\\.\\UNC\\server\\share"#)
+        #expect(json.underlying == #"\\.\\UNC\\server\\share"#)
 
         path = try AbsolutePath(validating: #"\??\Volumes{b79de17a-a1ed-4c58-a353-731b7c4885a6}\\"#)
         json = "\(path)"
 
-        XCTAssertEqual(json.underlying, #"\\??\\Volumes{b79de17a-a1ed-4c58-a353-731b7c4885a6}"#)
-        #endif
+        #expect(json.underlying == #"\\??\\Volumes{b79de17a-a1ed-4c58-a353-731b7c4885a6}"#)
+#endif
     }
 }
