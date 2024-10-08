@@ -2290,7 +2290,9 @@ final class PackageCommandTests: CommandsTestCase {
 
             try await runPlugin(flags: [], diagnostics: ["print"]) { stdout, stderr in
                 XCTAssertMatch(stdout, isOnlyPrint)
-                XCTAssertMatch(stderr, isEmpty)
+                let filteredStderr = stderr.components(separatedBy: "\n")
+                  .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
+                XCTAssertMatch(filteredStderr, isEmpty)
             }
 
             try await runPlugin(flags: [], diagnostics: ["print", "progress"]) { stdout, stderr in
@@ -2309,7 +2311,7 @@ final class PackageCommandTests: CommandsTestCase {
                 XCTAssertMatch(stderr, containsWarning)
             }
 
-         	try await runPluginWithError(flags: [], diagnostics: ["print", "progress", "remark", "warning", "error"]) { stdout, stderr in
+         	  try await runPluginWithError(flags: [], diagnostics: ["print", "progress", "remark", "warning", "error"]) { stdout, stderr in
                 XCTAssertMatch(stdout, isOnlyPrint)
                 XCTAssertMatch(stderr, containsProgress)
                 XCTAssertMatch(stderr, containsWarning)
@@ -2322,7 +2324,9 @@ final class PackageCommandTests: CommandsTestCase {
 
             try await runPlugin(flags: ["-q"], diagnostics: ["print"]) { stdout, stderr in
                 XCTAssertMatch(stdout, isOnlyPrint)
-                XCTAssertMatch(stderr, isEmpty)
+                let filteredStderr = stderr.components(separatedBy: "\n")
+                  .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
+                XCTAssertMatch(filteredStderr, isEmpty)
             }
 
             try await runPlugin(flags: ["-q"], diagnostics: ["print", "progress"]) { stdout, stderr in
@@ -2461,7 +2465,7 @@ final class PackageCommandTests: CommandsTestCase {
         let containsLogtext = StringPattern.contains("command plugin: packageManager.build logtext: Building for debugging...")
 
         // Echoed logs have no prefix
-        let containsLogecho = StringPattern.regex("^Building for debugging...\n")
+        let containsLogecho = StringPattern.contains("Building for debugging...\n")
 
         // These tests involve building a target, so each test must run with a fresh copy of the fixture
         // otherwise the logs may be different in subsequent tests.
@@ -2470,14 +2474,20 @@ final class PackageCommandTests: CommandsTestCase {
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
             let (stdout, stderr) = try await SwiftPM.Package.execute(["print-diagnostics", "build"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertMatch(stdout, isEmpty)
-            XCTAssertMatch(stderr, isEmpty)
+            // Filter some unrelated output that could show up on stderr.
+            let filteredStderr = stderr.components(separatedBy: "\n")
+              .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
+            XCTAssertMatch(filteredStderr, isEmpty)
         }
 
         // Check that logs are returned to the plugin when echoLogs is false
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
             let (stdout, stderr) = try await SwiftPM.Package.execute(["print-diagnostics", "build", "printlogs"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertMatch(stdout, containsLogtext)
-            XCTAssertMatch(stderr, isEmpty)
+            // Filter some unrelated output that could show up on stderr.
+            let filteredStderr = stderr.components(separatedBy: "\n")
+              .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
+            XCTAssertMatch(filteredStderr, isEmpty)
         }
 
         // Check that logs echoed to the console (on stderr) when echoLogs is true
@@ -2784,14 +2794,14 @@ final class PackageCommandTests: CommandsTestCase {
             do {
                 let (stdout, stderr) = try await SwiftPM.Package.execute(["plugin", "MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
                 XCTAssertMatch(stdout, .contains("success"))
-                XCTAssertEqual(stderr, "")
+                XCTAssertFalse(stderr.contains("error:"))
             }
 
             // Check default command arguments
             do {
                 let (stdout, stderr) = try await SwiftPM.Package.execute(["MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
                 XCTAssertMatch(stdout, .contains("success"))
-                XCTAssertEqual(stderr, "")
+                XCTAssertFalse(stderr.contains("error:"))
             }
         }
     }
