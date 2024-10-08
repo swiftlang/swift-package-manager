@@ -3,22 +3,22 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 50;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		270547332CB4DF3F00E2FCAD /* FooKit.h in Headers */ = {isa = PBXBuildFile; fileRef = 270547322CB4DF3F00E2FCAD /* FooKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		2705473A2CB4DF8B00E2FCAD /* Foo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 270547392CB4DF8B00E2FCAD /* Foo.swift */; };
+		27EB01AF2CB510F1007CCC7E /* FooKit.h in Headers */ = {isa = PBXBuildFile; fileRef = 27EB01AE2CB510F1007CCC7E /* FooKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		27EB01B62CB5110F007CCC7E /* Foo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27EB01B52CB5110F007CCC7E /* Foo.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		2705472F2CB4DF3F00E2FCAD /* FooKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FooKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		270547322CB4DF3F00E2FCAD /* FooKit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FooKit.h; sourceTree = "<group>"; };
-		270547392CB4DF8B00E2FCAD /* Foo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Foo.swift; sourceTree = "<group>"; };
+		27EB01AB2CB510F1007CCC7E /* FooKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FooKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		27EB01AE2CB510F1007CCC7E /* FooKit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FooKit.h; sourceTree = "<group>"; };
+		27EB01B52CB5110F007CCC7E /* Foo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Foo.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		2705472C2CB4DF3F00E2FCAD /* Frameworks */ = {
+		27EB01A82CB510F1007CCC7E /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -28,27 +28,27 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		270547252CB4DF3F00E2FCAD = {
+		27EB01A12CB510F1007CCC7E = {
 			isa = PBXGroup;
 			children = (
-				270547312CB4DF3F00E2FCAD /* FooKit */,
-				270547302CB4DF3F00E2FCAD /* Products */,
+				27EB01AD2CB510F1007CCC7E /* FooKit */,
+				27EB01AC2CB510F1007CCC7E /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		270547302CB4DF3F00E2FCAD /* Products */ = {
+		27EB01AC2CB510F1007CCC7E /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				2705472F2CB4DF3F00E2FCAD /* FooKit.framework */,
+				27EB01AB2CB510F1007CCC7E /* FooKit.framework */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		270547312CB4DF3F00E2FCAD /* FooKit */ = {
+		27EB01AD2CB510F1007CCC7E /* FooKit */ = {
 			isa = PBXGroup;
 			children = (
-				270547322CB4DF3F00E2FCAD /* FooKit.h */,
-				270547392CB4DF8B00E2FCAD /* Foo.swift */,
+				27EB01AE2CB510F1007CCC7E /* FooKit.h */,
+				27EB01B52CB5110F007CCC7E /* Foo.swift */,
 			);
 			path = FooKit;
 			sourceTree = "<group>";
@@ -56,25 +56,25 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		2705472A2CB4DF3F00E2FCAD /* Headers */ = {
+		27EB01A62CB510F1007CCC7E /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				270547332CB4DF3F00E2FCAD /* FooKit.h in Headers */,
+				27EB01AF2CB510F1007CCC7E /* FooKit.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
-		2705472E2CB4DF3F00E2FCAD /* FooKit */ = {
+		27EB01AA2CB510F1007CCC7E /* FooKit */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 270547362CB4DF3F00E2FCAD /* Build configuration list for PBXNativeTarget "FooKit" */;
+			buildConfigurationList = 27EB01B22CB510F1007CCC7E /* Build configuration list for PBXNativeTarget "FooKit" */;
 			buildPhases = (
-				2705472A2CB4DF3F00E2FCAD /* Headers */,
-				2705472B2CB4DF3F00E2FCAD /* Sources */,
-				2705472C2CB4DF3F00E2FCAD /* Frameworks */,
-				2705472D2CB4DF3F00E2FCAD /* Resources */,
+				27EB01A62CB510F1007CCC7E /* Headers */,
+				27EB01A72CB510F1007CCC7E /* Sources */,
+				27EB01A82CB510F1007CCC7E /* Frameworks */,
+				27EB01A92CB510F1007CCC7E /* Resources */,
 			);
 			buildRules = (
 			);
@@ -82,25 +82,25 @@
 			);
 			name = FooKit;
 			productName = FooKit;
-			productReference = 2705472F2CB4DF3F00E2FCAD /* FooKit.framework */;
+			productReference = 27EB01AB2CB510F1007CCC7E /* FooKit.framework */;
 			productType = "com.apple.product-type.framework";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		270547262CB4DF3F00E2FCAD /* Project object */ = {
+		27EB01A22CB510F1007CCC7E /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastUpgradeCheck = 1510;
+				LastUpgradeCheck = 1500;
 				TargetAttributes = {
-					2705472E2CB4DF3F00E2FCAD = {
-						CreatedOnToolsVersion = 15.1;
-						LastSwiftMigration = 1510;
+					27EB01AA2CB510F1007CCC7E = {
+						CreatedOnToolsVersion = 15.0.1;
+						LastSwiftMigration = 1500;
 					};
 				};
 			};
-			buildConfigurationList = 270547292CB4DF3F00E2FCAD /* Build configuration list for PBXProject "FooKit" */;
+			buildConfigurationList = 27EB01A52CB510F1007CCC7E /* Build configuration list for PBXProject "FooKit" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -108,18 +108,18 @@
 				en,
 				Base,
 			);
-			mainGroup = 270547252CB4DF3F00E2FCAD;
-			productRefGroup = 270547302CB4DF3F00E2FCAD /* Products */;
+			mainGroup = 27EB01A12CB510F1007CCC7E;
+			productRefGroup = 27EB01AC2CB510F1007CCC7E /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				2705472E2CB4DF3F00E2FCAD /* FooKit */,
+				27EB01AA2CB510F1007CCC7E /* FooKit */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		2705472D2CB4DF3F00E2FCAD /* Resources */ = {
+		27EB01A92CB510F1007CCC7E /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -129,18 +129,18 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		2705472B2CB4DF3F00E2FCAD /* Sources */ = {
+		27EB01A72CB510F1007CCC7E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2705473A2CB4DF8B00E2FCAD /* Foo.swift in Sources */,
+				27EB01B62CB5110F007CCC7E /* Foo.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		270547342CB4DF3F00E2FCAD /* Debug */ = {
+		27EB01B02CB510F1007CCC7E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -206,7 +206,7 @@
 			};
 			name = Debug;
 		};
-		270547352CB4DF3F00E2FCAD /* Release */ = {
+		27EB01B12CB510F1007CCC7E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -264,7 +264,7 @@
 			};
 			name = Release;
 		};
-		270547372CB4DF3F00E2FCAD /* Debug */ = {
+		27EB01B32CB510F1007CCC7E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
@@ -299,7 +299,7 @@
 			};
 			name = Debug;
 		};
-		270547382CB4DF3F00E2FCAD /* Release */ = {
+		27EB01B42CB510F1007CCC7E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
@@ -336,25 +336,25 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		270547292CB4DF3F00E2FCAD /* Build configuration list for PBXProject "FooKit" */ = {
+		27EB01A52CB510F1007CCC7E /* Build configuration list for PBXProject "FooKit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				270547342CB4DF3F00E2FCAD /* Debug */,
-				270547352CB4DF3F00E2FCAD /* Release */,
+				27EB01B02CB510F1007CCC7E /* Debug */,
+				27EB01B12CB510F1007CCC7E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		270547362CB4DF3F00E2FCAD /* Build configuration list for PBXNativeTarget "FooKit" */ = {
+		27EB01B22CB510F1007CCC7E /* Build configuration list for PBXNativeTarget "FooKit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				270547372CB4DF3F00E2FCAD /* Debug */,
-				270547382CB4DF3F00E2FCAD /* Release */,
+				27EB01B32CB510F1007CCC7E /* Debug */,
+				27EB01B42CB510F1007CCC7E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = 270547262CB4DF3F00E2FCAD /* Project object */;
+	rootObject = 27EB01A22CB510F1007CCC7E /* Project object */;
 }
