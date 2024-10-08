@@ -193,11 +193,11 @@ final class PluginInvocationTests: XCTestCase {
                                 "configuration": {
                                     "version": 2,
                                     "displayName": "Do something",
-                                    "executable": "/bin/FooTool",
+                                    "executable": "file:///bin/FooTool",
                                     "arguments": [
                                         "-c", "/Foo/Sources/Foo/SomeFile.abc"
                                     ],
-                                    "workingDirectory": "/Foo/Sources/Foo",
+                                    "workingDirectory": "file:///Foo/Sources/Foo",
                                     "environment": {
                                         "X": "Y"
                                     },
@@ -216,6 +216,7 @@ final class PluginInvocationTests: XCTestCase {
                     callbackQueue.sync {
                         completion(.failure(error))
                     }
+                    return
                 }
 
                 // If we get this far we succeeded, so invoke the completion handler.
