@@ -49,6 +49,7 @@ struct ShowExecutables: AsyncSwiftCommand {
                     print(executable.name)
                 }
             }
+
         case .json:
             let encoder = JSONEncoder()
             let data = try encoder.encode(executables)
