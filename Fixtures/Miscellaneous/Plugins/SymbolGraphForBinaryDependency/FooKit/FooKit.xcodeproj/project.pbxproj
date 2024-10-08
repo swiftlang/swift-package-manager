@@ -3,23 +3,22 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 50;
+	objectVersion = 56;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		63A1B3E923FB4B26001B7732 /* FooKit.h in Headers */ = {isa = PBXBuildFile; fileRef = 63A1B3E723FB4B26001B7732 /* FooKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		63A1B3F023FB4B32001B7732 /* FooKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63A1B3EF23FB4B32001B7732 /* FooKit.swift */; };
+		270547332CB4DF3F00E2FCAD /* FooKit.h in Headers */ = {isa = PBXBuildFile; fileRef = 270547322CB4DF3F00E2FCAD /* FooKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		2705473A2CB4DF8B00E2FCAD /* Foo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 270547392CB4DF8B00E2FCAD /* Foo.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		63A1B3E423FB4B26001B7732 /* FooKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FooKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		63A1B3E723FB4B26001B7732 /* FooKit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FooKit.h; sourceTree = "<group>"; };
-		63A1B3E823FB4B26001B7732 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		63A1B3EF23FB4B32001B7732 /* FooKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FooKit.swift; sourceTree = "<group>"; };
+		2705472F2CB4DF3F00E2FCAD /* FooKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FooKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		270547322CB4DF3F00E2FCAD /* FooKit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FooKit.h; sourceTree = "<group>"; };
+		270547392CB4DF8B00E2FCAD /* Foo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Foo.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		63A1B3E123FB4B26001B7732 /* Frameworks */ = {
+		2705472C2CB4DF3F00E2FCAD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -29,28 +28,27 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		63A1B3DA23FB4B26001B7732 = {
+		270547252CB4DF3F00E2FCAD = {
 			isa = PBXGroup;
 			children = (
-				63A1B3E623FB4B26001B7732 /* FooKit */,
-				63A1B3E523FB4B26001B7732 /* Products */,
+				270547312CB4DF3F00E2FCAD /* FooKit */,
+				270547302CB4DF3F00E2FCAD /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		63A1B3E523FB4B26001B7732 /* Products */ = {
+		270547302CB4DF3F00E2FCAD /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				63A1B3E423FB4B26001B7732 /* FooKit.framework */,
+				2705472F2CB4DF3F00E2FCAD /* FooKit.framework */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		63A1B3E623FB4B26001B7732 /* FooKit */ = {
+		270547312CB4DF3F00E2FCAD /* FooKit */ = {
 			isa = PBXGroup;
 			children = (
-				63A1B3E723FB4B26001B7732 /* FooKit.h */,
-				63A1B3E823FB4B26001B7732 /* Info.plist */,
-				63A1B3EF23FB4B32001B7732 /* FooKit.swift */,
+				270547322CB4DF3F00E2FCAD /* FooKit.h */,
+				270547392CB4DF8B00E2FCAD /* Foo.swift */,
 			);
 			path = FooKit;
 			sourceTree = "<group>";
@@ -58,25 +56,25 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		63A1B3DF23FB4B26001B7732 /* Headers */ = {
+		2705472A2CB4DF3F00E2FCAD /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				63A1B3E923FB4B26001B7732 /* FooKit.h in Headers */,
+				270547332CB4DF3F00E2FCAD /* FooKit.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
-		63A1B3E323FB4B26001B7732 /* FooKit */ = {
+		2705472E2CB4DF3F00E2FCAD /* FooKit */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 63A1B3EC23FB4B26001B7732 /* Build configuration list for PBXNativeTarget "FooKit" */;
+			buildConfigurationList = 270547362CB4DF3F00E2FCAD /* Build configuration list for PBXNativeTarget "FooKit" */;
 			buildPhases = (
-				63A1B3DF23FB4B26001B7732 /* Headers */,
-				63A1B3E023FB4B26001B7732 /* Sources */,
-				63A1B3E123FB4B26001B7732 /* Frameworks */,
-				63A1B3E223FB4B26001B7732 /* Resources */,
+				2705472A2CB4DF3F00E2FCAD /* Headers */,
+				2705472B2CB4DF3F00E2FCAD /* Sources */,
+				2705472C2CB4DF3F00E2FCAD /* Frameworks */,
+				2705472D2CB4DF3F00E2FCAD /* Resources */,
 			);
 			buildRules = (
 			);
@@ -84,44 +82,44 @@
 			);
 			name = FooKit;
 			productName = FooKit;
-			productReference = 63A1B3E423FB4B26001B7732 /* FooKit.framework */;
+			productReference = 2705472F2CB4DF3F00E2FCAD /* FooKit.framework */;
 			productType = "com.apple.product-type.framework";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		63A1B3DB23FB4B26001B7732 /* Project object */ = {
+		270547262CB4DF3F00E2FCAD /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1140;
-				ORGANIZATIONNAME = "swiftpm-fixture";
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 1510;
 				TargetAttributes = {
-					63A1B3E323FB4B26001B7732 = {
-						CreatedOnToolsVersion = 11.4;
-						LastSwiftMigration = 1140;
+					2705472E2CB4DF3F00E2FCAD = {
+						CreatedOnToolsVersion = 15.1;
+						LastSwiftMigration = 1510;
 					};
 				};
 			};
-			buildConfigurationList = 63A1B3DE23FB4B26001B7732 /* Build configuration list for PBXProject "FooKit" */;
-			compatibilityVersion = "Xcode 9.3";
+			buildConfigurationList = 270547292CB4DF3F00E2FCAD /* Build configuration list for PBXProject "FooKit" */;
+			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
 			);
-			mainGroup = 63A1B3DA23FB4B26001B7732;
-			productRefGroup = 63A1B3E523FB4B26001B7732 /* Products */;
+			mainGroup = 270547252CB4DF3F00E2FCAD;
+			productRefGroup = 270547302CB4DF3F00E2FCAD /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				63A1B3E323FB4B26001B7732 /* FooKit */,
+				2705472E2CB4DF3F00E2FCAD /* FooKit */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		63A1B3E223FB4B26001B7732 /* Resources */ = {
+		2705472D2CB4DF3F00E2FCAD /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -131,25 +129,25 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		63A1B3E023FB4B26001B7732 /* Sources */ = {
+		2705472B2CB4DF3F00E2FCAD /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				63A1B3F023FB4B32001B7732 /* FooKit.swift in Sources */,
+				2705473A2CB4DF8B00E2FCAD /* Foo.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		63A1B3EA23FB4B26001B7732 /* Debug */ = {
+		270547342CB4DF3F00E2FCAD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -168,6 +166,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -179,7 +178,8 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -193,26 +193,27 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
 			name = Debug;
 		};
-		63A1B3EB23FB4B26001B7732 /* Release */ = {
+		270547352CB4DF3F00E2FCAD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -231,6 +232,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -242,7 +244,8 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -250,62 +253,82 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
 			name = Release;
 		};
-		63A1B3ED23FB4B26001B7732 /* Debug */ = {
+		270547372CB4DF3F00E2FCAD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
 				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = "";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				INFOPLIST_FILE = FooKit/Info.plist;
+				ENABLE_MODULE_VERIFIER = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 					"@loader_path/Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MARKETING_VERSION = 1.0;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
 				PRODUCT_BUNDLE_IDENTIFIER = org.swift.swiftpm.fixture.FooKit;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
 		};
-		63A1B3EE23FB4B26001B7732 /* Release */ = {
+		270547382CB4DF3F00E2FCAD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
 				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = "";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				INFOPLIST_FILE = FooKit/Info.plist;
+				ENABLE_MODULE_VERIFIER = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 					"@loader_path/Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MARKETING_VERSION = 1.0;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
 				PRODUCT_BUNDLE_IDENTIFIER = org.swift.swiftpm.fixture.FooKit;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
@@ -313,25 +336,25 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		63A1B3DE23FB4B26001B7732 /* Build configuration list for PBXProject "FooKit" */ = {
+		270547292CB4DF3F00E2FCAD /* Build configuration list for PBXProject "FooKit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				63A1B3EA23FB4B26001B7732 /* Debug */,
-				63A1B3EB23FB4B26001B7732 /* Release */,
+				270547342CB4DF3F00E2FCAD /* Debug */,
+				270547352CB4DF3F00E2FCAD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		63A1B3EC23FB4B26001B7732 /* Build configuration list for PBXNativeTarget "FooKit" */ = {
+		270547362CB4DF3F00E2FCAD /* Build configuration list for PBXNativeTarget "FooKit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				63A1B3ED23FB4B26001B7732 /* Debug */,
-				63A1B3EE23FB4B26001B7732 /* Release */,
+				270547372CB4DF3F00E2FCAD /* Debug */,
+				270547382CB4DF3F00E2FCAD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = 63A1B3DB23FB4B26001B7732 /* Project object */;
+	rootObject = 270547262CB4DF3F00E2FCAD /* Project object */;
 }
