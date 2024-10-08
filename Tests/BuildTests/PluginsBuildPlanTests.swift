@@ -83,7 +83,7 @@ final class PluginsBuildPlanTests: XCTestCase {
     func testDocCPluginForBinaryDependency() async throws {
         #if !os(macOS)
         // binaryTarget/xcframework is only supported on Darwin platform
-        try XCTSkip("Test requires macOS")
+        throw XCTSkip("Test requires macOS")
         #endif
         
         try await fixture(name: "Miscellaneous/Plugins/SymbolGraphForBinaryDependency") { fixturePath in
