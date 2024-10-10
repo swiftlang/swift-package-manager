@@ -213,10 +213,6 @@ class PIFTests: XCTestCase {
     )
 
     func testRoundTrip() throws {
-        // FIXME: Disabled because we need to store build settings in
-        // sorted dictionary in order to get deterministic output
-        // when encoding (SR-12587).
-      #if false
         let encoder = JSONEncoder.makeWithDefaults()
         if #available(macOS 10.13, *) {
             encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
@@ -233,7 +229,6 @@ class PIFTests: XCTestCase {
         let decodedString = String(decoding: decodedPIF, as: UTF8.self)
 
         XCTAssertEqual(originalString, decodedString)
-      #endif
     }
 
     func testEncodable() throws {
