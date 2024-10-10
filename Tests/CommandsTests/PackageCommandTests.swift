@@ -551,6 +551,41 @@ final class PackageCommandTests: CommandsTestCase {
         }
     }
 
+    func testShowExecutables() async throws {
+        try await fixture(name: "Miscellaneous/ShowExecutables") { fixturePath in
+            let packageRoot = fixturePath.appending("app")
+            let (textOutput, _) = try await SwiftPM.Package.execute(["show-executables", "--format=flatlist"], packagePath: packageRoot)
+            XCTAssert(textOutput.contains("dealer\n"))
+            XCTAssert(textOutput.contains("deck (deck-of-playing-cards)\n"))
+
+            let (jsonOutput, _) = try await SwiftPM.Package.execute(["show-executables", "--format=json"], packagePath: packageRoot)
+            let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
+            guard case let .array(contents) = json else { XCTFail("unexpected result"); return }
+
+            XCTAssertEqual(2, contents.count)
+
+            guard case let first = contents.first else { XCTFail("unexpected result"); return }
+            guard case let .dictionary(dealer) = first else { XCTFail("unexpected result"); return }
+            guard case let .string(dealerName)? = dealer["name"] else { XCTFail("unexpected result"); return }
+            XCTAssertEqual(dealerName, "dealer")
+            if case let .string(package)? = dealer["package"] {
+                XCTFail("unexpected package for dealer (should be unset): \(package)")
+                return
+            }
+
+            guard case let last = contents.last else { XCTFail("unexpected result"); return }
+            guard case let .dictionary(deck) = last else { XCTFail("unexpected result"); return }
+            guard case let .string(deckName)? = deck["name"] else { XCTFail("unexpected result"); return }
+            XCTAssertEqual(deckName, "deck")
+            if case let .string(package)? = deck["package"] {
+                XCTAssertEqual("deck-of-playing-cards", package)
+            } else {
+                XCTFail("missing package for deck")
+                return
+            }
+        }
+    }
+
     func testShowDependencies() async throws {
         try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
             let packageRoot = fixturePath.appending("app")
