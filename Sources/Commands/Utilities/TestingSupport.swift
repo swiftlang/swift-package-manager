@@ -270,7 +270,7 @@ extension SwiftCommandState {
         parameters.testingParameters.enableCodeCoverage = enableCodeCoverage
         // for test commands, we normally enable building with testability
         // but we let users override this with a flag
-        parameters.testingParameters.enableTestability = enableTestability ?? true
+        parameters.testingParameters.enableTestability = enableTestability
         parameters.shouldSkipBuilding = shouldSkipBuilding
         parameters.testingParameters.experimentalTestOutput = experimentalTestOutput
         return parameters

@@ -554,6 +554,20 @@ extension TargetBuildSettingDescription.Kind {
             }
 
             return .swiftLanguageMode(version)
+        case "enableTesting":
+            guard let rawVersion = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+
+            if values.count > 1 {
+                throw InternalError("invalid build settings value")
+            }
+
+            guard let value = Bool(rawVersion) else {
+                throw InternalError("invalid boolean value: \(rawVersion)")
+            }
+
+            return .enableTesting(value)
         default:
             throw InternalError("invalid build setting \(name)")
         }

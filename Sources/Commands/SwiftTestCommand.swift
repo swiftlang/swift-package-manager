@@ -181,8 +181,8 @@ struct TestCommandOptions: ParsableArguments {
     var xUnitOutput: AbsolutePath?
 
     /// Generate LinuxMain entries and exit.
-    @Flag(name: .customLong("testable-imports"), inversion: .prefixedEnableDisable, help: "Enable or disable testable imports. Enabled by default.")
-    var enableTestableImports: Bool = true
+    @Flag(name: .customLong("testable-imports"), inversion: .prefixedEnableDisable, help: "Enable or disable testable imports. Based on target settings by default.")
+    var enableTestableImports: Bool?
 
     /// Whether to enable code coverage.
     @Flag(name: .customLong("code-coverage"),
