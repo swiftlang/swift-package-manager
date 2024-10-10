@@ -955,7 +955,7 @@ public final class SwiftModuleBuildDescription {
             // test targets must be built with -enable-testing
             // since its required for test discovery (the non objective-c reflection kind)
             return ["-enable-testing"]
-        } else if self.buildParameters.testingParameters.enableTestability {
+        } else if self.buildParameters.enableTestability {
             return ["-enable-testing"]
         } else {
             return []

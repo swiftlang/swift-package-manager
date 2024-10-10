@@ -85,6 +85,15 @@ final class TestCommandTests: CommandsTestCase {
         }
     }
 
+    func testWithReleaseConfiguration() async throws {
+        try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
+            do {
+                let result = try await execute(["-c", "release", "--vv"], packagePath: fixturePath)
+                XCTAssertMatch(result.stderr, .contains("-enable-testing"))
+            }
+        }
+    }
+
     func testSwiftTestParallel() async throws {
         try await fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
             // First try normal serial testing.

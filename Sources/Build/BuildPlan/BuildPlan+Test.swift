@@ -43,7 +43,7 @@ extension BuildPlan {
     ) throws -> [(product: ResolvedProduct, discoveryTargetBuildDescription: SwiftModuleBuildDescription?, entryPointTargetBuildDescription: SwiftModuleBuildDescription)] {
         var explicitlyEnabledDiscovery = false
         var explicitlySpecifiedPath: AbsolutePath?
-        if case let .entryPointExecutable(caseExplicitlyEnabledDiscovery, caseExplicitlySpecifiedPath) = destinationBuildParameters.testingParameters.testProductStyle {
+        if case let .entryPointExecutable(caseExplicitlyEnabledDiscovery, caseExplicitlySpecifiedPath) = destinationBuildParameters.testProductStyle {
             explicitlyEnabledDiscovery = caseExplicitlyEnabledDiscovery
             explicitlySpecifiedPath = caseExplicitlySpecifiedPath
         }

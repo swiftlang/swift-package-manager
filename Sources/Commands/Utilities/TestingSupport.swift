@@ -250,27 +250,10 @@ extension SwiftCommandState {
         experimentalTestOutput: Bool
     ) -> BuildParameters {
         var parameters = parameters
-
-        var explicitlyEnabledDiscovery = false
-        var explicitlySpecifiedPath: AbsolutePath?
-        if case let .entryPointExecutable(
-            explicitlyEnabledDiscoveryValue,
-            explicitlySpecifiedPathValue
-        ) = parameters.testingParameters.testProductStyle {
-            explicitlyEnabledDiscovery = explicitlyEnabledDiscoveryValue
-            explicitlySpecifiedPath = explicitlySpecifiedPathValue
-        }
-        parameters.testingParameters = .init(
-            configuration: parameters.configuration,
-            targetTriple: parameters.triple,
-            forceTestDiscovery: explicitlyEnabledDiscovery,
-            testEntryPointPath: explicitlySpecifiedPath
-        )
-
         parameters.testingParameters.enableCodeCoverage = enableCodeCoverage
         // for test commands, we normally enable building with testability
         // but we let users override this with a flag
-        parameters.testingParameters.enableTestability = enableTestability ?? true
+        parameters.testingParameters.explicitlyEnabledTestability = enableTestability ?? true
         parameters.shouldSkipBuilding = shouldSkipBuilding
         parameters.testingParameters.experimentalTestOutput = experimentalTestOutput
         return parameters

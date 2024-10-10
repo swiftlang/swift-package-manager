@@ -77,18 +77,20 @@ extension BuildParameters {
         /// Whether to enable code coverage.
         public var enableCodeCoverage: Bool
 
-        /// Whether building for testability is enabled.
-        public var enableTestability: Bool
+        /// Whether building for testability is explicitly enabled or disabled.
+        package var explicitlyEnabledTestability: Bool?
 
         /// Whether or not to enable the experimental test output mode.
         public var experimentalTestOutput: Bool
 
-        /// The style of test product to produce.
-        public var testProductStyle: TestProductStyle
+        /// Whether to force test discovery.
+        fileprivate var explicitlyEnabledDiscovery: Bool
+
+        /// The path to the test entry point file, if one was specified explicitly
+        /// via `--experimental-test-entry-point-path <file>`.
+        fileprivate var explicitlySpecifiedPath: AbsolutePath?
 
         public init(
-            configuration: BuildConfiguration,
-            targetTriple: Triple,
             enableCodeCoverage: Bool = false,
             enableTestability: Bool? = nil,
             experimentalTestOutput: Bool = false,
@@ -97,18 +99,29 @@ extension BuildParameters {
         ) {
             self.enableCodeCoverage = enableCodeCoverage
             self.experimentalTestOutput = experimentalTestOutput
-            // decide on testability based on debug/release config
-            // the goals of this being based on the build configuration is
-            // that `swift build` followed by a `swift test` will need to do minimal rebuilding
-            // given that the default configuration for `swift build` is debug
-            // and that `swift test` normally requires building with testable enabled.
-            // when building and testing in release mode, one can use the '--disable-testable-imports' flag
-            // to disable testability in `swift test`, but that requires that the tests do not use the testable imports feature
-            self.enableTestability =  enableTestability ?? (.debug == configuration)
-            self.testProductStyle = targetTriple.isDarwin() ? .loadableBundle : .entryPointExecutable(
-                explicitlyEnabledDiscovery: forceTestDiscovery,
-                explicitlySpecifiedPath: testEntryPointPath
-            )
+            self.explicitlyEnabledTestability = enableTestability
+            self.explicitlyEnabledDiscovery = forceTestDiscovery
+            self.explicitlySpecifiedPath = testEntryPointPath
         }
+    }
+
+    /// Whether building for testability is enabled.
+    public var enableTestability: Bool {
+        // decide on testability based on debug/release config
+        // the goals of this being based on the build configuration is
+        // that `swift build` followed by a `swift test` will need to do minimal rebuilding
+        // given that the default configuration for `swift build` is debug
+        // and that `swift test` normally requires building with testable enabled.
+        // when building and testing in release mode, one can use the '--disable-testable-imports' flag
+        // to disable testability in `swift test`, but that requires that the tests do not use the testable imports feature
+        self.testingParameters.explicitlyEnabledTestability ?? (self.configuration == .debug)
+    }
+
+    /// The style of test product to produce.
+    public var testProductStyle: TestProductStyle {
+        return triple.isDarwin() ? .loadableBundle : .entryPointExecutable(
+            explicitlyEnabledDiscovery: testingParameters.explicitlyEnabledDiscovery,
+            explicitlySpecifiedPath: testingParameters.explicitlySpecifiedPath
+        )
     }
 }

@@ -36,7 +36,7 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
         observabilityScope: ObservabilityScope?
     ) async throws -> any BuildSystem {
         _ = try await swiftCommandState.getRootPackageInformation()
-        let testEntryPointPath = productsBuildParameters?.testingParameters.testProductStyle.explicitlySpecifiedEntryPointPath
+        let testEntryPointPath = productsBuildParameters?.testProductStyle.explicitlySpecifiedEntryPointPath
         return try BuildOperation(
             productsBuildParameters: try productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
             toolsBuildParameters: try toolsBuildParameters ?? self.swiftCommandState.toolsBuildParameters,

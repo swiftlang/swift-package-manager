@@ -205,7 +205,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             return []
         case .test:
             // Test products are bundle when using Objective-C, executable when using test entry point.
-            switch self.buildParameters.testingParameters.testProductStyle {
+            switch self.buildParameters.testProductStyle {
             case .loadableBundle:
                 args += ["-Xlinker", "-bundle"]
             case .entryPointExecutable:
