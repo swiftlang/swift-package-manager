@@ -28,6 +28,7 @@ import class Basics.AsyncProcess
 import func TSCBasic.withTemporaryFile
 
 import enum TSCUtility.Diagnostics
+import class TSCUtility.PercentProgressAnimation
 
 public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
@@ -296,9 +297,8 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
 
     /// Returns a new instance of `XCBuildDelegate` for a build operation.
     private func createBuildDelegate() -> XCBuildDelegate {
-        let progressAnimation = ProgressAnimation.percent(
+        let progressAnimation = PercentProgressAnimation(
             stream: self.outputStream,
-            verbose: self.logLevel.isVerbose,
             header: ""
         )
         let delegate = XCBuildDelegate(

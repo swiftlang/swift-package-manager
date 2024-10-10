@@ -375,7 +375,10 @@ extension LLBuildManifestBuilder {
         let isLibrary = target.target.type == .library || target.target.type == .test
         let cmdName = target.getCommandName()
 
-        self.manifest.addWriteSourcesFileListCommand(sources: target.sources, sourcesFileListPath: target.sourcesFileListPath)
+        self.manifest.addWriteSourcesFileListCommand(
+            targetName: target.target.name,
+            sources: target.sources, sourcesFileListPath:
+            target.sourcesFileListPath)
         self.manifest.addSwiftCmd(
             name: cmdName,
             inputs: inputs + [Node.file(target.sourcesFileListPath)],

@@ -16,6 +16,10 @@ import var Basics.localFileSystem
 import struct Basics.AbsolutePath
 import enum Basics.TestingLibrary
 import struct Basics.Triple
+import struct Basics.ProgressAnimationConfiguration
+import enum Basics.ProgressAnimationStyle
+import enum Basics.TerminalColoring
+
 
 import struct Foundation.URL
 
@@ -62,6 +66,9 @@ public struct GlobalOptions: ParsableArguments {
 
     @OptionGroup()
     public var linker: LinkerOptions
+
+    @OptionGroup(title: "Progress Animation", visibility: .hidden)
+    public var progressAnimation: ProgressAnimationOptions
 }
 
 public struct LocationOptions: ParsableArguments {
@@ -630,7 +637,6 @@ public struct TestLibraryOptions: ParsableArguments {
     }
 }
 
-
 package struct TraitOptions: ParsableArguments {
     package init() {}
 
@@ -675,6 +681,60 @@ extension TraitConfiguration {
             enableAllTraits: traitOptions.enableAllTraits
         )
     }
+}
+
+public struct ProgressAnimationOptions: ParsableArguments {
+    public enum ProgressAnimationStyle: String, CaseIterable, ExpressibleByArgument {
+        case blast
+        case ninja
+        case lit
+
+        var style: Basics.ProgressAnimationStyle {
+            switch self {
+            case .blast: .blast
+            case .ninja: .ninja
+            case .lit: .lit
+            }
+        }
+    }
+
+    public enum TerminalColors: String, CaseIterable, ExpressibleByArgument {
+        case noColors = "none"
+        case _8 = "8"
+        case _16 = "16"
+        case _88 = "88"
+        case _256 = "256"
+        case _16m = "16m"
+
+        var coloring: Basics.TerminalColoring {
+            switch self {
+            case .noColors: .noColors
+            case ._8: ._8
+            case ._16: ._16
+            case ._88: ._88
+            case ._256: ._256
+            case ._16m: ._16m
+            }
+        }
+    }
+
+    @Option(name: .long, help: "Progress bar style.")
+    public var progressBarStyle: ProgressAnimationStyle?
+
+    @Option(name: .long, help: "Override default inferred terminal color support.")
+    public var termColors: TerminalColors?
+
+    @Option(name: .long, help: "Override default inferred terminal interactivity")
+    public var termInteractive: Bool?
+
+    package var configuration: Basics.ProgressAnimationConfiguration {
+        .init(
+            style: self.progressBarStyle?.style,
+            coloring: self.termColors?.coloring,
+            interactive: self.termInteractive)
+    }
+
+    public init() { }
 }
 
 // MARK: - Extensions

@@ -16,6 +16,7 @@ import XCTest
 @_spi(SwiftPMInternal)
 @testable
 import Basics
+import protocol TSCUtility.ProgressAnimationProtocol
 
 final class ProgressAnimationTests: XCTestCase {
     class TrackingProgressAnimation: ProgressAnimationProtocol {
