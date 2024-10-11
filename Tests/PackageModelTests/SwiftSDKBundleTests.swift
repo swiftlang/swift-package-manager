@@ -408,6 +408,23 @@ final class SwiftSDKBundleTests: XCTestCase {
             let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostTriple,
+                customCompileTriple: .arm64Linux,
+                store: store,
+                observabilityScope: system.topScope,
+                fileSystem: fileSystem
+            )
+
+            // With a custom target triple, toolset extra CLI options should be empty
+            XCTAssertEqual(targetSwiftSDK.toolset.rootPaths, hostSwiftSDK.toolset.rootPaths)
+            for tool in targetSwiftSDK.toolset.knownTools.values {
+                XCTAssertEqual(tool.extraCLIOptions, [])
+            }
+        }
+
+        do {
+            let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
+                hostSwiftSDK: hostSwiftSDK,
+                hostTriple: hostTriple,
                 swiftSDKSelector: "\(testArtifactID)1",
                 store: store,
                 observabilityScope: system.topScope,
