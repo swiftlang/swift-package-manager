@@ -734,7 +734,7 @@ public struct SwiftSDK: Equatable {
             // Append the host toolchain's toolset paths at the end for the case the target Swift SDK
             // doesn't have some of the tools (e.g. swift-frontend might be shared between the host and
             // target Swift SDKs).
-            let rootPaths = swiftSDK.toolset.rootPaths
+            let rootPaths = Set(swiftSDK.toolset.rootPaths)
             for rootPath in hostSwiftSDK.toolset.rootPaths where !rootPaths.contains(rootPath) {
                 swiftSDK.append(toolsetRootPath: rootPath)
             }
