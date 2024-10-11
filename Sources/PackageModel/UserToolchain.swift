@@ -411,6 +411,18 @@ public final class UserToolchain: Toolchain {
         derivedSwiftCompiler: AbsolutePath,
         fileSystem: any FileSystem
     ) -> (swiftCFlags: [String], linkerFlags: [String]) {
+        // If this is CommandLineTools all we need to add is a frameworks path.
+        if let frameworksPath = try? AbsolutePath(
+            validating: "../../Library/Developer/Frameworks",
+            relativeTo: resolveSymlinks(derivedSwiftCompiler).parentDirectory
+        ), fileSystem.exists(frameworksPath.appending("Testing.framework")) {
+            return (swiftCFlags: [
+                "-F", frameworksPath.pathString
+            ], linkerFlags: [
+                "-rpath", frameworksPath.pathString
+            ])
+        }
+
         guard let toolchainLibDir = try? toolchainLibDir(
             swiftCompilerPath: derivedSwiftCompiler
         ) else {
