@@ -12,6 +12,7 @@
 
 import Basics
 import Foundation
+import OrderedCollections
 import PackageModel
 
 import struct TSCBasic.ByteString
@@ -1011,10 +1012,10 @@ public enum PIF {
             }
         }
 
-        public private(set) var platformSpecificSingleValueSettings = [Platform: [SingleValueSetting: String]]()
-        public private(set) var platformSpecificMultipleValueSettings = [Platform: [MultipleValueSetting: [String]]]()
-        public private(set) var singleValueSettings: [SingleValueSetting: String] = [:]
-        public private(set) var multipleValueSettings: [MultipleValueSetting: [String]] = [:]
+        public private(set) var platformSpecificSingleValueSettings = OrderedDictionary<Platform, OrderedDictionary<SingleValueSetting, String>>()
+        public private(set) var platformSpecificMultipleValueSettings = OrderedDictionary<Platform, OrderedDictionary<MultipleValueSetting, [String]>>()
+        public private(set) var singleValueSettings: OrderedDictionary<SingleValueSetting, String> = [:]
+        public private(set) var multipleValueSettings: OrderedDictionary<MultipleValueSetting, [String]> = [:]
 
         public subscript(_ setting: SingleValueSetting) -> String? {
             get { singleValueSettings[setting] }
@@ -1108,10 +1109,10 @@ public enum PIF {
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
 
-            platformSpecificSingleValueSettings = try container.decodeIfPresent([Platform: [SingleValueSetting: String]].self, forKey: .platformSpecificSingleValueSettings) ?? .init()
-            platformSpecificMultipleValueSettings = try container.decodeIfPresent([Platform: [MultipleValueSetting: [String]]].self, forKey: .platformSpecificMultipleValueSettings) ?? .init()
-            singleValueSettings = try container.decodeIfPresent([SingleValueSetting: String].self, forKey: .singleValueSettings) ?? [:]
-            multipleValueSettings = try container.decodeIfPresent([MultipleValueSetting: [String]] .self, forKey: .multipleValueSettings) ?? [:]
+            platformSpecificSingleValueSettings = try container.decodeIfPresent(OrderedDictionary<Platform, OrderedDictionary<SingleValueSetting, String>>.self, forKey: .platformSpecificSingleValueSettings) ?? .init()
+            platformSpecificMultipleValueSettings = try container.decodeIfPresent(OrderedDictionary<Platform, OrderedDictionary<MultipleValueSetting, [String]>>.self, forKey: .platformSpecificMultipleValueSettings) ?? .init()
+            singleValueSettings = try container.decodeIfPresent(OrderedDictionary<SingleValueSetting, String>.self, forKey: .singleValueSettings) ?? [:]
+            multipleValueSettings = try container.decodeIfPresent(OrderedDictionary<MultipleValueSetting, [String]>.self, forKey: .multipleValueSettings) ?? [:]
         }
     }
 }
