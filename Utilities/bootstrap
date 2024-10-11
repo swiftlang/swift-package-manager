@@ -668,9 +668,6 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
         if os.path.exists("Package.resolved"):
             os.remove("Package.resolved")
 
-        swiftpm_args += ["-Xswiftc", "-Xfrontend", "-Xswiftc", "-disable-implicit-concurrency-module-import"]
-        swiftpm_args += ["-Xswiftc", "-Xfrontend", "-Xswiftc", "-disable-implicit-string-processing-module-import"]
-
     if integrated_swift_driver:
         swiftpm_args.append("--use-integrated-swift-driver")
 
