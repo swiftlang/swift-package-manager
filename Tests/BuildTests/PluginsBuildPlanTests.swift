@@ -89,6 +89,7 @@ final class PluginsBuildPlanTests: XCTestCase {
         try await fixture(name: "Miscellaneous/Plugins/SymbolGraphForBinaryDependency") { fixturePath in
             let result = try await AsyncProcess.popen(arguments: [
                 fixturePath.appending(RelativePath("FooKit/Scripts/archive_xcframework.sh")).pathString,
+                "FooKit"
             ])
             try print(result.utf8Output())
             try print(result.utf8stderrOutput())
