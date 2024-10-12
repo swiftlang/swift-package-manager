@@ -11,27 +11,73 @@
 ##
 ##===----------------------------------------------------------------------===##
 
-# A `realpath` alternative using the default C implementation.
-filepath() {
-  [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd -P)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+cd $PROJECT_ROOT
+
+PROJECT_BUILD_DIR="${PROJECT_BUILD_DIR:-"${PROJECT_ROOT}/.build"}"
+XCODEBUILD_BUILD_DIR="$PROJECT_BUILD_DIR/xcodebuild"
+XCODEBUILD_DERIVED_DATA_PATH="$XCODEBUILD_BUILD_DIR/DerivedData"
+
+PACKAGE_NAME=$1
+if [ -z "$PACKAGE_NAME" ]; then
+    echo "No package name provided. Using the first scheme found in the Package.swift."
+    PACKAGE_NAME=$(xcodebuild -list | awk 'schemes && NF>0 { print $1; exit } /Schemes:$/ { schemes = 1 }')
+    echo "Using: $PACKAGE_NAME"
+fi
+
+build_framework() {
+    local sdk="$1"
+    local destination="$2"
+    local scheme="$3"
+
+    local XCODEBUILD_ARCHIVE_PATH="$PROJECT_BUILD_DIR/$scheme-$sdk.xcarchive"
+
+    rm -rf "$XCODEBUILD_ARCHIVE_PATH"
+
+    PROTOBUFKIT_LIBRARY_TYPE=dynamic xcodebuild archive \
+        -scheme $scheme \
+        -archivePath $XCODEBUILD_ARCHIVE_PATH \
+        -derivedDataPath "$XCODEBUILD_DERIVED_DATA_PATH" \
+        -sdk "$sdk" \
+        -destination "$destination" \
+        BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+        INSTALL_PATH='Library/Frameworks' \
+        OTHER_SWIFT_FLAGS=-no-verify-emitted-module-interface    
+    
+    if [ "$sdk" = "macosx" ]; then
+        FRAMEWORK_MODULES_PATH="$XCODEBUILD_ARCHIVE_PATH/Products/Library/Frameworks/$scheme.framework/Versions/Current/Modules"
+        mkdir -p "$FRAMEWORK_MODULES_PATH"
+        cp -r \
+        "$XCODEBUILD_DERIVED_DATA_PATH/Build/Intermediates.noindex/ArchiveIntermediates/$scheme/BuildProductsPath/Release/$scheme.swiftmodule" \
+        "$FRAMEWORK_MODULES_PATH/$scheme.swiftmodule"
+        rm -rf "$XCODEBUILD_ARCHIVE_PATH/Products/Library/Frameworks/$scheme.framework/Modules"
+        ln -s Versions/Current/Modules "$XCODEBUILD_ARCHIVE_PATH/Products/Library/Frameworks/$scheme.framework/Modules"
+    else
+        FRAMEWORK_MODULES_PATH="$XCODEBUILD_ARCHIVE_PATH/Products/Library/Frameworks/$scheme.framework/Modules"
+        mkdir -p "$FRAMEWORK_MODULES_PATH"
+        cp -r \
+        "$XCODEBUILD_DERIVED_DATA_PATH/Build/Intermediates.noindex/ArchiveIntermediates/$scheme/BuildProductsPath/Release-$sdk/$scheme.swiftmodule" \
+        "$FRAMEWORK_MODULES_PATH/$scheme.swiftmodule"
+    fi
+    
+    # Delete private and package swiftinterface
+    rm -f "$FRAMEWORK_MODULES_PATH/$scheme.swiftmodule/*.package.swiftinterface"
+    rm -f "$FRAMEWORK_MODULES_PATH/$scheme.swiftmodule/*.private.swiftinterface"
 }
 
-ROOT="$(dirname $(dirname $(filepath $0)))"
+build_framework "macosx" "generic/platform=macOS" "$PACKAGE_NAME"
 
-cd $ROOT
+echo "Builds completed successfully."
 
-rm -rf archives
+cd $PROJECT_BUILD_DIR
 
-xcodebuild archive \
--project FooKit.xcodeproj \
--scheme FooKit \
--configuration Release \
--destination "generic/platform=macOS" \
--archivePath "archives/macOS" \
-SKIP_INSTALL=NO \
-BUILD_LIBRARY_FOR_DISTRIBUTION=YES
+XCFRAMEWORK_DESTINATION="$PROJECT_ROOT/../$PACKAGE_NAME.xcframework"
 
-xcodebuild \
--create-xcframework \
--archive archives/macOS.xcarchive -framework FooKit.framework \
--output ../FooKit.xcframework
+rm -rf $XCFRAMEWORK_DESTINATION
+xcodebuild -create-xcframework  \
+    -framework $PACKAGE_NAME-macosx.xcarchive/Products/Library/Frameworks/$PACKAGE_NAME.framework \
+    -output $XCFRAMEWORK_DESTINATION
