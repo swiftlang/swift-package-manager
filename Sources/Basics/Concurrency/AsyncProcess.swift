@@ -218,7 +218,7 @@ package final class AsyncProcess {
             case let .stream(stdoutClosure, stderrClosure, _):
                 (stdoutClosure: stdoutClosure, stderrClosure: stderrClosure)
 
-            case let .asyncStream(stdoutStream, stdoutContinuation, stderrStream, stderrContinuation):
+            case let .asyncStream(_, stdoutContinuation, _, stderrContinuation):
                 (stdoutClosure: { stdoutContinuation.yield($0) }, stderrClosure: { stderrContinuation.yield($0) })
 
             case .collect, .none:
@@ -786,7 +786,9 @@ package final class AsyncProcess {
     package func waitUntilExit() async throws -> AsyncProcessResult {
         try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.processConcurrent.async {
-                self.waitUntilExit(continuation.resume(with:))
+                self.waitUntilExit({
+                    continuation.resume(with: $0)
+                })
             }
         }
     }

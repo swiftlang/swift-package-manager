@@ -27,7 +27,7 @@
   * [Creating C Language Targets](#creating-c-language-targets)
   * [Using Shell Completion Scripts](#using-shell-completion-scripts)
   * [Package manifest specification](PackageDescription.md)
-  * [Packages and continuous integration](ContinousIntegration.md)
+  * [Packages and continuous integration](ContinuousIntegration.md)
 
 ---
 

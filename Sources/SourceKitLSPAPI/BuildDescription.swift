@@ -45,16 +45,20 @@ public protocol BuildTarget {
     /// Whether the target is part of the root package that the user opened or if it's part of a package dependency.
     var isPartOfRootPackage: Bool { get }
 
+    var isTestTarget: Bool { get }
+
     func compileArguments(for fileURL: URL) throws -> [String]
 }
 
 private struct WrappedClangTargetBuildDescription: BuildTarget {
     private let description: ClangModuleBuildDescription
     let isPartOfRootPackage: Bool
+    let isTestTarget: Bool
 
     init(description: ClangModuleBuildDescription, isPartOfRootPackage: Bool) {
         self.description = description
         self.isPartOfRootPackage = isPartOfRootPackage
+        self.isTestTarget = description.isTestTarget
     }
 
     public var sources: [URL] {
@@ -87,10 +91,12 @@ private struct WrappedClangTargetBuildDescription: BuildTarget {
 private struct WrappedSwiftTargetBuildDescription: BuildTarget {
     private let description: SwiftModuleBuildDescription
     let isPartOfRootPackage: Bool
+    let isTestTarget: Bool
 
     init(description: SwiftModuleBuildDescription, isPartOfRootPackage: Bool) {
         self.description = description
         self.isPartOfRootPackage = isPartOfRootPackage
+        self.isTestTarget = description.isTestTarget
     }
 
     public var name: String {
@@ -162,9 +168,9 @@ public struct BuildDescription {
     }
 
     public func traverseModules(
-        callback: (any BuildTarget, _ parent: (any BuildTarget)?, _ depth: Int) -> Void
+        callback: (any BuildTarget, _ parent: (any BuildTarget)?) -> Void
     ) {
-        self.buildPlan.traverseModules { module, parent, depth in
+        self.buildPlan.traverseModules { module, parent in
             let parentDescription: (any BuildTarget)? = if let parent {
                 getBuildTarget(for: parent.0, destination: parent.1)
             } else {
@@ -172,7 +178,7 @@ public struct BuildDescription {
             }
 
             if let description = getBuildTarget(for: module.0, destination: module.1) {
-                callback(description, parentDescription, depth)
+                callback(description, parentDescription)
             }
         }
     }

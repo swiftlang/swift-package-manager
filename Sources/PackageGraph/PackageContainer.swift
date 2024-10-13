@@ -189,13 +189,16 @@ public extension PackageContainerProvider {
         observabilityScope: ObservabilityScope,
         on queue: DispatchQueue
     ) async throws -> PackageContainer {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.getContainer(
                 for: package,
                 updateStrategy: updateStrategy,
                 observabilityScope: observabilityScope,
                 on: queue,
-                completion: $0.resume(with:))
+                completion: {
+                    continuation.resume(with: $0)
+                }
+            )
         }
     }
 }

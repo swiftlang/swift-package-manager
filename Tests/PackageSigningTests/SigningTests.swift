@@ -511,14 +511,14 @@ final class SigningTests: XCTestCase {
                     throw StringError("Missing OCSP request")
                 }
 
-                let ocspResponse = OCSPResponse.successful(try .signed(
+                let ocspResponse = try OCSPResponse.successful(.signed(
                     responderID: ResponderID.byName(intermediateName),
-                    producedAt: try GeneralizedTime(validationTime),
+                    producedAt: GeneralizedTime(validationTime),
                     responses: [OCSPSingleResponse(
                         certID: singleRequest.certID,
                         certStatus: .unknown,
-                        thisUpdate: try GeneralizedTime(validationTime - .days(1)),
-                        nextUpdate: try GeneralizedTime(validationTime + .days(1))
+                        thisUpdate: GeneralizedTime(validationTime - .days(1)),
+                        nextUpdate: GeneralizedTime(validationTime + .days(1))
                     )],
                     privateKey: intermediatePrivateKey,
                     responseExtensions: { nonce }
@@ -1173,21 +1173,6 @@ extension TimeInterval {
 
 private let gregorianCalendar = Calendar(identifier: .gregorian)
 private let utcTimeZone = TimeZone(identifier: "UTC")!
-
-extension GeneralizedTime {
-    init(_ date: Date) throws {
-        let components = gregorianCalendar.dateComponents(in: utcTimeZone, from: date)
-        try self.init(
-            year: components.year!,
-            month: components.month!,
-            day: components.day!,
-            hours: components.hour!,
-            minutes: components.minute!,
-            seconds: components.second!,
-            fractionalSeconds: 0.0
-        )
-    }
-}
 
 extension BasicOCSPResponse {
     static func signed(

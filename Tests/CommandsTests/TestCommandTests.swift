@@ -139,7 +139,7 @@ final class TestCommandTests: CommandsTestCase {
         try await fixture(name: "Miscellaneous/EmptyTestsPkg") { fixturePath in
             let xUnitOutput = fixturePath.appending("result.xml")
             // Run tests in parallel with verbose output.
-            let stdout = try await SwiftPM.Test.execute(["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString], packagePath: fixturePath).stdout
+            _ = try await SwiftPM.Test.execute(["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString], packagePath: fixturePath).stdout
 
             // Check the xUnit output.
             XCTAssertFileExists(xUnitOutput)
@@ -327,11 +327,14 @@ final class TestCommandTests: CommandsTestCase {
     }
 #endif
 
+#if os(macOS)
+    // "SWIFT_TESTING_ENABLED" is set only on macOS, skip the check on other platforms.
     func testLibraryEnvironmentVariable() async throws {
         try await fixture(name: "Miscellaneous/CheckTestLibraryEnvironmentVariable") { fixturePath in
             await XCTAssertAsyncNoThrow(try await SwiftPM.Test.execute(packagePath: fixturePath))
         }
     }
+#endif
 
     func testXCTestOnlyDoesNotLogAboutNoMatchingTests() async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in

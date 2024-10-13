@@ -44,7 +44,7 @@ public func XCTAssertEqual<T:Equatable, U:Equatable> (_ lhs:(T,U), _ rhs:(T,U), 
 }
 
 public func XCTSkipIfCI(file: StaticString = #filePath, line: UInt = #line) throws {
-    if let ci = ProcessInfo.processInfo.environment["CI"] as? NSString, ci.boolValue {
+    if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil {
         throw XCTSkip("Skipping because the test is being run on CI", file: file, line: line)
     }
 }
@@ -74,7 +74,7 @@ package func XCTAssertAsyncNoThrow<T>(
     do {
         _ = try await expression()
     } catch {
-        XCTAssertNoThrow({ throw error }, message(), file: file, line: line)
+        XCTAssertNoThrow(try { throw error }(), message(), file: file, line: line)
     }
 }
 

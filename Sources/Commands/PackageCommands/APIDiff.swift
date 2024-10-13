@@ -17,6 +17,7 @@ import Dispatch
 import PackageGraph
 import PackageModel
 import SourceControl
+import _Concurrency
 
 struct DeprecatedAPIDiff: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "experimental-api-diff",
@@ -119,37 +120,40 @@ struct APIDiff: AsyncSwiftCommand {
                     swiftCommandState: swiftCommandState
         )
 
-        let results = ThreadSafeArrayStore<SwiftAPIDigester.ComparisonResult>()
-        let group = DispatchGroup()
-        let semaphore = DispatchSemaphore(value: Int(try buildSystem.buildPlan.destinationBuildParameters.workers))
         var skippedModules: Set<String> = []
 
-        for module in modulesToDiff {
-            let moduleBaselinePath = baselineDir.appending("\(module).json")
-            guard swiftCommandState.fileSystem.exists(moduleBaselinePath) else {
-                print("\nSkipping \(module) because it does not exist in the baseline")
-                skippedModules.insert(module)
-                continue
-            }
-            semaphore.wait()
-            DispatchQueue.sharedConcurrent.async(group: group) {
-                do {
-                    if let comparisonResult = try apiDigesterTool.compareAPIToBaseline(
-                        at: moduleBaselinePath,
-                        for: module,
-                        buildPlan: try buildSystem.buildPlan,
-                        except: breakageAllowlistPath
-                    ) {
-                        results.append(comparisonResult)
-                    }
-                } catch {
-                    swiftCommandState.observabilityScope.emit(error: "failed to compare API to baseline", underlyingError: error)
-                }
-                semaphore.signal()
-            }
-        }
+        let results = await withTaskGroup(of: SwiftAPIDigester.ComparisonResult?.self, returning: [SwiftAPIDigester.ComparisonResult].self) { taskGroup in
 
-        group.wait()
+            for module in modulesToDiff {
+                let moduleBaselinePath = baselineDir.appending("\(module).json")
+                guard swiftCommandState.fileSystem.exists(moduleBaselinePath) else {
+                    print("\nSkipping \(module) because it does not exist in the baseline")
+                    skippedModules.insert(module)
+                    continue
+                }
+                taskGroup.addTask {
+                    do {
+                        if let comparisonResult = try apiDigesterTool.compareAPIToBaseline(
+                            at: moduleBaselinePath,
+                            for: module,
+                            buildPlan: try buildSystem.buildPlan,
+                            except: breakageAllowlistPath
+                        ) {
+                            return comparisonResult
+                        }
+                    } catch {
+                        swiftCommandState.observabilityScope.emit(error: "failed to compare API to baseline", underlyingError: error)
+                    }
+                    return nil
+                }
+            }
+            var results = [SwiftAPIDigester.ComparisonResult]()
+            for await result in taskGroup {
+                guard let result else { continue }
+                results.append(result)
+            }
+            return results
+        }
 
         let failedModules = modulesToDiff
             .subtracting(skippedModules)
@@ -158,11 +162,11 @@ struct APIDiff: AsyncSwiftCommand {
             swiftCommandState.observabilityScope.emit(error: "failed to read API digester output for \(failedModule)")
         }
 
-        for result in results.get() {
+        for result in results {
             try self.printComparisonResult(result, observabilityScope: swiftCommandState.observabilityScope)
         }
 
-        guard failedModules.isEmpty && results.get().allSatisfy(\.hasNoAPIBreakingChanges) else {
+        guard failedModules.isEmpty && results.allSatisfy(\.hasNoAPIBreakingChanges) else {
             throw ExitCode.failure
         }
     }

@@ -42,8 +42,18 @@ internal struct PluginContextDeserializer {
         
         // Compose a path based on an optional base path and a subpath.
         let wirePath = wireInput.paths[id]
-        let basePath = try wireInput.paths[id].baseURLId.map{ try self.url(for: $0) } ?? URL(fileURLWithPath: "/")
-        let path = basePath.appendingPathComponent(wirePath.subpath)
+        let basePath = try wireInput.paths[id].baseURLId.map{ try self.url(for: $0) }
+        let path: URL
+        if let basePath {
+            path = basePath.appendingPathComponent(wirePath.subpath)
+        } else {
+            #if os(Windows)
+            // Windows does not have a single root path like UNIX, if this component has no base path, it IS the root and should not be joined with anything
+            path = URL(fileURLWithPath: wirePath.subpath)
+            #else
+            path = URL(fileURLWithPath: "/").appendingPathComponent(wirePath.subpath)
+            #endif
+        }
 
         // Store it for the next look up.
         urlsById[id] = path
@@ -92,9 +102,9 @@ internal struct PluginContextDeserializer {
                 case .unknown:
                     type = .unknown
                 }
-                return File(path: Path(url: path), url: path, type: type)
+                return try File(path: Path(url: path), url: path, type: type)
             })
-            target = SwiftSourceModuleTarget(
+            target = try SwiftSourceModuleTarget(
                 id: String(id),
                 name: wireTarget.name,
                 kind: .init(kind),
@@ -125,9 +135,9 @@ internal struct PluginContextDeserializer {
                 case .unknown:
                     type = .unknown
                 }
-                return File(path: Path(url: path), url: path, type: type)
+                return try File(path: Path(url: path), url: path, type: type)
             })
-            target = ClangSourceModuleTarget(
+            target = try ClangSourceModuleTarget(
                 id: String(id),
                 name: wireTarget.name,
                 kind: .init(kind),
@@ -138,7 +148,7 @@ internal struct PluginContextDeserializer {
                 sourceFiles: sourceFiles,
                 preprocessorDefinitions: preprocessorDefinitions,
                 headerSearchPaths: headerSearchPaths,
-                publicHeadersDirectory: publicHeadersDir.map { .init(url: $0) },
+                publicHeadersDirectory: publicHeadersDir.map { try .init(url: $0) },
                 publicHeadersDirectoryURL: publicHeadersDir,
                 linkedLibraries: linkedLibraries,
                 linkedFrameworks: linkedFrameworks,
@@ -162,7 +172,7 @@ internal struct PluginContextDeserializer {
             case .remote(let url):
                 artifactOrigin = .remote(url: url)
             }
-            target = BinaryArtifactTarget(
+            target = try BinaryArtifactTarget(
                 id: String(id),
                 name: wireTarget.name,
                 directory: Path(url: directory),
@@ -174,7 +184,7 @@ internal struct PluginContextDeserializer {
                 artifactURL: artifact)
 
         case let .systemLibraryInfo(pkgConfig, compilerFlags, linkerFlags):
-            target = SystemLibraryTarget(
+            target = try SystemLibraryTarget(
                 id: String(id),
                 name: wireTarget.name,
                 directory: Path(url: directory),
@@ -261,7 +271,7 @@ internal struct PluginContextDeserializer {
             case .registry(let identity, let displayVersion):
                 .registry(identity: identity, displayVersion: displayVersion)
         }
-        let package = Package(
+        let package = try Package(
             id: wirePackage.identity,
             displayName: wirePackage.displayName,
             directory: Path(url: directory),

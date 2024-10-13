@@ -373,8 +373,8 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Foo", "Bar", "Overridden/bazzz"]) { graph, diagnostics in
             PackageGraphTester(graph) { result in
-                result.check(roots: "Bar", "Foo", "Baz")
-                result.check(packages: "Bar", "Baz", "Foo")
+                result.check(roots: "bar", "Foo", "bazzz")
+                result.check(packages: "bar", "bazzz", "foo")
                 result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
             }
             XCTAssertNoDiagnostics(diagnostics)
@@ -482,8 +482,8 @@ final class WorkspaceTests: XCTestCase {
             ]
         ) { graph, diagnostics in
             PackageGraphTester(graph) { result in
-                result.check(roots: "FooPackage", "BarPackage")
-                result.check(packages: "FooPackage", "BarPackage")
+                result.check(roots: "foo-package", "bar-package")
+                result.check(packages: "foo-package", "bar-package")
                 result.checkTarget("FooTarget") { result in result.check(dependencies: "BarProduct") }
             }
             XCTAssertNoDiagnostics(diagnostics)
@@ -2326,15 +2326,15 @@ final class WorkspaceTests: XCTestCase {
         // Load the graph.
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             PackageGraphTester(graph) { result in
-                result.check(roots: "Root")
-                result.check(packages: "Bar", "Foo", "Root")
+                result.check(roots: .plain("Root"))
+                result.check(packages: .plain("bar"), .plain("foo"), .plain("Root"))
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
 
         // Edit foo.
-        let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending("Foo")
-        await workspace.checkEdit(packageName: "Foo") { diagnostics in
+        let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending("foo")
+        await workspace.checkEdit(packageIdentity: "foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
@@ -2349,7 +2349,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Try re-editing foo.
-        await workspace.checkEdit(packageName: "Foo") { diagnostics in
+        await workspace.checkEdit(packageIdentity: "foo") { diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(diagnostic: .equal("dependency 'foo' already in edit mode"), severity: .error)
             }
@@ -2359,7 +2359,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Try editing bar at bad revision.
-        await workspace.checkEdit(packageName: "Bar", revision: Revision(identifier: "dev")) { diagnostics in
+        await workspace.checkEdit(packageIdentity: "bar", revision: Revision(identifier: "dev")) { diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(diagnostic: .equal("revision 'dev' does not exist"), severity: .error)
             }
@@ -2367,7 +2367,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Edit bar at a custom path and branch (ToT).
         let barPath = AbsolutePath("/tmp/ws/custom/bar")
-        await workspace.checkEdit(packageName: "Bar", path: barPath, checkoutBranch: "dev") { diagnostics in
+        await workspace.checkEdit(packageIdentity: "bar", path: barPath, checkoutBranch: "dev") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
@@ -2377,11 +2377,11 @@ final class WorkspaceTests: XCTestCase {
         XCTAssert(barRepo.revisions.contains("dev"))
 
         // Test unediting.
-        await workspace.checkUnedit(packageName: "Foo", roots: ["Root"]) { diagnostics in
+        await workspace.checkUnedit(packageIdentity: "foo", roots: ["Root"]) { diagnostics in
             XCTAssertFalse(fs.exists(fooPath))
             XCTAssertNoDiagnostics(diagnostics)
         }
-        await workspace.checkUnedit(packageName: "Bar", roots: ["Root"]) { diagnostics in
+        await workspace.checkUnedit(packageIdentity: "bar", roots: ["Root"]) { diagnostics in
             XCTAssert(fs.exists(barPath))
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -2425,7 +2425,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Edit foo.
         let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending("Foo")
-        await workspace.checkEdit(packageName: "Foo") { diagnostics in
+        await workspace.checkEdit(packageIdentity: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
@@ -2484,7 +2484,7 @@ final class WorkspaceTests: XCTestCase {
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
-        await workspace.checkEdit(packageName: "Foo") { diagnostics in
+        await workspace.checkEdit(packageIdentity: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
@@ -2516,7 +2516,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Unedit foo.
-        await workspace.checkUnedit(packageName: "Foo", roots: []) { diagnostics in
+        await workspace.checkUnedit(packageIdentity: "Foo", roots: []) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
@@ -2585,7 +2585,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Edit bar.
-        await workspace.checkEdit(packageName: "Bar") { diagnostics in
+        await workspace.checkEdit(packageIdentity: "Bar") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
@@ -2632,7 +2632,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Unedit should get the Package.resolved entry back.
-        await workspace.checkUnedit(packageName: "bar", roots: ["Root"]) { diagnostics in
+        await workspace.checkUnedit(packageIdentity: "bar", roots: ["Root"]) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
@@ -2867,7 +2867,7 @@ final class WorkspaceTests: XCTestCase {
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
-        await workspace.checkEdit(packageName: "Foo") { diagnostics in
+        await workspace.checkEdit(packageIdentity: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
@@ -3102,7 +3102,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Test that its not possible to edit or resolve this package.
-        await workspace.checkEdit(packageName: "Bar") { diagnostics in
+        await workspace.checkEdit(packageIdentity: "Bar") { diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(diagnostic: .contains("local dependency 'bar' can't be edited"), severity: .error)
             }
@@ -4530,7 +4530,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
-                result.check(packages: "BarMirror", "BazMirror", "Foo", "Dep")
+                result.check(packages: "bar-mirror", "baz-mirror", "foo", "dep")
                 result.check(modules: "Bar", "Baz", "Foo", "Dep")
             }
             XCTAssertNoDiagnostics(diagnostics)
@@ -4636,7 +4636,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
-                result.check(packages: "BarMirror", "Foo", "Dep")
+                result.check(packages: "bar-mirror", "foo", "dep")
                 result.check(modules: "Bar", "Foo", "Dep")
             }
             XCTAssertNoDiagnostics(diagnostics)
@@ -4707,7 +4707,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
-                result.check(packages: "BarMirror", "Baz", "Foo")
+                result.check(packages: "org.bar-mirror", "baz", "foo")
                 result.check(modules: "Bar", "Baz", "Foo")
             }
             XCTAssertNoDiagnostics(diagnostics)
@@ -4777,7 +4777,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
-                result.check(packages: "BarMirror", "Baz", "Foo")
+                result.check(packages: "bar-mirror", "org.baz", "foo")
                 result.check(modules: "Bar", "Baz", "Foo")
             }
             XCTAssertNoDiagnostics(diagnostics)
@@ -5706,7 +5706,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Edit foo.
         let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending("Foo")
-        await workspace.checkEdit(packageName: "Foo") { diagnostics in
+        await workspace.checkEdit(packageIdentity: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
@@ -11439,7 +11439,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
-                result.check(packages: "BarPackage", "BazPackage", "FooPackage", "Root", "QuxPackage")
+                result.check(packages: "bar", "baz", "foo", "Root", "qux")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "https://github.com/org/foo.git")
 
@@ -11576,7 +11576,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
-                result.check(packages: "BarPackage", "BazPackage", "FooPackage", "Root")
+                result.check(packages: "bar", "baz", "foo", "Root")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
 
@@ -11717,7 +11717,7 @@ final class WorkspaceTests: XCTestCase {
          try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
              XCTAssertNoDiagnostics(diagnostics)
              PackageGraphTester(graph) { result in
-                 result.check(packages: "BarPackage", "FooPackage", "Root")
+                 result.check(packages: "bar", "foo", "Root")
                  let package = result.find(package: "foo")
                  XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
              }
@@ -11736,7 +11736,7 @@ final class WorkspaceTests: XCTestCase {
          try await workspace.checkPackageGraph(roots: ["Root2"]) { graph, diagnostics in
              XCTAssertNoDiagnostics(diagnostics)
              PackageGraphTester(graph) { result in
-                 result.check(packages: "BarPackage", "BazPackage", "FooPackage", "Root2")
+                 result.check(packages: "bar", "baz", "foo", "Root2")
                  let package = result.find(package: "foo")
                  XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
              }
@@ -11828,7 +11828,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
-                result.check(packages: "FooPackage", "Root")
+                result.check(packages: "foo", "Root")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "https://github.com/org/foo.git")
             }
@@ -11847,7 +11847,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Root2"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
-                result.check(packages: "FooPackage", "Root2")
+                result.check(packages: "foo", "Root2")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
 
@@ -11974,7 +11974,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
-                result.check(packages: "BarPackage", "FooPackage", "Root")
+                result.check(packages: "bar", "foo", "Root")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "https://github.com/org/foo.git")
 
@@ -12000,7 +12000,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Root2"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
-                result.check(packages: "BarPackage", "FooPackage", "Root2")
+                result.check(packages: "bar", "foo", "Root2")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
 
@@ -12197,7 +12197,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
                 result.check(roots: "Root")
-                result.check(packages: "BarPackage", "FooPackage", "Root")
+                result.check(packages: "bar", "foo", "Root")
                 result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                 result.checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
             }
@@ -12663,7 +12663,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
                 result.check(roots: "MyPackage")
-                result.check(packages: "Bar", "Foo", "MyPackage")
+                result.check(packages: "org.bar", "org.foo", "mypackage")
                 result.check(modules: "Foo", "Bar", "MyTarget1", "MyTarget2")
                 result.checkTarget("MyTarget1") { result in result.check(dependencies: "Foo") }
                 result.checkTarget("MyTarget2") { result in result.check(dependencies: "Bar") }
@@ -12796,7 +12796,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
                 result.check(roots: "MyPackage")
-                result.check(packages: "Bar", "Baz", "Foo", "MyPackage")
+                result.check(packages: "org.bar", "org.baz", "org.foo", "mypackage")
                 result.check(modules: "Foo", "Bar", "Baz", "MyTarget1", "MyTarget2")
                 result.checkTarget("MyTarget1") { result in result.check(dependencies: "Foo") }
                 result.checkTarget("MyTarget2") { result in result.check(dependencies: "Bar") }
@@ -12921,7 +12921,7 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertNoDiagnostics(diagnostics)
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -12944,7 +12944,7 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertNoDiagnostics(diagnostics)
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -12967,7 +12967,7 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertNoDiagnostics(diagnostics)
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -13179,7 +13179,7 @@ final class WorkspaceTests: XCTestCase {
 
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -13203,7 +13203,7 @@ final class WorkspaceTests: XCTestCase {
 
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -13226,7 +13226,7 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertNoDiagnostics(diagnostics)
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -13341,7 +13341,7 @@ final class WorkspaceTests: XCTestCase {
                 }
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -13364,7 +13364,7 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertNoDiagnostics(diagnostics)
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -13612,7 +13612,7 @@ final class WorkspaceTests: XCTestCase {
                 }
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -13635,7 +13635,7 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertNoDiagnostics(diagnostics)
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -13899,7 +13899,7 @@ final class WorkspaceTests: XCTestCase {
                 }
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "BazPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "org.baz", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "BazTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -13927,7 +13927,7 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertNoDiagnostics(diagnostics)
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "BazPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "org.baz", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "BazTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -14186,7 +14186,7 @@ final class WorkspaceTests: XCTestCase {
                 }
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -14216,7 +14216,7 @@ final class WorkspaceTests: XCTestCase {
                 }
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }

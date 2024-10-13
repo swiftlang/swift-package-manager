@@ -39,7 +39,7 @@ struct PackageSigningEntityTOFU {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.validate(
                 registry: registry,
                 package: package,
@@ -47,7 +47,7 @@ struct PackageSigningEntityTOFU {
                 signingEntity: signingEntity,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
-                completion: $0.resume(with:)
+                completion: { continuation.resume(with: $0) }
             )
         }
     }

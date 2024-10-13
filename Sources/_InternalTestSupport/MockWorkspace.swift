@@ -169,13 +169,15 @@ public final class MockWorkspace {
                 if let containerProvider = customPackageContainerProvider {
                     let observability = ObservabilitySystem.makeForTesting()
                     let packageRef = PackageReference(identity: PackageIdentity(url: url), kind: .remoteSourceControl(url))
-                    let container = try await withCheckedThrowingContinuation {
+                    let container = try await withCheckedThrowingContinuation { continuation in
                         containerProvider.getContainer(
                             for: packageRef,
                             updateStrategy: .never,
                             observabilityScope: observability.topScope,
                             on: .sharedConcurrent,
-                            completion: $0.resume(with:)
+                            completion: {
+                                continuation.resume(with: $0)
+                            }
                         )
                     }
                     guard let customContainer = container as? CustomPackageContainer else {
@@ -229,7 +231,7 @@ public final class MockWorkspace {
             if let specifier = sourceControlSpecifier {
                 let repository = self.repositoryProvider.specifierMap[specifier] ?? .init(path: packagePath, fs: self.fileSystem)
                 try writePackageContent(fileSystem: repository, root: .root, toolsVersion: packageToolsVersion)
-                
+
                 let versions = packageVersions.compactMap{ $0 }
                 if versions.isEmpty {
                     try repository.commit()
@@ -370,7 +372,7 @@ public final class MockWorkspace {
     }
 
     public func checkEdit(
-        packageName: String,
+        packageIdentity: String,
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
@@ -380,7 +382,7 @@ public final class MockWorkspace {
         await observability.topScope.trap {
             let ws = try self.getOrCreateWorkspace()
             await ws.edit(
-                packageName: packageName,
+                packageIdentity: packageIdentity,
                 path: path,
                 revision: revision,
                 checkoutBranch: checkoutBranch,
@@ -391,7 +393,7 @@ public final class MockWorkspace {
     }
 
     public func checkUnedit(
-        packageName: String,
+        packageIdentity: String,
         roots: [String],
         forceRemove: Bool = false,
         _ result: ([Basics.Diagnostic]) -> Void
@@ -401,7 +403,7 @@ public final class MockWorkspace {
             let rootInput = PackageGraphRootInput(packages: try rootPaths(for: roots))
             let ws = try self.getOrCreateWorkspace()
             try await ws.unedit(
-                packageName: packageName,
+                packageIdentity: packageIdentity,
                 forceRemove: forceRemove,
                 root: rootInput,
                 observabilityScope: observability.topScope

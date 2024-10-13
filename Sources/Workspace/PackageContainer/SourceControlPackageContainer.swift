@@ -396,7 +396,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     private func loadManifest(fileSystem: FileSystem, version: Version?, revision: String) async throws -> Manifest {
         // Load the manifest.
         // FIXME: this should not block
-        return try await withCheckedThrowingContinuation {
+        return try await withCheckedThrowingContinuation { continuation in
             self.manifestLoader.load(
                 packagePath: .root,
                 packageIdentity: self.package.identity,
@@ -410,7 +410,9 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
                 observabilityScope: self.observabilityScope,
                 delegateQueue: .sharedConcurrent,
                 callbackQueue: .sharedConcurrent,
-                completion: $0.resume(with:)
+                completion: {
+                    continuation.resume(with: $0)
+                }
             )
         }
     }

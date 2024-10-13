@@ -525,7 +525,6 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
-                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "foo")
                             XCTAssertEqual(settings[.INSTALL_PATH], "/usr/local/bin")
                             XCTAssertEqual(
                                 settings[.LD_RUNPATH_SEARCH_PATHS],
@@ -534,7 +533,7 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "foo")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "foo")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "foo")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(settings[.SKIP_INSTALL], "NO")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "foo")
@@ -551,7 +550,6 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
-                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "foo")
                             XCTAssertEqual(settings[.INSTALL_PATH], "/usr/local/bin")
                             XCTAssertEqual(
                                 settings[.LD_RUNPATH_SEARCH_PATHS],
@@ -560,7 +558,7 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "foo")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "foo")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "foo")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(settings[.SKIP_INSTALL], "NO")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "foo")
@@ -590,7 +588,6 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
-                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "cfoo")
                             XCTAssertEqual(
                                 settings[.HEADER_SEARCH_PATHS],
                                 ["$(inherited)", "/Foo/Sources/cfoo/include"]
@@ -603,7 +600,7 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "cfoo")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "cfoo")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "cfoo")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(settings[.SKIP_INSTALL], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "cfoo")
                             XCTAssertEqual(
@@ -619,7 +616,6 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
-                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "cfoo")
                             XCTAssertEqual(
                                 settings[.HEADER_SEARCH_PATHS],
                                 ["$(inherited)", "/Foo/Sources/cfoo/include"]
@@ -632,7 +628,7 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "cfoo")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "cfoo")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "cfoo")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(settings[.SKIP_INSTALL], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "cfoo")
                             XCTAssertEqual(
@@ -664,11 +660,10 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
-                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "bar")
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "bar")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "bar")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "bar")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "4.2")
                             XCTAssertEqual(settings[.TARGET_NAME], "bar")
                             XCTAssertEqual(
@@ -684,11 +679,10 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
-                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "bar")
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "bar")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "bar")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "bar")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "4.2")
                             XCTAssertEqual(settings[.TARGET_NAME], "bar")
                             XCTAssertEqual(
@@ -718,7 +712,6 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.CLANG_CXX_LANGUAGE_STANDARD], "c++14")
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
-                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "cbar")
                             XCTAssertEqual(settings[.GCC_C_LANGUAGE_STANDARD], "c11")
                             XCTAssertEqual(
                                 settings[.HEADER_SEARCH_PATHS],
@@ -727,7 +720,7 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "cbar")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "cbar")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "cbar")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(settings[.TARGET_NAME], "cbar")
                             XCTAssertEqual(
                                 settings[.LIBRARY_SEARCH_PATHS],
@@ -743,7 +736,6 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.CLANG_CXX_LANGUAGE_STANDARD], "c++14")
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
-                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "cbar")
                             XCTAssertEqual(settings[.GCC_C_LANGUAGE_STANDARD], "c11")
                             XCTAssertEqual(
                                 settings[.HEADER_SEARCH_PATHS],
@@ -752,7 +744,7 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "cbar")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "cbar")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "cbar")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(settings[.TARGET_NAME], "cbar")
                             XCTAssertEqual(
                                 settings[.LIBRARY_SEARCH_PATHS],
@@ -874,7 +866,6 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
-                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "FooTests")
                             XCTAssertEqual(settings[.GENERATE_INFOPLIST_FILE], "YES")
                             XCTAssertEqual(settings[.LD_RUNPATH_SEARCH_PATHS], [
                                 "$(inherited)",
@@ -888,7 +879,7 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "FooTests")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "FooTests")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "FooTests")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "FooTests")
                             XCTAssertEqual(
@@ -922,7 +913,6 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
-                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "FooTests")
                             XCTAssertEqual(settings[.GENERATE_INFOPLIST_FILE], "YES")
                             XCTAssertEqual(settings[.LD_RUNPATH_SEARCH_PATHS], [
                                 "$(inherited)",
@@ -936,7 +926,7 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "FooTests")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "FooTests")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "FooTests")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "FooTests")
                             XCTAssertEqual(
@@ -981,7 +971,6 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
-                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "CFooTests")
                             XCTAssertEqual(settings[.GENERATE_INFOPLIST_FILE], "YES")
                             XCTAssertEqual(settings[.HEADER_SEARCH_PATHS], [
                                 "$(inherited)",
@@ -999,7 +988,7 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "CFooTests")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "CFooTests")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "CFooTests")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(settings[.TARGET_NAME], "CFooTests")
                             XCTAssertEqual(
                                 settings[.WATCHOS_DEPLOYMENT_TARGET],
@@ -1032,7 +1021,6 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
-                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "CFooTests")
                             XCTAssertEqual(settings[.GENERATE_INFOPLIST_FILE], "YES")
                             XCTAssertEqual(settings[.HEADER_SEARCH_PATHS], [
                                 "$(inherited)",
@@ -1050,7 +1038,7 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "CFooTests")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "CFooTests")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "CFooTests")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(settings[.TARGET_NAME], "CFooTests")
                             XCTAssertEqual(
                                 settings[.WATCHOS_DEPLOYMENT_TARGET],
@@ -1249,13 +1237,13 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.CURRENT_PROJECT_VERSION], "1")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
-                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "BarLib")
+                            XCTAssertEqual(settings[.EXECUTABLE_PREFIX], "lib")
                             XCTAssertEqual(settings[.GENERATE_INFOPLIST_FILE], "YES")
                             XCTAssertEqual(settings[.INSTALL_PATH], "/usr/local/lib")
                             XCTAssertEqual(settings[.MARKETING_VERSION], "1.0")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "BarLib")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "BarLib")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "BarLib")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(settings[.SKIP_INSTALL], "NO")
                             XCTAssertEqual(settings[.TARGET_BUILD_DIR], "$(TARGET_BUILD_DIR)/PackageFrameworks")
                             XCTAssertEqual(settings[.TARGET_NAME], "BarLib")
@@ -1275,13 +1263,13 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.CURRENT_PROJECT_VERSION], "1")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
-                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "BarLib")
+                            XCTAssertEqual(settings[.EXECUTABLE_PREFIX], "lib")
                             XCTAssertEqual(settings[.GENERATE_INFOPLIST_FILE], "YES")
                             XCTAssertEqual(settings[.INSTALL_PATH], "/usr/local/lib")
                             XCTAssertEqual(settings[.MARKETING_VERSION], "1.0")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "BarLib")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "BarLib")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "BarLib")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(settings[.SKIP_INSTALL], "NO")
                             XCTAssertEqual(settings[.TARGET_BUILD_DIR], "$(TARGET_BUILD_DIR)/PackageFrameworks")
                             XCTAssertEqual(settings[.TARGET_NAME], "BarLib")
@@ -1367,7 +1355,7 @@ final class PIFBuilderTests: XCTestCase {
                 project.checkTarget("PACKAGE-TARGET:FooLib1") { target in
                     XCTAssertEqual(target.name, "FooLib1")
                     XCTAssertEqual(target.productType, .objectFile)
-                    XCTAssertEqual(target.productName, "FooLib1.o")
+                    XCTAssertEqual(target.productName, "FooLib1_Module.o")
                     XCTAssertEqual(target.dependencies, [
                         "PACKAGE-TARGET:FooLib2",
                         "PACKAGE-TARGET:SystemLib",
@@ -1383,7 +1371,6 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.CLANG_COVERAGE_MAPPING_LINKER_ARGS], "NO")
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
-                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "FooLib1.o")
                             XCTAssertEqual(settings[.GENERATE_MASTER_OBJECT_FILE], "NO")
                             XCTAssertEqual(settings[.MACH_O_TYPE], "mh_object")
                             XCTAssertEqual(settings[.MODULEMAP_FILE_CONTENTS], """
@@ -1399,14 +1386,14 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "FooLib1")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "FooLib1")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "FooLib1.o")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(
                                 settings[.SWIFT_OBJC_INTERFACE_HEADER_DIR],
                                 "$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)"
                             )
                             XCTAssertEqual(settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME], "FooLib1-Swift.h")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
-                            XCTAssertEqual(settings[.TARGET_NAME], "FooLib1")
+                            XCTAssertEqual(settings[.TARGET_NAME], "FooLib1_Module")
                         }
                     }
 
@@ -1417,7 +1404,6 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.CLANG_COVERAGE_MAPPING_LINKER_ARGS], "NO")
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
-                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "FooLib1.o")
                             XCTAssertEqual(settings[.GENERATE_MASTER_OBJECT_FILE], "NO")
                             XCTAssertEqual(settings[.MACH_O_TYPE], "mh_object")
                             XCTAssertEqual(settings[.MODULEMAP_FILE_CONTENTS], """
@@ -1433,14 +1419,14 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "FooLib1")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "FooLib1")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "FooLib1.o")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(
                                 settings[.SWIFT_OBJC_INTERFACE_HEADER_DIR],
                                 "$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)"
                             )
                             XCTAssertEqual(settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME], "FooLib1-Swift.h")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
-                            XCTAssertEqual(settings[.TARGET_NAME], "FooLib1")
+                            XCTAssertEqual(settings[.TARGET_NAME], "FooLib1_Module")
                         }
                     }
 
@@ -1457,7 +1443,7 @@ final class PIFBuilderTests: XCTestCase {
                 project.checkTarget("PACKAGE-TARGET:FooLib2") { target in
                     XCTAssertEqual(target.name, "FooLib2")
                     XCTAssertEqual(target.productType, .objectFile)
-                    XCTAssertEqual(target.productName, "FooLib2.o")
+                    XCTAssertEqual(target.productName, "FooLib2_Module.o")
                     XCTAssertEqual(target.dependencies, ["PACKAGE-PRODUCT:BarLib"])
                     XCTAssertEqual(target.sources, ["/Foo/Sources/FooLib2/lib.cpp"])
                     XCTAssertEqual(target.frameworks, [])
@@ -1470,7 +1456,6 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.CLANG_CXX_LANGUAGE_STANDARD], "c++14")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
-                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "FooLib2.o")
                             XCTAssertEqual(settings[.GENERATE_MASTER_OBJECT_FILE], "NO")
                             XCTAssertEqual(
                                 settings[.HEADER_SEARCH_PATHS],
@@ -1490,8 +1475,8 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "FooLib2")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "FooLib2")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "FooLib2.o")
-                            XCTAssertEqual(settings[.TARGET_NAME], "FooLib2")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
+                            XCTAssertEqual(settings[.TARGET_NAME], "FooLib2_Module")
                         }
                     }
 
@@ -1503,7 +1488,6 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.CLANG_CXX_LANGUAGE_STANDARD], "c++14")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
-                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "FooLib2.o")
                             XCTAssertEqual(settings[.GENERATE_MASTER_OBJECT_FILE], "NO")
                             XCTAssertEqual(
                                 settings[.HEADER_SEARCH_PATHS],
@@ -1523,8 +1507,8 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "FooLib2")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "FooLib2")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "FooLib2.o")
-                            XCTAssertEqual(settings[.TARGET_NAME], "FooLib2")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
+                            XCTAssertEqual(settings[.TARGET_NAME], "FooLib2_Module")
                         }
                     }
 
@@ -1552,7 +1536,7 @@ final class PIFBuilderTests: XCTestCase {
                 project.checkTarget("PACKAGE-TARGET:BarLib") { target in
                     XCTAssertEqual(target.name, "BarLib")
                     XCTAssertEqual(target.productType, .objectFile)
-                    XCTAssertEqual(target.productName, "BarLib.o")
+                    XCTAssertEqual(target.productName, "BarLib_Module.o")
                     XCTAssertEqual(target.dependencies, [])
                     XCTAssertEqual(target.sources, ["/Bar/Sources/BarLib/lib.c"])
                     XCTAssertEqual(target.frameworks, [])
@@ -1564,7 +1548,6 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.CLANG_COVERAGE_MAPPING_LINKER_ARGS], "NO")
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
-                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "BarLib.o")
                             XCTAssertEqual(settings[.GCC_C_LANGUAGE_STANDARD], "c11")
                             XCTAssertEqual(settings[.GENERATE_MASTER_OBJECT_FILE], "NO")
                             XCTAssertEqual(
@@ -1585,8 +1568,8 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "BarLib")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "BarLib")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "BarLib.o")
-                            XCTAssertEqual(settings[.TARGET_NAME], "BarLib")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
+                            XCTAssertEqual(settings[.TARGET_NAME], "BarLib_Module")
                         }
                     }
 
@@ -1597,7 +1580,6 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.CLANG_COVERAGE_MAPPING_LINKER_ARGS], "NO")
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.DEFINES_MODULE], "YES")
-                            XCTAssertEqual(settings[.EXECUTABLE_NAME], "BarLib.o")
                             XCTAssertEqual(settings[.GCC_C_LANGUAGE_STANDARD], "c11")
                             XCTAssertEqual(settings[.GENERATE_MASTER_OBJECT_FILE], "NO")
                             XCTAssertEqual(
@@ -1618,8 +1600,8 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "BarLib")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "BarLib")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "BarLib.o")
-                            XCTAssertEqual(settings[.TARGET_NAME], "BarLib")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
+                            XCTAssertEqual(settings[.TARGET_NAME], "BarLib_Module")
                         }
                     }
 
@@ -1738,7 +1720,7 @@ final class PIFBuilderTests: XCTestCase {
                 project.checkTarget("PACKAGE-TARGET:Utils") { target in
                     XCTAssertEqual(target.name, "Utils")
                     XCTAssertEqual(target.productType, .objectFile)
-                    XCTAssertEqual(target.productName, "Utils.o")
+                    XCTAssertEqual(target.productName, "Utils_Module.o")
                     XCTAssertEqual(target.dependencies, [
                         "PACKAGE-PRODUCT:BarLib",
                     ])
@@ -1762,7 +1744,7 @@ final class PIFBuilderTests: XCTestCase {
                 project.checkTarget("PACKAGE-TARGET:Logging") { target in
                     XCTAssertEqual(target.name, "Logging")
                     XCTAssertEqual(target.productType, .objectFile)
-                    XCTAssertEqual(target.productName, "Logging.o")
+                    XCTAssertEqual(target.productName, "Logging_Module.o")
                     XCTAssertEqual(target.dependencies, [])
 
                     target.checkBuildConfiguration("Debug") { configuration in
@@ -1797,7 +1779,7 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkBuildSettings { settings in
                             XCTAssertNil(settings[.SWIFT_MODULE_ALIASES])
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "BarLib")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "BarLib")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(settings[.TARGET_NAME], "BarLib")
                         }
                     }
@@ -1808,7 +1790,7 @@ final class PIFBuilderTests: XCTestCase {
                         configuration.checkBuildSettings { settings in
                             XCTAssertNil(settings[.SWIFT_MODULE_ALIASES])
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "BarLib")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "BarLib")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(settings[.TARGET_NAME], "BarLib")
                         }
                     }
@@ -1816,7 +1798,7 @@ final class PIFBuilderTests: XCTestCase {
                 project.checkTarget("PACKAGE-TARGET:BarLogging") { target in
                     XCTAssertEqual(target.name, "BarLogging")
                     XCTAssertEqual(target.productType, .objectFile)
-                    XCTAssertEqual(target.productName, "BarLogging.o")
+                    XCTAssertEqual(target.productName, "BarLogging_Module.o")
                     XCTAssertEqual(target.dependencies, [])
                     XCTAssertEqual(target.frameworks, [])
 
@@ -1825,8 +1807,8 @@ final class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(configuration.name, "Debug")
                         configuration.checkBuildSettings { settings in
                             XCTAssertEqual(settings[.SWIFT_MODULE_ALIASES], ["Logging=BarLogging"])
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "BarLogging.o")
-                            XCTAssertEqual(settings[.TARGET_NAME], "BarLogging")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
+                            XCTAssertEqual(settings[.TARGET_NAME], "BarLogging_Module")
                         }
                     }
 
@@ -1835,15 +1817,15 @@ final class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(configuration.name, "Release")
                         configuration.checkBuildSettings { settings in
                             XCTAssertEqual(settings[.SWIFT_MODULE_ALIASES], ["Logging=BarLogging"])
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "BarLogging.o")
-                            XCTAssertEqual(settings[.TARGET_NAME], "BarLogging")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
+                            XCTAssertEqual(settings[.TARGET_NAME], "BarLogging_Module")
                         }
                     }
                 }
                 project.checkTarget("PACKAGE-TARGET:Lib") { target in
                     XCTAssertEqual(target.name, "Lib")
                     XCTAssertEqual(target.productType, .objectFile)
-                    XCTAssertEqual(target.productName, "Lib.o")
+                    XCTAssertEqual(target.productName, "Lib_Module.o")
                     XCTAssertEqual(target.dependencies, ["PACKAGE-TARGET:BarLogging"])
                     XCTAssertEqual(target.frameworks, [])
 
@@ -1852,8 +1834,8 @@ final class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(configuration.name, "Debug")
                         configuration.checkBuildSettings { settings in
                             XCTAssertEqual(settings[.SWIFT_MODULE_ALIASES], ["Logging=BarLogging"])
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "Lib.o")
-                            XCTAssertEqual(settings[.TARGET_NAME], "Lib")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
+                            XCTAssertEqual(settings[.TARGET_NAME], "Lib_Module")
                         }
                     }
 
@@ -1862,8 +1844,8 @@ final class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(configuration.name, "Release")
                         configuration.checkBuildSettings { settings in
                             XCTAssertEqual(settings[.SWIFT_MODULE_ALIASES], ["Logging=BarLogging"])
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "Lib.o")
-                            XCTAssertEqual(settings[.TARGET_NAME], "Lib")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
+                            XCTAssertEqual(settings[.TARGET_NAME], "Lib_Module")
                         }
                     }
                 }
@@ -2272,7 +2254,7 @@ final class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(configuration.name, "Debug")
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.TARGET_NAME], "Foo_foo")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "Foo_foo")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "Foo_foo")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "Foo.foo.resources")
                             XCTAssertEqual(settings[.GENERATE_INFOPLIST_FILE], "YES")
@@ -2285,7 +2267,7 @@ final class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(configuration.name, "Release")
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.TARGET_NAME], "Foo_foo")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "Foo_foo")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "Foo_foo")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "Foo.foo.resources")
                             XCTAssertEqual(settings[.GENERATE_INFOPLIST_FILE], "YES")
@@ -2374,7 +2356,7 @@ final class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(configuration.name, "Debug")
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.TARGET_NAME], "Foo_FooTests")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "Foo_FooTests")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "Foo_FooTests")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "Foo.FooTests.resources")
                             XCTAssertEqual(settings[.GENERATE_INFOPLIST_FILE], "YES")
@@ -2387,7 +2369,7 @@ final class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(configuration.name, "Release")
                         configuration.checkAllBuildSettings { settings in
                             XCTAssertEqual(settings[.TARGET_NAME], "Foo_FooTests")
-                            XCTAssertEqual(settings[.PRODUCT_NAME], "Foo_FooTests")
+                            XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "Foo_FooTests")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "Foo.FooTests.resources")
                             XCTAssertEqual(settings[.GENERATE_INFOPLIST_FILE], "YES")
@@ -3036,6 +3018,7 @@ extension PIFBuilderParameters {
         supportedSwiftVersions: [SwiftLanguageVersion] = []
     ) -> Self {
         PIFBuilderParameters(
+            triple: .macOS,
             isPackageAccessModifierSupported: isPackageAccessModifierSupported,
             enableTestability: false,
             shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts,

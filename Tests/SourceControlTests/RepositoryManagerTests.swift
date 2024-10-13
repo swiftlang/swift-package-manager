@@ -698,7 +698,7 @@ extension RepositoryManager {
         updateStrategy: RepositoryUpdateStrategy = .always,
         observabilityScope: ObservabilityScope
     ) async throws -> RepositoryHandle {
-        return try await withCheckedThrowingContinuation {
+        return try await withCheckedThrowingContinuation { continuation in
             self.lookup(
                 package: .init(url: SourceControlURL(repository.url)),
                 repository: repository,
@@ -706,7 +706,9 @@ extension RepositoryManager {
                 observabilityScope: observabilityScope,
                 delegateQueue: .sharedConcurrent,
                 callbackQueue: .sharedConcurrent,
-                completion: $0.resume(with:)
+                completion: {
+                  continuation.resume(with: $0)
+                }
             )
         }
     }

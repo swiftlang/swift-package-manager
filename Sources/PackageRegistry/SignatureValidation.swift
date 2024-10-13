@@ -64,7 +64,7 @@ struct SignatureValidation {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> SigningEntity? {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.validate(
                 registry: registry,
                 package: package,
@@ -75,7 +75,7 @@ struct SignatureValidation {
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope, 
                 callbackQueue: callbackQueue,
-                completion: $0.resume(with:)
+                completion: { continuation.resume(with: $0) }
             )
         }
     }
@@ -326,7 +326,7 @@ struct SignatureValidation {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> SigningEntity? {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.validate(
                 registry: registry,
                 package: package,
@@ -338,7 +338,7 @@ struct SignatureValidation {
                 fileSystem:fileSystem,
                 observabilityScope: observabilityScope, 
                 callbackQueue: callbackQueue,
-                completion: $0.resume(with:)
+                completion: { continuation.resume(with: $0) }
             )
         }
     }
@@ -582,13 +582,13 @@ struct SignatureValidation {
         configuration: RegistryConfiguration.Security.Signing,
         fileSystem: FileSystem
     ) async throws ->  SigningEntity? {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             SignatureValidation.extractSigningEntity(
                 signature: signature,
                 signatureFormat: signatureFormat,
                 configuration: configuration,
                 fileSystem: fileSystem,
-                completion: $0.resume(with:)
+                completion: { continuation.resume(with: $0) }
             )
         }
     }

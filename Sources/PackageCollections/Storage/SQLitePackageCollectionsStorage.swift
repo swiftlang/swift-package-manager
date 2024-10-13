@@ -625,7 +625,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             try self.withDB { db in
                 let packagesStatement = try db.prepare(query: "INSERT INTO \(Self.packagesFTSName) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);")
                 let targetsStatement = try db.prepare(query: "INSERT INTO \(Self.targetsFTSNameV1) VALUES (?, ?, ?, ?);")
-                
+
                 try db.exec(query: "BEGIN TRANSACTION;")
                 do {
                     // Then insert new data
@@ -679,7 +679,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                             try targetsStatement.reset()
                         }
                     }
-                    
+
                     try db.exec(query: "COMMIT;")
                 } catch {
                     try db.exec(query: "ROLLBACK;")
@@ -728,7 +728,11 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
     }
     internal func populateTargetTrie() async throws {
-        try await withCheckedThrowingContinuation { self.populateTargetTrie(callback: $0.resume(with:)) }
+        try await withCheckedThrowingContinuation { continuation in
+            self.populateTargetTrie(callback: {
+                continuation.resume(with: $0)
+            })
+        }
     }
 
     internal func populateTargetTrie(callback: @escaping (Result<Void, Error>) -> Void = { _ in }) {
@@ -948,7 +952,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                 );
             """
             try db.exec(query: ftsTargetsV0)
-            
+
             let ftsTargetsV1 = """
                 CREATE VIRTUAL TABLE IF NOT EXISTS \(Self.targetsFTSNameV1) USING fts4(
                     collection_id_blob_base64, package_id, package_repository_url, name,

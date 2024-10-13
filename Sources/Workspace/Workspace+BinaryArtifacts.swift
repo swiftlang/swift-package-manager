@@ -579,7 +579,7 @@ extension Workspace {
             artifact: RemoteArtifact,
             destination: AbsolutePath,
             observabilityScope: ObservabilityScope,
-            progress: @escaping (Int64, Optional<Int64>) -> Void,
+            progress: @escaping @Sendable (Int64, Optional<Int64>) -> Void,
             completion: @escaping (Result<Bool, Error>) -> Void
         ) {
             // not using cache, download directly
@@ -651,7 +651,7 @@ extension Workspace {
             artifact: RemoteArtifact,
             destination: AbsolutePath,
             observabilityScope: ObservabilityScope,
-            progress: @escaping (Int64, Optional<Int64>) -> Void,
+            progress: @escaping @Sendable (Int64, Optional<Int64>) -> Void,
             completion: @escaping (Result<Void, Error>) -> Void
         ) {
             observabilityScope.emit(debug: "downloading \(artifact.url) to \(destination)")

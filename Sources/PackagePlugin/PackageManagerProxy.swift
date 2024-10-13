@@ -113,7 +113,7 @@ public struct PackageManager {
             /// Full path of the built artifact in the local file system.
             @available(_PackageDescription, deprecated: 6.0, renamed: "url")
             public var path: Path {
-                Path(url: self.url)
+                try! Path(url: self.url)
             }
 
             /// Full path of the built artifact in the local file system.
@@ -187,7 +187,7 @@ public struct PackageManager {
         /// `llvm-cov`, if `enableCodeCoverage` was set in the test parameters.
         @available(_PackageDescription, deprecated: 6.0, renamed: "codeCoverageDataFileURL")
         public var codeCoverageDataFile: Path? {
-            self.codeCoverageDataFileURL.map { Path(url: $0) }
+            self.codeCoverageDataFileURL.map { try! Path(url: $0) }
         }
 
         /// Path of a generated `.profdata` file suitable for processing using
@@ -275,7 +275,7 @@ public struct PackageManager {
         /// The directory that contains the symbol graph files for the target.
         @available(_PackageDescription, deprecated: 6.0, renamed: "directoryURL")
         public var directoryPath: Path {
-            Path(url: self.directoryURL)
+            try! Path(url: self.directoryURL)
         }
 
         /// The directory that contains the symbol graph files for the target.

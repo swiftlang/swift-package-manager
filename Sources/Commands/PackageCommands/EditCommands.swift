@@ -32,8 +32,8 @@ extension SwiftPackageCommand {
         @Option(help: "Create or use the checkout at this path")
         var path: AbsolutePath?
 
-        @Argument(help: "The name of the package to edit")
-        var packageName: String
+        @Argument(help: "The identity of the package to edit")
+        var packageIdentity: String
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             try await swiftCommandState.resolve()
@@ -41,7 +41,7 @@ extension SwiftPackageCommand {
 
             // Put the dependency in edit mode.
             await workspace.edit(
-                packageName: packageName,
+                packageIdentity: packageIdentity,
                 path: path,
                 revision: revision,
                 checkoutBranch: checkoutBranch,
@@ -61,15 +61,15 @@ extension SwiftPackageCommand {
               help: "Unedit the package even if it has uncommitted and unpushed changes")
         var shouldForceRemove: Bool = false
 
-        @Argument(help: "The name of the package to unedit")
-        var packageName: String
+        @Argument(help: "The identity of the package to unedit")
+        var packageIdentity: String
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             try await swiftCommandState.resolve()
             let workspace = try swiftCommandState.getActiveWorkspace()
 
             try await workspace.unedit(
-                packageName: packageName,
+                packageIdentity: packageIdentity,
                 forceRemove: shouldForceRemove,
                 root: swiftCommandState.getWorkspaceRoot(),
                 observabilityScope: swiftCommandState.observabilityScope

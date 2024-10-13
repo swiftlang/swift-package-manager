@@ -63,7 +63,7 @@ public struct PluginContext {
             if let triples = tool.triples, triples.isEmpty {
                 throw PluginContextError.toolNotSupportedOnTargetPlatform(name: name)
             }
-            return Tool(name: name, path: Path(url: tool.path), url: tool.path)
+            return try Tool(name: name, path: Path(url: tool.path), url: tool.path)
         } else {
             for dir in self.toolSearchDirectoryURLs {
                 #if os(Windows)
@@ -71,9 +71,10 @@ public struct PluginContext {
                 #else
                 let hostExecutableSuffix = ""
                 #endif
-                let path = dir.appendingPathComponent(name + hostExecutableSuffix)
-                if FileManager.default.isExecutableFile(atPath: path.path) {
-                    return Tool(name: name, path: Path(url: path), url: path)
+                let pathURL = dir.appendingPathComponent(name + hostExecutableSuffix)
+                let path = try Path(url: pathURL)
+                if FileManager.default.isExecutableFile(atPath: path.stringValue) {
+                    return Tool(name: name, path: path, url: pathURL)
                 }
             }
         }

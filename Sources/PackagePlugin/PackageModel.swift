@@ -178,7 +178,12 @@ public protocol Target {
     var name: String { get }
 
     /// The absolute path of the target directory in the local file system.
+    @available(_PackageDescription, deprecated: 6.1, renamed: "directoryURL")
     var directory: Path { get }
+
+    /// The absolute path of the target directory in the local file system.
+    @available(_PackageDescription, introduced: 6.1)
+    var directoryURL: URL { get }
 
     /// Any other targets on which this target depends, in the same order as
     /// they are specified in the package manifest. Conditional dependencies
