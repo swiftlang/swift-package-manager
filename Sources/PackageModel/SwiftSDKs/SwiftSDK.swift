@@ -702,7 +702,15 @@ public struct SwiftSDK: Equatable {
         // Apply any manual overrides.
         if let triple = customCompileTriple {
             swiftSDK.targetTriple = triple
+
+            if isBasedOnHostSDK {
+                // Don't pick up extraCLIOptions for a custom triple, since those are only valid for the host triple.
+                for tool in swiftSDK.toolset.knownTools.keys {
+                    swiftSDK.toolset.knownTools[tool]?.extraCLIOptions = []
+                }
+            }
         }
+
         if let binDir = customCompileToolchain {
             if !fileSystem.exists(binDir) {
                 observabilityScope.emit(
@@ -726,7 +734,10 @@ public struct SwiftSDK: Equatable {
             // Append the host toolchain's toolset paths at the end for the case the target Swift SDK
             // doesn't have some of the tools (e.g. swift-frontend might be shared between the host and
             // target Swift SDKs).
-            hostSwiftSDK.toolset.rootPaths.forEach { swiftSDK.append(toolsetRootPath: $0) }
+            let rootPaths = Set(swiftSDK.toolset.rootPaths)
+            for rootPath in hostSwiftSDK.toolset.rootPaths where !rootPaths.contains(rootPath) {
+                swiftSDK.append(toolsetRootPath: rootPath)
+            }
         }
 
         return swiftSDK
