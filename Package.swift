@@ -281,13 +281,7 @@ let package = Package(
                 "Basics",
                 "PackageLoading",
                 "PackageModel",
-                .product(name: "SwiftBasicFormat", package: "swift-syntax"),
-                .product(name: "SwiftDiagnostics", package: "swift-syntax"),
-                .product(name: "SwiftIDEUtils", package: "swift-syntax"),
-                .product(name: "SwiftParser", package: "swift-syntax"),
-                .product(name: "SwiftSyntax", package: "swift-syntax"),
-                .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
-            ],
+            ] + swiftSyntaxDependencies(["SwiftBasicFormat", "SwiftDiagnostics", "SwiftIDEUtils", "SwiftParser", "SwiftSyntax", "SwiftSyntaxBuilder"]),
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .unsafeFlags(["-static"]),
@@ -504,7 +498,6 @@ let package = Package(
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
-                .product(name: "SwiftIDEUtils", package: "swift-syntax"),
                 "Basics",
                 "Build",
                 "CoreCommands",
@@ -513,7 +506,7 @@ let package = Package(
                 "SourceControl",
                 "Workspace",
                 "XCBuildSupport",
-            ],
+            ] + swiftSyntaxDependencies(["SwiftIDEUtils"]),
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: [
                 .unsafeFlags(["-static"]),
@@ -772,8 +765,7 @@ let package = Package(
             dependencies: [
                 "PackageModelSyntax",
                 "_InternalTestSupport",
-                .product(name: "SwiftIDEUtils", package: "swift-syntax"),
-            ]
+            ] + swiftSyntaxDependencies(["SwiftIDEUtils"])
         ),
         .testTarget(
             name: "PackageGraphTests",
@@ -901,6 +893,23 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
     ])
 }
 #endif
+
+/// Whether swift-syntax is being built as a single dynamic library instead of as a separate library per module.
+///
+/// This means that the swift-syntax symbols don't need to be statically linked, which allows us to stay below the
+/// maximum number of exported symbols on Windows, in turn allowing us to build sourcekit-lsp using SwiftPM on Windows
+/// and run its tests.
+var buildDynamicSwiftSyntaxLibrary: Bool {
+  ProcessInfo.processInfo.environment["SWIFTSYNTAX_BUILD_DYNAMIC_LIBRARY"] != nil
+}
+
+func swiftSyntaxDependencies(_ names: [String]) -> [Target.Dependency] {
+  if buildDynamicSwiftSyntaxLibrary {
+    return [.product(name: "_SwiftSyntaxDynamic", package: "swift-syntax")]
+  } else {
+    return names.map { .product(name: $0, package: "swift-syntax") }
+  }
+}
 
 // Add package dependency on llbuild when not bootstrapping.
 //
