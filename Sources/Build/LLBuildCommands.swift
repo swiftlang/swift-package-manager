@@ -103,7 +103,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
     private func execute(fileSystem: Basics.FileSystem, tool: TestDiscoveryTool) throws {
         let outputs = tool.outputs.compactMap { try? AbsolutePath(validating: $0.name) }
 
-        if case .loadableBundle = context.productsBuildParameters.testingParameters.testProductStyle {
+        if case .loadableBundle = context.productsBuildParameters.testProductStyle {
             // When building an XCTest bundle, test discovery is handled by the
             // test harness process (i.e. this is the Darwin path.)
             for file in outputs {
@@ -222,7 +222,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             testObservabilitySetup = ""
         }
 
-        let isXCTMainAvailable: String = switch buildParameters.testingParameters.testProductStyle {
+        let isXCTMainAvailable: String = switch buildParameters.testProductStyle {
         case .entryPointExecutable:
             "canImport(XCTest)"
         case .loadableBundle:
