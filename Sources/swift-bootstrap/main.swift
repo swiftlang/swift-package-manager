@@ -116,12 +116,12 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
     @Flag()
     public var useIntegratedSwiftDriver: Bool = false
 
-    /// A flag that indicates this build should check whether targets only import
+    /// An option that indicates this build should check whether targets only import
     /// their explicitly-declared dependencies
-    @Option()
+    @Option(help: "An option that indicates this build should check whether targets only import their explicitly-declared dependencies")
     public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
 
-    enum TargetDependencyImportCheckingMode: String, Codable, ExpressibleByArgument {
+    enum TargetDependencyImportCheckingMode: String, Codable, ExpressibleByArgument, CaseIterable {
         case none
         case error
     }
@@ -473,10 +473,10 @@ extension BuildConfiguration {
 
 #if compiler(<6.0)
 extension AbsolutePath: ExpressibleByArgument {}
-extension BuildConfiguration: ExpressibleByArgument {}
+extension BuildConfiguration: ExpressibleByArgument, CaseIterable {}
 #else
 extension AbsolutePath: @retroactive ExpressibleByArgument {}
-extension BuildConfiguration: @retroactive ExpressibleByArgument {}
+extension BuildConfiguration: @retroactive ExpressibleByArgument, CaseIterable {}
 #endif
 
 public func topologicalSort<T: Hashable>(

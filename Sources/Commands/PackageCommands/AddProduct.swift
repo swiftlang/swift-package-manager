@@ -25,7 +25,7 @@ extension SwiftPackageCommand {
     struct AddProduct: SwiftCommand {
         /// The package product type used for the command-line. This is a
         /// subset of `ProductType` that expands out the library types.
-        enum CommandProductType: String, Codable, ExpressibleByArgument {
+        enum CommandProductType: String, Codable, ExpressibleByArgument, CaseIterable {
             case executable
             case library
             case staticLibrary = "static-library"
@@ -42,7 +42,7 @@ extension SwiftPackageCommand {
         @Argument(help: "The name of the new product")
         var name: String
 
-        @Option(help: "The type of target to add, which can be one of 'executable', 'library', 'static-library', 'dynamic-library', or 'plugin'")
+        @Option(help: "The type of target to add.")
         var type: CommandProductType = .library
 
         @Option(

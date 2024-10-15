@@ -162,7 +162,7 @@ public struct CachingOptions: ParsableArguments {
     /// Disables manifest caching.
     @Option(
         name: .customLong("manifest-cache"),
-        help: "Caching mode of Package.swift manifests (shared: shared cache, local: package's build directory, none: disabled"
+        help: "Caching mode of Package.swift manifests (shared: shared cache, local: package's build directory, none: disabled)"
     )
     public var manifestCachingMode: ManifestCachingMode = .shared
 
@@ -470,7 +470,7 @@ public struct BuildOptions: ParsableArguments {
 
     /// A flag that indicates this build should check whether targets only import
     /// their explicitly-declared dependencies
-    @Option()
+    @Option(help: "A flag that indicates this build should check whether targets only import their explicitly-declared dependencies")
     public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
 
     /// Whether to use the explicit module build flow (with the integrated driver)
@@ -482,7 +482,7 @@ public struct BuildOptions: ParsableArguments {
     var _buildSystem: BuildSystemProvider.Kind = .native
 
     /// The Debug Information Format to use.
-    @Option(name: .customLong("debug-info-format", withSingleDash: true))
+    @Option(name: .customLong("debug-info-format", withSingleDash: true), help: "The Debug Information Format to use.")
     public var debugInfoFormat: DebugInfoFormat = .dwarf
 
     public var buildSystem: BuildSystemProvider.Kind {
@@ -527,7 +527,7 @@ public struct BuildOptions: ParsableArguments {
         case disableIndexStore
     }
 
-    public enum TargetDependencyImportCheckingMode: String, Codable, ExpressibleByArgument {
+    public enum TargetDependencyImportCheckingMode: String, Codable, ExpressibleByArgument, CaseIterable {
         case none
         case warn
         case error
@@ -542,7 +542,7 @@ public struct BuildOptions: ParsableArguments {
     }
 
     /// See `BuildParameters.DebugInfoFormat` for details.
-    public enum DebugInfoFormat: String, Codable, ExpressibleByArgument {
+    public enum DebugInfoFormat: String, Codable, ExpressibleByArgument, CaseIterable {
         /// See `BuildParameters.DebugInfoFormat.dwarf` for details.
         case dwarf
         /// See `BuildParameters.DebugInfoFormat.codeview` for details.
@@ -747,20 +747,20 @@ extension URL {
 }
 
 #if compiler(<6.0)
-extension BuildConfiguration: ExpressibleByArgument {}
+extension BuildConfiguration: ExpressibleByArgument, CaseIterable {}
 extension AbsolutePath: ExpressibleByArgument {}
 extension WorkspaceConfiguration.CheckingMode: ExpressibleByArgument {}
 extension Sanitizer: ExpressibleByArgument {}
-extension BuildSystemProvider.Kind: ExpressibleByArgument {}
+extension BuildSystemProvider.Kind: ExpressibleByArgument, CaseIterable {}
 extension Version: ExpressibleByArgument {}
 extension PackageIdentity: ExpressibleByArgument {}
 extension URL: ExpressibleByArgument {}
 #else
-extension BuildConfiguration: @retroactive ExpressibleByArgument {}
+extension BuildConfiguration: @retroactive ExpressibleByArgument, CaseIterable {}
 extension AbsolutePath: @retroactive ExpressibleByArgument {}
 extension WorkspaceConfiguration.CheckingMode: @retroactive ExpressibleByArgument {}
 extension Sanitizer: @retroactive ExpressibleByArgument {}
-extension BuildSystemProvider.Kind: @retroactive ExpressibleByArgument {}
+extension BuildSystemProvider.Kind: @retroactive ExpressibleByArgument, CaseIterable {}
 extension Version: @retroactive ExpressibleByArgument {}
 extension PackageIdentity: @retroactive ExpressibleByArgument {}
 extension URL: @retroactive ExpressibleByArgument {}

@@ -26,7 +26,7 @@ extension AddTarget.TestHarness: ExpressibleByArgument { }
 extension SwiftPackageCommand {
     struct AddTarget: SwiftCommand {
         /// The type of target that can be specified on the command line.
-        enum TargetType: String, Codable, ExpressibleByArgument {
+        enum TargetType: String, Codable, ExpressibleByArgument, CaseIterable {
             case library
             case executable
             case test
@@ -42,7 +42,7 @@ extension SwiftPackageCommand {
         @Argument(help: "The name of the new target")
         var name: String
 
-        @Option(help: "The type of target to add, which can be one of 'library', 'executable', 'test', or 'macro'")
+        @Option(help: "The type of target to add.")
         var type: TargetType = .library
 
         @Option(
