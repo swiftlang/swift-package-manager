@@ -118,7 +118,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
 
     /// An option that indicates this build should check whether targets only import
     /// their explicitly-declared dependencies
-    @Option(help: "An option that indicates this build should check whether targets only import their explicitly-declared dependencies")
+    @Option(help: "Check that targets only import their explicitly-declared dependencies")
     public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
 
     enum TargetDependencyImportCheckingMode: String, Codable, ExpressibleByArgument, CaseIterable {
