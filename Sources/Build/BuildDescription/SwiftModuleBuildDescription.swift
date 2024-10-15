@@ -951,15 +951,33 @@ public final class SwiftModuleBuildDescription {
 
     /// Testing arguments according to the build configuration.
     private var testingArguments: [String] {
+        let enableTesting: Bool
+
         if self.isTestTarget {
             // test targets must be built with -enable-testing
             // since its required for test discovery (the non objective-c reflection kind)
-            return ["-enable-testing"]
-        } else if self.buildParameters.testingParameters.enableTestability {
-            return ["-enable-testing"]
+            enableTesting = true
+        } else if let enableTestability = self.buildParameters.testingParameters.enableTestability {
+            // Let the command line flag override
+            enableTesting = enableTestability
         } else {
-            return []
+            // Use the target settings
+            let enableTestabilitySetting = self.buildParameters.createScope(for: self.target).evaluate(.ENABLE_TESTABILITY)
+            if !enableTestabilitySetting.isEmpty {
+                enableTesting = enableTestabilitySetting.contains(where: { $0 == "YES" })
+            } else {
+                // By default, decide on testability based on debug/release config
+                // the goals of this being based on the build configuration is
+                // that `swift build` followed by a `swift test` will need to do minimal rebuilding
+                // given that the default configuration for `swift build` is debug
+                // and that `swift test` requires building with testable enabled if @testable is being used.
+                // when building and testing in release mode, one can use the '--disable-testable-imports' flag
+                // to disable testability in `swift test`, but that requires that the tests do not use the @testable imports feature
+                enableTesting = self.buildParameters.configuration == .debug
+            }
         }
+
+        return enableTesting ? ["-enable-testing"] : []
     }
 
     /// Module cache arguments.

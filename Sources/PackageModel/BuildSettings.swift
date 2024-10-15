@@ -14,6 +14,8 @@
 public enum BuildSettings {
     /// Build settings declarations.
     public struct Declaration: Hashable {
+        public static let ENABLE_TESTABILITY: Declaration = .init("ENABLE_TESTABILITY")
+
         // Swift.
         public static let SWIFT_ACTIVE_COMPILATION_CONDITIONS: Declaration =
             .init("SWIFT_ACTIVE_COMPILATION_CONDITIONS")

@@ -1192,6 +1192,10 @@ public final class PackageBuilder {
                 }
 
                 values = [version.rawValue]
+
+            case .enableTesting(let enable):
+                decl = .ENABLE_TESTABILITY
+                values = enable ? ["YES"] : ["NO"]
             }
 
             // Create an assignment for this setting.

@@ -30,7 +30,7 @@ struct PIFBuilderParameters {
     let isPackageAccessModifierSupported: Bool
 
     /// Whether or not build for testability is enabled.
-    let enableTestability: Bool
+    let enableTestability: Bool?
 
     /// Whether to create dylibs for dynamic library products.
     let shouldCreateDylibForDynamicProducts: Bool
@@ -343,7 +343,6 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         debugSettings[.GCC_OPTIMIZATION_LEVEL] = "0"
         debugSettings[.ONLY_ACTIVE_ARCH] = "YES"
         debugSettings[.SWIFT_OPTIMIZATION_LEVEL] = "-Onone"
-        debugSettings[.ENABLE_TESTABILITY] = "YES"
         debugSettings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, default: []].append("DEBUG")
         debugSettings[.GCC_PREPROCESSOR_DEFINITIONS, default: ["$(inherited)"]].append("DEBUG=1")
         addBuildConfiguration(name: "Debug", settings: debugSettings)
@@ -353,10 +352,6 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         releaseSettings[.DEBUG_INFORMATION_FORMAT] = "dwarf-with-dsym"
         releaseSettings[.GCC_OPTIMIZATION_LEVEL] = "s"
         releaseSettings[.SWIFT_OPTIMIZATION_LEVEL] = "-Owholemodule"
-
-        if parameters.enableTestability {
-            releaseSettings[.ENABLE_TESTABILITY] = "YES"
-        }
 
         addBuildConfiguration(name: "Release", settings: releaseSettings)
 

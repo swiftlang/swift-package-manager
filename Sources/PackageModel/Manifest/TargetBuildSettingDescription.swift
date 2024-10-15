@@ -41,13 +41,15 @@ public enum TargetBuildSettingDescription {
 
         case swiftLanguageMode(SwiftLanguageVersion)
 
+        case enableTesting(Bool)
+
         public var isUnsafeFlags: Bool {
             switch self {
             case .unsafeFlags(let flags):
                 // If `.unsafeFlags` is used, but doesn't specify any flags, we treat it the same way as not specifying it.
                 return !flags.isEmpty
             case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode,
-                 .enableUpcomingFeature, .enableExperimentalFeature, .swiftLanguageMode:
+                 .enableUpcomingFeature, .enableExperimentalFeature, .swiftLanguageMode, .enableTesting:
                 return false
             }
         }
