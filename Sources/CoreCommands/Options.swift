@@ -482,7 +482,7 @@ public struct BuildOptions: ParsableArguments {
     var _buildSystem: BuildSystemProvider.Kind = .native
 
     /// The Debug Information Format to use.
-    @Option(name: .customLong("debug-info-format", withSingleDash: true), help: "The Debug Information Format to use.")
+    @Option(name: .customLong("debug-info-format", withSingleDash: true), help: "The Debug Information Format to use")
     public var debugInfoFormat: DebugInfoFormat = .dwarf
 
     public var buildSystem: BuildSystemProvider.Kind {

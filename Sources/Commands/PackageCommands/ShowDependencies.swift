@@ -28,7 +28,7 @@ extension SwiftPackageCommand {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Option(help: "Set the output format.")
+        @Option(help: "Set the output format")
         var format: ShowDependenciesMode = .text
 
         @Option(name: [.long, .customShort("o") ],

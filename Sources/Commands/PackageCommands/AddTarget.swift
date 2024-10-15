@@ -42,7 +42,7 @@ extension SwiftPackageCommand {
         @Argument(help: "The name of the new target")
         var name: String
 
-        @Option(help: "The type of target to add.")
+        @Option(help: "The type of target to add")
         var type: TargetType = .library
 
         @Option(
