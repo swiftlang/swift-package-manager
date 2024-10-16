@@ -501,7 +501,7 @@ package final class AsyncProcess {
 
             group.enter()
             stdoutPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
-                let data = fh.availableData
+                let data = (try? fh.read(upToCount: Int.max)) ?? Data()
                 if data.count == 0 {
                     stdoutPipe.fileHandleForReading.readabilityHandler = nil
                     group.leave()
@@ -516,7 +516,7 @@ package final class AsyncProcess {
 
             group.enter()
             stderrPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
-                let data = fh.availableData
+                let data = (try? fh.read(upToCount: Int.max)) ?? Data()
                 if data.count == 0 {
                     stderrPipe.fileHandleForReading.readabilityHandler = nil
                     group.leave()
