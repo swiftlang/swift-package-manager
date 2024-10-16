@@ -32,6 +32,7 @@ import SPMBuildCore
 import func TSCLibc.exit
 import Workspace
 
+import struct TSCBasic.FileSystemError
 import struct TSCBasic.ByteString
 import enum TSCBasic.JSON
 import class Basics.AsyncProcess
@@ -725,6 +726,17 @@ extension SwiftTestCommand {
         var _deprecated_passthrough: Bool = false
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
+            do {
+                try await self.runCommand(swiftCommandState)
+            } catch let error as FileSystemError {
+                if sharedOptions.shouldSkipBuilding {
+                    throw ErrorWithContext(error, "Test build artifacts were not found in the build folder. Found the --skip-build flag; build the tests first or rerun the command without --skip-build")
+                }
+                throw error
+            }
+        }
+
+        func runCommand(_ swiftCommandState: SwiftCommandState) async throws {
             let (productsBuildParameters, toolsBuildParameters) = try swiftCommandState.buildParametersForTest(
                 enableCodeCoverage: false,
                 shouldSkipBuilding: sharedOptions.shouldSkipBuilding
@@ -774,13 +786,25 @@ extension SwiftTestCommand {
                     )
 
                     // Finally, run the tests.
+                    var output = [String]()
                     let result = runner.test(outputHandler: {
-                        // command's result output goes on stdout
-                        // ie "swift test" should output to stdout
-                        print($0, terminator: "")
+                        output.append($0)
                     })
                     if result == .failure {
                         swiftCommandState.executionStatus = .failure
+                        // If the runner reports failure do a check to ensure
+                        // all the binaries are present on the file system.
+                        try testProducts.map(\.binaryPath).forEach {
+                            if !swiftCommandState.fileSystem.exists($0) {
+                                throw FileSystemError(.noEntry, $0)
+                            }
+                        }
+                    } else {
+                        output.forEach {
+                            // command's result output goes on stdout
+                            // ie "swift test" should output to stdout
+                            print($0, terminator: "")
+                        }
                     }
                 } else if let testEntryPointPath {
                     // Cannot run Swift Testing because an entry point file was used and the developer
