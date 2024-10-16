@@ -792,9 +792,10 @@ extension SwiftTestCommand {
                     )
 
                     // Finally, run the tests.
-                    var output = [String]()
                     let result = runner.test(outputHandler: {
-                        output.append($0)
+                        // command's result output goes on stdout
+                        // ie "swift test" should output to stdout
+                        print($0, terminator: "")
                     })
                     if result == .failure {
                         swiftCommandState.executionStatus = .failure
@@ -804,12 +805,6 @@ extension SwiftTestCommand {
                             if !swiftCommandState.fileSystem.exists(path) {
                                 throw FileSystemError(.noEntry, path)
                             }
-                        }
-                    } else {
-                        output.forEach {
-                            // command's result output goes on stdout
-                            // ie "swift test" should output to stdout
-                            print($0, terminator: "")
                         }
                     }
                 } else if let testEntryPointPath {
