@@ -41,9 +41,9 @@ public struct ErrorWithContext<E: Error>: Error {
 extension ErrorWithContext: LocalizedError {
     public var errorDescription: String? {
         if let localizedError = error as? LocalizedError {
-            return "\(context)\n\(localizedError.errorDescription ?? localizedError.localizedDescription)"
+            return "\t\(context)\n\t\(localizedError.errorDescription ?? localizedError.localizedDescription)"
         }
-        return "\(context)\n\(error)"
+        return "\t\(context)\n\t\(error)"
     }
 }
 

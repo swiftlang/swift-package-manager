@@ -730,7 +730,7 @@ extension SwiftTestCommand {
                 try await self.runCommand(swiftCommandState)
             } catch let error as FileSystemError {
                 if sharedOptions.shouldSkipBuilding {
-                    throw ErrorWithContext(error, "Test build artifacts were not found in the build folder. Found the --skip-build flag; build the tests first or rerun the command without --skip-build")
+                    throw ErrorWithContext(error, "Test build artifacts were not found in the build folder.\n\tThe --skip-build flag was provided; either build the tests first with \"swift build --build tests\" or rerun the \"swift test list\" command without --skip-build")
                 }
                 throw error
             }
