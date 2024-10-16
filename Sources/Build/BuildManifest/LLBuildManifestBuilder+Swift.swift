@@ -53,6 +53,16 @@ extension LLBuildManifestBuilder {
             )
         } else {
             try self.addCmdWithBuiltinSwiftTool(target, inputs: inputs, cmdOutputs: cmdOutputs)
+            if let exportTarget = target.windowsExportTarget {
+                // Generate dynamic module for Windows
+                let inputs = try self.computeSwiftCompileCmdInputs(exportTarget)
+                let objectNodes = exportTarget.buildParameters.prepareForIndexing == .off ? try exportTarget.objects.map(Node.file) : []
+                let moduleNode = Node.file(exportTarget.moduleOutputPath)
+                let cmdOutputs = objectNodes + [moduleNode]
+                try self.addCmdWithBuiltinSwiftTool(exportTarget, inputs: inputs, cmdOutputs: cmdOutputs)
+                self.addTargetCmd(exportTarget, cmdOutputs: cmdOutputs)
+                try self.addModuleWrapCmd(exportTarget)
+            }
         }
 
         self.addTargetCmd(target, cmdOutputs: cmdOutputs)
@@ -532,7 +542,7 @@ extension LLBuildManifestBuilder {
             inputs: cmdOutputs,
             outputs: [targetOutput]
         )
-        if self.plan.graph.isInRootPackages(target.target, satisfying: target.buildParameters.buildEnvironment) {
+        if self.plan.graph.isInRootPackages(target.target, satisfying: target.buildParameters.buildEnvironment), target.windowsTargetType != .exporting {
             if !target.isTestTarget {
                 self.addNode(targetOutput, toTarget: .main)
             }
@@ -636,6 +646,11 @@ extension SwiftModuleBuildDescription {
     }
 
     public func getLLBuildTargetName() -> String {
-        self.target.getLLBuildTargetName(buildParameters: self.buildParameters)
+        let name = self.target.getLLBuildTargetName(buildParameters: self.buildParameters)
+        if self.windowsTargetType == .exporting {
+            return "export." + name
+        } else {
+            return name
+        }
     }
 }
