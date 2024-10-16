@@ -187,6 +187,12 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
         }
     }
 
+    public func finalize(success: Bool) {
+        self.queue.async {
+            self.progressAnimation.complete(success: success)
+        }
+    }
+
     // MARK: llbuildSwift.BuildSystemDelegate
 
     var fs: SPMLLBuild.FileSystem? {
