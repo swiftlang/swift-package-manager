@@ -26,7 +26,7 @@ extension SwiftPackageCommand {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
         
-        @Option(help: "json | text | mermaid")
+        @Option(help: "Set the output format")
         var type: DescribeMode = .text
         
         func run(_ swiftCommandState: SwiftCommandState) async throws {
@@ -63,7 +63,7 @@ extension SwiftPackageCommand {
             print(String(decoding: data, as: UTF8.self))
         }
         
-        enum DescribeMode: String, ExpressibleByArgument {
+        enum DescribeMode: String, ExpressibleByArgument, CaseIterable {
             /// JSON format (guaranteed to be parsable and stable across time).
             case json
             /// Human readable format (not guaranteed to be parsable).
