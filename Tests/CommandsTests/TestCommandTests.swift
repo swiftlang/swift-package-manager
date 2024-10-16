@@ -286,7 +286,9 @@ final class TestCommandTests: CommandsTestCase {
 
     func testListWithSkipBuildAndNoBuildArtifacts() async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            await XCTAssertThrowsCommandExecutionError(try await SwiftPM.Test.execute(["list", "--skip-build"], packagePath: fixturePath)) { error in
+            await XCTAssertThrowsCommandExecutionError(
+                try await SwiftPM.Test.execute(["list", "--skip-build"], packagePath: fixturePath)
+            ) { error in
                 XCTAssertMatch(error.stderr, .contains("Test build artifacts were not found in the build folder"))
             }
         }

@@ -730,7 +730,13 @@ extension SwiftTestCommand {
                 try await self.runCommand(swiftCommandState)
             } catch let error as FileSystemError {
                 if sharedOptions.shouldSkipBuilding {
-                    throw ErrorWithContext(error, "Test build artifacts were not found in the build folder.\n\tThe --skip-build flag was provided; either build the tests first with \"swift build --build tests\" or rerun the \"swift test list\" command without --skip-build")
+                    throw ErrorWithContext(error, """
+                        Test build artifacts were not found in the build folder.
+                        The `--skip-build` flag was provided; either build the tests first with \
+                        `swift build --build tests` or rerun the `swift test list` command without \
+                        `--skip-build`
+                        """
+                    )
                 }
                 throw error
             }
@@ -794,9 +800,9 @@ extension SwiftTestCommand {
                         swiftCommandState.executionStatus = .failure
                         // If the runner reports failure do a check to ensure
                         // all the binaries are present on the file system.
-                        try testProducts.map(\.binaryPath).forEach {
-                            if !swiftCommandState.fileSystem.exists($0) {
-                                throw FileSystemError(.noEntry, $0)
+                        for path in testProducts.map(\.binaryPath) {
+                            if !swiftCommandState.fileSystem.exists(path) {
+                                throw FileSystemError(.noEntry, path)
                             }
                         }
                     } else {
