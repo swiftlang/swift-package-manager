@@ -157,14 +157,16 @@ public struct ShellTool: ToolProtocol {
 public struct WriteAuxiliaryFile: Equatable, ToolProtocol {
     public static let name: String = "write-auxiliary-file"
 
+    public let description: String
     public let inputs: [Node]
     private let outputFilePath: AbsolutePath
     public let alwaysOutOfDate: Bool
 
-    public init(inputs: [Node], outputFilePath: AbsolutePath, alwaysOutOfDate: Bool = false) {
+    public init(inputs: [Node], outputFilePath: AbsolutePath, alwaysOutOfDate: Bool = false, description: String? = nil) {
         self.inputs = inputs
         self.outputFilePath = outputFilePath
         self.alwaysOutOfDate = alwaysOutOfDate
+        self.description = description ?? "Write auxiliary file \(outputFilePath.pathString)"
     }
 
     public var outputs: [Node] {
@@ -172,7 +174,7 @@ public struct WriteAuxiliaryFile: Equatable, ToolProtocol {
     }
 
     public func write(to stream: inout ManifestToolStream) {
-        stream["description"] = "Write auxiliary file \(outputFilePath.pathString)"
+        stream["description"] = self.description
     }
 }
 

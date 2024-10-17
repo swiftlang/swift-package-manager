@@ -315,7 +315,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                         buildOptions: globalOptions.build,
                         productsBuildParameters: buildParameters,
                         shouldOutputSuccess: swiftCommandState.logLevel <= .info,
-                        observabilityScope: swiftCommandState.observabilityScope
+                        observabilityScope: swiftCommandState.observabilityScope,
+                        progressAnimationConfiguration: swiftCommandState.options.progressAnimation.configuration
                     )
 
                     testResults = try runner.run(tests)
@@ -348,6 +349,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 )
             }
         }
+
 
         switch results.reduce() {
         case .success:
@@ -825,6 +827,11 @@ struct UnitTest {
     }
 }
 
+extension UnitTest {
+    var progressID: Int { self.specifier.hash }
+    var progressName: String { "Testing \(self.specifier)" }
+}
+
 /// A class to run tests on a XCTest binary.
 ///
 /// Note: Executes the XCTest with inherited environment as it is convenient to pass sensitive
@@ -1017,6 +1024,7 @@ final class ParallelTestRunner {
 
     /// Instance of a terminal progress animation.
     private let progressAnimation: ProgressAnimationProtocol
+    private let paLock = NSLock()
 
     /// Number of tests that will be executed.
     private var numTests = 0
@@ -1051,7 +1059,8 @@ final class ParallelTestRunner {
         buildOptions: BuildOptions,
         productsBuildParameters: BuildParameters,
         shouldOutputSuccess: Bool,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        progressAnimationConfiguration: ProgressAnimationConfiguration
     ) {
         self.bundlePaths = bundlePaths
         self.cancellator = cancellator
@@ -1062,18 +1071,12 @@ final class ParallelTestRunner {
 
         // command's result output goes on stdout
         // ie "swift test" should output to stdout
-        if Environment.current["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
-            self.progressAnimation = ProgressAnimation.percent(
-                stream: TSCBasic.stdoutStream,
-                verbose: false,
-                header: "Testing:"
-            )
-        } else {
-            self.progressAnimation = ProgressAnimation.ninja(
-                stream: TSCBasic.stdoutStream,
-                verbose: false
-            )
-        }
+        self.progressAnimation = ProgressAnimation.make(
+            configuration: progressAnimationConfiguration,
+            environment: Environment.current,
+            stream: TSCBasic.stdoutStream,
+            verbose: false,
+            header: "Testing...")
 
         self.buildOptions = buildOptions
         self.productsBuildParameters = productsBuildParameters
@@ -1082,14 +1085,27 @@ final class ParallelTestRunner {
     }
 
     /// Updates the progress bar status.
-    private func updateProgress(for test: UnitTest) {
+    private func completed(result: TestResult) {
         numCurrentTest += 1
-        progressAnimation.update(step: numCurrentTest, total: numTests, text: "Testing \(test.specifier)")
+        self.paLock.withLock {
+            self.progressAnimation.update(
+                id: result.unitTest.progressID,
+                name: result.unitTest.progressName,
+                event: .completed(result.success ? .succeeded : .failed),
+                at: .now)
+        }
     }
 
     private func enqueueTests(_ tests: [UnitTest]) throws {
         // Enqueue all the tests.
         for test in tests {
+            self.paLock.withLock {
+                self.progressAnimation.update(
+                    id: test.progressID,
+                    name: test.progressName,
+                    event: .discovered,
+                    at: .now)
+            }
             pendingTests.enqueue(test)
         }
         self.numTests = tests.count
@@ -1119,6 +1135,13 @@ final class ParallelTestRunner {
             let thread = Thread {
                 // Dequeue a specifier and run it till we encounter nil.
                 while let test = self.pendingTests.dequeue() {
+                    self.paLock.withLock {
+                        self.progressAnimation.update(
+                            id: test.progressID,
+                            name: test.progressName,
+                            event: .started,
+                            at: .now)
+                    }
                     let additionalArguments = TestRunner.xctestArguments(forTestSpecifiers: CollectionOfOne(test.specifier))
                     let testRunner = TestRunner(
                         bundlePaths: [test.productPath],
@@ -1129,6 +1152,7 @@ final class ParallelTestRunner {
                         observabilityScope: self.observabilityScope,
                         library: .xctest // swift-testing does not use ParallelTestRunner
                     )
+
                     var output = ""
                     let outputLock = NSLock()
                     let start = DispatchTime.now()
@@ -1154,7 +1178,7 @@ final class ParallelTestRunner {
 
         // Report (consume) the tests which have finished running.
         while let result = finishedTests.dequeue() {
-            updateProgress(for: result.unitTest)
+            completed(result: result)
 
             // Store the result.
             processedTests.append(result)
@@ -1170,7 +1194,8 @@ final class ParallelTestRunner {
         workers.forEach { $0.join() }
 
         // Report the completion.
-        progressAnimation.complete(success: processedTests.get().contains(where: { !$0.success }))
+        _ = processedTests.get().contains(where: { !$0.success })
+        self.paLock.withLock { self.progressAnimation.complete("Testing complete") }
 
         // Print test results.
         for test in processedTests.get() {
@@ -1183,7 +1208,6 @@ final class ParallelTestRunner {
 
         return processedTests.get()
     }
-
 }
 
 /// A struct to hold the XCTestSuite data.

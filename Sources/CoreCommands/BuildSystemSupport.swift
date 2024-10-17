@@ -60,7 +60,8 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
             outputStream: outputStream ?? self.swiftCommandState.outputStream,
             logLevel: logLevel ?? self.swiftCommandState.logLevel,
             fileSystem: self.swiftCommandState.fileSystem,
-            observabilityScope: observabilityScope ?? self.swiftCommandState.observabilityScope)
+            observabilityScope: observabilityScope ?? self.swiftCommandState.observabilityScope,
+            progressAnimationConfiguration: self.swiftCommandState.options.progressAnimation.configuration)
     }
 }
 
