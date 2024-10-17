@@ -388,6 +388,7 @@ final class SwiftSDKBundleTests: XCTestCase {
             observabilityScope: system.topScope,
             outputHandler: { _ in }
         )
+        
         for bundle in bundles {
             try await store.install(bundlePathOrURL: bundle.path, archiver)
         }

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -319,7 +319,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
                            [.anySequence, "-gnone", .anySequence])
     }
 
-    func testToolchainArgument() async throws {
+    func testToolchainOption() async throws {
         let customTargetToolchain = AbsolutePath("/path/to/toolchain")
         let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
         let hostArPath = AbsolutePath("/usr/bin/ar")
@@ -351,17 +351,16 @@ final class SwiftCommandStateTests: CommandsTestCase {
             observabilityScope: observer.topScope
         )
 
-        let options = try GlobalOptions.parse(
-            [
-                "--toolchain", customTargetToolchain.pathString,
-                "--triple", "x86_64-unknown-linux-gnu",
-            ]
-        )
+        let options = try GlobalOptions.parse([
+            "--toolchain", customTargetToolchain.pathString,
+            "--triple", "x86_64-unknown-linux-gnu",
+        ])
         let swiftCommandState = try SwiftCommandState.makeMockState(
             options: options,
             fileSystem: fs,
             environment: ["PATH": "/usr/bin"]
         )
+
         XCTAssertEqual(swiftCommandState.originalWorkingDirectory, fs.currentWorkingDirectory)
         XCTAssertEqual(
             try swiftCommandState.getTargetToolchain().swiftCompilerPath,
@@ -371,6 +370,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
             try swiftCommandState.getTargetToolchain().swiftSDK.toolset.knownTools[.swiftCompiler]?.path,
             nil
         )
+
         let plan = try await BuildPlan(
             destinationBuildParameters: swiftCommandState.productsBuildParameters,
             toolsBuildParameters: swiftCommandState.toolsBuildParameters,
@@ -382,6 +382,49 @@ final class SwiftCommandStateTests: CommandsTestCase {
         let arguments = try plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? []
 
         XCTAssertMatch(arguments, [.contains("/path/to/toolchain")])
+    }
+
+    func testToolsetOption() throws {
+        let targetToolchainPath = "/path/to/toolchain"
+        let customTargetToolchain = AbsolutePath(targetToolchainPath)
+        let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
+        let hostArPath = AbsolutePath("/usr/bin/ar")
+        let targetSwiftcPath = customTargetToolchain.appending(components: ["usr", "bin" , "swiftc"])
+        let targetArPath = customTargetToolchain.appending(components: ["usr", "bin", "llvm-ar"])
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            hostSwiftcPath.pathString,
+            hostArPath.pathString,
+            targetSwiftcPath.pathString,
+            targetArPath.pathString
+        ])
+
+        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath,] {
+            try fs.updatePermissions(path, isExecutable: true)
+        }
+
+        try fs.writeFileContents("/toolset.json", string: """
+        {
+            "schemaVersion": "1.0",
+            "rootPath": "\(targetToolchainPath)"
+        }
+        """)
+
+        let options = try GlobalOptions.parse(["--toolset", "/toolset.json"])
+        let swiftCommandState = try SwiftCommandState.makeMockState(
+            options: options,
+            fileSystem: fs,
+            environment: ["PATH": "/usr/bin"]
+        )
+
+        let hostToolchain = try swiftCommandState.getHostToolchain()
+        let targetToolchain = try swiftCommandState.getTargetToolchain()
+
+        XCTAssertEqual(
+            targetToolchain.swiftSDK.toolset.rootPaths,
+            hostToolchain.swiftSDK.toolset.rootPaths + [customTargetToolchain]
+        )
+        XCTAssertEqual(targetToolchain.swiftCompilerPath, targetSwiftcPath)
     }
 }
 
