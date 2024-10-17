@@ -231,7 +231,7 @@ final class ToolsetTests: XCTestCase {
             let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostTriple,
-                customToolset: compilersNoRoot.path,
+                customToolsets: [compilersNoRoot.path],
                 store: store,
                 observabilityScope: observability.topScope,
                 fileSystem: fileSystem
@@ -252,7 +252,7 @@ final class ToolsetTests: XCTestCase {
             let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostTriple,
-                customToolset: someToolsWithRoot.path,
+                customToolsets: [someToolsWithRoot.path],
                 store: store,
                 observabilityScope: observability.topScope,
                 fileSystem: fileSystem
@@ -265,6 +265,29 @@ final class ToolsetTests: XCTestCase {
 
             var expectedToolset = hostSwiftSDK.toolset
             expectedToolset.merge(with: targetToolset)
+
+            XCTAssertEqual(targetSwiftSDK.toolset, expectedToolset)
+        }
+
+        do {
+            let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
+                hostSwiftSDK: hostSwiftSDK,
+                hostTriple: hostTriple,
+                customToolsets: [compilersNoRoot.path, someToolsWithRoot.path],
+                store: store,
+                observabilityScope: observability.topScope,
+                fileSystem: fileSystem
+            )
+
+            let toolset1 = try Toolset(from: compilersNoRoot.path, at: fileSystem, observability.topScope)
+            let toolset2 = try Toolset(from: someToolsWithRoot.path, at: fileSystem, observability.topScope)
+
+            // By default, the target SDK paths configuration is the same as the host SDK.
+            XCTAssertEqual(targetSwiftSDK.pathsConfiguration, hostSwiftSDK.pathsConfiguration)
+
+            var expectedToolset = hostSwiftSDK.toolset
+            expectedToolset.merge(with: toolset1)
+            expectedToolset.merge(with: toolset2)
 
             XCTAssertEqual(targetSwiftSDK.toolset, expectedToolset)
         }

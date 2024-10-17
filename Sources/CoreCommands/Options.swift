@@ -130,7 +130,7 @@ public struct LocationOptions: ParsableArguments {
         help: "Specify to a toolset JSON file to use when building for the target platform",
         completion: .file(extensions: [".json"])
     )
-    public var toolsetPath: AbsolutePath?
+    public var toolsetPaths: [AbsolutePath] = []
 
     @Option(
         name: .customLong("pkg-config-path"),

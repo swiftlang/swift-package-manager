@@ -880,7 +880,7 @@ public final class SwiftCommandState {
             swiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostToolchain.targetTriple,
-                customToolset: options.locations.toolsetPath,
+                customToolsets: options.locations.toolsetPaths,
                 customCompileDestination: options.locations.customCompileDestination,
                 customCompileTriple: options.build.customCompileTriple,
                 customCompileToolchain: options.build.customCompileToolchain,

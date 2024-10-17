@@ -659,7 +659,7 @@ public struct SwiftSDK: Equatable {
     public static func deriveTargetSwiftSDK(
       hostSwiftSDK: SwiftSDK,
       hostTriple: Triple,
-      customToolset: AbsolutePath? = nil,
+      customToolsets: [AbsolutePath] = [],
       customCompileDestination: AbsolutePath? = nil,
       customCompileTriple: Triple? = nil,
       customCompileToolchain: AbsolutePath? = nil,
@@ -702,16 +702,18 @@ public struct SwiftSDK: Equatable {
             isBasedOnHostSDK = true
         }
 
-        if let customToolset {
-            let toolset = try Toolset(from: customToolset, at: fileSystem, observabilityScope)
-            swiftSDK.toolset.merge(with: toolset)
+        if !customToolsets.isEmpty {
+            for toolsetPath in customToolsets {
+                let toolset = try Toolset(from: toolsetPath, at: fileSystem, observabilityScope)
+                swiftSDK.toolset.merge(with: toolset)
+            }
         }
 
         // Apply any manual overrides.
         if let triple = customCompileTriple {
             swiftSDK.targetTriple = triple
 
-            if isBasedOnHostSDK && customToolset == nil {
+            if isBasedOnHostSDK && customToolsets.isEmpty {
                 // Don't pick up extraCLIOptions for a custom triple, since those are only valid for the host triple.
                 for tool in swiftSDK.toolset.knownTools.keys {
                     swiftSDK.toolset.knownTools[tool]?.extraCLIOptions = []
