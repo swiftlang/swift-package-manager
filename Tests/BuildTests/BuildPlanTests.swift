@@ -4775,9 +4775,18 @@ final class BuildPlanTests: XCTestCase {
                 swiftStaticResourcesPath: "/fake/lib/swift_static"
             )
         )
+
+        let env = Environment.mockEnvironment
         let mockToolchain = try UserToolchain(
             swiftSDK: userSwiftSDK,
-            environment: .mockEnvironment,
+            environment: env,
+            searchStrategy: .custom(
+                searchPaths: getEnvSearchPaths(
+                    pathString: env[.path],
+                    currentWorkingDirectory: fs.currentWorkingDirectory
+                ),
+                useXcrun: true
+            ),
             fileSystem: fs
         )
 
@@ -5065,7 +5074,19 @@ final class BuildPlanTests: XCTestCase {
                 .swiftCompiler: .init(extraCLIOptions: ["-use-ld=lld"]),
             ])
         )
-        let toolchain = try UserToolchain(swiftSDK: swiftSDK, environment: .mockEnvironment, fileSystem: fileSystem)
+
+        let env = Environment.mockEnvironment
+        let toolchain = try UserToolchain(
+            swiftSDK: swiftSDK,
+            searchStrategy: .custom(
+                searchPaths: getEnvSearchPaths(
+                    pathString: env[.path],
+                    currentWorkingDirectory: fileSystem.currentWorkingDirectory
+                ),
+                useXcrun: true
+            ),
+            fileSystem: fileSystem
+        )
         let result = try await BuildPlanResult(plan: mockBuildPlan(
             toolchain: toolchain,
             graph: graph,
