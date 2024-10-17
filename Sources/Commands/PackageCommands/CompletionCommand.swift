@@ -76,7 +76,7 @@ extension SwiftPackageCommand {
             case .listExecutables:
                 let graph = try await swiftCommandState.loadPackageGraph()
                 let package = graph.rootPackages[graph.rootPackages.startIndex].underlying
-                let executables = package.modules.filter { $0.type == .executable }
+                let executables = package.products.filter { $0.type == .executable }
                 for executable in executables {
                     print(executable.name)
                 }

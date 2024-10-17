@@ -551,6 +551,20 @@ final class PackageCommandTests: CommandsTestCase {
         }
     }
 
+    func testCompletionToolListExecutables() async throws {
+        try await fixture(name: "Miscellaneous/MultipleExecutables") { fixturePath in
+            let result = try await execute(["completion-tool", "list-executables"], packagePath: fixturePath)
+            XCTAssertEqual(result.stdout, "exec1\nexec2\n")
+        }
+    }
+
+    func testCompletionToolListExecutablesDifferentNames() async throws {
+        try await fixture(name: "Miscellaneous/DifferentProductTargetName") { fixturePath in
+            let result = try await execute(["completion-tool", "list-executables"], packagePath: fixturePath)
+            XCTAssertEqual(result.stdout, "Foo\n")
+        }
+    }
+
     func testShowExecutables() async throws {
         try await fixture(name: "Miscellaneous/ShowExecutables") { fixturePath in
             let packageRoot = fixturePath.appending("app")
