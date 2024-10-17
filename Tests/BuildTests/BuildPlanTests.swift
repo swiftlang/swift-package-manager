@@ -4661,7 +4661,20 @@ final class BuildPlanTests: XCTestCase {
                 swiftStaticResourcesPath: "/fake/lib/swift_static"
             )
         )
-        let mockToolchain = try UserToolchain(swiftSDK: userSwiftSDK, environment: .mockEnvironment, fileSystem: fs)
+
+        let env = Environment.mockEnvironment
+        let mockToolchain = try UserToolchain(
+            swiftSDK: userSwiftSDK,
+            environment: env,
+            searchStrategy: .custom(
+                searchPaths: getEnvSearchPaths(
+                    pathString: env[.path],
+                    currentWorkingDirectory: fs.currentWorkingDirectory
+                ),
+                useXcrun: true
+            ),
+            fileSystem: fs
+        )
         let commonFlags = BuildFlags(
             cCompilerFlags: ["-clang-command-line-flag"],
             swiftCompilerFlags: ["-swift-command-line-flag"]
@@ -5078,6 +5091,7 @@ final class BuildPlanTests: XCTestCase {
         let env = Environment.mockEnvironment
         let toolchain = try UserToolchain(
             swiftSDK: swiftSDK,
+            environment: env,
             searchStrategy: .custom(
                 searchPaths: getEnvSearchPaths(
                     pathString: env[.path],
