@@ -4,9 +4,9 @@ import PackageDescription
 let package = Package(
     name: "Foo",
     products: [
-        .executable(name: "Foo", targets: ["Foo"]),
+        .executable(name: "Foo", targets: ["Bar"]),
     ],
     targets: [
-        .target(name: "Foo", path: "./"),
+        .target(name: "Bar", path: "./"),
     ]
 )
