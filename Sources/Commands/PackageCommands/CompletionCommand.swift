@@ -49,7 +49,7 @@ extension SwiftPackageCommand {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Argument(help: "generate-bash-script | generate-zsh-script |\ngenerate-fish-script | list-dependencies | list-executables")
+        @Argument(help: "Type of completions to list")
         var mode: Mode
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
