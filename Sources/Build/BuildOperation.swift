@@ -770,7 +770,15 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.current = (buildSystem, tracker)
 
         // Build the package structure target which will re-generate the llbuild manifest, if necessary.
-        return buildSystem.build(target: "PackageStructure")
+        let buildSuccess = buildSystem.build(target: "PackageStructure")
+
+        // If progress has been printed this will add a newline to separate it from what could be
+        // the output of the command. For instance `swift test --skip-build` may print progress for
+        // the Planning Build stage, followed immediately by a list of tests. Without this finialize()
+        // call the first entry in the list appear on the same line as the Planning Build progress.
+        tracker.finalize(success: true)
+
+        return buildSuccess
     }
 
     /// Create the build system using the given build description.
