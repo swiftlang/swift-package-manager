@@ -389,8 +389,8 @@ final class SwiftCommandStateTests: CommandsTestCase {
         let customTargetToolchain = AbsolutePath(targetToolchainPath)
         let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
         let hostArPath = AbsolutePath("/usr/bin/ar")
-        let targetSwiftcPath = customTargetToolchain.appending(components: ["usr", "bin" , "swiftc"])
-        let targetArPath = customTargetToolchain.appending(components: ["usr", "bin", "llvm-ar"])
+        let targetSwiftcPath = customTargetToolchain.appending(components: ["swiftc"])
+        let targetArPath = customTargetToolchain.appending(components: ["llvm-ar"])
 
         let fs = InMemoryFileSystem(emptyFiles: [
             hostSwiftcPath.pathString,
@@ -422,9 +422,10 @@ final class SwiftCommandStateTests: CommandsTestCase {
 
         XCTAssertEqual(
             targetToolchain.swiftSDK.toolset.rootPaths,
-            hostToolchain.swiftSDK.toolset.rootPaths + [customTargetToolchain]
+            [customTargetToolchain] + hostToolchain.swiftSDK.toolset.rootPaths
         )
         XCTAssertEqual(targetToolchain.swiftCompilerPath, targetSwiftcPath)
+        XCTAssertEqual(targetToolchain.librarianPath, targetArPath)
     }
 }
 

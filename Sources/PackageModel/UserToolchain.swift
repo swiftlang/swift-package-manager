@@ -630,7 +630,7 @@ public final class UserToolchain: Toolchain {
                 pathString: environment[.path],
                 currentWorkingDirectory: fileSystem.currentWorkingDirectory
             )
-            self.useXcrun = true
+            self.useXcrun = !(fileSystem is InMemoryFileSystem)
         case .custom(let searchPaths, let useXcrun):
             self.envSearchPaths = searchPaths
             self.useXcrun = useXcrun
