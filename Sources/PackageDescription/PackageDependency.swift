@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 extension Package {
     /// A package dependency of a Swift package.
     ///
@@ -161,7 +160,7 @@ extension Package {
                 traits: traits
             )
         }
-        
+
         convenience init(
             name: String?,
             location: String,
@@ -177,7 +176,7 @@ extension Package {
                 traits: traits
             )
         }
-        
+
         convenience init(
             id: String,
             requirement: RegistryRequirement,
@@ -824,8 +823,8 @@ extension Package.Dependency {
         return .init(name: name, url: url, requirement: requirement, traits: nil)
     }
 
-    // intentionally private to hide enum detail
-    private static func package(
+    // intentionally package to hide enum detail
+    package static func package(
         name: String? = nil,
         url: String,
         requirement: Package.Dependency.SourceControlRequirement
@@ -833,8 +832,8 @@ extension Package.Dependency {
         return .init(name: name, location: url, requirement: requirement, traits: nil)
     }
 
-    // intentionally private to hide enum detail
-    private static func package(
+    // intentionally package to hide enum detail
+    package static func package(
         name: String? = nil,
         url: String,
         requirement: Package.Dependency.SourceControlRequirement,
@@ -1103,8 +1102,8 @@ extension Package.Dependency {
         return .package(id: id, range.lowerBound ..< upperBound, traits: traits)
     }
 
-    // intentionally private to hide enum detail
-    private static func package(
+    // intentionally package to hide enum detail
+    package static func package(
         id: String,
         requirement: Package.Dependency.RegistryRequirement,
         traits: Set<Trait>?
