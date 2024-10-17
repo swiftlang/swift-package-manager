@@ -32,6 +32,7 @@ import SPMBuildCore
 import func TSCLibc.exit
 import Workspace
 
+import struct TSCBasic.FileSystemError
 import struct TSCBasic.ByteString
 import enum TSCBasic.JSON
 import class Basics.AsyncProcess
@@ -725,6 +726,23 @@ extension SwiftTestCommand {
         var _deprecated_passthrough: Bool = false
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
+            do {
+                try await self.runCommand(swiftCommandState)
+            } catch let error as FileSystemError {
+                if sharedOptions.shouldSkipBuilding {
+                    throw ErrorWithContext(error, """
+                        Test build artifacts were not found in the build folder.
+                        The `--skip-build` flag was provided; either build the tests first with \
+                        `swift build --build tests` or rerun the `swift test list` command without \
+                        `--skip-build`
+                        """
+                    )
+                }
+                throw error
+            }
+        }
+
+        func runCommand(_ swiftCommandState: SwiftCommandState) async throws {
             let (productsBuildParameters, toolsBuildParameters) = try swiftCommandState.buildParametersForTest(
                 enableCodeCoverage: false,
                 shouldSkipBuilding: sharedOptions.shouldSkipBuilding
@@ -781,6 +799,13 @@ extension SwiftTestCommand {
                     })
                     if result == .failure {
                         swiftCommandState.executionStatus = .failure
+                        // If the runner reports failure do a check to ensure
+                        // all the binaries are present on the file system.
+                        for path in testProducts.map(\.binaryPath) {
+                            if !swiftCommandState.fileSystem.exists(path) {
+                                throw FileSystemError(.noEntry, path)
+                            }
+                        }
                     }
                 } else if let testEntryPointPath {
                     // Cannot run Swift Testing because an entry point file was used and the developer

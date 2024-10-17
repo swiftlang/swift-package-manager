@@ -16,6 +16,7 @@ import PackageModel
 import SPMBuildCore
 import Workspace
 
+import struct TSCBasic.FileSystemError
 import class Basics.AsyncProcess
 import var TSCBasic.stderrStream
 import var TSCBasic.stdoutStream
@@ -123,8 +124,13 @@ enum TestingSupport {
                 sanitizers: sanitizers,
                 library: .xctest
             )
+            try Self.runProcessWithExistenceCheck(
+                path: path,
+                fileSystem: swiftCommandState.fileSystem,
+                args: args,
+                env: env
+            )
 
-            try AsyncProcess.checkNonZeroExit(arguments: args, environment: env)
             // Read the temporary file's content.
             return try swiftCommandState.fileSystem.readFileContents(AbsolutePath(tempFile.path))
         }
@@ -139,10 +145,34 @@ enum TestingSupport {
             library: .xctest
         )
         args = [path.description, "--dump-tests-json"]
-        let data = try AsyncProcess.checkNonZeroExit(arguments: args, environment: env)
+        let data = try Self.runProcessWithExistenceCheck(
+            path: path,
+            fileSystem: swiftCommandState.fileSystem,
+            args: args,
+            env: env
+        )
         #endif
         // Parse json and return TestSuites.
         return try TestSuite.parse(jsonString: data, context: args.joined(separator: " "))
+    }
+
+    /// Run a process and throw a more specific error if the file doesn't exist.
+    @discardableResult
+    private static func runProcessWithExistenceCheck(
+        path: AbsolutePath,
+        fileSystem: FileSystem,
+        args: [String],
+        env: Environment
+    ) throws -> String {
+        do {
+            return try AsyncProcess.checkNonZeroExit(arguments: args, environment: env)
+        } catch {
+            // If the file doesn't exist, throw a more specific error.
+            if !fileSystem.exists(path) {
+                throw FileSystemError(.noEntry, path)
+            }
+            throw error
+        }
     }
 
     /// Creates the environment needed to test related tools.

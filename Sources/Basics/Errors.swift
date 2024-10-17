@@ -26,6 +26,26 @@ public struct InternalError: Error {
     }
 }
 
+/// Wraps another error and provides additional context when printed.
+/// This is useful for user facing errors that need to provide a user friendly message
+/// explaning why an error might have occured, while still showing the detailed underlying error.
+public struct ErrorWithContext<E: Error>: Error {
+    public let error: E
+    public let context: String
+    public init(_ error: E, _ context: String) {
+        self.error = error
+        self.context = context
+    }
+}
+
+extension ErrorWithContext: LocalizedError {
+    public var errorDescription: String? {
+        return (context.split(separator: "\n") + [error.interpolationDescription])
+            .map { "\t\($0)" }
+            .joined(separator: "\n")
+    }
+}
+
 extension Error {
     public var interpolationDescription: String {
         switch self {
