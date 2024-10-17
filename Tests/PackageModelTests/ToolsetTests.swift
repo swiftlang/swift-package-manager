@@ -208,4 +208,88 @@ final class ToolsetTests: XCTestCase {
             )
         )
     }
+
+    func testToolsetTargetToolchain() throws {
+        let fileSystem = InMemoryFileSystem()
+
+        for testFile in [compilersNoRoot, noValidToolsNoRoot, unknownToolsNoRoot, otherToolsNoRoot, someToolsWithRoot, someToolsWithRelativeRoot] {
+            try fileSystem.writeFileContents(testFile.path, string: testFile.json.underlying)
+        }
+
+        let hostSwiftSDK = try SwiftSDK.hostSwiftSDK(environment: [:])
+        let hostTriple = try! Triple("arm64-apple-macosx14.0")
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let store = SwiftSDKBundleStore(
+            swiftSDKsDirectory: "/",
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope,
+            outputHandler: { _ in }
+        )
+
+        do {
+            let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
+                hostSwiftSDK: hostSwiftSDK,
+                hostTriple: hostTriple,
+                customToolsets: [compilersNoRoot.path],
+                store: store,
+                observabilityScope: observability.topScope,
+                fileSystem: fileSystem
+            )
+
+            let targetToolset = try Toolset(from: compilersNoRoot.path, at: fileSystem, observability.topScope)
+
+            // By default, the target SDK paths configuration is the same as the host SDK.
+            XCTAssertEqual(targetSwiftSDK.pathsConfiguration, hostSwiftSDK.pathsConfiguration)
+
+            var expectedToolset = hostSwiftSDK.toolset
+            expectedToolset.merge(with: targetToolset)
+
+            XCTAssertEqual(targetSwiftSDK.toolset, expectedToolset)
+        }
+
+        do {
+            let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
+                hostSwiftSDK: hostSwiftSDK,
+                hostTriple: hostTriple,
+                customToolsets: [someToolsWithRoot.path],
+                store: store,
+                observabilityScope: observability.topScope,
+                fileSystem: fileSystem
+            )
+
+            let targetToolset = try Toolset(from: someToolsWithRoot.path, at: fileSystem, observability.topScope)
+
+            // By default, the target SDK paths configuration is the same as the host SDK.
+            XCTAssertEqual(targetSwiftSDK.pathsConfiguration, hostSwiftSDK.pathsConfiguration)
+
+            var expectedToolset = hostSwiftSDK.toolset
+            expectedToolset.merge(with: targetToolset)
+
+            XCTAssertEqual(targetSwiftSDK.toolset, expectedToolset)
+        }
+
+        do {
+            let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
+                hostSwiftSDK: hostSwiftSDK,
+                hostTriple: hostTriple,
+                customToolsets: [compilersNoRoot.path, someToolsWithRoot.path],
+                store: store,
+                observabilityScope: observability.topScope,
+                fileSystem: fileSystem
+            )
+
+            let toolset1 = try Toolset(from: compilersNoRoot.path, at: fileSystem, observability.topScope)
+            let toolset2 = try Toolset(from: someToolsWithRoot.path, at: fileSystem, observability.topScope)
+
+            // By default, the target SDK paths configuration is the same as the host SDK.
+            XCTAssertEqual(targetSwiftSDK.pathsConfiguration, hostSwiftSDK.pathsConfiguration)
+
+            var expectedToolset = hostSwiftSDK.toolset
+            expectedToolset.merge(with: toolset1)
+            expectedToolset.merge(with: toolset2)
+
+            XCTAssertEqual(targetSwiftSDK.toolset, expectedToolset)
+        }
+    }
 }

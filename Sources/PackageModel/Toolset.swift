@@ -137,7 +137,7 @@ extension Toolset {
     /// of replacing them.
     /// - Parameter newToolset: new toolset to merge into the existing `self` toolset.
     public mutating func merge(with newToolset: Toolset) {
-        self.rootPaths.append(contentsOf: newToolset.rootPaths)
+        self.rootPaths.insert(contentsOf: newToolset.rootPaths, at: 0)
 
         for (newTool, newProperties) in newToolset.knownTools {
             if newProperties.path != nil {

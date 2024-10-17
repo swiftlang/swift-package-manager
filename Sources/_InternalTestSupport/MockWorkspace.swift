@@ -26,9 +26,19 @@ extension UserToolchain {
     package static func mockHostToolchain(_ fileSystem: InMemoryFileSystem) throws -> UserToolchain {
         var hostSwiftSDK = try SwiftSDK.hostSwiftSDK(environment: .mockEnvironment, fileSystem: fileSystem)
         hostSwiftSDK.targetTriple = hostTriple
+
+        let env = Environment.mockEnvironment
+
         return try UserToolchain(
             swiftSDK: hostSwiftSDK,
-            environment: .mockEnvironment,
+            environment: env,
+            searchStrategy: .custom(
+                searchPaths: getEnvSearchPaths(
+                    pathString: env[.path],
+                    currentWorkingDirectory: fileSystem.currentWorkingDirectory
+                ),
+                useXcrun: true
+            ),
             fileSystem: fileSystem
         )
     }
