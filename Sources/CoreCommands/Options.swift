@@ -128,7 +128,7 @@ public struct LocationOptions: ParsableArguments {
     @Option(
         name: .customLong("toolset"),
         help: """
-            Specify to a toolset JSON file to use when building for the target platform. \
+            Specify a toolset JSON file to use when building for the target platform. \
             Use the option multiple times to specify more than one toolset. Toolsets will be merged in the order \
             they're specified into a single final toolset for the current build.
             """,
