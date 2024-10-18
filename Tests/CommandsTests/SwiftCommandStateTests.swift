@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -215,10 +215,10 @@ final class SwiftCommandStateTests: CommandsTestCase {
                 let tool = try SwiftCommandState.makeMockState(options: options)
 
                 // There is only one AuthorizationProvider depending on platform
-                #if canImport(Security)
+#if canImport(Security)
                 let keychainProvider = try tool.getRegistryAuthorizationProvider() as? KeychainAuthorizationProvider
                 XCTAssertNotNil(keychainProvider)
-                #else
+#else
                 let netrcProvider = try tool.getRegistryAuthorizationProvider() as? NetrcAuthorizationProvider
                 XCTAssertNotNil(netrcProvider)
                 XCTAssertEqual(try netrcProvider.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
@@ -232,7 +232,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
                 XCTAssertThrowsError(try tool.getRegistryAuthorizationProvider(), "error expected") { error in
                     XCTAssertEqual(error as? StringError, StringError("did not find netrc file at \(customPath)"))
                 }
-                #endif
+#endif
             }
 
             // Tests should not modify user's home dir .netrc so leaving that out intentionally
@@ -246,9 +246,9 @@ final class SwiftCommandStateTests: CommandsTestCase {
 
         let observer = ObservabilitySystem.makeForTesting()
         let graph = try loadModulesGraph(fileSystem: fs, manifests: [
-                Manifest.createRootManifest(displayName: "Pkg",
-                                            path: "/Pkg",
-                                            targets: [TargetDescription(name: "exe")])
+            Manifest.createRootManifest(displayName: "Pkg",
+                                        path: "/Pkg",
+                                        targets: [TargetDescription(name: "exe")])
         ], observabilityScope: observer.topScope)
 
         var plan: BuildPlan
@@ -319,7 +319,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
                            [.anySequence, "-gnone", .anySequence])
     }
 
-    func testToolchainArgument() async throws {
+    func testToolchainOption() async throws {
         let customTargetToolchain = AbsolutePath("/path/to/toolchain")
         let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
         let hostArPath = AbsolutePath("/usr/bin/ar")
@@ -351,17 +351,16 @@ final class SwiftCommandStateTests: CommandsTestCase {
             observabilityScope: observer.topScope
         )
 
-        let options = try GlobalOptions.parse(
-            [
-                "--toolchain", customTargetToolchain.pathString,
-                "--triple", "x86_64-unknown-linux-gnu",
-            ]
-        )
+        let options = try GlobalOptions.parse([
+            "--toolchain", customTargetToolchain.pathString,
+            "--triple", "x86_64-unknown-linux-gnu",
+        ])
         let swiftCommandState = try SwiftCommandState.makeMockState(
             options: options,
             fileSystem: fs,
             environment: ["PATH": "/usr/bin"]
         )
+
         XCTAssertEqual(swiftCommandState.originalWorkingDirectory, fs.currentWorkingDirectory)
         XCTAssertEqual(
             try swiftCommandState.getTargetToolchain().swiftCompilerPath,
@@ -371,6 +370,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
             try swiftCommandState.getTargetToolchain().swiftSDK.toolset.knownTools[.swiftCompiler]?.path,
             nil
         )
+
         let plan = try await BuildPlan(
             destinationBuildParameters: swiftCommandState.productsBuildParameters,
             toolsBuildParameters: swiftCommandState.toolsBuildParameters,
@@ -382,6 +382,108 @@ final class SwiftCommandStateTests: CommandsTestCase {
         let arguments = try plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? []
 
         XCTAssertMatch(arguments, [.contains("/path/to/toolchain")])
+    }
+
+    func testToolsetOption() throws {
+        let targetToolchainPath = "/path/to/toolchain"
+        let customTargetToolchain = AbsolutePath(targetToolchainPath)
+        let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
+        let hostArPath = AbsolutePath("/usr/bin/ar")
+        let targetSwiftcPath = customTargetToolchain.appending(components: ["swiftc"])
+        let targetArPath = customTargetToolchain.appending(components: ["llvm-ar"])
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            hostSwiftcPath.pathString,
+            hostArPath.pathString,
+            targetSwiftcPath.pathString,
+            targetArPath.pathString
+        ])
+
+        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath,] {
+            try fs.updatePermissions(path, isExecutable: true)
+        }
+
+        try fs.writeFileContents("/toolset.json", string: """
+        {
+            "schemaVersion": "1.0",
+            "rootPath": "\(targetToolchainPath)"
+        }
+        """)
+
+        let options = try GlobalOptions.parse(["--toolset", "/toolset.json"])
+        let swiftCommandState = try SwiftCommandState.makeMockState(
+            options: options,
+            fileSystem: fs,
+            environment: ["PATH": "/usr/bin"]
+        )
+
+        let hostToolchain = try swiftCommandState.getHostToolchain()
+        let targetToolchain = try swiftCommandState.getTargetToolchain()
+
+        XCTAssertEqual(
+            targetToolchain.swiftSDK.toolset.rootPaths,
+            [customTargetToolchain] + hostToolchain.swiftSDK.toolset.rootPaths
+        )
+        XCTAssertEqual(targetToolchain.swiftCompilerPath, targetSwiftcPath)
+        XCTAssertEqual(targetToolchain.librarianPath, targetArPath)
+    }
+
+    func testMultipleToolsets() throws {
+        let targetToolchainPath1 = "/path/to/toolchain1"
+        let customTargetToolchain1 = AbsolutePath(targetToolchainPath1)
+        let targetToolchainPath2 = "/path/to/toolchain2"
+        let customTargetToolchain2 = AbsolutePath(targetToolchainPath2)
+        let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
+        let hostArPath = AbsolutePath("/usr/bin/ar")
+        let targetSwiftcPath = customTargetToolchain1.appending(components: ["swiftc"])
+        let targetArPath = customTargetToolchain1.appending(components: ["llvm-ar"])
+        let targetClangPath = customTargetToolchain2.appending(components: ["clang"])
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            hostSwiftcPath.pathString,
+            hostArPath.pathString,
+            targetSwiftcPath.pathString,
+            targetArPath.pathString,
+            targetClangPath.pathString
+        ])
+
+        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath, targetClangPath,] {
+            try fs.updatePermissions(path, isExecutable: true)
+        }
+
+        try fs.writeFileContents("/toolset1.json", string: """
+        {
+            "schemaVersion": "1.0",
+            "rootPath": "\(targetToolchainPath1)"
+        }
+        """)
+
+        try fs.writeFileContents("/toolset2.json", string: """
+        {
+            "schemaVersion": "1.0",
+            "rootPath": "\(targetToolchainPath2)"
+        }
+        """)
+
+        let options = try GlobalOptions.parse([
+            "--toolset", "/toolset1.json", "--toolset", "/toolset2.json"
+        ])
+        let swiftCommandState = try SwiftCommandState.makeMockState(
+            options: options,
+            fileSystem: fs,
+            environment: ["PATH": "/usr/bin"]
+        )
+
+        let hostToolchain = try swiftCommandState.getHostToolchain()
+        let targetToolchain = try swiftCommandState.getTargetToolchain()
+
+        XCTAssertEqual(
+            targetToolchain.swiftSDK.toolset.rootPaths,
+            [customTargetToolchain2, customTargetToolchain1] + hostToolchain.swiftSDK.toolset.rootPaths
+        )
+        XCTAssertEqual(targetToolchain.swiftCompilerPath, targetSwiftcPath)
+        XCTAssertEqual(try targetToolchain.getClangCompiler(), targetClangPath)
+        XCTAssertEqual(targetToolchain.librarianPath, targetArPath)
     }
 }
 
