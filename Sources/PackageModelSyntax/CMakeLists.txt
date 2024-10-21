@@ -13,7 +13,7 @@ add_library(PackageModelSyntax
   AddTargetDependency.swift
   ManifestEditError.swift
   ManifestSyntaxRepresentable.swift
-  PackageDependency+Syntax.swift
+  PackageDescription+Syntax.swift
   PackageEditResult.swift
   ProductDescription+Syntax.swift
   SyntaxEditUtils.swift

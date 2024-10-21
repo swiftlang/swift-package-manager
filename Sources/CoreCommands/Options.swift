@@ -12,8 +12,8 @@
 
 import ArgumentParser
 
-import var Basics.localFileSystem
 import struct Basics.AbsolutePath
+import var Basics.localFileSystem
 import enum Basics.TestingLibrary
 import struct Basics.Triple
 
@@ -22,8 +22,8 @@ import struct Foundation.URL
 import enum PackageModel.BuildConfiguration
 import struct PackageModel.BuildFlags
 import struct PackageModel.EnabledSanitizers
-import struct PackageModel.PackageIdentity
 import class PackageModel.Manifest
+import struct PackageModel.PackageIdentity
 import enum PackageModel.Sanitizer
 @_spi(SwiftPMInternal) import struct PackageModel.SwiftSDK
 
@@ -34,6 +34,7 @@ import struct SPMBuildCore.BuildSystemProvider
 
 import struct TSCBasic.StringError
 
+import struct PackageDescription.Version
 import struct TSCUtility.Version
 
 import class Workspace.Workspace
@@ -763,7 +764,8 @@ extension AbsolutePath: ExpressibleByArgument {}
 extension WorkspaceConfiguration.CheckingMode: ExpressibleByArgument {}
 extension Sanitizer: ExpressibleByArgument {}
 extension BuildSystemProvider.Kind: ExpressibleByArgument, CaseIterable {}
-extension Version: ExpressibleByArgument {}
+extension PackageDescription.Version: ExpressibleByArgument {}
+extension TSCUtility.Version: ExpressibleByArgument {}
 extension PackageIdentity: ExpressibleByArgument {}
 extension URL: ExpressibleByArgument {}
 #else
@@ -772,7 +774,8 @@ extension AbsolutePath: @retroactive ExpressibleByArgument {}
 extension WorkspaceConfiguration.CheckingMode: @retroactive ExpressibleByArgument {}
 extension Sanitizer: @retroactive ExpressibleByArgument {}
 extension BuildSystemProvider.Kind: @retroactive ExpressibleByArgument, CaseIterable {}
-extension Version: @retroactive ExpressibleByArgument {}
+extension PackageDescription.Version: @retroactive ExpressibleByArgument {}
+extension TSCUtility.Version: @retroactive ExpressibleByArgument {}
 extension PackageIdentity: @retroactive ExpressibleByArgument {}
 extension URL: @retroactive ExpressibleByArgument {}
 #endif

@@ -904,8 +904,32 @@ final class PackageCommandTests: CommandsTestCase {
                 [
                     "add-dependency",
                     "https://github.com/swiftlang/swift-syntax.git",
+                    "--from",
+                    "2.0.0",
+                    "--to",
+                    "2.2.0",
+                ],
+                packagePath: path
+            )
+
+            _ = try await execute(
+                [
+                    "add-dependency",
+                    "https://github.com/swiftlang/swift-syntax.git",
                     "--up-to-next-minor-from",
                     "1.0.0",
+                ],
+                packagePath: path
+            )
+
+            _ = try await execute(
+                [
+                    "add-dependency",
+                    "https://github.com/swiftlang/swift-syntax.git",
+                    "--up-to-next-minor-from",
+                    "3.0.0",
+                    "--to",
+                    "3.3.0",
                 ],
                 packagePath: path
             )
@@ -919,7 +943,9 @@ final class PackageCommandTests: CommandsTestCase {
             XCTAssertMatch(contents, .contains(#".package(url: "https://github.com/swiftlang/swift-syntax.git", branch: "main"),"#))
             XCTAssertMatch(contents, .contains(#".package(url: "https://github.com/swiftlang/swift-syntax.git", revision: "58e9de4e7b79e67c72a46e164158e3542e570ab6"),"#))
             XCTAssertMatch(contents, .contains(#".package(url: "https://github.com/swiftlang/swift-syntax.git", from: "1.0.0"),"#))
+            XCTAssertMatch(contents, .contains(#".package(url: "https://github.com/swiftlang/swift-syntax.git", "2.0.0" ..< "2.2.0"),"#))
             XCTAssertMatch(contents, .contains(#".package(url: "https://github.com/swiftlang/swift-syntax.git", "1.0.0" ..< "1.1.0"),"#))
+            XCTAssertMatch(contents, .contains(#".package(url: "https://github.com/swiftlang/swift-syntax.git", "3.0.0" ..< "3.3.0"),"#))
         }
     }
 
@@ -943,10 +969,19 @@ final class PackageCommandTests: CommandsTestCase {
             _ = try await execute(
                 [
                     "add-dependency",
-                    "/directory",
+                    "/absolute",
                     "--type",
                     "path"
+                ],
+                packagePath: path
+            )
 
+            _ = try await execute(
+                [
+                    "add-dependency",
+                    "../relative",
+                    "--type",
+                    "path"
                 ],
                 packagePath: path
             )
@@ -955,7 +990,8 @@ final class PackageCommandTests: CommandsTestCase {
             XCTAssertFileExists(manifest)
             let contents: String = try fs.readFileContents(manifest)
 
-            XCTAssertMatch(contents, .contains(#".package(path: "/directory"),"#))
+            XCTAssertMatch(contents, .contains(#".package(path: "/absolute"),"#))
+            XCTAssertMatch(contents, .contains(#".package(path: "../relative"),"#))
         }
     }
 
@@ -1006,8 +1042,36 @@ final class PackageCommandTests: CommandsTestCase {
                     "scope.name",
                     "--type",
                     "registry",
+                    "--from",
+                    "2.0.0",
+                    "--to",
+                    "2.2.0",
+                ],
+                packagePath: path
+            )
+
+            _ = try await execute(
+                [
+                    "add-dependency",
+                    "scope.name",
+                    "--type",
+                    "registry",
                     "--up-to-next-minor-from",
                     "1.0.0",
+                ],
+                packagePath: path
+            )
+
+            _ = try await execute(
+                [
+                    "add-dependency",
+                    "scope.name",
+                    "--type",
+                    "registry",
+                    "--up-to-next-minor-from",
+                    "3.0.0",
+                    "--to",
+                    "3.3.0",
                 ],
                 packagePath: path
             )
@@ -1018,7 +1082,9 @@ final class PackageCommandTests: CommandsTestCase {
 
             XCTAssertMatch(contents, .contains(#".package(id: "scope.name", exact: "1.0.0"),"#))
             XCTAssertMatch(contents, .contains(#".package(id: "scope.name", from: "1.0.0"),"#))
+            XCTAssertMatch(contents, .contains(#".package(id: "scope.name", "2.0.0" ..< "2.2.0"),"#))
             XCTAssertMatch(contents, .contains(#".package(id: "scope.name", "1.0.0" ..< "1.1.0"),"#))
+            XCTAssertMatch(contents, .contains(#".package(id: "scope.name", "3.0.0" ..< "3.3.0"),"#))
         }
     }
 

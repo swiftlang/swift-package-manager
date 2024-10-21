@@ -10,13 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 import Basics
+import class PackageDescription.Package
+import struct PackageDescription.Version
 import PackageModel
 import PackageModelSyntax
 import _InternalTestSupport
 @_spi(FixItApplier) import SwiftIDEUtils
 import SwiftParser
 import SwiftSyntax
-import struct TSCUtility.Version
 import XCTest
 
 /// Assert that applying the given edit/refactor operation to the manifest
@@ -67,15 +68,11 @@ func assertManifestRefactor(
 }
 
 class ManifestEditTests: XCTestCase {
-    static let swiftSystemURL: SourceControlURL = "https://github.com/apple/swift-system.git"
-    static let swiftSystemPackageDependency = PackageDependency.remoteSourceControl(
-            identity: PackageIdentity(url: swiftSystemURL),
-            nameForTargetDependencyResolutionOnly: nil,
-            url: swiftSystemURL,
-            requirement: .branch("main"), productFilter: .nothing,
-            traits: []
-        )
-
+    static let swiftSystemURL: String = "https://github.com/apple/swift-system.git"
+    static let swiftSystemPackageDependency: Package.Dependency = .package(
+        url: swiftSystemURL,
+        .branch("main")
+    )
     func testAddPackageDependencyExistingComma() throws {
         try assertManifestRefactor("""
             // swift-tools-version: 5.5
@@ -96,16 +93,13 @@ class ManifestEditTests: XCTestCase {
             )
             """) { manifest in
                 try AddPackageDependency.addPackageDependency(
-                    PackageDependency.remoteSourceControl(
-                        identity: PackageIdentity(url: Self.swiftSystemURL),
-                        nameForTargetDependencyResolutionOnly: nil,
+                    .package(
                         url: Self.swiftSystemURL,
-                        requirement: .branch("main"), productFilter: .nothing,
-                        traits:[]
+                        .branch("main")
                     ),
                     to: manifest
                 )
-            }
+        }
     }
 
     func testAddPackageDependencyExistingNoComma() throws {
@@ -128,17 +122,10 @@ class ManifestEditTests: XCTestCase {
             )
             """) { manifest in
                 try AddPackageDependency.addPackageDependency(
-                    PackageDependency.remoteSourceControl(
-                        identity: PackageIdentity(url: Self.swiftSystemURL),
-                        nameForTargetDependencyResolutionOnly: nil,
-                        url: Self.swiftSystemURL,
-                        requirement: .exact("510.0.0"),
-                        productFilter: .nothing,
-                        traits: []
-                    ),
+                    .package(url: Self.swiftSystemURL, .exact("510.0.0")),
                     to: manifest
                 )
-            }
+        }
     }
 
     func testAddPackageDependencyExistingAppended() throws {
@@ -160,17 +147,10 @@ class ManifestEditTests: XCTestCase {
                 ] + []
             )
             """) { manifest in
-                let versionRange = Range<Version>.upToNextMajor(from: Version(510, 0, 0))
+                let versionRange = Range.upToNextMajor(from: PackageDescription.Version(510, 0, 0))
 
                 return try AddPackageDependency.addPackageDependency(
-                    PackageDependency.remoteSourceControl(
-                        identity: PackageIdentity(url: Self.swiftSystemURL),
-                        nameForTargetDependencyResolutionOnly: nil,
-                        url: Self.swiftSystemURL,
-                        requirement: .range(versionRange),
-                        productFilter: .nothing,
-                        traits: []
-                    ),
+                    .package(url: Self.swiftSystemURL, versionRange),
                     to: manifest
                 )
         }
@@ -190,21 +170,15 @@ class ManifestEditTests: XCTestCase {
                 dependencies: [ .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "510.0.1"), .package(url: "https://github.com/apple/swift-system.git", from: "510.0.0"),]
             )
             """) { manifest in
-                let versionRange = Range<Version>.upToNextMajor(from: Version(510, 0, 0))
+                let versionRange = Range.upToNextMajor(from: PackageDescription.Version(510, 0, 0))
 
                 return try AddPackageDependency.addPackageDependency(
-                    PackageDependency.remoteSourceControl(
-                        identity: PackageIdentity(url: Self.swiftSystemURL),
-                        nameForTargetDependencyResolutionOnly: nil,
-                        url: Self.swiftSystemURL,
-                        requirement: .range(versionRange),
-                        productFilter: .nothing,
-                        traits: []
-                    ),
+                    .package(url: "https://github.com/apple/swift-system.git", versionRange),
                     to: manifest
                 )
         }
     }
+
     func testAddPackageDependencyExistingEmpty() throws {
         try assertManifestRefactor("""
             // swift-tools-version: 5.5
@@ -223,14 +197,7 @@ class ManifestEditTests: XCTestCase {
             )
             """) { manifest in
             try AddPackageDependency.addPackageDependency(
-                    PackageDependency.remoteSourceControl(
-                        identity: PackageIdentity(url: Self.swiftSystemURL),
-                        nameForTargetDependencyResolutionOnly: nil,
-                        url: Self.swiftSystemURL,
-                        requirement: .range(Version(508,0,0)..<Version(510,0,0)),
-                        productFilter: .nothing,
-                        traits: []
-                    ),
+                .package(url: Self.swiftSystemURL, Version(508, 0, 0) ..< Version(510, 0, 0)),
                 to: manifest
             )
         }
