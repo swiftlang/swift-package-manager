@@ -559,9 +559,9 @@ final class PackageCommandTests: CommandsTestCase {
     }
 
     func testCompletionToolListDependencies() async throws {
-        try await fixture(name: "DependencyResolution/External/Complex/deck-of-playing-cards-local") { fixturePath in
-            let result = try await execute(["completion-tool", "list-dependencies"], packagePath: fixturePath)
-            XCTAssertEqual(result.stdout, "MySnippet\n")
+        try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
+            let result = try await execute(["completion-tool", "list-dependencies"], packagePath: fixturePath.appending("deck-of-playing-cards-local"))
+            XCTAssertEqual(result.stdout, "playingcard\nfisheryates\n")
         }
     }
 
