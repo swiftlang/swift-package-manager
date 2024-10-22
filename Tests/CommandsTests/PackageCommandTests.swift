@@ -551,6 +551,20 @@ final class PackageCommandTests: CommandsTestCase {
         }
     }
 
+    func testCompletionToolListSnippets() async throws {
+        try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
+            let result = try await execute(["completion-tool", "list-snippets"], packagePath: fixturePath)
+            XCTAssertEqual(result.stdout, "MySnippet\n")
+        }
+    }
+
+    func testCompletionToolListDependencies() async throws {
+        try await fixture(name: "DependencyResolution/External/Complex/deck-of-playing-cards-local") { fixturePath in
+            let result = try await execute(["completion-tool", "list-dependencies"], packagePath: fixturePath)
+            XCTAssertEqual(result.stdout, "MySnippet\n")
+        }
+    }
+
     func testCompletionToolListExecutables() async throws {
         try await fixture(name: "Miscellaneous/MultipleExecutables") { fixturePath in
             let result = try await execute(["completion-tool", "list-executables"], packagePath: fixturePath)
