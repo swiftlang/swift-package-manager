@@ -721,7 +721,11 @@ public final class SwiftModuleBuildDescription {
 
     /// When `scanInvocation` argument is set to `true`, omit the side-effect producing arguments
     /// such as emitting a module or supplementary outputs.
-    public func emitCommandLine(scanInvocation: Bool = false) throws -> [String] {
+    /// If `writeOutputFileMap` is `false`, we assume that an output file map for this command line already exists at
+    /// the expected location on disk. This is intended for SourceKit-LSP to get build settings for a file without
+    /// writing out an output file map as a side effect. We expect that preparation of the module has already created
+    /// the output file map.
+    public func emitCommandLine(scanInvocation: Bool = false, writeOutputFileMap: Bool = true) throws -> [String] {
         var result: [String] = []
         result.append(self.buildParameters.toolchain.swiftCompilerPath.pathString)
 
@@ -742,8 +746,12 @@ public final class SwiftModuleBuildDescription {
             result.append(self.moduleOutputPath.pathString)
 
             result.append("-output-file-map")
-            // FIXME: Eliminate side effect.
-            result.append(try self.writeOutputFileMap().pathString)
+            let outputFileMapPath = self.tempsPath.appending("output-file-map.json")
+            if writeOutputFileMap {
+                // FIXME: Eliminate side effect.
+                try self.writeOutputFileMap(to: outputFileMapPath)
+            }
+            result.append(outputFileMapPath.pathString)
         }
 
         if self.useWholeModuleOptimization {
@@ -769,8 +777,7 @@ public final class SwiftModuleBuildDescription {
         self.buildParameters.triple.isDarwin() && self.target.type == .library
     }
 
-    func writeOutputFileMap() throws -> AbsolutePath {
-        let path = self.tempsPath.appending("output-file-map.json")
+    func writeOutputFileMap(to path: AbsolutePath) throws {
         let masterDepsPath = self.tempsPath.appending("master.swiftdeps")
 
         var content =
@@ -852,7 +859,6 @@ public final class SwiftModuleBuildDescription {
 
         try fileSystem.createDirectory(path.parentDirectory, recursive: true)
         try self.fileSystem.writeFileContents(path, bytes: .init(encodingAsUTF8: content), atomically: true)
-        return path
     }
 
     /// Generates the module map for the Swift target and returns its path.

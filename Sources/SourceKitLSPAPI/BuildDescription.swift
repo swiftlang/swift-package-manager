@@ -116,7 +116,7 @@ private struct WrappedSwiftTargetBuildDescription: BuildTarget {
     func compileArguments(for fileURL: URL) throws -> [String] {
         // Note: we ignore the `fileURL` here as the expectation is that we get a command line for the entire target
         // in case of Swift.
-        let commandLine = try description.emitCommandLine(scanInvocation: false)
+        let commandLine = try description.emitCommandLine(scanInvocation: false, writeOutputFileMap: false)
         // First element on the command line is the compiler itself, not an argument.
         return Array(commandLine.dropFirst())
     }
