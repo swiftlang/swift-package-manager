@@ -361,4 +361,41 @@ final class TestCommandTests: CommandsTestCase {
             XCTAssertNoMatch(stderr, .contains("No matching test cases were run"))
         }
     }
+
+    func testFatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation() async throws {
+        // Test for GitHub Issue #6605
+        // GIVEN we have a Swift Package that has a fatalError building the tests
+        #if compiler(>=6)
+        let expected = 1
+        #else
+        let expected = 2
+        #endif
+        try await fixture(name: "Miscellaneous/Errors/FatalErrorInSingleXCTest/TypeLibrary") { fixturePath in
+            // WHEN swift-test is executed
+            await XCTAssertAsyncThrowsError(try await self.execute([], packagePath: fixturePath)) { error in
+                // THEN I expect a failure
+                guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = error else {
+                    XCTFail("Building the package was expected to fail, but it was successful")
+                    return
+                }
+
+                let matchString = "error: fatalError"
+                let stdoutMatches = getNumberOfMatches(of: matchString, in: stdout)
+                let stderrMatches = getNumberOfMatches(of: matchString, in: stderr)
+                let actualNumMatches = stdoutMatches + stderrMatches
+
+                // AND a fatal error message is printed \(expected) times
+                XCTAssertEqual(
+                    actualNumMatches,
+                    expected,
+                    [
+                        "Actual (\(actualNumMatches)) is not as expected (\(expected))",
+                        "stdout: \(stdout.debugDescription)",
+                        "stderr: \(stderr.debugDescription)"
+                    ].joined(separator: "\n")
+                )
+            }
+        }
+    }
+
 }
