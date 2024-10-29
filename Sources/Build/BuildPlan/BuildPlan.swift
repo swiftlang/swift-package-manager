@@ -1142,6 +1142,7 @@ extension BuildPlan {
 
     package func traverseDependencies(
         of description: ModuleBuildDescription,
+        filter: (ResolvedModule.Dependency) -> Bool = { _ in true },
         onProduct: (ResolvedProduct, BuildParameters.Destination, ProductBuildDescription?) -> Void,
         onModule: (ResolvedModule, BuildParameters.Destination, ModuleBuildDescription?) -> Void
     ) {
@@ -1163,6 +1164,7 @@ extension BuildPlan {
         ) -> [TraversalNode] {
             module
                 .dependencies(satisfying: description.buildParameters.buildEnvironment)
+                .filter({ filter($0) })
                 .reduce(into: [TraversalNode]()) { partial, dependency in
                     switch dependency {
                     case .product(let product, _):

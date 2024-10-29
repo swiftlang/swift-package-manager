@@ -6736,4 +6736,68 @@ final class BuildPlanTests: XCTestCase {
             )
         }
     }
+
+    func testHostTargetDontCross() async throws {
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Pkg/Plugins/CCrossingStreams/plugin.swift",
+            "/Pkg/Sources/CLibrary/lib.c",
+            "/Pkg/Sources/CLibrary/include/lib.h",
+            "/Pkg/Sources/Exe/main.swift",
+            "/Pkg/Sources/Tool/main.swift",
+        ])
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        .init(name: "CLibrary"),
+                        .init(
+                            name: "Tool",
+                            dependencies: [
+                                "CLibrary"
+                            ],
+                            type: .executable
+                        ),
+                        .init(
+                            name: "CCrossingStreams",
+                            dependencies: [
+                                .target(name: "Tool"),
+                            ],
+                            type: .plugin,
+                            pluginCapability: .buildTool
+                        ),
+                        .init(
+                            name: "Exe",
+                            dependencies: [
+                                .target(name: "CLibrary"),
+                            ],
+                            type: .executable,
+                            pluginUsages: [
+                                .plugin(name: "CCrossingStreams", package: nil),
+                            ]
+                        )
+                    ]
+                )
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
+          graph: graph,
+          fileSystem: fs,
+          observabilityScope: observability.topScope
+        ))
+
+        let exe = try result.moduleBuildDescription(for: "Exe").swift()
+        // Ensure the exe doesn't have the tool version of the CLibrary modulemap in it's flags
+        XCTAssertFalse(exe.additionalFlags.contains(where: { $0.hasSuffix("CLibrary-tool.build/module.modulemap")}))
+        XCTAssertTrue(exe.additionalFlags.contains(where: { $0.hasSuffix("CLibrary.build/module.modulemap")}))
+        // Also ensure the include path isn't there twice
+        XCTAssertEqual(exe.additionalFlags.filter({ $0 == "/Pkg/Sources/CLibrary/include" }).count, 1)
+    }
 }

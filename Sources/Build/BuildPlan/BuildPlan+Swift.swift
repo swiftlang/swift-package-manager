@@ -20,16 +20,13 @@ extension BuildPlan {
     func plan(swiftTarget: SwiftModuleBuildDescription) throws {
         // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target
         // depends on.
-        for case .module(let dependency, let description) in swiftTarget.recursiveDependencies(using: self) {
+        for case .module(let dependency, let description) in swiftTarget.recursiveLinkDependencies(using: self) {
             switch dependency.underlying {
             case let underlyingTarget as ClangModule where underlyingTarget.type == .library:
                 guard case let .clang(target)? = description else {
                     throw InternalError("unexpected clang target \(underlyingTarget)")
                 }
-                // Only if the targets are for the same destination, i.e. not a plugin for a target target
-                guard target.buildParameters.destination == swiftTarget.buildParameters.destination else {
-                    break
-                }
+
                 // Add the path to modulemap of the dependency. Currently we require that all Clang targets have a
                 // modulemap but we may want to remove that requirement since it is valid for a target to exist without
                 // one. However, in that case it will not be importable in Swift targets. We may want to emit a warning

@@ -1018,4 +1018,10 @@ extension SwiftModuleBuildDescription {
     ) -> [ModuleBuildDescription.Dependency] {
         ModuleBuildDescription.swift(self).recursiveDependencies(using: plan)
     }
+
+    package func recursiveLinkDependencies(
+        using plan: BuildPlan
+    ) -> [ModuleBuildDescription.Dependency] {
+        ModuleBuildDescription.swift(self).recursiveLinkDependencies(using: plan)
+    }
 }
