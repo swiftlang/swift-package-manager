@@ -521,7 +521,10 @@ public final class SwiftModuleBuildDescription {
 
         // Only add the build path to the framework search path if there are binary frameworks to link against.
         if !self.libraryBinaryPaths.isEmpty {
-            args += ["-F", self.buildParameters.buildPath.pathString]
+            args += [
+                "-F", self.buildParameters.buildPath.pathString,
+                "-Xcc", "-F", "-Xcc", self.buildParameters.buildPath.pathString
+            ]
         }
 
         // Emit the ObjC compatibility header if enabled.
@@ -656,6 +659,14 @@ public final class SwiftModuleBuildDescription {
         // FIXME: only pass paths to the actual dependencies of the module
         // Include search paths for swift module dependencies.
         args += ["-I", self.modulesPath.pathString]
+        
+        // Only add the build path to the framework search path if there are binary frameworks to link against.
+        if !self.libraryBinaryPaths.isEmpty {
+            args += [
+                "-F", self.buildParameters.buildPath.pathString,
+                "-Xcc", "-F", "-Xcc", self.buildParameters.buildPath.pathString
+            ]
+        }
 
         // FIXME: Only include valid args
         // This condition should instead only include args which are known to be
