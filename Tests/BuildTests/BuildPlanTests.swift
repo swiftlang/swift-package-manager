@@ -6737,7 +6737,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testHostTargetDontCross() async throws {
+    func testHostTargetCrossingStreams() async throws {
         let fs = InMemoryFileSystem(emptyFiles: [
             "/Pkg/Plugins/CCrossingStreams/plugin.swift",
             "/Pkg/Sources/CLibrary/lib.c",
