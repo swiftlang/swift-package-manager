@@ -128,7 +128,7 @@ public final class MockWorkspace {
         self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
         self.defaultRegistry = defaultRegistry
         self.customBinaryArtifactsManager = customBinaryArtifactsManager ?? .init(
-            httpClient: LegacyHTTPClient.mock(fileSystem: fileSystem),
+            httpClient: HTTPClient.mock(fileSystem: fileSystem),
             archiver: MockArchiver()
         )
         self.customHostToolchain = try UserToolchain.mockHostToolchain(fileSystem)

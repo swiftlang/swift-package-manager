@@ -179,7 +179,7 @@ extension Workspace {
 
         // Update the binary target artifacts.
         let addedOrUpdatedPackages = packageStateChanges.compactMap { $0.1.isAddedOrUpdated ? $0.0 : nil }
-        try self.updateBinaryArtifacts(
+        try await self.updateBinaryArtifacts(
             manifests: updatedDependencyManifests,
             addedOrUpdatedPackages: addedOrUpdatedPackages,
             observabilityScope: observabilityScope
@@ -449,7 +449,7 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
-        try self.updateBinaryArtifacts(
+        try await self.updateBinaryArtifacts(
             manifests: currentManifests,
             addedOrUpdatedPackages: [],
             observabilityScope: observabilityScope
@@ -548,7 +548,7 @@ extension Workspace {
                     observabilityScope: observabilityScope
                 )
 
-                try self.updateBinaryArtifacts(
+                try await self.updateBinaryArtifacts(
                     manifests: currentManifests,
                     addedOrUpdatedPackages: [],
                     observabilityScope: observabilityScope
@@ -614,7 +614,7 @@ extension Workspace {
         )
 
         let addedOrUpdatedPackages = packageStateChanges.compactMap { $0.1.isAddedOrUpdated ? $0.0 : nil }
-        try self.updateBinaryArtifacts(
+        try await self.updateBinaryArtifacts(
             manifests: updatedDependencyManifests,
             addedOrUpdatedPackages: addedOrUpdatedPackages,
             observabilityScope: observabilityScope
