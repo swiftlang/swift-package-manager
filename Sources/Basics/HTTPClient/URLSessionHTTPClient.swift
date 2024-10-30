@@ -18,6 +18,11 @@ import struct TSCUtility.Versioning
 import FoundationNetworking
 #endif
 
+protocol HTTPClientImplementation: Sendable {
+    @Sendable
+    func execute(request: HTTPClient.Request, progressHandler: HTTPClient.ProgressHandler?) async throws -> HTTPClient.Response
+}
+
 final class URLSessionHTTPClient: Sendable {
     private let dataSession: URLSession
     private let downloadSession: URLSession

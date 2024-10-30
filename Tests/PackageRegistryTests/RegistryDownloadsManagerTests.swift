@@ -126,7 +126,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
         // remove the package
 
         do {
-            try manager.remove(package: package)
+            try await manager.remove(package: package)
 
             delegate.prepare(fetchExpected: true)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
@@ -210,7 +210,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
         // remove the "local" package, should come from cache
 
         do {
-            try manager.remove(package: package)
+            try await manager.remove(package: package)
 
             delegate.prepare(fetchExpected: true)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
@@ -232,8 +232,8 @@ final class RegistryDownloadsManagerTests: XCTestCase {
         // remove the "local" package, and purge cache
 
         do {
-            try manager.remove(package: package)
-            manager.purgeCache(observabilityScope: observability.topScope)
+            try await manager.remove(package: package)
+            await manager.purgeCache(observabilityScope: observability.topScope)
 
             delegate.prepare(fetchExpected: true)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
@@ -295,7 +295,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
                 for packageVersion in packageVersions {
                     group.addTask {
                         delegate.prepare(fetchExpected: true)
-                        results[packageVersion] = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope, delegateQueue: .sharedConcurrent, callbackQueue: .sharedConcurrent)
+                        results[packageVersion] = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope, delegateQueue: .sharedConcurrent)
                     }
                 }
                 try await group.waitForAll()
@@ -335,7 +335,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
                     group.addTask {
                         delegate.prepare(fetchExpected: index < concurrency / repeatRatio)
                         let packageVersion = Version(index % (concurrency / repeatRatio), 0 , 0)
-                        results[packageVersion] = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope, delegateQueue: .sharedConcurrent, callbackQueue: .sharedConcurrent)
+                        results[packageVersion] = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope, delegateQueue: .sharedConcurrent)
                     }
                 }
                 try await group.waitForAll()
@@ -415,8 +415,7 @@ extension RegistryDownloadsManager {
             package: package,
             version: version,
             observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent,
-            callbackQueue: .sharedConcurrent
+            delegateQueue: .sharedConcurrent
         )
     }
 }

@@ -62,16 +62,13 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Manifest, Error>) -> Void
-    ) {
-        callbackQueue.async {
-            let key = Key(url: packageLocation, version: packageVersion?.version)
-            if let result = self.manifests[key] {
-                return completion(.success(result))
-            } else {
-                return completion(.failure(MockManifestLoaderError.unknownRequest("\(key)")))
-            }
+        callbackQueue: DispatchQueue
+    ) throws -> Manifest {
+        let key = Key(url: packageLocation, version: packageVersion?.version)
+        if let result = self.manifests[key] {
+            return result
+        } else {
+            throw MockManifestLoaderError.unknownRequest("\(key)")
         }
     }
 

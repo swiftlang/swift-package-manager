@@ -184,30 +184,34 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
 
     // registry signature handlers
 
-    func onUnsignedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
-        self.inputHandler("\(package) \(version) from \(registryURL) is unsigned. okay to proceed? (yes/no) ") { response in
-            switch response?.lowercased() {
-            case "yes":
-                completion(true) // continue
-            case "no":
-                completion(false) // stop resolution
-            default:
-                self.outputHandler("invalid response: '\(response ?? "")'", false)
-                completion(false)
+    func onUnsignedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version) async -> Bool {
+        await withCheckedContinuation { continuation in
+            self.inputHandler("\(package) \(version) from \(registryURL) is unsigned. okay to proceed? (yes/no) ") { response in
+                switch response?.lowercased() {
+                case "yes":
+                    continuation.resume(returning: true) // continue
+                case "no":
+                    continuation.resume(returning: false) // stop resolution
+                default:
+                    self.outputHandler("invalid response: '\(response ?? "")'", false)
+                    continuation.resume(returning: false)
+                }
             }
         }
     }
 
-    func onUntrustedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
-        self.inputHandler("\(package) \(version) from \(registryURL) is signed with an untrusted certificate. okay to proceed? (yes/no) ") { response in
-            switch response?.lowercased() {
-            case "yes":
-                completion(true) // continue
-            case "no":
-                completion(false) // stop resolution
-            default:
-                self.outputHandler("invalid response: '\(response ?? "")'", false)
-                completion(false)
+    func onUntrustedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version) async -> Bool {
+        await withCheckedContinuation { continuation in
+            self.inputHandler("\(package) \(version) from \(registryURL) is signed with an untrusted certificate. okay to proceed? (yes/no) ") { response in
+                switch response?.lowercased() {
+                case "yes":
+                    continuation.resume(returning: true) // continue
+                case "no":
+                    continuation.resume(returning: false) // stop resolution
+                default:
+                    self.outputHandler("invalid response: '\(response ?? "")'", false)
+                    continuation.resume(returning: false)
+                }
             }
         }
     }

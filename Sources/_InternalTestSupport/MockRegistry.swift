@@ -67,7 +67,7 @@ public class MockRegistry {
             signingEntityStorage: signingEntityStorage,
             signingEntityCheckingMode: .strict,
             authorizationProvider: .none,
-            customHTTPClient: LegacyHTTPClient(handler: self.httpHandler),
+            customHTTPClient: HTTPClient(implementation: self.httpHandler),
             customArchiverProvider: { fileSystem in MockRegistryArchiver(fileSystem: fileSystem) },
             delegate: .none,
             checksumAlgorithm: checksumAlgorithm
@@ -114,35 +114,29 @@ public class MockRegistry {
         }
     }
 
+    @Sendable
     func httpHandler(
-        request: LegacyHTTPClient.Request,
-        progress: LegacyHTTPClient.ProgressHandler?,
-        completion: @escaping (Result<LegacyHTTPClient.Response, Error>) -> Void
-    ) {
-        do {
-            guard request.url.absoluteString.hasPrefix(self.baseURL.absoluteString) else {
-                throw StringError("url outside mock registry \(self.baseURL)")
-            }
+        request: HTTPClient.Request,
+        progress: HTTPClient.ProgressHandler?
+    ) async throws -> HTTPClient.Response {
+        guard request.url.absoluteString.hasPrefix(self.baseURL.absoluteString) else {
+            throw StringError("url outside mock registry \(self.baseURL)")
+        }
 
-            switch request.kind {
-            case .generic:
-                let response = try self.handleRequest(request: request)
-                completion(.success(response))
-            case .download(let fileSystem, let destination):
-                let response = try self.handleDownloadRequest(
-                    request: request,
-                    progress: progress,
-                    fileSystem: fileSystem,
-                    destination: destination
-                )
-                completion(.success(response))
-            }
-        } catch {
-            completion(.failure(error))
+        switch request.kind {
+        case .generic:
+            return try self.handleRequest(request: request)
+        case .download(let fileSystem, let destination):
+            return try self.handleDownloadRequest(
+                request: request,
+                progress: progress,
+                fileSystem: fileSystem,
+                destination: destination
+            )
         }
     }
 
-    private func handleRequest(request: LegacyHTTPClient.Request) throws -> LegacyHTTPClient.Response {
+    private func handleRequest(request: HTTPClient.Request) throws -> LegacyHTTPClient.Response {
         let routeComponents = request.url.absoluteString.dropFirst(self.baseURL.absoluteString.count + 1)
             .split(separator: "/")
         switch routeComponents.count {
@@ -303,8 +297,8 @@ public class MockRegistry {
     }
 
     private func handleDownloadRequest(
-        request: LegacyHTTPClient.Request,
-        progress: LegacyHTTPClient.ProgressHandler?,
+        request: HTTPClient.Request,
+        progress: HTTPClient.ProgressHandler?,
         fileSystem: FileSystem,
         destination: AbsolutePath
     ) throws -> HTTPClientResponse {

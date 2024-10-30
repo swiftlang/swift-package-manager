@@ -12169,26 +12169,19 @@ final class WorkspaceTests: XCTestCase {
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
                 delegateQueue: DispatchQueue,
-                callbackQueue: DispatchQueue,
-                completion: @escaping (Result<Manifest, Error>) -> Void
-            ) {
+                callbackQueue: DispatchQueue
+            ) throws -> Manifest {
                 if let error {
-                    callbackQueue.async {
-                        completion(.failure(error))
-                    }
+                    throw error
                 } else {
-                    callbackQueue.async {
-                        completion(.success(
-                            Manifest.createManifest(
-                                displayName: packageIdentity.description,
-                                path: manifestPath,
-                                packageKind: packageKind,
-                                packageLocation: packageLocation,
-                                platforms: [],
-                                toolsVersion: manifestToolsVersion
-                            )
-                        ))
-                    }
+                    return Manifest.createManifest(
+                        displayName: packageIdentity.description,
+                        path: manifestPath,
+                        packageKind: packageKind,
+                        packageLocation: packageLocation,
+                        platforms: [],
+                        toolsVersion: manifestToolsVersion
+                    )
                 }
             }
 
@@ -14319,8 +14312,8 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                releasesRequestHandler: { _, _, completion in
-                    completion(.failure(StringError("boom")))
+                releasesRequestHandler: { _, _ in
+                    throw StringError("boom")
                 },
                 fileSystem: fs
             )
@@ -14341,8 +14334,8 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                releasesRequestHandler: { _, _, completion in
-                    completion(.success(.serverError()))
+                releasesRequestHandler: { _, _ in
+                    .serverError()
                 },
                 fileSystem: fs
             )
@@ -14404,8 +14397,8 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                versionMetadataRequestHandler: { _, _, completion in
-                    completion(.failure(StringError("boom")))
+                versionMetadataRequestHandler: { _, _ in
+                    throw StringError("boom")
                 },
                 fileSystem: fs
             )
@@ -14600,8 +14593,8 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                downloadArchiveRequestHandler: { _, _, completion in
-                    completion(.success(.serverError()))
+                downloadArchiveRequestHandler: { _, _ in
+                    .serverError()
                 },
                 fileSystem: fs
             )
@@ -15121,10 +15114,10 @@ final class WorkspaceTests: XCTestCase {
         signingEntityStorage: PackageSigningEntityStorage? = .none,
         signingEntityCheckingMode: SigningEntityCheckingMode = .strict,
         authorizationProvider: AuthorizationProvider? = .none,
-        releasesRequestHandler: LegacyHTTPClient.Handler? = .none,
-        versionMetadataRequestHandler: LegacyHTTPClient.Handler? = .none,
-        manifestRequestHandler: LegacyHTTPClient.Handler? = .none,
-        downloadArchiveRequestHandler: LegacyHTTPClient.Handler? = .none,
+        releasesRequestHandler: HTTPClient.Implementation? = .none,
+        versionMetadataRequestHandler: HTTPClient.Implementation? = .none,
+        manifestRequestHandler: HTTPClient.Implementation? = .none,
+        downloadArchiveRequestHandler: HTTPClient.Implementation? = .none,
         archiver: Archiver? = .none,
         fileSystem: FileSystem
     ) throws -> RegistryClient {
@@ -15141,23 +15134,22 @@ final class WorkspaceTests: XCTestCase {
             return configuration
         }()
 
-        let releasesRequestHandler = releasesRequestHandler ?? { _, _, completion in
+        let releasesRequestHandler = releasesRequestHandler ?? { _, _ in
             let metadata = RegistryClient.Serialization.PackageMetadata(
                 releases: [packageVersion.description: .init(url: .none, problem: .none)]
             )
-            completion(.success(
-                HTTPClientResponse(
-                    statusCode: 200,
-                    headers: [
-                        "Content-Version": "1",
-                        "Content-Type": "application/json",
-                    ],
-                    body: try! jsonEncoder.encode(metadata)
-                )
-            ))
+
+            return HTTPClientResponse(
+                statusCode: 200,
+                headers: [
+                    "Content-Version": "1",
+                    "Content-Type": "application/json",
+                ],
+                body: try! jsonEncoder.encode(metadata)
+            )
         }
 
-        let versionMetadataRequestHandler = versionMetadataRequestHandler ?? { _, _, completion in
+        let versionMetadataRequestHandler = versionMetadataRequestHandler ?? { _, _ in
             let metadata = RegistryClient.Serialization.VersionMetadata(
                 id: packageIdentity.description,
                 version: packageVersion.description,
@@ -15176,32 +15168,29 @@ final class WorkspaceTests: XCTestCase {
                 ),
                 publishedAt: nil
             )
-            completion(.success(
-                HTTPClientResponse(
-                    statusCode: 200,
-                    headers: [
-                        "Content-Version": "1",
-                        "Content-Type": "application/json",
-                    ],
-                    body: try! jsonEncoder.encode(metadata)
-                )
-            ))
+
+            return HTTPClientResponse(
+                statusCode: 200,
+                headers: [
+                    "Content-Version": "1",
+                    "Content-Type": "application/json",
+                ],
+                body: try! jsonEncoder.encode(metadata)
+            )
         }
 
-        let manifestRequestHandler = manifestRequestHandler ?? { _, _, completion in
-            completion(.success(
-                HTTPClientResponse(
-                    statusCode: 200,
-                    headers: [
-                        "Content-Version": "1",
-                        "Content-Type": "text/x-swift",
-                    ],
-                    body: Data("// swift-tools-version:\(ToolsVersion.current)".utf8)
-                )
-            ))
+        let manifestRequestHandler = manifestRequestHandler ?? { _, _ in
+            HTTPClientResponse(
+                statusCode: 200,
+                headers: [
+                    "Content-Version": "1",
+                    "Content-Type": "text/x-swift",
+                ],
+                body: Data("// swift-tools-version:\(ToolsVersion.current)".utf8)
+            )
         }
 
-        let downloadArchiveRequestHandler = downloadArchiveRequestHandler ?? { request, _, completion in
+        let downloadArchiveRequestHandler = downloadArchiveRequestHandler ?? { request, _ in
             switch request.kind {
             case .download(let fileSystem, let destination):
                 // creates a dummy zipfile which is required by the archiver step
@@ -15211,16 +15200,14 @@ final class WorkspaceTests: XCTestCase {
                 preconditionFailure("invalid request")
             }
 
-            completion(.success(
-                HTTPClientResponse(
-                    statusCode: 200,
-                    headers: [
-                        "Content-Version": "1",
-                        "Content-Type": "application/zip",
-                    ],
-                    body: Data("".utf8)
-                )
-            ))
+            return HTTPClientResponse(
+                statusCode: 200,
+                headers: [
+                    "Content-Version": "1",
+                    "Content-Type": "application/zip",
+                ],
+                body: Data("".utf8)
+            )
         }
 
         let archiver = archiver ?? MockArchiver(handler: { _, _, to, completion in
@@ -15259,22 +15246,22 @@ final class WorkspaceTests: XCTestCase {
             signingEntityStorage: signingEntityStorage,
             signingEntityCheckingMode: signingEntityCheckingMode,
             authorizationProvider: authorizationProvider,
-            customHTTPClient: LegacyHTTPClient(configuration: .init(), handler: { request, progress, completion in
+            customHTTPClient: HTTPClient(implementation: { request, progress in
                 switch request.url.path {
                 // request to get package releases
                 case "/\(identity.scope)/\(identity.name)":
-                    releasesRequestHandler(request, progress, completion)
+                    try await releasesRequestHandler(request, progress)
                 // request to get package version metadata
                 case "/\(identity.scope)/\(identity.name)/\(packageVersion)":
-                    versionMetadataRequestHandler(request, progress, completion)
+                    try await versionMetadataRequestHandler(request, progress)
                 // request to get package manifest
                 case "/\(identity.scope)/\(identity.name)/\(packageVersion)/Package.swift":
-                    manifestRequestHandler(request, progress, completion)
+                    try await manifestRequestHandler(request, progress)
                 // request to get download the version source archive
                 case "/\(identity.scope)/\(identity.name)/\(packageVersion).zip":
-                    downloadArchiveRequestHandler(request, progress, completion)
+                    try await downloadArchiveRequestHandler(request, progress)
                 default:
-                    completion(.failure(StringError("unexpected url \(request.url)")))
+                    throw StringError("unexpected url \(request.url)")
                 }
             }),
             customArchiverProvider: { _ in archiver },
