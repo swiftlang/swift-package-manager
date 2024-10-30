@@ -6799,5 +6799,11 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertTrue(exe.additionalFlags.contains(where: { $0.hasSuffix("CLibrary.build/module.modulemap")}))
         // Also ensure the include path isn't there twice
         XCTAssertEqual(exe.additionalFlags.filter({ $0 == "/Pkg/Sources/CLibrary/include" }).count, 1)
+
+        // And make sure the plugin does get the tool version
+        // Note, there are two Tools modules, one for host, one for target.
+        let pluginTool = try XCTUnwrap(result.targetMap.first(where: { $0.module.name == "Tool" && $0.destination == .host })).swift()
+        XCTAssertTrue(pluginTool.additionalFlags.contains(where: { $0.hasSuffix("CLibrary-tool.build/module.modulemap") }))
+        XCTAssertEqual(pluginTool.additionalFlags.filter({ $0 == "/Pkg/Sources/CLibrary/include" }).count, 1)
     }
 }
