@@ -156,7 +156,7 @@ extension Workspace {
                 let jsonDecoder = JSONDecoder.makeWithDefaults()
                 for indexFile in indexFiles {
                     group.enter()
-                    var request = LegacyHTTPClient.Request(method: .get, url: indexFile.url)
+                    var request = HTTPClient.Request(method: .get, url: indexFile.url)
                     request.options.validResponseCodes = [200]
                     request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
                     self.httpClient.execute(request) { result in
@@ -569,7 +569,6 @@ extension Workspace {
         }
 
         public func cancel(deadline: DispatchTime) throws {
-            try self.httpClient.cancel(deadline: deadline)
             if let cancellableArchiver = self.archiver as? Cancellable {
                 try cancellableArchiver.cancel(deadline: deadline)
             }
@@ -579,33 +578,26 @@ extension Workspace {
             artifact: RemoteArtifact,
             destination: AbsolutePath,
             observabilityScope: ObservabilityScope,
-            progress: @escaping @Sendable (Int64, Optional<Int64>) -> Void,
-            completion: @escaping (Result<Bool, Error>) -> Void
-        ) {
+            progress: @escaping @Sendable (Int64, Optional<Int64>) -> Void
+        ) async throws -> Bool {
             // not using cache, download directly
             guard let cachePath = self.cachePath else {
                 self.delegate?.willDownloadBinaryArtifact(from: artifact.url.absoluteString, fromCache: false)
-                return self.download(
+                try await self.download(
                     artifact: artifact,
                     destination: destination,
                     observabilityScope: observabilityScope,
-                    progress: progress,
-                    completion: { result in
-                        // not fetched from cache
-                        completion(result.map{ _ in false })
-                    }
+                    progress: progress
                 )
+
+                // not fetched from cache
+                return false
             }
 
             // initialize cache if necessary
-            do {
-                if !self.fileSystem.exists(cachePath) {
-                    try self.fileSystem.createDirectory(cachePath, recursive: true)
-                }
-            } catch {
-                return completion(.failure(error))
+            if !self.fileSystem.exists(cachePath) {
+                try self.fileSystem.createDirectory(cachePath, recursive: true)
             }
-
 
             // try to fetch from cache, or download and cache
             // / FIXME: use better escaping of URL
@@ -615,50 +607,43 @@ extension Workspace {
             if self.fileSystem.exists(cachedArtifactPath) {
                 observabilityScope.emit(debug: "copying cached binary artifact for \(artifact.url) from \(cachedArtifactPath)")
                 self.delegate?.willDownloadBinaryArtifact(from: artifact.url.absoluteString, fromCache: true)
-                return completion(
-                    Result.init(catching: {
-                        // copy from cache to destination
-                        try self.fileSystem.copy(from: cachedArtifactPath, to: destination)
-                        return true // fetched from cache
-                    })
-                )
+
+                // copy from cache to destination
+                try self.fileSystem.copy(from: cachedArtifactPath, to: destination)
+                return true // fetched from cache
             }
 
             // download to the cache
-            observabilityScope.emit(debug: "downloading binary artifact for \(artifact.url) to cached at \(cachedArtifactPath)")
-            self.download(
-                artifact: artifact,
-                destination: cachedArtifactPath,
-                observabilityScope: observabilityScope,
-                progress: progress,
-                completion: { result in
-                    self.delegate?.willDownloadBinaryArtifact(from: artifact.url.absoluteString, fromCache: false)
-                    if case .failure = result {
-                        try? self.fileSystem.removeFileTree(cachedArtifactPath)
-                    }
-                    completion(result.flatMap {
-                        Result.init(catching: {
-                            // copy from cache to destination
-                            try self.fileSystem.copy(from: cachedArtifactPath, to: destination)
-                            return false // not fetched from cache
-                        })
-                    })
-                }
-            )
+            observabilityScope.emit(debug: "downloading binary artifact for \(artifact.url) to cache at \(cachedArtifactPath)")
+
+            self.delegate?.willDownloadBinaryArtifact(from: artifact.url.absoluteString, fromCache: false)
+
+            do {
+                try await self.download(
+                    artifact: artifact,
+                    destination: cachedArtifactPath,
+                    observabilityScope: observabilityScope,
+                    progress: progress
+                )
+                try self.fileSystem.copy(from: cachedArtifactPath, to: destination)
+                return false // not fetched from cache
+            } catch {
+                try? self.fileSystem.removeFileTree(cachedArtifactPath)
+                throw error
+            }
         }
 
         private func download(
             artifact: RemoteArtifact,
             destination: AbsolutePath,
             observabilityScope: ObservabilityScope,
-            progress: @escaping @Sendable (Int64, Optional<Int64>) -> Void,
-            completion: @escaping (Result<Void, Error>) -> Void
-        ) {
+            progress: @escaping @Sendable (Int64, Optional<Int64>) -> Void
+        ) async throws {
             observabilityScope.emit(debug: "downloading \(artifact.url) to \(destination)")
 
             var headers = HTTPClientHeaders()
             headers.add(name: "Accept", value: "application/octet-stream")
-            var request = LegacyHTTPClient.Request.download(
+            var request = HTTPClient.Request.download(
                 url: artifact.url,
                 headers: headers,
                 fileSystem: self.fileSystem,
@@ -668,13 +653,7 @@ extension Workspace {
             request.options.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
             request.options.validResponseCodes = [200]
 
-            self.httpClient.execute(
-                request,
-                progress: progress,
-                completion: { result in
-                    completion(result.map{ _ in Void() })
-                }
-            )
+            _ = try await self.httpClient.execute(request, progress: progress)
         }
     }
 }
