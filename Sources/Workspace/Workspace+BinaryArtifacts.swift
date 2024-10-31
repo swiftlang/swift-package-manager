@@ -427,98 +427,97 @@ extension Workspace {
             artifactsDirectory: AbsolutePath,
             observabilityScope: ObservabilityScope
         ) async throws -> [ManagedArtifact] {
-            let result = ThreadSafeArrayStore<ManagedArtifact>()
-            let group = DispatchGroup()
+            return try await withThrowingTaskGroup(of: ManagedArtifact?.self) { group in
+                for artifact in artifacts {
+                    group.addTask { () -> ManagedArtifact? in
+                        let destinationDirectory = artifactsDirectory
+                            .appending(components: [artifact.packageRef.identity.description, artifact.targetName])
+                        try fileSystem.createDirectory(destinationDirectory, recursive: true)
 
-            for artifact in artifacts {
-                let destinationDirectory = artifactsDirectory
-                    .appending(components: [artifact.packageRef.identity.description, artifact.targetName])
-                try fileSystem.createDirectory(destinationDirectory, recursive: true)
+                        let tempExtractionDirectory = artifactsDirectory.appending(
+                            components: "extract",
+                            artifact.packageRef.identity.description,
+                            artifact.targetName,
+                            UUID().uuidString
+                        )
+                        try self.fileSystem.forceCreateDirectory(at: tempExtractionDirectory)
 
-                let tempExtractionDirectory = artifactsDirectory.appending(
-                    components: "extract",
-                    artifact.packageRef.identity.description,
-                    artifact.targetName,
-                    UUID().uuidString
-                )
-                try self.fileSystem.forceCreateDirectory(at: tempExtractionDirectory)
+                        do {
+                            try await self.archiver.extract(from: artifact.path, to: tempExtractionDirectory)
 
-                self.archiver.extract(from: artifact.path, to: tempExtractionDirectory, completion: { extractResult in
-                    switch extractResult {
-                    case .success:
-                        observabilityScope.trap { () in
-                            try self.fileSystem.withLock(on: destinationDirectory, type: .exclusive) {
-                                // strip first level component if needed
-                                if try self.fileSystem.shouldStripFirstLevel(
-                                    archiveDirectory: tempExtractionDirectory,
-                                    acceptableExtensions: BinaryModule.Kind.allCases.map(\.fileExtension)
-                                ) {
-                                    observabilityScope
-                                        .emit(debug: "stripping first level component from  \(tempExtractionDirectory)")
-                                    try self.fileSystem.stripFirstLevel(of: tempExtractionDirectory)
-                                } else {
-                                    observabilityScope
-                                        .emit(
+                            return observabilityScope.trap {
+                                try self.fileSystem.withLock(on: destinationDirectory, type: .exclusive) {
+                                    // strip first level component if needed
+                                    if try self.fileSystem.shouldStripFirstLevel(
+                                        archiveDirectory: tempExtractionDirectory,
+                                        acceptableExtensions: BinaryModule.Kind.allCases.map(\.fileExtension)
+                                    ) {
+                                        observabilityScope
+                                            .emit(debug: "stripping first level component from  \(tempExtractionDirectory)")
+                                        try self.fileSystem.stripFirstLevel(of: tempExtractionDirectory)
+                                    } else {
+                                        observabilityScope.emit(
                                             debug: "no first level component stripping needed for \(tempExtractionDirectory)"
                                         )
-                                }
-                                let content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
-                                // copy from temp location to actual location
-                                for file in content {
-                                    let source = tempExtractionDirectory.appending(component: file)
-                                    let destination = destinationDirectory.appending(component: file)
-                                    if self.fileSystem.exists(destination) {
-                                        try self.fileSystem.removeFileTree(destination)
                                     }
-                                    try self.fileSystem.copy(from: source, to: destination)
+                                    let content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
+                                    // copy from temp location to actual location
+                                    for file in content {
+                                        let source = tempExtractionDirectory.appending(component: file)
+                                        let destination = destinationDirectory.appending(component: file)
+                                        if self.fileSystem.exists(destination) {
+                                            try self.fileSystem.removeFileTree(destination)
+                                        }
+                                        try self.fileSystem.copy(from: source, to: destination)
+                                    }
                                 }
-                            }
 
-                            // remove temp location
-                            try self.fileSystem.removeFileTree(tempExtractionDirectory)
+                                // remove temp location
+                                try self.fileSystem.removeFileTree(tempExtractionDirectory)
 
-                            // derive concrete artifact path and type
-                            guard let (artifactPath, artifactKind) = try Self.deriveBinaryArtifact(
-                                fileSystem: self.fileSystem,
-                                path: destinationDirectory,
-                                observabilityScope: observabilityScope
-                            ) else {
-                                return observabilityScope
-                                    .emit(.localArchivedArtifactNotFound(
+                                // derive concrete artifact path and type
+                                guard let (artifactPath, artifactKind) = try Self.deriveBinaryArtifact(
+                                    fileSystem: self.fileSystem,
+                                    path: destinationDirectory,
+                                    observabilityScope: observabilityScope
+                                ) else {
+                                    observabilityScope.emit(.localArchivedArtifactNotFound(
                                         archivePath: artifact.path,
                                         targetName: artifact.targetName
                                     ))
-                            }
 
-                            // compute the checksum
-                            let artifactChecksum = try self.checksum(forBinaryArtifactAt: artifact.path)
+                                    return nil
+                                }
 
-                            result.append(
-                                .local(
+                                // compute the checksum
+                                let artifactChecksum = try self.checksum(forBinaryArtifactAt: artifact.path)
+
+                                return .some(ManagedArtifact.local(
                                     packageRef: artifact.packageRef,
                                     targetName: artifact.targetName,
                                     path: artifactPath,
                                     kind: artifactKind,
                                     checksum: artifactChecksum
-                                )
-                            )
-                        }
-                    case .failure(let error):
-                        let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                                ))
+                            }
+                        } catch {
+                            let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
 
-                        observabilityScope
-                            .emit(.localArtifactFailedExtraction(
+                            observabilityScope.emit(.localArtifactFailedExtraction(
                                 artifactPath: artifact.path,
                                 targetName: artifact.targetName,
                                 reason: reason
                             ))
+
+                            return nil
+                        }
                     }
-                })
+                }
+
+                await group.reduce(into: []) {
+                    if let artifact = $1 { $0.append(artifact) }
+                }
             }
-
-            group.wait()
-
-            return result.get()
         }
 
         package static func checksum(
