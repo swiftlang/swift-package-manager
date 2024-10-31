@@ -155,7 +155,10 @@ extension Workspace {
             if !indexFiles.isEmpty {
                 let errors = ThreadSafeArrayStore<Error>()
 
-                zipArtifacts.append(contentsOf: try await withThrowingTaskGroup(of: RemoteArtifact?.self, returning: [RemoteArtifact].self) { group in
+                zipArtifacts.append(contentsOf: try await withThrowingTaskGroup(
+                    of: RemoteArtifact?.self,
+                    returning: [RemoteArtifact].self
+                ) { group in
                     let jsonDecoder = JSONDecoder.makeWithDefaults()
                     for indexFile in indexFiles {
                         group.addTask {
