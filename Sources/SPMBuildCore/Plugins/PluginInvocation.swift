@@ -34,10 +34,10 @@ public enum PluginAction {
 }
 
 public struct PluginTool {
-    let path: AbsolutePath
-    let triples: [String]?
+    public let path: AbsolutePath
+    public let triples: [String]?
 
-    init(path: AbsolutePath, triples: [String]? = nil) {
+    public init(path: AbsolutePath, triples: [String]? = nil) {
         self.path = path
         self.triples = triples
     }
