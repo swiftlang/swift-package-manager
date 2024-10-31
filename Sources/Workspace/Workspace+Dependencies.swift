@@ -164,7 +164,7 @@ extension Workspace {
         // If we have missing packages, something is fundamentally wrong with the resolution of the graph
         let stillMissingPackages = try updatedDependencyManifests.missingPackages
         guard stillMissingPackages.isEmpty else {
-            observabilityScope.emit(.exhaustedAttempts(missing: stillMissingPackages))
+            observabilityScope.emit(BinaryArtifactsManagerError.exhaustedAttempts(missing: stillMissingPackages))
             return nil
         }
 
@@ -600,7 +600,7 @@ extension Workspace {
         // If we still have missing packages, something is fundamentally wrong with the resolution of the graph
         let stillMissingPackages = try updatedDependencyManifests.missingPackages
         guard stillMissingPackages.isEmpty else {
-            observabilityScope.emit(.exhaustedAttempts(missing: stillMissingPackages))
+            observabilityScope.emit(BinaryArtifactsManagerError.exhaustedAttempts(missing: stillMissingPackages))
             return updatedDependencyManifests
         }
 
