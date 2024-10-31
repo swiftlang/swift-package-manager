@@ -1899,7 +1899,7 @@ final class RegistryClientTests: XCTestCase {
             SourceControlURL("git@github.com:\(identity.scope)/\(identity.name).git"),
         ]
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.kind, request.method, request.url) {
             case (.generic, .get, metadataURL):
                 let data = """
@@ -1924,7 +1924,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -1932,14 +1932,14 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
             case (.download(let fileSystem, let path), .get, downloadURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+zip")
 
                 let data = Data(emptyZipFile.contents)
                 try! fileSystem.writeFileContents(path, data: data)
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -1955,15 +1955,12 @@ final class RegistryClientTests: XCTestCase {
                         ),
                     ]),
                     body: nil
-                )))
+                )
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
 
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
