@@ -748,6 +748,18 @@ let package = Package(
             dependencies: ["Build", "PackageModel", "Commands", "_InternalTestSupport"]
         ),
         .testTarget(
+            name: "IntegrationTests",
+            dependencies: [
+                "swift-package-manager",
+                .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+                .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
+                .target(name: "swift-build"),
+                .target(name: "swift-package"),
+                .target(name: "swift-run"),
+                .target(name: "swift-test")
+            ]
+        ),
+        .testTarget(
             name: "LLBuildManifestTests",
             dependencies: ["Basics", "LLBuildManifest", "_InternalTestSupport"]
         ),
