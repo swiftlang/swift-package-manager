@@ -756,7 +756,14 @@ extension Workspace {
             return manifest
         } catch {
             let duration = start.distance(to: .now())
-            manifestLoadingDiagnostics.append(.error(error))
+
+            switch error {
+            case Diagnostics.fatalError:
+                break
+            default:
+                manifestLoadingDiagnostics.append(.error(error))
+            }
+            
             self.delegate?.didLoadManifest(
                 packageIdentity: packageIdentity,
                 packagePath: packagePath,
