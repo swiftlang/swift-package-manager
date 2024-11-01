@@ -569,7 +569,7 @@ public final class MockWorkspace {
         let resolvedPackagesStore = try workspace.resolvedPackagesStore.load()
 
         let rootInput = PackageGraphRootInput(packages: try rootPaths(for: roots.map { $0.name }), dependencies: [])
-        let rootManifests = try await workspace.loadRootManifests(
+        let rootManifests = await workspace.loadRootManifests(
             packages: rootInput.packages,
             observabilityScope: observability.topScope
         )

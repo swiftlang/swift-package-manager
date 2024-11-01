@@ -66,9 +66,11 @@ public actor RegistryDownloadsManager {
         if self.pendingLookups.keys.contains(package) {
             // chain onto the pending lookup
             return await withCheckedContinuation {
-                self.pendingLookups[package]?.append($0)
+                self.pendingLookups[package]!.append($0)
             }
         } else {
+            self.pendingLookups[package] = []
+
             // inform delegate that we are starting to fetch
             // calculate if cached (for delegate call) outside queue as it may change while queue is processing
             let isCached = self.cachePath.map { self.fileSystem.exists($0.appending(packageRelativePath)) } ?? false
@@ -107,9 +109,9 @@ public actor RegistryDownloadsManager {
                     for lookup in pendingLookups {
                         lookup.resume(returning: packagePath)
                     }
-                }
 
-                self.pendingLookups[package] = nil
+                    self.pendingLookups[package] = nil
+                }
             }
 
             // and done

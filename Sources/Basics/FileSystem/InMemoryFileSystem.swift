@@ -90,6 +90,8 @@ public final class InMemoryFileSystem: FileSystem {
     /// Used to access lockFiles in a thread safe manner.
     private let lockFilesLock = NSLock()
 
+    private let asyncFilesLock = [TSCBasic.AbsolutePath: NSLock]()
+
     /// Exclusive file system lock vended to clients through `withLock()`.
     /// Used to ensure that DispatchQueues are released when they are no longer in use.
     private struct WeakReference<Value: AnyObject> {
@@ -491,26 +493,27 @@ public final class InMemoryFileSystem: FileSystem {
         return try fileQueue.sync(flags: type == .exclusive ? .barrier : .init(), execute: body)
     }
 
+    @available(*, deprecated, message: "Use of this overload can lead to deadlocks, use `AsyncFileSystem` instead.")
     public func withLock<T>(
         on path: TSCBasic.AbsolutePath,
         type: FileLock.LockType = .exclusive,
         blocking: Bool,
         _ body: () async throws -> T
     ) async throws -> T {
-        let resolvedPath: TSCBasic.AbsolutePath = try self.lock.withLock {
-            if case .symlink(let destination) = try getNode(path)?.contents {
-                try .init(validating: destination, relativeTo: path.parentDirectory)
+        let resolvedPath: TSCBasic.AbsolutePath = try lock.withLock {
+            if case let .symlink(destination) = try getNode(path)?.contents {
+                return try .init(validating: destination, relativeTo: path.parentDirectory)
             } else {
-                path
+                return path
             }
         }
 
         // FIXME: code calling this function should be migrated to `AsyncFileSystem` instead.
-        self.lockFilesLock.lock()
+        self.asyncFilesLock[resolvedPath, default: NSLock()].lock()
 
         let result = try await body()
 
-        self.lockFilesLock.unlock()
+        self.asyncFilesLock[resolvedPath, default: NSLock()].unlock()
 
         return result
     }

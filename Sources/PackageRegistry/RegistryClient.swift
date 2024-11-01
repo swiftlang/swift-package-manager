@@ -895,7 +895,7 @@ public final class RegistryClient {
                     .hexadecimalRepresentation
 
                 observabilityScope.emit(
-                    debug: "performing TOFU checks on \(package) \(version) source archive (checksum: '\(actualChecksum)'"
+                    debug: "performing TOFU checks on \(package) \(version) source archive (checksum: '\(actualChecksum)')"
                 )
                 let signingEntity = try await signatureValidation.validate(
                     registry: registry,
@@ -951,15 +951,12 @@ public final class RegistryClient {
                     try fileSystem
                         .stripFirstLevel(of: destinationPath)
                     // write down copy of version metadata
-                    let registryMetadataPath = destinationPath
-                        .appending(
-                            component: RegistryReleaseMetadataStorage
-                                .fileName
-                        )
-                    observabilityScope
-                        .emit(
-                            debug: "saving \(package) \(version) metadata to '\(registryMetadataPath)'"
-                        )
+                    let registryMetadataPath = destinationPath.appending(
+                        component: RegistryReleaseMetadataStorage.fileName
+                    )
+                    observabilityScope.emit(
+                        debug: "saving \(package) \(version) metadata to '\(registryMetadataPath)'"
+                    )
                     try RegistryReleaseMetadataStorage.save(
                         metadata: versionMetadata,
                         signingEntity: signingEntity,
