@@ -587,7 +587,6 @@ extension Workspace {
 
     /// Loads the given manifests, if it is present in the managed dependencies.
     ///
-
     private func loadManagedManifests(
         for packages: [PackageReference],
         observabilityScope: ObservabilityScope

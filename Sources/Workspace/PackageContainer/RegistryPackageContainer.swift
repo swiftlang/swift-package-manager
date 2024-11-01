@@ -123,7 +123,7 @@ public class RegistryPackageContainer: PackageContainer {
     // left internal for testing
     func loadManifest(version: Version) async throws -> Manifest {
         return try await self.manifestsCache.memoize(version) {
-            try await self.loadManifest(version: version)
+            try await self.loadUnmemoizedManifest(version: version)
         }
     }
 

@@ -126,7 +126,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
         // remove the package
 
         do {
-            try await manager.remove(package: package)
+            try manager.remove(package: package)
 
             delegate.prepare(fetchExpected: true)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
@@ -232,8 +232,8 @@ final class RegistryDownloadsManagerTests: XCTestCase {
         // remove the "local" package, and purge cache
 
         do {
-            try await manager.remove(package: package)
-            await manager.purgeCache(observabilityScope: observability.topScope)
+            try manager.remove(package: package)
+            manager.purgeCache(observabilityScope: observability.topScope)
 
             delegate.prepare(fetchExpected: true)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
