@@ -213,7 +213,10 @@ final class WorkspaceTests: XCTestCase {
                     """
                 )
 
-                XCTAssertMatch(ws.interpreterFlags(for: foo), [.equal("-swift-version"), .equal("6")])
+                XCTAssertMatch(
+                    ws.interpreterFlags(for: foo),
+                    (SwiftVersion.current.isDevelopment) ? [.equal("-swift-version"), .equal("6")] : []
+                )
             }
         }
     }
@@ -4015,7 +4018,7 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(url: "https://localhost/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(url: "https://localhost/org/bar", requirement: .upToNextMinor(from: "1.1.0"))
                     ],
-                    toolsVersion: .vNext // change to the one after 5.9
+                    toolsVersion: .v5_10
                 ),
             ],
             packages: [
