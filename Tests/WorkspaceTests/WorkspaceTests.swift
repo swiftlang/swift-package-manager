@@ -14421,8 +14421,8 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                versionMetadataRequestHandler: { _, _, completion in
-                    completion(.success(.serverError()))
+                versionMetadataRequestHandler: { _, _ in
+                    return .serverError()
                 },
                 fileSystem: fs
             )
@@ -14484,8 +14484,8 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                manifestRequestHandler: { _, _, completion in
-                    completion(.failure(StringError("boom")))
+                manifestRequestHandler: { _, _ in
+                    throw StringError("boom")
                 },
                 fileSystem: fs
             )
@@ -14506,8 +14506,8 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                manifestRequestHandler: { _, _, completion in
-                    completion(.success(.serverError()))
+                manifestRequestHandler: { _, _ in
+                    return .serverError()
                 },
                 fileSystem: fs
             )
@@ -14569,8 +14569,8 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                downloadArchiveRequestHandler: { _, _, completion in
-                    completion(.failure(StringError("boom")))
+                downloadArchiveRequestHandler: { _, _ in
+                    throw StringError("boom")
                 },
                 fileSystem: fs
             )

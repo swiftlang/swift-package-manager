@@ -277,10 +277,9 @@ struct PackageSigningEntityTOFU {
                 previous: existing
             )
         case .warn:
-            observabilityScope
-                .emit(
-                    warning: "the signing entity '\(String(describing: latest))' from \(registry) for \(package) version \(version) is different from the previously recorded value '\(existing)'"
-                )
+            observabilityScope.emit(
+                warning: "the signing entity '\(String(describing: latest))' from \(registry) for \(package) version \(version) is different from the previously recorded value '\(existing)'"
+            )
         }
     }
 
@@ -304,10 +303,9 @@ struct PackageSigningEntityTOFU {
                 previousVersion: existingVersion
             )
         case .warn:
-            observabilityScope
-                .emit(
-                    warning: "the signing entity '\(String(describing: latest))' from \(registry) for \(package) version \(version) is different from the previously recorded value '\(existing)' for version \(existingVersion)"
-                )
+            observabilityScope.emit(
+                warning: "the signing entity '\(String(describing: latest))' from \(registry) for \(package) version \(version) is different from the previously recorded value '\(existing)' for version \(existingVersion)"
+            )
         }
     }
 }

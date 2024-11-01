@@ -2506,27 +2506,27 @@ final class PackageCommandTests: CommandsTestCase {
 
         // Overall configuration: debug, plugin build request: debug -> without testability
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            try await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "debug", "check-testability", "InternalModule", "debug", "true"], packagePath: fixturePath))
+            await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "debug", "check-testability", "InternalModule", "debug", "true"], packagePath: fixturePath))
         }
 
         // Overall configuration: debug, plugin build request: release -> without testability
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            try await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "debug", "check-testability", "InternalModule", "release", "false"], packagePath: fixturePath))
+            await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "debug", "check-testability", "InternalModule", "release", "false"], packagePath: fixturePath))
         }
 
         // Overall configuration: release, plugin build request: debug -> with testability
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            try await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "release", "check-testability", "InternalModule", "debug", "true"], packagePath: fixturePath))
+            await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "release", "check-testability", "InternalModule", "debug", "true"], packagePath: fixturePath))
         }
 
         // Overall configuration: release, plugin build request: release -> with testability
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            try await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "release", "check-testability", "InternalModule", "release", "false"], packagePath: fixturePath))
+            await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "release", "check-testability", "InternalModule", "release", "false"], packagePath: fixturePath))
         }
 
         // Overall configuration: release, plugin build request: release including tests -> with testability
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            try await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "release", "check-testability", "all-with-tests", "release", "true"], packagePath: fixturePath))
+            await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "release", "check-testability", "all-with-tests", "release", "true"], packagePath: fixturePath))
         }
     }
 
