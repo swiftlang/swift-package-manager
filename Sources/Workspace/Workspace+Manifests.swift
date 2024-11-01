@@ -666,13 +666,13 @@ extension Workspace {
 
         // Load and return the manifest.
         return try? await self.loadManifest(
-                packageIdentity: managedDependency.packageRef.identity,
-                packageKind: packageKind,
-                packagePath: packagePath,
-                packageLocation: managedDependency.packageRef.locationString,
-                packageVersion: packageVersion,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope
+            packageIdentity: managedDependency.packageRef.identity,
+            packageKind: packageKind,
+            packagePath: packagePath,
+            packageLocation: managedDependency.packageRef.locationString,
+            packageVersion: packageVersion,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
         )
     }
 
