@@ -996,12 +996,12 @@ extension Workspace {
     public func loadRootManifests(
         packages: [AbsolutePath],
         observabilityScope: ObservabilityScope
-    ) async throws -> [AbsolutePath: Manifest] {
-        let rootManifests = try await withThrowingTaskGroup(of: (AbsolutePath, Manifest?).self) { group in
+    ) async -> [AbsolutePath: Manifest] {
+        let rootManifests = await withTaskGroup(of: (AbsolutePath, Manifest?).self) { group in
             for package in Set(packages) {
                 group.addTask {
                     // TODO: this does not use the identity resolver which is probably fine since its the root packages
-                    (package, try await self.loadManifest(
+                    (package, try? await self.loadManifest(
                         packageIdentity: PackageIdentity(path: package),
                         packageKind: .root(package),
                         packagePath: package,
@@ -1011,7 +1011,7 @@ extension Workspace {
                 }
             }
 
-            return try await group.reduce(into: [:]) { $0[$1.0] = $1.1 }
+            return await group.reduce(into: [:]) { $0[$1.0] = $1.1 }
         }
 
         // Check for duplicate root packages.
@@ -1030,7 +1030,7 @@ extension Workspace {
         at path: AbsolutePath,
         observabilityScope: ObservabilityScope
     ) async throws -> Manifest {
-        let manifests = try await self.loadRootManifests(packages: [path], observabilityScope: observabilityScope)
+        let manifests = await self.loadRootManifests(packages: [path], observabilityScope: observabilityScope)
 
         // normally, we call loadRootManifests which attempts to load any manifest it can and report errors via
         // diagnostics
