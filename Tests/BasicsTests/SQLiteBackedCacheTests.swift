@@ -182,6 +182,24 @@ final class SQLiteBackedCacheTests: XCTestCase {
             }
         }
     }
+
+    func testInitialFileCreation() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let paths = [
+                tmpPath.appending("foo", "test.db"),
+                // Ensure it works recursively.
+                tmpPath.appending("bar", "baz", "test.db"),
+            ]
+
+            for path in paths {
+                let cache = SQLiteBackedCache<String>(tableName: "SQLiteBackedCacheTest", path: path)
+                // Put an entry to ensure the file is created.
+                XCTAssertNoThrow(try cache.put(key: "foo", value: "bar"))
+                XCTAssertNoThrow(try cache.close())
+                XCTAssertTrue(localFileSystem.exists(path), "expected file to be created at \(path)")
+            }
+        }
+    }
 }
 
 private func makeMockData(fileSystem: FileSystem, rootPath: AbsolutePath, count: Int = Int.random(in: 50 ..< 100)) throws -> [String: String] {
