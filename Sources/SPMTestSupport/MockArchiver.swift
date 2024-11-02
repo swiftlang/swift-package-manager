@@ -12,7 +12,7 @@
 
 import Basics
 
-package class MockArchiver: Archiver {
+package final class MockArchiver: Archiver {
     package typealias ExtractionHandler = (
         MockArchiver,
         AbsolutePath,

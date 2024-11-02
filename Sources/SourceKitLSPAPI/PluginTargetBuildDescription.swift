@@ -12,20 +12,22 @@
 
 import struct Foundation.URL
 
-import struct PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedModule
 
 private import class PackageLoading.ManifestLoader
 internal import struct PackageModel.ToolsVersion
 private import class PackageModel.UserToolchain
 
 struct PluginTargetBuildDescription: BuildTarget {
-    private let target: ResolvedTarget
+    private let target: ResolvedModule
     private let toolsVersion: ToolsVersion
+    let isPartOfRootPackage: Bool
 
-    init(target: ResolvedTarget, toolsVersion: ToolsVersion) {
+    init(target: ResolvedModule, toolsVersion: ToolsVersion, isPartOfRootPackage: Bool) {
         assert(target.type == .plugin)
         self.target = target
         self.toolsVersion = toolsVersion
+        self.isPartOfRootPackage = isPartOfRootPackage
     }
 
     var sources: [URL] {

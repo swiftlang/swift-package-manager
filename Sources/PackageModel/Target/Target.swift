@@ -22,6 +22,7 @@ public class Target: PolymorphicCodableProtocol {
         SystemLibraryTarget.self,
         BinaryTarget.self,
         PluginTarget.self,
+        ProvidedLibraryTarget.self,
     ]
 
     /// The target kind.
@@ -34,6 +35,7 @@ public class Target: PolymorphicCodableProtocol {
         case plugin
         case snippet
         case `macro`
+        case providedLibrary
     }
 
     /// A group a target belongs to that allows customizing access boundaries. A target is treated as
@@ -132,7 +134,7 @@ public class Target: PolymorphicCodableProtocol {
     /// The name of the target.
     ///
     /// NOTE: This name is not the language-level target (i.e., the importable
-    /// name) name in many cases, instead use c99name if you need uniqueness.
+    /// name) name in many cases, instead use ``Target/c99name`` if you need uniqueness.
     public private(set) var name: String
 
     /// Module aliases needed to build this target. The key is an original name of a

@@ -76,7 +76,6 @@ public final class WorkspaceState {
         self.storage.fileExists()
     }
 
-    /// Returns true if the state file exists on the filesystem.
     func reload() throws {
         let storedState = try self.storage.load()
         self.dependencies = storedState.dependencies
@@ -257,6 +256,15 @@ extension WorkspaceStateStorage {
                         let version = try container.decode(String.self, forKey: .version)
                         return try self
                             .init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version)))
+                    case "providedLibrary":
+                        let path = try container.decode(AbsolutePath.self, forKey: .path)
+                        let version = try container.decode(String.self, forKey: .version)
+                        return try self.init(
+                            underlying: .providedLibrary(
+                                at: path,
+                                version: TSCUtility.Version(versionString: version)
+                            )
+                        )
                     case "edited":
                         let path = try container.decode(AbsolutePath?.self, forKey: .path)
                         return try self.init(underlying: .edited(
@@ -286,6 +294,10 @@ extension WorkspaceStateStorage {
                         try container.encode(CheckoutInfo(state), forKey: .checkoutState)
                     case .registryDownload(let version):
                         try container.encode("registryDownload", forKey: .name)
+                        try container.encode(version, forKey: .version)
+                    case .providedLibrary(let path, let version):
+                        try container.encode("providedLibrary", forKey: .name)
+                        try container.encode(path, forKey: .path)
                         try container.encode(version, forKey: .version)
                     case .edited(_, let path):
                         try container.encode("edited", forKey: .name)
@@ -613,6 +625,15 @@ extension WorkspaceStateStorage {
                         let version = try container.decode(String.self, forKey: .version)
                         return try self
                             .init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version)))
+                    case "providedLibrary":
+                        let path = try container.decode(AbsolutePath.self, forKey: .path)
+                        let version = try container.decode(String.self, forKey: .version)
+                        return try self.init(
+                            underlying: .providedLibrary(
+                                at: path,
+                                version: TSCUtility.Version(versionString: version)
+                            )
+                         )
                     case "edited":
                         let path = try container.decode(AbsolutePath?.self, forKey: .path)
                         return try self.init(underlying: .edited(
@@ -642,6 +663,10 @@ extension WorkspaceStateStorage {
                         try container.encode(CheckoutInfo(state), forKey: .checkoutState)
                     case .registryDownload(let version):
                         try container.encode("registryDownload", forKey: .name)
+                        try container.encode(version, forKey: .version)
+                    case .providedLibrary(let path, let version):
+                        try container.encode("providedLibrary", forKey: .name)
+                        try container.encode(path, forKey: .path)
                         try container.encode(version, forKey: .version)
                     case .edited(_, let path):
                         try container.encode("edited", forKey: .name)

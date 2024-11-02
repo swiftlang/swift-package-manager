@@ -11,10 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import struct PackageGraph.ResolvedPackage
-import struct PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedModule
 
 extension ResolvedPackage {
-    package func packageNameArgument(target: ResolvedTarget, isPackageNameSupported: Bool) -> [String] {
+    package func packageNameArgument(target: ResolvedModule, isPackageNameSupported: Bool) -> [String] {
         if self.manifest.usePackageNameFlag, target.packageAccess {
             ["-package-name", self.identity.description.spm_mangledToC99ExtendedIdentifier()]
         } else {

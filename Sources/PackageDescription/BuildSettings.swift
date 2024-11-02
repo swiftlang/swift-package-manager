@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 /// The build configuration, such as debug or release.
-public struct BuildConfiguration {
+public struct BuildConfiguration: Sendable {
     /// The configuration of the build. Valid values are `debug` and `release`.
     let config: String
 
@@ -54,7 +54,7 @@ public struct BuildConfiguration {
 ///     ]
 /// ),
 /// ```
-public struct BuildSettingCondition {
+public struct BuildSettingCondition: Sendable {
     /// The applicable platforms for this build setting condition.
     let platforms: [Platform]?
     /// The applicable build configuration for this build setting condition.
@@ -115,7 +115,7 @@ struct BuildSettingData {
 }
 
 /// A C language build setting.
-public struct CSetting {
+public struct CSetting: Sendable {
     /// The abstract build setting data.
     let data: BuildSettingData
 
@@ -185,7 +185,7 @@ public struct CSetting {
 }
 
 /// A CXX-language build setting.
-public struct CXXSetting {
+public struct CXXSetting: Sendable {
     /// The data store for the CXX build setting.
     let data: BuildSettingData
 
@@ -255,7 +255,7 @@ public struct CXXSetting {
 }
 
 /// A Swift language build setting.
-public struct SwiftSetting {
+public struct SwiftSetting: Sendable {
     /// The data store for the Swift build setting.
     let data: BuildSettingData
 
@@ -387,10 +387,27 @@ public struct SwiftSetting {
         return SwiftSetting(
           name: "interoperabilityMode", value: [mode.rawValue], condition: condition)
     }
+
+    /// Defines a `-swift-version` to pass  to the
+    /// corresponding build tool.
+    ///
+    /// - Since: First available in PackageDescription 6.0.
+    ///
+    /// - Parameters:
+    ///   - version: The Swift language version to use.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.0)
+    public static func swiftLanguageVersion(
+      _ version: SwiftVersion,
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "swiftLanguageVersion", value: [.init(describing: version)], condition: condition)
+    }
 }
 
 /// A linker build setting.
-public struct LinkerSetting {
+public struct LinkerSetting: Sendable {
     /// The data store for the Linker setting.
     let data: BuildSettingData
 

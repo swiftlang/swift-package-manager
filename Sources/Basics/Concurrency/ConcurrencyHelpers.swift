@@ -49,7 +49,7 @@ extension DispatchQueue {
 
 /// Bridges between potentially blocking methods that take a result completion closure and async/await
 public func safe_async<T, ErrorType: Error>(
-    _ body: @Sendable @escaping (@Sendable @escaping (Result<T, ErrorType>) -> Void) -> Void
+    _ body: @escaping @Sendable (@escaping @Sendable (Result<T, ErrorType>) -> Void) -> Void
 ) async throws -> T {
     try await withCheckedThrowingContinuation { continuation in
         // It is possible that body make block indefinitely on a lock, semaphore,
@@ -64,7 +64,7 @@ public func safe_async<T, ErrorType: Error>(
 }
 
 /// Bridges between potentially blocking methods that take a result completion closure and async/await
-public func safe_async<T>(_ body: @escaping (@escaping (Result<T, Never>) -> Void) -> Void) async -> T {
+public func safe_async<T>(_ body: @escaping @Sendable (@escaping (Result<T, Never>) -> Void) -> Void) async -> T {
     await withCheckedContinuation { continuation in
         // It is possible that body make block indefinitely on a lock, semaphore,
         // or similar then synchronously call the completion handler. For full safety

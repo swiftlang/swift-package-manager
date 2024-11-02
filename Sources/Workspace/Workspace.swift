@@ -96,7 +96,7 @@ public class Workspace {
     public let pinsStore: LoadableResult<PinsStore>
 
     /// The file system on which the workspace will operate.
-    let fileSystem: any FileSystem
+    package let fileSystem: any FileSystem
 
     /// The host toolchain to use.
     private let hostToolchain: UserToolchain
@@ -572,9 +572,9 @@ public class Workspace {
         )
     }
 
-    fileprivate var providedLibraries: [LibraryMetadata] {
+    var providedLibraries: [ProvidedLibrary] {
         // Note: Eventually, we should get these from the individual SDKs, but the first step is providing the metadata centrally in the toolchain.
-        return self.hostToolchain.providedLibraries
+        self.hostToolchain.providedLibraries
     }
 }
 
@@ -626,7 +626,6 @@ extension Workspace {
         packageName: String,
         forceRemove: Bool,
         root: PackageGraphRootInput,
-        availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
     ) throws {
         guard let dependency = self.state.dependencies[.plain(packageName)] else {
@@ -643,7 +642,6 @@ extension Workspace {
             dependency: dependency,
             forceRemove: forceRemove,
             root: root,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
     }
@@ -664,7 +662,6 @@ extension Workspace {
         try self._resolve(
             root: root,
             explicitProduct: explicitProduct,
-            availableLibraries: self.providedLibraries,
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : forceResolution ? .update(forceResolution: true) :
                 .bestEffort,
             observabilityScope: observabilityScope
@@ -708,6 +705,8 @@ extension Workspace {
             defaultRequirement = checkoutState.requirement
         case .registryDownload(let version), .custom(let version, _):
             defaultRequirement = .versionSet(.exact(version))
+        case .providedLibrary(_, version: let version):
+            defaultRequirement = .versionSet(.exact(version))
         case .fileSystem:
             throw StringError("local dependency '\(dependency.packageRef.identity)' can't be resolved")
         case .edited:
@@ -736,7 +735,6 @@ extension Workspace {
         // Run the resolution.
         try self.resolveAndUpdateResolvedFile(
             root: root,
-            availableLibraries: self.providedLibraries,
             forceResolution: false,
             constraints: [constraint],
             observabilityScope: observabilityScope
@@ -754,7 +752,6 @@ extension Workspace {
         try self._resolveBasedOnResolvedVersionsFile(
             root: root,
             explicitProduct: .none,
-            availableLibraries: self.providedLibraries,
             observabilityScope: observabilityScope
         )
     }
@@ -865,7 +862,6 @@ extension Workspace {
             root: root,
             packages: packages,
             dryRun: dryRun,
-            availableLibraries: self.providedLibraries,
             observabilityScope: observabilityScope
         )
     }
@@ -877,7 +873,6 @@ extension Workspace {
         forceResolvedVersions: Bool = false,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
-        availableLibraries: [LibraryMetadata],
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
         observabilityScope: ObservabilityScope
     ) throws -> ModulesGraph {
@@ -897,7 +892,6 @@ extension Workspace {
         let manifests = try self._resolve(
             root: root,
             explicitProduct: explicitProduct,
-            availableLibraries: availableLibraries,
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : .bestEffort,
             observabilityScope: observabilityScope
         )
@@ -924,7 +918,6 @@ extension Workspace {
             createREPLProduct: self.configuration.createREPLProduct,
             customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
             testEntryPointPath: testEntryPointPath,
-            availableLibraries: self.providedLibraries,
             fileSystem: self.fileSystem,
             observabilityScope: observabilityScope
         )
@@ -946,7 +939,6 @@ extension Workspace {
         try self.loadPackageGraph(
             rootInput: PackageGraphRootInput(packages: [rootPath]),
             explicitProduct: explicitProduct,
-            availableLibraries: self.providedLibraries,
             observabilityScope: observabilityScope
         )
     }
@@ -1349,6 +1341,8 @@ extension Workspace {
                     result.append("unversioned")
                 }
             case .registryDownload(let version)?, .custom(let version, _):
+                result.append("resolved to '\(version)'")
+            case .providedLibrary(_, version: let version):
                 result.append("resolved to '\(version)'")
             case .edited?:
                 result.append("edited")

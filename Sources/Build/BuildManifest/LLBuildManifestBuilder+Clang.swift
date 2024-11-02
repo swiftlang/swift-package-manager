@@ -14,7 +14,7 @@ import struct LLBuildManifest.Node
 import struct Basics.AbsolutePath
 import struct Basics.InternalError
 import class Basics.ObservabilityScope
-import struct PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedModule
 import PackageModel
 
 extension LLBuildManifestBuilder {
@@ -38,7 +38,7 @@ extension LLBuildManifestBuilder {
             }
         }
 
-        func addStaticTargetInputs(_ target: ResolvedTarget) {
+        func addStaticTargetInputs(_ target: ResolvedModule) {
             if case .swift(let desc)? = self.plan.targetMap[target.id], target.type == .library {
                 inputs.append(file: desc.moduleOutputPath)
             } else if case .mixed(let desc)? = plan.targetMap[target.id], target.type == .library {

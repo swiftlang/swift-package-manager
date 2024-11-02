@@ -13,14 +13,14 @@
 import PackageGraph
 import PackageModel
 
-extension ResolvedTarget {
+extension ResolvedModule {
     package static func mock(
         packageIdentity: PackageIdentity,
         name: String,
-        deps: ResolvedTarget...,
+        deps: ResolvedModule...,
         conditions: [PackageCondition] = []
-    ) -> ResolvedTarget {
-        ResolvedTarget(
+    ) -> ResolvedModule {
+        ResolvedModule(
             packageIdentity: packageIdentity,
             underlying: SwiftTarget(
                 name: name,

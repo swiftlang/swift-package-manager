@@ -167,8 +167,25 @@ public enum SwiftVersion {
     @available(_PackageDescription, introduced: 5)
     case v5
 
+    /// The identifier for the Swift 6 language version.
+    @available(_PackageDescription, introduced: 6)
+    case v6
+
     /// A user-defined value for the Swift version.
     ///
     /// The value is passed as-is to the Swift compiler's `-swift-version` flag.
     case version(String)
+}
+
+extension SwiftVersion: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .v3: "3"
+        case .v4: "4"
+        case .v4_2: "4.2"
+        case .v5: "5"
+        case .v6: "6"
+        case .version(let version): version
+        }
+    }
 }

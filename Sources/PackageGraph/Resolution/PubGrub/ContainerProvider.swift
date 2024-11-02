@@ -49,8 +49,8 @@ final class ContainerProvider {
     }
 
     func removeCachedContainers(for packages: [PackageReference]) {
-        packages.forEach {
-            self.containersCache[$0] = nil
+        for package in packages {
+            self.containersCache[package] = nil
         }
     }
 
@@ -65,23 +65,11 @@ final class ContainerProvider {
     /// Get the container for the given identifier, loading it if necessary.
     func getContainer(
         for package: PackageReference,
-        availableLibraries: [LibraryMetadata],
         completion: @escaping (Result<PubGrubPackageContainer, Error>) -> Void
     ) {
         // Return the cached container, if available.
         if let container = self.containersCache[comparingLocation: package] {
             return completion(.success(container))
-        }
-
-        if let metadata = package.matchingPrebuiltLibrary(in: availableLibraries) {
-            do {
-                let prebuiltPackageContainer = try PrebuiltPackageContainer(metadata: metadata)
-                let pubGrubContainer = PubGrubPackageContainer(underlying: prebuiltPackageContainer, pins: self.pins)
-                self.containersCache[package] = pubGrubContainer
-                return completion(.success(pubGrubContainer))
-            } catch {
-                return completion(.failure(error))
-            }
         }
 
         if let prefetchSync = self.prefetches[package] {
@@ -93,7 +81,7 @@ final class ContainerProvider {
                 } else {
                     // if prefetch failed, remove from list of prefetches and try again
                     self.prefetches[package] = nil
-                    return self.getContainer(for: package, availableLibraries: availableLibraries, completion: completion)
+                    return self.getContainer(for: package, completion: completion)
                 }
             }
         } else {
@@ -101,11 +89,15 @@ final class ContainerProvider {
             self.underlying.getContainer(
                 for: package,
                 updateStrategy: self.skipUpdate ? .never : .always, // TODO: make this more elaborate
-                observabilityScope: self.observabilityScope.makeChildScope(description: "getting package container", metadata: package.diagnosticsMetadata),
+                observabilityScope: self.observabilityScope.makeChildScope(
+                    description: "getting package container",
+                    metadata: package.diagnosticsMetadata
+                ),
                 on: .sharedConcurrent
             ) { result in
                 let result = result.tryMap { container -> PubGrubPackageContainer in
                     let pubGrubContainer = PubGrubPackageContainer(underlying: container, pins: self.pins)
+
                     // only cache positive results
                     self.containersCache[package] = pubGrubContainer
                     return pubGrubContainer
@@ -116,12 +108,9 @@ final class ContainerProvider {
     }
 
     /// Starts prefetching the given containers.
-    func prefetch(containers identifiers: [PackageReference], availableLibraries: [LibraryMetadata]) {
-        let filteredIdentifiers = identifiers.filter {
-            return $0.matchingPrebuiltLibrary(in: availableLibraries) == nil
-        }
+    func prefetch(containers identifiers: [PackageReference]) {
         // Process each container.
-        for identifier in filteredIdentifiers {
+        for identifier in identifiers {
             var needsFetching = false
             self.prefetches.memoize(identifier) {
                 let group = DispatchGroup()
@@ -133,13 +122,19 @@ final class ContainerProvider {
                 self.underlying.getContainer(
                     for: identifier,
                     updateStrategy: self.skipUpdate ? .never : .always, // TODO: make this more elaborate
-                    observabilityScope: self.observabilityScope.makeChildScope(description: "prefetching package container", metadata: identifier.diagnosticsMetadata),
+                    observabilityScope: self.observabilityScope.makeChildScope(
+                        description: "prefetching package container",
+                        metadata: identifier.diagnosticsMetadata
+                    ),
                     on: .sharedConcurrent
                 ) { result in
                     defer { self.prefetches[identifier]?.leave() }
                     // only cache positive results
                     if case .success(let container) = result {
-                        self.containersCache[identifier] = PubGrubPackageContainer(underlying: container, pins: self.pins)
+                        self.containersCache[identifier] = PubGrubPackageContainer(
+                            underlying: container,
+                            pins: self.pins
+                        )
                     }
                 }
             }

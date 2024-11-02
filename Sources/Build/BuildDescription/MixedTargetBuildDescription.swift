@@ -76,9 +76,11 @@ public final class MixedTargetBuildDescription {
         toolsVersion: ToolsVersion,
         additionalFileRules: [FileRuleDescription] = [],
         buildParameters: BuildParameters,
+        toolsBuildParameters: BuildParameters,
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult] = [],
         prebuildCommandResults: [PrebuildCommandResult] = [],
         fileSystem: FileSystem,
+        shouldDisableSandbox: Bool,
         observabilityScope: ObservabilityScope
     ) throws {
         guard let mixedTarget = target.underlying as? MixedTarget else {
@@ -121,10 +123,11 @@ public final class MixedTargetBuildDescription {
             target: swiftResolvedTarget,
             toolsVersion: toolsVersion,
             additionalFileRules: additionalFileRules,
-            buildParameters: buildParameters,
+            destinationBuildParameters: buildParameters,
+            toolsBuildParameters: toolsBuildParameters,
             buildToolPluginInvocationResults: buildToolPluginInvocationResults,
             prebuildCommandResults: prebuildCommandResults,
-            disableSandbox: false,
+            shouldDisableSandbox: shouldDisableSandbox,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             isWithinMixedTarget: true

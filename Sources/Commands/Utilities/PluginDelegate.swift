@@ -238,7 +238,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Construct the environment we'll pass down to the tests.
         let testEnvironment = try TestingSupport.constructTestEnvironment(
             toolchain: toolchain,
-            buildParameters: toolsBuildParameters,
+            destinationBuildParameters: toolsBuildParameters,
             sanitizers: swiftCommandState.options.build.sanitizers
         )
 
@@ -430,7 +430,7 @@ final class PluginDelegate: PluginInvocationDelegate {
 
         // Run the symbol graph extractor on the target.
         let result = try symbolGraphExtractor.extractSymbolGraph(
-            target: target,
+            module: target,
             buildPlan: try buildSystem.buildPlan,
             outputRedirection: .collect,
             outputDirectory: outputDir,

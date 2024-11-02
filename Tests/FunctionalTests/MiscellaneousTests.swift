@@ -665,7 +665,7 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testRootPackageWithConditionals() throws {
         try fixture(name: "Miscellaneous/RootPackageWithConditionals") { path in
-            let (_, stderr) = try SwiftPM.Build.execute(packagePath: path)
+            let (_, stderr) = try SwiftPM.Build.execute(packagePath: path, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             let errors = stderr.components(separatedBy: .newlines).filter { !$0.contains("[logging] misuse") && !$0.isEmpty }
             XCTAssertEqual(errors, [], "unexpected errors: \(errors)")
         }

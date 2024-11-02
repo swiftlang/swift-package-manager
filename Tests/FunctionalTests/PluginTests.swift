@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -11,6 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
+@_spi(SwiftPMInternal)
 @testable import PackageGraph
 import PackageLoading
 import PackageModel
@@ -19,8 +21,7 @@ import SPMTestSupport
 import Workspace
 import XCTest
 
-class PluginTests: XCTestCase {
-    
+final class PluginTests: XCTestCase {
     func testUseOfBuildToolPluginTargetByExecutableInSamePackage() throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
@@ -226,12 +227,12 @@ class PluginTests: XCTestCase {
             let pathOfGeneratedFile = packageDir.appending(components: [".build", "plugins", "outputs", "mypackage", "SomeTarget", "Plugin", "best.txt"])
 
             try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v5_9)
-            let (_, stderr) = try executeSwiftBuild(packageDir)
+            let (_, stderr) = try executeSwiftBuild(packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertTrue(stderr.contains("warning: Build tool command 'empty' (applied to target 'SomeTarget') does not declare any output files"), "expected warning not emitted")
             XCTAssertFalse(localFileSystem.exists(pathOfGeneratedFile), "plugin generated file unexpectedly exists at \(pathOfGeneratedFile.pathString)")
 
             try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v6_0)
-            let (_, stderr2) = try executeSwiftBuild(packageDir)
+            let (_, stderr2) = try executeSwiftBuild(packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertEqual("", stderr2)
             XCTAssertTrue(localFileSystem.exists(pathOfGeneratedFile), "plugin did not run, generated file does not exist at \(pathOfGeneratedFile.pathString)")
         }
@@ -444,7 +445,6 @@ class PluginTests: XCTestCase {
             // Load the package graph.
             let packageGraph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
-                availableLibraries: [], // assume no provided libraries for testing.
                 observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -631,7 +631,6 @@ class PluginTests: XCTestCase {
             // Load the package graph.
             let packageGraph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
-                availableLibraries: [], // assume no provided libraries for testing.
                 observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -729,7 +728,6 @@ class PluginTests: XCTestCase {
             // Load the package graph.
             let packageGraph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
-                availableLibraries: [], // assume no provided libraries for testing.
                 observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -1045,7 +1043,6 @@ class PluginTests: XCTestCase {
             // Load the package graph.
             let packageGraph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
-                availableLibraries: [], // assume no provided libraries for testing.
                 observabilityScope: observability.topScope
             )
             XCTAssert(packageGraph.packages.count == 4, "\(packageGraph.packages)")

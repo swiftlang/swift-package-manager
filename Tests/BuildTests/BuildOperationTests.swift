@@ -28,14 +28,16 @@ import class TSCBasic.InMemoryFileSystem
 
 final class BuildOperationTests: XCTestCase {
     func testDetectUnexpressedDependencies() throws {
+        let buildParameters = mockBuildParameters(shouldDisableLocalRpath: false)
+
         let fs = InMemoryFileSystem(files: [
-            "/path/to/build/debug/Lunch.build/Lunch.d" : "/Best.framework"
+            "\(buildParameters.dataPath)/debug/Lunch.build/Lunch.d" : "/Best.framework"
         ])
 
         let observability = ObservabilitySystem.makeForTesting()
         let buildOp = BuildOperation(
-            productsBuildParameters: mockBuildParameters(shouldDisableLocalRpath: false),
-            toolsBuildParameters: mockBuildParameters(shouldDisableLocalRpath: false),
+            productsBuildParameters: buildParameters,
+            toolsBuildParameters: buildParameters,
             cacheBuildManifest: false,
             packageGraphLoader: { fatalError() },
             additionalFileRules: [],
@@ -50,12 +52,15 @@ final class BuildOperationTests: XCTestCase {
         buildOp.detectUnexpressedDependencies(
             availableLibraries: [
                 .init(
-                    identities: [
-                        .sourceControl(url: .init("https://example.com/org/foo"))
-                    ],
-                    version: "1.0.0",
-                    productName: "Best",
-                    schemaVersion: 1
+                    location: "/foo",
+                    metadata: .init(
+                        identities: [
+                            .sourceControl(url: .init("https://example.com/org/foo"))
+                        ],
+                        version: "1.0.0",
+                        productName: "Best",
+                        schemaVersion: 1
+                    )
                 )
             ],
             targetDependencyMap: ["Lunch": []]

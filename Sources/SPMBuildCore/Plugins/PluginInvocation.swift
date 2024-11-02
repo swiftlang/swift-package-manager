@@ -21,7 +21,7 @@ import protocol TSCBasic.DiagnosticLocation
 public enum PluginAction {
     case createBuildToolCommands(
         package: ResolvedPackage,
-        target: ResolvedTarget,
+        target: ResolvedModule,
         pluginGeneratedSources: [AbsolutePath],
         pluginGeneratedResources: [AbsolutePath]
     )
@@ -398,8 +398,8 @@ extension ModulesGraph {
         observabilityScope: ObservabilityScope,
         fileSystem: FileSystem,
         builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath? = { _, _ in return nil }
-    ) throws -> [ResolvedTarget.ID: (target: ResolvedTarget, results: [BuildToolPluginInvocationResult])] {
-        var pluginResultsByTarget: [ResolvedTarget.ID: (target: ResolvedTarget, results: [BuildToolPluginInvocationResult])] = [:]
+    ) throws -> [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] {
+        var pluginResultsByTarget: [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] = [:]
         for target in self.allTargets.sorted(by: { $0.name < $1.name }) {
             // Infer plugins from the declared dependencies, and collect them as well as any regular dependencies. Although usage of build tool plugins is declared separately from dependencies in the manifest, in the internal model we currently consider both to be dependencies.
             var pluginTargets: [PluginTarget] = []
@@ -592,13 +592,15 @@ extension ModulesGraph {
             }
 
             // Associate the list of results with the target. The list will have one entry for each plugin used by the target.
-            pluginResultsByTarget[target.id] = (target, buildToolPluginResults)
+            var targetID = target.id
+            targetID.buildTriple = .destination
+            pluginResultsByTarget[targetID] = (target, buildToolPluginResults)
         }
         return pluginResultsByTarget
     }
 
     public static func computePluginGeneratedFiles(
-        target: ResolvedTarget,
+        target: ResolvedModule,
         toolsVersion: ToolsVersion,
         additionalFileRules: [FileRuleDescription],
         buildParameters: BuildParameters,
@@ -744,7 +746,7 @@ public struct BuildToolPluginInvocationResult {
     public var package: ResolvedPackage
 
     /// The target in that package to which the plugin was applied.
-    public var target: ResolvedTarget
+    public var target: ResolvedModule
 
     /// If the plugin finished successfully.
     public var succeeded: Bool

@@ -34,6 +34,9 @@ add_library(Basics
   FileSystem/TemporaryFile.swift
   FileSystem/TSCAdapters.swift
   FileSystem/VFSOverlay.swift
+  Graph/AdjacencyMatrix.swift
+  Graph/DirectedGraph.swift
+  Graph/UndirectedGraph.swift
   SourceControlURL.swift
   HTTPClient/HTTPClient.swift
   HTTPClient/HTTPClientConfiguration.swift

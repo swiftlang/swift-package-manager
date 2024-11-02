@@ -19,7 +19,6 @@ add_library(PackageGraph
   PackageGraphRoot.swift
   PackageModel+Extensions.swift
   PackageRequirement.swift
-  PrebuiltPackageContainer.swift
   PinsStore.swift
   Resolution/PubGrub/Assignment.swift
   Resolution/PubGrub/ContainerProvider.swift
@@ -36,7 +35,7 @@ add_library(PackageGraph
   Resolution/PlatformVersionProvider.swift
   Resolution/ResolvedPackage.swift
   Resolution/ResolvedProduct.swift
-  Resolution/ResolvedTarget.swift
+  Resolution/ResolvedModule.swift
   Version+Extensions.swift
   VersionSetSpecifier.swift)
 target_link_libraries(PackageGraph PUBLIC

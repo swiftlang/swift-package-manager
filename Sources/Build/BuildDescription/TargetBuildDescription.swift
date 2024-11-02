@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import struct PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedModule
 import struct PackageModel.Resource
 import struct PackageModel.ToolsVersion
 import struct SPMBuildCore.BuildToolPluginInvocationResult
@@ -70,7 +70,7 @@ package enum TargetBuildDescription {
         }
     }
 
-    var target: ResolvedTarget {
+    var target: ResolvedModule {
         switch self {
         case .swift(let target):
             return target.target
@@ -118,7 +118,7 @@ package enum TargetBuildDescription {
     var buildParameters: BuildParameters {
         switch self {
         case .swift(let swiftTargetBuildDescription):
-            return swiftTargetBuildDescription.buildParameters
+            return swiftTargetBuildDescription.defaultBuildParameters
         case .clang(let clangTargetBuildDescription):
             return clangTargetBuildDescription.buildParameters
         // TODO(ncooke3): How to handle the mixed case?

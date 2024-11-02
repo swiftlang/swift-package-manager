@@ -45,11 +45,14 @@ package final class ProductBuildDescription: SPMBuildCore.ProductBuildDescriptio
     // Computed during build planning.
     var dylibs: [ProductBuildDescription] = []
 
+    /// The list of provided libraries that are going to be used by this product.
+    var providedLibraries: [String: AbsolutePath] = [:]
+
     /// Any additional flags to be added. These flags are expected to be computed during build planning.
     var additionalFlags: [String] = []
 
     /// The list of targets that are going to be linked statically in this product.
-    var staticTargets: [ResolvedTarget] = []
+    var staticTargets: [ResolvedModule] = []
 
     /// The list of Swift modules that should be passed to the linker. This is required for debugging to work.
     var swiftASTs: SortedArray<AbsolutePath> = .init()
@@ -155,6 +158,8 @@ package final class ProductBuildDescription: SPMBuildCore.ProductBuildDescriptio
         if !self.libraryBinaryPaths.isEmpty {
             args += ["-F", self.buildParameters.buildPath.pathString]
         }
+
+        self.providedLibraries.forEach { args += ["-L", $1.pathString, "-l", $0] }
 
         args += ["-L", self.buildParameters.buildPath.pathString]
         args += try ["-o", binaryPath.pathString]
@@ -321,7 +326,7 @@ package final class ProductBuildDescription: SPMBuildCore.ProductBuildDescriptio
         // setting is the package-level right now. We might need to figure out a better
         // answer for libraries if/when we support specifying deployment target at the
         // target-level.
-        args += try self.buildParameters.targetTripleArgs(for: self.product.targets[self.product.targets.startIndex])
+        args += try self.buildParameters.tripleArgs(for: self.product.targets[self.product.targets.startIndex])
 
         // Add arguments from declared build settings.
         args += self.buildSettingsFlags
@@ -356,7 +361,7 @@ package final class ProductBuildDescription: SPMBuildCore.ProductBuildDescriptio
         // Library search path for the toolchain's copy of SwiftSyntax.
         #if BUILD_MACROS_AS_DYLIBS
         if product.type == .macro {
-            args += try ["-L", buildParameters.toolchain.hostLibDir.pathString]
+            args += try ["-L", defaultBuildParameters.toolchain.hostLibDir.pathString]
         }
         #endif
 
