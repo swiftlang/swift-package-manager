@@ -89,9 +89,8 @@ public struct ModulesGraph {
     /// The root packages.
     public let rootPackages: IdentifiableSet<ResolvedPackage>
 
-    /// The complete list of contained packages, in topological order starting
-    /// with the root packages.
-    public let packages: [ResolvedPackage]
+    /// The complete set of contained packages.
+    public let packages: IdentifiableSet<ResolvedPackage>
 
     /// The list of all targets reachable from root targets.
     public private(set) var reachableTargets: IdentifiableSet<ResolvedModule>
@@ -101,6 +100,14 @@ public struct ModulesGraph {
 
     /// Returns all the targets in the graph, regardless if they are reachable from the root targets or not.
     public private(set) var allTargets: IdentifiableSet<ResolvedModule>
+
+    /// Returns all targets within the module graph in topological order, starting with low-level targets (that have no
+    /// dependencies).
+    package var allTargetsInTopologicalOrder: [ResolvedModule] {
+        get throws {
+            try topologicalSort(Array(allTargets)) { $0.dependencies.compactMap { $0.target } }.reversed()
+        }
+    }
 
     /// Returns all the products in the graph, regardless if they are reachable from the root targets or not.
     public private(set) var allProducts: IdentifiableSet<ResolvedProduct>
@@ -139,17 +146,24 @@ public struct ModulesGraph {
         return self.rootPackages.contains(id: package.id)
     }
 
-    private var modulesToPackages: [ResolvedModule.ID: ResolvedPackage]
-    /// Returns the package that contains the module, or nil if the module isn't in the graph.
-    public func package(for module: ResolvedModule) -> ResolvedPackage? {
-        return self.modulesToPackages[module.id]
+    /// Returns the package  based on the given identity, or nil if the package isn't in the graph.
+    public func package(for identity: PackageIdentity) -> ResolvedPackage? {
+        packages[identity]
     }
 
+    /// Returns the package that contains the module, or nil if the module isn't in the graph.
+    public func package(for module: ResolvedModule) -> ResolvedPackage? {
+        self.package(for: module.packageIdentity)
+    }
 
-    private var productsToPackages: [ResolvedProduct.ID: ResolvedPackage]
     /// Returns the package that contains the product, or nil if the product isn't in the graph.
     public func package(for product: ResolvedProduct) -> ResolvedPackage? {
-        return self.productsToPackages[product.id]
+        self.package(for: product.packageIdentity)
+    }
+
+    /// Returns all of the packages that the given package depends on directly.
+    public func directDependencies(for package: ResolvedPackage) -> [ResolvedPackage] {
+        package.dependencies.compactMap { self.package(for: $0) }
     }
 
     /// All root and root dependency packages provided as input to the graph.
@@ -162,6 +176,7 @@ public struct ModulesGraph {
     public init(
         rootPackages: [ResolvedPackage],
         rootDependencies: [ResolvedPackage] = [],
+        packages: IdentifiableSet<ResolvedPackage>,
         dependencies requiredDependencies: [PackageReference],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]]
     ) throws {
@@ -169,22 +184,7 @@ public struct ModulesGraph {
         self.requiredDependencies = requiredDependencies
         self.inputPackages = rootPackages + rootDependencies
         self.binaryArtifacts = binaryArtifacts
-        self.packages = try topologicalSort(inputPackages, successors: { $0.dependencies })
-        let identitiesToPackages = self.packages.spm_createDictionary { ($0.identity, $0) }
-
-        // Create a mapping from targets to the packages that define them.  Here
-        // we include all targets, including tests in non-root packages, since
-        // this is intended for lookup and not traversal.
-        var modulesToPackages = self.packages.reduce(into: [:], { partial, package in
-            package.targets.forEach { partial[$0.id] = package }
-        })
-
-        // Create a mapping from products to the packages that define them.  Here
-        // we include all products, including tests in non-root packages, since
-        // this is intended for lookup and not traversal.
-        var productsToPackages = packages.reduce(into: [:], { partial, package in
-            package.products.forEach { partial[$0.id] = package }
-        })
+        self.packages = packages
 
         var allTargets = IdentifiableSet<ResolvedModule>()
         var allProducts = IdentifiableSet<ResolvedProduct>()
@@ -207,12 +207,8 @@ public struct ModulesGraph {
                         switch dependency {
                         case .target(let targetDependency, _):
                             allTargets.insert(targetDependency)
-                            modulesToPackages[targetDependency.id] =
-                                identitiesToPackages[targetDependency.packageIdentity]
                         case .product(let productDependency, _):
                             allProducts.insert(productDependency)
-                            productsToPackages[productDependency.id] =
-                                identitiesToPackages[productDependency.packageIdentity]
                         }
                     }
                 }
@@ -226,9 +222,6 @@ public struct ModulesGraph {
                 allProducts.formUnion(package.products.filter { $0.type != .test })
             }
         }
-
-        self.modulesToPackages = modulesToPackages
-        self.productsToPackages = productsToPackages
 
         // Compute the reachable targets and products.
         let inputTargets = self.inputPackages.flatMap { $0.targets }
@@ -264,17 +257,6 @@ public struct ModulesGraph {
             product.buildTriple = buildTriple
             return product
         })
-
-        self.modulesToPackages = .init(self.modulesToPackages.map {
-            var target = $0
-            target.buildTriple = buildTriple
-            return (target, $1)
-        }, uniquingKeysWith: { $1 })
-        self.productsToPackages = .init(self.productsToPackages.map {
-            var product = $0
-            product.buildTriple = buildTriple
-            return (product, $1)
-        }, uniquingKeysWith: { $1 })
     }
 
     /// Computes a map from each executable target in any of the root packages to the corresponding test targets.

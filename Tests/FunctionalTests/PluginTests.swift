@@ -548,6 +548,7 @@ final class PluginTests: XCTestCase {
                         pkgConfigDirectories: [],
                         sdkRootPath: nil,
                         fileSystem: localFileSystem,
+                        modulesGraph: packageGraph,
                         observabilityScope: observability.topScope,
                         callbackQueue: delegateQueue,
                         delegate: delegate,
@@ -825,6 +826,7 @@ final class PluginTests: XCTestCase {
                             pkgConfigDirectories: [],
                             sdkRootPath: try UserToolchain.default.sdkRootPath,
                             fileSystem: localFileSystem,
+                            modulesGraph: packageGraph,
                             observabilityScope: observability.topScope,
                             callbackQueue: delegateQueue,
                             delegate: delegate

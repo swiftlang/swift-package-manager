@@ -54,7 +54,7 @@ extension SwiftSDKSubcommand {
         return swiftSDKsDirectory
     }
 
-    package func run() async throws {
+    func run() async throws {
         let observabilityHandler = SwiftCommandObservabilityHandler(outputStream: stdoutStream, logLevel: .info)
         let observabilitySystem = ObservabilitySystem(observabilityHandler)
         let observabilityScope = observabilitySystem.topScope

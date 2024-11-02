@@ -371,6 +371,7 @@ struct PluginCommand: SwiftCommand {
             pkgConfigDirectories: swiftCommandState.options.locations.pkgConfigDirectories,
             sdkRootPath: buildParameters.toolchain.sdkRootPath,
             fileSystem: swiftCommandState.fileSystem,
+            modulesGraph: packageGraph,
             observabilityScope: swiftCommandState.observabilityScope,
             callbackQueue: delegateQueue,
             delegate: pluginDelegate,
@@ -382,10 +383,17 @@ struct PluginCommand: SwiftCommand {
 
     static func availableCommandPlugins(in graph: ModulesGraph, limitedTo packageIdentity: String?) -> [PluginTarget] {
         // All targets from plugin products of direct dependencies are "available".
-        let directDependencyPackages = graph.rootPackages.flatMap { $0.dependencies }.filter { $0.matching(identity: packageIdentity) }
+        let directDependencyPackages = graph.rootPackages.flatMap {
+            $0.dependencies
+        }.filter {
+            $0.matching(identity: packageIdentity)
+        }.compactMap {
+            graph.package(for: $0)
+        }
+
         let directDependencyPluginTargets = directDependencyPackages.flatMap { $0.products.filter { $0.type == .plugin } }.flatMap { $0.targets }
         // As well as any plugin targets in root packages.
-        let rootPackageTargets = graph.rootPackages.filter { $0.matching(identity: packageIdentity) }.flatMap { $0.targets }
+        let rootPackageTargets = graph.rootPackages.filter { $0.identity.matching(identity: packageIdentity) }.flatMap { $0.targets }
         return (directDependencyPluginTargets + rootPackageTargets).compactMap { $0.underlying as? PluginTarget }.filter {
             switch $0.capability {
             case .buildTool: return false
@@ -469,10 +477,10 @@ extension SandboxNetworkPermission {
     }
 }
 
-extension ResolvedPackage {
+extension PackageIdentity {
     fileprivate func matching(identity: String?) -> Bool {
         if let identity {
-            return self.identity == .plain(identity)
+            return self == .plain(identity)
         } else {
             return true
         }

@@ -13,7 +13,7 @@
 import Basics
 
 import Commands
-
+import Foundation
 import SwiftSDKCommand
 import PackageCollectionsCommand
 import PackageRegistryCommand
@@ -42,7 +42,7 @@ struct SwiftPM {
         case "swift-build":
             await SwiftBuildCommand.main()
         case "swift-experimental-sdk":
-            print("warning: `swift experimental-sdk` command is deprecated and will be removed in a future version of SwiftPM. Use `swift sdk` instead.")
+            fputs("warning: `swift experimental-sdk` command is deprecated and will be removed in a future version of SwiftPM. Use `swift sdk` instead.\n", stderr)
             fallthrough
         case "swift-sdk":
             await SwiftSDKCommand.main()
