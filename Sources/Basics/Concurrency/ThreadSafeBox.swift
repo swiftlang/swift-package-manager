@@ -31,6 +31,8 @@ public final class ThreadSafeBox<Value> {
         }
     }
     
+    /// Modifies value stored in the box in-place, potentially avoiding copies.
+    /// - Parameter body: function applied to the stored value that modifies it.
     public func mutate(body: (inout Value?) throws -> ()) rethrows {
         try self.lock.withLock {
             try body(&self.underlying)
