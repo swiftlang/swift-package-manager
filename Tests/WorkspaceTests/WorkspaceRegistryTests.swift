@@ -597,10 +597,12 @@ final class WorkspaceRegistryTests: XCTestCase {
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
 
-
             await XCTAssertAsyncThrowsError(try await workspace.checkPackageGraph(roots: ["root"]) { _, _ in
             }) { error in
-                XCTAssertEqual((error as? PackageGraphError)?.description, "multiple packages (\'foo\' (from \'https://git/org/foo\'), \'org.foo\') declare products with a conflicting name: \'FooProduct’; product names need to be unique across the package graph")
+                XCTAssertEqual(
+                    (error as? PackageGraphError)?.description,
+                    "multiple packages (\'foo\' (from \'https://git/org/foo\'), \'org.foo\') declare products with a conflicting name: \'FooProduct’; product names need to be unique across the package graph"
+                )
             }
         }
 
@@ -2000,7 +2002,7 @@ final class WorkspaceRegistryTests: XCTestCase {
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
                 versionMetadataRequestHandler: { _, _ in
-                    return .serverError()
+                    .serverError()
                 },
                 fileSystem: fs
             )
@@ -2073,7 +2075,9 @@ final class WorkspaceRegistryTests: XCTestCase {
             await workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
                     result.check(
-                        diagnostic: .equal("failed retrieving org.foo version 1.0.0 manifest from http://localhost: boom"),
+                        diagnostic: .equal(
+                            "failed retrieving org.foo version 1.0.0 manifest from http://localhost: boom"
+                        ),
                         severity: .error
                     )
                 }
@@ -2085,7 +2089,7 @@ final class WorkspaceRegistryTests: XCTestCase {
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
                 manifestRequestHandler: { _, _ in
-                    return .serverError()
+                    .serverError()
                 },
                 fileSystem: fs
             )
@@ -2303,17 +2307,17 @@ final class WorkspaceRegistryTests: XCTestCase {
         let defaultLocations = try Workspace.Location(forRootPackage: sandbox, fileSystem: fs)
         let packagePath = defaultLocations.registryDownloadDirectory.appending(components: ["org", "foo", "1.5.1"])
         workspace.manifestLoader.manifests[.init(url: "org.foo", version: "1.5.1")] =
-            Manifest.createManifest(
+            try Manifest.createManifest(
                 displayName: "Foo",
                 path: packagePath.appending(component: Manifest.filename),
                 packageKind: .registry("org.foo"),
                 packageLocation: "org.foo",
                 toolsVersion: .current,
                 products: [
-                    try .init(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+                    .init(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
                 ],
                 targets: [
-                    try .init(name: "Foo"),
+                    .init(name: "Foo"),
                 ]
             )
 
@@ -2399,7 +2403,10 @@ final class WorkspaceRegistryTests: XCTestCase {
 
     // MARK: - Expected signing entity verification
 
-    func createBasicRegistryWorkspace(metadata: [String: RegistryReleaseMetadata], mirrors: DependencyMirrors? = nil) async throws -> MockWorkspace {
+    func createBasicRegistryWorkspace(
+        metadata: [String: RegistryReleaseMetadata],
+        mirrors: DependencyMirrors? = nil
+    ) async throws -> MockWorkspace {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -2486,28 +2493,32 @@ final class WorkspaceRegistryTests: XCTestCase {
     }
 
     func testSigningEntityVerification_SignedCorrectly() async throws {
-        let actualMetadata = RegistryReleaseMetadata.createWithSigningEntity(.recognized(
-            type: "adp",
-            commonName: "John Doe",
-            organization: "Example Corp",
-            identity: "XYZ")
+        let actualMetadata = RegistryReleaseMetadata.createWithSigningEntity(
+            .recognized(
+                type: "adp",
+                commonName: "John Doe",
+                organization: "Example Corp",
+                identity: "XYZ"
+            )
         )
 
         let workspace = try await createBasicRegistryWorkspace(metadata: ["org.bar": actualMetadata])
 
         try await workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
-            PackageIdentity.plain("org.bar"): try XCTUnwrap(actualMetadata.signature?.signedBy),
-            ]) { _, diagnostics in
-                XCTAssertNoDiagnostics(diagnostics)
+            PackageIdentity.plain("org.bar"): XCTUnwrap(actualMetadata.signature?.signedBy),
+        ]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
         }
     }
 
     func testSigningEntityVerification_SignedIncorrectly() async throws {
-        let actualMetadata = RegistryReleaseMetadata.createWithSigningEntity(.recognized(
-            type: "adp",
-            commonName: "John Doe",
-            organization: "Example Corp",
-            identity: "XYZ")
+        let actualMetadata = RegistryReleaseMetadata.createWithSigningEntity(
+            .recognized(
+                type: "adp",
+                commonName: "John Doe",
+                organization: "Example Corp",
+                identity: "XYZ"
+            )
         )
         let expectedSigningEntity: RegistryReleaseMetadata.SigningEntity = .recognized(
             type: "adp",
@@ -2523,7 +2534,7 @@ final class WorkspaceRegistryTests: XCTestCase {
                 PackageIdentity.plain("org.bar"): expectedSigningEntity,
             ]) { _, _ in }
             XCTFail("should not succeed")
-        } catch Workspace.SigningError.mismatchedSigningEntity(_, let expected, let actual){
+        } catch Workspace.SigningError.mismatchedSigningEntity(_, let expected, let actual) {
             XCTAssertEqual(actual, actualMetadata.signature?.signedBy)
             XCTAssertEqual(expected, expectedSigningEntity)
         } catch {
@@ -2579,23 +2590,28 @@ final class WorkspaceRegistryTests: XCTestCase {
         let mirrors = try DependencyMirrors()
         try mirrors.set(mirror: "ecorp.bar", for: "org.bar")
 
-        let actualMetadata = RegistryReleaseMetadata.createWithSigningEntity(.recognized(
-            type: "adp",
-            commonName: "John Doe",
-            organization: "Example Corp",
-            identity: "XYZ")
+        let actualMetadata = RegistryReleaseMetadata.createWithSigningEntity(
+            .recognized(
+                type: "adp",
+                commonName: "John Doe",
+                organization: "Example Corp",
+                identity: "XYZ"
+            )
         )
 
-        let workspace = try await createBasicRegistryWorkspace(metadata: ["ecorp.bar": actualMetadata], mirrors: mirrors)
+        let workspace = try await createBasicRegistryWorkspace(
+            metadata: ["ecorp.bar": actualMetadata],
+            mirrors: mirrors
+        )
 
         try await workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
-            PackageIdentity.plain("org.bar"): try XCTUnwrap(actualMetadata.signature?.signedBy),
-            ]) { graph, diagnostics in
-                XCTAssertNoDiagnostics(diagnostics)
-                PackageGraphTester(graph) { result in
-                    XCTAssertNotNil(result.find(package: "ecorp.bar"), "missing package")
-                    XCTAssertNil(result.find(package: "org.bar"), "unexpectedly present package")
-                }
+            PackageIdentity.plain("org.bar"): XCTUnwrap(actualMetadata.signature?.signedBy),
+        ]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTester(graph) { result in
+                XCTAssertNotNil(result.find(package: "ecorp.bar"), "missing package")
+                XCTAssertNil(result.find(package: "org.bar"), "unexpectedly present package")
+            }
         }
     }
 
@@ -2603,11 +2619,13 @@ final class WorkspaceRegistryTests: XCTestCase {
         let mirrors = try DependencyMirrors()
         try mirrors.set(mirror: "ecorp.bar", for: "org.bar")
 
-        let actualMetadata = RegistryReleaseMetadata.createWithSigningEntity(.recognized(
-            type: "adp",
-            commonName: "John Doe",
-            organization: "Example Corp",
-            identity: "XYZ")
+        let actualMetadata = RegistryReleaseMetadata.createWithSigningEntity(
+            .recognized(
+                type: "adp",
+                commonName: "John Doe",
+                organization: "Example Corp",
+                identity: "XYZ"
+            )
         )
         let expectedSigningEntity: RegistryReleaseMetadata.SigningEntity = .recognized(
             type: "adp",
@@ -2616,14 +2634,17 @@ final class WorkspaceRegistryTests: XCTestCase {
             identity: "ABC"
         )
 
-        let workspace = try await createBasicRegistryWorkspace(metadata: ["ecorp.bar": actualMetadata], mirrors: mirrors)
+        let workspace = try await createBasicRegistryWorkspace(
+            metadata: ["ecorp.bar": actualMetadata],
+            mirrors: mirrors
+        )
 
         do {
             try await workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
                 PackageIdentity.plain("org.bar"): expectedSigningEntity,
             ]) { _, _ in }
             XCTFail("should not succeed")
-        } catch Workspace.SigningError.mismatchedSigningEntity(_, let expected, let actual){
+        } catch Workspace.SigningError.mismatchedSigningEntity(_, let expected, let actual) {
             XCTAssertEqual(actual, actualMetadata.signature?.signedBy)
             XCTAssertEqual(expected, expectedSigningEntity)
         } catch {
@@ -2849,9 +2870,11 @@ final class WorkspaceRegistryTests: XCTestCase {
     }
 }
 
-fileprivate extension RegistryReleaseMetadata {
-    static func createWithSigningEntity(_ entity: RegistryReleaseMetadata.SigningEntity) -> RegistryReleaseMetadata {
-        return self.init(
+extension RegistryReleaseMetadata {
+    fileprivate static func createWithSigningEntity(
+        _ entity: RegistryReleaseMetadata.SigningEntity
+    ) -> RegistryReleaseMetadata {
+        self.init(
             source: .registry(URL(string: "https://example.com")!),
             metadata: .init(scmRepositoryURLs: nil),
             signature: .init(signedBy: entity, format: "xyz", value: [])
