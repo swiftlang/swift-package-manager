@@ -84,6 +84,8 @@ public actor RegistryDownloadsManager {
             try? self.fileSystem.removeFileTree(packagePath)
 
             let start = DispatchTime.now()
+
+            // `Result` type is used by the `didFetch` delegate method called below.
             let result: Result<FetchDetails, Error>
             do {
                 result = try await .success(self.downloadAndPopulateCache(
@@ -115,6 +117,7 @@ public actor RegistryDownloadsManager {
             }
 
             // and done
+            _ = try result.get()
             return packagePath
         }
     }
@@ -167,6 +170,11 @@ public actor RegistryDownloadsManager {
                     }
                 }
             } catch {
+                if error is RegistryError {
+                    // Avoid handling `RegistryError`s here, propagate those back in the call stack
+                    throw error
+                }
+
                 // download without populating the cache in the case of an error.
                 observabilityScope.emit(
                     warning: "skipping cache due to an error",
@@ -203,7 +211,8 @@ public actor RegistryDownloadsManager {
 
         // utility to update progress
 
-        @Sendable func updateDownloadProgress(downloaded: Int64, total: Int64?) {
+        @Sendable
+        func updateDownloadProgress(downloaded: Int64, total: Int64?) {
             delegateQueue.async {
                 self.delegate?.fetching(
                     package: package,
