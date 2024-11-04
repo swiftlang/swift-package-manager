@@ -584,7 +584,7 @@ components:
           description: |-
             A URI reference that identifies the problem type.
             This specification encourages that, when dereferenced, 
-            it provide human-readable documentation for the problem type.
+            it provides human-readable documentation for the problem type.
           example: 'https://example.com/problem/invalid-request-parameters'
         title:
           type: string
