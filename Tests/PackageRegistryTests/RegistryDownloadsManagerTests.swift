@@ -57,20 +57,19 @@ final class RegistryDownloadsManagerTests: XCTestCase {
         // try to get a package
 
         do {
-            delegate.prepare(fetchExpected: true)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
 
-            try delegate.wait(timeout: .now() + 2)
-            XCTAssertEqual(delegate.willFetch.count, 1)
-            XCTAssertEqual(delegate.willFetch.first?.packageVersion, .init(package: package, version: packageVersion))
-            XCTAssertEqual(delegate.willFetch.first?.fetchDetails, .init(fromCache: false, updatedCache: false))
+            await delegate.consume()
+            await XCTAssertAsyncEqual(await delegate.willFetch.count, 1)
+            await XCTAssertAsyncEqual(await delegate.willFetch.first?.packageVersion, .init(package: package, version: packageVersion))
+            await XCTAssertAsyncEqual(await delegate.willFetch.first?.fetchDetails, .init(fromCache: false, updatedCache: false))
 
-            XCTAssertEqual(delegate.didFetch.count, 1)
-            XCTAssertEqual(delegate.didFetch.first?.packageVersion, .init(package: package, version: packageVersion))
-            XCTAssertEqual(try! delegate.didFetch.first?.result.get(), .init(fromCache: false, updatedCache: false))
+            await XCTAssertAsyncEqual(await delegate.didFetch.count, 1)
+            await XCTAssertAsyncEqual(await delegate.didFetch.first?.packageVersion, .init(package: package, version: packageVersion))
+            await XCTAssertAsyncEqual(try! await delegate.didFetch.first?.result.get(), .init(fromCache: false, updatedCache: false))
         }
 
         // try to get a package that does not exist
@@ -79,47 +78,45 @@ final class RegistryDownloadsManagerTests: XCTestCase {
         let unknownPackageVersion: Version = "1.0.0"
 
         do {
-            delegate.prepare(fetchExpected: true)
             await XCTAssertAsyncThrowsError(try await manager.lookup(package: unknownPackage, version: unknownPackageVersion, observabilityScope: observability.topScope)) { error in
                 XCTAssertNotNil(error as? RegistryError)
             }
 
-            try delegate.wait(timeout: .now() + 2)
-            XCTAssertEqual(delegate.willFetch.map { ($0.packageVersion) },
-                           [
-                            (PackageVersion(package: package, version: packageVersion)),
-                            (PackageVersion(package: unknownPackage, version: unknownPackageVersion))
-                           ]
+            await delegate.consume()
+            await XCTAssertAsyncEqual(await delegate.willFetch.map { ($0.packageVersion) },
+                [
+                    (PackageVersion(package: package, version: packageVersion)),
+                    (PackageVersion(package: unknownPackage, version: unknownPackageVersion))
+                ]
             )
-            XCTAssertEqual(delegate.didFetch.map { ($0.packageVersion) },
-                           [
-                            (PackageVersion(package: package, version: packageVersion)),
-                            (PackageVersion(package: unknownPackage, version: unknownPackageVersion))
-                           ]
+            await XCTAssertAsyncEqual(await delegate.didFetch.map { ($0.packageVersion) },
+                [
+                    (PackageVersion(package: package, version: packageVersion)),
+                    (PackageVersion(package: unknownPackage, version: unknownPackageVersion))
+                ]
             )
         }
 
         // try to get the existing package again, no fetching expected this time
 
         do {
-            delegate.prepare(fetchExpected: false)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
 
-            try delegate.wait(timeout: .now() + 2)
-            XCTAssertEqual(delegate.willFetch.map { ($0.packageVersion) },
-                           [
-                            (PackageVersion(package: package, version: packageVersion)),
-                            (PackageVersion(package: unknownPackage, version: unknownPackageVersion))
-                           ]
+            await delegate.consume()
+            await XCTAssertAsyncEqual(await delegate.willFetch.map { ($0.packageVersion) },
+                [
+                    (PackageVersion(package: package, version: packageVersion)),
+                    (PackageVersion(package: unknownPackage, version: unknownPackageVersion))
+                ]
             )
-            XCTAssertEqual(delegate.didFetch.map { ($0.packageVersion) },
-                           [
-                            (PackageVersion(package: package, version: packageVersion)),
-                            (PackageVersion(package: unknownPackage, version: unknownPackageVersion))
-                           ]
+            await XCTAssertAsyncEqual(await delegate.didFetch.map { ($0.packageVersion) },
+                [
+                    (PackageVersion(package: package, version: packageVersion)),
+                    (PackageVersion(package: unknownPackage, version: unknownPackageVersion))
+                ]
             )
         }
 
@@ -128,26 +125,27 @@ final class RegistryDownloadsManagerTests: XCTestCase {
         do {
             try manager.remove(package: package)
 
-            delegate.prepare(fetchExpected: true)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
 
-            try delegate.wait(timeout: .now() + 2)
-            XCTAssertEqual(delegate.willFetch.map { ($0.packageVersion) },
-                           [
-                            (PackageVersion(package: package, version: packageVersion)),
-                            (PackageVersion(package: unknownPackage, version: unknownPackageVersion)),
-                            (PackageVersion(package: package, version: packageVersion))
-                           ]
+            await delegate.consume()
+            await XCTAssertAsyncEqual(
+                await delegate.willFetch.map { ($0.packageVersion) },
+                [
+                    (PackageVersion(package: package, version: packageVersion)),
+                    (PackageVersion(package: unknownPackage, version: unknownPackageVersion)),
+                    (PackageVersion(package: package, version: packageVersion))
+                ]
             )
-            XCTAssertEqual(delegate.didFetch.map { ($0.packageVersion) },
-                           [
-                            (PackageVersion(package: package, version: packageVersion)),
-                            (PackageVersion(package: unknownPackage, version: unknownPackageVersion)),
-                            (PackageVersion(package: package, version: packageVersion))
-                           ]
+            await XCTAssertAsyncEqual(
+                await delegate.didFetch.map { ($0.packageVersion) },
+                [
+                    (PackageVersion(package: package, version: packageVersion)),
+                    (PackageVersion(package: unknownPackage, version: unknownPackageVersion)),
+                    (PackageVersion(package: package, version: packageVersion))
+                ]
             )
         }
     }
@@ -189,44 +187,42 @@ final class RegistryDownloadsManagerTests: XCTestCase {
         // try to get a package
 
         do {
-            delegate.prepare(fetchExpected: true)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
             XCTAssertTrue(fs.isDirectory(cachePath.appending(components: package.registry!.scope.description, package.registry!.name.description, packageVersion.description)))
 
-            try delegate.wait(timeout: .now() + 2)
+            await delegate.consume()
 
-            XCTAssertEqual(delegate.willFetch.count, 1)
-            XCTAssertEqual(delegate.willFetch.first?.packageVersion, .init(package: package, version: packageVersion))
-            XCTAssertEqual(delegate.willFetch.first?.fetchDetails, .init(fromCache: false, updatedCache: false))
+            await XCTAssertAsyncEqual(await delegate.willFetch.count, 1)
+            await XCTAssertAsyncEqual(await delegate.willFetch.first?.packageVersion, .init(package: package, version: packageVersion))
+            await XCTAssertAsyncEqual(await delegate.willFetch.first?.fetchDetails, .init(fromCache: false, updatedCache: false))
 
-            XCTAssertEqual(delegate.didFetch.count, 1)
-            XCTAssertEqual(delegate.didFetch.first?.packageVersion, .init(package: package, version: packageVersion))
-            XCTAssertEqual(try! delegate.didFetch.first?.result.get(), .init(fromCache: true, updatedCache: true))
+            await XCTAssertAsyncEqual(await delegate.didFetch.count, 1)
+            await XCTAssertAsyncEqual(await delegate.didFetch.first?.packageVersion, .init(package: package, version: packageVersion))
+            await XCTAssertAsyncEqual(try! await delegate.didFetch.first?.result.get(), .init(fromCache: true, updatedCache: true))
         }
 
         // remove the "local" package, should come from cache
 
         do {
-            try await manager.remove(package: package)
+            try manager.remove(package: package)
 
-            delegate.prepare(fetchExpected: true)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
 
-            try delegate.wait(timeout: .now() + 2)
+            await delegate.consume()
 
-            XCTAssertEqual(delegate.willFetch.count, 2)
-            XCTAssertEqual(delegate.willFetch.last?.packageVersion, .init(package: package, version: packageVersion))
-            XCTAssertEqual(delegate.willFetch.last?.fetchDetails, .init(fromCache: true, updatedCache: false))
+            await XCTAssertAsyncEqual(await delegate.willFetch.count, 2)
+            await XCTAssertAsyncEqual(await delegate.willFetch.last?.packageVersion, .init(package: package, version: packageVersion))
+            await XCTAssertAsyncEqual(await delegate.willFetch.last?.fetchDetails, .init(fromCache: true, updatedCache: false))
 
-            XCTAssertEqual(delegate.didFetch.count, 2)
-            XCTAssertEqual(delegate.didFetch.last?.packageVersion, .init(package: package, version: packageVersion))
-            XCTAssertEqual(try! delegate.didFetch.last?.result.get(), .init(fromCache: true, updatedCache: false))
+            await XCTAssertAsyncEqual(await delegate.didFetch.count, 2)
+            await XCTAssertAsyncEqual(await delegate.didFetch.last?.packageVersion, .init(package: package, version: packageVersion))
+            await XCTAssertAsyncEqual(try! await delegate.didFetch.last?.result.get(), .init(fromCache: true, updatedCache: false))
         }
 
         // remove the "local" package, and purge cache
@@ -235,21 +231,20 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             try manager.remove(package: package)
             manager.purgeCache(observabilityScope: observability.topScope)
 
-            delegate.prepare(fetchExpected: true)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
 
-            try delegate.wait(timeout: .now() + 2)
+            await delegate.consume()
 
-            XCTAssertEqual(delegate.willFetch.count, 3)
-            XCTAssertEqual(delegate.willFetch.last?.packageVersion, .init(package: package, version: packageVersion))
-            XCTAssertEqual(delegate.willFetch.last?.fetchDetails, .init(fromCache: false, updatedCache: false))
+            await XCTAssertAsyncEqual(await delegate.willFetch.count, 3)
+            await XCTAssertAsyncEqual(await delegate.willFetch.last?.packageVersion, .init(package: package, version: packageVersion))
+            await XCTAssertAsyncEqual(await delegate.willFetch.last?.fetchDetails, .init(fromCache: false, updatedCache: false))
 
-            XCTAssertEqual(delegate.didFetch.count, 3)
-            XCTAssertEqual(delegate.didFetch.last?.packageVersion, .init(package: package, version: packageVersion))
-            XCTAssertEqual(try! delegate.didFetch.last?.result.get(), .init(fromCache: true, updatedCache: true))
+            await XCTAssertAsyncEqual(await delegate.didFetch.count, 3)
+            await XCTAssertAsyncEqual(await delegate.didFetch.last?.packageVersion, .init(package: package, version: packageVersion))
+            await XCTAssertAsyncEqual(try! await delegate.didFetch.last?.result.get(), .init(fromCache: true, updatedCache: true))
         }
     }
 
@@ -294,16 +289,20 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             try await withThrowingTaskGroup(of: Void.self) { group in
                 for packageVersion in packageVersions {
                     group.addTask {
-                        delegate.prepare(fetchExpected: true)
-                        results[packageVersion] = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope, delegateQueue: .sharedConcurrent)
+                        results[packageVersion] = try await manager.lookup(
+                            package: package,
+                            version: packageVersion,
+                            observabilityScope: observability.topScope,
+                            delegateQueue: .sharedConcurrent
+                        )
                     }
                 }
                 try await group.waitForAll()
             }
 
-            try delegate.wait(timeout: .now() + 2)
-            XCTAssertEqual(delegate.willFetch.count, concurrency)
-            XCTAssertEqual(delegate.didFetch.count, concurrency)
+            await delegate.consume()
+            await XCTAssertAsyncEqual(await delegate.willFetch.count, concurrency)
+            await XCTAssertAsyncEqual(await delegate.didFetch.count, concurrency)
 
             XCTAssertEqual(results.count, concurrency)
             for packageVersion in packageVersions {
@@ -328,22 +327,21 @@ final class RegistryDownloadsManagerTests: XCTestCase {
                 source: packageSource
             )
 
-            delegate.reset()
+            await delegate.reset()
             let results = ThreadSafeKeyValueStore<Version, AbsolutePath>()
             try await withThrowingTaskGroup(of: Void.self) { group in
                 for index in 0 ..< concurrency {
                     group.addTask {
-                        delegate.prepare(fetchExpected: index < concurrency / repeatRatio)
-                        let packageVersion = Version(index % (concurrency / repeatRatio), 0 , 0)
+                        let packageVersion = Version(index % (concurrency / repeatRatio), 0, 0)
                         results[packageVersion] = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope, delegateQueue: .sharedConcurrent)
                     }
                 }
                 try await group.waitForAll()
             }
 
-            try delegate.wait(timeout: .now() + 2)
-            XCTAssertEqual(delegate.willFetch.count, concurrency / repeatRatio)
-            XCTAssertEqual(delegate.didFetch.count, concurrency / repeatRatio)
+            await delegate.consume()
+            await XCTAssertAsyncEqual(await delegate.willFetch.count, concurrency / repeatRatio)
+            await XCTAssertAsyncEqual(await delegate.didFetch.count, concurrency / repeatRatio)
 
             XCTAssertEqual(results.count, concurrency / repeatRatio)
             for packageVersion in packageVersions {
@@ -354,58 +352,62 @@ final class RegistryDownloadsManagerTests: XCTestCase {
     }
 }
 
-private class MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDelegate {
-    private var _willFetch = [(packageVersion: PackageVersion, fetchDetails: RegistryDownloadsManager.FetchDetails)]()
-    private var _didFetch = [(packageVersion: PackageVersion, result: Result<RegistryDownloadsManager.FetchDetails, Error>)]()
+private actor MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDelegate {
+    typealias WillFetch = (packageVersion: PackageVersion, fetchDetails: RegistryDownloadsManager.FetchDetails)
+    typealias DidFetch = (packageVersion: PackageVersion, result: Result<RegistryDownloadsManager.FetchDetails, Error>)
 
-    private let lock = NSLock()
-    private var group = DispatchGroup()
+    private(set) var willFetch = [WillFetch]()
+    private(set) var didFetch = [DidFetch]()
 
-    public func prepare(fetchExpected: Bool) {
+    private var expectedFetches = 0
+
+    private nonisolated let willFetchContinuation: AsyncStream<WillFetch>.Continuation
+    private var willFetchStream: AsyncStream<WillFetch>
+
+    private nonisolated let didFetchContinuation: AsyncStream<DidFetch>.Continuation
+    private var didFetchStream: AsyncStream<DidFetch>
+
+    init() {
+        (willFetchStream, willFetchContinuation) = AsyncStream.makeStream()
+        (didFetchStream, didFetchContinuation) = AsyncStream.makeStream()
+    }
+
+    func prepare(fetchExpected: Bool) {
         if fetchExpected {
-            group.enter() // will fetch
-            group.enter() // did fetch
+            expectedFetches += 1
         }
     }
 
-    public func reset() {
-        self.group = DispatchGroup()
-        self._willFetch = []
-        self._didFetch = []
-    }
-
-    public func wait(timeout: DispatchTime) throws {
-        switch group.wait(timeout: timeout) {
-        case .success:
-            return
-        case .timedOut:
-            throw StringError("timeout")
+    func consume() async {
+        var elementsToFetch = expectedFetches
+        for await element in willFetchStream where elementsToFetch > 0 {
+            self.willFetch.append(element)
+            elementsToFetch -= 1
         }
-    }
 
-    var willFetch: [(packageVersion: PackageVersion, fetchDetails: RegistryDownloadsManager.FetchDetails)] {
-        return self.lock.withLock { _willFetch }
-    }
-
-    var didFetch: [(packageVersion: PackageVersion, result: Result<RegistryDownloadsManager.FetchDetails, Error>)] {
-        return self.lock.withLock { _didFetch }
-    }
-
-    func willFetch(package: PackageIdentity, version: Version, fetchDetails: RegistryDownloadsManager.FetchDetails) {
-        self.lock.withLock {
-            _willFetch += [(PackageVersion(package: package, version: version), fetchDetails: fetchDetails)]
+        elementsToFetch = expectedFetches
+        for await element in didFetchStream where elementsToFetch > 0 {
+            self.didFetch.append(element)
+            elementsToFetch -= 1
         }
-        self.group.leave()
+
+        expectedFetches = 0
     }
 
-    func didFetch(package: PackageIdentity, version: Version, result: Result<RegistryDownloadsManager.FetchDetails, Error>, duration: DispatchTimeInterval) {
-        self.lock.withLock {
-            _didFetch += [(PackageVersion(package: package, version: version), result: result)]
-        }
-        self.group.leave()
+    func reset() {
+        self.willFetch = []
+        self.didFetch = []
     }
 
-    func fetching(package: PackageIdentity, version: Version, bytesDownloaded downloaded: Int64, totalBytesToDownload total: Int64?) {
+    nonisolated func willFetch(package: PackageIdentity, version: Version, fetchDetails: RegistryDownloadsManager.FetchDetails) {
+        willFetchContinuation.yield((PackageVersion(package: package, version: version), fetchDetails: fetchDetails))
+    }
+
+    nonisolated func didFetch(package: PackageIdentity, version: Version, result: Result<RegistryDownloadsManager.FetchDetails, Error>, duration: DispatchTimeInterval) {
+        didFetchContinuation.yield((PackageVersion(package: package, version: version), result: result))
+    }
+
+    nonisolated func fetching(package: PackageIdentity, version: Version, bytesDownloaded downloaded: Int64, totalBytesToDownload total: Int64?) {
     }
 }
 

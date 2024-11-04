@@ -40,7 +40,7 @@ public final class RegistryClient {
     private var configuration: RegistryConfiguration
     private let archiverProvider: (FileSystem) -> Archiver
     private let httpClient: HTTPClient
-    private let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
+    private let authorizationProvider: HTTPClientConfiguration.AuthorizationProvider?
     private let fingerprintStorage: PackageFingerprintStorage?
     private let fingerprintCheckingMode: FingerprintCheckingMode
     private let skipSignatureValidation: Bool
@@ -515,55 +515,77 @@ public final class RegistryClient {
         )
 
         let start = DispatchTime.now()
-        observabilityScope
-            .emit(info: "retrieving available manifests for \(package) \(version) from \(request.url)")
+        observabilityScope.emit(info: "retrieving available manifests for \(package) \(version) from \(request.url)")
 
+        let response: HTTPClientResponse
         do {
-            let response = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil)
+            response = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil)
 
             observabilityScope.emit(
                 debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
             )
+        } catch {
+            throw RegistryError.failedRetrievingManifest(
+                registry: registry,
+                package: package.underlying,
+                version: version,
+                error: error
+            )
+        }
 
-            switch response.statusCode {
-            case 200:
+        switch response.statusCode {
+        case 200:
+            let data: Data
+            let manifestContent: String
+
+            do {
                 try response.validateAPIVersion()
                 try response.validateContentType(.swift)
 
-                guard let data = response.body else {
+                guard let responseBody = response.body else {
                     throw RegistryError.invalidResponse
                 }
-                let manifestContent = String(decoding: data, as: UTF8.self)
+                data = responseBody
 
-                _ = try await signatureValidation.validate(
+                manifestContent = String(decoding: data, as: UTF8.self)
+            } catch {
+                throw RegistryError.failedRetrievingManifest(
                     registry: registry,
-                    package: package,
+                    package: package.underlying,
                     version: version,
-                    toolsVersion: .none,
-                    manifestContent: manifestContent,
-                    configuration: self.configuration.signing(for: package, registry: registry),
-                    timeout: timeout,
-                    fileSystem: localFileSystem,
-                    observabilityScope: observabilityScope
+                    error: error
                 )
+            }
 
-                // TODO: expose Data based API on checksumAlgorithm
-                let actualChecksum = self.checksumAlgorithm.hash(.init(data))
-                    .hexadecimalRepresentation
+            _ = try await signatureValidation.validate(
+                registry: registry,
+                package: package,
+                version: version,
+                toolsVersion: .none,
+                manifestContent: manifestContent,
+                configuration: self.configuration.signing(for: package, registry: registry),
+                timeout: timeout,
+                fileSystem: localFileSystem,
+                observabilityScope: observabilityScope
+            )
 
-                try checksumTOFU.validateManifest(
-                    registry: registry,
-                    package: package,
-                    version: version,
-                    toolsVersion: .none,
-                    checksum: actualChecksum,
-                    timeout: timeout,
-                    observabilityScope: observabilityScope
-                )
+            // TODO: expose Data based API on checksumAlgorithm
+            let actualChecksum = self.checksumAlgorithm.hash(.init(data))
+                .hexadecimalRepresentation
 
+            try checksumTOFU.validateManifest(
+                registry: registry,
+                package: package,
+                version: version,
+                toolsVersion: .none,
+                checksum: actualChecksum,
+                timeout: timeout,
+                observabilityScope: observabilityScope
+            )
+
+            do {
                 var result = [String: (toolsVersion: ToolsVersion, content: String?)]()
-                let toolsVersion = try ToolsVersionParser
-                    .parse(utf8String: manifestContent)
+                let toolsVersion = try ToolsVersionParser.parse(utf8String: manifestContent)
                 result[Manifest.filename] = (
                     toolsVersion: toolsVersion,
                     content: manifestContent
@@ -577,19 +599,29 @@ public final class RegistryClient {
                     )
                 }
                 return result
-
-            case 404:
-                throw RegistryError.packageVersionNotFound
-
-            default:
-                throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
+            } catch {
+                throw RegistryError.failedRetrievingManifest(
+                    registry: registry,
+                    package: package.underlying,
+                    version: version,
+                    error: error
+                )
             }
-        } catch {
+
+        case 404:
             throw RegistryError.failedRetrievingManifest(
                 registry: registry,
                 package: package.underlying,
                 version: version,
-                error: error
+                error: RegistryError.packageVersionNotFound
+            )
+
+        default:
+            throw RegistryError.failedRetrievingManifest(
+                registry: registry,
+                package: package.underlying,
+                version: version,
+                error: self.unexpectedStatusError(response, expectedStatus: [200, 404])
             )
         }
     }
@@ -701,22 +733,37 @@ public final class RegistryClient {
         let start = DispatchTime.now()
         observabilityScope.emit(info: "retrieving \(package) \(version) manifest from \(request.url)")
 
+        let response: HTTPClientResponse
         do {
-            let response = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil)
-            observabilityScope
-                .emit(
-                    debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-                )
+            response = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil)
+            observabilityScope.emit(
+                debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+            )
+        } catch {
+            throw RegistryError.failedRetrievingManifest(
+                registry: registry,
+                package: package.underlying,
+                version: version,
+                error: error
+            )
+        }
+
             switch response.statusCode {
             case 200:
-                try response.validateAPIVersion(isOptional: true)
-                try response.validateContentType(.swift)
+                let data: Data
 
-                guard let data = response.body else {
-                    throw RegistryError.invalidResponse
+                do {
+                    try response.validateAPIVersion(isOptional: true)
+                    try response.validateContentType(.swift)
+
+                    guard let responseBody = response.body else {
+                        throw RegistryError.invalidResponse
+                    }
+
+                    data = responseBody
                 }
-                let manifestContent = String(decoding: data, as: UTF8.self)
 
+                let manifestContent = String(decoding: data, as: UTF8.self)
                 _ = try await signatureValidation.validate(
                     registry: registry,
                     package: package,
@@ -730,8 +777,7 @@ public final class RegistryClient {
                 )
 
                 // TODO: expose Data based API on checksumAlgorithm
-                let actualChecksum = self.checksumAlgorithm.hash(.init(data))
-                    .hexadecimalRepresentation
+                let actualChecksum = self.checksumAlgorithm.hash(.init(data)).hexadecimalRepresentation
 
                 try checksumTOFU.validateManifest(
                     registry: registry,
@@ -746,18 +792,21 @@ public final class RegistryClient {
                 return manifestContent
 
             case 404:
-                throw RegistryError.packageVersionNotFound
+                throw RegistryError.failedRetrievingManifest(
+                    registry: registry,
+                    package: package.underlying,
+                    version: version,
+                    error: RegistryError.packageVersionNotFound
+                )
             default:
-                throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
+                throw RegistryError.failedRetrievingManifest(
+                    registry: registry,
+                    package: package.underlying,
+                    version: version,
+                    error: self.unexpectedStatusError(response, expectedStatus: [200, 404])
+                )
             }
-        } catch {
-            throw RegistryError.failedRetrievingManifest(
-                registry: registry,
-                package: package.underlying,
-                version: version,
-                error: error
-            )
-        }
+
     }
 
     public func downloadSourceArchive(
@@ -878,45 +927,55 @@ public final class RegistryClient {
 
         let downloadStart = DispatchTime.now()
         observabilityScope.emit(info: "downloading \(package) \(version) source archive from \(request.url)")
+
+        let response: HTTPClientResponse
         do {
-            let response = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: progressHandler)
+            response = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: progressHandler)
             observabilityScope.emit(
                 debug: "server response for \(request.url): \(response.statusCode) in \(downloadStart.distance(to: .now()).descriptionInSeconds)"
             )
+        } catch {
+            throw RegistryError.failedDownloadingSourceArchive(
+                registry: registry,
+                package: package.underlying,
+                version: version,
+                error: error
+            )
+        }
 
-            switch response.statusCode {
-            case 200:
-                try response.validateAPIVersion(isOptional: true)
-                try response.validateContentType(.zip)
+        switch response.statusCode {
+        case 200:
+            try response.validateAPIVersion(isOptional: true)
+            try response.validateContentType(.zip)
 
-                let archiveContent: Data = try fileSystem.readFileContents(downloadPath)
-                // TODO: expose Data based API on checksumAlgorithm
-                let actualChecksum = self.checksumAlgorithm.hash(.init(archiveContent))
-                    .hexadecimalRepresentation
+            let archiveContent: Data = try fileSystem.readFileContents(downloadPath)
+            // TODO: expose Data based API on checksumAlgorithm
+            let actualChecksum = self.checksumAlgorithm.hash(.init(archiveContent)).hexadecimalRepresentation
 
-                observabilityScope.emit(
-                    debug: "performing TOFU checks on \(package) \(version) source archive (checksum: '\(actualChecksum)')"
-                )
-                let signingEntity = try await signatureValidation.validate(
-                    registry: registry,
-                    package: package,
-                    version: version,
-                    content: archiveContent,
-                    configuration: self.configuration.signing(for: package, registry: registry),
-                    timeout: timeout,
-                    fileSystem: fileSystem,
-                    observabilityScope: observabilityScope
-                )
+            observabilityScope.emit(
+                debug: "performing TOFU checks on \(package) \(version) source archive (checksum: '\(actualChecksum)')"
+            )
+            let signingEntity = try await signatureValidation.validate(
+                registry: registry,
+                package: package,
+                version: version,
+                content: archiveContent,
+                configuration: self.configuration.signing(for: package, registry: registry),
+                timeout: timeout,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope
+            )
 
-                try await checksumTOFU.validateSourceArchive(
-                    registry: registry,
-                    package: package,
-                    version: version,
-                    checksum: actualChecksum,
-                    timeout: timeout,
-                    observabilityScope: observabilityScope
-                )
+            try await checksumTOFU.validateSourceArchive(
+                registry: registry,
+                package: package,
+                version: version,
+                checksum: actualChecksum,
+                timeout: timeout,
+                observabilityScope: observabilityScope
+            )
 
+            do {
                 // validate that the destination does not already exist
                 // (again, as this is async)
                 guard !fileSystem.exists(destinationPath) else {
@@ -928,18 +987,14 @@ public final class RegistryClient {
                 )
                 // extract the content
                 let extractStart = DispatchTime.now()
-                observabilityScope
-                    .emit(
-                        debug: "extracting \(package) \(version) source archive to '\(destinationPath)'"
-                    )
+                observabilityScope.emit(
+                    debug: "extracting \(package) \(version) source archive to '\(destinationPath)'"
+                )
                 let archiver = self.archiverProvider(fileSystem)
 
                 do {
                     // TODO: Bail if archive contains relative paths or overlapping files
-                    try await archiver.extract(
-                        from: downloadPath,
-                        to: destinationPath
-                    )
+                    try await archiver.extract(from: downloadPath, to: destinationPath)
                     defer {
                         try? fileSystem.removeFileTree(downloadPath)
                     }
@@ -968,20 +1023,28 @@ public final class RegistryClient {
                         "failed extracting '\(downloadPath)' to '\(destinationPath)': \(error.interpolationDescription)"
                     )
                 }
-
-            case 404:
-                throw RegistryError.packageVersionNotFound
-
-            default:
-                throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
-
+            } catch {
+                throw RegistryError.failedDownloadingSourceArchive(
+                    registry: registry,
+                    package: package.underlying,
+                    version: version,
+                    error: error
+                )
             }
-        } catch {
+        case 404:
             throw RegistryError.failedDownloadingSourceArchive(
                 registry: registry,
                 package: package.underlying,
                 version: version,
-                error: error
+                error: RegistryError.packageVersionNotFound
+            )
+
+        default:
+            throw RegistryError.failedDownloadingSourceArchive(
+                registry: registry,
+                package: package.underlying,
+                version: version,
+                error: self.unexpectedStatusError(response, expectedStatus: [200, 404])
             )
         }
     }

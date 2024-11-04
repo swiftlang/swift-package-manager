@@ -1720,17 +1720,14 @@ final class RegistryClientTests: XCTestCase {
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
         await XCTAssertAsyncThrowsError(
-            try await registryClient
-                .getManifestContent(package: identity, version: version, customToolsVersion: nil)
+            try await registryClient.getManifestContent(package: identity, version: version, customToolsVersion: nil)
         ) { error in
-            guard case RegistryError
-                .failedRetrievingManifest(
+            guard case RegistryError.failedRetrievingManifest(
                     registry: configuration.defaultRegistry!,
                     package: identity,
                     version: version,
                     error: RegistryError.packageVersionNotFound
-                ) = error
-            else {
+            ) = error else {
                 return XCTFail("unexpected error: '\(error)'")
             }
         }
