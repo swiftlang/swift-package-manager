@@ -145,10 +145,9 @@ struct PackageVersionChecksumTOFU {
             case .strict:
                 throw RegistryError.invalidChecksum(expected: expectedChecksum, actual: checksum)
             case .warn:
-                observabilityScope
-                    .emit(
-                        warning: "the checksum \(checksum) for \(contentType) of \(package) \(version) does not match previously recorded value \(expectedChecksum)"
-                    )
+                observabilityScope.emit(
+                    warning: "the checksum \(checksum) for \(contentType) of \(package) \(version) does not match previously recorded value \(expectedChecksum)"
+                )
             }
         }
     }
