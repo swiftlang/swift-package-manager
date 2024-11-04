@@ -873,7 +873,12 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "Basics",
             ]
         ),
-
+        .testTarget(
+            name: "_InternalTestSupportTests",
+            dependencies: [
+                "_InternalTestSupport"
+            ]
+        ),
         .testTarget(
             name: "CommandsTests",
             dependencies: [

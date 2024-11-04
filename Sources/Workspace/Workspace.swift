@@ -1169,6 +1169,22 @@ extension Workspace {
         )
         return try builder.construct()
     }
+
+    public func changeSigningEntityFromVersion(
+        package: PackageIdentity,
+        version: Version,
+        signingEntity: SigningEntity,
+        origin: SigningEntity.Origin,
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.registryClient.changeSigningEntityFromVersion(
+            package: package,
+            version: version,
+            signingEntity: signingEntity,
+            origin: origin,
+            observabilityScope: observabilityScope
+        )
+    }
 }
 
 extension Workspace {
