@@ -186,7 +186,10 @@ final class ModulesGraphTests: XCTestCase {
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: "cyclic dependency declaration found: Foo -> Bar -> Baz -> Bar", severity: .error)
+            result.check(
+                diagnostic: "cyclic dependency between packages Foo -> Bar -> Baz -> Bar requires tools-version 6.0 or later",
+                severity: .error
+            )
         }
     }
 
@@ -212,11 +215,132 @@ final class ModulesGraphTests: XCTestCase {
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: "cyclic dependency declaration found: Bar -> Foo -> Bar", severity: .error)
+            result.check(
+                diagnostic: "cyclic dependency declaration found: Bar -> Foo -> Bar",
+                severity: .error
+            )
+        }
+    }
+
+    func testDependencyCycleWithoutTargetCycleV5() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/source.swift",
+            "/Bar/Sources/Bar/source.swift",
+            "/Bar/Sources/Baz/source.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let _ = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    toolsVersion: .v5_10,
+                    dependencies: [
+                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    products: [
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    displayName: "Bar",
+                    path: "/Bar",
+                    dependencies: [
+                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    products: [
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
+                        ProductDescription(name: "Baz", type: .library(.automatic), targets: ["Baz"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar"),
+                        TargetDescription(name: "Baz", dependencies: ["Foo"]),
+                    ])
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(
+                diagnostic: "cyclic dependency between packages Foo -> Bar -> Foo requires tools-version 6.0 or later",
+                severity: .error
+            )
         }
     }
 
     func testDependencyCycleWithoutTargetCycle() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/A/Sources/A/source.swift",
+            "/B/Sources/B/source.swift",
+            "/C/Sources/C/source.swift"
+        )
+
+        func testDependencyCycleDetection(rootToolsVersion: ToolsVersion) throws -> [Diagnostic] {
+            let observability = ObservabilitySystem.makeForTesting()
+            let _ = try loadModulesGraph(
+                fileSystem: fs,
+                manifests: [
+                    Manifest.createRootManifest(
+                        displayName: "A",
+                        path: "/A",
+                        toolsVersion: rootToolsVersion,
+                        dependencies: [
+                            .localSourceControl(path: "/B", requirement: .upToNextMajor(from: "1.0.0"))
+                        ],
+                        products: [
+                            ProductDescription(name: "A", type: .library(.automatic), targets: ["A"])
+                        ],
+                        targets: [
+                            TargetDescription(name: "A", dependencies: ["B"]),
+                        ]
+                    ),
+                    Manifest.createFileSystemManifest(
+                        displayName: "B",
+                        path: "/B",
+                        dependencies: [
+                            .localSourceControl(path: "/C", requirement: .upToNextMajor(from: "1.0.0"))
+                        ],
+                        products: [
+                            ProductDescription(name: "B", type: .library(.automatic), targets: ["B"]),
+                        ],
+                        targets: [
+                            TargetDescription(name: "B"),
+                        ]
+                    ),
+                    Manifest.createFileSystemManifest(
+                        displayName: "C",
+                        path: "/C",
+                        dependencies: [
+                            .localSourceControl(path: "/A", requirement: .upToNextMajor(from: "1.0.0"))
+                        ],
+                        products: [
+                            ProductDescription(name: "C", type: .library(.automatic), targets: ["C"]),
+                        ],
+                        targets: [
+                            TargetDescription(name: "C"),
+                        ]
+                    )
+                ],
+                observabilityScope: observability.topScope
+            )
+            return observability.diagnostics
+        }
+
+        try testDiagnostics(testDependencyCycleDetection(rootToolsVersion: .v5)) { result in
+            result.check(
+                diagnostic: "cyclic dependency between packages A -> B -> C -> A requires tools-version 6.0 or later",
+                severity: .error
+            )
+        }
+
+        try XCTAssertNoDiagnostics(testDependencyCycleDetection(rootToolsVersion: .v6_0))
+    }
+
+    func testDependencyCycleWithoutTargetCycleV6() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/source.swift",
             "/Bar/Sources/Bar/source.swift",
@@ -230,6 +354,7 @@ final class ModulesGraphTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "Foo",
                     path: "/Foo",
+                    toolsVersion: .v6_0,
                     dependencies: [
                         .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],

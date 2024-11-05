@@ -63,15 +63,16 @@ extension ModulesGraph {
                 )
             }
         }
-        let inputManifests = rootManifestNodes + rootDependencyNodes
+        let inputManifests = (rootManifestNodes + rootDependencyNodes).map {
+            KeyedPair($0, key: $0.id)
+        }
 
         // Collect the manifests for which we are going to build packages.
         var allNodes = [GraphLoadingNode]()
 
-        // Cycles in dependencies don't matter as long as there are no target cycles between packages.
-        depthFirstSearch(inputManifests.map { KeyedPair($0, key: $0.id) }) {
-            $0.item.requiredDependencies.compactMap { dependency in
-                manifestMap[dependency.identity].map { (manifest, fileSystem) in
+        let nodeSuccessorProvider = { (node: KeyedPair<GraphLoadingNode, PackageIdentity>) in
+            node.item.requiredDependencies.compactMap { dependency in
+                manifestMap[dependency.identity].map { manifest, _ in
                     KeyedPair(
                         GraphLoadingNode(
                             identity: dependency.identity,
@@ -82,7 +83,31 @@ extension ModulesGraph {
                     )
                 }
             }
-        } onUnique: {
+        }
+
+        // Package dependency cycles feature is gated on tools version 6.0.
+        if !root.manifests.allSatisfy({ $1.toolsVersion >= .v6_0 }) {
+            if let cycle = findCycle(inputManifests, successors: nodeSuccessorProvider) {
+                let path = (cycle.path + cycle.cycle).map(\.item.manifest)
+                observabilityScope.emit(PackageGraphError.dependencyCycleDetected(
+                    path: path, cycle: cycle.cycle[0].item.manifest
+                ))
+
+                return try ModulesGraph(
+                    rootPackages: [],
+                    rootDependencies: [],
+                    packages: IdentifiableSet(),
+                    dependencies: requiredDependencies,
+                    binaryArtifacts: binaryArtifacts
+                )
+            }
+        }
+
+        // Cycles in dependencies don't matter as long as there are no target cycles between packages.
+        depthFirstSearch(
+            inputManifests,
+            successors: nodeSuccessorProvider
+        ) {
             allNodes.append($0.item)
         } onDuplicate: { _,_ in
             // no de-duplication is required.
