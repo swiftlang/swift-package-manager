@@ -433,7 +433,6 @@ public final class InitPackage {
                 """
                 .DS_Store
                 /.build
-                /.index-build
                 /Packages
                 xcuserdata/
                 DerivedData/
