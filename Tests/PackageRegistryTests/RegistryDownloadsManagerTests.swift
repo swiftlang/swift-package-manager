@@ -20,6 +20,7 @@ import XCTest
 
 import struct TSCUtility.Version
 
+@available(macOS 15.0, *)
 final class RegistryDownloadsManagerTests: XCTestCase {
     func testNoCache() async throws {
         let observability = ObservabilitySystem.makeForTesting()
@@ -57,6 +58,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
         // try to get a package
 
         do {
+            await delegate.prepare(fetchExpected: true)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
@@ -78,6 +80,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
         let unknownPackageVersion: Version = "1.0.0"
 
         do {
+            await delegate.prepare(fetchExpected: true)
             await XCTAssertAsyncThrowsError(try await manager.lookup(package: unknownPackage, version: unknownPackageVersion, observabilityScope: observability.topScope)) { error in
                 XCTAssertNotNil(error as? RegistryError)
             }
@@ -100,6 +103,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
         // try to get the existing package again, no fetching expected this time
 
         do {
+            await delegate.prepare(fetchExpected: false)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
@@ -125,6 +129,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
         do {
             try manager.remove(package: package)
 
+            await delegate.prepare(fetchExpected: true)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
@@ -164,7 +169,10 @@ final class RegistryDownloadsManagerTests: XCTestCase {
 
         let package: PackageIdentity = .plain("test.\(UUID().uuidString)")
         let packageVersion: Version = "1.0.0"
-        let packageSource = InMemoryRegistryPackageSource(fileSystem: fs, path: .root.appending(components: "registry", "server", package.description))
+        let packageSource = InMemoryRegistryPackageSource(
+            fileSystem: fs,
+            path: .root.appending(components: "registry", "server", package.description)
+        )
         try packageSource.writePackageContent()
 
         registry.addPackage(
@@ -187,11 +195,16 @@ final class RegistryDownloadsManagerTests: XCTestCase {
         // try to get a package
 
         do {
+            await delegate.prepare(fetchExpected: true)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
-            XCTAssertTrue(fs.isDirectory(cachePath.appending(components: package.registry!.scope.description, package.registry!.name.description, packageVersion.description)))
+            XCTAssertTrue(
+                fs.isDirectory(
+                    cachePath.appending(components: package.registry!.scope.description, package.registry!.name.description, packageVersion.description)
+                )
+            )
 
             await delegate.consume()
 
@@ -209,6 +222,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
         do {
             try manager.remove(package: package)
 
+            await delegate.prepare(fetchExpected: true)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
@@ -231,6 +245,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             try manager.remove(package: package)
             manager.purgeCache(observabilityScope: observability.topScope)
 
+            await delegate.prepare(fetchExpected: true)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
@@ -276,7 +291,10 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             let concurrency = 100
             let package: PackageIdentity = .plain("test.\(UUID().uuidString)")
             let packageVersions = (0 ..< concurrency).map { Version($0, 0 , 0) }
-            let packageSource = InMemoryRegistryPackageSource(fileSystem: fs, path: .root.appending(components: "registry", "server", package.description))
+            let packageSource = InMemoryRegistryPackageSource(
+                fileSystem: fs,
+                path: .root.appending(components: "registry", "server", package.description)
+            )
             try packageSource.writePackageContent()
 
             registry.addPackage(
@@ -285,19 +303,21 @@ final class RegistryDownloadsManagerTests: XCTestCase {
                 source: packageSource
             )
 
-            let results = ThreadSafeKeyValueStore<Version, AbsolutePath>()
-            try await withThrowingTaskGroup(of: Void.self) { group in
+            let results = try await withThrowingTaskGroup(of: (Version, AbsolutePath).self) { group in
                 for packageVersion in packageVersions {
                     group.addTask {
-                        results[packageVersion] = try await manager.lookup(
+                        await delegate.prepare(fetchExpected: true)
+                        return (packageVersion, try await manager.lookup(
                             package: package,
                             version: packageVersion,
-                            observabilityScope: observability.topScope,
-                            delegateQueue: .sharedConcurrent
-                        )
+                            observabilityScope: observability.topScope
+                        ))
                     }
                 }
-                try await group.waitForAll()
+
+                return try await group.reduce(into: [:]) {
+                    $0[$1.0] = $1.1
+                }
             }
 
             await delegate.consume()
@@ -318,7 +338,10 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             let repeatRatio = 10
             let package: PackageIdentity = .plain("test.\(UUID().uuidString)")
             let packageVersions = (0 ..< concurrency / 10).map { Version($0, 0 , 0) }
-            let packageSource = InMemoryRegistryPackageSource(fileSystem: fs, path: .root.appending(components: "registry", "server", package.description))
+            let packageSource = InMemoryRegistryPackageSource(
+                fileSystem: fs,
+                path: .root.appending(components: "registry", "server", package.description)
+            )
             try packageSource.writePackageContent()
 
             registry.addPackage(
@@ -328,15 +351,20 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             )
 
             await delegate.reset()
-            let results = ThreadSafeKeyValueStore<Version, AbsolutePath>()
-            try await withThrowingTaskGroup(of: Void.self) { group in
+            let results = try await withThrowingTaskGroup(of: (Version, AbsolutePath).self) { group in
                 for index in 0 ..< concurrency {
                     group.addTask {
+                        await delegate.prepare(fetchExpected: index < concurrency / repeatRatio)
                         let packageVersion = Version(index % (concurrency / repeatRatio), 0, 0)
-                        results[packageVersion] = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope, delegateQueue: .sharedConcurrent)
+                        return (packageVersion, try await manager.lookup(
+                            package: package,
+                            version: packageVersion,
+                            observabilityScope: observability.topScope
+                        ))
                     }
                 }
-                try await group.waitForAll()
+
+                return try await group.reduce(into: [:]) { $0[$1.0] = $1.1 }
             }
 
             await delegate.consume()
@@ -352,6 +380,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
     }
 }
 
+@available(macOS 15.0, *)
 private actor MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDelegate {
     typealias WillFetch = (packageVersion: PackageVersion, fetchDetails: RegistryDownloadsManager.FetchDetails)
     typealias DidFetch = (packageVersion: PackageVersion, result: Result<RegistryDownloadsManager.FetchDetails, Error>)
@@ -362,14 +391,19 @@ private actor MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDele
     private var expectedFetches = 0
 
     private nonisolated let willFetchContinuation: AsyncStream<WillFetch>.Continuation
-    private var willFetchStream: AsyncStream<WillFetch>
+    private let willFetchStream: AsyncStream<WillFetch>
+    private var willFetchIterator: any AsyncIteratorProtocol<WillFetch, Never>
 
     private nonisolated let didFetchContinuation: AsyncStream<DidFetch>.Continuation
-    private var didFetchStream: AsyncStream<DidFetch>
+    private let didFetchStream: AsyncStream<DidFetch>
+    private var didFetchIterator: any AsyncIteratorProtocol<DidFetch, Never>
 
     init() {
         (willFetchStream, willFetchContinuation) = AsyncStream.makeStream()
+        self.willFetchIterator = willFetchStream.makeAsyncIterator()
+
         (didFetchStream, didFetchContinuation) = AsyncStream.makeStream()
+        self.didFetchIterator = didFetchStream.makeAsyncIterator()
     }
 
     func prepare(fetchExpected: Bool) {
@@ -380,13 +414,14 @@ private actor MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDele
 
     func consume() async {
         var elementsToFetch = expectedFetches
-        for await element in willFetchStream where elementsToFetch > 0 {
+
+        while elementsToFetch > 0, let element = await self.willFetchIterator.next(isolation: #isolation) {
             self.willFetch.append(element)
             elementsToFetch -= 1
         }
 
         elementsToFetch = expectedFetches
-        for await element in didFetchStream where elementsToFetch > 0 {
+        while elementsToFetch > 0, let element = await self.didFetchIterator.next(isolation: #isolation) {
             self.didFetch.append(element)
             elementsToFetch -= 1
         }
@@ -408,17 +443,6 @@ private actor MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDele
     }
 
     nonisolated func fetching(package: PackageIdentity, version: Version, bytesDownloaded downloaded: Int64, totalBytesToDownload total: Int64?) {
-    }
-}
-
-extension RegistryDownloadsManager {
-    fileprivate func lookup(package: PackageIdentity, version: Version, observabilityScope: ObservabilityScope) async throws -> AbsolutePath {
-        try await self.lookup(
-            package: package,
-            version: version,
-            observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent
-        )
     }
 }
 

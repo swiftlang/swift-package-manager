@@ -47,8 +47,7 @@ public actor RegistryDownloadsManager {
     public func lookup(
         package: PackageIdentity,
         version: Version,
-        observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws -> AbsolutePath {
         let packageRelativePath: RelativePath
         let packagePath: AbsolutePath
@@ -75,10 +74,8 @@ public actor RegistryDownloadsManager {
             // calculate if cached (for delegate call) outside queue as it may change while queue is processing
             let isCached = self.cachePath.map { self.fileSystem.exists($0.appending(packageRelativePath)) } ?? false
             let delegate = self.delegate
-            delegateQueue.async {
-                let details = FetchDetails(fromCache: isCached, updatedCache: false)
-                delegate?.willFetch(package: package, version: version, fetchDetails: details)
-            }
+            let details = FetchDetails(fromCache: isCached, updatedCache: false)
+            delegate?.willFetch(package: package, version: version, fetchDetails: details)
 
             // make sure destination is free.
             try? self.fileSystem.removeFileTree(packagePath)
@@ -92,8 +89,7 @@ public actor RegistryDownloadsManager {
                     package: package,
                     version: version,
                     packagePath: packagePath,
-                    observabilityScope: observabilityScope,
-                    delegateQueue: delegateQueue
+                    observabilityScope: observabilityScope
                 ))
             } catch {
                 result = .failure(error)
@@ -101,9 +97,7 @@ public actor RegistryDownloadsManager {
 
             // inform delegate that we finished to fetch
             let duration = start.distance(to: .now())
-            delegateQueue.async {
-                delegate?.didFetch(package: package, version: version, result: result, duration: duration)
-            }
+            delegate?.didFetch(package: package, version: version, result: result, duration: duration)
 
             // remove the pending lookup
             defer {
@@ -126,8 +120,7 @@ public actor RegistryDownloadsManager {
         package: PackageIdentity,
         version: Version,
         packagePath: AbsolutePath,
-        observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws -> FetchDetails {
         if let cachePath {
             do {
@@ -213,14 +206,12 @@ public actor RegistryDownloadsManager {
 
         @Sendable
         func updateDownloadProgress(downloaded: Int64, total: Int64?) {
-            delegateQueue.async {
-                self.delegate?.fetching(
-                    package: package,
-                    version: version,
-                    bytesDownloaded: downloaded,
-                    totalBytesToDownload: total
-                )
-            }
+            self.delegate?.fetching(
+                package: package,
+                version: version,
+                bytesDownloaded: downloaded,
+                totalBytesToDownload: total
+            )
         }
     }
 
