@@ -37,7 +37,7 @@ public final class MixedTarget: Target {
         others: [AbsolutePath] = [],
         dependencies: [Target.Dependency] = [],
         packageAccess: Bool,
-        swiftVersion: SwiftLanguageVersion,
+        toolsSwiftVersion: SwiftLanguageVersion,
         buildSettings: BuildSettings.AssignmentTable = .init(),
         buildSettingsDescription: [TargetBuildSettingDescription.Setting],
         pluginUsages: [PluginUsage] = [],
@@ -70,7 +70,7 @@ public final class MixedTarget: Target {
             others: others,
             dependencies: dependencies,
             packageAccess: packageAccess,
-            swiftVersion: swiftVersion,
+            toolsSwiftVersion: toolsSwiftVersion,
             buildSettings: buildSettings,
             pluginUsages: pluginUsages,
             usesUnsafeFlags: usesUnsafeFlags

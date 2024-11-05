@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import PackageModel
 import SPMTestSupport
 import XCTest
 
@@ -126,7 +127,9 @@ class ResourcesTests: XCTestCase {
         }
     }
 
-    func testResourcesOutsideOfTargetCanBeIncluded() throws {
+    func testResourcesOutsideOfTargetCanBeIncluded() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         try testWithTemporaryDirectory { tmpPath in
             let packageDir = tmpPath.appending(components: "MyPackage")
 

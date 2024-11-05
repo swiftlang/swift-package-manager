@@ -164,6 +164,11 @@ struct TestCommandOptions: ParsableArguments {
     @Option(name: .customLong("experimental-event-stream-output"),
             help: .hidden)
     var eventStreamOutputPath: AbsolutePath?
+
+    /// The schema version of swift-testing's JSON input/output.
+    @Option(name: .customLong("experimental-event-stream-version"),
+            help: .hidden)
+    var eventStreamVersion: Int?
 }
 
 /// Tests filtering specifier, which is used to filter tests to run.

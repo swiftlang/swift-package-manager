@@ -151,9 +151,9 @@ package final class SwiftTargetBuildDescription {
     /// Mixed language targets consist of an underlying Swift and Clang target.
     let isWithinMixedTarget: Bool
 
-    /// The swift version for this target.
-    var swiftVersion: SwiftLanguageVersion {
-        self.swiftTarget.swiftVersion
+    /// The swift language version that is computed for this target based on tools version of the manifest.
+    var toolsSwiftVersion: SwiftLanguageVersion {
+        self.swiftTarget.toolSwiftVersion
     }
 
     /// Describes the purpose of a test target, including any special roles such as containing a list of discovered
@@ -415,6 +415,11 @@ package final class SwiftTargetBuildDescription {
             """
             import Foundation
 
+            #if compiler(>=6.0)
+            extension Foundation.Bundle: @unchecked @retroactive Sendable {}
+            #else
+            extension Foundation.Bundle: @unchecked Sendable {}
+            #endif
             extension Foundation.Bundle {
                 static let module: Bundle = {
                     let mainPath = \(mainPathSubstitution)
@@ -587,7 +592,7 @@ package final class SwiftTargetBuildDescription {
 
         // Fallback to package wide setting if there is no target specific version.
         if args.firstIndex(of: "-swift-version") == nil {
-            args += ["-swift-version", self.swiftVersion.rawValue]
+            args += ["-swift-version", self.toolsSwiftVersion.rawValue]
         }
 
         // Add the output for the `.swiftinterface`, if requested or if library evolution has been enabled some other
@@ -840,6 +845,9 @@ package final class SwiftTargetBuildDescription {
     private func buildSettingsFlags() throws -> [String] {
         let scope = self.defaultBuildParameters.createScope(for: self.target)
         var flags: [String] = []
+
+        // A custom swift version.
+        flags += scope.evaluate(.SWIFT_VERSION).flatMap { ["-swift-version", $0] }
 
         // Swift defines.
         let swiftDefines = scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS)
