@@ -28,7 +28,12 @@ public actor RegistryDownloadsManager {
     private let registryClient: RegistryClient
     private let delegate: Delegate?
 
-    private var pendingLookups = [PackageIdentity: [CheckedContinuation<AbsolutePath, Never>]]()
+    private struct LookupKey: Hashable {
+        let id: PackageIdentity
+        let version: Version
+    }
+
+    private var pendingLookups = [LookupKey: [CheckedContinuation<AbsolutePath, Never>]]()
 
     public init(
         fileSystem: FileSystem,
@@ -62,13 +67,14 @@ public actor RegistryDownloadsManager {
         }
 
         // next we check if there is a pending lookup
-        if self.pendingLookups.keys.contains(package) {
+        let key = LookupKey(id: package, version: version)
+        if self.pendingLookups.keys.contains(key) {
             // chain onto the pending lookup
             return await withCheckedContinuation {
-                self.pendingLookups[package]!.append($0)
+                self.pendingLookups[key]!.append($0)
             }
         } else {
-            self.pendingLookups[package] = []
+            self.pendingLookups[key] = []
 
             // inform delegate that we are starting to fetch
             // calculate if cached (for delegate call) outside queue as it may change while queue is processing
@@ -101,12 +107,12 @@ public actor RegistryDownloadsManager {
 
             // remove the pending lookup
             defer {
-                if let pendingLookups = self.pendingLookups[package] {
+                if let pendingLookups = self.pendingLookups[key] {
                     for lookup in pendingLookups {
                         lookup.resume(returning: packagePath)
                     }
 
-                    self.pendingLookups[package] = nil
+                    self.pendingLookups[key] = nil
                 }
             }
 
