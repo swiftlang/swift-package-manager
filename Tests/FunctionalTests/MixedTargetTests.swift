@@ -38,10 +38,8 @@ final class MixedTargetTests: XCTestCase {
             )
         }
     }
-}
 
-#if os(macOS)
-extension MixedTargetTests {
+    #if os(macOS)
     // MARK: - macOS Tests
     // The targets tested contain Objective-C, and thus require macOS to be tested.
 
@@ -471,5 +469,5 @@ extension MixedTargetTests {
             )
         }
     }
+    #endif  // os(macOS)
 }
-#endif  // os(macOS)
