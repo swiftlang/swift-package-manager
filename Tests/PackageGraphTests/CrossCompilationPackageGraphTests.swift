@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 @testable
+@_spi(SwiftPMInternal)
 import SPMTestSupport
 
 @testable

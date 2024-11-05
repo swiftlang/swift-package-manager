@@ -14,7 +14,7 @@ import PackageGraph
 import PackageModel
 
 extension ResolvedModule {
-    package static func mock(
+    public static func mock(
         packageIdentity: PackageIdentity,
         name: String,
         deps: ResolvedModule...,
@@ -29,7 +29,6 @@ extension ResolvedModule {
                 sources: Sources(paths: [], root: "/"),
                 dependencies: [],
                 packageAccess: false,
-                toolsSwiftVersion: .v4,
                 usesUnsafeFlags: false
             ),
             dependencies: deps.map { .target($0, conditions: conditions) },

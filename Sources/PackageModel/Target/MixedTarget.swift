@@ -70,7 +70,6 @@ public final class MixedTarget: Target {
             others: others,
             dependencies: dependencies,
             packageAccess: packageAccess,
-            toolsSwiftVersion: toolsSwiftVersion,
             buildSettings: buildSettings,
             pluginUsages: pluginUsages,
             usesUnsafeFlags: usesUnsafeFlags

@@ -11,9 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-
 import CoreCommands
-
 import PackageModel
 import SPMBuildCore
 import Workspace
@@ -123,7 +121,8 @@ enum TestingSupport {
                     experimentalTestOutput: experimentalTestOutput,
                     library: .xctest
                 ).productsBuildParameters,
-                sanitizers: sanitizers
+                sanitizers: sanitizers,
+                library: .xctest
             )
 
             try TSCBasic.Process.checkNonZeroExit(arguments: args, environment: env)
@@ -138,7 +137,8 @@ enum TestingSupport {
                 shouldSkipBuilding: shouldSkipBuilding,
                 library: .xctest
             ).productsBuildParameters,
-            sanitizers: sanitizers
+            sanitizers: sanitizers,
+            library: .xctest
         )
         args = [path.description, "--dump-tests-json"]
         let data = try Process.checkNonZeroExit(arguments: args, environment: env)
@@ -151,7 +151,8 @@ enum TestingSupport {
     static func constructTestEnvironment(
         toolchain: UserToolchain,
         destinationBuildParameters buildParameters: BuildParameters,
-        sanitizers: [Sanitizer]
+        sanitizers: [Sanitizer],
+        library: BuildParameters.Testing.Library
     ) throws -> EnvironmentVariables {
         var env = EnvironmentVariables.process()
 
@@ -162,6 +163,10 @@ enum TestingSupport {
         if !stdoutStream.isTTY || !stderrStream.isTTY {
             env["NO_COLOR"] = "1"
         }
+
+        // Set an environment variable to indicate which library's test product
+        // is being executed.
+        env["SWIFT_PM_TEST_LIBRARY"] = String(describing: library)
 
         // Add the code coverage related variables.
         if buildParameters.testingParameters.enableCodeCoverage {

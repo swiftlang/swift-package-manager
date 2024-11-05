@@ -16,6 +16,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 import func TSCBasic.memoize
@@ -357,11 +358,20 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         addBuildConfiguration(name: "Release", settings: releaseSettings)
 
         for product in package.products.sorted(by: { $0.name < $1.name }) {
-            try self.addTarget(for: product)
+            let productScope = observabilityScope.makeChildScope(
+                description: "Adding \(product.name) product",
+                metadata: package.underlying.diagnosticsMetadata
+            )
+
+            productScope.trap { try self.addTarget(for: product) }
         }
 
         for target in package.targets.sorted(by: { $0.name < $1.name }) {
-            try self.addTarget(for: target)
+            let targetScope = observabilityScope.makeChildScope(
+                description: "Adding \(target.name) module",
+                metadata: package.underlying.diagnosticsMetadata
+            )
+            targetScope.trap { try self.addTarget(for: target) }
         }
 
         if self.binaryGroup.children.isEmpty {
@@ -485,10 +495,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             settings[.GCC_C_LANGUAGE_STANDARD] = clangTarget.cLanguageStandard
             settings[.CLANG_CXX_LANGUAGE_STANDARD] = clangTarget.cxxLanguageStandard
         } else if let swiftTarget = mainTarget.underlying as? SwiftTarget {
-            settings[.SWIFT_VERSION] = try swiftTarget
-                .computeEffectiveSwiftVersion(supportedSwiftVersions: self.parameters.supportedSwiftVersions)
-                .description
-
+            try settings.addSwiftVersionSettings(target: swiftTarget, parameters: self.parameters)
             settings.addCommonSwiftSettings(package: self.package, target: mainTarget, parameters: self.parameters)
         }
 
@@ -676,9 +683,8 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
                 shouldImpartModuleMap = false
             }
         } else if let swiftTarget = target.underlying as? SwiftTarget {
-            settings[.SWIFT_VERSION] = try swiftTarget
-                .computeEffectiveSwiftVersion(supportedSwiftVersions: self.parameters.supportedSwiftVersions)
-                .description
+            try settings.addSwiftVersionSettings(target: swiftTarget, parameters: self.parameters)
+
             // Generate ObjC compatibility header for Swift library targets.
             settings[.SWIFT_OBJC_INTERFACE_HEADER_DIR] = "$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)"
             settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME] = "\(target.name)-Swift.h"
@@ -1575,31 +1581,6 @@ extension Target {
     }
 }
 
-extension SwiftTarget {
-    func computeEffectiveSwiftVersion(supportedSwiftVersions: [SwiftLanguageVersion]) throws -> SwiftLanguageVersion {
-        // We have to normalize to two component strings to match the results from XCBuild w.r.t. to hashing of
-        // `SwiftLanguageVersion` instances.
-        let normalizedDeclaredVersions = Set(self.declaredSwiftVersions.compactMap {
-            SwiftLanguageVersion(string: "\($0.major).\($0.minor)")
-        })
-        // If we were able to determine the list of versions supported by XCBuild, cross-reference with the package's
-        // Swift versions in case the preferred version isn't available.
-        if !supportedSwiftVersions.isEmpty, !supportedSwiftVersions.contains(self.toolSwiftVersion) {
-            let declaredVersions = Array(normalizedDeclaredVersions.intersection(supportedSwiftVersions)).sorted(by: >)
-            if let swiftVersion = declaredVersions.first {
-                return swiftVersion
-            } else {
-                throw PIFGenerationError.unsupportedSwiftLanguageVersion(
-                    targetName: self.name,
-                    version: self.toolSwiftVersion,
-                    supportedVersions: supportedSwiftVersions
-                )
-            }
-        }
-        return self.toolSwiftVersion
-    }
-}
-
 extension ProductType {
     var targetType: Target.Kind {
         switch self {
@@ -1828,6 +1809,93 @@ extension PIF.PlatformFilter {
 }
 
 extension PIF.BuildSettings {
+    fileprivate mutating func addSwiftVersionSettings(
+        target: SwiftTarget,
+        parameters: PIFBuilderParameters
+    ) throws {
+        guard let versionAssignments = target.buildSettings.assignments[.SWIFT_VERSION] else {
+            // This should never happens in practice because there is always a default tools version based value.
+            return
+        }
+
+        func isSupportedVersion(_ version: SwiftLanguageVersion) -> Bool {
+            parameters.supportedSwiftVersions.isEmpty || parameters.supportedSwiftVersions.contains(version)
+        }
+
+        func computeEffectiveSwiftVersions(for versions: [SwiftLanguageVersion]) -> [String] {
+            versions
+                .filter { target.declaredSwiftVersions.contains($0) }
+                .filter { isSupportedVersion($0) }.map(\.description)
+        }
+
+        func computeEffectiveTargetVersion(for assignment: BuildSettings.Assignment) throws -> String {
+            let versions = assignment.values.compactMap { SwiftLanguageVersion(string: $0) }
+            if let effectiveVersion = computeEffectiveSwiftVersions(for: versions).last {
+                return effectiveVersion
+            }
+
+            throw PIFGenerationError.unsupportedSwiftLanguageVersions(
+                targetName: target.name,
+                versions: versions,
+                supportedVersions: parameters.supportedSwiftVersions
+            )
+        }
+
+        var toolsSwiftVersion: SwiftLanguageVersion? = nil
+        // First, check whether there are any target specific settings.
+        for assignment in versionAssignments {
+            if assignment.default {
+                toolsSwiftVersion = assignment.values.first.flatMap { .init(string: $0) }
+                continue
+            }
+
+            if assignment.conditions.isEmpty {
+                self[.SWIFT_VERSION] = try computeEffectiveTargetVersion(for: assignment)
+                continue
+            }
+
+            for condition in assignment.conditions {
+                if let platforms = condition.platformsCondition {
+                    for platform: Platform in platforms.platforms.compactMap({ .init(rawValue: $0.name) }) {
+                        self[.SWIFT_VERSION, for: platform] = try computeEffectiveTargetVersion(for: assignment)
+                    }
+                }
+            }
+        }
+
+        // If there were no target specific assignments, let's add a fallback tools version based value.
+        if let toolsSwiftVersion, self[.SWIFT_VERSION] == nil {
+            // Use tools based version if it's supported.
+            if isSupportedVersion(toolsSwiftVersion) {
+                self[.SWIFT_VERSION] = toolsSwiftVersion.description
+                return
+            }
+
+            // Otherwise pick the newest supported tools version based value.
+
+            // We have to normalize to two component strings to match the results from XCBuild w.r.t. to hashing of
+            // `SwiftLanguageVersion` instances.
+            let normalizedDeclaredVersions = Set(target.declaredSwiftVersions.compactMap {
+                SwiftLanguageVersion(string: "\($0.major).\($0.minor)")
+            })
+
+            let declaredSwiftVersions = Array(
+                normalizedDeclaredVersions
+                    .intersection(parameters.supportedSwiftVersions)
+            ).sorted(by: >)
+            if let swiftVersion = declaredSwiftVersions.first {
+                self[.SWIFT_VERSION] = swiftVersion.description
+                return
+            }
+
+            throw PIFGenerationError.unsupportedSwiftLanguageVersions(
+                targetName: target.name,
+                versions: Array(normalizedDeclaredVersions),
+                supportedVersions: parameters.supportedSwiftVersions
+            )
+        }
+    }
+
     fileprivate mutating func addCommonSwiftSettings(
         package: ResolvedPackage,
         target: ResolvedModule,
@@ -1859,9 +1927,22 @@ extension PIF.BuildSettings.Platform {
 }
 
 public enum PIFGenerationError: Error {
-    case unsupportedSwiftLanguageVersion(
+    case unsupportedSwiftLanguageVersions(
         targetName: String,
-        version: SwiftLanguageVersion,
+        versions: [SwiftLanguageVersion],
         supportedVersions: [SwiftLanguageVersion]
     )
+}
+
+extension PIFGenerationError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .unsupportedSwiftLanguageVersions(
+            targetName: let target,
+            versions: let given,
+            supportedVersions: let supported
+        ):
+            "Some of the Swift language versions used in target '\(target)' settings are supported. (given: \(given), supported: \(supported))"
+        }
+    }
 }

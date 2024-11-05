@@ -11,12 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-
 import CoreCommands
-
 import Foundation
 import PackageModel
-
 import SPMBuildCore
 
 import protocol TSCBasic.OutputByteStream
@@ -78,7 +75,7 @@ final class PluginDelegate: PluginInvocationDelegate {
     class TeeOutputByteStream: OutputByteStream {
         var downstreams: [OutputByteStream]
 
-        package init(_ downstreams: [OutputByteStream]) {
+        public init(_ downstreams: [OutputByteStream]) {
             self.downstreams = downstreams
         }
 
@@ -86,7 +83,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             return 0 // should be related to the downstreams somehow
         }
 
-        package func write(_ byte: UInt8) {
+        public func write(_ byte: UInt8) {
             for downstream in downstreams {
                 downstream.write(byte)
             }
@@ -98,13 +95,13 @@ final class PluginDelegate: PluginInvocationDelegate {
             }
 		}
 
-        package func flush() {
+        public func flush() {
             for downstream in downstreams {
                 downstream.flush()
             }
         }
 
-        package func addStream(_ stream: OutputByteStream) {
+        public func addStream(_ stream: OutputByteStream) {
             self.downstreams.append(stream)
         }
     }
@@ -239,7 +236,8 @@ final class PluginDelegate: PluginInvocationDelegate {
         let testEnvironment = try TestingSupport.constructTestEnvironment(
             toolchain: toolchain,
             destinationBuildParameters: toolsBuildParameters,
-            sanitizers: swiftCommandState.options.build.sanitizers
+            sanitizers: swiftCommandState.options.build.sanitizers,
+            library: .xctest // FIXME: support both libraries
         )
 
         // Iterate over the tests and run those that match the filter.

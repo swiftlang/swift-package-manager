@@ -725,6 +725,12 @@ let package = Package(
             dependencies: ["XCBuildSupport", "SPMTestSupport"],
             exclude: ["Inputs/Foo.pc"]
         ),
+        // Examples (These are built to ensure they stay up to date with the API.)
+        .executableTarget(
+            name: "package-info",
+            dependencies: ["Workspace"],
+            path: "Examples/package-info/Sources/package-info"
+        )
     ],
     swiftLanguageVersions: [.v5]
 )

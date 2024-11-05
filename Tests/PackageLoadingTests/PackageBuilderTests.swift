@@ -3102,8 +3102,12 @@ final class PackageBuilderTests: XCTestCase {
         assignment.values = ["YOLO"]
         assignment.conditions = [PackageCondition(platforms: [.custom(name: "bestOS", oldestSupportedVersion: .unknown)])]
 
+        var versionAssignment = BuildSettings.Assignment(default: true)
+        versionAssignment.values = ["4"]
+
         var settings = BuildSettings.AssignmentTable()
         settings.add(assignment, for: .SWIFT_ACTIVE_COMPILATION_CONDITIONS)
+        settings.add(versionAssignment, for: .SWIFT_VERSION)
 
         PackageBuilderTester(manifest, in: fs) { package, _ in
             package.checkModule("Foo") { module in
@@ -3171,7 +3175,7 @@ final class PackageBuilderTests: XCTestCase {
                     package.target.buildSettings,
                     environment: BuildEnvironment(platform: .macOS, configuration: .release)
                 )
-                XCTAssertEqual(macosReleaseScope.evaluate(.SWIFT_VERSION), [])
+                XCTAssertEqual(macosReleaseScope.evaluate(.SWIFT_VERSION), ["5"])
             }
         }
     }
@@ -3399,7 +3403,9 @@ final class PackageBuilderTester {
             guard case let swiftTarget as SwiftTarget = target else {
                 return XCTFail("\(target) is not a swift target", file: file, line: line)
             }
-            XCTAssertEqual(SwiftLanguageVersion(string: swiftVersion)!, swiftTarget.toolSwiftVersion, file: file, line: line)
+            let versionAssignments = swiftTarget.buildSettings.assignments[.SWIFT_VERSION]?
+                .filter { $0.conditions.isEmpty }.flatMap(\.values)
+            XCTAssertNotNil(versionAssignments?.contains(swiftVersion), file: file, line: line)
         }
 
         func check(pluginCapability: PluginCapability, file: StaticString = #file, line: UInt = #line) {

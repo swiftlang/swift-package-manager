@@ -23,20 +23,20 @@ import struct SPMBuildCore.PrebuildCommandResult
 import enum TSCBasic.ProcessEnv
 
 /// Target description for a Clang target i.e. C language family target.
-package final class ClangTargetBuildDescription {
+public final class ClangTargetBuildDescription {
     /// The package this target belongs to.
-    package let package: ResolvedPackage
+    public let package: ResolvedPackage
 
     /// The target described by this target.
-    package let target: ResolvedModule
+    public let target: ResolvedModule
 
     /// The underlying clang target.
-    package let clangTarget: ClangTarget
+    public let clangTarget: ClangTarget
 
     /// The tools version of the package that declared the target.  This can
     /// can be used to conditionalize semantically significant changes in how
     /// a target is built.
-    package let toolsVersion: ToolsVersion
+    public let toolsVersion: ToolsVersion
 
     /// The build parameters.
     let buildParameters: BuildParameters
@@ -47,7 +47,7 @@ package final class ClangTargetBuildDescription {
     }
 
     /// The list of all resource files in the target, including the derived ones.
-    package var resources: [Resource] {
+    public var resources: [Resource] {
         self.target.underlying.resources + self.pluginDerivedResources
     }
 
@@ -65,7 +65,7 @@ package final class ClangTargetBuildDescription {
     }
 
     /// The modulemap file for this target, if any.
-    package private(set) var moduleMap: AbsolutePath?
+    public private(set) var moduleMap: AbsolutePath?
 
     /// Path to the temporary directory for this target.
     var tempsPath: AbsolutePath
@@ -82,13 +82,13 @@ package final class ClangTargetBuildDescription {
     private var pluginDerivedResources: [Resource]
 
     /// Path to the resource accessor header file, if generated.
-    package private(set) var resourceAccessorHeaderFile: AbsolutePath?
+    public private(set) var resourceAccessorHeaderFile: AbsolutePath?
 
     /// Path to the resource Info.plist file, if generated.
-    package private(set) var resourceBundleInfoPlistPath: AbsolutePath?
+    public private(set) var resourceBundleInfoPlistPath: AbsolutePath?
 
     /// The objects in this target.
-    package var objects: [AbsolutePath] {
+    public var objects: [AbsolutePath] {
         get throws {
             try compilePaths().map(\.object)
         }
@@ -104,12 +104,12 @@ package final class ClangTargetBuildDescription {
     private let fileSystem: FileSystem
 
     /// If this target is a test target.
-    package var isTestTarget: Bool {
+    public var isTestTarget: Bool {
         target.type == .test
     }
 
     /// The results of applying any build tool plugins to this target.
-    package let buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
+    public let buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
 
     /// Create a new target description with target and build parameters.
     init(
@@ -191,7 +191,7 @@ package final class ClangTargetBuildDescription {
     }
 
     /// An array of tuples containing filename, source, object and dependency path for each of the source in this target.
-    package func compilePaths()
+    public func compilePaths()
         throws -> [(filename: RelativePath, source: AbsolutePath, object: AbsolutePath, deps: AbsolutePath)]
     {
         let sources = [
@@ -215,7 +215,7 @@ package final class ClangTargetBuildDescription {
     /// NOTE: The parameter to specify whether to get C++ semantics is currently optional, but this is only for revlock
     /// avoidance with clients. Callers should always specify what they want based either the user's indication or on a
     /// default value (possibly based on the filename suffix).
-    package func basicArguments(
+    public func basicArguments(
         isCXX isCXXOverride: Bool? = .none,
         isC: Bool = false
     ) throws -> [String] {
@@ -338,7 +338,7 @@ package final class ClangTargetBuildDescription {
         return args
     }
 
-    package func emitCommandLine(for filePath: AbsolutePath) throws -> [String] {
+    public func emitCommandLine(for filePath: AbsolutePath) throws -> [String] {
         let standards = [
             (clangTarget.cxxLanguageStandard, SupportedLanguageExtension.cppExtensions),
             (clangTarget.cLanguageStandard, SupportedLanguageExtension.cExtensions),

@@ -13015,17 +13015,9 @@ final class WorkspaceTests: XCTestCase {
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
 
-            XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
-                testDiagnostics(diagnostics) { result in
-                    result.check(
-                        diagnostic: .contains("""
-                        multiple targets named 'FooTarget' in: 'foo', 'org.foo'
-                        """),
-                        severity: .error
-                    )
-                }
+            XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { _, _ in
             }) { error in
-                XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
+                XCTAssertEqual((error as? PackageGraphError)?.description, "multiple packages (\'foo\' (from \'https://git/org/foo\'), \'org.foo\') declare products with a conflicting name: \'FooProduct’; product names need to be unique across the package graph")
             }
         }
 
@@ -13135,31 +13127,16 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
-            if ToolsVersion.current < .v5_8 {
-                XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
-                    testDiagnostics(diagnostics) { result in
-                        result.check(
-                            diagnostic: .contains("""
-                            multiple targets named 'FooTarget' in: 'foo', 'org.foo'
-                            """),
-                            severity: .error
-                        )
-                    }
-                }) { error in
-                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
+            XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
+                        """),
+                        severity: .error
+                    )
                 }
-            } else {
-                XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
-                    testDiagnostics(diagnostics) { result in
-                        result.check(
-                            diagnostic: .contains("""
-                            multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
-                            """),
-                            severity: .error
-                        )
-                    }
-                })
-            }
+            })
         }
 
         // reset
@@ -13313,31 +13290,16 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
-            if ToolsVersion.current < .v5_8 {
-                XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
-                    testDiagnostics(diagnostics) { result in
-                        result.check(
-                            diagnostic: .contains("""
-                            multiple targets named 'FooTarget' in: 'foo', 'org.foo'
-                            """),
-                            severity: .error
-                        )
-                    }
-                }) { error in
-                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
+            XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
+                        """),
+                        severity: .error
+                    )
                 }
-            } else {
-                XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
-                    testDiagnostics(diagnostics) { result in
-                        result.check(
-                            diagnostic: .contains("""
-                            multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
-                            """),
-                            severity: .error
-                        )
-                    }
-                })
-            }
+            })
         }
 
         // reset
@@ -13466,31 +13428,16 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
-            if ToolsVersion.current < .v5_8 {
-                XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
-                    testDiagnostics(diagnostics) { result in
-                        result.check(
-                            diagnostic: .contains("""
-                            multiple targets named 'FooTarget' in: 'foo', 'org.foo'
-                            """),
-                            severity: .error
-                        )
-                    }
-                }) { error in
-                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
+            XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
+                        """),
+                        severity: .error
+                    )
                 }
-            } else {
-                XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
-                    testDiagnostics(diagnostics) { result in
-                        result.check(
-                            diagnostic: .contains("""
-                            multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
-                            """),
-                            severity: .error
-                        )
-                    }
-                })
-            }
+            })
         }
 
         // reset
@@ -13606,31 +13553,16 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
-            if ToolsVersion.current < .v5_8 {
-                XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
-                    testDiagnostics(diagnostics) { result in
-                        result.check(
-                            diagnostic: .contains("""
-                            multiple targets named 'FooTarget' in: 'foo', 'org.foo'
-                            """),
-                            severity: .error
-                        )
-                    }
-                }) { error in
-                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
+            XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
+                        """),
+                        severity: .error
+                    )
                 }
-            } else {
-                XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
-                    testDiagnostics(diagnostics) { result in
-                        result.check(
-                            diagnostic: .contains("""
-                            multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
-                            """),
-                            severity: .error
-                        )
-                    }
-                })
-            }
+            })
         }
 
         // reset
@@ -13767,31 +13699,16 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
-            if ToolsVersion.current < .v5_8 {
-                XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
-                    testDiagnostics(diagnostics) { result in
-                        result.check(
-                            diagnostic: .contains("""
-                            multiple targets named 'FooTarget' in: 'foo', 'org.foo'
-                            """),
-                            severity: .error
-                        )
-                    }
-                }) { error in
-                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
+            XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
+                        """),
+                        severity: .error
+                    )
                 }
-            } else {
-                XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
-                    testDiagnostics(diagnostics) { result in
-                        result.check(
-                            diagnostic: .contains("""
-                            multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
-                            """),
-                            severity: .error
-                        )
-                    }
-                })
-            }
+            })
         }
 
         // reset
@@ -13923,31 +13840,16 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
-            if ToolsVersion.current < .v5_8 {
-                XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
-                    testDiagnostics(diagnostics) { result in
-                        result.check(
-                            diagnostic: .contains("""
-                            multiple targets named 'BazTarget' in: 'baz', 'org.baz'
-                            """),
-                            severity: .error
-                        )
-                    }
-                }) { error in
-                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'BazProduct' in: 'baz' (from 'https://git/org/baz'), 'org.baz'")
+            XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple similar targets 'BazTarget' appear in registry package 'org.baz' and source control package 'baz'
+                        """),
+                        severity: .error
+                    )
                 }
-            } else {
-                XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
-                    testDiagnostics(diagnostics) { result in
-                        result.check(
-                            diagnostic: .contains("""
-                            multiple similar targets 'BazTarget' appear in registry package 'org.baz' and source control package 'baz'
-                            """),
-                            severity: .error
-                        )
-                    }
-                })
-            }
+            })
         }
 
         // reset
@@ -14108,31 +14010,16 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
-            if ToolsVersion.current < .v5_8 {
-                XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
-                    testDiagnostics(diagnostics) { result in
-                        result.check(
-                            diagnostic: .contains("""
-                            multiple targets named 'BazTarget' in: 'baz', 'org.baz'
-                            """),
-                            severity: .error
-                        )
-                    }
-                }) { error in
-                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'BazProduct' in: 'baz' (from 'https://git/org/baz'), 'org.baz'")
+            XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple similar targets 'BazTarget' appear in registry package 'org.baz' and source control package 'baz'
+                        """),
+                        severity: .error
+                    )
                 }
-            } else {
-                XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
-                    testDiagnostics(diagnostics) { result in
-                        result.check(
-                            diagnostic: .contains("""
-                            multiple similar targets 'BazTarget' appear in registry package 'org.baz' and source control package 'baz'
-                            """),
-                            severity: .error
-                        )
-                    }
-                })
-            }
+            })
         }
 
         // reset
@@ -14248,31 +14135,16 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
-            if ToolsVersion.current < .v5_8 {
-                XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
-                    testDiagnostics(diagnostics) { result in
-                        result.check(
-                            diagnostic: .contains("""
-                            multiple targets named 'FooTarget' in: 'foo', 'org.foo'
-                            """),
-                            severity: .error
-                        )
-                    }
-                }) { error in
-                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
+            XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
+                        """),
+                        severity: .error
+                    )
                 }
-            } else {
-                XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
-                    testDiagnostics(diagnostics) { result in
-                        result.check(
-                            diagnostic: .contains("""
-                            multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
-                            """),
-                            severity: .error
-                        )
-                    }
-                })
-            }
+            })
         }
 
         // reset

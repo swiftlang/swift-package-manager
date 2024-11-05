@@ -14,6 +14,7 @@
 @testable import Build
 
 @testable
+@_spi(SwiftPMInternal)
 import DriverSupport
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
@@ -129,7 +130,7 @@ final class BuildPlanTests: XCTestCase {
         )) { error in
             XCTAssertEqual(
                 (error as? PackageGraphError)?.description,
-                "multiple products named 'Logging' in: 'barpkg' (at '\(barPkg)'), 'foopkg' (at '\(fooPkg)')"
+                "multiple packages (\'barpkg\' (at '\(barPkg)'), \'foopkg\' (at '\(fooPkg)')) declare products with a conflicting name: \'Logging’; product names need to be unique across the package graph"
             )
         }
     }
@@ -551,7 +552,7 @@ final class BuildPlanTests: XCTestCase {
         )) { error in
             XCTAssertEqual(
                 (error as? PackageGraphError)?.description,
-                "multiple products named 'Logging' in: 'barpkg' (at '\(barPkg)'), 'foopkg' (at '\(fooPkg)')"
+                "multiple packages (\'barpkg\' (at '\(barPkg)'), \'foopkg\' (at '\(fooPkg)')) declare products with a conflicting name: \'Logging’; product names need to be unique across the package graph"
             )
         }
     }
@@ -4591,13 +4592,13 @@ final class BuildPlanTests: XCTestCase {
                 bar,
                 [
                     .anySequence,
+                    "-swift-version", "5",
                     "-DLINUX",
                     "-Isfoo",
                     "-L", "sbar",
                     "-cxx-interoperability-mode=default",
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature", "BestFeature",
-                    "-swift-version", "5",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4656,6 +4657,7 @@ final class BuildPlanTests: XCTestCase {
                 bar,
                 [
                     .anySequence,
+                    "-swift-version", "5",
                     "-DLINUX",
                     "-Isfoo",
                     "-L", "sbar",
@@ -4663,7 +4665,6 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature",
                     "BestFeature",
-                    "-swift-version", "5",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fomit-frame-pointer",
@@ -4713,6 +4714,7 @@ final class BuildPlanTests: XCTestCase {
                 bar,
                 [
                     .anySequence,
+                    "-swift-version", "5",
                     "-DLINUX",
                     "-Isfoo",
                     "-L", "sbar",
@@ -4720,7 +4722,6 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature",
                     "BestFeature",
-                    "-swift-version", "5",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4757,6 +4758,7 @@ final class BuildPlanTests: XCTestCase {
                 bar,
                 [
                     .anySequence,
+                    "-swift-version", "5",
                     "-DDMACOS",
                     "-Isfoo",
                     "-L", "sbar",
@@ -4764,7 +4766,6 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature", "BestFeature",
                     "-enable-upcoming-feature", "WorstFeature",
-                    "-swift-version", "5",
                     "-g",
                     "-Xcc", "-g",
                     .end,

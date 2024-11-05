@@ -36,57 +36,57 @@ import struct TSCUtility.Version
 import class Workspace.Workspace
 import struct Workspace.WorkspaceConfiguration
 
-package struct GlobalOptions: ParsableArguments {
-    package init() {}
+public struct GlobalOptions: ParsableArguments {
+    public init() {}
 
     @OptionGroup()
-    package var locations: LocationOptions
+    public var locations: LocationOptions
 
     @OptionGroup()
-    package var caching: CachingOptions
+    public var caching: CachingOptions
 
     @OptionGroup()
-    package var logging: LoggingOptions
+    public var logging: LoggingOptions
 
     @OptionGroup()
-    package var security: SecurityOptions
+    public var security: SecurityOptions
 
     @OptionGroup()
-    package var resolver: ResolverOptions
+    public var resolver: ResolverOptions
 
     @OptionGroup()
-    package var build: BuildOptions
+    public var build: BuildOptions
 
     @OptionGroup()
-    package var linker: LinkerOptions
+    public var linker: LinkerOptions
 }
 
-package struct LocationOptions: ParsableArguments {
-    package init() {}
+public struct LocationOptions: ParsableArguments {
+    public init() {}
 
     @Option(
         name: .customLong("package-path"),
         help: "Specify the package path to operate on (default current directory). This changes the working directory before any other operation",
         completion: .directory
     )
-    package var packageDirectory: AbsolutePath?
+    public var packageDirectory: AbsolutePath?
 
     @Option(name: .customLong("cache-path"), help: "Specify the shared cache directory path", completion: .directory)
-    package var cacheDirectory: AbsolutePath?
+    public var cacheDirectory: AbsolutePath?
 
     @Option(
         name: .customLong("config-path"),
         help: "Specify the shared configuration directory path",
         completion: .directory
     )
-    package var configurationDirectory: AbsolutePath?
+    public var configurationDirectory: AbsolutePath?
 
     @Option(
         name: .customLong("security-path"),
         help: "Specify the shared security directory path",
         completion: .directory
     )
-    package var securityDirectory: AbsolutePath?
+    public var securityDirectory: AbsolutePath?
 
     /// The custom .build directory, if provided.
     @Option(
@@ -105,14 +105,14 @@ package struct LocationOptions: ParsableArguments {
 
     /// The path to the file containing multiroot package data. This is currently Xcode's workspace file.
     @Option(name: .customLong("multiroot-data-file"), help: .hidden, completion: .directory)
-    package var multirootPackageDataFile: AbsolutePath?
+    public var multirootPackageDataFile: AbsolutePath?
 
     /// Path to the compilation destination describing JSON file.
     @Option(name: .customLong("destination"), help: .hidden, completion: .directory)
-    package var customCompileDestination: AbsolutePath?
+    public var customCompileDestination: AbsolutePath?
 
     @Option(name: .customLong("experimental-swift-sdks-path"), help: .hidden, completion: .directory)
-    package var deprecatedSwiftSDKsDirectory: AbsolutePath?
+    public var deprecatedSwiftSDKsDirectory: AbsolutePath?
 
     /// Path to the directory containing installed Swift SDKs.
     @Option(
@@ -120,7 +120,7 @@ package struct LocationOptions: ParsableArguments {
         help: "Path to the directory containing installed Swift SDKs",
         completion: .directory
     )
-    package var swiftSDKsDirectory: AbsolutePath?
+    public var swiftSDKsDirectory: AbsolutePath?
 
     @Option(
         name: .customLong("pkg-config-path"),
@@ -131,14 +131,14 @@ package struct LocationOptions: ParsableArguments {
         """,
         completion: .directory
     )
-    package var pkgConfigDirectories: [AbsolutePath] = []
+    public var pkgConfigDirectories: [AbsolutePath] = []
 
     @Flag(name: .customLong("ignore-lock"), help: .hidden)
-    package var ignoreLock: Bool = false
+    public var ignoreLock: Bool = false
 }
 
-package struct CachingOptions: ParsableArguments {
-    package init() {}
+public struct CachingOptions: ParsableArguments {
+    public init() {}
 
     /// Disables package caching.
     @Flag(
@@ -146,60 +146,60 @@ package struct CachingOptions: ParsableArguments {
         inversion: .prefixedEnableDisable,
         help: "Use a shared cache when fetching dependencies"
     )
-    package var useDependenciesCache: Bool = true
+    public var useDependenciesCache: Bool = true
 
     /// Disables manifest caching.
     @Flag(name: .customLong("disable-package-manifest-caching"), help: .hidden)
-    package var shouldDisableManifestCaching: Bool = false
+    public var shouldDisableManifestCaching: Bool = false
 
     /// Whether to enable llbuild manifest caching.
     @Flag(name: .customLong("build-manifest-caching"), inversion: .prefixedEnableDisable)
-    package var cacheBuildManifest: Bool = true
+    public var cacheBuildManifest: Bool = true
 
     /// Disables manifest caching.
     @Option(
         name: .customLong("manifest-cache"),
         help: "Caching mode of Package.swift manifests (shared: shared cache, local: package's build directory, none: disabled"
     )
-    package var manifestCachingMode: ManifestCachingMode = .shared
+    public var manifestCachingMode: ManifestCachingMode = .shared
 
-    package enum ManifestCachingMode: String, ExpressibleByArgument {
+    public enum ManifestCachingMode: String, ExpressibleByArgument {
         case none
         case local
         case shared
 
-        package init?(argument: String) {
+        public init?(argument: String) {
             self.init(rawValue: argument)
         }
     }
 }
 
-package struct LoggingOptions: ParsableArguments {
-    package init() {}
+public struct LoggingOptions: ParsableArguments {
+    public init() {}
 
     /// The verbosity of informational output.
     @Flag(name: .shortAndLong, help: "Increase verbosity to include informational output")
-    package var verbose: Bool = false
+    public var verbose: Bool = false
 
     /// The verbosity of informational output.
     @Flag(name: [.long, .customLong("vv")], help: "Increase verbosity to include debug output")
-    package var veryVerbose: Bool = false
+    public var veryVerbose: Bool = false
 
     /// Whether logging output should be limited to `.error`.
     @Flag(name: .shortAndLong, help: "Decrease verbosity to only include error output.")
-    package var quiet: Bool = false
+    public var quiet: Bool = false
 }
 
-package struct SecurityOptions: ParsableArguments {
-    package init() {}
+public struct SecurityOptions: ParsableArguments {
+    public init() {}
 
     /// Disables sandboxing when executing subprocesses.
     @Flag(name: .customLong("disable-sandbox"), help: "Disable using the sandbox when executing subprocesses")
-    package var shouldDisableSandbox: Bool = false
+    public var shouldDisableSandbox: Bool = false
 
     /// Force usage of the netrc file even in cases where it is not allowed.
     @Flag(name: .customLong("netrc"), help: "Use netrc file even in cases where other credential stores are preferred")
-    package var forceNetrc: Bool = false
+    public var forceNetrc: Bool = false
 
     /// Whether to load netrc files for authenticating with remote servers
     /// when downloading binary artifacts. This has no effects on registry
@@ -209,7 +209,7 @@ package struct SecurityOptions: ParsableArguments {
         exclusivity: .exclusive,
         help: "Load credentials from a netrc file"
     )
-    package var netrc: Bool = true
+    public var netrc: Bool = true
 
     /// The path to the netrc file used when `netrc` is `true`.
     @Option(
@@ -217,7 +217,7 @@ package struct SecurityOptions: ParsableArguments {
         help: "Specify the netrc file path",
         completion: .file()
     )
-    package var netrcFilePath: AbsolutePath?
+    public var netrcFilePath: AbsolutePath?
 
     /// Whether to use keychain for authenticating with remote servers
     /// when downloading binary artifacts. This has no effects on registry
@@ -228,61 +228,61 @@ package struct SecurityOptions: ParsableArguments {
         exclusivity: .exclusive,
         help: "Search credentials in macOS keychain"
     )
-    package var keychain: Bool = true
+    public var keychain: Bool = true
     #else
     @Flag(
         inversion: .prefixedEnableDisable,
         exclusivity: .exclusive,
         help: .hidden
     )
-    package var keychain: Bool = false
+    public var keychain: Bool = false
     #endif
 
     @Option(name: .customLong("resolver-fingerprint-checking"))
-    package var fingerprintCheckingMode: WorkspaceConfiguration.CheckingMode = .strict
+    public var fingerprintCheckingMode: WorkspaceConfiguration.CheckingMode = .strict
 
     @Option(name: .customLong("resolver-signing-entity-checking"))
-    package var signingEntityCheckingMode: WorkspaceConfiguration.CheckingMode = .warn
+    public var signingEntityCheckingMode: WorkspaceConfiguration.CheckingMode = .warn
 
     @Flag(
         inversion: .prefixedEnableDisable,
         exclusivity: .exclusive,
         help: "Validate signature of a signed package release downloaded from registry"
     )
-    package var signatureValidation: Bool = true
+    public var signatureValidation: Bool = true
 }
 
-package struct ResolverOptions: ParsableArguments {
-    package init() {}
+public struct ResolverOptions: ParsableArguments {
+    public init() {}
 
     /// Enable prefetching in resolver which will kick off parallel git cloning.
     @Flag(name: .customLong("prefetching"), inversion: .prefixedEnableDisable)
-    package var shouldEnableResolverPrefetching: Bool = true
+    public var shouldEnableResolverPrefetching: Bool = true
 
     /// Use Package.resolved file for resolving dependencies.
     @Flag(
         name: [.long, .customLong("disable-automatic-resolution"), .customLong("only-use-versions-from-resolved-file")],
         help: "Only use versions from the Package.resolved file and fail resolution if it is out-of-date"
     )
-    package var forceResolvedVersions: Bool = false
+    public var forceResolvedVersions: Bool = false
 
     /// Skip updating dependencies from their remote during a resolution.
     @Flag(name: .customLong("skip-update"), help: "Skip updating dependencies from their remote during a resolution")
-    package var skipDependencyUpdate: Bool = false
+    public var skipDependencyUpdate: Bool = false
 
     @Flag(help: "Define automatic transformation of source control based dependencies to registry based ones")
-    package var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation =
+    public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation =
         .disabled
 
     @Option(help: "Default registry URL to use, instead of the registries.json configuration file")
-    package var defaultRegistryURL: URL?
+    public var defaultRegistryURL: URL?
 
-    package enum SourceControlToRegistryDependencyTransformation: EnumerableFlag {
+    public enum SourceControlToRegistryDependencyTransformation: EnumerableFlag {
         case disabled
         case identity
         case swizzle
 
-        package static func name(for value: Self) -> NameSpecification {
+        public static func name(for value: Self) -> NameSpecification {
             switch value {
             case .disabled:
                 return .customLong("disable-scm-to-registry-transformation")
@@ -293,7 +293,7 @@ package struct ResolverOptions: ParsableArguments {
             }
         }
 
-        package static func help(for value: SourceControlToRegistryDependencyTransformation) -> ArgumentHelp? {
+        public static func help(for value: SourceControlToRegistryDependencyTransformation) -> ArgumentHelp? {
             switch value {
             case .disabled:
                 return "disable source control to registry transformation"
@@ -306,12 +306,12 @@ package struct ResolverOptions: ParsableArguments {
     }
 }
 
-package struct BuildOptions: ParsableArguments {
-    package init() {}
+public struct BuildOptions: ParsableArguments {
+    public init() {}
 
     /// Build configuration.
     @Option(name: .shortAndLong, help: "Build with configuration")
-    package var configuration: BuildConfiguration = .debug
+    public var configuration: BuildConfiguration = .debug
 
     @Option(
         name: .customLong("Xcc", withSingleDash: true),
@@ -349,7 +349,7 @@ package struct BuildOptions: ParsableArguments {
             visibility: .hidden
         )
     )
-    package var xcbuildFlags: [String] = []
+    public var xcbuildFlags: [String] = []
 
     @Option(
         name: .customLong("Xbuild-tools-swiftc", withSingleDash: true),
@@ -359,7 +359,7 @@ package struct BuildOptions: ParsableArguments {
             visibility: .hidden
         )
     )
-    package var _buildToolsSwiftCFlags: [String] = []
+    public var _buildToolsSwiftCFlags: [String] = []
 
     @Option(
         name: .customLong("Xmanifest", withSingleDash: true),
@@ -369,7 +369,7 @@ package struct BuildOptions: ParsableArguments {
             visibility: .hidden
         )
     )
-    package var _deprecated_manifestFlags: [String] = []
+    public var _deprecated_manifestFlags: [String] = []
 
     var manifestFlags: [String] {
         self._deprecated_manifestFlags.isEmpty ?
@@ -381,7 +381,7 @@ package struct BuildOptions: ParsableArguments {
         self._buildToolsSwiftCFlags
     }
 
-    package var buildFlags: BuildFlags {
+    public var buildFlags: BuildFlags {
         BuildFlags(
             cCompilerFlags: self.cCompilerFlags,
             cxxCompilerFlags: self.cxxCompilerFlags,
@@ -393,15 +393,15 @@ package struct BuildOptions: ParsableArguments {
 
     /// The compilation destination’s target triple.
     @Option(name: .customLong("triple"), transform: Triple.init)
-    package var customCompileTriple: Triple?
+    public var customCompileTriple: Triple?
 
     /// Path to the compilation destination’s SDK.
     @Option(name: .customLong("sdk"))
-    package var customCompileSDK: AbsolutePath?
+    public var customCompileSDK: AbsolutePath?
 
     /// Path to the compilation destination’s toolchain.
     @Option(name: .customLong("toolchain"))
-    package var customCompileToolchain: AbsolutePath?
+    public var customCompileToolchain: AbsolutePath?
 
     /// The architectures to compile for.
     @Option(
@@ -411,53 +411,53 @@ package struct BuildOptions: ParsableArguments {
             visibility: .hidden
         )
     )
-    package var architectures: [String] = []
+    public var architectures: [String] = []
 
     @Option(name: .customLong("experimental-swift-sdk"), help: .hidden)
-    package var deprecatedSwiftSDKSelector: String?
+    public var deprecatedSwiftSDKSelector: String?
 
     /// Filter for selecting a specific Swift SDK to build with.
     @Option(
         name: .customLong("swift-sdk"),
         help: "Filter for selecting a specific Swift SDK to build with"
     )
-    package var swiftSDKSelector: String?
+    public var swiftSDKSelector: String?
 
     /// Which compile-time sanitizers should be enabled.
     @Option(
         name: .customLong("sanitize"),
         help: "Turn on runtime checks for erroneous behavior, possible values: \(Sanitizer.formattedValues)"
     )
-    package var sanitizers: [Sanitizer] = []
+    public var sanitizers: [Sanitizer] = []
 
-    package var enabledSanitizers: EnabledSanitizers {
+    public var enabledSanitizers: EnabledSanitizers {
         EnabledSanitizers(Set(sanitizers))
     }
 
     @Flag(help: "Enable or disable indexing-while-building feature")
-    package var indexStoreMode: StoreMode = .autoIndexStore
+    public var indexStoreMode: StoreMode = .autoIndexStore
 
     /// Whether to enable generation of `.swiftinterface`s alongside `.swiftmodule`s.
     @Flag(name: .customLong("enable-parseable-module-interfaces"))
-    package var shouldEnableParseableModuleInterfaces: Bool = false
+    public var shouldEnableParseableModuleInterfaces: Bool = false
 
     /// The number of jobs for llbuild to start (aka the number of schedulerLanes)
     @Option(name: .shortAndLong, help: "The number of jobs to spawn in parallel during the build process")
-    package var jobs: UInt32?
+    public var jobs: UInt32?
 
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
     @Flag()
-    package var useIntegratedSwiftDriver: Bool = false
+    public var useIntegratedSwiftDriver: Bool = false
 
     /// A flag that indicates this build should check whether targets only import
     /// their explicitly-declared dependencies
     @Option()
-    package var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
+    public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
 
     /// Whether to use the explicit module build flow (with the integrated driver)
     @Flag(name: .customLong("experimental-explicit-module-build"))
-    package var useExplicitModuleBuild: Bool = false
+    public var useExplicitModuleBuild: Bool = false
 
     /// The build system to use.
     @Option(name: .customLong("build-system"))
@@ -465,9 +465,9 @@ package struct BuildOptions: ParsableArguments {
 
     /// The Debug Information Format to use.
     @Option(name: .customLong("debug-info-format", withSingleDash: true))
-    package var debugInfoFormat: DebugInfoFormat = .dwarf
+    public var debugInfoFormat: DebugInfoFormat = .dwarf
 
-    package var buildSystem: BuildSystemProvider.Kind {
+    public var buildSystem: BuildSystemProvider.Kind {
         #if os(macOS)
         // Force the Xcode build system if we want to build more than one arch.
         return self.architectures.count > 1 ? .xcode : self._buildSystem
@@ -479,7 +479,7 @@ package struct BuildOptions: ParsableArguments {
 
     /// Whether to enable test discovery on platforms without Objective-C runtime.
     @Flag(help: .hidden)
-    package var enableTestDiscovery: Bool = false
+    public var enableTestDiscovery: Bool = false
 
     /// Path of test entry point file to use, instead of synthesizing one or using `XCTMain.swift` in the package (if
     /// present).
@@ -488,40 +488,40 @@ package struct BuildOptions: ParsableArguments {
         name: .customLong("experimental-test-entry-point-path"),
         help: .hidden
     )
-    package var testEntryPointPath: AbsolutePath?
+    public var testEntryPointPath: AbsolutePath?
 
     /// The lto mode to use if any.
     @Option(
         name: .customLong("experimental-lto-mode"),
         help: .hidden
     )
-    package var linkTimeOptimizationMode: LinkTimeOptimizationMode?
+    public var linkTimeOptimizationMode: LinkTimeOptimizationMode?
 
     @Flag(inversion: .prefixedEnableDisable, help: .hidden)
-    package var getTaskAllowEntitlement: Bool? = nil
+    public var getTaskAllowEntitlement: Bool? = nil
 
     // Whether to omit frame pointers
     // this can be removed once the backtracer uses DWARF instead of frame pointers
     @Flag(inversion: .prefixedNo,  help: .hidden)
-    package var omitFramePointers: Bool? = nil
+    public var omitFramePointers: Bool? = nil
 
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed
     // nil should not be the goto. Instead create an enum
-    package enum StoreMode: EnumerableFlag {
+    public enum StoreMode: EnumerableFlag {
         case autoIndexStore
         case enableIndexStore
         case disableIndexStore
     }
 
-    package enum TargetDependencyImportCheckingMode: String, Codable, ExpressibleByArgument {
+    public enum TargetDependencyImportCheckingMode: String, Codable, ExpressibleByArgument {
         case none
         case warn
         case error
     }
 
     /// See `BuildParameters.LinkTimeOptimizationMode` for details.
-    package enum LinkTimeOptimizationMode: String, Codable, ExpressibleByArgument {
+    public enum LinkTimeOptimizationMode: String, Codable, ExpressibleByArgument {
         /// See `BuildParameters.LinkTimeOptimizationMode.full` for details.
         case full
         /// See `BuildParameters.LinkTimeOptimizationMode.thin` for details.
@@ -529,7 +529,7 @@ package struct BuildOptions: ParsableArguments {
     }
 
     /// See `BuildParameters.DebugInfoFormat` for details.
-    package enum DebugInfoFormat: String, Codable, ExpressibleByArgument {
+    public enum DebugInfoFormat: String, Codable, ExpressibleByArgument {
         /// See `BuildParameters.DebugInfoFormat.dwarf` for details.
         case dwarf
         /// See `BuildParameters.DebugInfoFormat.codeview` for details.
@@ -539,24 +539,25 @@ package struct BuildOptions: ParsableArguments {
     }
 }
 
-package struct LinkerOptions: ParsableArguments {
-    package init() {}
+public struct LinkerOptions: ParsableArguments {
+    public init() {}
 
     @Flag(
         name: .customLong("dead-strip"),
         inversion: .prefixedEnableDisable,
         help: "Disable/enable dead code stripping by the linker"
     )
-    package var linkerDeadStrip: Bool = true
+    public var linkerDeadStrip: Bool = true
 
     /// Disables adding $ORIGIN/@loader_path to the rpath, useful when deploying
     @Flag(name: .customLong("disable-local-rpath"), help: "Disable adding $ORIGIN/@loader_path to the rpath by default")
-    package var shouldDisableLocalRpath: Bool = false
+    public var shouldDisableLocalRpath: Bool = false
 }
 
 /// Which testing libraries to use (and any related options.)
-package struct TestLibraryOptions: ParsableArguments {
-    package init() {}
+@_spi(SwiftPMInternal)
+public struct TestLibraryOptions: ParsableArguments {
+    public init() {}
 
     /// Whether to enable support for XCTest (as explicitly specified by the user.)
     ///
@@ -565,10 +566,10 @@ package struct TestLibraryOptions: ParsableArguments {
     @Flag(name: .customLong("xctest"),
           inversion: .prefixedEnableDisable,
           help: "Enable support for XCTest")
-    package var explicitlyEnableXCTestSupport: Bool?
+    public var explicitlyEnableXCTestSupport: Bool?
 
     /// Whether to enable support for XCTest.
-    package var enableXCTestSupport: Bool {
+    public var enableXCTestSupport: Bool {
         // Default to enabled.
         explicitlyEnableXCTestSupport ?? true
     }
@@ -581,10 +582,10 @@ package struct TestLibraryOptions: ParsableArguments {
     @Flag(name: .customLong("experimental-swift-testing"),
           inversion: .prefixedEnableDisable,
           help: "Enable experimental support for swift-testing")
-    package var explicitlyEnableSwiftTestingLibrarySupport: Bool?
+    public var explicitlyEnableSwiftTestingLibrarySupport: Bool?
 
     /// Whether to enable support for swift-testing.
-    package func enableSwiftTestingLibrarySupport(
+    public func enableSwiftTestingLibrarySupport(
         swiftCommandState: SwiftCommandState
     ) throws -> Bool {
         // Honor the user's explicit command-line selection, if any.
@@ -631,7 +632,7 @@ package struct TestLibraryOptions: ParsableArguments {
     }
 
     /// Get the set of enabled testing libraries.
-    package func enabledTestingLibraries(
+    public func enabledTestingLibraries(
         swiftCommandState: SwiftCommandState
     ) throws -> Set<BuildParameters.Testing.Library> {
         var result = Set<BuildParameters.Testing.Library>()

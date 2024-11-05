@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
 import LLBuildManifest
 import PackageGraph
@@ -35,9 +36,9 @@ import DriverSupport
 import SwiftDriver
 #endif
 
-package final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem, BuildErrorAdviceProvider {
+public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem, BuildErrorAdviceProvider {
     /// The delegate used by the build system.
-    package weak var delegate: SPMBuildCore.BuildSystemDelegate?
+    public weak var delegate: SPMBuildCore.BuildSystemDelegate?
 
     /// Build parameters for products.
     let productsBuildParameters: BuildParameters
@@ -58,12 +59,12 @@ package final class BuildOperation: PackageStructureDelegate, SPMBuildCore.Build
     private var buildSystem: SPMLLBuild.BuildSystem?
 
     /// If build manifest caching should be enabled.
-    package let cacheBuildManifest: Bool
+    public let cacheBuildManifest: Bool
 
     /// The build plan that was computed, if any.
-    package private(set) var _buildPlan: BuildPlan?
+    public private(set) var _buildPlan: BuildPlan?
 
-    package var buildPlan: SPMBuildCore.BuildPlan {
+    public var buildPlan: SPMBuildCore.BuildPlan {
         get throws {
             if let buildPlan = _buildPlan {
                 return buildPlan
@@ -91,7 +92,7 @@ package final class BuildOperation: PackageStructureDelegate, SPMBuildCore.Build
     /// ObservabilityScope with which to emit diagnostics.
     private let observabilityScope: ObservabilityScope
 
-    package var builtTestProducts: [BuiltTestProduct] {
+    public var builtTestProducts: [BuiltTestProduct] {
         (try? getBuildDescription())?.builtTestProducts ?? []
     }
 
@@ -107,7 +108,7 @@ package final class BuildOperation: PackageStructureDelegate, SPMBuildCore.Build
     /// Map of  root package identities by target names which are declared in them.
     private let rootPackageIdentityByTargetName: [String: PackageIdentity]
 
-    package init(
+    public init(
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
         cacheBuildManifest: Bool,
@@ -144,7 +145,7 @@ package final class BuildOperation: PackageStructureDelegate, SPMBuildCore.Build
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Operation")
     }
 
-    package func getPackageGraph() throws -> ModulesGraph {
+    public func getPackageGraph() throws -> ModulesGraph {
         try self.packageGraph.memoize {
             try self.packageGraphLoader()
         }
@@ -154,7 +155,7 @@ package final class BuildOperation: PackageStructureDelegate, SPMBuildCore.Build
     ///
     /// This will try skip build planning if build manifest caching is enabled
     /// and the package structure hasn't changed.
-    package func getBuildDescription(subset: BuildSubset? = nil) throws -> BuildDescription {
+    public func getBuildDescription(subset: BuildSubset? = nil) throws -> BuildDescription {
         return try self.buildDescription.memoize {
             if self.cacheBuildManifest {
                 do {
@@ -182,12 +183,12 @@ package final class BuildOperation: PackageStructureDelegate, SPMBuildCore.Build
         }
     }
 
-    package func getBuildManifest() throws -> LLBuildManifest {
+    public func getBuildManifest() throws -> LLBuildManifest {
         return try self.plan().manifest
     }
 
     /// Cancel the active build operation.
-    package func cancel(deadline: DispatchTime) throws {
+    public func cancel(deadline: DispatchTime) throws {
         buildSystem?.cancel()
     }
 
@@ -333,7 +334,7 @@ package final class BuildOperation: PackageStructureDelegate, SPMBuildCore.Build
     }
 
     /// Perform a build using the given build description and subset.
-    package func build(subset: BuildSubset) throws {
+    public func build(subset: BuildSubset) throws {
         guard !self.productsBuildParameters.shouldSkipBuilding else {
             return
         }
@@ -783,7 +784,7 @@ package final class BuildOperation: PackageStructureDelegate, SPMBuildCore.Build
         }
     }
 
-    package func provideBuildErrorAdvice(for target: String, command: String, message: String) -> String? {
+    public func provideBuildErrorAdvice(for target: String, command: String, message: String) -> String? {
         // Find the target for which the error was emitted.  If we don't find it, we can't give any advice.
         guard let _ = self._buildPlan?.targets.first(where: { $0.target.name == target }) else { return nil }
 
@@ -807,7 +808,7 @@ package final class BuildOperation: PackageStructureDelegate, SPMBuildCore.Build
         return nil
     }
 
-    package func packageStructureChanged() -> Bool {
+    public func packageStructureChanged() -> Bool {
         do {
             _ = try self.plan()
         }
@@ -823,7 +824,7 @@ package final class BuildOperation: PackageStructureDelegate, SPMBuildCore.Build
 }
 
 extension BuildOperation {
-    package struct PluginConfiguration {
+    public struct PluginConfiguration {
         /// Entity responsible for compiling and running plugin scripts.
         let scriptRunner: PluginScriptRunner
 
@@ -833,7 +834,7 @@ extension BuildOperation {
         /// Whether to sandbox commands from build tool plugins.
         let disableSandbox: Bool
 
-        package init(scriptRunner: PluginScriptRunner, workDirectory: AbsolutePath, disableSandbox: Bool) {
+        public init(scriptRunner: PluginScriptRunner, workDirectory: AbsolutePath, disableSandbox: Bool) {
             self.scriptRunner = scriptRunner
             self.workDirectory = workDirectory
             self.disableSandbox = disableSandbox

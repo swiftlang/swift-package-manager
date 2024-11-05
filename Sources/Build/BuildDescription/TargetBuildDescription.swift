@@ -17,12 +17,12 @@ import struct PackageModel.ToolsVersion
 import struct SPMBuildCore.BuildToolPluginInvocationResult
 import struct SPMBuildCore.BuildParameters
 
-package enum BuildDescriptionError: Swift.Error {
+public enum BuildDescriptionError: Swift.Error {
     case requestedFileNotPartOfTarget(targetName: String, requestedFilePath: AbsolutePath)
 }
 
 /// A target description which can either be for a Swift or Clang target.
-package enum TargetBuildDescription {
+public enum TargetBuildDescription {
     /// Swift target description.
     case swift(SwiftTargetBuildDescription)
 
