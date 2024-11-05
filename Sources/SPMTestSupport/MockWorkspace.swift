@@ -136,6 +136,10 @@ public final class MockWorkspace {
         return self.sandbox.appending(components: ".build", "artifacts")
     }
 
+    public var workspaceLocation: Workspace.Location? {
+        return self._workspace?.location
+    }
+
     public func pathToRoot(withName name: String) throws -> AbsolutePath {
         return try AbsolutePath(validating: name, relativeTo: self.rootsDir)
     }

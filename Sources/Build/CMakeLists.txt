@@ -19,7 +19,6 @@ add_library(Build
   BuildManifest/LLBuildManifestBuilder+Product.swift
   BuildManifest/LLBuildManifestBuilder+Resources.swift
   BuildManifest/LLBuildManifestBuilder+Swift.swift
-  BuildOperationBuildSystemDelegateHandler.swift
   BuildOperation.swift
   BuildPlan/BuildPlan.swift
   BuildPlan/BuildPlan+Clang.swift
@@ -27,6 +26,9 @@ add_library(Build
   BuildPlan/BuildPlan+Swift.swift
   BuildPlan/BuildPlan+Test.swift
   ClangSupport.swift
+  LLBuildCommands.swift
+  LLBuildDescription.swift
+  LLBuildProgressTracker.swift
   SwiftCompilerOutputParser.swift
   TestObservation.swift)
 target_link_libraries(Build PUBLIC
