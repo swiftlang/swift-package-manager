@@ -21,6 +21,7 @@ import enum PackageGraph.BuildTriple
 import class PackageModel.Manifest
 import struct PackageModel.TargetDescription
 import enum PackageModel.ProductType
+import struct SPMBuildCore.BuildParameters
 import func SPMTestSupport.loadPackageGraph
 
 @_spi(SwiftPMInternal)
@@ -30,6 +31,7 @@ import func SPMTestSupport.embeddedCxxInteropPackageGraph
 import func SPMTestSupport.macrosPackageGraph
 import func SPMTestSupport.macrosTestsPackageGraph
 import func SPMTestSupport.mockBuildParameters
+import func SPMTestSupport.mockBuildPlan
 import func SPMTestSupport.toolsExplicitLibrariesGraph
 
 @_spi(SwiftPMInternal)
@@ -47,11 +49,15 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         var (graph, fs, observabilityScope) = try trivialPackageGraph()
 
         let triple = try Triple("wasm32-unknown-none-wasm")
-        var parameters = mockBuildParameters(triple: triple)
-        parameters.linkingParameters.shouldLinkStaticSwiftStdlib = true
-        var result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: parameters,
+
+        let linkingParameters = BuildParameters.Linking(
+            shouldLinkStaticSwiftStdlib: true
+        )
+
+        var result = try BuildPlanResult(plan: mockBuildPlan(
+            triple: triple,
             graph: graph,
+            linkingParameters: linkingParameters,
             fileSystem: fs,
             observabilityScope: observabilityScope
         ))
@@ -77,9 +83,10 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
 
         (graph, fs, observabilityScope) = try embeddedCxxInteropPackageGraph()
 
-        result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: parameters,
+        result = try BuildPlanResult(plan: mockBuildPlan(
+            triple: triple,
             graph: graph,
+            linkingParameters: linkingParameters,
             fileSystem: fs,
             observabilityScope: observabilityScope
         ))
@@ -107,13 +114,14 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
     func testWasmTargetRelease() throws {
         let (graph, fs, observabilityScope) = try trivialPackageGraph()
 
-        var parameters = mockBuildParameters(
-            config: .release, triple: .wasi, linkerDeadStrip: true
-        )
-        parameters.linkingParameters.shouldLinkStaticSwiftStdlib = true
-        let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: parameters,
+        let result = try BuildPlanResult(plan: mockBuildPlan(
+            config: .release,
+            triple: .wasi,
             graph: graph,
+            linkingParameters: .init(
+                linkerDeadStrip: true,
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observabilityScope
         ))
@@ -140,11 +148,12 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
 
         let (graph, fs, observabilityScope) = try trivialPackageGraph()
 
-        var parameters = mockBuildParameters(triple: .wasi)
-        parameters.linkingParameters.shouldLinkStaticSwiftStdlib = true
-        let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: parameters,
+        let result = try BuildPlanResult(plan: mockBuildPlan(
+            triple: .wasi,
             graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
             fileSystem: fs,
             observabilityScope: observabilityScope
         ))
@@ -226,8 +235,15 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         let destinationTriple = Triple.arm64Linux
         let toolsTriple = Triple.x86_64MacOS
         let plan = try BuildPlan(
-            destinationBuildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, triple: destinationTriple),
-            toolsBuildParameters: mockBuildParameters(triple: toolsTriple),
+            destinationBuildParameters: mockBuildParameters(
+                destination: .target,
+                shouldLinkStaticSwiftStdlib: true,
+                triple: destinationTriple
+            ),
+            toolsBuildParameters: mockBuildParameters(
+                destination: .host,
+                triple: toolsTriple
+            ),
             graph: graph,
             fileSystem: fs,
             observabilityScope: scope
@@ -271,8 +287,15 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         let destinationTriple = Triple.arm64Linux
         let toolsTriple = Triple.x86_64MacOS
         let plan = try BuildPlan(
-            destinationBuildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, triple: destinationTriple),
-            toolsBuildParameters: mockBuildParameters(triple: toolsTriple),
+            destinationBuildParameters: mockBuildParameters(
+                destination: .target,
+                shouldLinkStaticSwiftStdlib: true,
+                triple: destinationTriple
+            ),
+            toolsBuildParameters: mockBuildParameters(
+                destination: .host,
+                triple: toolsTriple
+            ),
             graph: graph,
             fileSystem: fs,
             observabilityScope: scope
@@ -319,8 +342,15 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         for (linkage, productFileName) in [(ProductType.LibraryType.static, "libSwiftSyntax-tool.a"), (.dynamic, "libSwiftSyntax-tool.dylib")] {
             let (graph, fs, scope) = try toolsExplicitLibrariesGraph(linkage: linkage)
             let plan = try BuildPlan(
-                destinationBuildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, triple: destinationTriple),
-                toolsBuildParameters: mockBuildParameters(triple: toolsTriple),
+                destinationBuildParameters: mockBuildParameters(
+                    destination: .target,
+                    shouldLinkStaticSwiftStdlib: true,
+                    triple: destinationTriple
+                ),
+                toolsBuildParameters: mockBuildParameters(
+                    destination: .host,
+                    triple: toolsTriple
+                ),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: scope

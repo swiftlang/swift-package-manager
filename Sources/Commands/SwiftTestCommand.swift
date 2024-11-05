@@ -1381,7 +1381,12 @@ private func buildTestsIfNeeded(
         toolsBuildParameters: toolsBuildParameters
     )
 
-    let subset = testProduct.map(BuildSubset.product) ?? .allIncludingTests
+    let subset: BuildSubset = if let testProduct {
+        .product(testProduct)
+    } else {
+        .allIncludingTests
+    }
+
     try buildSystem.build(subset: subset)
 
     // Find the test product.

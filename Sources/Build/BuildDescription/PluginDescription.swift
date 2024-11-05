@@ -29,6 +29,9 @@ public final class PluginDescription: Codable {
     /// the plugin).
     public let targetName: String
 
+    /// The language-level target name.
+    public let targetC99Name: String
+
     /// The names of any plugin products in that package that vend the plugin
     /// to other packages.
     public let productNames: [String]
@@ -56,6 +59,7 @@ public final class PluginDescription: Codable {
 
         self.package = package.identity
         self.targetName = target.name
+        self.targetC99Name = target.c99name
         self.productNames = products.map(\.name)
         self.toolsVersion = toolsVersion
         self.sources = target.sources

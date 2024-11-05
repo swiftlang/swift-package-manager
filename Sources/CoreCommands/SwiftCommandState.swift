@@ -725,7 +725,10 @@ public final class SwiftCommandState {
     when building on macOS.
     """
 
-    private func _buildParams(toolchain: UserToolchain) throws -> BuildParameters {
+    private func _buildParams(
+        toolchain: UserToolchain,
+        destination: BuildParameters.Destination
+    ) throws -> BuildParameters {
         let triple = toolchain.targetTriple
 
         let dataPath = self.scratchDirectory.appending(
@@ -737,6 +740,7 @@ public final class SwiftCommandState {
         }
 
         return try BuildParameters(
+            destination: destination,
             dataPath: dataPath,
             configuration: options.build.configuration,
             toolchain: toolchain,
@@ -796,7 +800,7 @@ public final class SwiftCommandState {
 
     private lazy var _toolsBuildParameters: Result<BuildParameters, Swift.Error> = {
         Result(catching: {
-            try _buildParams(toolchain: self.getHostToolchain())
+            try _buildParams(toolchain: self.getHostToolchain(), destination: .host)
         })
     }()
 
@@ -808,7 +812,7 @@ public final class SwiftCommandState {
 
     private lazy var _productsBuildParameters: Result<BuildParameters, Swift.Error> = {
         Result(catching: {
-            try _buildParams(toolchain: self.getTargetToolchain())
+            try _buildParams(toolchain: self.getTargetToolchain(), destination: .target)
         })
     }()
 

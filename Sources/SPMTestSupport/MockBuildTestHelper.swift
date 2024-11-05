@@ -15,6 +15,7 @@ import Basics
 @_spi(SwiftPMInternal)
 import Build
 
+import struct PackageGraph.ModulesGraph
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedProduct
 import PackageModel
@@ -75,6 +76,7 @@ public let defaultTargetTriple: String = hostTriple.tripleString
 #endif
 
 public func mockBuildParameters(
+    destination: BuildParameters.Destination,
     buildPath: AbsolutePath? = nil,
     config: BuildConfiguration = .debug,
     toolchain: PackageModel.Toolchain = MockToolchain(),
@@ -90,6 +92,7 @@ public func mockBuildParameters(
     omitFramePointers: Bool? = nil
 ) -> BuildParameters {
     try! BuildParameters(
+        destination: destination,
         dataPath: buildPath ?? AbsolutePath("/path/to/build").appending(triple.tripleString),
         configuration: config,
         toolchain: toolchain,
@@ -116,7 +119,10 @@ public func mockBuildParameters(
     )
 }
 
-public func mockBuildParameters(environment: BuildEnvironment) -> BuildParameters {
+public func mockBuildParameters(
+    destination: BuildParameters.Destination,
+    environment: BuildEnvironment
+) -> BuildParameters {
     let triple: Basics.Triple
     switch environment.platform {
     case .macOS:
@@ -131,9 +137,121 @@ public func mockBuildParameters(environment: BuildEnvironment) -> BuildParameter
         fatalError("unsupported platform in tests")
     }
 
-    return mockBuildParameters(config: environment.configuration ?? .debug, triple: triple)
+    return mockBuildParameters(
+        destination: destination,
+        config: environment.configuration ?? .debug,
+        triple: triple
+    )
 }
 
+public func mockBuildPlan(
+    buildPath: AbsolutePath? = nil,
+    environment: BuildEnvironment,
+    toolchain: PackageModel.Toolchain = MockToolchain(),
+    graph: ModulesGraph,
+    commonFlags: PackageModel.BuildFlags = .init(),
+    indexStoreMode: BuildParameters.IndexStoreMode = .off,
+    omitFramePointers: Bool? = nil,
+    driverParameters: BuildParameters.Driver = .init(),
+    linkingParameters: BuildParameters.Linking = .init(),
+    targetSanitizers: EnabledSanitizers = .init(),
+    fileSystem fs: any FileSystem,
+    observabilityScope: ObservabilityScope
+) throws -> Build.BuildPlan {
+    try mockBuildPlan(
+        buildPath: buildPath,
+        config: environment.configuration ?? .debug,
+        platform: environment.platform,
+        toolchain: toolchain,
+        graph: graph,
+        commonFlags: commonFlags,
+        indexStoreMode: indexStoreMode,
+        omitFramePointers: omitFramePointers,
+        driverParameters: driverParameters,
+        linkingParameters: linkingParameters,
+        targetSanitizers: targetSanitizers,
+        fileSystem: fs,
+        observabilityScope: observabilityScope
+    )
+}
+
+public func mockBuildPlan(
+    buildPath: AbsolutePath? = nil,
+    config: BuildConfiguration = .debug,
+    triple: Basics.Triple? = nil,
+    platform: PackageModel.Platform? = nil,
+    toolchain: PackageModel.Toolchain = MockToolchain(),
+    graph: ModulesGraph,
+    commonFlags: PackageModel.BuildFlags = .init(),
+    indexStoreMode: BuildParameters.IndexStoreMode = .off,
+    omitFramePointers: Bool? = nil,
+    driverParameters: BuildParameters.Driver = .init(),
+    linkingParameters: BuildParameters.Linking = .init(),
+    targetSanitizers: EnabledSanitizers = .init(),
+    fileSystem fs: any FileSystem,
+    observabilityScope: ObservabilityScope
+) throws -> Build.BuildPlan {
+    let inferredTriple: Basics.Triple
+    if let platform {
+        precondition(triple == nil)
+
+        inferredTriple = switch platform {
+        case .macOS:
+            Triple.x86_64MacOS
+        case .linux:
+            Triple.arm64Linux
+        case .android:
+            Triple.arm64Android
+        case .windows:
+            Triple.windows
+        default:
+            fatalError("unsupported platform in tests")
+        }
+    } else {
+        inferredTriple = triple ?? hostTriple
+    }
+
+    let commonDebuggingParameters = BuildParameters.Debugging(
+        triple: inferredTriple,
+        shouldEnableDebuggingEntitlement: config == .debug,
+        omitFramePointers: omitFramePointers
+    )
+
+    var destinationParameters = mockBuildParameters(
+        destination: .target,
+        buildPath: buildPath,
+        config: config,
+        toolchain: toolchain,
+        flags: commonFlags,
+        triple: inferredTriple,
+        indexStoreMode: indexStoreMode
+    )
+    destinationParameters.debuggingParameters = commonDebuggingParameters
+    destinationParameters.driverParameters = driverParameters
+    destinationParameters.linkingParameters = linkingParameters
+    destinationParameters.sanitizers = targetSanitizers
+
+    var hostParameters = mockBuildParameters(
+        destination: .host,
+        buildPath: buildPath,
+        config: config,
+        toolchain: toolchain,
+        flags: commonFlags,
+        triple: inferredTriple,
+        indexStoreMode: indexStoreMode
+    )
+    hostParameters.debuggingParameters = commonDebuggingParameters
+    hostParameters.driverParameters = driverParameters
+    hostParameters.linkingParameters = linkingParameters
+
+    return try BuildPlan(
+        destinationBuildParameters: destinationParameters,
+        toolsBuildParameters: hostParameters,
+        graph: graph,
+        fileSystem: fs,
+        observabilityScope: observabilityScope
+    )
+}
 enum BuildError: Swift.Error {
     case error(String)
 }

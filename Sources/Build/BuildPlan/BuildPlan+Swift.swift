@@ -22,7 +22,7 @@ extension BuildPlan {
     func plan(swiftTarget: SwiftTargetBuildDescription) throws {
         // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target
         // depends on.
-        let environment = swiftTarget.defaultBuildParameters.buildEnvironment
+        let environment = swiftTarget.buildParameters.buildEnvironment
         for case .target(let dependency, _) in try swiftTarget.target.recursiveDependencies(satisfying: environment) {
             switch dependency.underlying {
             case let underlyingTarget as ClangTarget where underlyingTarget.type == .library:
@@ -43,7 +43,7 @@ extension BuildPlan {
                 swiftTarget.additionalFlags += try pkgConfig(for: target).cFlags
             case let target as BinaryTarget:
                 if case .xcframework = target.kind {
-                    let libraries = try self.parseXCFramework(for: target, triple: swiftTarget.defaultBuildParameters.triple)
+                    let libraries = try self.parseXCFramework(for: target, triple: swiftTarget.buildParameters.triple)
                     for library in libraries {
                         library.headersPaths.forEach {
                             swiftTarget.additionalFlags += ["-I", $0.pathString, "-Xcc", "-I", "-Xcc", $0.pathString]
@@ -79,7 +79,7 @@ extension BuildPlan {
                 }
 
                 // NOTE(ncooke3): Could also be `target.moduleMap!.parentDirectory`.
-                swiftTarget.appendClangFlags("-I", target .defaultBuildParameters.buildPath.pathString)
+                swiftTarget.appendClangFlags("-I", target.buildParameters.buildPath.pathString)
                 break
             case let target as ProvidedLibraryTarget:
                 swiftTarget.additionalFlags += [
