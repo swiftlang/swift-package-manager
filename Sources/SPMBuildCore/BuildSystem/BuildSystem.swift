@@ -24,11 +24,13 @@ public enum BuildSubset {
     /// Represents the subset of all products and targets.
     case allIncludingTests
 
-    /// Represents a specific product.
-    case product(String, for: BuildParameters.Destination = .target)
+    /// Represents a specific product. Allows to set a specific
+    /// destination if it's known.
+    case product(String, for: BuildParameters.Destination? = .none)
 
-    /// Represents a specific target.
-    case target(String, for: BuildParameters.Destination = .target)
+    /// Represents a specific target. Allows to set a specific
+    /// destination if it's known.
+    case target(String, for: BuildParameters.Destination? = .none)
 }
 
 /// A protocol that represents a build system used by SwiftPM for all build operations. This allows factoring out the
@@ -90,6 +92,10 @@ public protocol BuildPlan {
 
     func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String]
     func createREPLArguments() throws -> [String]
+
+    /// Determines the arguments needed to run `swift-symbolgraph-extract` for
+    /// a particular module.
+    func symbolGraphExtractArguments(for module: ResolvedModule) throws -> [String]
 }
 
 public protocol BuildSystemFactory {

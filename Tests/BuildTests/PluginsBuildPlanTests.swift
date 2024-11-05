@@ -36,7 +36,7 @@ final class PluginsBuildPlanTests: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
 
-        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
+        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK(environment: .empty()), environment: .empty())
         let hostTriple = try! hostToolchain.targetTriple.withoutVersion().tripleString
 
         let x86Triple = "x86_64-apple-macosx"

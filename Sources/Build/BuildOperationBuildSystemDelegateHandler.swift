@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2018-2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2018-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -266,15 +266,18 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
                 @main
                 @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
                 struct Runner {
+                    #if os(WASI)
+                    /// On WASI, we can't block the main thread, so XCTestMain is defined as async.
                     static func main() async {
                         \#(testObservabilitySetup)
-                #if os(WASI)
-                        /// On WASI, we can't block the main thread, so XCTestMain is defined as async.
                         await XCTMain(__allDiscoveredTests()) as Never
-                #else
-                        XCTMain(__allDiscoveredTests()) as Never
-                #endif
                     }
+                    #else
+                    static func main() {
+                        \#(testObservabilitySetup)
+                        XCTMain(__allDiscoveredTests()) as Never
+                    }
+                    #endif
                 }
                 """#
             )
@@ -641,10 +644,9 @@ final class CopyCommand: CustomLLBuildCommand {
 }
 
 /// Convenient llbuild build system delegate implementation
-final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate, SwiftCompilerOutputParserDelegate {
+final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOutputParserDelegate {
     private let outputStream: ThreadSafeOutputByteStream
     private let progressAnimation: ProgressAnimationProtocol
-    var commandFailureHandler: (() -> Void)?
     private let logLevel: Basics.Diagnostic.Severity
     private weak var delegate: SPMBuildCore.BuildSystemDelegate?
     private let buildSystem: SPMBuildCore.BuildSystem
@@ -718,7 +720,12 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     }
 
     func hadCommandFailure() {
-        self.commandFailureHandler?()
+        do {
+            try self.buildSystem.cancel(deadline: .now())
+        } catch {
+            self.observabilityScope.emit(error: "failed to cancel the build: \(error)")
+        }
+        self.delegate?.buildSystemDidCancel(self.buildSystem)
     }
 
     func handleDiagnostic(_ diagnostic: SPMLLBuild.Diagnostic) {
@@ -955,7 +962,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didFailWith error: Error) {
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         self.observabilityScope.emit(.swiftCompilerOutputParsingError(message))
-        self.commandFailureHandler?()
+        self.hadCommandFailure()
     }
 
     func buildStart(configuration: BuildConfiguration) {
@@ -976,6 +983,8 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
 
         queue.sync {
             self.progressAnimation.complete(success: success)
+            self.delegate?.buildSystem(self.buildSystem, didFinishWithResult: success)
+
             if success {
                 let message = cancelled ? "Build \(subsetString)cancelled!" : "Build \(subsetString)complete!"
                 self.progressAnimation.clear()

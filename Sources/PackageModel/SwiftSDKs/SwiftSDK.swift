@@ -483,14 +483,10 @@ public struct SwiftSDK: Equatable {
     }
 
     /// Returns the bin directory for the host.
-    ///
-    /// - Parameter originalWorkingDirectory: The working directory when the program was launched.
     private static func hostBinDir(
-        fileSystem: FileSystem,
-        originalWorkingDirectory: AbsolutePath? = nil
+        fileSystem: FileSystem
     ) throws -> AbsolutePath {
-        let originalWorkingDirectory = originalWorkingDirectory ?? fileSystem.currentWorkingDirectory
-        guard let cwd = originalWorkingDirectory else {
+        guard let cwd = fileSystem.currentWorkingDirectory else {
             return try AbsolutePath(validating: CommandLine.arguments[0]).parentDirectory
         }
         return try AbsolutePath(validating: CommandLine.arguments[0], relativeTo: cwd).parentDirectory
@@ -501,34 +497,30 @@ public struct SwiftSDK: Equatable {
     public static func hostDestination(
         _ binDir: AbsolutePath? = nil,
         originalWorkingDirectory: AbsolutePath? = nil,
-        environment: [String: String] = ProcessEnv.vars
+        environment: [String: String]
     ) throws -> SwiftSDK {
-        try self.hostSwiftSDK(binDir, originalWorkingDirectory: originalWorkingDirectory, environment: environment)
+        try self.hostSwiftSDK(binDir, environment: environment)
     }
 
     /// The Swift SDK for the host platform.
     public static func hostSwiftSDK(
         _ binDir: AbsolutePath? = nil,
-        originalWorkingDirectory: AbsolutePath? = nil,
-        environment: [String: String] = ProcessEnv.vars,
-        observabilityScope: ObservabilityScope? = nil
+        environment: EnvironmentVariables = .process(),
+        observabilityScope: ObservabilityScope? = nil,
+        fileSystem: any FileSystem = localFileSystem
     ) throws -> SwiftSDK {
-        let originalWorkingDirectory = originalWorkingDirectory ?? localFileSystem.currentWorkingDirectory
         // Select the correct binDir.
-        if ProcessEnv.block["SWIFTPM_CUSTOM_BINDIR"] != nil {
+        if environment["SWIFTPM_CUSTOM_BINDIR"] != nil {
             print("SWIFTPM_CUSTOM_BINDIR was deprecated in favor of SWIFTPM_CUSTOM_BIN_DIR")
         }
-        let customBinDir = (ProcessEnv.block["SWIFTPM_CUSTOM_BIN_DIR"] ?? ProcessEnv.block["SWIFTPM_CUSTOM_BINDIR"])
+        let customBinDir = (environment["SWIFTPM_CUSTOM_BIN_DIR"] ?? environment["SWIFTPM_CUSTOM_BINDIR"])
             .flatMap { try? AbsolutePath(validating: $0) }
-        let binDir = try customBinDir ?? binDir ?? SwiftSDK.hostBinDir(
-            fileSystem: localFileSystem,
-            originalWorkingDirectory: originalWorkingDirectory
-        )
+        let binDir = try customBinDir ?? binDir ?? SwiftSDK.hostBinDir(fileSystem: fileSystem)
 
         let sdkPath: AbsolutePath?
         #if os(macOS)
         // Get the SDK.
-        if let value = ProcessEnv.block["SDKROOT"] {
+        if let value = environment["SDKROOT"] {
             sdkPath = try AbsolutePath(validating: value)
         } else {
             // No value in env, so search for it.
@@ -707,7 +699,8 @@ public struct SwiftSDK: Equatable {
                 )
             }
 
-            swiftSDK.add(toolsetRootPath: binDir.appending(components: "usr", "bin"))
+            // `--tooolchain` should override existing anything in the SDK and search paths.
+            swiftSDK.prepend(toolsetRootPath: binDir.appending(components: "usr", "bin"))
         }
         if let sdk = customCompileSDK {
             swiftSDK.pathsConfiguration.sdkRootPath = sdk
@@ -718,7 +711,7 @@ public struct SwiftSDK: Equatable {
             // Append the host toolchain's toolset paths at the end for the case the target Swift SDK
             // doesn't have some of the tools (e.g. swift-frontend might be shared between the host and
             // target Swift SDKs).
-            hostSwiftSDK.toolset.rootPaths.forEach { swiftSDK.add(toolsetRootPath: $0) }
+            hostSwiftSDK.toolset.rootPaths.forEach { swiftSDK.append(toolsetRootPath: $0) }
         }
 
         return swiftSDK
@@ -736,9 +729,22 @@ public struct SwiftSDK: Equatable {
         self.toolset.knownTools[.swiftCompiler] = properties
     }
 
-    /// Appends a path to the array of toolset root paths.
+    /// Prepends a path to the array of toolset root paths.
+    ///
+    /// Note: Use this operation if you want new root path to take priority over existing paths.
+    ///
     /// - Parameter toolsetRootPath: new path to add to Swift SDK's toolset.
-    public mutating func add(toolsetRootPath: AbsolutePath) {
+    public mutating func prepend(toolsetRootPath path: AbsolutePath) {
+        self.toolset.rootPaths.insert(path, at: 0)
+    }
+
+    /// Appends a path to the array of toolset root paths.
+    ///
+    /// Note: The paths are evaluated in insertion order which means that newly added path would
+    /// have a lower priority vs. existing paths.
+    ///
+    /// - Parameter toolsetRootPath: new path to add to Swift SDK's toolset.
+    public mutating func append(toolsetRootPath: AbsolutePath) {
         self.toolset.rootPaths.append(toolsetRootPath)
     }
 }

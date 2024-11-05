@@ -265,6 +265,10 @@ public final class SwiftCommandState {
 
     fileprivate var buildSystemProvider: BuildSystemProvider?
 
+    private let environment: EnvironmentVariables
+
+    private let hostTriple: Basics.Triple?
+
     /// Create an instance of this tool.
     ///
     /// - parameter options: The command line options to be passed to this tool.
@@ -294,14 +298,20 @@ public final class SwiftCommandState {
         options: GlobalOptions,
         toolWorkspaceConfiguration: ToolWorkspaceConfiguration,
         workspaceDelegateProvider: @escaping WorkspaceDelegateProvider,
-        workspaceLoaderProvider: @escaping WorkspaceLoaderProvider
+        workspaceLoaderProvider: @escaping WorkspaceLoaderProvider,
+        hostTriple: Basics.Triple? = nil,
+        fileSystem: any FileSystem = localFileSystem,
+        environment: EnvironmentVariables = ProcessEnv.vars
     ) throws {
-        self.fileSystem = localFileSystem
+        self.hostTriple = hostTriple
+        self.fileSystem = fileSystem
+        self.environment = environment
         // first, bootstrap the observability system
         self.logLevel = options.logging.logLevel
         self.observabilityHandler = SwiftCommandObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel)
         let observabilitySystem = ObservabilitySystem(self.observabilityHandler)
-        self.observabilityScope = observabilitySystem.topScope
+        let observabilityScope = observabilitySystem.topScope
+        self.observabilityScope = observabilityScope
         self.shouldDisableSandbox = options.security.shouldDisableSandbox
         self.toolWorkspaceConfiguration = toolWorkspaceConfiguration
         self.workspaceDelegateProvider = workspaceDelegateProvider
@@ -727,7 +737,8 @@ public final class SwiftCommandState {
 
     private func _buildParams(
         toolchain: UserToolchain,
-        destination: BuildParameters.Destination
+        destination: BuildParameters.Destination,
+        prepareForIndexing: Bool? = nil
     ) throws -> BuildParameters {
         let triple = toolchain.targetTriple
 
@@ -752,6 +763,7 @@ public final class SwiftCommandState {
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
             isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
+            prepareForIndexing: prepareForIndexing ?? options.build.prepareForIndexing,
             debuggingParameters: .init(
                 debugInfoFormat: options.build.debugInfoFormat.buildParameter,
                 triple: triple,
@@ -800,7 +812,7 @@ public final class SwiftCommandState {
 
     private lazy var _toolsBuildParameters: Result<BuildParameters, Swift.Error> = {
         Result(catching: {
-            try _buildParams(toolchain: self.getHostToolchain(), destination: .host)
+            try _buildParams(toolchain: self.getHostToolchain(), destination: .host, prepareForIndexing: false)
         })
     }()
 
@@ -856,16 +868,25 @@ public final class SwiftCommandState {
             return self._hostToolchain
         }
 
-        return Result(catching: { try UserToolchain(swiftSDK: swiftSDK) })
+        return Result(catching: {
+            try UserToolchain(swiftSDK: swiftSDK, environment: self.environment, fileSystem: self.fileSystem)
+        })
     }()
 
     /// Lazily compute the host toolchain used to compile the package description.
     private lazy var _hostToolchain: Result<UserToolchain, Swift.Error> = {
         return Result(catching: {
-            try UserToolchain(swiftSDK: SwiftSDK.hostSwiftSDK(
-                originalWorkingDirectory: self.originalWorkingDirectory,
+            var hostSwiftSDK = try SwiftSDK.hostSwiftSDK(
+                environment: self.environment,
                 observabilityScope: self.observabilityScope
-            ))
+            )
+            hostSwiftSDK.targetTriple = self.hostTriple
+
+            return try UserToolchain(
+                swiftSDK: hostSwiftSDK,
+                environment: self.environment,
+                fileSystem: self.fileSystem
+            )
         })
     }()
 

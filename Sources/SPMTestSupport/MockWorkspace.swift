@@ -19,9 +19,33 @@ import SourceControl
 import Workspace
 import XCTest
 
-import class TSCBasic.InMemoryFileSystem
-
 import struct TSCUtility.Version
+
+extension UserToolchain {
+    package static func mockHostToolchain(_ fileSystem: InMemoryFileSystem) throws -> UserToolchain {
+        var hostSwiftSDK = try SwiftSDK.hostSwiftSDK(environment: .mockEnvironment, fileSystem: fileSystem)
+        hostSwiftSDK.targetTriple = hostTriple
+        return try UserToolchain(
+            swiftSDK: hostSwiftSDK,
+            environment: .mockEnvironment,
+            fileSystem: fileSystem
+        )
+    }
+}
+
+extension EnvironmentVariables {
+    package static var mockEnvironment: Self { ["PATH": "/fake/path/to"] }
+}
+
+extension InMemoryFileSystem {
+    package func createMockToolchain() throws {
+        let files = ["/fake/path/to/swiftc", "/fake/path/to/ar"]
+        self.createEmptyFiles(at: AbsolutePath.root, files: files)
+        for toolPath in files {
+            try self.updatePermissions(.init(toolPath), isExecutable: true)
+        }
+    }
+}
 
 public final class MockWorkspace {
     let sandbox: AbsolutePath
@@ -29,6 +53,7 @@ public final class MockWorkspace {
     let roots: [MockPackage]
     let packages: [MockPackage]
     let customToolsVersion: ToolsVersion?
+    private let customHostToolchain: UserToolchain
     let fingerprints: MockPackageFingerprintStorage
     let signingEntities: MockPackageSigningEntityStorage
     let mirrors: DependencyMirrors
@@ -62,6 +87,8 @@ public final class MockWorkspace {
         sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation = .disabled,
         defaultRegistry: Registry? = .none
     ) throws {
+        try fileSystem.createMockToolchain()
+
         self.sandbox = sandbox
         self.fileSystem = fileSystem
         self.roots = roots
@@ -93,6 +120,7 @@ public final class MockWorkspace {
             httpClient: LegacyHTTPClient.mock(fileSystem: fileSystem),
             archiver: MockArchiver()
         )
+        self.customHostToolchain = try UserToolchain.mockHostToolchain(fileSystem)
         try self.create()
     }
 
@@ -274,6 +302,7 @@ public final class MockWorkspace {
 
         let workspace = try Workspace._init(
             fileSystem: self.fileSystem,
+            environment: .mockEnvironment,
             location: .init(
                 scratchDirectory: self.sandbox.appending(".build"),
                 editsDirectory: self.sandbox.appending("edits"),
@@ -300,6 +329,7 @@ public final class MockWorkspace {
             customFingerprints: self.fingerprints,
             customMirrors: self.mirrors,
             customToolsVersion: self.customToolsVersion,
+            customHostToolchain: self.customHostToolchain,
             customManifestLoader: self.manifestLoader,
             customPackageContainerProvider: self.customPackageContainerProvider,
             customRepositoryProvider: self.repositoryProvider,
