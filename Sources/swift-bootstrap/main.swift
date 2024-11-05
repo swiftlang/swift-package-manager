@@ -319,6 +319,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                     toolsBuildParameters: buildParameters,
                     cacheBuildManifest: false,
                     packageGraphLoader: packageGraphLoader,
+                    scratchDirectory: scratchDirectory,
                     additionalFileRules: [],
                     pkgConfigDirectories: [],
                     dependenciesByRootPackageIdentity: [:],
