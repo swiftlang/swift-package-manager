@@ -128,8 +128,8 @@ public final class SwiftModuleBuildDescription {
     var modulesPath: AbsolutePath {
         let suffix = self.buildParameters.suffix
         var path = self.buildParameters.buildPath.appending(component: "Modules\(suffix)")
-        if self.windowsTargetType == .exporting {
-            path = path.appending("exporting")
+        if self.windowsTargetType == .dynamic {
+            path = path.appending("dynamic")
         }
         return path
     }
@@ -268,17 +268,18 @@ public final class SwiftModuleBuildDescription {
     /// Whether to disable sandboxing (e.g. for macros).
     private let shouldDisableSandbox: Bool
 
-    /// For Windows we default to static objects and create copies for objects
-    /// That export symbols. This will allow consumers to select which one they want.
+    /// For Windows, we default to static objects and but also create objects
+    /// that export symbols for DLLs. This allows library targets to be used
+    /// in both contexts
     public enum WindowsTargetType {
         case `static`
-        case exporting
+        case dynamic
     }
     /// The target type. Leave nil for non-Windows behavior.
     public let windowsTargetType: WindowsTargetType?
 
-    /// The corresponding target symbols exporting (not -static)
-    public private(set) var windowsExportTarget: SwiftModuleBuildDescription? = nil
+    /// The corresponding target for dynamic library export (i.e., not -static)
+    public private(set) var windowsDynamicTarget: SwiftModuleBuildDescription? = nil
 
     /// Create a new target description with target and build parameters.
     init(
@@ -338,7 +339,7 @@ public final class SwiftModuleBuildDescription {
         if buildParameters.triple.isWindows() {
             // Default to static and add another target for DLLs
             self.windowsTargetType = .static
-            self.windowsExportTarget = .init(windowsExportFor: self)
+            self.windowsDynamicTarget = .init(windowsExportFor: self)
         } else {
             self.windowsTargetType = nil
         }
@@ -366,9 +367,9 @@ public final class SwiftModuleBuildDescription {
 
     /// Private init to set up exporting version of this module
     private init(windowsExportFor parent: SwiftModuleBuildDescription) {
-        self.windowsTargetType = .exporting
-        self.windowsExportTarget = nil
-        self.tempsPath = parent.tempsPath.appending("exporting")
+        self.windowsTargetType = .dynamic
+        self.windowsDynamicTarget = nil
+        self.tempsPath = parent.tempsPath.appending("dynamic")
 
         // The rest of these are just copied from the parent
         self.package = parent.package
@@ -572,7 +573,7 @@ public final class SwiftModuleBuildDescription {
             case .static:
                 // Static on Windows
                 args += ["-static"]
-            case .exporting:
+            case .dynamic:
                 // Add the static versions to the include path
                 // FIXME: need to be much more deliberate about what we're including
                 args += ["-I", self.modulesPath.parentDirectory.pathString]
