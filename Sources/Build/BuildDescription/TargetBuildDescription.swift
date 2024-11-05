@@ -145,6 +145,7 @@ public enum TargetBuildDescription {
         switch self {
         case .swift(let target): try target.symbolGraphExtractArguments()
         case .clang(let target): try target.symbolGraphExtractArguments()
+        case .mixed(let target): try target.symbolGraphExtractArguments()
         }
     }
 }

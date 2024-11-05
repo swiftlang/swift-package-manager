@@ -150,6 +150,10 @@ public class LLBuildManifestBuilder {
                     // Hook up the clang module target
                     try self.createClangPrepareCommand(desc)
                 }
+            case .mixed(let desc):
+                // TODO(ncooke3): Should the below implementation handle the
+                // underlying Clang build description like the above case does?
+                try self.createMixedCompileCommand(desc)
             }
         }
 

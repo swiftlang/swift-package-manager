@@ -124,8 +124,6 @@ public final class MixedTargetBuildDescription {
             toolsVersion: toolsVersion,
             additionalFileRules: additionalFileRules,
             buildParameters: buildParameters,
-//            destinationBuildParameters: buildParameters,
-//            toolsBuildParameters: toolsBuildParameters,
             buildToolPluginInvocationResults: buildToolPluginInvocationResults,
             prebuildCommandResults: prebuildCommandResults,
             shouldDisableSandbox: shouldDisableSandbox,
@@ -335,5 +333,10 @@ public final class MixedTargetBuildDescription {
             path,
             string: productModuleMap
         )
+    }
+
+    func symbolGraphExtractArguments() throws -> [String] {
+        try clangTargetBuildDescription.symbolGraphExtractArguments() +
+            swiftTargetBuildDescription.symbolGraphExtractArguments()
     }
 }
