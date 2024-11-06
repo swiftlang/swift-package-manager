@@ -111,7 +111,7 @@ struct PackageSigningEntityTOFU {
                     existing: signingEntitiesForVersion.first!, // !-safe since signingEntitiesForVersion is non-empty
                     observabilityScope: observabilityScope
                 )
-                return true
+                return false
             }
             // Signer remains the same for the version
             return false
