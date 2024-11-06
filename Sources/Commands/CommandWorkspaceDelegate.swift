@@ -143,7 +143,11 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func didDownloadBinaryArtifact(from url: String, result: Result<(path: AbsolutePath, fromCache: Bool), Error>, duration: DispatchTimeInterval) {
+    func didDownloadBinaryArtifact(
+        from url: String,
+        result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
+        duration: Duration
+    ) {
         guard case .success(let fetchDetails) = result, !self.observabilityScope.errorsReported else {
             return
         }
