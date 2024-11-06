@@ -709,7 +709,7 @@ public struct PubGrubDependencyResolver {
 
         // Prefer packages with least number of versions that fit the current requirements so we
         // get conflicts (if any) sooner.
-        let start = DispatchTime.now()
+        let start = ContinuousClock.now
         let counts = try await self.computeCounts(for: undecided)
         // forced unwraps safe since we are testing for count and errors above
         let pkgTerm = undecided.min {
@@ -758,7 +758,7 @@ public struct PubGrubDependencyResolver {
 
         // Decide this version if there was no conflict with its dependencies.
         if !haveConflict {
-            self.delegate?.didResolve(term: pkgTerm, version: version, duration: start.distance(to: .now()))
+            self.delegate?.didResolve(term: pkgTerm, version: version, duration: .now - start)
             state.decide(pkgTerm.node, at: version)
         }
 

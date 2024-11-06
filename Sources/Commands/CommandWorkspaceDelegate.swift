@@ -65,7 +65,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         self.outputHandler("Fetching \(packageLocation ?? package.description)\(fetchDetails.fromCache ? " from cache" : "")", false)
     }
 
-    func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
+    func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: Duration) {
         guard case .success = result, !self.observabilityScope.errorsReported else {
             return
         }
@@ -103,7 +103,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         self.outputHandler("Updating \(url)", false)
     }
 
-    func didUpdateRepository(package: PackageIdentity, repository url: String, duration: DispatchTimeInterval) {
+    func didUpdateRepository(package: PackageIdentity, repository url: String, duration: Duration) {
         self.outputHandler("Updated \(url) (\(duration.descriptionInSeconds))", false)
     }
 
@@ -115,7 +115,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         self.outputHandler("Creating working copy for \(url)", false)
     }
 
-    func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath, duration: DispatchTimeInterval) {
+    func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath, duration: Duration) {
         self.outputHandler("Working copy of \(url) resolved at \(revision)", false)
     }
 
@@ -131,7 +131,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         self.outputHandler("Computing version for \(location)", false)
     }
 
-    func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: DispatchTimeInterval) {
+    func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: Duration) {
         self.outputHandler("Computed \(location) at \(version) (\(duration.descriptionInSeconds))", false)
     }
 

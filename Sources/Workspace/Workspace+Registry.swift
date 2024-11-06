@@ -83,8 +83,7 @@ extension Workspace {
             identityResolver: any IdentityResolver,
             dependencyMapper: any DependencyMapper,
             fileSystem: any FileSystem,
-            observabilityScope: ObservabilityScope,
-            delegateQueue: DispatchQueue
+            observabilityScope: ObservabilityScope
         ) async throws -> Manifest {
             let manifest = try await self.underlying.load(
                 manifestPath: manifestPath,
@@ -96,8 +95,7 @@ extension Workspace {
                 identityResolver: identityResolver,
                 dependencyMapper: dependencyMapper,
                 fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                delegateQueue: delegateQueue
+                observabilityScope: observabilityScope
             )
 
             return try await self.transformSourceControlDependenciesToRegistry(

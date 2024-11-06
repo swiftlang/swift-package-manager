@@ -12,7 +12,6 @@
 
 import _Concurrency
 import Basics
-import Dispatch
 import Foundation
 import PackageModel
 import SourceControl
@@ -123,8 +122,7 @@ public protocol ManifestLoaderProtocol {
         identityResolver: IdentityResolver,
         dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws -> Manifest
 
     /// Reset any internal cache held by the manifest loader.
@@ -134,7 +132,7 @@ public protocol ManifestLoaderProtocol {
     func purgeCache(observabilityScope: ObservabilityScope)
 }
 
-public protocol ManifestLoaderDelegate {
+public protocol ManifestLoaderDelegate: Sendable {
     func willLoad(
         packageIdentity: PackageIdentity,
         packageLocation: String,
@@ -144,7 +142,7 @@ public protocol ManifestLoaderDelegate {
         packageIdentity: PackageIdentity,
         packageLocation: String,
         manifestPath: AbsolutePath,
-        duration: DispatchTimeInterval
+        duration: Duration
     )
 
     func willParse(
@@ -154,7 +152,7 @@ public protocol ManifestLoaderDelegate {
     func didParse(
         packageIdentity: PackageIdentity,
         packageLocation: String,
-        duration: DispatchTimeInterval
+        duration: Duration
     )
 
     func willCompile(
@@ -166,7 +164,7 @@ public protocol ManifestLoaderDelegate {
         packageIdentity: PackageIdentity,
         packageLocation: String,
         manifestPath: AbsolutePath,
-        duration: DispatchTimeInterval
+        duration: Duration
     )
 
     func willEvaluate(
@@ -178,7 +176,7 @@ public protocol ManifestLoaderDelegate {
         packageIdentity: PackageIdentity,
         packageLocation: String,
         manifestPath: AbsolutePath,
-        duration: DispatchTimeInterval
+        duration: Duration
     )
 }
 
@@ -196,8 +194,7 @@ extension ManifestLoaderProtocol {
         identityResolver: IdentityResolver,
         dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws -> Manifest {
         // find the manifest path and parse it's tools-version
         let manifestPath = try ManifestLoader.findManifest(packagePath: packagePath, fileSystem: fileSystem, currentToolsVersion: currentToolsVersion)
@@ -215,8 +212,7 @@ extension ManifestLoaderProtocol {
             identityResolver: identityResolver,
             dependencyMapper: dependencyMapper,
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope,
-            delegateQueue: delegateQueue
+            observabilityScope: observabilityScope
         )
     }
 }
@@ -281,18 +277,15 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         identityResolver: IdentityResolver,
         dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws -> Manifest {
         // Inform the delegate.
-        let start = DispatchTime.now()
-        delegateQueue.async {
-            self.delegate?.willLoad(
-                packageIdentity: packageIdentity,
-                packageLocation: packageLocation,
-                manifestPath: manifestPath
-            )
-        }
+        let start = ContinuousClock.now
+        self.delegate?.willLoad(
+            packageIdentity: packageIdentity,
+            packageLocation: packageLocation,
+            manifestPath: manifestPath
+        )
 
         // Validate that the file exists.
         guard fileSystem.isFile(manifestPath) else {
@@ -310,8 +303,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             dependencyMapper: dependencyMapper,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
-            delegate: delegate,
-            delegateQueue: delegateQueue
+            delegate: delegate
         )
 
         // Convert legacy system packages to the current target‐based model.
@@ -356,14 +348,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         )
 
         // Inform the delegate.
-        delegateQueue.async {
-            self.delegate?.didLoad(
-                packageIdentity: packageIdentity,
-                packageLocation: packageLocation,
-                manifestPath: manifestPath,
-                duration: start.distance(to: .now())
-            )
-        }
+        self.delegate?.didLoad(
+            packageIdentity: packageIdentity,
+            packageLocation: packageLocation,
+            manifestPath: manifestPath,
+            duration: .now - start
+        )
 
         return manifest
     }
@@ -381,8 +371,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         fileSystem: FileSystem,
         emitCompilerOutput: Bool,
         observabilityScope: ObservabilityScope,
-        delegate: Delegate?,
-        delegateQueue: DispatchQueue?
+        delegate: Delegate?
     ) throws -> ManifestJSONParser.Result {
         // Throw now if we weren't able to parse the manifest.
         guard let manifestJSON = result.manifestJSON, !manifestJSON.isEmpty else {
@@ -406,13 +395,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             observabilityScope.emit(warning: compilerOutput, metadata: metadata)
         }
 
-        let start = DispatchTime.now()
-        delegateQueue?.async {
-            delegate?.willParse(
-                packageIdentity: packageIdentity,
-                packageLocation: packageLocation
-            )
-        }
+        let start = ContinuousClock.continuous.now
+        delegate?.willParse(
+            packageIdentity: packageIdentity,
+            packageLocation: packageLocation
+        )
 
         let result = try ManifestJSONParser.parse(
             v4: manifestJSON,
@@ -423,13 +410,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             dependencyMapper: dependencyMapper,
             fileSystem: fileSystem
         )
-        delegateQueue?.async {
-            delegate?.didParse(
-                packageIdentity: packageIdentity,
-                packageLocation: packageLocation,
-                duration: start.distance(to: .now())
-            )
-        }
+        delegate?.didParse(
+            packageIdentity: packageIdentity,
+            packageLocation: packageLocation,
+            duration: .now - start
+        )
+
         return result
     }
 
@@ -444,8 +430,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        delegate: Delegate?,
-        delegateQueue: DispatchQueue?
+        delegate: Delegate?
     ) async throws -> ManifestJSONParser.Result {
         let key = try CacheKey(
             packageIdentity: packageIdentity,
@@ -505,8 +490,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     fileSystem: fileSystem,
                     emitCompilerOutput: false,
                     observabilityScope: observabilityScope,
-                    delegate: delegate,
-                    delegateQueue: delegateQueue
+                    delegate: delegate
                 )
 
                 if self.useInMemoryCache {
@@ -531,8 +515,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             manifestContents: key.manifestContents,
             toolsVersion: key.toolsVersion,
             observabilityScope: observabilityScope,
-            delegate: delegate,
-            delegateQueue: delegateQueue
+            delegate: delegate
         )
 
         // only cache successfully parsed manifests
@@ -548,8 +531,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             fileSystem: fileSystem,
             emitCompilerOutput: true,
             observabilityScope: observabilityScope,
-            delegate: delegate,
-            delegateQueue: delegateQueue
+            delegate: delegate
         )
 
         do {
@@ -600,8 +582,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         manifestContents: [UInt8],
         toolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope,
-        delegate: Delegate?,
-        delegateQueue: DispatchQueue?
+        delegate: Delegate?
     ) async throws -> EvaluationResult {
         let manifestPreamble: ByteString
         if toolsVersion >= .v5_8 {
@@ -636,8 +617,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 packageLocation: packageLocation,
                 toolsVersion: toolsVersion,
                 observabilityScope: observabilityScope,
-                delegate: delegate,
-                delegateQueue: delegateQueue
+                delegate: delegate
             )
         }
     }
@@ -650,8 +630,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         packageLocation: String,
         toolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope,
-        delegate: Delegate?,
-        delegateQueue: DispatchQueue?
+        delegate: Delegate?
     ) async throws -> EvaluationResult {
         // The compiler has special meaning for files with extensions like .ll, .bc etc.
         // Assert that we only try to load files with extension .swift to avoid unexpected loading behavior.
@@ -735,14 +714,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += self.extraManifestFlags
 
             // run the evaluation
-            let compileStart = DispatchTime.now()
-            delegateQueue?.async {
-                delegate?.willCompile(
-                    packageIdentity: packageIdentity,
-                    packageLocation: packageLocation,
-                    manifestPath: manifestPath
-                )
-            }
+            let compileStart = ContinuousClock.now
+            delegate?.willCompile(
+                packageIdentity: packageIdentity,
+                packageLocation: packageLocation,
+                manifestPath: manifestPath
+            )
 
             return try await withTemporaryDirectory(removeTreeOnDeinit: true) { tmpDir in
                 // Set path to compiled manifest executable.
@@ -818,25 +795,21 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     cmd = try Sandbox.apply(command: cmd, fileSystem: localFileSystem, strictness: strictness, writableDirectories: cacheDirectories)
                 }
 
-                delegateQueue?.async {
-                    delegate?.didCompile(
-                        packageIdentity: packageIdentity,
-                        packageLocation: packageLocation,
-                        manifestPath: manifestPath,
-                        duration: compileStart.distance(to: .now())
-                    )
-                }
+                delegate?.didCompile(
+                    packageIdentity: packageIdentity,
+                    packageLocation: packageLocation,
+                    manifestPath: manifestPath,
+                    duration: .now - compileStart
+                )
 
                 // Run the compiled manifest.
 
-                let evaluationStart = DispatchTime.now()
-                delegateQueue?.async {
-                    delegate?.willEvaluate(
-                        packageIdentity: packageIdentity,
-                        packageLocation: packageLocation,
-                        manifestPath: manifestPath
-                    )
-                }
+                let evaluationStart = ContinuousClock.now
+                delegate?.willEvaluate(
+                    packageIdentity: packageIdentity,
+                    packageLocation: packageLocation,
+                    manifestPath: manifestPath
+                )
 
                 var environment = Environment.current
 #if os(Windows)
@@ -866,14 +839,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 let jsonOutput: String = try localFileSystem.readFileContents(jsonOutputFile)
                 evaluationResult.manifestJSON = jsonOutput
 
-                delegateQueue?.async {
-                    delegate?.didEvaluate(
-                        packageIdentity: packageIdentity,
-                        packageLocation: packageLocation,
-                        manifestPath: manifestPath,
-                        duration: evaluationStart.distance(to: .now())
-                    )
-                }
+                delegate?.didEvaluate(
+                    packageIdentity: packageIdentity,
+                    packageLocation: packageLocation,
+                    manifestPath: manifestPath,
+                    duration: .now - evaluationStart
+                )
 
                 return evaluationResult
             }

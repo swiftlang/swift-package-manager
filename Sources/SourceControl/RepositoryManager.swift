@@ -231,14 +231,14 @@ public class RepositoryManager: Cancellable {
 
             // Update the repository if needed
             if self.fetchRequired(repository: repository, updateStrategy: updateStrategy) {
-                let start = DispatchTime.now()
+                let start = ContinuousClock.now
 
                 delegateQueue.async {
                     self.delegate?.willUpdate(package: package, repository: handle.repository)
                 }
 
                 try repository.fetch()
-                let duration = start.distance(to: .now())
+                let duration = .now - start
                 delegateQueue.async {
                     self.delegate?.didUpdate(package: package, repository: handle.repository, duration: duration)
                 }
@@ -256,7 +256,7 @@ public class RepositoryManager: Cancellable {
         }
 
         // perform the fetch
-        let start = DispatchTime.now()
+        let start = ContinuousClock.now
         let fetchResult = Result<FetchDetails, Error>(catching: {
             // make sure destination is free.
             try? self.fileSystem.removeFileTree(repositoryPath)
@@ -272,7 +272,7 @@ public class RepositoryManager: Cancellable {
         })
 
         // inform delegate fetch is done
-        let duration = start.distance(to: .now())
+        let duration = .now - start
         delegateQueue.async {
             self.delegate?.didFetch(package: package, repository: handle.repository, result: fetchResult, duration: duration)
         }
@@ -578,13 +578,13 @@ public protocol RepositoryManagerDelegate {
     func fetching(package: PackageIdentity, repository: RepositorySpecifier, objectsFetched: Int, totalObjectsToFetch: Int)
 
     /// Called when a repository has finished fetching.
-    func didFetch(package: PackageIdentity, repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>, duration: DispatchTimeInterval)
+    func didFetch(package: PackageIdentity, repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>, duration: Duration)
 
     /// Called when a repository has started updating from its remote.
     func willUpdate(package: PackageIdentity, repository: RepositorySpecifier)
 
     /// Called when a repository has finished updating from its remote.
-    func didUpdate(package: PackageIdentity, repository: RepositorySpecifier, duration: DispatchTimeInterval)
+    func didUpdate(package: PackageIdentity, repository: RepositorySpecifier, duration: Duration)
 }
 
 

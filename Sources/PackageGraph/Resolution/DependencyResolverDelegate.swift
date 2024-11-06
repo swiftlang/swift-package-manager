@@ -18,7 +18,7 @@ import struct TSCUtility.Version
 
 public protocol DependencyResolverDelegate {
     func willResolve(term: Term)
-    func didResolve(term: Term, version: Version, duration: DispatchTimeInterval)
+    func didResolve(term: Term, version: Version, duration: Duration)
 
     func derived(term: Term)
     func conflict(conflict: Incompatibility)
@@ -39,7 +39,7 @@ public struct ObservabilityDependencyResolverDelegate: DependencyResolverDelegat
         self.debug("resolving '\(term.node.package.identity)'")
     }
 
-    public func didResolve(term: Term, version: Version, duration: DispatchTimeInterval) {
+    public func didResolve(term: Term, version: Version, duration: Duration) {
         self.debug("resolved '\(term.node.package.identity)' @ '\(version)'")
     }
 
@@ -86,7 +86,7 @@ public struct MultiplexResolverDelegate: DependencyResolverDelegate {
         underlying.forEach { $0.willResolve(term: term)  }
     }
 
-    public func didResolve(term: Term, version: Version, duration: DispatchTimeInterval) {
+    public func didResolve(term: Term, version: Version, duration: Duration) {
         underlying.forEach { $0.didResolve(term: term, version: version, duration: duration)  }
     }
 

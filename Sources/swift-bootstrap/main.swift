@@ -434,8 +434,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 identityResolver: identityResolver,
                 dependencyMapper: dependencyMapper,
                 fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                delegateQueue: .sharedConcurrent
+                observabilityScope: observabilityScope
             )
         }
     }

@@ -908,10 +908,10 @@ extension Workspace {
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
         observabilityScope: ObservabilityScope
     ) async throws -> ModulesGraph {
-        let start = DispatchTime.now()
+        let start = ContinuousClock.now
         self.delegate?.willLoadGraph()
         defer {
-            self.delegate?.didLoadGraph(duration: start.distance(to: .now()))
+            self.delegate?.didLoadGraph(duration: .now - start)
         }
 
         // reload state in case it was modified externally (eg by another process) before reloading the graph

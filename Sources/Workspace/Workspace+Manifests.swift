@@ -709,7 +709,7 @@ extension Workspace {
             manifestLoadingScope.emit(manifestLoadingDiagnostics)
         }
 
-        let start = DispatchTime.now()
+        let start = ContinuousClock.now
         do {
             let manifest = try await self.manifestLoader.load(
                 packagePath: packagePath,
@@ -721,10 +721,9 @@ extension Workspace {
                 identityResolver: self.identityResolver,
                 dependencyMapper: self.dependencyMapper,
                 fileSystem: fileSystem,
-                observabilityScope: manifestLoadingScope,
-                delegateQueue: .sharedConcurrent
+                observabilityScope: manifestLoadingScope
             )
-            let duration = start.distance(to: .now())
+            let duration = .now - start
 
             let validator = ManifestValidator(
                 manifest: manifest,
@@ -754,7 +753,7 @@ extension Workspace {
 
             return manifest
         } catch {
-            let duration = start.distance(to: .now())
+            let duration = .now - start
 
             switch error {
             case Diagnostics.fatalError:

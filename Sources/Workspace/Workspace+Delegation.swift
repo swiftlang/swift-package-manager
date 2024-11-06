@@ -12,7 +12,6 @@
 
 import struct Basics.AbsolutePath
 import struct Basics.Diagnostic
-import enum Dispatch.DispatchTimeInterval
 import struct Foundation.URL
 import class PackageLoading.ManifestLoader
 import class PackageModel.Manifest
@@ -26,7 +25,7 @@ import struct SourceControl.RepositorySpecifier
 import struct TSCUtility.Version
 
 /// The delegate interface used by the workspace to report status information.
-public protocol WorkspaceDelegate: AnyObject {
+public protocol WorkspaceDelegate: AnyObject, Sendable {
     /// The workspace is about to load a package manifest (which might be in the cache, or might need to be parsed).
     /// Note that this does not include speculative loading of manifests that may occur during
     /// dependency resolution; rather, it includes only the final manifest loading that happens after a particular
@@ -49,7 +48,7 @@ public protocol WorkspaceDelegate: AnyObject {
         packageKind: PackageReference.Kind,
         manifest: Manifest?,
         diagnostics: [Diagnostic],
-        duration: DispatchTimeInterval
+        duration: Duration
     )
 
     /// The workspace is about to compile a package manifest, as reported by the assigned manifest loader. this happens
@@ -57,14 +56,14 @@ public protocol WorkspaceDelegate: AnyObject {
     func willCompileManifest(packageIdentity: PackageIdentity, packageLocation: String)
     /// The workspace successfully compiled a package manifest, as reported by the assigned manifest loader. this
     /// happens for non-cached manifests
-    func didCompileManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval)
+    func didCompileManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: Duration)
 
     /// The workspace is about to evaluate (execute) a compiled package manifest, as reported by the assigned manifest
     /// loader. this happens for non-cached manifests
     func willEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String)
     /// The workspace successfully evaluated (executed) a compiled package manifest, as reported by the assigned
     /// manifest loader. this happens for non-cached manifests
-    func didEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval)
+    func didEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: Duration)
 
     /// The workspace has started fetching this package.
     func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails)
@@ -73,7 +72,7 @@ public protocol WorkspaceDelegate: AnyObject {
         package: PackageIdentity,
         packageLocation: String?,
         result: Result<PackageFetchDetails, Error>,
-        duration: DispatchTimeInterval
+        duration: Duration
     )
     /// Called every time the progress of the package fetch operation updates.
     func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?)
@@ -81,7 +80,7 @@ public protocol WorkspaceDelegate: AnyObject {
     /// The workspace has started updating this repository.
     func willUpdateRepository(package: PackageIdentity, repository url: String)
     /// The workspace has finished updating this repository.
-    func didUpdateRepository(package: PackageIdentity, repository url: String, duration: DispatchTimeInterval)
+    func didUpdateRepository(package: PackageIdentity, repository url: String, duration: Duration)
 
     /// The workspace has finished updating and all the dependencies are already up-to-date.
     func dependenciesUpToDate()
@@ -94,7 +93,7 @@ public protocol WorkspaceDelegate: AnyObject {
         package: PackageIdentity,
         repository url: String,
         at path: AbsolutePath,
-        duration: DispatchTimeInterval
+        duration: Duration
     )
 
     /// The workspace is about to check out a particular revision of a working directory.
@@ -106,7 +105,7 @@ public protocol WorkspaceDelegate: AnyObject {
         repository url: String,
         revision: String,
         at path: AbsolutePath,
-        duration: DispatchTimeInterval
+        duration: Duration
     )
 
     /// The workspace is removing this repository because it is no longer needed.
@@ -118,7 +117,7 @@ public protocol WorkspaceDelegate: AnyObject {
     /// Called when the resolver begins to be compute the version for the repository.
     func willComputeVersion(package: PackageIdentity, location: String)
     /// Called when the resolver finished computing the version for the repository.
-    func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: DispatchTimeInterval)
+    func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: Duration)
 
     /// Called when the Package.resolved file is changed *outside* of libSwiftPM operations.
     ///
@@ -131,7 +130,7 @@ public protocol WorkspaceDelegate: AnyObject {
     func didDownloadBinaryArtifact(
         from url: String,
         result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
-        duration: DispatchTimeInterval
+        duration: Duration
     )
     /// The workspace is downloading a binary artifact.
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?)
@@ -154,17 +153,17 @@ public protocol WorkspaceDelegate: AnyObject {
     /// The workspace has started updating dependencies
     func willUpdateDependencies()
     /// The workspace has finished updating dependencies
-    func didUpdateDependencies(duration: DispatchTimeInterval)
+    func didUpdateDependencies(duration: Duration)
 
     /// The workspace has started resolving dependencies
     func willResolveDependencies()
     /// The workspace has finished resolving dependencies
-    func didResolveDependencies(duration: DispatchTimeInterval)
+    func didResolveDependencies(duration: Duration)
 
     /// The workspace has started loading the graph to memory
     func willLoadGraph()
     /// The workspace has finished loading the graph to memory
-    func didLoadGraph(duration: DispatchTimeInterval)
+    func didLoadGraph(duration: Duration)
 }
 
 // FIXME: default implementation until the feature is stable, at which point we should remove this and force the clients to implement
@@ -205,7 +204,7 @@ struct WorkspaceManifestLoaderDelegate: ManifestLoader.Delegate {
         packageIdentity: PackageIdentity,
         packageLocation: String,
         manifestPath: AbsolutePath,
-        duration: DispatchTimeInterval
+        duration: Duration
     ) {
         // handled by workspace directly
     }
@@ -214,7 +213,7 @@ struct WorkspaceManifestLoaderDelegate: ManifestLoader.Delegate {
         // noop
     }
 
-    func didParse(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+    func didParse(packageIdentity: PackageIdentity, packageLocation: String, duration: Duration) {
         // noop
     }
 
@@ -226,7 +225,7 @@ struct WorkspaceManifestLoaderDelegate: ManifestLoader.Delegate {
         packageIdentity: PackageIdentity,
         packageLocation: String,
         manifestPath: AbsolutePath,
-        duration: DispatchTimeInterval
+        duration: Duration
     ) {
         self.workspaceDelegate?.didCompileManifest(
             packageIdentity: packageIdentity,
@@ -243,7 +242,7 @@ struct WorkspaceManifestLoaderDelegate: ManifestLoader.Delegate {
         packageIdentity: PackageIdentity,
         packageLocation: String,
         manifestPath: AbsolutePath,
-        duration: DispatchTimeInterval
+        duration: Duration
     ) {
         self.workspaceDelegate?.didEvaluateManifest(
             packageIdentity: packageIdentity,
@@ -286,7 +285,7 @@ struct WorkspaceRepositoryManagerDelegate: RepositoryManager.Delegate {
         package: PackageIdentity,
         repository: RepositorySpecifier,
         result: Result<RepositoryManager.FetchDetails, Error>,
-        duration: DispatchTimeInterval
+        duration: Duration
     ) {
         self.workspaceDelegate?.didFetchPackage(
             package: package,
@@ -300,7 +299,7 @@ struct WorkspaceRepositoryManagerDelegate: RepositoryManager.Delegate {
         self.workspaceDelegate?.willUpdateRepository(package: package, repository: repository.location.description)
     }
 
-    func didUpdate(package: PackageIdentity, repository: RepositorySpecifier, duration: DispatchTimeInterval) {
+    func didUpdate(package: PackageIdentity, repository: RepositorySpecifier, duration: Duration) {
         self.workspaceDelegate?.didUpdateRepository(
             package: package,
             repository: repository.location.description,
@@ -331,7 +330,7 @@ struct WorkspaceRegistryDownloadsManagerDelegate: RegistryDownloadsManager.Deleg
         package: PackageIdentity,
         version: Version,
         result: Result<RegistryDownloadsManager.FetchDetails, Error>,
-        duration: DispatchTimeInterval
+        duration: Duration
     ) {
         self.workspaceDelegate?.didFetchPackage(
             package: package,
@@ -401,7 +400,7 @@ struct WorkspaceBinaryArtifactsManagerDelegate: Workspace.BinaryArtifactsManager
     func didDownloadBinaryArtifact(
         from url: String,
         result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
-        duration: DispatchTimeInterval
+        duration: Duration
     ) {
         self.workspaceDelegate?.didDownloadBinaryArtifact(from: url, result: result, duration: duration)
     }

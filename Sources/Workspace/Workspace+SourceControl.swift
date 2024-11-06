@@ -57,7 +57,7 @@ extension Workspace {
             revision: checkoutState.description,
             at: checkoutPath
         )
-        let start = DispatchTime.now()
+        let start = ContinuousClock.now
 
         // Do mutable-immutable dance because checkout operation modifies the disk state.
         try fileSystem.chmod(.userWritable, path: checkoutPath, options: [.recursive, .onlyFiles])
@@ -79,13 +79,12 @@ extension Workspace {
         try self.state.save()
 
         // Inform the delegate that we're done.
-        let duration = start.distance(to: .now())
         delegate?.didCheckOut(
             package: package.identity,
             repository: repository.location.description,
             revision: checkoutState.description,
             at: checkoutPath,
-            duration: duration
+            duration: .now - start
         )
         observabilityScope
             .emit(debug: "`\(repository.location.description)` checked out at \(checkoutState.debugDescription)")
@@ -193,13 +192,13 @@ extension Workspace {
             repository: handle.repository.location.description,
             at: checkoutPath
         )
-        let start = DispatchTime.now()
+        let start = ContinuousClock.now
 
         // Create the working copy.
         _ = try handle.createWorkingCopy(at: checkoutPath, editable: false)
 
         // Inform the delegate that we're done.
-        let duration = start.distance(to: .now())
+        let duration = .now - start
         self.delegate?.didCreateWorkingCopy(
             package: package.identity,
             repository: handle.repository.location.description,

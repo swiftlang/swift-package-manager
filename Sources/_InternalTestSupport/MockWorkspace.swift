@@ -885,7 +885,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("updating repo: \(url)")
     }
 
-    public func didUpdateRepository(package: PackageIdentity, repository url: String, duration: DispatchTimeInterval) {
+    public func didUpdateRepository(package: PackageIdentity, repository url: String, duration: Duration) {
         self.append("finished updating repo: \(url)")
     }
 
@@ -900,7 +900,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
     public func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
     }
 
-    public func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
+    public func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: Duration) {
         self.append("finished fetching package: \(packageLocation ?? package.description)")
     }
 
@@ -908,7 +908,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("creating working copy for: \(url)")
     }
 
-    public func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath, duration: DispatchTimeInterval) {
+    public func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath, duration: Duration) {
         self.append("finished creating working copy for: \(url)")
     }
 
@@ -916,7 +916,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("checking out repo: \(url)")
     }
 
-    public func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath, duration: DispatchTimeInterval) {
+    public func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath, duration: Duration) {
         self.append("finished checking out repo: \(url)")
     }
 
@@ -932,7 +932,16 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("will load manifest for \(packageKind.displayName) package: \(url) (identity: \(packageIdentity))")
     }
 
-    public func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic], duration: DispatchTimeInterval) {
+    public func didLoadManifest(
+        packageIdentity: PackageIdentity,
+        packagePath: AbsolutePath,
+        url: String,
+        version: Version?,
+        packageKind: PackageReference.Kind,
+        manifest: Manifest?,
+        diagnostics: [Basics.Diagnostic],
+        duration: Duration
+    ) {
         self.append("did load manifest for \(packageKind.displayName) package: \(url) (identity: \(packageIdentity))")
         self.lock.withLock {
             self._manifest = manifest
@@ -944,7 +953,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         // noop
     }
 
-    public func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: DispatchTimeInterval) {
+    public func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: Duration) {
         // noop
     }
 
@@ -956,7 +965,11 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("downloading binary artifact package: \(url)")
     }
 
-    public func didDownloadBinaryArtifact(from url: String, result: Result<(path: AbsolutePath, fromCache: Bool), Error>, duration: DispatchTimeInterval) {
+    public func didDownloadBinaryArtifact(
+        from url: String,
+        result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
+        duration: Duration
+    ) {
         self.append("finished downloading binary artifact package: \(url)")
     }
 
@@ -972,7 +985,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         // noop
     }
 
-    public func didUpdateDependencies(duration: DispatchTimeInterval) {
+    public func didUpdateDependencies(duration: Duration) {
         // noop
     }
 
@@ -980,7 +993,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         // noop
     }
 
-    public func didResolveDependencies(duration: DispatchTimeInterval) {
+    public func didResolveDependencies(duration: Duration) {
         // noop
     }
 
@@ -988,7 +1001,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         // noop
     }
 
-    public func didLoadGraph(duration: DispatchTimeInterval) {
+    public func didLoadGraph(duration: Duration) {
         // noop
     }
 
@@ -996,7 +1009,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         // noop
     }
 
-    public func didCompileManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+    public func didCompileManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: Duration) {
         // noop
     }
 
@@ -1004,7 +1017,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         // noop
     }
 
-    public func didEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+    public func didEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: Duration) {
         // noop
     }
 

@@ -86,7 +86,7 @@ public actor RegistryDownloadsManager {
             // make sure destination is free.
             try? self.fileSystem.removeFileTree(packagePath)
 
-            let start = DispatchTime.now()
+            let start = ContinuousClock.now
 
             // `Result` type is used by the `didFetch` delegate method called below.
             let result: Result<FetchDetails, Error>
@@ -102,8 +102,7 @@ public actor RegistryDownloadsManager {
             }
 
             // inform delegate that we finished to fetch
-            let duration = start.distance(to: .now())
-            delegate?.didFetch(package: package, version: version, result: result, duration: duration)
+            delegate?.didFetch(package: package, version: version, result: result, duration: .now - start)
 
             // remove the pending lookup
             defer {
@@ -287,7 +286,7 @@ public protocol RegistryDownloadsManagerDelegate {
         package: PackageIdentity,
         version: Version,
         result: Result<RegistryDownloadsManager.FetchDetails, Error>,
-        duration: DispatchTimeInterval
+        duration: Duration
     )
 
     /// Called every time the progress of a repository fetch operation updates.

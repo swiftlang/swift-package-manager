@@ -404,8 +404,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
             identityResolver: self.identityResolver,
             dependencyMapper: self.dependencyMapper,
             fileSystem: fileSystem,
-            observabilityScope: self.observabilityScope,
-            delegateQueue: .sharedConcurrent
+            observabilityScope: self.observabilityScope
         )
     }
 
