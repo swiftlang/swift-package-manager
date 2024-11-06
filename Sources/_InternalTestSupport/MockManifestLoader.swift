@@ -60,8 +60,7 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         identityResolver: IdentityResolver,
         dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) throws -> Manifest {
         let key = Key(url: packageLocation, version: packageVersion?.version)
         if let result = self.manifests[key] {
@@ -115,8 +114,7 @@ extension ManifestLoader {
             identityResolver: identityResolver,
             dependencyMapper: dependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver),
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent
+            observabilityScope: observabilityScope
         )
     }
 }
@@ -161,8 +159,7 @@ extension ManifestLoader {
             identityResolver: identityResolver,
             dependencyMapper: dependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver),
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent
+            observabilityScope: observabilityScope
         )
     }
 }

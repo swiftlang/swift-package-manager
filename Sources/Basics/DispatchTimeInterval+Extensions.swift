@@ -73,7 +73,9 @@ extension DispatchTimeInterval {
             return nil
         }
     }
+}
 
+extension Duration {
     public var descriptionInSeconds: String {
         switch self {
         case .seconds(let value):

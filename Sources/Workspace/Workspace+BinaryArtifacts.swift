@@ -239,7 +239,7 @@ extension Workspace {
                             }
                         }
 
-                        let fetchStart: DispatchTime = .now()
+                        let fetchStart = ContinuousClock.now
                         do {
                             let cached = try await self.fetch(
                                 artifact: artifact,
@@ -359,7 +359,7 @@ extension Workspace {
                                     self.delegate?.didDownloadBinaryArtifact(
                                         from: artifact.url.absoluteString,
                                         result: .success((path: artifactPath, fromCache: cached)),
-                                        duration: fetchStart.distance(to: .now())
+                                        duration: .now - fetchStart
                                     )
 
                                     return ManagedArtifact.remote(
@@ -380,7 +380,7 @@ extension Workspace {
                                     self.delegate?.didDownloadBinaryArtifact(
                                         from: artifact.url.absoluteString,
                                         result: .failure(error),
-                                        duration: fetchStart.distance(to: .now())
+                                        duration: .now - fetchStart
                                     )
                                 }
                             } catch {
@@ -392,7 +392,7 @@ extension Workspace {
                                 self.delegate?.didDownloadBinaryArtifact(
                                     from: artifact.url.absoluteString,
                                     result: .failure(error),
-                                    duration: fetchStart.distance(to: .now())
+                                    duration: .now - fetchStart
                                 )
                             }
                         } catch {
@@ -405,7 +405,7 @@ extension Workspace {
                             self.delegate?.didDownloadBinaryArtifact(
                                 from: artifact.url.absoluteString,
                                 result: .failure(error),
-                                duration: fetchStart.distance(to: .now())
+                                duration: .now - fetchStart
                             )
                         }
 
@@ -652,7 +652,7 @@ public protocol BinaryArtifactsManagerDelegate {
     func didDownloadBinaryArtifact(
         from url: String,
         result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
-        duration: DispatchTimeInterval
+        duration: Duration
     )
     /// The workspace is downloading a binary artifact.
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?)

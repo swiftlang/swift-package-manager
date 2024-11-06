@@ -59,10 +59,10 @@ extension Workspace {
         dryRun: Bool = false,
         observabilityScope: ObservabilityScope
     ) async throws -> [(PackageReference, Workspace.PackageStateChange)]? {
-        let start = DispatchTime.now()
+        let start = ContinuousClock.now
         self.delegate?.willUpdateDependencies()
         defer {
-            self.delegate?.didUpdateDependencies(duration: start.distance(to: .now()))
+            self.delegate?.didUpdateDependencies(duration: .now - start)
         }
 
         // Create cache directories.
@@ -70,7 +70,7 @@ extension Workspace {
 
         // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
-        let rootManifests = try await self.loadRootManifests(
+        let rootManifests = await self.loadRootManifests(
             packages: root.packages,
             observabilityScope: observabilityScope
         )
@@ -195,10 +195,10 @@ extension Workspace {
         resolvedFileStrategy: ResolvedFileStrategy,
         observabilityScope: ObservabilityScope
     ) async throws -> DependencyManifests {
-        let start = DispatchTime.now()
+        let start = ContinuousClock.now
         self.delegate?.willResolveDependencies()
         defer {
-            self.delegate?.didResolveDependencies(duration: start.distance(to: .now()))
+            self.delegate?.didResolveDependencies(duration: .now - start)
         }
 
         switch resolvedFileStrategy {
@@ -334,8 +334,7 @@ extension Workspace {
         // Ensure the cache path exists.
         self.createCacheDirectories(observabilityScope: observabilityScope)
 
-        // FIXME: this should not block
-        let rootManifests = try await self.loadRootManifests(
+        let rootManifests = await self.loadRootManifests(
             packages: root.packages,
             observabilityScope: observabilityScope
         )
@@ -483,9 +482,8 @@ extension Workspace {
         // Ensure the cache path exists and validate that edited dependencies.
         self.createCacheDirectories(observabilityScope: observabilityScope)
 
-        // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
-        let rootManifests = try await self.loadRootManifests(
+        let rootManifests = await self.loadRootManifests(
             packages: root.packages,
             observabilityScope: observabilityScope
         )
@@ -1177,7 +1175,7 @@ private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
         }
     }
 
-    func didResolve(term: Term, version: Version, duration: DispatchTimeInterval) {
+    func didResolve(term: Term, version: Version, duration: Duration) {
         self.workspaceDelegate?.didComputeVersion(
             package: term.node.package.identity,
             location: term.node.package.locationString,
