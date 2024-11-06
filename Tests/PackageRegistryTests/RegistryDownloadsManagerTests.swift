@@ -64,7 +64,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
 
-            await delegate.consume()
+            try await delegate.consume()
             await XCTAssertAsyncEqual(await delegate.willFetch.count, 1)
             await XCTAssertAsyncEqual(await delegate.willFetch.first?.packageVersion, .init(package: package, version: packageVersion))
             await XCTAssertAsyncEqual(await delegate.willFetch.first?.fetchDetails, .init(fromCache: false, updatedCache: false))
@@ -85,7 +85,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
                 XCTAssertNotNil(error as? RegistryError)
             }
 
-            await delegate.consume()
+            try await delegate.consume()
             await XCTAssertAsyncEqual(await delegate.willFetch.map { ($0.packageVersion) },
                 [
                     (PackageVersion(package: package, version: packageVersion)),
@@ -109,7 +109,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
 
-            await delegate.consume()
+            try await delegate.consume()
             await XCTAssertAsyncEqual(await delegate.willFetch.map { ($0.packageVersion) },
                 [
                     (PackageVersion(package: package, version: packageVersion)),
@@ -135,7 +135,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
 
-            await delegate.consume()
+            try await delegate.consume()
             await XCTAssertAsyncEqual(
                 await delegate.willFetch.map { ($0.packageVersion) },
                 [
@@ -206,7 +206,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
                 )
             )
 
-            await delegate.consume()
+            try await delegate.consume()
 
             await XCTAssertAsyncEqual(await delegate.willFetch.count, 1)
             await XCTAssertAsyncEqual(await delegate.willFetch.first?.packageVersion, .init(package: package, version: packageVersion))
@@ -228,7 +228,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
 
-            await delegate.consume()
+            try await delegate.consume()
 
             await XCTAssertAsyncEqual(await delegate.willFetch.count, 2)
             await XCTAssertAsyncEqual(await delegate.willFetch.last?.packageVersion, .init(package: package, version: packageVersion))
@@ -251,7 +251,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
 
-            await delegate.consume()
+            try await delegate.consume()
 
             await XCTAssertAsyncEqual(await delegate.willFetch.count, 3)
             await XCTAssertAsyncEqual(await delegate.willFetch.last?.packageVersion, .init(package: package, version: packageVersion))
@@ -320,7 +320,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
                 }
             }
 
-            await delegate.consume()
+            try await delegate.consume()
             await XCTAssertAsyncEqual(await delegate.willFetch.count, concurrency)
             await XCTAssertAsyncEqual(await delegate.didFetch.count, concurrency)
 
@@ -367,7 +367,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
                 return try await group.reduce(into: [:]) { $0[$1.0] = $1.1 }
             }
 
-            await delegate.consume()
+            try await delegate.consume()
             await XCTAssertAsyncEqual(await delegate.willFetch.count, concurrency / repeatRatio)
             await XCTAssertAsyncEqual(await delegate.didFetch.count, concurrency / repeatRatio)
 
@@ -392,19 +392,11 @@ private actor MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDele
 
     private nonisolated let willFetchContinuation: AsyncStream<WillFetch>.Continuation
     private let willFetchStream: AsyncStream<WillFetch>
-    #if compiler(>=6.0)
-    private var willFetchIterator: any AsyncIteratorProtocol<WillFetch, Never>
-    #else
-    private var willFetchIterator: any AsyncIteratorProtocol<WillFetch>
-    #endif
+    private var willFetchIterator: any AsyncIteratorProtocol
 
     private nonisolated let didFetchContinuation: AsyncStream<DidFetch>.Continuation
     private let didFetchStream: AsyncStream<DidFetch>
-    #if compiler(>=6.0)
-    private var didFetchIterator: any AsyncIteratorProtocol<DidFetch, Never>
-    #else
-    private var didFetchIterator: any AsyncIteratorProtocol<DidFetch>
-    #endif
+    private var didFetchIterator: any AsyncIteratorProtocol
 
     init() {
         (willFetchStream, willFetchContinuation) = AsyncStream.makeStream()
@@ -420,16 +412,16 @@ private actor MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDele
         }
     }
 
-    func consume() async {
+    func consume() async throws {
         var elementsToFetch = expectedFetches
 
-        while elementsToFetch > 0, let element = await self.willFetchIterator.next(isolation: #isolation) {
+        while elementsToFetch > 0, let element = try await self.willFetchIterator.next(isolation: #isolation) as? WillFetch {
             self.willFetch.append(element)
             elementsToFetch -= 1
         }
 
         elementsToFetch = expectedFetches
-        while elementsToFetch > 0, let element = await self.didFetchIterator.next(isolation: #isolation) {
+        while elementsToFetch > 0, let element = try await self.didFetchIterator.next(isolation: #isolation) as? DidFetch {
             self.didFetch.append(element)
             elementsToFetch -= 1
         }
