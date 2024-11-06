@@ -392,11 +392,19 @@ private actor MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDele
 
     private nonisolated let willFetchContinuation: AsyncStream<WillFetch>.Continuation
     private let willFetchStream: AsyncStream<WillFetch>
+    #if compiler(>=6.0)
     private var willFetchIterator: any AsyncIteratorProtocol<WillFetch, Never>
+    #else
+    private var willFetchIterator: any AsyncIteratorProtocol<WillFetch>
+    #endif
 
     private nonisolated let didFetchContinuation: AsyncStream<DidFetch>.Continuation
     private let didFetchStream: AsyncStream<DidFetch>
+    #if compiler(>=6.0)
     private var didFetchIterator: any AsyncIteratorProtocol<DidFetch, Never>
+    #else
+    private var didFetchIterator: any AsyncIteratorProtocol<DidFetch>
+    #endif
 
     init() {
         (willFetchStream, willFetchContinuation) = AsyncStream.makeStream()
