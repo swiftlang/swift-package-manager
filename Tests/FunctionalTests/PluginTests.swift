@@ -439,7 +439,7 @@ final class PluginTests: XCTestCase {
             
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try await workspace.loadRootManifests(
+            let rootManifests = await workspace.loadRootManifests(
                 packages: rootInput.packages,
                 observabilityScope: observability.topScope
             )
@@ -630,7 +630,7 @@ final class PluginTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try await workspace.loadRootManifests(
+            let rootManifests = await workspace.loadRootManifests(
                 packages: rootInput.packages,
                 observabilityScope: observability.topScope
             )
@@ -727,7 +727,7 @@ final class PluginTests: XCTestCase {
             
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try await workspace.loadRootManifests(
+            let rootManifests = await workspace.loadRootManifests(
                 packages: rootInput.packages,
                 observabilityScope: observability.topScope
             )
@@ -1043,7 +1043,7 @@ final class PluginTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try await workspace.loadRootManifests(
+            let rootManifests = await workspace.loadRootManifests(
                 packages: rootInput.packages,
                 observabilityScope: observability.topScope
             )

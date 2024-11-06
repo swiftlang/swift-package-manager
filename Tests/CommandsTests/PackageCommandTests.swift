@@ -3663,7 +3663,7 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try await workspace.loadRootManifests(
+            let rootManifests = await workspace.loadRootManifests(
                 packages: rootInput.packages,
                 observabilityScope: observability.topScope
             )

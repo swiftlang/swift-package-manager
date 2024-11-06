@@ -791,7 +791,7 @@ public final class MockWorkspace {
         let rootInput = PackageGraphRootInput(
             packages: try rootPaths(for: roots), dependencies: dependencies
         )
-        let rootManifests = try await workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope)
+        let rootManifests = await workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope)
         let graphRoot = PackageGraphRoot(input: rootInput, manifests: rootManifests, observabilityScope: observability.topScope)
         let manifests = try await workspace.loadDependencyManifests(root: graphRoot, observabilityScope: observability.topScope)
         result(manifests, observability.diagnostics)
