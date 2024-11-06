@@ -152,8 +152,7 @@ public class RegistryPackageContainer: PackageContainer {
                 dependencyMapper: self.dependencyMapper,
                 fileSystem: result.fileSystem,
                 observabilityScope: self.observabilityScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent
+                delegateQueue: .sharedConcurrent
             )
         }
 

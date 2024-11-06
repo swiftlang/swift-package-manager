@@ -12027,8 +12027,7 @@ final class WorkspaceTests: XCTestCase {
                 dependencyMapper: DependencyMapper,
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
-                delegateQueue: DispatchQueue,
-                callbackQueue: DispatchQueue
+                delegateQueue: DispatchQueue
             ) throws -> Manifest {
                 if let error {
                     throw error

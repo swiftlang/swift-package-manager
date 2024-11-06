@@ -271,8 +271,7 @@ final class RegistryPackageContainerTests: XCTestCase {
                     dependencyMapper: DependencyMapper,
                     fileSystem: FileSystem,
                     observabilityScope: ObservabilityScope,
-                    delegateQueue: DispatchQueue,
-                    callbackQueue: DispatchQueue
+                    delegateQueue: DispatchQueue
                 ) async throws -> Manifest {
                     Manifest.createManifest(
                         displayName: packageIdentity.description,

@@ -722,8 +722,7 @@ extension Workspace {
                 dependencyMapper: self.dependencyMapper,
                 fileSystem: fileSystem,
                 observabilityScope: manifestLoadingScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent
+                delegateQueue: .sharedConcurrent
             )
             let duration = start.distance(to: .now())
 

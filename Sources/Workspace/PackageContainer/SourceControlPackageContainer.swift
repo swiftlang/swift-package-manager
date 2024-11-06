@@ -405,8 +405,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
             dependencyMapper: self.dependencyMapper,
             fileSystem: fileSystem,
             observabilityScope: self.observabilityScope,
-            delegateQueue: .sharedConcurrent,
-            callbackQueue: .sharedConcurrent
+            delegateQueue: .sharedConcurrent
         )
     }
 
