@@ -331,30 +331,31 @@ struct SignatureValidation {
     ) async throws -> SigningEntity? {
         let manifestName = toolsVersion.map { "Package@swift-\($0).swift" } ?? Manifest.filename
         do {
+            let versionMetadata: RegistryClient.PackageVersionMetadata
             do {
-                let versionMetadata = try await self.versionMetadataProvider(package, version)
-                
-                guard let sourceArchiveResource = versionMetadata.sourceArchive else {
-                    observabilityScope.emit(
-                        debug: "cannot determine if \(manifestName) should be signed because source archive for \(package) \(version) is not found in \(registry)",
-                        metadata: .registryPackageMetadata(identity: package)
-                    )
-                    return nil
-                }
-                guard sourceArchiveResource.signing?.signatureBase64Encoded != nil else {
-                    throw RegistryError.sourceArchiveNotSigned(
-                        registry: registry,
-                        package: package.underlying,
-                        version: version
-                    )
-                }
-            }  catch {
+                versionMetadata = try await self.versionMetadataProvider(package, version)
+            } catch {
                 observabilityScope.emit(
                     debug: "cannot determine if \(manifestName) should be signed because retrieval of source archive signature for \(package) \(version) from \(registry) failed",
                     metadata: .registryPackageMetadata(identity: package),
                     underlyingError: error
                 )
                 return nil
+            }
+
+            guard let sourceArchiveResource = versionMetadata.sourceArchive else {
+                observabilityScope.emit(
+                    debug: "cannot determine if \(manifestName) should be signed because source archive for \(package) \(version) is not found in \(registry)",
+                    metadata: .registryPackageMetadata(identity: package)
+                )
+                return nil
+            }
+            guard sourceArchiveResource.signing?.signatureBase64Encoded != nil else {
+                throw RegistryError.sourceArchiveNotSigned(
+                    registry: registry,
+                    package: package.underlying,
+                    version: version
+                )
             }
 
             // source archive is signed, so the manifest must also be signed
