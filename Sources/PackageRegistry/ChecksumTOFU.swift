@@ -76,6 +76,7 @@ struct PackageVersionChecksumTOFU {
             return savedChecksum
         }
 
+        let checksum: String
         // Try fetching checksum from registry if:
         //   - No storage available
         //   - Checksum not found in storage
@@ -85,7 +86,7 @@ struct PackageVersionChecksumTOFU {
             guard let sourceArchiveResource = versionMetadata.sourceArchive else {
                 throw RegistryError.missingSourceArchive
             }
-            guard let checksum = sourceArchiveResource.checksum else {
+            guard let computedChecksum = sourceArchiveResource.checksum else {
                 throw RegistryError.sourceArchiveMissingChecksum(
                     registry: registry,
                     package: package.underlying,
@@ -93,16 +94,7 @@ struct PackageVersionChecksumTOFU {
                 )
             }
 
-            try self.writeToStorage(
-                registry: registry,
-                package: package,
-                version: version,
-                checksum: checksum,
-                contentType: .sourceCode,
-                observabilityScope: observabilityScope
-            )
-
-            return checksum
+            checksum = computedChecksum
         } catch {
             throw RegistryError.failedRetrievingReleaseChecksum(
                 registry: registry,
@@ -111,6 +103,17 @@ struct PackageVersionChecksumTOFU {
                 error: error
             )
         }
+
+        try self.writeToStorage(
+            registry: registry,
+            package: package,
+            version: version,
+            checksum: checksum,
+            contentType: .sourceCode,
+            observabilityScope: observabilityScope
+        )
+
+        return checksum
     }
 
     func validateManifest(
