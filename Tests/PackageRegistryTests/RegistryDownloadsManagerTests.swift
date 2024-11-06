@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if compiler(>=6.0)
+
 import Basics
 import _Concurrency
 import PackageModel
@@ -64,7 +66,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
 
-            try await delegate.consume()
+            await delegate.consume()
             await XCTAssertAsyncEqual(await delegate.willFetch.count, 1)
             await XCTAssertAsyncEqual(await delegate.willFetch.first?.packageVersion, .init(package: package, version: packageVersion))
             await XCTAssertAsyncEqual(await delegate.willFetch.first?.fetchDetails, .init(fromCache: false, updatedCache: false))
@@ -85,7 +87,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
                 XCTAssertNotNil(error as? RegistryError)
             }
 
-            try await delegate.consume()
+            await delegate.consume()
             await XCTAssertAsyncEqual(await delegate.willFetch.map { ($0.packageVersion) },
                 [
                     (PackageVersion(package: package, version: packageVersion)),
@@ -109,7 +111,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
 
-            try await delegate.consume()
+            await delegate.consume()
             await XCTAssertAsyncEqual(await delegate.willFetch.map { ($0.packageVersion) },
                 [
                     (PackageVersion(package: package, version: packageVersion)),
@@ -135,7 +137,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
 
-            try await delegate.consume()
+            await delegate.consume()
             await XCTAssertAsyncEqual(
                 await delegate.willFetch.map { ($0.packageVersion) },
                 [
@@ -206,7 +208,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
                 )
             )
 
-            try await delegate.consume()
+            await delegate.consume()
 
             await XCTAssertAsyncEqual(await delegate.willFetch.count, 1)
             await XCTAssertAsyncEqual(await delegate.willFetch.first?.packageVersion, .init(package: package, version: packageVersion))
@@ -228,7 +230,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
 
-            try await delegate.consume()
+            await delegate.consume()
 
             await XCTAssertAsyncEqual(await delegate.willFetch.count, 2)
             await XCTAssertAsyncEqual(await delegate.willFetch.last?.packageVersion, .init(package: package, version: packageVersion))
@@ -251,7 +253,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
 
-            try await delegate.consume()
+            await delegate.consume()
 
             await XCTAssertAsyncEqual(await delegate.willFetch.count, 3)
             await XCTAssertAsyncEqual(await delegate.willFetch.last?.packageVersion, .init(package: package, version: packageVersion))
@@ -320,7 +322,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
                 }
             }
 
-            try await delegate.consume()
+            await delegate.consume()
             await XCTAssertAsyncEqual(await delegate.willFetch.count, concurrency)
             await XCTAssertAsyncEqual(await delegate.didFetch.count, concurrency)
 
@@ -367,7 +369,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
                 return try await group.reduce(into: [:]) { $0[$1.0] = $1.1 }
             }
 
-            try await delegate.consume()
+            await delegate.consume()
             await XCTAssertAsyncEqual(await delegate.willFetch.count, concurrency / repeatRatio)
             await XCTAssertAsyncEqual(await delegate.didFetch.count, concurrency / repeatRatio)
 
@@ -392,11 +394,11 @@ private actor MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDele
 
     private nonisolated let willFetchContinuation: AsyncStream<WillFetch>.Continuation
     private let willFetchStream: AsyncStream<WillFetch>
-    private var willFetchIterator: any AsyncIteratorProtocol
+    private var willFetchIterator: any AsyncIteratorProtocol<WillFetch, Never>
 
     private nonisolated let didFetchContinuation: AsyncStream<DidFetch>.Continuation
     private let didFetchStream: AsyncStream<DidFetch>
-    private var didFetchIterator: any AsyncIteratorProtocol
+    private var didFetchIterator: any AsyncIteratorProtocol<DidFetch, Never>
 
     init() {
         (willFetchStream, willFetchContinuation) = AsyncStream.makeStream()
@@ -412,16 +414,16 @@ private actor MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDele
         }
     }
 
-    func consume() async throws {
+    func consume() async {
         var elementsToFetch = expectedFetches
 
-        while elementsToFetch > 0, let element = try await self.willFetchIterator.next(isolation: #isolation) as? WillFetch {
+        while elementsToFetch > 0, let element = await self.willFetchIterator.next(isolation: #isolation) {
             self.willFetch.append(element)
             elementsToFetch -= 1
         }
 
         elementsToFetch = expectedFetches
-        while elementsToFetch > 0, let element = try await self.didFetchIterator.next(isolation: #isolation) as? DidFetch {
+        while elementsToFetch > 0, let element = await self.didFetchIterator.next(isolation: #isolation) {
             self.didFetch.append(element)
             elementsToFetch -= 1
         }
@@ -450,3 +452,5 @@ fileprivate struct PackageVersion: Hashable, Equatable {
     let package: PackageIdentity
     let version: Version
 }
+
+#endif
