@@ -184,7 +184,11 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
 
     // registry signature handlers
 
-    func onUnsignedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version) async -> Bool {
+    func onUnsignedRegistryPackage(
+        registryURL: URL,
+        package: PackageModel.PackageIdentity,
+        version: TSCUtility.Version
+    ) async -> Bool {
         await withCheckedContinuation { continuation in
             self.inputHandler("\(package) \(version) from \(registryURL) is unsigned. okay to proceed? (yes/no) ") { response in
                 switch response?.lowercased() {
@@ -200,7 +204,11 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func onUntrustedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version) async -> Bool {
+    func onUntrustedRegistryPackage(
+        registryURL: URL,
+        package: PackageModel.PackageIdentity,
+        version: TSCUtility.Version
+    ) async -> Bool {
         await withCheckedContinuation { continuation in
             self.inputHandler("\(package) \(version) from \(registryURL) is signed with an untrusted certificate. okay to proceed? (yes/no) ") { response in
                 switch response?.lowercased() {

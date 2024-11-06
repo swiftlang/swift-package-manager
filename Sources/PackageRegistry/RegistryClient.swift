@@ -208,10 +208,10 @@ public final class RegistryClient {
 
         do {
             let response = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil)
-            observabilityScope
-                .emit(
-                    debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-                )
+            observabilityScope.emit(
+                debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+            )
+
             switch response.statusCode {
             case 200:
                 let packageMetadata = try response.parseJSON(
@@ -392,10 +392,10 @@ public final class RegistryClient {
 
         do {
             let response = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil)
-            observabilityScope
-                .emit(
-                    debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-                )
+            observabilityScope.emit(
+                debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+            )
+
             switch response.statusCode {
             case 200:
                 let metadata = try response.parseJSON(
@@ -1118,10 +1118,9 @@ public final class RegistryClient {
 
         do {
             let response = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil)
-            observabilityScope
-                .emit(
-                    debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-                )
+            observabilityScope.emit(
+                debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+            )
             switch response.statusCode {
             case 200:
                 let packageIdentities = try response.parseJSON(
@@ -1159,10 +1158,9 @@ public final class RegistryClient {
 
         do {
             let response = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil)
-            observabilityScope
-                .emit(
-                    debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-                )
+            observabilityScope.emit(
+                debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+            )
             switch response.statusCode {
             case 200:
                 return
@@ -1364,10 +1362,9 @@ public final class RegistryClient {
 
         do {
             let response = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil)
-            observabilityScope
-                .emit(
-                    debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-                )
+            observabilityScope.emit(
+                debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+            )
             switch response.statusCode {
             case 200:
                 return .available

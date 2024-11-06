@@ -196,12 +196,22 @@ extension FileSystem {
     }
 
     /// Execute the given block while holding the lock.
-    public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, blocking: Bool = true, _ body: () throws -> T) throws -> T {
+    public func withLock<T>(
+        on path: AbsolutePath,
+        type: FileLock.LockType,
+        blocking: Bool = true,
+        _ body: () throws -> T
+    ) throws -> T {
         try self.withLock(on: path.underlying, type: type, blocking: blocking, body)
     }
 
     /// Execute the given block while holding the lock.
-    public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, blocking: Bool = true, _ body: () async throws -> T) async throws -> T {
+    public func withLock<T>(
+        on path: AbsolutePath,
+        type: FileLock.LockType,
+        blocking: Bool = true,
+        _ body: () async throws -> T
+    ) async throws -> T {
         try await self.withLock(on: path.underlying, type: type, blocking: blocking, body)
     }
 
