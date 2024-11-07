@@ -101,7 +101,18 @@ extension BuildPlan {
 
         buildProduct.staticTargets = dependencies.staticTargets.map(\.module)
         buildProduct.dylibs = dependencies.dylibs
-        buildProduct.objects += try dependencies.staticTargets.flatMap { try $0.objects }
+        buildProduct.objects += try dependencies.staticTargets.flatMap {
+            if buildProduct.product.type == .library(.dynamic),
+                case let .swift(swiftModule) = $0,
+                let dynamic = swiftModule.windowsDynamicTarget,
+                buildProduct.product.modules.contains(id: swiftModule.target.id)
+            {
+                // On Windows, export symbols from the direct swift targets of the DLL product
+                return try dynamic.objects
+            } else {
+                return try $0.objects
+            }
+        }
         buildProduct.libraryBinaryPaths = dependencies.libraryBinaryPaths
         buildProduct.availableTools = dependencies.availableTools
     }

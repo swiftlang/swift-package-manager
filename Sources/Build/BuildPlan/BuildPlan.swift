@@ -537,6 +537,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             switch buildTarget {
             case .swift(let target):
                 try self.plan(swiftTarget: target)
+                if let dynamicTarget = target.windowsDynamicTarget {
+                    try self.plan(swiftTarget: dynamicTarget)
+                }
             case .clang(let target):
                 try self.plan(clangTarget: target)
             }
