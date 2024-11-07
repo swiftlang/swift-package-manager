@@ -33,7 +33,7 @@ final class SourceKitLSPAPITests: XCTestCase {
             "/Pkg/Sources/lib/README.md",
             "/Pkg/Sources/lib/lib.docc/GettingStarted.md",
             "/Pkg/Sources/lib/Resources/some_file.txt",
-            "/Pkg/Plugins/plugin/plugin.swift",
+            "/Pkg/Plugins/plugin/plugin.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
