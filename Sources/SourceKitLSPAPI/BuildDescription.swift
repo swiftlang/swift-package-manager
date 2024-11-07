@@ -139,11 +139,11 @@ private struct WrappedSwiftTargetBuildDescription: BuildTarget {
     }
 
     var ignored: [URL] {
-        return description.ignored.map { URL(fileURLWithPath: $0.pathString)}
+        return description.ignored.map { URL(fileURLWithPath: $0.pathString) }
     }
 
     var others: [URL] {
-        return description.others.map { URL(fileURLWithPath: $0.pathString)}
+        return description.others.map { URL(fileURLWithPath: $0.pathString) }
     }
 
     func compileArguments(for fileURL: URL) throws -> [String] {
