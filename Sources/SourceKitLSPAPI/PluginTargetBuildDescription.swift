@@ -46,11 +46,11 @@ struct PluginTargetBuildDescription: BuildTarget {
     }
 
     var ignored: [URL] {
-        return target.underlying.ignored.map { URL(fileURLWithPath: $0.pathString)}
+        return target.underlying.ignored.map { URL(fileURLWithPath: $0.pathString) }
     }
 
     var others: [URL] {
-        return target.underlying.others.map { URL(fileURLWithPath: $0.pathString)}
+        return target.underlying.others.map { URL(fileURLWithPath: $0.pathString) }
     }
 
     var name: String {

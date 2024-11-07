@@ -43,7 +43,7 @@ public protocol BuildTarget {
     /// Files in the target that were marked as ignored.
     var ignored: [URL] { get }
 
-    /// Other kinds of files in the module.
+    /// Other kinds of files in the target.
     var others: [URL] { get }
 
     /// The name of the target. It should be possible to build a target by passing this name to `swift build --target`
@@ -86,11 +86,11 @@ private struct WrappedClangTargetBuildDescription: BuildTarget {
     }
 
     var ignored: [URL] {
-        return description.ignored.map { URL(fileURLWithPath: $0.pathString)}
+        return description.ignored.map { URL(fileURLWithPath: $0.pathString) }
     }
 
     var others: [URL] {
-        return description.others.map { URL(fileURLWithPath: $0.pathString)}
+        return description.others.map { URL(fileURLWithPath: $0.pathString) }
     }
 
     public var name: String {
