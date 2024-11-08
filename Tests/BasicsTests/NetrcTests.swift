@@ -492,4 +492,19 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(machine?.login, "anonymous")
         XCTAssertEqual(machine?.password, "qw #erty")
     }
+
+    func testQuotedPasswordWithSpaceAndHashAndCommentAtEndOfLine() throws {
+        let content = """
+            machine example.com
+            login anonymous
+            password "qw #erty" # A comment
+            """
+
+        let netrc = try NetrcParser.parse(content)
+
+        let machine = netrc.machines.first
+        XCTAssertEqual(machine?.name, "example.com")
+        XCTAssertEqual(machine?.login, "anonymous")
+        XCTAssertEqual(machine?.password, "qw #erty")
+    }
 }
