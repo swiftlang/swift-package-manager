@@ -431,5 +431,65 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(netrc.machines[1].login, "fred")
         XCTAssertEqual(netrc.machines[1].password, "sunshine4ever")
     }
-}
 
+    func testComments() throws {
+        let content = """
+            # A comment at the beginning of the line
+            machine example.com # Another comment
+            login anonymous
+            password qw#erty
+            """
+
+        let netrc = try NetrcParser.parse(content)
+
+        let machine = netrc.machines.first
+        XCTAssertEqual(machine?.name, "example.com")
+        XCTAssertEqual(machine?.login, "anonymous")
+        XCTAssertEqual(machine?.password, "qw#erty")
+    }
+
+    func testHashSymbolInPassword() throws {
+        let content = """
+            machine example.com
+            login anonymous
+            password qw#erty
+            """
+
+        let netrc = try NetrcParser.parse(content)
+
+        let machine = netrc.machines.first
+        XCTAssertEqual(machine?.name, "example.com")
+        XCTAssertEqual(machine?.login, "anonymous")
+        XCTAssertEqual(machine?.password, "qw#erty")
+    }
+
+    func testQuotedPasswordWithSpace() throws {
+        let content = """
+            machine example.com
+            login anonymous
+            password "qw erty"
+            """
+
+        let netrc = try NetrcParser.parse(content)
+
+        let machine = netrc.machines.first
+        XCTAssertEqual(machine?.name, "example.com")
+        XCTAssertEqual(machine?.login, "anonymous")
+        XCTAssertEqual(machine?.password, "qw erty")
+    }
+
+    func testQuotedPasswordWithSpaceAndHash() throws {
+        let content = """
+            machine example.com
+            login anonymous
+            password "qw #erty"
+            """
+
+        let netrc = try NetrcParser.parse(content)
+
+        let machine = netrc.machines.first
+        XCTAssertEqual(machine?.name, "example.com")
+        XCTAssertEqual(machine?.login, "anonymous")
+        XCTAssertEqual(machine?.password, "qw #erty")
+    }
+}

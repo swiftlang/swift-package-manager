@@ -132,8 +132,11 @@ public struct NetrcParser {
         let matches = regex.matches(in: text, range: range)
         var trimmedCommentsText = text
         matches.forEach {
-            trimmedCommentsText = trimmedCommentsText
-                .replacingOccurrences(of: nsString.substring(with: $0.range), with: "")
+            let matchedString = nsString.substring(with: $0.range)
+            if !matchedString.starts(with: "\"") {
+                trimmedCommentsText = trimmedCommentsText
+                    .replacingOccurrences(of: matchedString, with: "")
+            }
         }
         return trimmedCommentsText
     }
@@ -151,12 +154,18 @@ private enum RegexUtil {
         case machine, login, password, account, macdef, `default`
 
         func capture(prefix: String = "", in match: NSTextCheckingResult, string: String) -> String? {
-            guard let range = Range(match.range(withName: prefix + rawValue), in: string) else { return nil }
-            return String(string[range])
+            if let quotedRange = Range(match.range(withName: prefix + rawValue + quotedIdentifier), in: string) {
+                return String(string[quotedRange])
+            } else if let range = Range(match.range(withName: prefix + rawValue), in: string) {
+                return String(string[range])
+            } else {
+                return nil
+            }
         }
     }
 
-    static let comments: String = "\\#[\\s\\S]*?.*$"
+    private static let quotedIdentifier = "quoted"
+    static let comments: String = "(\"[^\"]*\"|\\s#.*$)"
     static let `default`: String = #"(?:\s*(?<default>default))"#
     static let accountOptional: String = #"(?:\s*account\s+\S++)?"#
     static let loginPassword: String =
@@ -171,6 +180,6 @@ private enum RegexUtil {
     }
 
     static func namedTrailingCapture(_ string: String, prefix: String = "") -> String {
-        #"\s*\#(string)\s+(?<\#(prefix + string)>\S++)"#
+        #"\s*\#(string)\s+(?:"(?<\#(prefix + string + quotedIdentifier)>[^"]*)"|(?<\#(prefix + string)>\S+))"#
     }
 }
