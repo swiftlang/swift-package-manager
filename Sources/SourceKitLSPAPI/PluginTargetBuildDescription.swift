@@ -41,6 +41,18 @@ struct PluginTargetBuildDescription: BuildTarget {
 
     var headers: [URL] { [] }
 
+    var resources: [URL] {
+        return target.underlying.resources.map { URL(fileURLWithPath: $0.path.pathString) }
+    }
+
+    var ignored: [URL] {
+        return target.underlying.ignored.map { URL(fileURLWithPath: $0.pathString) }
+    }
+
+    var others: [URL] {
+        return target.underlying.others.map { URL(fileURLWithPath: $0.pathString) }
+    }
+
     var name: String {
         return target.name
     }

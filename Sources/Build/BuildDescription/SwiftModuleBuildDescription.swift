@@ -108,6 +108,16 @@ public final class SwiftModuleBuildDescription {
         self.target.underlying.resources + self.pluginDerivedResources
     }
 
+    /// The list of files in the target that were marked as ignored.
+    public var ignored: [AbsolutePath] {
+        self.target.underlying.ignored
+    }
+
+    /// The list of other kinds of files in the target.
+    public var others: [AbsolutePath] {
+        self.target.underlying.others
+    }
+
     /// The objects in this target, containing either machine code or bitcode
     /// depending on the build parameters used.
     public var objects: [AbsolutePath] {

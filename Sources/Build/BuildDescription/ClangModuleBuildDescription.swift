@@ -57,6 +57,16 @@ public final class ClangModuleBuildDescription {
         self.target.underlying.resources + self.pluginDerivedResources
     }
 
+    /// The list of files in the target that were marked as ignored.
+    public var ignored: [AbsolutePath] {
+        self.target.underlying.ignored
+    }
+
+    /// The list of other kinds of files in the target.
+    public var others: [AbsolutePath] {
+        self.target.underlying.others
+    }
+
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
         guard !self.resources.isEmpty else {

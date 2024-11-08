@@ -37,6 +37,15 @@ public protocol BuildTarget {
     /// Header files in the target
     var headers: [URL] { get }
 
+    /// The resource files in the target.
+    var resources: [URL] { get }
+
+    /// Files in the target that were marked as ignored.
+    var ignored: [URL] { get }
+
+    /// Other kinds of files in the target.
+    var others: [URL] { get }
+
     /// The name of the target. It should be possible to build a target by passing this name to `swift build --target`
     var name: String { get }
 
@@ -70,6 +79,18 @@ private struct WrappedClangTargetBuildDescription: BuildTarget {
 
     public var headers: [URL] {
         return description.clangTarget.headers.map(\.asURL)
+    }
+
+    var resources: [URL] {
+        return description.resources.map { URL(fileURLWithPath: $0.path.pathString) }
+    }
+
+    var ignored: [URL] {
+        return description.ignored.map { URL(fileURLWithPath: $0.pathString) }
+    }
+
+    var others: [URL] {
+        return description.others.map { URL(fileURLWithPath: $0.pathString) }
     }
 
     public var name: String {
@@ -112,6 +133,18 @@ private struct WrappedSwiftTargetBuildDescription: BuildTarget {
     }
 
     var headers: [URL] { [] }
+
+    var resources: [URL] {
+        return description.resources.map { URL(fileURLWithPath: $0.path.pathString) }
+    }
+
+    var ignored: [URL] {
+        return description.ignored.map { URL(fileURLWithPath: $0.pathString) }
+    }
+
+    var others: [URL] {
+        return description.others.map { URL(fileURLWithPath: $0.pathString) }
+    }
 
     func compileArguments(for fileURL: URL) throws -> [String] {
         // Note: we ignore the `fileURL` here as the expectation is that we get a command line for the entire target
