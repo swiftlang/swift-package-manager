@@ -436,8 +436,8 @@ class NetrcTests: XCTestCase {
         let content = """
             # A comment at the beginning of the line
             machine example.com # Another comment
-            login anonymous
-            password qw#erty
+            login anonymous  # Another comment
+            password qw#erty  # Another comment
             """
 
         let netrc = try NetrcParser.parse(content)
@@ -448,41 +448,60 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(machine?.password, "qw#erty")
     }
 
-    func testHashSymbolInPassword() throws {
-        let content = """
-            machine example.com
-            login anonymous
-            password qw#erty
-            """
+    // TODO: These permutation tests would be excellent swift-testing parameterized tests.
+    func testAllHashQuotingPermutations() throws {
+        let cases = [
+            ("qwerty", "qwerty"),
+            ("qwe#rty", "qwe#rty"),
+            ("\"qwe#rty\"", "qwe#rty"),
+            ("\"qwe #rty\"", "qwe #rty"),
+            ("\"qwe# rty\"", "qwe# rty"),
+        ]
 
-        let netrc = try NetrcParser.parse(content)
+        for (testCase, expected) in cases {
+            let content = """
+                machine example.com
+                login \(testCase)
+                password \(testCase)
+                """
+            let netrc = try NetrcParser.parse(content)
 
-        let machine = netrc.machines.first
-        XCTAssertEqual(machine?.name, "example.com")
-        XCTAssertEqual(machine?.login, "anonymous")
-        XCTAssertEqual(machine?.password, "qw#erty")
+            let machine = netrc.machines.first
+            XCTAssertEqual(machine?.name, "example.com")
+            XCTAssertEqual(machine?.login, expected, "Expected login \(testCase) to parse as \(expected)")
+            XCTAssertEqual(machine?.password, expected, "Expected \(testCase) to parse as \(expected)")
+        }
     }
 
-    func testQuotedPasswordWithSpace() throws {
-        let content = """
-            machine example.com
-            login anonymous
-            password "qw erty"
-            """
+    func testAllCommentPermutations() throws {
+        let cases = [
+            ("qwerty   # a comment", "qwerty"),
+            ("qwe#rty   # a comment", "qwe#rty"),
+            ("\"qwe#rty\"   # a comment", "qwe#rty"),
+            ("\"qwe #rty\"   # a comment", "qwe #rty"),
+            ("\"qwe# rty\"   # a comment", "qwe# rty"),
+        ]
 
-        let netrc = try NetrcParser.parse(content)
+        for (testCase, expected) in cases {
+            let content = """
+                machine example.com
+                login \(testCase)
+                password \(testCase)
+                """
+            let netrc = try NetrcParser.parse(content)
 
-        let machine = netrc.machines.first
-        XCTAssertEqual(machine?.name, "example.com")
-        XCTAssertEqual(machine?.login, "anonymous")
-        XCTAssertEqual(machine?.password, "qw erty")
+            let machine = netrc.machines.first
+            XCTAssertEqual(machine?.name, "example.com")
+            XCTAssertEqual(machine?.login, expected, "Expected login \(testCase) to parse as \(expected)")
+            XCTAssertEqual(machine?.password, expected, "Expected password \(testCase) to parse as \(expected)")
+        }
     }
 
-    func testQuotedPasswordWithSpaceAndHash() throws {
+    func testQuotedMachine() throws {
         let content = """
-            machine example.com
+            machine "example.com"
             login anonymous
-            password "qw #erty"
+            password qwerty
             """
 
         let netrc = try NetrcParser.parse(content)
@@ -490,21 +509,6 @@ class NetrcTests: XCTestCase {
         let machine = netrc.machines.first
         XCTAssertEqual(machine?.name, "example.com")
         XCTAssertEqual(machine?.login, "anonymous")
-        XCTAssertEqual(machine?.password, "qw #erty")
-    }
-
-    func testQuotedPasswordWithSpaceAndHashAndCommentAtEndOfLine() throws {
-        let content = """
-            machine example.com
-            login anonymous
-            password "qw #erty" # A comment
-            """
-
-        let netrc = try NetrcParser.parse(content)
-
-        let machine = netrc.machines.first
-        XCTAssertEqual(machine?.name, "example.com")
-        XCTAssertEqual(machine?.login, "anonymous")
-        XCTAssertEqual(machine?.password, "qw #erty")
+        XCTAssertEqual(machine?.password, "qwerty")
     }
 }
