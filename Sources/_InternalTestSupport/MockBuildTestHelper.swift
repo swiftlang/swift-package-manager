@@ -66,8 +66,6 @@ extension Basics.Triple {
     public static let arm64Linux = try! Self("aarch64-unknown-linux-gnu")
     public static let arm64Android = try! Self("aarch64-unknown-linux-android")
     public static let windows = try! Self("x86_64-unknown-windows-msvc")
-    public static let x86_64Windows = try! Self("x86_64-unknown-windows-msvc")
-    public static let arm64Windows = try! Self("aarch64-unknown-windows-msvc")
     public static let wasi = try! Self("wasm32-unknown-wasi")
     public static let arm64iOS = try! Self("arm64-apple-ios")
 }

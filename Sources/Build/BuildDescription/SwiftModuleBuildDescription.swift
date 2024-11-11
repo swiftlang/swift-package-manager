@@ -137,11 +137,7 @@ public final class SwiftModuleBuildDescription {
 
     var modulesPath: AbsolutePath {
         let suffix = self.buildParameters.suffix
-        var path = self.buildParameters.buildPath.appending(component: "Modules\(suffix)")
-        if self.windowsTargetType == .dynamic {
-            path = path.appending("dynamic")
-        }
-        return path
+        return self.buildParameters.buildPath.appending(component: "Modules\(suffix)")
     }
 
     /// The path to the swiftmodule file after compilation.
@@ -278,19 +274,6 @@ public final class SwiftModuleBuildDescription {
     /// Whether to disable sandboxing (e.g. for macros).
     private let shouldDisableSandbox: Bool
 
-    /// For Windows, we default to static objects and but also create objects
-    /// that export symbols for DLLs. This allows library targets to be used
-    /// in both contexts
-    public enum WindowsTargetType {
-        case `static`
-        case dynamic
-    }
-    /// The target type. Leave nil for non-Windows behavior.
-    public let windowsTargetType: WindowsTargetType?
-
-    /// The corresponding target for dynamic library export (i.e., not -static)
-    public private(set) var windowsDynamicTarget: SwiftModuleBuildDescription? = nil
-
     /// Create a new target description with target and build parameters.
     init(
         package: ResolvedPackage,
@@ -346,14 +329,6 @@ public final class SwiftModuleBuildDescription {
             observabilityScope: observabilityScope
         )
 
-        if buildParameters.triple.isWindows() {
-            // Default to static and add another target for DLLs
-            self.windowsTargetType = .static
-            self.windowsDynamicTarget = .init(windowsExportFor: self)
-        } else {
-            self.windowsTargetType = nil
-        }
-
         if self.shouldEmitObjCCompatibilityHeader {
             self.moduleMap = try self.generateModuleMap()
         }
@@ -373,31 +348,6 @@ public final class SwiftModuleBuildDescription {
         }
 
         try self.generateTestObservation()
-    }
-
-    /// Private init to set up exporting version of this module
-    private init(windowsExportFor parent: SwiftModuleBuildDescription) {
-        self.windowsTargetType = .dynamic
-        self.windowsDynamicTarget = nil
-        self.tempsPath = parent.tempsPath.appending("dynamic")
-
-        // The rest of these are just copied from the parent
-        self.package = parent.package
-        self.target = parent.target
-        self.swiftTarget = parent.swiftTarget
-        self.toolsVersion = parent.toolsVersion
-        self.buildParameters = parent.buildParameters
-        self.macroBuildParameters = parent.macroBuildParameters
-        self.derivedSources = parent.derivedSources
-        self.pluginDerivedSources = parent.pluginDerivedSources
-        self.pluginDerivedResources = parent.pluginDerivedResources
-        self.testTargetRole = parent.testTargetRole
-        self.fileSystem = parent.fileSystem
-        self.buildToolPluginInvocationResults = parent.buildToolPluginInvocationResults
-        self.prebuildCommandResults = parent.prebuildCommandResults
-        self.observabilityScope = parent.observabilityScope
-        self.shouldGenerateTestObservation = parent.shouldGenerateTestObservation
-        self.shouldDisableSandbox = parent.shouldDisableSandbox
     }
 
     private func generateTestObservation() throws {
@@ -577,18 +527,6 @@ public final class SwiftModuleBuildDescription {
         // If the target needs to be parsed without any special semantics involving "main.swift", do so now.
         if self.needsToBeParsedAsLibrary {
             args += ["-parse-as-library"]
-        }
-
-        switch self.windowsTargetType {
-            case .static:
-                // Static on Windows
-                args += ["-static"]
-            case .dynamic:
-                // Add the static versions to the include path
-                // FIXME: need to be much more deliberate about what we're including
-                args += ["-I", self.modulesPath.parentDirectory.pathString]
-            case .none:
-                break
         }
 
         // Only add the build path to the framework search path if there are binary frameworks to link against.
