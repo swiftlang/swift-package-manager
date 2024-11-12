@@ -22,7 +22,7 @@ import platform
 import re
 import shutil
 import subprocess
-from helpers import note, error, symlink_force, mkdir_p, call, call_output
+from helpers import note, error, symlink_force, mkdir_p, call, call_output, log_timestamp
 
 g_macos_deployment_target = '12.0'
 
@@ -840,4 +840,6 @@ def get_swiftpm_flags(args):
     return build_flags
 
 if __name__ == '__main__':
+    log_timestamp()
     main()
+    log_timestamp()
