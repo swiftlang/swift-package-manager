@@ -11,6 +11,7 @@
 ##
 ##===----------------------------------------------------------------------===##
 
+import datetime
 import subprocess
 import sys
 import os
@@ -18,10 +19,12 @@ import errno
 
 def note(message):
     print("--- %s: note: %s" % (os.path.basename(sys.argv[0]), message))
+    print("--- %s: note: timestamp %s" % (os.path.basename(sys.argv[0]), datetime.datetime.now().isoformat()))
     sys.stdout.flush()
 
 def error(message):
     print("--- %s: error: %s" % (os.path.basename(sys.argv[0]), message))
+    print("--- %s: note: timestamp %s" % (os.path.basename(sys.argv[0]), datetime.datetime.now().isoformat()))
     sys.stdout.flush()
     raise SystemExit(1)
 
