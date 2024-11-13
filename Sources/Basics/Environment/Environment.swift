@@ -19,8 +19,8 @@ import Musl
 #elseif os(Windows)
 import CRT
 import WinSDK
-#elseif canImport(Bionic)
-import Bionic
+#elseif canImport(Android)
+import Android
 #else
 import Darwin.C
 #endif

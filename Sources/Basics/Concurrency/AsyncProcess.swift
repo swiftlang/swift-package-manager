@@ -14,6 +14,8 @@ import Foundation
 
 #if os(Windows)
 import TSCLibc
+#elseif canImport(Android)
+import Android
 #endif
 
 #if os(Linux)

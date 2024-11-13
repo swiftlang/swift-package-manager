@@ -15,6 +15,8 @@ import Foundation
 import class TSCBasic.Thread
 #if canImport(WinSDK)
 import WinSDK
+#elseif canImport(Android)
+import Android
 #endif
 
 public typealias CancellationHandler = @Sendable (DispatchTime) throws -> Void

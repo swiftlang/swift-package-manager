@@ -63,6 +63,10 @@ private func readpassword(_ prompt: String) throws -> String {
     return password
 }
 #else
+#if canImport(Android)
+import Android
+#endif
+
 private func readpassword(_ prompt: String) throws -> String {
     let password: String
 

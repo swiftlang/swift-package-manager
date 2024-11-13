@@ -36,6 +36,8 @@ internal func strerror(_ errno: CInt) -> String? {
         return String(decodingCString: baseAddress, as: UTF16.self)
     }
 }
+#elseif canImport(Android)
+import Android
 #endif
 
 //
