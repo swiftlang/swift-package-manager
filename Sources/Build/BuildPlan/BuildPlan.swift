@@ -537,9 +537,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             switch buildTarget {
             case .swift(let target):
                 try self.plan(swiftTarget: target)
-                if let dynamicTarget = target.windowsDynamicTarget {
-                    try self.plan(swiftTarget: dynamicTarget)
-                }
             case .clang(let target):
                 try self.plan(clangTarget: target)
             }
@@ -552,6 +549,16 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         // FIXME: We need to find out if any product has a target on which it depends
         // both static and dynamically and then issue a suitable diagnostic or auto
         // handle that situation.
+
+        // Ensure modules in Windows DLLs export their symbols
+        for product in productMap.values where product.product.type == .library(.dynamic) && product.buildParameters.triple.isWindows() {
+            for target in product.staticTargets {
+                let targetId: ModuleBuildDescription.ID = .init(moduleID: target.id, destination: product.buildParameters.destination)
+                if case let .swift(buildDescription) = targetMap[targetId] {
+                    buildDescription.isWindowsStatic = false
+                }
+            }
+        }
     }
 
     public func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String] {

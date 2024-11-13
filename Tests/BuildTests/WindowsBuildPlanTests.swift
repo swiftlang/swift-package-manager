@@ -71,56 +71,16 @@ final class WindowsBuildPlanTests: XCTestCase {
         )
 
         let label: String
-        let dylibPrefix: String
-        let dylibExtension: String
-        let dynamic: String
         switch triple {
         case Triple.x86_64Windows:
             label = "x86_64-unknown-windows-msvc"
-            dylibPrefix = ""
-            dylibExtension = "dll"
-            dynamic = "/dynamic"
         case Triple.x86_64MacOS:
             label = "x86_64-apple-macosx"
-            dylibPrefix = "lib"
-            dylibExtension = "dylib"
-            dynamic = ""
         case Triple.x86_64Linux:
             label = "x86_64-unknown-linux-gnu"
-            dylibPrefix = "lib"
-            dylibExtension = "so"
-            dynamic = ""
         default:
             label = "fixme"
-            dylibPrefix = ""
-            dylibExtension = ""
-            dynamic = ""
         }
-
-        let tools: [String: [String]] = [
-            "C.exe-\(label)-debug.exe": [
-                "/path/to/build/\(label)/debug/coreLib.build/coreLib.swift.o",
-                "/path/to/build/\(label)/debug/exe.build/main.swift.o",
-                "/path/to/build/\(label)/debug/objectLib.build/objectLib.swift.o",
-                "/path/to/build/\(label)/debug/staticLib.build/staticLib.swift.o",
-                "/path/to/build/\(label)/debug/\(dylibPrefix)DLLProduct.\(dylibExtension)",
-                "/path/to/build/\(label)/debug/exe.product/Objects.LinkFileList",
-            ] + (triple.isMacOSX ? [] : [
-                // modulewrap
-                "/path/to/build/\(label)/debug/coreLib.build/coreLib.swiftmodule.o",
-                "/path/to/build/\(label)/debug/exe.build/exe.swiftmodule.o",
-                "/path/to/build/\(label)/debug/objectLib.build/objectLib.swiftmodule.o",
-                "/path/to/build/\(label)/debug/staticLib.build/staticLib.swiftmodule.o",
-            ]),
-            "C.DLLProduct-\(label)-debug.dylib": [
-                "/path/to/build/\(label)/debug/coreLib.build/coreLib.swift.o",
-                "/path/to/build/\(label)/debug/dllLib.build\(dynamic)/dllLib.swift.o",
-                "/path/to/build/\(label)/debug/DLLProduct.product/Objects.LinkFileList",
-            ] + (triple.isMacOSX ? [] : [
-                "/path/to/build/\(label)/debug/coreLib.build/coreLib.swiftmodule.o",
-                "/path/to/build/\(label)/debug/dllLib.build/dllLib.swiftmodule.o",
-            ])
-        ]
 
         let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
@@ -142,11 +102,18 @@ final class WindowsBuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         try llbuild.generateManifest(at: "/manifest")
+        let commands = llbuild.manifest.commands
 
-        for (name, inputNames) in tools {
-            let command = try XCTUnwrap(llbuild.manifest.commands[name])
-            XCTAssertEqual(Set(command.tool.inputs), Set(inputNames.map({ Node.file(.init($0)) })))
+        func hasStatic(_ name: String) throws -> Bool {
+            let tool = try XCTUnwrap(commands[name]?.tool as? SwiftCompilerTool)
+            return tool.otherArguments.contains("-static")
         }
+
+        XCTAssertEqual(try hasStatic("C.coreLib-\(label)-debug.module"), false, label)
+        XCTAssertEqual(try hasStatic("C.dllLib-\(label)-debug.module"), false, label)
+        XCTAssertEqual(try hasStatic("C.staticLib-\(label)-debug.module"), triple.isWindows(), label)
+        XCTAssertEqual(try hasStatic("C.objectLib-\(label)-debug.module"), triple.isWindows(), label)
+        XCTAssertEqual(try hasStatic("C.exe-\(label)-debug.module"), triple.isWindows(), label)
     }
 
     func testWindows() async throws {
