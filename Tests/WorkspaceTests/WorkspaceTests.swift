@@ -2387,6 +2387,69 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testUnsafeFlagsInEditedPackage() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "Root",
+                            dependencies: ["Foo"],
+                            settings: [
+                                .init(tool: .swift, kind: .unsafeFlags(["-F","/tmp"]))
+                            ]
+                        ),
+                    ],
+                    products: [],
+                    dependencies: [
+                        // Must be a branch or revision for unsafe flags
+                        .sourceControl(path: "./Foo", requirement: .revision("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(
+                            name: "Foo",
+                            settings: [
+                                .init(tool: .swift, kind: .unsafeFlags(["-F","/tmp"]))
+                            ]
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo"]),
+                    ],
+                    versions: ["1.0.0", nil]
+                ),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            PackageGraphTester(graph) { result in
+                result.check(roots: .plain("Root"))
+                result.check(packages: .plain("root"), .plain("Foo"))
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        let editedFooPath = AbsolutePath("/tmp/ws/Foo")
+        await workspace.checkEdit(packageIdentity: "Foo", path: editedFooPath) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+    }
+
     func testMissingEditCanRestoreOriginalCheckout() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
