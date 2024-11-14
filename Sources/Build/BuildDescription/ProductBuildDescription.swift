@@ -193,13 +193,9 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // radar://112671586 supress unnecessary warnings
         if triple.isMacOSX {
             args += ["-Xlinker", "-no_warn_duplicate_libraries"]
-        } else if triple.isWindows() {
-            // locally defined symbol imported
-            // Occurs when an object file exports a symbol is imported
-            // into another module in the same executable.
-            // FIXME: Need to support targets as DLLs
-            args += ["-Xlinker", "/ignore:4217"]
         }
+        // We may also need to turn off locally defined symbol imported on Windows
+        // args += ["-Xlinker", "/ignore:4217"]
 
         switch derivedProductType {
         case .macro:
