@@ -109,7 +109,7 @@ final class WindowsBuildPlanTests: XCTestCase {
             return tool.otherArguments.contains("-static")
         }
 
-        XCTAssertEqual(try hasStatic("C.coreLib-\(label)-debug.module"), false, label)
+        XCTAssertEqual(try hasStatic("C.coreLib-\(label)-debug.module"), triple.isWindows(), label)
         XCTAssertEqual(try hasStatic("C.dllLib-\(label)-debug.module"), false, label)
         XCTAssertEqual(try hasStatic("C.staticLib-\(label)-debug.module"), triple.isWindows(), label)
         XCTAssertEqual(try hasStatic("C.objectLib-\(label)-debug.module"), triple.isWindows(), label)

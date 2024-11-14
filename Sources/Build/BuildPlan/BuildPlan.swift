@@ -552,7 +552,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
         // Ensure modules in Windows DLLs export their symbols
         for product in productMap.values where product.product.type == .library(.dynamic) && product.buildParameters.triple.isWindows() {
-            for target in product.staticTargets {
+            for target in product.product.modules {
                 let targetId: ModuleBuildDescription.ID = .init(moduleID: target.id, destination: product.buildParameters.destination)
                 if case let .swift(buildDescription) = targetMap[targetId] {
                     buildDescription.isWindowsStatic = false
