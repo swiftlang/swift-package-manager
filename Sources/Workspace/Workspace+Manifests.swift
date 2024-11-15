@@ -147,9 +147,9 @@ extension Workspace {
                       result.insert(packageRef)
                     }
 
-                case .registryDownload, .edited, .custom:
+                case .registryDownload, .custom:
                     continue
-                case .fileSystem:
+                case .fileSystem, .edited:
                     result.insert(dependency.packageRef)
                 }
             }
