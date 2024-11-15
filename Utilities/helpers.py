@@ -17,17 +17,17 @@ import sys
 import os
 import errno
 
-def log_timestamp():
-    print("--- %s: note: timestamp %s" % (os.path.basename(sys.argv[0]), datetime.datetime.now().isoformat()))
+def log_timestamp(marker):
+    print("--- %s: note: %s %s" % (os.path.basename(sys.argv[0]), marker, datetime.datetime.now().isoformat()))
 
 def note(message):
     print("--- %s: note: %s" % (os.path.basename(sys.argv[0]), message))
-    log_timestamp()
+    log_timestamp("timestamp")
     sys.stdout.flush()
 
 def error(message):
     print("--- %s: error: %s" % (os.path.basename(sys.argv[0]), message))
-    log_timestamp()
+    log_timestamp("timestamp")
     sys.stdout.flush()
     raise SystemExit(1)
 

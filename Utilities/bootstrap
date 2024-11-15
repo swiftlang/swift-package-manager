@@ -840,6 +840,6 @@ def get_swiftpm_flags(args):
     return build_flags
 
 if __name__ == '__main__':
-    log_timestamp()
+    log_timestamp("start")
     main()
-    log_timestamp()
+    log_timestamp("end")
