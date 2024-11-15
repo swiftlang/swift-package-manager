@@ -11,17 +11,23 @@
 ##
 ##===----------------------------------------------------------------------===##
 
+import datetime
 import subprocess
 import sys
 import os
 import errno
 
+def log_timestamp(marker):
+    print("--- %s: note: %s %s" % (os.path.basename(sys.argv[0]), marker, datetime.datetime.now().isoformat()))
+
 def note(message):
     print("--- %s: note: %s" % (os.path.basename(sys.argv[0]), message))
+    log_timestamp("timestamp")
     sys.stdout.flush()
 
 def error(message):
     print("--- %s: error: %s" % (os.path.basename(sys.argv[0]), message))
+    log_timestamp("timestamp")
     sys.stdout.flush()
     raise SystemExit(1)
 
