@@ -53,16 +53,6 @@ extension LLBuildManifestBuilder {
             )
         } else {
             try self.addCmdWithBuiltinSwiftTool(target, inputs: inputs, cmdOutputs: cmdOutputs)
-            if let dynamicTarget = target.windowsDynamicTarget {
-                // Generate dynamic module for Windows
-                let inputs = try self.computeSwiftCompileCmdInputs(dynamicTarget)
-                let objectNodes = dynamicTarget.buildParameters.prepareForIndexing == .off ? try dynamicTarget.objects.map(Node.file) : []
-                let moduleNode = Node.file(dynamicTarget.moduleOutputPath)
-                let cmdOutputs = objectNodes + [moduleNode]
-                try self.addCmdWithBuiltinSwiftTool(dynamicTarget, inputs: inputs, cmdOutputs: cmdOutputs)
-                self.addTargetCmd(dynamicTarget, cmdOutputs: cmdOutputs)
-                try self.addModuleWrapCmd(dynamicTarget)
-            }
         }
 
         self.addTargetCmd(target, cmdOutputs: cmdOutputs)
@@ -542,7 +532,7 @@ extension LLBuildManifestBuilder {
             inputs: cmdOutputs,
             outputs: [targetOutput]
         )
-        if self.plan.graph.isInRootPackages(target.target, satisfying: target.buildParameters.buildEnvironment), target.windowsTargetType != .dynamic {
+        if self.plan.graph.isInRootPackages(target.target, satisfying: target.buildParameters.buildEnvironment) {
             if !target.isTestTarget {
                 self.addNode(targetOutput, toTarget: .main)
             }
@@ -646,11 +636,6 @@ extension SwiftModuleBuildDescription {
     }
 
     public func getLLBuildTargetName() -> String {
-        let name = self.target.getLLBuildTargetName(buildParameters: self.buildParameters)
-        if self.windowsTargetType == .dynamic {
-            return "dynamic." + name
-        } else {
-            return name
-        }
+        self.target.getLLBuildTargetName(buildParameters: self.buildParameters)
     }
 }

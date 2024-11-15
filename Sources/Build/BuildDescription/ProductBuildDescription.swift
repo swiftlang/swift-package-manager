@@ -194,6 +194,8 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         if triple.isMacOSX {
             args += ["-Xlinker", "-no_warn_duplicate_libraries"]
         }
+        // We may also need to turn off locally defined symbol imported on Windows
+        // args += ["-Xlinker", "/ignore:4217"]
 
         switch derivedProductType {
         case .macro:
