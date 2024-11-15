@@ -208,13 +208,19 @@ final class PluginTests: XCTestCase {
             try localFileSystem.createDirectory(pluginSourceFile.parentDirectory, recursive: true)
             try localFileSystem.writeFileContents(pluginSourceFile, string: """
             import PackagePlugin
+            #if os(Android)
+            let touchExe = "/system/bin/touch"
+            #else
+            let touchExe = "/usr/bin/touch"
+            #endif
+
             @main
             struct Plugin: BuildToolPlugin {
                 func createBuildCommands(context: PluginContext, target: Target) async throws -> [Command] {
                     return [
                         .buildCommand(
                             displayName: "empty",
-                            executable: .init("/usr/bin/touch"),
+                            executable: .init(touchExe),
                             arguments: [context.pluginWorkDirectory.appending("best.txt")],
                             inputFiles: [],
                             outputFiles: []
