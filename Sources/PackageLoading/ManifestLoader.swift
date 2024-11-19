@@ -1062,7 +1062,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         var environment = Environment.current
                         #if os(Windows)
                         let windowsPathComponent = runtimePath.pathString.replacingOccurrences(of: "/", with: "\\")
-                        environment["Path"] = "\(windowsPathComponent);\(environment["Path"] ?? "")"
+                        environment.prependPath(key: .path, value: windowsPathComponent)
                         #endif
 
                         let cleanupAfterRunning = cleanupIfError.delay()
