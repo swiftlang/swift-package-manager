@@ -466,13 +466,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         process.environment = ProcessInfo.processInfo.environment
 #if os(Windows)
         let pluginLibraryPath = self.toolchain.swiftPMLibrariesLocation.pluginLibraryPath.pathString
-        var env = ProcessInfo.processInfo.environment
-        if let Path = env["Path"] {
-            env["Path"] = "\(pluginLibraryPath);\(Path)"
-        } else {
-            env["Path"] = pluginLibraryPath
-        }
-        process.environment = env
+        var env = Environment.current
+        env.prependPath(key: .path, value: pluginLibraryPath)
+        process.environment = .init(env)
 #endif
         process.currentDirectoryURL = workingDirectory.asURL
         
