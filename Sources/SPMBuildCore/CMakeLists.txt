@@ -18,6 +18,7 @@ add_library(SPMBuildCore
   BuildSystem/BuildSystemCommand.swift
   BuildSystem/BuildSystemDelegate.swift
   BuiltTestProduct.swift
+  Plugins/DefaultPluginScriptRunner.swift
   Plugins/PluginContextSerializer.swift
   Plugins/PluginInvocation.swift
   Plugins/PluginMessages.swift

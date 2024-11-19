@@ -314,12 +314,25 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
 
             switch buildSystem {
             case .native:
+                let pluginScriptRunner = DefaultPluginScriptRunner(
+                    fileSystem: self.fileSystem,
+                    cacheDir: scratchDirectory.appending("plugin-cache"),
+                    toolchain: self.hostToolchain,
+                    extraPluginSwiftCFlags: [],
+                    enableSandbox: true,
+                    verboseOutput: self.logLevel <= .info
+                )
                 return BuildOperation(
                     // when building `swift-bootstrap`, host and target build parameters are the same
                     productsBuildParameters: buildParameters,
                     toolsBuildParameters: buildParameters,
                     cacheBuildManifest: false,
                     packageGraphLoader: asyncUnsafePackageGraphLoader,
+                    pluginConfiguration: .init(
+                        scriptRunner: pluginScriptRunner,
+                        workDirectory: scratchDirectory.appending(component: "plugin-working-directory"),
+                        disableSandbox: false
+                    ),
                     scratchDirectory: scratchDirectory,
                     // When bootrapping no special trait build configuration is used
                     traitConfiguration: nil,
@@ -390,14 +403,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 },
                 binaryArtifacts: [:],
                 fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                // Plugins can't be used in bootstrap builds, exclude those.
-                productsFilter: {
-                    $0.type != .plugin
-                },
-                modulesFilter: {
-                    $0.type != .plugin
-                }
+                observabilityScope: observabilityScope
             )
         }
 

@@ -16,7 +16,6 @@ import Basics
 import Foundation
 import PackageGraph
 import PackageModel
-import SPMBuildCore
 
 import struct TSCBasic.ByteString
 import struct Basics.AsyncProcessResult
