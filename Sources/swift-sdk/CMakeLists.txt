@@ -14,5 +14,8 @@ target_link_libraries(swift-sdk PRIVATE
 target_compile_options(swift-sdk PRIVATE
   -parse-as-library)
 
+set_target_properties(swift-sdk PROPERTIES
+  INSTALL_RPATH "$<$<PLATFORM_ID:Darwin>:@executable_path/../lib;@executable_path/../lib/swift/macosx;@executable_path/../lib/swift/host;@executable_path/../lib/swift/pm/llbuild>")
+
 install(TARGETS swift-sdk
   RUNTIME DESTINATION bin)
