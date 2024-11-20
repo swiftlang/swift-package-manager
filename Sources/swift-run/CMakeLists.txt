@@ -14,8 +14,5 @@ target_link_libraries(swift-run PRIVATE
 target_compile_options(swift-run PRIVATE
   -parse-as-library)
 
-set_target_properties(swift-run PROPERTIES
-  INSTALL_RPATH "$<$<PLATFORM_ID:Darwin>:@executable_path/../lib;@executable_path/../lib/swift/macosx;@executable_path/../lib/swift/host;@executable_path/../lib/swift/pm/llbuild>")
-
 install(TARGETS swift-run
   RUNTIME DESTINATION bin)
