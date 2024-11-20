@@ -8,7 +8,6 @@
 
 add_library(Workspace
   CheckoutState.swift
-  DefaultPluginScriptRunner.swift
   Diagnostics.swift
   InitPackage.swift
   LoadableResult.swift
