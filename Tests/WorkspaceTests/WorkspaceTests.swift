@@ -159,9 +159,10 @@ final class WorkspaceTests: XCTestCase {
 
         try testWithTemporaryDirectory { path in
             let foo = path.appending("foo")
+            let packageManifest = foo.appending("Package.swift")
 
             func createWorkspace(_ content: String) throws -> Workspace {
-                try fs.writeFileContents(foo.appending("Package.swift"), string: content)
+                try fs.writeFileContents(packageManifest, string: content)
 
                 let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default)
 
@@ -185,7 +186,7 @@ final class WorkspaceTests: XCTestCase {
                     """
                 )
 
-                XCTAssertMatch(ws.interpreterFlags(for: foo), [.equal("-swift-version"), .equal("4")])
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("4")])
             }
 
             do {
@@ -199,7 +200,7 @@ final class WorkspaceTests: XCTestCase {
                     """
                 )
 
-                XCTAssertEqual(ws.interpreterFlags(for: foo), [])
+                XCTAssertThrowsError(try ws.interpreterFlags(for: packageManifest))
             }
 
             do {
@@ -213,7 +214,19 @@ final class WorkspaceTests: XCTestCase {
                     """
                 )
 
-                XCTAssertMatch(ws.interpreterFlags(for: foo), [.equal("-swift-version"), .equal("6")])
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("6")])
+            }
+
+            do {
+                // Invalid package manifest should still produce build settings.
+                let ws = try createWorkspace(
+                    """
+                    // swift-tools-version:999.0
+                    import PackageDescription
+                    """
+                )
+
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-package-description-version")])
             }
         }
     }
