@@ -205,7 +205,7 @@ final class WorkspaceTests: XCTestCase {
             do {
                 let ws = try createWorkspace(
                     """
-                    // swift-tools-version:999.0
+                    // swift-tools-version:5.10.0
                     import PackageDescription
                     let package = Package(
                         name: "foo"
@@ -215,7 +215,25 @@ final class WorkspaceTests: XCTestCase {
 
                 XCTAssertMatch(ws.interpreterFlags(for: foo), [.equal("-swift-version"), .equal("6")])
             }
+
+            do {
+                let ws = try createWorkspace(
+                    """
+                    // swift-tools-version:999.0
+                    import PackageDescription
+                    let package = Package(
+                        name: "foo"
+                    )
+                    """
+                )
+
+                XCTAssertMatch(
+                    ws.interpreterFlags(for: foo),
+                    (SwiftVersion.current.isDevelopment) ? [.equal("-swift-version"), .equal("6")]: []
+                )
+            }
         }
+
     }
 
     func testManifestParseError() async throws {
@@ -4079,7 +4097,7 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(url: "https://localhost/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(url: "https://localhost/org/bar", requirement: .upToNextMinor(from: "1.1.0"))
                     ],
-                    toolsVersion: .vNext // change to the one after 5.9
+                    toolsVersion: .v5_10
                 ),
             ],
             packages: [
