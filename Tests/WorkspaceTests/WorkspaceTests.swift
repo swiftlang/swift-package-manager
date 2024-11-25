@@ -10531,7 +10531,7 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(url: "https://github.com/foo/foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    toolsVersion: .v5_6
+                    toolsVersion: .v5_10
                 ),
             ],
             packages: [
@@ -10609,7 +10609,7 @@ final class WorkspaceTests: XCTestCase {
                         ),
                         .sourceControl(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    toolsVersion: .v5_6
+                    toolsVersion: .v5_10
                 ),
             ],
             packages: [
@@ -10684,7 +10684,7 @@ final class WorkspaceTests: XCTestCase {
                         ),
                         .sourceControl(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    toolsVersion: .v5_6
+                    toolsVersion: .v5_10
                 ),
             ],
             packages: [
@@ -10759,7 +10759,7 @@ final class WorkspaceTests: XCTestCase {
                         ),
                         .sourceControl(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    toolsVersion: .v5_6
+                    toolsVersion: .v5_10
                 ),
             ],
             packages: [
@@ -10837,7 +10837,7 @@ final class WorkspaceTests: XCTestCase {
                         ),
                         .sourceControl(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    toolsVersion: .v5_6
+                    toolsVersion: .v5_10
                 ),
             ],
             packages: [
@@ -10930,7 +10930,7 @@ final class WorkspaceTests: XCTestCase {
                             requirement: .upToNextMajor(from: "1.0.0")
                         ),
                     ],
-                    toolsVersion: .v5_6
+                    toolsVersion: .v5_10
                 ),
             ],
             packages: [
@@ -12837,7 +12837,7 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    toolsVersion: .v5_6
+                    toolsVersion: .v5_10
                 ),
             ],
             packages: [
@@ -12967,7 +12967,7 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    toolsVersion: .v5_6
+                    toolsVersion: .v5_10
                 ),
             ],
             packages: [
@@ -13065,7 +13065,7 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(url: "https://git/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    toolsVersion: .v5_6
+                    toolsVersion: .v5_10
                 ),
             ],
             packages: [
@@ -13228,7 +13228,7 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.1.0")),
                         .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    toolsVersion: .v5_6
+                    toolsVersion: .v5_10
                 ),
             ],
             packages: [
@@ -13366,7 +13366,7 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(url: "https://git/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    toolsVersion: .v5_6
+                    toolsVersion: .v5_10
                 ),
             ],
             packages: [
@@ -13491,7 +13491,7 @@ final class WorkspaceTests: XCTestCase {
                         .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.1.0")),
                         .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    toolsVersion: .v5_6
+                    toolsVersion: .v5_10
                 ),
             ],
             packages: [
@@ -13637,7 +13637,7 @@ final class WorkspaceTests: XCTestCase {
                         .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    toolsVersion: .v5_6
+                    toolsVersion: .v5_10
                 ),
             ],
             packages: [
@@ -13762,7 +13762,7 @@ final class WorkspaceTests: XCTestCase {
                         .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    toolsVersion: .v5_6
+                    toolsVersion: .v5_10
                 ),
             ],
             packages: [
@@ -13932,7 +13932,7 @@ final class WorkspaceTests: XCTestCase {
                         .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    toolsVersion: .v5_6
+                    toolsVersion: .v5_10
                 ),
             ],
             packages: [
@@ -14073,7 +14073,7 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(url: "https://git/org/foo", requirement: .branch("experiment")),
                         .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    toolsVersion: .v5_6
+                    toolsVersion: .v5_10
                 ),
             ],
             packages: [
