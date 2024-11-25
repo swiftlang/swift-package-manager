@@ -23,6 +23,9 @@ export SWIFTCI_IS_SELF_HOSTED=1
 
 set -x
 
+# Display toolchain version
+swift --version
+
 # Perform package update in order to get the latest commits for the dependencies.
 swift package update
 swift build -c $CONFIGURATION

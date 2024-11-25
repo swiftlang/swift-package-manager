@@ -52,7 +52,7 @@ extension Package {
 
         /// The dependencies traits configuration.
         @_spi(ExperimentalTraits)
-        @available(_PackageDescription, introduced: 999.0)
+        @available(_PackageDescription, introduced: 6.1)
         public let traits: Set<Trait>
 
         /// The name of the dependency.
@@ -225,7 +225,7 @@ extension Package.Dependency {
     ///
     /// - Returns: A package dependency.
     @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         path: String,
         traits: Set<Trait> = [.defaults]
@@ -267,7 +267,7 @@ extension Package.Dependency {
     ///
     /// - Returns: A package dependency.
     @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         name: String,
         path: String,
@@ -333,7 +333,7 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         url: String,
         from version: Version,
@@ -409,7 +409,7 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         url: String,
         branch: String,
@@ -471,7 +471,7 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         url: String,
         revision: String,
@@ -542,7 +542,7 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         url: String,
         _ range: Range<Version>,
@@ -617,7 +617,7 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         url: String,
         _ range: ClosedRange<Version>,
@@ -780,7 +780,7 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         url: String,
         exact version: Version,
@@ -901,7 +901,7 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         id: String,
         from version: Version,
@@ -956,7 +956,7 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         id: String,
         exact version: Version,
@@ -1033,7 +1033,7 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         id: String,
         _ range: Range<Version>,
@@ -1088,7 +1088,7 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         id: String,
         _ range: ClosedRange<Version>,

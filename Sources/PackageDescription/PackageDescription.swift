@@ -102,7 +102,7 @@ public final class Package {
 
     /// The set of traits of this package.
     @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public var traits: Set<Trait>
 
     /// The list of package dependencies.
@@ -353,7 +353,7 @@ public final class Package {
     ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
     ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
     @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public init(
         name: String,
         defaultLocalization: LanguageTag? = nil,
@@ -487,7 +487,7 @@ public enum SystemPackageProvider {
     @available(_PackageDescription, introduced: 5.3)
     case yumItem([String])
     /// Packages installable by the NuGet package manager.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     case nugetItem([String])
 
     /// Creates a system package provider with a list of installable packages
@@ -528,7 +528,7 @@ public enum SystemPackageProvider {
     /// - Parameter packages: The list of package names.
     ///
     /// - Returns: A package provider.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func nuget(_ packages: [String]) -> SystemPackageProvider {
         return .nugetItem(packages)
     }
