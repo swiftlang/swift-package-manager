@@ -554,6 +554,12 @@ extension Workspace {
                     observabilityScope: observabilityScope
                 )
 
+                try await self.updatePrebuilts(
+                    manifests: currentManifests,
+                    addedOrUpdatedPackages: [],
+                    observabilityScope: observabilityScope
+                )
+
                 return currentManifests
             case .required(let reason):
                 delegate?.willResolveDependencies(reason: reason)
@@ -614,7 +620,14 @@ extension Workspace {
         )
 
         let addedOrUpdatedPackages = packageStateChanges.compactMap { $0.1.isAddedOrUpdated ? $0.0 : nil }
+
         try await self.updateBinaryArtifacts(
+            manifests: updatedDependencyManifests,
+            addedOrUpdatedPackages: addedOrUpdatedPackages,
+            observabilityScope: observabilityScope
+        )
+
+        try await self.updatePrebuilts(
             manifests: updatedDependencyManifests,
             addedOrUpdatedPackages: addedOrUpdatedPackages,
             observabilityScope: observabilityScope

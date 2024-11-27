@@ -77,6 +77,11 @@ extension Workspace {
             self.scratchDirectory.appending("artifacts")
         }
 
+        /// Path to the downloaded prebuilts directory
+        public var prebuiltsDirectory: AbsolutePath {
+            self.scratchDirectory.appending("prebuilts")
+        }
+
         // Path to temporary files related to running plugins in the workspace
         public var pluginWorkingDirectory: AbsolutePath {
             self.scratchDirectory.appending("plugins")
@@ -147,6 +152,11 @@ extension Workspace {
         /// Path to the shared repositories cache.
         public var sharedBinaryArtifactsCacheDirectory: AbsolutePath? {
             self.sharedCacheDirectory.map { $0.appending("artifacts") }
+        }
+
+        /// Path to the shared prebuilts cache
+        public var sharedPrebuiltsCacheDirectory: AbsolutePath? {
+            self.sharedCacheDirectory.map { $0.appending("prebuilts")}
         }
 
         /// Create a new workspace location.
