@@ -13,7 +13,7 @@
 import _InternalTestSupport
 import XCTest
 
-@testable import PackageCollections
+import PackageCollections
 import PackageCollectionsSigning
 
 final class PackageCollectionSourceCertificatePolicyTests: XCTestCase {

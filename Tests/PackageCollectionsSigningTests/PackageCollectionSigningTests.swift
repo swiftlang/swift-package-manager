@@ -14,7 +14,7 @@ import Basics
 import _Concurrency
 import Foundation
 import PackageCollectionsModel
-@testable import PackageCollectionsSigning
+import PackageCollectionsSigning
 import _InternalTestSupport
 import X509
 import XCTest

@@ -13,7 +13,7 @@
 import Basics
 import _Concurrency
 import struct Foundation.URL
-@testable import PackageFingerprint
+import PackageFingerprint
 import PackageModel
 import _InternalTestSupport
 import XCTest

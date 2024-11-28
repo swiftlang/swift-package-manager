@@ -13,11 +13,11 @@
 import Foundation
 import XCTest
 
-@testable import PackageCollections
-@testable import PackageCollectionsModel
+import PackageCollections
+import PackageCollectionsModel
 import PackageModel
 
-class PackageCollectionValidationTests: XCTestCase {
+final class PackageCollectionValidationTests: XCTestCase {
     typealias Model = PackageCollectionModel.V1
 
     func test_validationOK() throws {

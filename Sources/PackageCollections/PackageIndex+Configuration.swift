@@ -21,7 +21,7 @@ public struct PackageIndexConfiguration: Equatable {
     public var cacheMaxSizeInMegabytes: Int
     
     // TODO: rdar://87575573 remove feature flag
-    public internal(set) var enabled = ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_PACKAGE_INDEX"] == "1"
+    public package(set) var enabled = ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_PACKAGE_INDEX"] == "1"
     
     public init(
         url: URL? = nil,

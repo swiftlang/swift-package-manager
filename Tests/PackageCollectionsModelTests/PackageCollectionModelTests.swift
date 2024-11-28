@@ -14,9 +14,9 @@ import Foundation
 import _InternalTestSupport
 import XCTest
 
-@testable import PackageCollectionsModel
+import PackageCollectionsModel
 
-class PackageCollectionModelTests: XCTestCase {
+final class PackageCollectionModelTests: XCTestCase {
     typealias Model = PackageCollectionModel.V1
 
     func testCollectionCodable() throws {

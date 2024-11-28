@@ -13,11 +13,11 @@
 import protocol TSCBasic.Closable
 
 extension PackageCollections {
-    struct Storage: Closable {
-        let sources: PackageCollectionsSourcesStorage
-        let collections: PackageCollectionsStorage
+    package struct Storage: Closable {
+        package let sources: PackageCollectionsSourcesStorage
+        package let collections: PackageCollectionsStorage
 
-        init(sources: PackageCollectionsSourcesStorage, collections: PackageCollectionsStorage) {
+        package init(sources: PackageCollectionsSourcesStorage, collections: PackageCollectionsStorage) {
             self.sources = sources
             self.collections = collections
         }
@@ -25,7 +25,7 @@ extension PackageCollections {
 }
 
 extension PackageCollections.Storage {
-    func close() throws {
+    package func close() throws {
         var errors = [Error]()
 
         let tryClose = { (item: Any) in

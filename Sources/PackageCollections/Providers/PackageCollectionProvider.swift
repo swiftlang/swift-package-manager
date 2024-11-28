@@ -13,7 +13,7 @@
 import Basics
 
 /// `PackageCollection` provider. For example, package feeds, (future) Package Index.
-protocol PackageCollectionProvider {
+package protocol PackageCollectionProvider {
     /// Retrieves `PackageCollection` from the specified source.
     ///
     /// - Parameters:

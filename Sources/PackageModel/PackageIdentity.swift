@@ -20,7 +20,7 @@ public struct PackageIdentity: CustomStringConvertible, Sendable {
 
     /// Creates a package identity from a string.
     /// - Parameter value: A string used to identify a package.
-    init(_ value: String) {
+    package init(_ value: String) {
         self.description = value
     }
 
