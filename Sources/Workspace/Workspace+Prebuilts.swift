@@ -18,6 +18,22 @@ import struct TSCUtility.Version
 import protocol TSCBasic.HashAlgorithm
 import struct TSCBasic.SHA256
 
+/// Delegate to notify clients about actions being performed by BinaryArtifactsDownloadsManage.
+public protocol PrebuiltsManagerDelegate {
+    /// The workspace has started downloading a binary artifact.
+    func willDownloadPrebuilt(from url: String, fromCache: Bool)
+    /// The workspace has finished downloading a binary artifact.
+    func didDownloadPrebuilt(
+        from url: String,
+        result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
+        duration: DispatchTimeInterval
+    )
+    /// The workspace is downloading a binary artifact.
+    func downloadingPrebuilt(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?)
+    /// The workspace finished downloading all binary artifacts.
+    func didDownloadAllPrebuilts()
+}
+
 extension Workspace {
     public enum PrebuiltsPlatform: String, Codable {
         case macos_arm64
@@ -26,18 +42,22 @@ extension Workspace {
 
     /// Provider of prebuilt binaries for packages. Currently only supports swift-syntax for macros.
     public struct PrebuiltsManager: Cancellable {
+        public typealias Delegate = PrebuiltsManagerDelegate
+
         private let fileSystem: FileSystem
         private let authorizationProvider: AuthorizationProvider?
         private let httpClient: HTTPClient
         private let archiver: Archiver
         private let scratchPath: AbsolutePath
         private let cachePath: AbsolutePath?
+        private let delegate: Delegate?
 
         init(
             fileSystem: FileSystem,
             authorizationProvider: AuthorizationProvider?,
             scratchPath: AbsolutePath,
-            cachePath: AbsolutePath?
+            cachePath: AbsolutePath?,
+            delegate: Delegate?
         ) {
             self.fileSystem = fileSystem
             self.authorizationProvider = authorizationProvider
@@ -45,6 +65,7 @@ extension Workspace {
             self.archiver = ZipArchiver(fileSystem: fileSystem) // TODO: mock
             self.scratchPath = scratchPath
             self.cachePath = cachePath
+            self.delegate = delegate
         }
 
         struct PrebuiltPackage {
@@ -147,6 +168,7 @@ extension Workspace {
             try fileSystem.createDirectory(destination.parentDirectory, recursive: true)
 
             // Download
+            let fetchStart = DispatchTime.now()
             var headers = HTTPClientHeaders()
             headers.add(name: "Accept", value: "application/octet-stream")
             var request = HTTPClient.Request.download(
@@ -159,12 +181,21 @@ extension Workspace {
             request.options.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
             request.options.validResponseCodes = [200]
 
+            self.delegate?.willDownloadPrebuilt(from: artifactURL.absoluteString, fromCache: false)
             do {
-                _ = try await self.httpClient.execute(request) { _, _ in
-                    // TODO: send to delegate
+                _ = try await self.httpClient.execute(request) { bytesDownloaded, totalBytesToDownload in
+                    self.delegate?.downloadingPrebuilt(
+                        from: artifactURL.absoluteString,
+                        bytesDownloaded: bytesDownloaded,
+                        totalBytesToDownload: totalBytesToDownload
+                    )
                 }
             } catch {
                 observabilityScope.emit(info: "Prebuilt artifact \(artifactFile)", underlyingError: error)
+                self.delegate?.didDownloadPrebuilt(
+                    from: artifactURL.absoluteString,
+                    result: .failure(error),
+                    duration: fetchStart.distance(to: .now()))
                 return nil
             }
 
@@ -172,7 +203,12 @@ extension Workspace {
             let contents = try fileSystem.readFileContents(destination)
             let hash = hashAlgorithm.hash(contents).hexadecimalRepresentation
             if hash != artifact.checksum {
-                observabilityScope.emit(info: "Prebuilt artifact \(artifactFile) checksum mismatch")
+                let errorString = "Prebuilt artifact \(artifactFile) checksum mismatch"
+                observabilityScope.emit(info: errorString)
+                self.delegate?.didDownloadPrebuilt(
+                    from: artifactURL.absoluteString,
+                    result: .failure(StringError(errorString)),
+                    duration: fetchStart.distance(to: .now()))
                 return nil
             }
 
@@ -196,6 +232,11 @@ extension Workspace {
             try await archiver.extract(from: destination, to: artifactDir)
 
             observabilityScope.emit(info: "Prebuilt artifact \(artifactFile) downloaded")
+            self.delegate?.didDownloadPrebuilt(
+                from: artifactURL.absoluteString,
+                result: .success((destination, false)),
+                duration: fetchStart.distance(to: .now()))
+
             return artifactDir
         }
 

@@ -80,6 +80,7 @@ public typealias WorkspaceDelegateProvider = (
     _ progressHandler: @escaping (Int64, Int64, String?) -> Void,
     _ inputHandler: @escaping (String, (String?) -> Void) -> Void
 ) -> WorkspaceDelegate
+
 public typealias WorkspaceLoaderProvider = (_ fileSystem: FileSystem, _ observabilityScope: ObservabilityScope)
     -> WorkspaceLoader
 

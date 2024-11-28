@@ -968,6 +968,22 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         // noop
     }
 
+    public func willDownloadPrebuilt(from url: String, fromCache: Bool) {
+        self.append("downloading package prebuilt: \(url)")
+    }
+
+    public func didDownloadPrebuilt(from url: String, result: Result<(path: AbsolutePath, fromCache: Bool), Error>, duration: DispatchTimeInterval) {
+        self.append("finished downloading package prebuilt: \(url)")
+    }
+
+    public func downloadingPrebuilt(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+        // noop
+    }
+
+    public func didDownloadAllPrebuilts() {
+        // noop
+    }
+
     public func willUpdateDependencies() {
         // noop
     }

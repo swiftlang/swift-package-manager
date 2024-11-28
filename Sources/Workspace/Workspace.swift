@@ -560,7 +560,8 @@ public class Workspace {
             fileSystem: fileSystem,
             authorizationProvider: authorizationProvider,
             scratchPath: location.prebuiltsDirectory,
-            cachePath: !configuration.sharedDependenciesCacheEnabled ? .none : location.sharedPrebuiltsCacheDirectory
+            cachePath: !configuration.sharedDependenciesCacheEnabled ? .none : location.sharedPrebuiltsCacheDirectory,
+            delegate: delegate.map(WorkspacePrebuiltsManagerDelegate.init(workspaceDelegate:))
         )
         // register the prebuilt packages downloader with the cancellation handler
         cancellator?.register(name: "package prebuilts downloads", handler: prebuiltsManager)
