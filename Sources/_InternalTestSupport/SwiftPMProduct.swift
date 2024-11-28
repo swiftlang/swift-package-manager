@@ -82,7 +82,8 @@ extension SwiftPM {
     public func execute(
         _ args: [String] = [],
         packagePath: AbsolutePath? = nil,
-        env: Environment? = nil
+        env: Environment? = nil,
+        errorIfCommandUnsuccessful: Bool = true
     ) async throws -> (stdout: String, stderr: String) {
         let result = try await executeProcess(
             args,
@@ -93,8 +94,11 @@ extension SwiftPM {
         let stdout = try result.utf8Output()
         let stderr = try result.utf8stderrOutput()
         
+        let returnValue = (stdout: stdout, stderr: stderr)
+        if (!errorIfCommandUnsuccessful) { return returnValue }
+
         if result.exitStatus == .terminated(code: 0) {
-            return (stdout: stdout, stderr: stderr)
+            return returnValue
         }
         throw SwiftPMError.executionFailure(
             underlying: AsyncProcessResult.Error.nonZeroExit(result),
