@@ -64,8 +64,8 @@ public struct HTTPClientHeaders: Sendable {
     }
 
     public struct Item: Equatable, Sendable {
-        let name: String
-        let value: String
+        package let name: String
+        package let value: String
 
         public init(name: String, value: String) {
             self.name = name

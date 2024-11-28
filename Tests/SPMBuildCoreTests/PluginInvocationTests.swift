@@ -1316,7 +1316,7 @@ final class PluginInvocationTests: XCTestCase {
         throw XCTSkip("platform versions are only available if the host is macOS")
         #else
         let hostTriple = try UserToolchain.default.targetTriple
-        let artifactSupportedTriples = try [Triple("\(hostTriple.withoutVersion().tripleString)20.0")]
+        let artifactSupportedTriples = try [Triple("\(hostTriple.withoutVersion.tripleString)20.0")]
 
         let result = try await checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: artifactSupportedTriples, hostTriple: hostTriple)
         result.forEach {

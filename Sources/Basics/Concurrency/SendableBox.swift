@@ -16,21 +16,21 @@ import struct Foundation.Date
 /// an `async` closure. This type serves as a replacement for `ThreadSafeBox`
 /// implemented with Swift Concurrency primitives.
 public actor SendableBox<Value: Sendable> {
-    init(_ value: Value? = nil) {
+    package init(_ value: Value? = nil) {
         self.value = value
     }
 
-    var value: Value?
+    package var value: Value?
 }
 
 extension SendableBox where Value == Int {
-    func increment() {
+    package func increment() {
         if let value {
             self.value = value + 1
         }
     }
 
-    func decrement() {
+    package func decrement() {
         if let value {
             self.value = value - 1
         }
@@ -38,7 +38,7 @@ extension SendableBox where Value == Int {
 }
 
 extension SendableBox where Value == Date {
-    func resetDate() {
+    package func resetDate() {
         value = Date()
     }
 }

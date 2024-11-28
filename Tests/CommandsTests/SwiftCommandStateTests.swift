@@ -10,15 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import Basics
-@testable import Build
-@testable import CoreCommands
-@testable import Commands
+import Basics
+import Build
+import CoreCommands
+import Commands
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import func PackageGraph.loadModulesGraph
 
-@testable import PackageModel
+import PackageModel
 import _InternalTestSupport
 import XCTest
 

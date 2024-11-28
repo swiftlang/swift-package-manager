@@ -19,6 +19,14 @@ import struct TSCUtility.Version
 /// A set of paths and flags for tools used for building Swift packages. This type unifies pre-existing assorted ways
 /// to specify these properties across SwiftPM codebase.
 public struct Toolset: Equatable {
+    package init(
+        knownTools: [Toolset.KnownTool : Toolset.ToolProperties] = [:],
+        rootPaths: [AbsolutePath] = []
+    ) {
+        self.knownTools = knownTools
+        self.rootPaths = rootPaths
+    }
+    
     /// Tools currently known and used by SwiftPM.
     public enum KnownTool: String, Hashable, CaseIterable {
         case swiftCompiler
@@ -33,6 +41,11 @@ public struct Toolset: Equatable {
 
     /// Properties of a known tool in a ``Toolset``.
     public struct ToolProperties: Equatable {
+        package init(path: AbsolutePath? = nil, extraCLIOptions: [String] = []) {
+            self.path = path
+            self.extraCLIOptions = extraCLIOptions
+        }
+        
         /// Absolute path to the tool on the filesystem. If absent, implies a default tool is used.
         public fileprivate(set) var path: AbsolutePath?
 

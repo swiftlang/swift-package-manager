@@ -15,7 +15,7 @@ import class Basics.InMemoryFileSystem
 import class Basics.ObservabilitySystem
 import class Build.BuildPlan
 import class Build.ProductBuildDescription
-@testable import enum Build.ModuleBuildDescription
+import enum Build.ModuleBuildDescription
 import class Build.SwiftModuleBuildDescription
 import struct Basics.Triple
 import class PackageModel.Manifest

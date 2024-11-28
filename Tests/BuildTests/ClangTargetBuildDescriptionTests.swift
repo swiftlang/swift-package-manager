@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@testable import Build
+import Build
 import PackageGraph
 import PackageModel
 import SPMBuildCore
