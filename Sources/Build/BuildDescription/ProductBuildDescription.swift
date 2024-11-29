@@ -84,7 +84,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     private let observabilityScope: ObservabilityScope
 
     /// Create a build description for a product.
-    init(
+    package init(
         package: ResolvedPackage,
         product: ResolvedProduct,
         toolsVersion: ToolsVersion,

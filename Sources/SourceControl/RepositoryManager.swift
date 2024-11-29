@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -556,6 +556,11 @@ extension RepositoryManager {
 extension RepositoryManager {
     /// Additional information about a fetch
     public struct FetchDetails: Equatable {
+        package init(fromCache: Bool, updatedCache: Bool) {
+            self.fromCache = fromCache
+            self.updatedCache = updatedCache
+        }
+        
         /// Indicates if the repository was fetched from the cache or from the remote.
         public let fromCache: Bool
         /// Indicates whether the repository was already present in the cache and updated or if a clean fetch was performed.
@@ -596,7 +601,7 @@ extension RepositoryManager.RepositoryHandle: CustomStringConvertible {
 
 extension RepositorySpecifier {
     // relative path where the repository should be stored
-    internal func storagePath() throws -> RelativePath {
+    package func storagePath() throws -> RelativePath {
         return try RelativePath(validating: self.fileSystemIdentifier)
     }
 

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2023-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -21,13 +21,13 @@ import PackageSigning
 
 import struct TSCUtility.Version
 
-protocol SignatureValidationDelegate {
+package protocol SignatureValidationDelegate {
     func onUnsigned(registry: Registry, package: PackageIdentity, version: Version, completion: (Bool) -> Void)
     func onUntrusted(registry: Registry, package: PackageIdentity, version: Version, completion: (Bool) -> Void)
 }
 
-struct SignatureValidation {
-    typealias Delegate = SignatureValidationDelegate
+package struct SignatureValidation {
+    package typealias Delegate = SignatureValidationDelegate
 
     private let skipSignatureValidation: Bool
     private let signingEntityTOFU: PackageSigningEntityTOFU
@@ -35,7 +35,7 @@ struct SignatureValidation {
         .PackageVersionMetadata
     private let delegate: Delegate
 
-    init(
+    package init(
         skipSignatureValidation: Bool,
         signingEntityStorage: PackageSigningEntityStorage?,
         signingEntityCheckingMode: SigningEntityCheckingMode,
@@ -53,7 +53,7 @@ struct SignatureValidation {
     }
 
     // MARK: - source archive
-    func validate(
+    package func validate(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         version: Version,
@@ -314,7 +314,7 @@ struct SignatureValidation {
     }
 
     // MARK: - manifests
-    func validate(
+    package func validate(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         version: Version,

@@ -26,28 +26,28 @@ extension CachingQuery {
 // SwiftPM has to be built with Swift 5.8 on CI and also needs to support CMake for bootstrapping on Windows.
 // This means we can't implement persistable hashing with macros (unavailable in Swift 5.8 and additional effort to
 // set up with CMake when Swift 5.9 is available for all CI jobs) and have to stick to `Encodable` for now.
-final class HashEncoder<Hash: HashFunction>: Encoder {
+package final class HashEncoder<Hash: HashFunction>: Encoder {
     enum Error: Swift.Error {
         case noCacheKeyConformance(Encodable.Type)
     }
 
-    var codingPath: [any CodingKey]
+    package var codingPath: [any CodingKey]
 
-    var userInfo: [CodingUserInfoKey: Any]
+    package var userInfo: [CodingUserInfoKey: Any]
 
-    func container<Key>(keyedBy type: Key.Type) -> KeyedEncodingContainer<Key> where Key: CodingKey {
+    package func container<Key>(keyedBy type: Key.Type) -> KeyedEncodingContainer<Key> where Key: CodingKey {
         .init(KeyedContainer(encoder: self))
     }
 
-    func unkeyedContainer() -> any UnkeyedEncodingContainer {
+    package func unkeyedContainer() -> any UnkeyedEncodingContainer {
         self
     }
 
-    func singleValueContainer() -> any SingleValueEncodingContainer {
+    package func singleValueContainer() -> any SingleValueEncodingContainer {
         self
     }
 
-    init() {
+    package init() {
         self.hashFunction = Hash()
         self.codingPath = []
         self.userInfo = [:]
@@ -55,13 +55,13 @@ final class HashEncoder<Hash: HashFunction>: Encoder {
 
     fileprivate var hashFunction = Hash()
 
-    func finalize() -> Hash.Digest {
+    package func finalize() -> Hash.Digest {
         self.hashFunction.finalize()
     }
 }
 
 extension HashEncoder: SingleValueEncodingContainer {
-    func encodeNil() throws {
+    package func encodeNil() throws {
         // FIXME: this doesn't encode the name of the underlying optional type,
         // but `Encoder` protocol is limited and can't provide this for us.
         var str = "nil"
@@ -70,63 +70,63 @@ extension HashEncoder: SingleValueEncodingContainer {
         }
     }
 
-    func encode(_ value: Bool) throws {
+    package func encode(_ value: Bool) throws {
         value.hash(with: &self.hashFunction)
     }
 
-    func encode(_ value: String) throws {
+    package func encode(_ value: String) throws {
         value.hash(with: &self.hashFunction)
     }
 
-    func encode(_ value: Double) throws {
+    package func encode(_ value: Double) throws {
         value.hash(with: &self.hashFunction)
     }
 
-    func encode(_ value: Float) throws {
+    package func encode(_ value: Float) throws {
         value.hash(with: &self.hashFunction)
     }
 
-    func encode(_ value: Int) throws {
+    package func encode(_ value: Int) throws {
         value.hash(with: &self.hashFunction)
     }
 
-    func encode(_ value: Int8) throws {
+    package func encode(_ value: Int8) throws {
         value.hash(with: &self.hashFunction)
     }
 
-    func encode(_ value: Int16) throws {
+    package func encode(_ value: Int16) throws {
         value.hash(with: &self.hashFunction)
     }
 
-    func encode(_ value: Int32) throws {
+    package func encode(_ value: Int32) throws {
         value.hash(with: &self.hashFunction)
     }
 
-    func encode(_ value: Int64) throws {
+    package func encode(_ value: Int64) throws {
         value.hash(with: &self.hashFunction)
     }
 
-    func encode(_ value: UInt) throws {
+    package func encode(_ value: UInt) throws {
         value.hash(with: &self.hashFunction)
     }
 
-    func encode(_ value: UInt8) throws {
+    package func encode(_ value: UInt8) throws {
         value.hash(with: &self.hashFunction)
     }
 
-    func encode(_ value: UInt16) throws {
+    package func encode(_ value: UInt16) throws {
         value.hash(with: &self.hashFunction)
     }
 
-    func encode(_ value: UInt32) throws {
+    package func encode(_ value: UInt32) throws {
         value.hash(with: &self.hashFunction)
     }
 
-    func encode(_ value: UInt64) throws {
+    package func encode(_ value: UInt64) throws {
         value.hash(with: &self.hashFunction)
     }
 
-    func encode<T>(_ value: T) throws where T: Encodable {
+    package func encode<T>(_ value: T) throws where T: Encodable {
         if let leaf = value as? LeafCacheKey {
             leaf.hash(with: &self.hashFunction)
             return
@@ -142,20 +142,20 @@ extension HashEncoder: SingleValueEncodingContainer {
 }
 
 extension HashEncoder: UnkeyedEncodingContainer {
-    var count: Int {
+    package var count: Int {
         0
     }
 
-    func nestedContainer<NestedKey>(keyedBy keyType: NestedKey.Type) -> KeyedEncodingContainer<NestedKey>
+    package func nestedContainer<NestedKey>(keyedBy keyType: NestedKey.Type) -> KeyedEncodingContainer<NestedKey>
     where NestedKey: CodingKey {
         KeyedEncodingContainer(KeyedContainer(encoder: self))
     }
 
-    func nestedUnkeyedContainer() -> any UnkeyedEncodingContainer {
+    package func nestedUnkeyedContainer() -> any UnkeyedEncodingContainer {
         self
     }
 
-    func superEncoder() -> any Encoder {
+    package func superEncoder() -> any Encoder {
         fatalError()
     }
 }

@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable
 import Build
 
 import class Basics.InMemoryFileSystem
@@ -19,7 +18,6 @@ import class Basics.ObservabilitySystem
 import class PackageModel.Manifest
 import struct PackageModel.TargetDescription
 
-@testable
 import struct PackageGraph.ResolvedProduct
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)

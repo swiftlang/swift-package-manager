@@ -14,19 +14,19 @@
 import Basics
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-@testable import PackageGraph
+import PackageGraph
 
 import PackageLoading
 
 @_spi(SwiftPMInternal)
 import PackageModel
 
-@testable import SPMBuildCore
+import SPMBuildCore
 import _InternalTestSupport
 import Workspace
 import XCTest
 
-@testable import class Build.BuildPlan
+import class Build.BuildPlan
 import struct Build.PluginConfiguration
 
 import struct TSCUtility.SerializedDiagnostics

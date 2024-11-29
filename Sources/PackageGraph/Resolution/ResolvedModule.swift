@@ -151,7 +151,7 @@ public struct ResolvedModule {
         self.underlying.sources
     }
 
-    let packageIdentity: PackageIdentity
+    package let packageIdentity: PackageIdentity
 
     /// The underlying module represented in this resolved module.
     public let underlying: Module

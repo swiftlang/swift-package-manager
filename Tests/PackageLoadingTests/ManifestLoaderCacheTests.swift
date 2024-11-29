@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import Basics
-@testable import PackageLoading
+import Basics
+import PackageLoading
 import PackageModel
 import _InternalTestSupport
 import XCTest
