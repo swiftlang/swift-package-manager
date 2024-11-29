@@ -260,9 +260,9 @@ public final class KeychainAuthorizationProvider: AuthorizationProvider, Authori
                   let created = mostRecent[kSecAttrCreationDate as String] as? Date,
                   // Get password for this specific item
                   let existingItem = try self.get(
-                    protocolHostPort: protocolHostPort,
-                    created: created,
-                    modified: mostRecent[kSecAttrModificationDate as String] as? Date
+                      protocolHostPort: protocolHostPort,
+                      created: created,
+                      modified: mostRecent[kSecAttrModificationDate as String] as? Date
                   ) as? [String: Any],
                   let passwordData = existingItem[kSecValueData as String] as? Data,
                   let account = existingItem[kSecAttrAccount as String] as? String
