@@ -7,7 +7,11 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_executable(swift-bootstrap
-    main.swift)
+    SwiftBootstrapCommand.swift)
+
+target_compile_options(swift-bootstrap PRIVATE
+  -parse-as-library)
+
 target_link_libraries(swift-bootstrap PRIVATE
   ArgumentParser
   Basics

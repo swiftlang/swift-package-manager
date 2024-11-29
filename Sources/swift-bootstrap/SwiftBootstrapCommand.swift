@@ -36,17 +36,14 @@ import struct TSCBasic.OrderedSet
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
 
-await { () async in
-    await SwiftBootstrapBuildTool.main()
-}()
-
 private struct EmptyWorkspaceLoader: WorkspaceLoader {
     func load(workspace: AbsolutePath) throws -> [AbsolutePath] {
         []
     }
 }
 
-struct SwiftBootstrapBuildTool: AsyncSwiftCommand {
+@main
+struct SwiftBootstrapCommand: AsyncSwiftCommand {
     @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
 
@@ -60,78 +57,10 @@ struct SwiftBootstrapBuildTool: AsyncSwiftCommand {
         shouldDisplay: false
     )
 
-    @Option(name: .shortAndLong, help: "Build with configuration")
-    public var configuration: BuildConfiguration = .debug
-
-    @Option(name: .customLong("Xcc", withSingleDash: true),
-            parsing: .unconditionalSingleValue,
-            help: "Pass flag through to all C compiler invocations")
-    var cCompilerFlags: [String] = []
-
-    @Option(name: .customLong("Xswiftc", withSingleDash: true),
-            parsing: .unconditionalSingleValue,
-            help: "Pass flag through to all Swift compiler invocations")
-    var swiftCompilerFlags: [String] = []
-
-    @Option(name: .customLong("Xlinker", withSingleDash: true),
-            parsing: .unconditionalSingleValue,
-            help: "Pass flag through to all linker invocations")
-    var linkerFlags: [String] = []
-
-    @Option(name: .customLong("Xcxx", withSingleDash: true),
-            parsing: .unconditionalSingleValue,
-            help: "Pass flag through to all C++ compiler invocations")
-    var cxxCompilerFlags: [String] = []
-
-    @Option(name: .customLong("Xxcbuild", withSingleDash: true),
-            parsing: .unconditionalSingleValue,
-            help: ArgumentHelp(
-                "Pass flag through to the Xcode build system invocations",
-                visibility: .hidden))
-    public var xcbuildFlags: [String] = []
-
-    @Option(name: .customLong("Xbuild-tools-swiftc", withSingleDash: true),
-            parsing: .unconditionalSingleValue,
-            help: ArgumentHelp("Pass flag to the manifest build invocation",
-                               visibility: .hidden))
-    public var manifestFlags: [String] = []
-
-    @Option(
-      name: .customLong("arch"),
-      help: ArgumentHelp("Build the package for the these architectures", visibility: .hidden))
-    public var architectures: [String] = []
-
-    /// The verbosity of informational output.
-    @Flag(name: .shortAndLong, help: "Increase verbosity to include informational output")
-    public var verbose: Bool = false
-
-    /// The verbosity of informational output.
-    @Flag(name: [.long, .customLong("vv")], help: "Increase verbosity to include debug output")
-    public var veryVerbose: Bool = false
-
-    /// Whether to use the integrated Swift driver rather than shelling out
-    /// to a separate process.
-    @Flag()
-    public var useIntegratedSwiftDriver: Bool = false
-
-    /// An option that indicates this build should check whether targets only import
-    /// their explicitly-declared dependencies
-    @Option(help: "Check that targets only import their explicitly-declared dependencies")
-    public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
-
-    enum TargetDependencyImportCheckingMode: String, Codable, ExpressibleByArgument, CaseIterable {
-        case none
-        case error
-    }
-
-    /// Disables adding $ORIGIN/@loader_path to the rpath, useful when deploying
-    @Flag(name: .customLong("disable-local-rpath"), help: "Disable adding $ORIGIN/@loader_path to the rpath by default")
-    public var shouldDisableLocalRpath: Bool = false
-
     private var buildSystem: BuildSystemProvider.Kind {
         #if os(macOS)
         // Force the Xcode build system if we want to build more than one arch.
-        return self.architectures.count > 1 ? .xcode : .native
+        return self.globalOptions.build.architectures.count > 1 ? .xcode : .native
         #else
         // Force building with the native build system on other platforms than macOS.
         return .native
@@ -140,22 +69,12 @@ struct SwiftBootstrapBuildTool: AsyncSwiftCommand {
 
     public var buildFlags: BuildFlags {
         BuildFlags(
-            cCompilerFlags: self.cCompilerFlags,
-            cxxCompilerFlags: self.cxxCompilerFlags,
-            swiftCompilerFlags: self.swiftCompilerFlags,
-            linkerFlags: self.linkerFlags,
-            xcbuildFlags: self.xcbuildFlags
+            cCompilerFlags: self.globalOptions.build.cCompilerFlags,
+            cxxCompilerFlags: self.globalOptions.build.cxxCompilerFlags,
+            swiftCompilerFlags: self.globalOptions.build.swiftCompilerFlags,
+            linkerFlags: self.globalOptions.build.linkerFlags,
+            xcbuildFlags: self.globalOptions.build.xcbuildFlags
         )
-    }
-
-    private var logLevel: Basics.Diagnostic.Severity {
-        if self.verbose {
-            return .info
-        } else if self.veryVerbose {
-            return .debug
-        } else {
-            return .warning
-        }
     }
 
     public init() {}
@@ -165,7 +84,7 @@ struct SwiftBootstrapBuildTool: AsyncSwiftCommand {
             let fileSystem = localFileSystem
 
             let observabilityScope = ObservabilitySystem { _, diagnostics in
-                if diagnostics.severity >= logLevel {
+                if diagnostics.severity >= self.globalOptions.logging.logLevel {
                     print(diagnostics)
                 }
             }.topScope
@@ -186,19 +105,19 @@ struct SwiftBootstrapBuildTool: AsyncSwiftCommand {
             let builder = try Builder(
                 fileSystem: localFileSystem,
                 observabilityScope: observabilityScope,
-                logLevel: self.logLevel
+                logLevel: self.globalOptions.logging.logLevel
             )
             try await builder.build(
                 packagePath: packagePath,
                 scratchDirectory: scratchDirectory,
                 buildSystem: self.buildSystem,
-                configuration: self.configuration,
-                architectures: self.architectures,
+                configuration: self.globalOptions.build.configuration ?? .debug,
+                architectures: self.globalOptions.build.architectures,
                 buildFlags: self.buildFlags,
-                manifestBuildFlags: self.manifestFlags,
-                useIntegratedSwiftDriver: self.useIntegratedSwiftDriver,
-                explicitTargetDependencyImportCheck: self.explicitTargetDependencyImportCheck,
-                shouldDisableLocalRpath: self.shouldDisableLocalRpath
+                manifestBuildFlags: self.globalOptions.build.manifestFlags,
+                useIntegratedSwiftDriver: self.globalOptions.build.useIntegratedSwiftDriver,
+                explicitTargetDependencyImportCheck: self.globalOptions.build.explicitTargetDependencyImportCheck,
+                shouldDisableLocalRpath: self.globalOptions.linker.shouldDisableLocalRpath
             )
         } catch _ as Diagnostics {
             throw ExitCode.failure
@@ -240,7 +159,7 @@ struct SwiftBootstrapBuildTool: AsyncSwiftCommand {
             buildFlags: BuildFlags,
             manifestBuildFlags: [String],
             useIntegratedSwiftDriver: Bool,
-            explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode,
+            explicitTargetDependencyImportCheck: BuildOptions.TargetDependencyImportCheckingMode,
             shouldDisableLocalRpath: Bool
         ) async throws {
             let buildSystem = try createBuildSystem(
@@ -268,7 +187,7 @@ struct SwiftBootstrapBuildTool: AsyncSwiftCommand {
             buildFlags: BuildFlags,
             manifestBuildFlags: [String],
             useIntegratedSwiftDriver: Bool,
-            explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode,
+            explicitTargetDependencyImportCheck: BuildOptions.TargetDependencyImportCheckingMode,
             shouldDisableLocalRpath: Bool,
             logLevel: Basics.Diagnostic.Severity
         ) throws -> BuildSystem {

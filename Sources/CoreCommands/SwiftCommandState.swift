@@ -56,7 +56,7 @@ import class TSCBasic.ThreadSafeOutputByteStream
 
 import var TSCUtility.verbosity
 
-typealias Diagnostic = Basics.Diagnostic
+package typealias Diagnostic = Basics.Diagnostic
 
 public struct ToolWorkspaceConfiguration {
     let shouldInstallSignalHandlers: Bool
@@ -1149,7 +1149,7 @@ extension Workspace.ManagedDependency {
 }
 
 extension LoggingOptions {
-    fileprivate var logLevel: Diagnostic.Severity {
+    package var logLevel: Diagnostic.Severity {
         if self.verbose {
             return .info
         } else if self.veryVerbose {
