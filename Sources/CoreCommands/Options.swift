@@ -102,7 +102,7 @@ public struct LocationOptions: ParsableArguments {
     @Option(name: .customLong("build-path"), help: .hidden)
     var _deprecated_buildPath: AbsolutePath?
 
-    var scratchDirectory: AbsolutePath? {
+    package var scratchDirectory: AbsolutePath? {
         self._scratchDirectory ?? self._deprecated_buildPath
     }
 

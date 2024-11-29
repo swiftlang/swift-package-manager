@@ -60,22 +60,6 @@ struct SwiftBootstrapBuildTool: AsyncSwiftCommand {
         shouldDisplay: false
     )
 
-    @Option(name: .customLong("package-path"),
-            help: "Specify the package path to operate on (default current directory). This changes the working directory before any other operation",
-            completion: .directory)
-    public var packageDirectory: AbsolutePath?
-
-    /// The custom .build directory, if provided.
-    @Option(name: .customLong("scratch-path"), help: "Specify a custom scratch directory path (default .build)", completion: .directory)
-    var _scratchDirectory: AbsolutePath?
-
-    @Option(name: .customLong("build-path"), help: .hidden)
-    var _deprecated_buildPath: AbsolutePath?
-
-    var scratchDirectory: AbsolutePath? {
-        self._scratchDirectory ?? self._deprecated_buildPath
-    }
-
     @Option(name: .shortAndLong, help: "Build with configuration")
     public var configuration: BuildConfiguration = .debug
 
@@ -191,13 +175,12 @@ struct SwiftBootstrapBuildTool: AsyncSwiftCommand {
                 throw ExitCode.failure
             }
 
-            guard let packagePath = packageDirectory ?? localFileSystem.currentWorkingDirectory else {
+            guard let packagePath = self.globalOptions.locations.packageDirectory ?? localFileSystem.currentWorkingDirectory else {
                 throw StringError("unknown package path")
             }
 
-            let scratchDirectory =
-                try BuildSystemUtilities.getEnvBuildPath(workingDir: cwd) ??
-                self.scratchDirectory ??
+            let scratchDirectory = try BuildSystemUtilities.getEnvBuildPath(workingDir: cwd) ??
+                self.globalOptions.locations.scratchDirectory ??
                 packagePath.appending(".build")
 
             let builder = try Builder(
