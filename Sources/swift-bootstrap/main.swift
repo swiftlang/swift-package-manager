@@ -14,6 +14,7 @@ import ArgumentParser
 import Basics
 import _Concurrency
 import Build
+import CoreCommands
 import Dispatch
 
 @_spi(SwiftPMInternal)
@@ -39,7 +40,20 @@ await { () async in
     await SwiftBootstrapBuildTool.main()
 }()
 
-struct SwiftBootstrapBuildTool: AsyncParsableCommand {
+private struct EmptyWorkspaceLoader: WorkspaceLoader {
+    func load(workspace: AbsolutePath) throws -> [AbsolutePath] {
+        []
+    }
+}
+
+struct SwiftBootstrapBuildTool: AsyncSwiftCommand {
+    @OptionGroup(visibility: .hidden)
+    var globalOptions: GlobalOptions
+
+    var workspaceLoaderProvider: CoreCommands.WorkspaceLoaderProvider {
+        { _, _ in EmptyWorkspaceLoader() }
+    }
+
     static let configuration = CommandConfiguration(
         commandName: "swift-bootstrap",
         abstract: "Bootstrapping build tool, only use in the context of bootstrapping SwiftPM itself",
@@ -162,7 +176,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
 
     public init() {}
 
-    public func run() async throws {
+    public func run(_ swiftCommandState: SwiftCommandState) async throws {
         do {
             let fileSystem = localFileSystem
 
@@ -259,7 +273,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 shouldDisableLocalRpath: shouldDisableLocalRpath,
                 logLevel: logLevel
             )
-            try await buildSystem.build(subset: .allIncludingTests)
+            try await buildSystem.build(subset: .allExcludingTests)
         }
 
         func createBuildSystem(
@@ -275,8 +289,6 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             shouldDisableLocalRpath: Bool,
             logLevel: Basics.Diagnostic.Severity
         ) throws -> BuildSystem {
-            var buildFlags = buildFlags
-
             let dataPath = scratchDirectory.appending(
                 component: self.targetToolchain.targetTriple.platformBuildPathComponent(buildSystem: buildSystem)
             )
@@ -476,14 +488,6 @@ extension BuildConfiguration {
         self.init(rawValue: argument)
     }
 }
-
-#if compiler(<6.0)
-extension AbsolutePath: ExpressibleByArgument {}
-extension BuildConfiguration: ExpressibleByArgument, CaseIterable {}
-#else
-extension AbsolutePath: @retroactive ExpressibleByArgument {}
-extension BuildConfiguration: @retroactive ExpressibleByArgument, CaseIterable {}
-#endif
 
 public func topologicalSort<T: Hashable>(
     _ nodes: [T], successors: (T) async throws -> [T]

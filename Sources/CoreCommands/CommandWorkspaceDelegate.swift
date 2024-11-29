@@ -275,10 +275,4 @@ public extension _SwiftCommand {
             )
         }
     }
-
-    var workspaceLoaderProvider: WorkspaceLoaderProvider {
-        return {
-            XcodeWorkspaceLoader(fileSystem: $0, observabilityScope: $1)
-        }
-    }
 }

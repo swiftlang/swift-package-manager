@@ -252,7 +252,7 @@ extension SignatureFormat {
 #if compiler(<6.0)
 extension SignatureFormat: ExpressibleByArgument {}
 #else
-extension SignatureFormat: @retroactive ExpressibleByArgument {}
+extension SignatureFormat: @retroactive ArgumentParser.ExpressibleByArgument {}
 #endif
 
 enum MetadataLocation {
