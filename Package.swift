@@ -76,7 +76,10 @@ let includeDynamicLibrary: Bool = false
 let systemSQLitePkgConfig: String? = nil
 #else
 let includeDynamicLibrary: Bool = true
-let systemSQLitePkgConfig: String? = "sqlite3"
+var systemSQLitePkgConfig: String? = "sqlite3"
+if ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RPATH_OS"] == "android" {
+    systemSQLitePkgConfig = nil
+}
 #endif
 
 /** An array of products which have two versions listed: one dynamically linked, the other with the
@@ -199,7 +202,7 @@ let package = Package(
             dependencies: [
                 "_AsyncFileSystem",
                 .target(name: "SPMSQLite3", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS, .macCatalyst, .linux])),
-                .product(name: "SwiftToolchainCSQLite", package: "swift-toolchain-sqlite", condition: .when(platforms: [.windows])),
+                .product(name: "SwiftToolchainCSQLite", package: "swift-toolchain-sqlite", condition: .when(platforms: [.windows, .android])),
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
