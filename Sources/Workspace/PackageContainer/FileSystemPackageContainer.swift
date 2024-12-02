@@ -78,26 +78,19 @@ public struct FileSystemPackageContainer: PackageContainer {
             }
 
             // Load the manifest.
-            // FIXME: this should not block
-            return try await withCheckedThrowingContinuation { continuation in
-                manifestLoader.load(
-                    packagePath: packagePath,
-                    packageIdentity: self.package.identity,
-                    packageKind: self.package.kind,
-                    packageLocation: self.package.locationString,
-                    packageVersion: nil,
-                    currentToolsVersion: self.currentToolsVersion,
-                    identityResolver: self.identityResolver,
-                    dependencyMapper: self.dependencyMapper,
-                    fileSystem: self.fileSystem,
-                    observabilityScope: self.observabilityScope,
-                    delegateQueue: .sharedConcurrent,
-                    callbackQueue: .sharedConcurrent,
-                    completion: {
-                        continuation.resume(with: $0)
-                    }
-                )
-            }
+            return try await manifestLoader.load(
+                packagePath: packagePath,
+                packageIdentity: self.package.identity,
+                packageKind: self.package.kind,
+                packageLocation: self.package.locationString,
+                packageVersion: nil,
+                currentToolsVersion: self.currentToolsVersion,
+                identityResolver: self.identityResolver,
+                dependencyMapper: self.dependencyMapper,
+                fileSystem: self.fileSystem,
+                observabilityScope: self.observabilityScope,
+                delegateQueue: .sharedConcurrent
+            )
         }
     }
 

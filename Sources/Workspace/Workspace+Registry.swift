@@ -84,11 +84,9 @@ extension Workspace {
             dependencyMapper: any DependencyMapper,
             fileSystem: any FileSystem,
             observabilityScope: ObservabilityScope,
-            delegateQueue: DispatchQueue,
-            callbackQueue: DispatchQueue,
-            completion: @escaping (Result<Manifest, Error>) -> Void
-        ) {
-            self.underlying.load(
+            delegateQueue: DispatchQueue
+        ) async throws -> Manifest {
+            let manifest = try await self.underlying.load(
                 manifestPath: manifestPath,
                 manifestToolsVersion: manifestToolsVersion,
                 packageIdentity: packageIdentity,
@@ -99,22 +97,14 @@ extension Workspace {
                 dependencyMapper: dependencyMapper,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
-                delegateQueue: delegateQueue,
-                callbackQueue: callbackQueue
-            ) { result in
-                switch result {
-                case .failure(let error):
-                    completion(.failure(error))
-                case .success(let manifest):
-                    self.transformSourceControlDependenciesToRegistry(
-                        manifest: manifest,
-                        transformationMode: transformationMode,
-                        observabilityScope: observabilityScope,
-                        callbackQueue: callbackQueue,
-                        completion: completion
-                    )
-                }
-            }
+                delegateQueue: delegateQueue
+            )
+
+            return try await self.transformSourceControlDependenciesToRegistry(
+                manifest: manifest,
+                transformationMode: transformationMode,
+                observabilityScope: observabilityScope
+            )
         }
 
         func resetCache(observabilityScope: ObservabilityScope) {
@@ -128,52 +118,42 @@ extension Workspace {
         private func transformSourceControlDependenciesToRegistry(
             manifest: Manifest,
             transformationMode: TransformationMode,
-            observabilityScope: ObservabilityScope,
-            callbackQueue: DispatchQueue,
-            completion: @escaping (Result<Manifest, Error>) -> Void
-        ) {
-            let sync = DispatchGroup()
-            let transformations = ThreadSafeKeyValueStore<PackageDependency, PackageIdentity>()
-            for dependency in manifest.dependencies {
-                if case .sourceControl(let settings) = dependency, case .remote(let url) = settings.location {
-                    sync.enter()
-                    self.mapRegistryIdentity(
-                        url: url,
-                        observabilityScope: observabilityScope,
-                        callbackQueue: callbackQueue
-                    ) { result in
-                        defer { sync.leave() }
-                        switch result {
-                        case .failure(let error):
-                            // do not raise error, only report it as warning
-                            observabilityScope.emit(
-                                warning: "failed querying registry identity for '\(url)'",
-                                underlyingError: error
-                            )
-                        case .success(.some(let identity)):
-                            transformations[dependency] = identity
-                        case .success(.none):
-                            // no identity found
-                            break
+            observabilityScope: ObservabilityScope
+        ) async throws -> Manifest {
+            let transformations = await withTaskGroup(of: (PackageDependency, PackageIdentity?).self) { group in
+                for dependency in manifest.dependencies {
+                    group.addTask {
+                        if case .sourceControl(let settings) = dependency, case .remote(let url) = settings.location {
+                            do {
+                                let identity = try await self.mapRegistryIdentity(
+                                    url: url,
+                                    observabilityScope: observabilityScope
+                                )
+
+                                return (dependency, identity)
+                            } catch {
+                                // do not raise error, only report it as warning
+                                observabilityScope.emit(
+                                    warning: "failed querying registry identity for '\(url)'",
+                                    underlyingError: error
+                                )
+                            }
                         }
+
+                        return (dependency, nil)
                     }
                 }
+
+                return await group.reduce(into: [:]) { $0[$1.0] =  $1.1 }
             }
 
             // update the manifest with the transformed dependencies
-            sync.notify(queue: callbackQueue) {
-                do {
-                    let updatedManifest = try self.transformManifest(
-                        manifest: manifest,
-                        transformations: transformations.get(),
-                        transformationMode: transformationMode,
-                        observabilityScope: observabilityScope
-                    )
-                    completion(.success(updatedManifest))
-                } catch {
-                    return completion(.failure(error))
-                }
-            }
+            return try self.transformManifest(
+                manifest: manifest,
+                transformations: transformations,
+                transformationMode: transformationMode,
+                observabilityScope: observabilityScope
+            )
         }
 
         private func transformManifest(
@@ -322,35 +302,31 @@ extension Workspace {
 
         private func mapRegistryIdentity(
             url: SourceControlURL,
-            observabilityScope: ObservabilityScope,
-            callbackQueue: DispatchQueue,
-            completion: @escaping (Result<PackageIdentity?, Error>) -> Void
-        ) {
+            observabilityScope: ObservabilityScope
+        ) async throws -> PackageIdentity? {
             if let cached = self.identityLookupCache[url], cached.expirationTime > .now() {
                 switch cached.result {
                 case .success(let identity):
-                    return completion(.success(identity))
+                    return identity
                 case .failure:
                     // server error, do not try again
-                    return completion(.success(.none))
+                    return nil
                 }
             }
 
-            self.registryClient.lookupIdentities(
-                scmURL: url,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
-            ) { result in
-                switch result {
-                case .failure(let error):
-                    self.identityLookupCache[url] = (result: .failure(error), expirationTime: .now() + self.cacheTTL)
-                    completion(.failure(error))
-                case .success(let identities):
-                    // FIXME: returns first result... need to consider how to address multiple ones
-                    let identity = identities.sorted().first
-                    self.identityLookupCache[url] = (result: .success(identity), expirationTime: .now() + self.cacheTTL)
-                    completion(.success(identity))
-                }
+            do {
+                let identities = try await self.registryClient.lookupIdentities(
+                    scmURL: url,
+                    observabilityScope: observabilityScope
+                )
+
+                // FIXME: returns first result... need to consider how to address multiple ones
+                let identity = identities.sorted().first
+                self.identityLookupCache[url] = (result: .success(identity), expirationTime: .now() + self.cacheTTL)
+                return identity
+            } catch {
+                self.identityLookupCache[url] = (result: .failure(error), expirationTime: .now() + self.cacheTTL)
+                throw error
             }
         }
 
@@ -393,13 +369,10 @@ extension Workspace {
         at version: Version,
         observabilityScope: ObservabilityScope
     ) async throws -> AbsolutePath {
-        // FIXME: this should not block
         let downloadPath = try await self.registryDownloadsManager.lookup(
             package: package.identity,
             version: version,
-            observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: observabilityScope
         )
 
         // Record the new state.
@@ -445,6 +418,6 @@ extension Workspace {
         try self.fileSystem.removeFileTree(downloadPath)
 
         // remove the local copy
-        try registryDownloadsManager.remove(package: dependency.packageRef.identity)
+        try self.registryDownloadsManager.remove(package: dependency.packageRef.identity)
     }
 }

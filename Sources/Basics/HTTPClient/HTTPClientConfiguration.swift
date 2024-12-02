@@ -14,8 +14,7 @@ import Foundation
 
 public struct HTTPClientConfiguration: Sendable {
     // FIXME: this should be unified with ``AuthorizationProvider`` protocol or renamed to avoid unintended shadowing.
-    public typealias AuthorizationProvider = @Sendable (URL)
-        -> String?
+    public typealias AuthorizationProvider = @Sendable (URL) -> String?
 
     public init(
         requestHeaders: HTTPClientHeaders? = nil,
