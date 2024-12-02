@@ -35,9 +35,73 @@ public protocol PrebuiltsManagerDelegate {
 }
 
 extension Workspace {
-    public enum PrebuiltsPlatform: String, Codable {
-        case macos_arm64
-        case macos_x86_64
+    public struct PrebuiltsManifest: Codable {
+        public let version: Int
+        public var libraries: [Library]
+
+        public struct Library: Identifiable, Codable {
+            public let name: String
+            public let products: [String]
+            public let cModules: [String]
+            public let artifacts: [Artifact]
+
+            public var id: String { name }
+
+            public struct Artifact: Identifiable, Codable {
+                public let platform: Platform
+                public let checksum: String
+
+                public var id: Platform { platform }
+
+                public init(platform: Platform, checksum: String) {
+                    self.platform = platform
+                    self.checksum = checksum
+                }
+            }
+
+            public init(name: String, products: [String] = [], cModules: [String] = [], artifacts: [Artifact] = []) {
+                self.name = name
+                self.products = products
+                self.cModules = cModules
+                self.artifacts = artifacts
+            }
+        }
+
+        public init(libraries: [Library] = []) {
+            self.version = 1
+            self.libraries = libraries
+        }
+
+        public enum Platform: String, Codable {
+            case macos_arm64
+            case macos_x86_64
+
+            public var arch: String {
+                switch self {
+                    case .macos_arm64:
+                    return "arm64"
+                case .macos_x86_64:
+                    return "x86_64"
+                }
+            }
+        }
+    }
+
+    var hostPrebuiltsPlatform: PrebuiltsManifest.Platform? {
+        if self.hostToolchain.targetTriple.isDarwin() {
+            switch self.hostToolchain.targetTriple.arch {
+            case .aarch64:
+                return .macos_arm64
+            case .x86_64:
+                return .macos_x86_64
+            default:
+                return nil
+            }
+        } else if self.hostToolchain.targetTriple.isLinux() {
+            return nil
+        } else {
+            return nil
+        }
     }
 
     /// Provider of prebuilt binaries for packages. Currently only supports swift-syntax for macros.
@@ -153,7 +217,7 @@ extension Workspace {
             hashAlgorithm: HashAlgorithm = SHA256(),
             observabilityScope: ObservabilityScope
         ) async throws -> AbsolutePath? {
-            let artifactName = swiftVersion + "-" + artifact.platform.rawValue
+            let artifactName = "\(swiftVersion)-\(library.name)-\(artifact.platform.rawValue)"
             let artifactFile = artifactName + ".zip"
             let artifactURL = package.prebuiltsURL.appending(components: version.description, artifactFile)
 
@@ -246,42 +310,6 @@ extension Workspace {
 }
 
 extension Workspace {
-    struct PrebuiltsManifest: Codable {
-        let version: Int
-        let libraries: [Library]
-
-        struct Library: Codable {
-            let name: String
-            let products: [String]
-            let cModules: [String]
-            let artifacts: [Artifact]
-
-            struct Artifact: Codable {
-                let platform: PrebuiltsPlatform
-                let checksum: String
-            }
-        }
-    }
-}
-
-extension Workspace {
-    var hostPrebuiltsPlatform: PrebuiltsPlatform? {
-        if self.hostToolchain.targetTriple.isDarwin() {
-            switch self.hostToolchain.targetTriple.arch {
-            case .aarch64:
-                return .macos_arm64
-            case .x86_64:
-                return .macos_x86_64
-            default:
-                return nil
-            }
-        } else if self.hostToolchain.targetTriple.isLinux() {
-            return nil
-        } else {
-            return nil
-        }
-    }
-
     func updatePrebuilts(
         manifests: DependencyManifests,
         addedOrUpdatedPackages: [PackageReference],

@@ -652,6 +652,14 @@ let package = Package(
             name: "swift-package-registry",
             dependencies: ["Commands", "PackageRegistryCommand"]
         ),
+        .executableTarget(
+            /** Utility to produce the artifacts for prebuilts */
+            name: "swift-build-prebuilts",
+            dependencies: [
+                "Basics",
+                "Workspace",
+            ]
+        ),
 
         // MARK: Support for Swift macros, should eventually move to a plugin-based solution
 
