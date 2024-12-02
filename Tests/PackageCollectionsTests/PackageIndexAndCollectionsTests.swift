@@ -19,7 +19,7 @@ import XCTest
 
 import struct TSCUtility.Version
 
-class PackageIndexAndCollectionsTests: XCTestCase {
+fileprivate final class PackageIndexAndCollectionsTests: XCTestCase {
     func testCollectionAddRemoveGetList() async throws {
         try PackageCollectionsTests_skipIfUnsupportedPlatform()
         

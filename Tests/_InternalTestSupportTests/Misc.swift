@@ -1,7 +1,7 @@
 import _InternalTestSupport
 import XCTest
 
-final class TestGetNumberOfMatches: XCTestCase {
+fileprivate final class TestGetNumberOfMatches: XCTestCase {
     func testEmptyStringMatchesOnEmptyStringZeroTimes() {
         let matchOn = ""
         let value = ""

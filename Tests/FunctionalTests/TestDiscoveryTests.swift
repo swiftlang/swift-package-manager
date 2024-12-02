@@ -15,7 +15,7 @@ import PackageModel
 import _InternalTestSupport
 import XCTest
 
-final class TestDiscoveryTests: XCTestCase {
+fileprivate final class TestDiscoveryTests: XCTestCase {
     func testBuild() async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath)

@@ -24,7 +24,7 @@ import struct TSCBasic.ByteString
 import enum TSCBasic.FileMode
 import struct TSCBasic.FileSystemError
 
-final class URLSessionHTTPClientTest: XCTestCase {
+fileprivate final class URLSessionHTTPClientTest: XCTestCase {
     func testHead() {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
@@ -1119,7 +1119,7 @@ private class MockURLProtocol: URLProtocol {
     }
 }
 
-final class FailingFileSystem: FileSystem {
+fileprivate final class FailingFileSystem: FileSystem {
     var currentWorkingDirectory: TSCAbsolutePath? {
         fatalError("unexpected call")
     }

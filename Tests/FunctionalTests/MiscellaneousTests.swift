@@ -21,7 +21,7 @@ import class Basics.AsyncProcess
 
 typealias ProcessID = AsyncProcess.ProcessID
 
-final class MiscellaneousTestCase: XCTestCase {
+fileprivate final class MiscellaneousTestCase: XCTestCase {
     func testPrintsSelectedDependencyVersion() async throws {
         // verifies the stdout contains information about
         // the selected version of the package

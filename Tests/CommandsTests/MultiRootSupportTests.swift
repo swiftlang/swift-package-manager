@@ -16,7 +16,7 @@ import _InternalTestSupport
 import Workspace
 import XCTest
 
-final class MultiRootSupportTests: CommandsTestCase {
+fileprivate final class MultiRootSupportTests: CommandsTestCase {
     func testWorkspaceLoader() throws {
         let fs = InMemoryFileSystem(emptyFiles: [
             "/tmp/test/dep/Package.swift",

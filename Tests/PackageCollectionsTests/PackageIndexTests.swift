@@ -17,7 +17,7 @@ import PackageModel
 import _InternalTestSupport
 import XCTest
 
-class PackageIndexTests: XCTestCase {
+fileprivate final class PackageIndexTests: XCTestCase {
     func testGetPackageMetadata() async throws {
         let url = URL("https://package-index.test")
         var configuration = PackageIndexConfiguration(url: url, disableCache: true)

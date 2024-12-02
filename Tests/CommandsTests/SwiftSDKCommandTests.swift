@@ -24,7 +24,7 @@ private let sdkCommandDeprecationWarning = """
     """
 
 
-final class SwiftSDKCommandTests: CommandsTestCase {
+fileprivate final class SwiftSDKCommandTests: CommandsTestCase {
     func testUsage() async throws {
         for command in [SwiftPM.sdk, SwiftPM.experimentalSDK] {
             let stdout = try await command.execute(["-help"]).stdout

@@ -47,7 +47,7 @@ private func topologicalSort(_ node: Int, _ successors: [Int: [Int]]) throws -> 
     return try topologicalSort([node], successors)
 }
 
-final class TopologicalSortTests: XCTestCase {
+fileprivate final class TopologicalSortTests: XCTestCase {
     func testTopologicalSort() throws {
         // A trivial graph.
         XCTAssertEqual([1, 2], try topologicalSort(1, [1: [2]]))

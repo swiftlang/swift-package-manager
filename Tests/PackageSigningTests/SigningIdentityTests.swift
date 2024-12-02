@@ -19,7 +19,7 @@ import Crypto
 import _InternalTestSupport
 import X509
 
-final class SigningIdentityTests: XCTestCase {
+fileprivate final class SigningIdentityTests: XCTestCase {
     func testSwiftSigningIdentityWithECKey() throws {
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
             let certificateBytes = try readFileContents(

@@ -18,7 +18,7 @@ import SwiftASN1
 import X509
 import XCTest
 
-class CertificatePolicyTests: XCTestCase {
+fileprivate final class CertificatePolicyTests: XCTestCase {
     func test_RSA_validate_happyCase() async throws {
         let certChain = try await self.readTestRSACertChain()
         let policy = TestCertificatePolicy(trustedRoots: certChain.suffix(1))

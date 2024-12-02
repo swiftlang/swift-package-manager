@@ -20,7 +20,7 @@ import PackageModel
 import struct TSCUtility.Version
 
 /// Test cases for the generation of Swift tools version specifications.
-class ToolsVersionSpecificationGenerationTests: XCTestCase {
+fileprivate final class ToolsVersionSpecificationGenerationTests: XCTestCase {
     /// Tests the generation of Swift tools version specifications.
     func testToolsVersionSpecificationGeneration() throws {
         let versionWithNonZeroPatch = ToolsVersion(version: Version(4, 3, 2))

@@ -13,7 +13,7 @@
 import XCTest
 import Build
 
-class SwiftCompilerOutputParserTests: XCTestCase {
+fileprivate final class SwiftCompilerOutputParserTests: XCTestCase {
     func testParse() throws {
         let delegate = MockSwiftCompilerOutputParserDelegate()
         let parser = SwiftCompilerOutputParser(targetName: "dummy", delegate: delegate)
@@ -207,7 +207,7 @@ class SwiftCompilerOutputParserTests: XCTestCase {
     }
 }
 
-class MockSwiftCompilerOutputParserDelegate: SwiftCompilerOutputParserDelegate {
+fileprivate final class MockSwiftCompilerOutputParserDelegate: SwiftCompilerOutputParserDelegate {
     private var messages: [SwiftCompilerMessage] = []
     private var error: Error?
 

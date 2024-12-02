@@ -17,7 +17,7 @@ import Basics
 import _InternalTestSupport
 import X509
 
-final class SigningEntityTests: XCTestCase {
+fileprivate final class SigningEntityTests: XCTestCase {
     func testTwoADPSigningEntitiesAreEqualIfTeamIDEqual() {
         let adp1 = SigningEntity.recognized(
             type: .adp,

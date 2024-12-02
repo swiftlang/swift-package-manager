@@ -352,7 +352,7 @@ private let testFiles: [(path: AbsolutePath, json: SerializedJSON)] = [
     invalidToolset,
 ]
 
-final class DestinationTests: XCTestCase {
+fileprivate final class DestinationTests: XCTestCase {
     func testDestinationCodable() throws {
         let fs = InMemoryFileSystem()
         try fs.createDirectory(AbsolutePath(validating: "/tools"))

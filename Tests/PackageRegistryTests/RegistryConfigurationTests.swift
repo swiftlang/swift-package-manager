@@ -19,7 +19,7 @@ import XCTest
 private let defaultRegistryBaseURL = URL("https://packages.example.com/")
 private let customRegistryBaseURL = URL("https://custom.packages.example.com/")
 
-final class RegistryConfigurationTests: XCTestCase {
+fileprivate final class RegistryConfigurationTests: XCTestCase {
     let encoder = JSONEncoder()
     let decoder = JSONDecoder()
 

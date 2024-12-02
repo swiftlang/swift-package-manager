@@ -20,7 +20,7 @@ import XCTest
 
 import struct TSCUtility.Version
 
-final class FilePackageFingerprintStorageTests: XCTestCase {
+fileprivate final class FilePackageFingerprintStorageTests: XCTestCase {
     func testHappyCase() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/fingerprints")

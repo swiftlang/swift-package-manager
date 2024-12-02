@@ -18,7 +18,7 @@ private var windows: Bool { true }
 private var windows: Bool { false }
 #endif
 
-class PathTests: XCTestCase {
+fileprivate final class PathTests: XCTestCase {
     func testBasics() {
         XCTAssertEqual(AbsolutePath("/").pathString, windows ? #"\"# : "/")
         XCTAssertEqual(AbsolutePath("/a").pathString, windows ? #"\a"# : "/a")

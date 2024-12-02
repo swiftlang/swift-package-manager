@@ -27,7 +27,7 @@ import struct TSCBasic.ByteString
 
 import struct TSCUtility.Version
 
-final class WorkspaceTests: XCTestCase {
+fileprivate final class WorkspaceTests: XCTestCase {
     func testBasics() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()

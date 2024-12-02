@@ -29,7 +29,7 @@ import func _InternalTestSupport.mockBuildParameters
 import func _InternalTestSupport.XCTAssertNoDiagnostics
 import XCTest
 
-final class ProductBuildDescriptionTests: XCTestCase {
+fileprivate final class ProductBuildDescriptionTests: XCTestCase {
     func testEmbeddedProducts() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:

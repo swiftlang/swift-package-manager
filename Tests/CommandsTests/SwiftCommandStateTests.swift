@@ -26,7 +26,7 @@ import class TSCBasic.BufferedOutputByteStream
 import protocol TSCBasic.OutputByteStream
 import var TSCBasic.stderrStream
 
-final class SwiftCommandStateTests: CommandsTestCase {
+fileprivate final class SwiftCommandStateTests: CommandsTestCase {
     func testVerbosityLogLevel() async throws {
         try fixture(name: "Miscellaneous/Simple") { fixturePath in
             do {

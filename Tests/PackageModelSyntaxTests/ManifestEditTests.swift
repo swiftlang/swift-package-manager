@@ -66,7 +66,7 @@ func assertManifestRefactor(
     )
 }
 
-class ManifestEditTests: XCTestCase {
+fileprivate final class ManifestEditTests: XCTestCase {
     static let swiftSystemURL: SourceControlURL = "https://github.com/apple/swift-system.git"
     static let swiftSystemPackageDependency = PackageDependency.remoteSourceControl(
             identity: PackageIdentity(url: swiftSystemURL),

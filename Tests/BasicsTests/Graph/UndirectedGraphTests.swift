@@ -15,7 +15,7 @@ import Basics
 
 import XCTest
 
-final class UndirectedGraphTests: XCTestCase {
+fileprivate final class UndirectedGraphTests: XCTestCase {
     func testNodesConnection() {
         var graph = UndirectedGraph(nodes: ["app1", "lib1", "lib2", "app2", "lib3", "app3"])
         graph.addEdge(source: 0, destination: 1)

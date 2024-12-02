@@ -14,7 +14,7 @@ import XCTest
 import Basics
 import PackageModel
 
-class PackageIdentityScopeTests: XCTestCase {
+fileprivate final class PackageIdentityScopeTests: XCTestCase {
     func testValidScopes() throws {
         XCTAssertNoThrow(try PackageIdentity.Scope(validating: "mona"))
         XCTAssertNoThrow(try PackageIdentity.Scope(validating: "m-o-n-a"))

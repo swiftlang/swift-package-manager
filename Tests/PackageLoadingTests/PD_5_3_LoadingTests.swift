@@ -18,7 +18,7 @@ import XCTest
 
 import enum TSCBasic.PathValidationError
 
-final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
+fileprivate final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
         .v5_3
     }

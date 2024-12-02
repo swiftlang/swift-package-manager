@@ -23,7 +23,7 @@ import XCTest
 
 import struct TSCUtility.Version
 
-final class RegistryPackageContainerTests: XCTestCase {
+fileprivate final class RegistryPackageContainerTests: XCTestCase {
     func testToolsVersionCompatibleVersions() async throws {
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()

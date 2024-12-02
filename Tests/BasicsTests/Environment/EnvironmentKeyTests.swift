@@ -13,7 +13,7 @@
 @testable import Basics
 import XCTest
 
-final class EnvironmentKeyTests: XCTestCase {
+fileprivate final class EnvironmentKeyTests: XCTestCase {
     func test_comparable() {
         let key0 = EnvironmentKey("Test")
         let key1 = EnvironmentKey("Test1")

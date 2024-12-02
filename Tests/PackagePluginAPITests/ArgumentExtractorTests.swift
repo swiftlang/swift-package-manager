@@ -13,7 +13,7 @@
 import PackagePlugin
 import XCTest
 
-class ArgumentExtractorAPITests: XCTestCase {
+fileprivate final class ArgumentExtractorAPITests: XCTestCase {
 
     func testBasics() throws {
         var extractor = ArgumentExtractor(["--verbose", "--target", "Target1", "Positional1", "--flag", "--verbose", "--target", "Target2", "Positional2"])

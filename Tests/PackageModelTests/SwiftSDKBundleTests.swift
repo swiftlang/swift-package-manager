@@ -135,7 +135,7 @@ private let fixtureSDKsPath = try! AbsolutePath(validating: #file)
     .parentDirectory
     .appending(components: ["Fixtures", "SwiftSDKs"])
 
-final class SwiftSDKBundleTests: XCTestCase {
+fileprivate final class SwiftSDKBundleTests: XCTestCase {
     func testInstallRemote() async throws {
         #if canImport(Darwin) && !os(macOS)
         try XCTSkipIf(true, "skipping test because process launching is not available")

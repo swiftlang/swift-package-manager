@@ -15,7 +15,7 @@ import XCTest
 
 import struct Basics.AsyncProcessResult
 
-final class MinimumDeploymentTargetTests: XCTestCase {
+fileprivate final class MinimumDeploymentTargetTests: XCTestCase {
     func testDoesNotAssertWithNoOutput() throws {
         #if !os(macOS)
         // these tests eventually call `xcrun`.

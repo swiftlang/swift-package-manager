@@ -15,7 +15,7 @@ import XCTest
 
 import struct TSCBasic.ByteString
 
-final class ByteStringExtensionsTests: XCTestCase {
+fileprivate final class ByteStringExtensionsTests: XCTestCase {
     func testSHA256Checksum() {
         let byteString = ByteString(encodingAsUTF8: "abc")
         XCTAssertEqual(byteString.contents, [0x61, 0x62, 0x63])

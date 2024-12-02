@@ -16,7 +16,7 @@ import PackageModel
 import _InternalTestSupport
 import XCTest
 
-final class ModuleMapGeneration: XCTestCase {
+fileprivate final class ModuleMapGeneration: XCTestCase {
     func testModuleNameHeaderInInclude() throws {
         let root: AbsolutePath = .root
 
@@ -177,7 +177,7 @@ final class ModuleMapGeneration: XCTestCase {
 }
 
 /// Helper function to test module map generation.  Given a target name and optionally the name of a public-headers directory, this function determines the module map type of the public-headers directory by examining the contents of a file system and invokes a given block to check the module result (including any diagnostics).
-func ModuleMapTester(_ targetName: String, includeDir: String = "include", in fileSystem: FileSystem, _ body: (ModuleMapResult) -> Void) {
+fileprivate func ModuleMapTester(_ targetName: String, includeDir: String = "include", in fileSystem: FileSystem, _ body: (ModuleMapResult) -> Void) {
     let observability = ObservabilitySystem.makeForTesting()
     // Create a module map generator, and determine the type of module map to use for the header directory.  This may emit diagnostics.
     let moduleMapGenerator = ModuleMapGenerator(targetName: targetName, moduleName: targetName.spm_mangledToC99ExtendedIdentifier(), publicHeadersDir: AbsolutePath.root.appending(component: includeDir), fileSystem: fileSystem)
@@ -199,7 +199,7 @@ func ModuleMapTester(_ targetName: String, includeDir: String = "include", in fi
     result.validateDiagnostics()
 }
 
-final class ModuleMapResult {
+fileprivate final class ModuleMapResult {
     private var diagnostics: [Basics.Diagnostic]
     private var diagsChecked: Bool
     private let path: AbsolutePath

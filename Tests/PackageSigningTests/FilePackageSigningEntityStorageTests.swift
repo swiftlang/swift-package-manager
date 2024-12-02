@@ -20,7 +20,7 @@ import XCTest
 
 import struct TSCUtility.Version
 
-final class FilePackageSigningEntityStorageTests: XCTestCase {
+fileprivate final class FilePackageSigningEntityStorageTests: XCTestCase {
     func testHappyCase() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/signing")

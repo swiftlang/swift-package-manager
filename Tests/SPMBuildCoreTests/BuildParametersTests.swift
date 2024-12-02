@@ -16,7 +16,7 @@ import struct PackageModel.BuildEnvironment
 import _InternalTestSupport
 import XCTest
 
-final class BuildParametersTests: XCTestCase {
+fileprivate final class BuildParametersTests: XCTestCase {
     func testConfigurationDependentProperties() throws {
         // Ensure that properties that depend on the "configuration" property are
         // correctly updated after modifying the configuration.

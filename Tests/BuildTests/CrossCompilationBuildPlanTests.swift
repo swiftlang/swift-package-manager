@@ -38,7 +38,7 @@ import func _InternalTestSupport.XCTAssertNoDiagnostics
 
 import XCTest
 
-final class CrossCompilationBuildPlanTests: XCTestCase {
+fileprivate final class CrossCompilationBuildPlanTests: XCTestCase {
     func testEmbeddedWasmTarget() async throws {
         var (graph, fs, observabilityScope) = try trivialPackageGraph()
 

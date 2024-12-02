@@ -19,7 +19,7 @@ import _InternalTestSupport
 
 import enum TSCBasic.JSON
 
-class PIFTests: XCTestCase {
+fileprivate final class PIFTests: XCTestCase {
     let topLevelObject = PIF.TopLevelObject(workspace:
         PIF.Workspace(
             guid: "workspace",

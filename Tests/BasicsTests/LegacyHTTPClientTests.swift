@@ -14,7 +14,7 @@
 import _InternalTestSupport
 import XCTest
 
-final class LegacyHTTPClientTests: XCTestCase {
+fileprivate final class LegacyHTTPClientTests: XCTestCase {
     func testHead() {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])

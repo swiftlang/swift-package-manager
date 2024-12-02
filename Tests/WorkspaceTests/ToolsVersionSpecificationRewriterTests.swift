@@ -20,7 +20,7 @@ import PackageModel
 import XCTest
 
 /// Test cases for `rewriteToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)`
-final class ToolsVersionSpecificationRewriterTests: XCTestCase {
+fileprivate final class ToolsVersionSpecificationRewriterTests: XCTestCase {
     
     /// Tests `rewriteToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)`.
     func testNonVersionSpecificManifests() throws {

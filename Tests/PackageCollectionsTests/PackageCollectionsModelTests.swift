@@ -16,7 +16,7 @@ import Basics
 import _InternalTestSupport
 import XCTest
 
-final class PackageCollectionsModelTests: XCTestCase {
+fileprivate final class PackageCollectionsModelTests: XCTestCase {
     func testLatestVersions() {
         let targets = [PackageCollectionsModel.Target(name: "Foo", moduleName: "Foo")]
         let products = [PackageCollectionsModel.Product(name: "Foo", type: .library(.automatic), targets: targets)]

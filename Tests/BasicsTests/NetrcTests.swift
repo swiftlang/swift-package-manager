@@ -13,7 +13,7 @@
 import Basics
 import XCTest
 
-class NetrcTests: XCTestCase {
+fileprivate final class NetrcTests: XCTestCase {
     /// should load machines for a given inline format
     func testLoadMachinesInline() throws {
         let content = "machine example.com login anonymous password qwerty"

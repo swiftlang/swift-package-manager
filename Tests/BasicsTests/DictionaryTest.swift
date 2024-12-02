@@ -13,7 +13,7 @@
 @testable import Basics
 import XCTest
 
-final class DictionaryTests: XCTestCase {
+fileprivate final class DictionaryTests: XCTestCase {
     func testThrowingUniqueKeysWithValues() throws {
         do {
             let keysWithValues = [("key1", "value1"), ("key2", "value2")]

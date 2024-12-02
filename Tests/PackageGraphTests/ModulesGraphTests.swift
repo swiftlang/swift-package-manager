@@ -21,7 +21,7 @@ import XCTest
 
 import struct TSCBasic.ByteString
 
-final class ModulesGraphTests: XCTestCase {
+fileprivate final class ModulesGraphTests: XCTestCase {
     func testBasic() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/source.swift",

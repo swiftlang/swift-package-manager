@@ -16,7 +16,7 @@ import XCTest
 
 import class Basics.AsyncProcess
 
-final class CancellatorTests: XCTestCase {
+fileprivate final class CancellatorTests: XCTestCase {
     func testHappyCase() throws {
         let observability = ObservabilitySystem.makeForTesting()
         let cancellator = Cancellator(observabilityScope: observability.topScope)
@@ -399,7 +399,7 @@ fileprivate struct Worker {
     }
 }
 
-class ProcessStartedSemaphore {
+fileprivate final class ProcessStartedSemaphore {
     let term: String
     let underlying = DispatchSemaphore(value: 0)
     let lock = NSLock()

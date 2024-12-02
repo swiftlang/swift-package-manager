@@ -13,7 +13,7 @@
 import Basics
 import XCTest
 
-final class StringExtensionsTests: XCTestCase {
+fileprivate final class StringExtensionsTests: XCTestCase {
     func testSHA256Checksum() {
         let string = "abc"
         XCTAssertEqual(Array(string.utf8), [0x61, 0x62, 0x63])

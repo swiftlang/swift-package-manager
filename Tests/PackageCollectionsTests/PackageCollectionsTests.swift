@@ -21,7 +21,7 @@ import SourceControl
 
 import struct TSCUtility.Version
 
-final class PackageCollectionsTests: XCTestCase {
+fileprivate final class PackageCollectionsTests: XCTestCase {
     func testUpdateAuthTokens() async throws {
         let authTokens = ThreadSafeKeyValueStore<AuthTokenType, String>()
         let configuration = PackageCollections.Configuration(authTokens: { authTokens.get() })

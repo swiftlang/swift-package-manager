@@ -17,7 +17,7 @@ import XCTest
 
 import struct TSCBasic.FileSystemError
 
-final class UniversalArchiverTests: XCTestCase {
+fileprivate final class UniversalArchiverTests: XCTestCase {
     func testSuccess() async throws {
         try await testWithTemporaryDirectory { tmpdir in
             let archiver = UniversalArchiver(localFileSystem)

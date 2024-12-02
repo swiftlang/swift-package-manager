@@ -14,7 +14,7 @@ import XCTest
 
 @testable import PackageModel
 
-final class InstalledSwiftPMConfigurationTests: XCTestCase {
+fileprivate final class InstalledSwiftPMConfigurationTests: XCTestCase {
     func testVersionDescription() {
         do {
             let version = InstalledSwiftPMConfiguration.Version(major: 509, minor: 0, patch: 0)

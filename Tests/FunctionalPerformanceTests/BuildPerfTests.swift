@@ -20,7 +20,7 @@
 //
 //import class TSCTestSupport.XCTestCasePerf
 //
-//final class BuildPerfTests: XCTestCasePerf {
+//fileprivate final class BuildPerfTests: XCTestCasePerf {
 //    @discardableResult
 //    func execute(args: [String] = [], packagePath: AbsolutePath) async throws -> (stdout: String, stderr: String) {
 //        // FIXME: We should pass the SWIFT_EXEC at lower level.

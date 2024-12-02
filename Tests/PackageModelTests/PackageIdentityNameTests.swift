@@ -14,7 +14,7 @@ import XCTest
 import Basics
 import PackageModel
 
-class PackageIdentityNameTests: XCTestCase {
+fileprivate final class PackageIdentityNameTests: XCTestCase {
     func testValidNames() throws {
         XCTAssertNoThrow(try PackageIdentity.Name(validating: "LinkedList"))
         XCTAssertNoThrow(try PackageIdentity.Name(validating: "Linked-List"))

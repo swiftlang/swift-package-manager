@@ -20,7 +20,7 @@ import XCTest
 
 import struct TSCBasic.ByteString
 
-final class PackageModelTests: XCTestCase {
+fileprivate final class PackageModelTests: XCTestCase {
     func testProductTypeCodable() throws {
         struct Foo: Codable, Equatable {
             var type: ProductType

@@ -20,7 +20,7 @@ import _InternalTestSupport
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import PackageGraph
 
-final class WindowsBuildPlanTests: XCTestCase {
+fileprivate final class WindowsBuildPlanTests: XCTestCase {
     // Tests that our build plan is build correctly to handle separation
     // of object files that export symbols and ones that don't and to ensure
     // DLL products pick up the right ones.

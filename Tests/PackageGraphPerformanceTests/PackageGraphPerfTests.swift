@@ -23,7 +23,7 @@ import XCTest
 
 import class TSCTestSupport.XCTestCasePerf
 
-final class PackageGraphPerfTests: XCTestCasePerf {
+fileprivate final class PackageGraphPerfTests: XCTestCasePerf {
     func testLoading100Packages() throws {
         #if !os(macOS)
         try XCTSkipIf(true, "test is only supported on macOS")

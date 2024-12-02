@@ -21,7 +21,7 @@ import XCTest
 
 import struct TSCUtility.Version
 
-final class PackageSigningEntityTOFUTests: XCTestCase {
+fileprivate final class PackageSigningEntityTOFUTests: XCTestCase {
     func testSigningEntitySeenForTheFirstTime() async throws {
         let registry = Registry(url: URL("https://packages.example.com"), supportsAvailability: false)
         let package = PackageIdentity.plain("mona.LinkedList").registry!

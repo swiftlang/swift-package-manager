@@ -21,7 +21,7 @@ import _InternalTestSupport
 
 import struct TSCUtility.Version
 
-class GitHubPackageMetadataProviderTests: XCTestCase {
+fileprivate final class GitHubPackageMetadataProviderTests: XCTestCase {
     func testBaseURL() throws {
         let apiURL = URL("https://api.github.com/repos/octocat/Hello-World")
 

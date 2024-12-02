@@ -16,7 +16,7 @@ import _InternalTestSupport
 import tsan_utils
 import XCTest
 
-class PackageCollectionsStorageTests: XCTestCase {
+fileprivate final class PackageCollectionsStorageTests: XCTestCase {
     func testHappyCase() async throws {
         try await testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending("test.db")

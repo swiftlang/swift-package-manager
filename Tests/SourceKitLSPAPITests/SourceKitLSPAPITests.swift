@@ -22,7 +22,7 @@ import struct SPMBuildCore.BuildParameters
 import _InternalTestSupport
 import XCTest
 
-final class SourceKitLSPAPITests: XCTestCase {
+fileprivate final class SourceKitLSPAPITests: XCTestCase {
     func testBasicSwiftPackage() async throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",

@@ -14,7 +14,7 @@ import Basics
 import Foundation
 import XCTest
 
-class PathShimTests: XCTestCase {
+fileprivate final class PathShimTests: XCTestCase {
     func testRescursiveDirectoryCreation() {
         // For the tests we'll need a temporary directory.
         try! withTemporaryDirectory(removeTreeOnDeinit: true) { path in
@@ -31,7 +31,7 @@ class PathShimTests: XCTestCase {
     }
 }
 
-class WalkTests: XCTestCase {
+fileprivate final class WalkTests: XCTestCase {
     func testNonRecursive() throws {
         #if os(Android)
         let root = "/system"

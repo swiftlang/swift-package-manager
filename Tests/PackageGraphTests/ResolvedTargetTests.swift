@@ -25,7 +25,7 @@ private func XCTAssertEqualTargetIDs(
     XCTAssertEqual(lhs.map(\.id), rhs.map(\.id), file: file, line: line)
 }
 
-final class ResolvedModuleDependencyTests: XCTestCase {
+fileprivate final class ResolvedModuleDependencyTests: XCTestCase {
     func test1() throws {
         let t1 = ResolvedModule.mock(packageIdentity: "pkg", name: "t1")
         let t2 = ResolvedModule.mock(packageIdentity: "pkg", name: "t2", deps: t1)

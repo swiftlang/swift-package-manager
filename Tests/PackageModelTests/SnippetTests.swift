@@ -14,7 +14,7 @@ import Basics
 @testable import PackageModel
 import XCTest
 
-class SnippetTests: XCTestCase {
+fileprivate final class SnippetTests: XCTestCase {
     let fakeSourceFilePath = AbsolutePath("/fake/path/to/test.swift")
 
     /// Test the contents of the ``Snippet`` model when parsing an empty file.

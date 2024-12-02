@@ -16,7 +16,7 @@ import PackageLoading
 import _InternalTestSupport
 import XCTest
 
-class ManifestSignatureParserTests: XCTestCase {
+fileprivate final class ManifestSignatureParserTests: XCTestCase {
     func testSignedManifest() throws {
         try testWithTemporaryDirectory { tmpPath in
             let manifestPath = tmpPath.appending("Package.swift")

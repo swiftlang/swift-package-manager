@@ -22,7 +22,7 @@ import _InternalTestSupport
 import Workspace
 import XCTest
 
-struct BuildResult {
+fileprivate struct BuildResult {
     let binPath: AbsolutePath
     let stdout: String
     let stderr: String
@@ -30,7 +30,7 @@ struct BuildResult {
     let moduleContents: [String]
 }
 
-final class BuildCommandTests: CommandsTestCase {
+fileprivate final class BuildCommandTests: CommandsTestCase {
     @discardableResult
     private func execute(
         _ args: [String] = [],

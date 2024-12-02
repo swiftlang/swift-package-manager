@@ -42,7 +42,7 @@ private let v1_1Range: VersionSetSpecifier = .range("1.1.0" ..< "1.2.0")
 private let v1_1_0Range: VersionSetSpecifier = .range("1.1.0" ..< "1.1.1")
 private let v2_0_0Range: VersionSetSpecifier = .range("2.0.0" ..< "2.0.1")
 
-class DependencyResolverTests: XCTestCase {
+fileprivate final class DependencyResolverTests: XCTestCase {
     func testVersionSetSpecifier() {
         // Check `contains`.
         XCTAssert(v1Range.contains("1.1.0"))

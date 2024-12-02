@@ -24,7 +24,7 @@ import _InternalTestSupport
 import Workspace
 import XCTest
 
-final class APIDiffTests: CommandsTestCase {
+fileprivate final class APIDiffTests: CommandsTestCase {
     @discardableResult
     private func execute(
         _ args: [String],

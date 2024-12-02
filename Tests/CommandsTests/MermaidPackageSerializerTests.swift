@@ -26,7 +26,7 @@ import Commands
 
 import XCTest
 
-final class MermaidPackageSerializerTests: XCTestCase {
+fileprivate final class MermaidPackageSerializerTests: XCTestCase {
     func testSimplePackage() throws {
         let observability = ObservabilitySystem.makeForTesting()
         let fileSystem = InMemoryFileSystem(

@@ -48,7 +48,7 @@ private func mockBuildOperation(
     )
 }
 
-final class BuildOperationTests: XCTestCase {
+fileprivate final class BuildOperationTests: XCTestCase {
     func testDetectProductTripleChange() async throws {
         let observability = ObservabilitySystem.makeForTesting()
         let fs = InMemoryFileSystem(

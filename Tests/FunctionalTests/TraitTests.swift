@@ -16,7 +16,7 @@ import PackageModel
 import TSCBasic
 import XCTest
 
-final class TraitTests: XCTestCase {
+fileprivate final class TraitTests: XCTestCase {
     func testTraits_whenNoFlagPassed() async throws {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example")

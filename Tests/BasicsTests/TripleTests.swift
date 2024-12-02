@@ -13,7 +13,7 @@
 import Basics
 import XCTest
 
-final class TripleTests: XCTestCase {
+fileprivate final class TripleTests: XCTestCase {
     func testIsAppleIsDarwin() {
         func XCTAssertTriple(
             _ triple: String,

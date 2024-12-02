@@ -20,7 +20,7 @@ import PackageGraph
 import _InternalTestSupport
 import SPMBuildCore
 
-final class BuildPlanTraversalTests: XCTestCase {
+fileprivate final class BuildPlanTraversalTests: XCTestCase {
     typealias Dest = BuildParameters.Destination
 
     struct Result {

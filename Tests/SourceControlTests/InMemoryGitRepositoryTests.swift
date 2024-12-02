@@ -15,7 +15,7 @@ import SourceControl
 import _InternalTestSupport
 import XCTest
 
-final class InMemoryGitRepositoryTests: XCTestCase {
+fileprivate final class InMemoryGitRepositoryTests: XCTestCase {
     func testBasics() throws {
         let fs = InMemoryFileSystem()
         let repo = InMemoryGitRepository(path: .root, fs: fs)

@@ -31,7 +31,7 @@ import struct Build.PluginConfiguration
 
 import struct TSCUtility.SerializedDiagnostics
 
-final class PluginInvocationTests: XCTestCase {
+fileprivate final class PluginInvocationTests: XCTestCase {
     func testBasics() async throws {
         // Construct a canned file system and package graph with a single package and a library that uses a build tool plugin that invokes a tool.
         let fileSystem = InMemoryFileSystem(emptyFiles:

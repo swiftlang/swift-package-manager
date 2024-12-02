@@ -14,7 +14,7 @@ import Basics
 import PackageLoading
 import XCTest
 
-final class PkgConfigAllowlistTests: XCTestCase {
+fileprivate final class PkgConfigAllowlistTests: XCTestCase {
     func testSimpleFlags() throws {
         let cFlags = ["-I/usr/local/Cellar/gtk+3/3.18.9/include/gtk-3.0"]
         let libs = ["-L/usr/local/Cellar/gtk+3/3.18.9/lib", "-lgtk-3", "-w"]

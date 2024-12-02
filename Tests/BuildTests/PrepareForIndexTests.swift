@@ -24,7 +24,7 @@ import func PackageGraph.loadModulesGraph
 import class PackageModel.Manifest
 import struct PackageModel.TargetDescription
 
-class PrepareForIndexTests: XCTestCase {
+fileprivate final class PrepareForIndexTests: XCTestCase {
     func testPrepare() async throws {
         let (graph, fs, scope) = try macrosPackageGraph()
 

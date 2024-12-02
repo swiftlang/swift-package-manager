@@ -14,7 +14,7 @@ import XCTest
 
 import PackageModel
 
-class SwiftLanguageVersionTests: XCTestCase {
+fileprivate final class SwiftLanguageVersionTests: XCTestCase {
 
     func testBasics() throws {
 

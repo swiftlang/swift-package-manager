@@ -19,7 +19,7 @@ import PackageGraph
 
 import XCTest
 
-final class CrossCompilationPackageGraphTests: XCTestCase {
+fileprivate final class CrossCompilationPackageGraphTests: XCTestCase {
     func testTrivialPackage() throws {
         let graph = try trivialPackageGraph().graph
         PackageGraphTester(graph) { result in

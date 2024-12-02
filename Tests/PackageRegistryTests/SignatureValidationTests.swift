@@ -21,7 +21,7 @@ import XCTest
 
 import struct TSCUtility.Version
 
-final class SignatureValidationTests: XCTestCase {
+fileprivate final class SignatureValidationTests: XCTestCase {
     private static let unsignedManifest = """
     // swift-tools-version: 5.7
 

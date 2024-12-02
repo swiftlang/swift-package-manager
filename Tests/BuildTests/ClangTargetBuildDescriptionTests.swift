@@ -18,7 +18,7 @@ import SPMBuildCore
 import _InternalTestSupport
 import XCTest
 
-final class ClangTargetBuildDescriptionTests: XCTestCase {
+fileprivate final class ClangTargetBuildDescriptionTests: XCTestCase {
     func testClangIndexStorePath() throws {
         let targetDescription = try makeTargetBuildDescription("test")
         XCTAssertTrue(try targetDescription.basicArguments().contains("-index-store-path"))

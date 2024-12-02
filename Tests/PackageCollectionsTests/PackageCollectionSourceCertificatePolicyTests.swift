@@ -16,7 +16,7 @@ import XCTest
 @testable import PackageCollections
 import PackageCollectionsSigning
 
-final class PackageCollectionSourceCertificatePolicyTests: XCTestCase {
+fileprivate final class PackageCollectionSourceCertificatePolicyTests: XCTestCase {
     func testCustomData() {
         let sourceCertPolicy = PackageCollectionSourceCertificatePolicy(sourceCertPolicies: [
             "package-collection-1": [

@@ -14,7 +14,7 @@ import XCTest
 
 @testable import PackageCollections
 
-class ValidationMessageTests: XCTestCase {
+fileprivate final class ValidationMessageTests: XCTestCase {
     func testMessageToError() {
         let warningWithProperty = ValidationMessage.warning("warning with property", property: "foo")
         let warning = ValidationMessage.warning("warning")

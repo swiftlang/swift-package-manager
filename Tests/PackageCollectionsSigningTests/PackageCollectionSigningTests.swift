@@ -19,7 +19,7 @@ import _InternalTestSupport
 import X509
 import XCTest
 
-class PackageCollectionSigningTests: XCTestCase {
+fileprivate final class PackageCollectionSigningTests: XCTestCase {
     func test_RSA_signAndValidate_happyCase() async throws {
         try await withTemporaryDirectory { tmp in
             let collection = try await self.readTestPackageCollection()

@@ -68,7 +68,7 @@ let rootNode = DependencyResolutionNode.root(package: rootRef)
 let rootCause = try! Incompatibility(Term(rootNode, .exact(v1)), root: rootNode)
 let _cause = try! Incompatibility("cause@0.0.0", root: rootNode)
 
-final class PubGrubTests: XCTestCase {
+fileprivate final class PubGrubTests: XCTestCase {
     func testTermInverse() {
         let a = Term("a@1.0.0")
         XCTAssertFalse(a.inverse.isPositive)

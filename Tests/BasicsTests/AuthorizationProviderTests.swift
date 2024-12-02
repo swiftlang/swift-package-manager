@@ -14,7 +14,7 @@
 import _InternalTestSupport
 import XCTest
 
-final class AuthorizationProviderTests: XCTestCase {
+fileprivate final class AuthorizationProviderTests: XCTestCase {
     func testBasicAPIs() {
         let url = URL("http://\(UUID().uuidString)")
         let user = UUID().uuidString

@@ -14,7 +14,7 @@ import class Basics.InMemoryFileSystem
 import PackageCollections
 import XCTest
 
-final class PackageIndexConfigurationTests: XCTestCase {
+fileprivate final class PackageIndexConfigurationTests: XCTestCase {
     func testSaveAndLoad() throws {
         let url = URL("https://package-index.test")
         let configuration = PackageIndexConfiguration(url: url)

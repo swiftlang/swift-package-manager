@@ -16,7 +16,7 @@ import XCTest
 
 @testable import PackageCollectionsModel
 
-class PackageCollectionModelTests: XCTestCase {
+fileprivate final class PackageCollectionModelTests: XCTestCase {
     typealias Model = PackageCollectionModel.V1
 
     func testCollectionCodable() throws {

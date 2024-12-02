@@ -15,7 +15,7 @@ import PackageModel
 import _InternalTestSupport
 import XCTest
 
-final class ResourcesTests: XCTestCase {
+fileprivate final class ResourcesTests: XCTestCase {
     func testSimpleResources() async throws {
         try await fixture(name: "Resources/Simple") { fixturePath in
             var executables = ["SwiftyResource"]

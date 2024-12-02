@@ -13,7 +13,7 @@
 @testable import Basics
 import XCTest
 
-final class SerializedJSONTests: XCTestCase {
+fileprivate final class SerializedJSONTests: XCTestCase {
     func testPathInterpolation() throws {
         var path = try AbsolutePath(validating: #"/test\backslashes"#)
         var json: SerializedJSON = "\(path)"

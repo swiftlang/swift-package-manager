@@ -17,7 +17,7 @@ import XCTest
 // TODO: remove when transition to new diagnostics system is complete
 typealias Diagnostic = Basics.Diagnostic
 
-final class ObservabilitySystemTest: XCTestCase {
+fileprivate final class ObservabilitySystemTest: XCTestCase {
     func testScopes() throws {
         let collector = Collector()
         let observabilitySystem = ObservabilitySystem(collector)

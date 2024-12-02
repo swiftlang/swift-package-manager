@@ -14,7 +14,7 @@
 import TSCTestSupport
 import XCTest
 
-final class FileSystemTests: XCTestCase {
+fileprivate final class FileSystemTests: XCTestCase {
     func testStripFirstLevelComponent() throws {
         let fileSystem = InMemoryFileSystem()
 

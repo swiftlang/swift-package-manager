@@ -20,7 +20,7 @@ import PackageModel
 import SourceControl
 import _InternalTestSupport
 
-class JSONPackageCollectionProviderTests: XCTestCase {
+fileprivate final class JSONPackageCollectionProviderTests: XCTestCase {
     func testGood() async throws {
         try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good.json")

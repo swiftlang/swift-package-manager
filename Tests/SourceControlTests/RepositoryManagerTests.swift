@@ -17,7 +17,7 @@ import _InternalTestSupport
 @testable import SourceControl
 import XCTest
 
-final class RepositoryManagerTests: XCTestCase {
+fileprivate final class RepositoryManagerTests: XCTestCase {
     func testBasics() async throws {
         let fs = localFileSystem
         let observability = ObservabilitySystem.makeForTesting()

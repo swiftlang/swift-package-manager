@@ -14,7 +14,7 @@ import XCTest
 
 @testable import PackageCollections
 
-class TrieTests: XCTestCase {
+fileprivate final class TrieTests: XCTestCase {
     func testContains() {
         let trie = Trie<Int>()
 

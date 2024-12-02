@@ -17,7 +17,7 @@ import XCTest
 @testable import PackageCollectionsModel
 import PackageModel
 
-class PackageCollectionValidationTests: XCTestCase {
+fileprivate final class PackageCollectionValidationTests: XCTestCase {
     typealias Model = PackageCollectionModel.V1
 
     func test_validationOK() throws {

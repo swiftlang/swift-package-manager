@@ -21,7 +21,7 @@ import XCTest
 
 import struct TSCUtility.Version
 
-final class PackageVersionChecksumTOFUTests: XCTestCase {
+fileprivate final class PackageVersionChecksumTOFUTests: XCTestCase {
     func testSourceArchiveChecksumSeenForTheFirstTime() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")

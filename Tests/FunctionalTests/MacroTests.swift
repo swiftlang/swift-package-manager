@@ -15,7 +15,7 @@ import _InternalTestSupport
 import PackageModel
 import XCTest
 
-class MacroTests: XCTestCase {
+fileprivate final class MacroTests: XCTestCase {
     func testMacrosBasic() throws {
         #if BUILD_MACROS_AS_DYLIBS
         // Check for required compiler support.

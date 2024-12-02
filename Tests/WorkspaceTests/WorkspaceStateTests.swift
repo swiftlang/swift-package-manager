@@ -14,7 +14,7 @@ import Basics
 @testable import Workspace
 import XCTest
 
-final class WorkspaceStateTests: XCTestCase {
+fileprivate final class WorkspaceStateTests: XCTestCase {
     func testV4Format() throws {
         let fs = InMemoryFileSystem()
 

@@ -13,7 +13,7 @@
 import PackagePlugin
 import XCTest
 
-class PathAPITests: XCTestCase {
+fileprivate final class PathAPITests: XCTestCase {
 
     func testBasics() throws {
         let path = Path("/tmp/file.foo")

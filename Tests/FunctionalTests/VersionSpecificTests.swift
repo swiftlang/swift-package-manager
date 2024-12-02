@@ -15,7 +15,7 @@ import SourceControl
 import _InternalTestSupport
 import XCTest
 
-final class VersionSpecificTests: XCTestCase {
+fileprivate final class VersionSpecificTests: XCTestCase {
     /// Functional tests of end-to-end support for version specific dependency resolution.
     func testEndToEndResolution() async throws {
         try await testWithTemporaryDirectory{ path in

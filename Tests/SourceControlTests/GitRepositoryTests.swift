@@ -22,7 +22,7 @@ import class Basics.AsyncProcess
 
 import enum TSCUtility.Git
 
-class GitRepositoryTests: XCTestCase {
+fileprivate final class GitRepositoryTests: XCTestCase {
 
     override func setUp() {
         // needed for submodule tests

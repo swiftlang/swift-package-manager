@@ -16,7 +16,7 @@ import PackageModel
 import _InternalTestSupport
 import XCTest
 
-final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
+fileprivate final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
         .v4
     }

@@ -30,7 +30,7 @@ import class TSCBasic.BufferedOutputByteStream
 import enum TSCBasic.JSON
 import class Basics.AsyncProcess
 
-final class PackageCommandTests: CommandsTestCase {
+fileprivate final class PackageCommandTests: CommandsTestCase {
     @discardableResult
     private func execute(
         _ args: [String] = [],

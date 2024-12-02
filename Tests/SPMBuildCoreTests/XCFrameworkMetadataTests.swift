@@ -14,7 +14,7 @@ import class Basics.InMemoryFileSystem
 import SPMBuildCore
 import XCTest
 
-final class XCFrameworkMetadataTests: XCTestCase {
+fileprivate final class XCFrameworkMetadataTests: XCTestCase {
     func testParseFramework() throws {
         let fileSystem = InMemoryFileSystem(files: [
             "/Info.plist":  """

@@ -14,7 +14,7 @@ import XCTest
 
 import Basics
 
-class TemporaryAsyncFileTests: XCTestCase {
+fileprivate final class TemporaryAsyncFileTests: XCTestCase {
     func testBasicTemporaryDirectory() async throws {
         // Test can create and remove temp directory.
         let path1: AbsolutePath = try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in

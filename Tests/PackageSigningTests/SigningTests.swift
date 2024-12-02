@@ -20,7 +20,7 @@ import SwiftASN1
 @testable import X509 // need internal APIs for OCSP testing
 import XCTest
 
-final class SigningTests: XCTestCase {
+fileprivate final class SigningTests: XCTestCase {
     func testCMS1_0_0EndToEnd() async throws {
         let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(

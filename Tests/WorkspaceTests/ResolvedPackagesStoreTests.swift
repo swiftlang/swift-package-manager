@@ -20,7 +20,7 @@ import XCTest
 
 import struct TSCUtility.Version
 
-final class ResolvedPackagesStoreTests: XCTestCase {
+fileprivate final class ResolvedPackagesStoreTests: XCTestCase {
 
     let v1: Version = "1.0.0"
 

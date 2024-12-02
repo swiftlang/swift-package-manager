@@ -24,7 +24,7 @@ import XCTest
 import protocol TSCBasic.HashAlgorithm
 import struct TSCUtility.Version
 
-final class RegistryClientTests: XCTestCase {
+fileprivate final class RegistryClientTests: XCTestCase {
     func testGetPackageMetadata() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")

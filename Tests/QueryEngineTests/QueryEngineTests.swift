@@ -98,7 +98,7 @@ private struct Expression: CachingQuery {
   }
 }
 
-final class QueryEngineTests: XCTestCase {
+fileprivate final class QueryEngineTests: XCTestCase {
   func testFilePathHashing() throws {
     let path = "/root"
 

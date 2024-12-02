@@ -14,7 +14,7 @@ import XCTest
 
 @testable import PackageModel
 
-final class CanonicalPackageLocationTests: XCTestCase {
+fileprivate final class CanonicalPackageLocationTests: XCTestCase {
     func testCaseInsensitivity() {
         XCTAssertEqual(
             CanonicalPackageLocation("MONA/LINKEDLIST").description,

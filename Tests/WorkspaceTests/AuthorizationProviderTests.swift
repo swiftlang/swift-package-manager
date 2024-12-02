@@ -15,7 +15,7 @@ import _InternalTestSupport
 import Workspace
 import XCTest
 
-final class AuthorizationProviderTests: XCTestCase {
+fileprivate final class AuthorizationProviderTests: XCTestCase {
     func testNetrcAuthorizationProviders() throws {
         let observability = ObservabilitySystem.makeForTesting()
 

@@ -16,7 +16,7 @@ import PackageLoading
 import _InternalTestSupport
 import XCTest
 
-final class ToolsVersionParserTests: XCTestCase {
+fileprivate final class ToolsVersionParserTests: XCTestCase {
     func parse(_ content: String, _ body: ((ToolsVersion) -> Void)? = nil) throws {
         let toolsVersion = try ToolsVersionParser.parse(utf8String: content)
         body?(toolsVersion)

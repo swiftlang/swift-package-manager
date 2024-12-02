@@ -13,7 +13,7 @@
 import Basics
 import XCTest
 
-final class DispatchTimeTests: XCTestCase {
+fileprivate final class DispatchTimeTests: XCTestCase {
     func testDifferencePositive() {
         let point: DispatchTime = .now()
         let future: DispatchTime = point + .seconds(10)

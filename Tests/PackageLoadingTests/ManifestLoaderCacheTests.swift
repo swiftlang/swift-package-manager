@@ -17,7 +17,7 @@ import _InternalTestSupport
 import XCTest
 
 @available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)
-final class ManifestLoaderCacheTests: XCTestCase {
+fileprivate final class ManifestLoaderCacheTests: XCTestCase {
 
     func testDBCaching() async throws {
         try UserToolchain.default.skipUnlessAtLeastSwift6()

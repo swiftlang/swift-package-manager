@@ -15,7 +15,7 @@ import Basics
 import _InternalTestSupport
 import XCTest
 
-final class PackageCollectionsSourcesStorageTest: XCTestCase {
+fileprivate final class PackageCollectionsSourcesStorageTest: XCTestCase {
     func testHappyCase() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let storage = FilePackageCollectionsSourcesStorage(fileSystem: mockFileSystem)

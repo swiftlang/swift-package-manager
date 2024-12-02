@@ -15,7 +15,7 @@ import _Concurrency
 import _InternalTestSupport
 import XCTest
 
-final class HTTPClientTests: XCTestCase {
+fileprivate final class HTTPClientTests: XCTestCase {
     func testHead() async throws {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])

@@ -15,7 +15,7 @@ import XCTest
 
 import PackageGraph
 
-final class VersionSetSpecifierTests: XCTestCase {
+fileprivate final class VersionSetSpecifierTests: XCTestCase {
     func testUnion() {
         XCTAssertEqual(VersionSetSpecifier.union(from: ["1.0.0"..<"1.0.1"]), .exact("1.0.0"))
         XCTAssertEqual(VersionSetSpecifier.union(from: ["1.0.0"..<"1.0.5"]), .range("1.0.0"..<"1.0.5"))

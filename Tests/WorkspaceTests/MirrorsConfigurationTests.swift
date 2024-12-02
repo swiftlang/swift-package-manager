@@ -15,7 +15,7 @@ import _InternalTestSupport
 import Workspace
 import XCTest
 
-final class MirrorsConfigurationTests: XCTestCase {
+fileprivate final class MirrorsConfigurationTests: XCTestCase {
     func testLoadingSchema1() throws {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/config/mirrors.json")

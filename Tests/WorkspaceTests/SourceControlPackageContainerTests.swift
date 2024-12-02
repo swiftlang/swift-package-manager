@@ -123,7 +123,7 @@ private let v1: Version = "1.0.0"
 private let v2: Version = "2.0.0"
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
 
-final class SourceControlPackageContainerTests: XCTestCase {
+fileprivate final class SourceControlPackageContainerTests: XCTestCase {
     func testVprefixVersions() async throws {
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()

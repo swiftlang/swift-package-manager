@@ -15,7 +15,7 @@ import _InternalTestSupport
 import tsan_utils
 import XCTest
 
-final class SQLiteBackedCacheTests: XCTestCase {
+fileprivate final class SQLiteBackedCacheTests: XCTestCase {
     func testHappyCase() throws {
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending("test.db")

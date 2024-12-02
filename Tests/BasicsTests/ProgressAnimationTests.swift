@@ -17,7 +17,7 @@ import XCTest
 @testable
 import Basics
 
-final class ProgressAnimationTests: XCTestCase {
+fileprivate final class ProgressAnimationTests: XCTestCase {
     class TrackingProgressAnimation: ProgressAnimationProtocol {
         var steps: [Int] = []
 

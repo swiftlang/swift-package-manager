@@ -14,7 +14,7 @@
 import TSCTestSupport
 import XCTest
 
-final class ConcurrencyHelpersTest: XCTestCase {
+fileprivate final class ConcurrencyHelpersTest: XCTestCase {
     let queue = DispatchQueue(label: "ConcurrencyHelpersTest", attributes: .concurrent)
 
     func testThreadSafeKeyValueStore() {

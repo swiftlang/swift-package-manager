@@ -17,7 +17,7 @@ import SourceControl
 import _InternalTestSupport
 import XCTest
 
-final class TraitLoadingTests: PackageDescriptionLoadingTests {
+fileprivate final class TraitLoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
         .vNext
     }

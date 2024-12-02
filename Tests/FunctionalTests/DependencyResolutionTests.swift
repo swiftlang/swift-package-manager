@@ -18,7 +18,7 @@ import _InternalTestSupport
 import Workspace
 import XCTest
 
-class DependencyResolutionTests: XCTestCase {
+fileprivate final class DependencyResolutionTests: XCTestCase {
     func testInternalSimple() async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             await XCTAssertBuilds(fixturePath)

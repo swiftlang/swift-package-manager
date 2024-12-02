@@ -44,7 +44,7 @@ extension Build.BuildPlan {
     }
 }
 
-final class BuildPlanTests: XCTestCase {
+fileprivate final class BuildPlanTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
 
     /// The j argument.

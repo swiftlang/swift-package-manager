@@ -13,7 +13,7 @@
 import PackageDescription
 import XCTest
 
-class VersionTests: XCTestCase {
+fileprivate final class VersionTests: XCTestCase {
     
     func testVersionInitialization() {
         let v0 = Version(0, 0, 0, prereleaseIdentifiers: [], buildMetadataIdentifiers: [])

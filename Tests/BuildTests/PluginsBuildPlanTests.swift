@@ -16,7 +16,7 @@ import _InternalTestSupport
 import XCTest
 import PackageModel
 
-final class PluginsBuildPlanTests: XCTestCase {
+fileprivate final class PluginsBuildPlanTests: XCTestCase {
     func testBuildToolsDatabasePath() async throws {
         try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath)

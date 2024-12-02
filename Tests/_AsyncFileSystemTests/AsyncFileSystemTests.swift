@@ -13,7 +13,7 @@ import _InternalTestSupport
 import XCTest
 import struct SystemPackage.FilePath
 
-final class AsyncFileSystemTests: XCTestCase {
+fileprivate final class AsyncFileSystemTests: XCTestCase {
     func testMockFileSystem() async throws {
         let fs = MockFileSystem()
 

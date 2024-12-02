@@ -34,7 +34,7 @@ private func XCTAssertDirectoryContainsFile(dir: AbsolutePath, filename: String,
     XCTFail("Directory \(dir) does not contain \(file)", file: file, line: line)
 }
 
-final class CFamilyTargetTestCase: XCTestCase {
+fileprivate final class CFamilyTargetTestCase: XCTestCase {
     func testCLibraryWithSpaces() async throws {
         try await fixture(name: "CFamilyTargets/CLibraryWithSpaces") { fixturePath in
             await XCTAssertBuilds(fixturePath)

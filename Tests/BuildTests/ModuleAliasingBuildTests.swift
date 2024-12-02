@@ -24,7 +24,7 @@ import SwiftDriver
 import Workspace
 import XCTest
 
-final class ModuleAliasingBuildTests: XCTestCase {
+fileprivate final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingEmptyAlias() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:

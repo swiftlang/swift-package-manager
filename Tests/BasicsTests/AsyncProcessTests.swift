@@ -22,7 +22,7 @@ import class TSCBasic.Thread
 import func TSCBasic.withTemporaryFile
 import func TSCTestSupport.withCustomEnv
 
-final class AsyncProcessTests: XCTestCase {
+fileprivate final class AsyncProcessTests: XCTestCase {
     func testBasics() throws {
         do {
             let process = AsyncProcess(args: "echo", "hello")

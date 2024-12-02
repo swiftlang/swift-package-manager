@@ -93,7 +93,7 @@ private let someToolsWithRelativeRoot = (
     """# as SerializedJSON
 )
 
-final class ToolsetTests: XCTestCase {
+fileprivate final class ToolsetTests: XCTestCase {
     func testToolset() throws {
         let fileSystem = InMemoryFileSystem()
         try fileSystem.createDirectory(AbsolutePath(validating: "/tools"))

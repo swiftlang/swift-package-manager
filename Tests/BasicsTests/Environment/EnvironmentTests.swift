@@ -16,7 +16,7 @@ import Basics
 
 import XCTest
 
-final class EnvironmentTests: XCTestCase {
+fileprivate final class EnvironmentTests: XCTestCase {
     func test_init() {
         let environment = Environment()
         XCTAssertTrue(environment.isEmpty)

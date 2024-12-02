@@ -17,7 +17,7 @@ import _InternalTestSupport
 import XCTest
 
 /// Tests for the handling of source layout conventions.
-final class PackageBuilderTests: XCTestCase {
+fileprivate final class PackageBuilderTests: XCTestCase {
     func testDotFilesAreIgnored() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/foo/.Bar.swift",
@@ -3184,7 +3184,7 @@ final class PackageBuilderTests: XCTestCase {
     }
 }
 
-final class PackageBuilderTester {
+fileprivate final class PackageBuilderTester {
     private enum Result {
         case package(PackageModel.Package)
         case error(String)

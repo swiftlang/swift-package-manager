@@ -18,7 +18,7 @@ import _InternalTestSupport
 import Workspace
 import XCTest
 
-final class ToolsVersionTests: XCTestCase {
+fileprivate final class ToolsVersionTests: XCTestCase {
     func testToolsVersion() async throws {
         try await testWithTemporaryDirectory{ path in
             let fs = localFileSystem

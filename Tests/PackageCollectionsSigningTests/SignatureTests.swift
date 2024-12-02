@@ -20,7 +20,7 @@ import _InternalTestSupport
 import X509
 import XCTest
 
-class SignatureTests: XCTestCase {
+fileprivate final class SignatureTests: XCTestCase {
     func test_RS256_generateAndValidate_happyCase() async throws {
         let jsonEncoder = JSONEncoder.makeWithDefaults()
         let jsonDecoder = JSONDecoder.makeWithDefaults()

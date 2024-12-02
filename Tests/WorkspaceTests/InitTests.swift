@@ -16,7 +16,7 @@ import PackageModel
 import Workspace
 import XCTest
 
-final class InitTests: XCTestCase {
+fileprivate final class InitTests: XCTestCase {
 
     // MARK: TSCBasic package creation for each package type.
     

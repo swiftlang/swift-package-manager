@@ -31,7 +31,7 @@ import class TSCTestSupport.XCTestCasePerf
 private let v1: Version = "1.0.0"
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
 
-class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
+fileprivate final class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
     func testKituraPubGrub_X100() async throws {
         #if !os(macOS)
         try XCTSkipIf(true, "test is only supported on macOS")

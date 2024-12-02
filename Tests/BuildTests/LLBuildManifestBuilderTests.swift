@@ -25,7 +25,7 @@ import _InternalTestSupport
 
 import XCTest
 
-final class LLBuildManifestBuilderTests: XCTestCase {
+fileprivate final class LLBuildManifestBuilderTests: XCTestCase {
     func testCreateProductCommand() async throws {
         let pkg = AbsolutePath("/pkg")
         let fs = InMemoryFileSystem(

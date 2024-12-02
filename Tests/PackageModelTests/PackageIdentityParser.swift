@@ -14,7 +14,7 @@ import XCTest
 
 @testable import PackageModel
 
-final class PackageIdentityParserTests: XCTestCase {
+fileprivate final class PackageIdentityParserTests: XCTestCase {
     func testPackageIdentityDescriptions() {
         XCTAssertEqual(PackageIdentityParser("foo").description, "foo")
         XCTAssertEqual(PackageIdentityParser("/foo").description, "foo")

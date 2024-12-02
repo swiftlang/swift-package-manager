@@ -17,7 +17,7 @@ import _InternalTestSupport
 import Workspace
 import XCTest
 
-final class ModuleMapsTestCase: XCTestCase {
+fileprivate final class ModuleMapsTestCase: XCTestCase {
     private func fixture(
         name: String,
         cModuleName: String,

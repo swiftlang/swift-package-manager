@@ -33,7 +33,7 @@ extension String {
     }
 }
 
-final class ManifestSourceGenerationTests: XCTestCase {
+fileprivate final class ManifestSourceGenerationTests: XCTestCase {
     /// Private function that writes the contents of a package manifest to a temporary package directory and then loads it, then serializes the loaded manifest back out again and loads it once again, after which it compares that no information was lost. Return the source of the newly generated manifest.
     @discardableResult
     private func testManifestWritingRoundTrip(

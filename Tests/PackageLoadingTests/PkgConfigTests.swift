@@ -26,7 +26,7 @@ extension SystemLibraryModule {
     }
 }
 
-class PkgConfigTests: XCTestCase {
+fileprivate final class PkgConfigTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
     let observability = ObservabilitySystem.makeForTesting()
     let fs = localFileSystem

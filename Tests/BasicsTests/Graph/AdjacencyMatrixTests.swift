@@ -13,7 +13,7 @@
 @testable import Basics
 import XCTest
 
-final class AdjacencyMatrixTests: XCTestCase {
+fileprivate final class AdjacencyMatrixTests: XCTestCase {
     func testEmpty() {
         var matrix = AdjacencyMatrix(rows: 0, columns: 0)
         XCTAssertEqual(matrix.bitCount, 0)

@@ -17,7 +17,7 @@ import _InternalTestSupport
 import Workspace
 import XCTest
  
-final class ModuleAliasingFixtureTests: XCTestCase {
+fileprivate final class ModuleAliasingFixtureTests: XCTestCase {
     func testModuleDirectDeps1() async throws {
         try await fixture(name: "ModuleAliasing/DirectDeps1") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")

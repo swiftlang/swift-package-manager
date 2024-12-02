@@ -14,7 +14,7 @@ import Basics
 import PackageModel
 import XCTest
 
-final class ArtifactsArchiveMetadataTests: XCTestCase {
+fileprivate final class ArtifactsArchiveMetadataTests: XCTestCase {
     func testParseMetadata() throws {
         let fileSystem = InMemoryFileSystem()
         try fileSystem.writeFileContents(

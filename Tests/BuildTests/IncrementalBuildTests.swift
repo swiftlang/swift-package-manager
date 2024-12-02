@@ -36,7 +36,7 @@ import typealias TSCBasic.ProcessEnvironmentBlock
 ///    could be determined without running any of the commands (i.e. it would
 ///    assume that there's no feedback during the build)
 ///
-final class IncrementalBuildTests: XCTestCase {
+fileprivate final class IncrementalBuildTests: XCTestCase {
 
     func testIncrementalSingleModuleCLibraryInSources() async throws {
         try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")

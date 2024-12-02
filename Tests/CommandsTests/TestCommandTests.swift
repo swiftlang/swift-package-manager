@@ -16,7 +16,7 @@ import PackageModel
 import _InternalTestSupport
 import XCTest
 
-final class TestCommandTests: CommandsTestCase {
+fileprivate final class TestCommandTests: CommandsTestCase {
     private func execute(_ args: [String], packagePath: AbsolutePath? = nil) async throws -> (stdout: String, stderr: String) {
         try await SwiftPM.Test.execute(args, packagePath: packagePath)
     }

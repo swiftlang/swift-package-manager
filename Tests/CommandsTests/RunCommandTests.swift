@@ -17,7 +17,7 @@ import XCTest
 
 import class Basics.AsyncProcess
 
-final class RunCommandTests: CommandsTestCase {
+fileprivate final class RunCommandTests: CommandsTestCase {
     private func execute(
         _ args: [String] = [],
         packagePath: AbsolutePath? = nil

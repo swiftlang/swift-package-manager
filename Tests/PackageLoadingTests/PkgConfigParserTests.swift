@@ -17,7 +17,7 @@ import XCTest
 
 import struct TSCBasic.ByteString
 
-final class PkgConfigParserTests: XCTestCase {
+fileprivate final class PkgConfigParserTests: XCTestCase {
     func testCircularPCFile() throws {
         let observability = ObservabilitySystem.makeForTesting()
 

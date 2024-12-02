@@ -18,7 +18,7 @@ import XCTest
 import Darwin
 #endif
 
-final class SandboxTest: XCTestCase {
+fileprivate final class SandboxTest: XCTestCase {
     func testSandboxOnAllPlatforms() throws {
         try withTemporaryDirectory { path in
 #if os(Windows)

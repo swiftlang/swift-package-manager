@@ -17,7 +17,7 @@ import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
 
 import struct TSCBasic.FileSystemError
 
-final class ZipArchiverTests: XCTestCase {
+fileprivate final class ZipArchiverTests: XCTestCase {
     func testZipArchiverSuccess() async throws {
         try await testWithTemporaryDirectory { tmpdir in
             let archiver = ZipArchiver(fileSystem: localFileSystem)

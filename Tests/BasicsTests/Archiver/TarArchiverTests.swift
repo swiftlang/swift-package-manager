@@ -17,7 +17,7 @@ import XCTest
 
 import struct TSCBasic.FileSystemError
 
-final class TarArchiverTests: XCTestCase {
+fileprivate final class TarArchiverTests: XCTestCase {
     func testSuccess() async throws {
         try await testWithTemporaryDirectory { tmpdir in
             let archiver = TarArchiver(fileSystem: localFileSystem)

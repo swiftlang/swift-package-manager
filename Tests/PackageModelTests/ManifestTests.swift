@@ -14,7 +14,7 @@ import XCTest
 import PackageModel
 import _InternalTestSupport
 
-class ManifestTests: XCTestCase {
+fileprivate final class ManifestTests: XCTestCase {
     func testRequiredTargets() throws {
         let products = [
             try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),

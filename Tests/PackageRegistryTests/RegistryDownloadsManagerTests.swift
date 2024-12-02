@@ -20,7 +20,7 @@ import XCTest
 
 import struct TSCUtility.Version
 
-final class RegistryDownloadsManagerTests: XCTestCase {
+fileprivate final class RegistryDownloadsManagerTests: XCTestCase {
     func testNoCache() async throws {
         let observability = ObservabilitySystem.makeForTesting()
         let fs = InMemoryFileSystem()

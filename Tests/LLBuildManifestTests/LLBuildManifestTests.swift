@@ -19,7 +19,7 @@ import XCTest
 
 private let testEntitlement = "test-entitlement"
 
-final class LLBuildManifestTests: XCTestCase {
+fileprivate final class LLBuildManifestTests: XCTestCase {
     func testEntitlementsPlist() throws {
         let FileType = WriteAuxiliary.EntitlementPlist.self
         let inputs = FileType.computeInputs(entitlement: testEntitlement)

@@ -17,7 +17,7 @@ import PackageLoading
 import _InternalTestSupport
 import XCTest
 
-final class TargetSourcesBuilderTests: XCTestCase {
+fileprivate final class TargetSourcesBuilderTests: XCTestCase {
     func testBasicFileContentsComputation() throws {
         let target = try TargetDescription(
             name: "Foo",
