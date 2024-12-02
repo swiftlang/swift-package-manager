@@ -18,15 +18,15 @@ import os
 import errno
 
 def log_timestamp(marker):
-    print("--- %s: note: %s %s" % (os.path.basename(sys.argv[0]), marker, datetime.datetime.now().isoformat()))
+    print("--- %s: note: %s %s" % (os.path.basename(sys.argv[0]), marker, datetime.datetime.now().isoformat()), flush=True)
 
 def note(message):
-    print("--- %s: note: %s" % (os.path.basename(sys.argv[0]), message))
+    print("--- %s: note: %s" % (os.path.basename(sys.argv[0]), message), flush=True)
     log_timestamp("timestamp")
     sys.stdout.flush()
 
 def error(message):
-    print("--- %s: error: %s" % (os.path.basename(sys.argv[0]), message))
+    print("--- %s: error: %s" % (os.path.basename(sys.argv[0]), message), flush=True)
     log_timestamp("timestamp")
     sys.stdout.flush()
     raise SystemExit(1)
@@ -51,21 +51,21 @@ def mkdir_p(path):
 def call(cmd, cwd=None, verbose=False):
     """Calls a subprocess."""
     if verbose:
-        print(' '.join(cmd))
+        print(' '.join(cmd), flush=True)
     try:
         subprocess.check_call(cmd, cwd=cwd)
     except Exception as e:
         if not verbose:
-            print(' '.join(cmd))
+            print(' '.join(cmd), flush=True)
         error(str(e))
 
 def call_output(cmd, cwd=None, stderr=False, verbose=False):
     """Calls a subprocess for its return data."""
     if verbose:
-        print(' '.join(cmd))
+        print(' '.join(cmd), flush=True)
     try:
         return subprocess.check_output(cmd, cwd=cwd, stderr=stderr, universal_newlines=True).strip()
     except Exception as e:
         if not verbose:
-            print(' '.join(cmd))
+            print(' '.join(cmd), flush=True)
         error(str(e))
