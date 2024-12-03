@@ -1257,12 +1257,8 @@ public final class PackageBuilder {
         for prebuilt in prebuiltLibraries.values {
             let libDir = prebuilt.path.appending(component: "lib").pathString
             var ldFlagsAssignment = BuildSettings.Assignment()
-            ldFlagsAssignment.values = ["-L\(libDir)"]
+            ldFlagsAssignment.values = ["\(libDir)/lib\(prebuilt.libraryName).a"]
             table.add(ldFlagsAssignment, for: .OTHER_LDFLAGS)
-
-            var libAssignment = BuildSettings.Assignment()
-            libAssignment.values = [prebuilt.libraryName]
-            table.add(libAssignment, for: .LINK_LIBRARIES)
 
             var includeDirs: [AbsolutePath] = [prebuilt.path.appending(component: "Modules")]
             for cModule in prebuilt.cModules {
