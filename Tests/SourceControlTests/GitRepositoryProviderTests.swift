@@ -56,4 +56,19 @@ class GitRepositoryProviderTests: XCTestCase {
         }
     }
 
+    func testGitShelErrorIsPrintable() throws {
+        let output = "An error from Git"
+        let result = AsyncProcessResult(
+            arguments: [],
+            environment: [:],
+            exitStatus: .terminated(code: 1),
+            output: .success(Array(output.utf8)),
+            stderrOutput: .success(Array(output.utf8))
+        )
+        let error = GitShellError(result: result)
+        let errorString = "\(error)"
+        XCTAssertTrue(
+            errorString.contains(output),
+            "Error string '\(errorString)' should contain '\(output)'")
+        }
 }
