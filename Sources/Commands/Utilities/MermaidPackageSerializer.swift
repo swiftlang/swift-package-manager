@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -15,11 +15,19 @@ import class PackageModel.Package
 import class PackageModel.Product
 import class PackageModel.Module
 
-struct MermaidPackageSerializer {
+@_spi(SwiftPMTestSuite)
+public struct MermaidPackageSerializer {
+    @_spi(SwiftPMTestSuite)
+    public init(package: Package, shouldIncludeLegend: Bool = false) {
+        self.package = package
+        self.shouldIncludeLegend = shouldIncludeLegend
+    }
+    
     let package: Package
     var shouldIncludeLegend = false
 
-    var renderedMarkdown: String {
+    @_spi(SwiftPMTestSuite)
+    public var renderedMarkdown: String {
         var subgraphs = OrderedDictionary<String, [Edge]>()
         subgraphs[package.identity.description] = package.products.productTargetEdges
         

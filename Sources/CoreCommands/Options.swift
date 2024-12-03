@@ -102,7 +102,8 @@ public struct LocationOptions: ParsableArguments {
     @Option(name: .customLong("build-path"), help: .hidden)
     var _deprecated_buildPath: AbsolutePath?
 
-    var scratchDirectory: AbsolutePath? {
+    @_spi(SwiftPMTestSuite)
+    public var scratchDirectory: AbsolutePath? {
         self._scratchDirectory ?? self._deprecated_buildPath
     }
 
@@ -332,28 +333,32 @@ public struct BuildOptions: ParsableArguments {
         parsing: .unconditionalSingleValue,
         help: "Pass flag through to all C compiler invocations"
     )
-    var cCompilerFlags: [String] = []
+    @_spi(SwiftPMTestSuite)
+    public var cCompilerFlags: [String] = []
 
     @Option(
         name: .customLong("Xswiftc", withSingleDash: true),
         parsing: .unconditionalSingleValue,
         help: "Pass flag through to all Swift compiler invocations"
     )
-    var swiftCompilerFlags: [String] = []
+    @_spi(SwiftPMTestSuite)
+    public var swiftCompilerFlags: [String] = []
 
     @Option(
         name: .customLong("Xlinker", withSingleDash: true),
         parsing: .unconditionalSingleValue,
         help: "Pass flag through to all linker invocations"
     )
-    var linkerFlags: [String] = []
+    @_spi(SwiftPMTestSuite)
+    public var linkerFlags: [String] = []
 
     @Option(
         name: .customLong("Xcxx", withSingleDash: true),
         parsing: .unconditionalSingleValue,
         help: "Pass flag through to all C++ compiler invocations"
     )
-    var cxxCompilerFlags: [String] = []
+    @_spi(SwiftPMTestSuite)
+    public var cxxCompilerFlags: [String] = []
 
     @Option(
         name: .customLong("Xxcbuild", withSingleDash: true),
@@ -385,7 +390,8 @@ public struct BuildOptions: ParsableArguments {
     )
     public var _deprecated_manifestFlags: [String] = []
 
-    var manifestFlags: [String] {
+    @_spi(SwiftPMTestSuite)
+    public var manifestFlags: [String] {
         self._deprecated_manifestFlags.isEmpty ?
             self._buildToolsSwiftCFlags :
             self._deprecated_manifestFlags

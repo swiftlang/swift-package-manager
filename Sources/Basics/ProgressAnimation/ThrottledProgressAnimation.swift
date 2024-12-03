@@ -13,12 +13,14 @@
 import _Concurrency
 
 /// A progress animation wrapper that throttles updates to a given interval.
-final class ThrottledProgressAnimation: ProgressAnimationProtocol {
+@_spi(SwiftPMTestSuite)
+public final class ThrottledProgressAnimation: ProgressAnimationProtocol {
     private let animation: ProgressAnimationProtocol
     private let shouldUpdate: () -> Bool
     private var pendingUpdate: (Int, Int, String)?
 
-    init<C: Clock>(
+    @_spi(SwiftPMTestSuite)
+    public init<C: Clock>(
       _ animation: ProgressAnimationProtocol,
       now: @escaping () -> C.Instant, interval: C.Duration, clock: C.Type = C.self
     ) {
@@ -35,7 +37,8 @@ final class ThrottledProgressAnimation: ProgressAnimationProtocol {
         }
     }
 
-    func update(step: Int, total: Int, text: String) {
+    @_spi(SwiftPMTestSuite)
+    public func update(step: Int, total: Int, text: String) {
         guard shouldUpdate() else {
             pendingUpdate = (step, total, text)
             return
@@ -44,14 +47,16 @@ final class ThrottledProgressAnimation: ProgressAnimationProtocol {
         animation.update(step: step, total: total, text: text)
     }
 
-    func complete(success: Bool) {
+    @_spi(SwiftPMTestSuite)
+    public func complete(success: Bool) {
         if let (step, total, text) = pendingUpdate {
             animation.update(step: step, total: total, text: text)
         }
         animation.complete(success: success)
     }
 
-    func clear() {
+    @_spi(SwiftPMTestSuite)
+    public func clear() {
         animation.clear()
     }
 }

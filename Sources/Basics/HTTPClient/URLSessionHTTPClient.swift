@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -18,13 +18,15 @@ import struct TSCUtility.Versioning
 import FoundationNetworking
 #endif
 
-final class URLSessionHTTPClient: Sendable {
+@_spi(SwiftPMTestSuite)
+public final class URLSessionHTTPClient: Sendable {
     private let dataSession: URLSession
     private let downloadSession: URLSession
     private let dataTaskManager: DataTaskManager
     private let downloadTaskManager: DownloadTaskManager
 
-    init(configuration: URLSessionConfiguration = .default) {
+    @_spi(SwiftPMTestSuite)
+    public init(configuration: URLSessionConfiguration = .default) {
         let dataDelegateQueue = OperationQueue()
         dataDelegateQueue.name = "org.swift.swiftpm.urlsession-http-client-data-delegate"
         dataDelegateQueue.maxConcurrentOperationCount = 1
@@ -52,7 +54,8 @@ final class URLSessionHTTPClient: Sendable {
     }
 
     @Sendable
-    func execute(
+    @_spi(SwiftPMTestSuite)
+    public func execute(
         _ request: HTTPClient.Request,
         progress: HTTPClient.ProgressHandler? = nil
     ) async throws -> LegacyHTTPClient.Response {
@@ -364,7 +367,8 @@ private final class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
 }
 
 extension URLRequest {
-    init(_ request: LegacyHTTPClient.Request) {
+    @_spi(SwiftPMTestSuite)
+    public init(_ request: LegacyHTTPClient.Request) {
         self.init(url: request.url)
         self.httpMethod = request.method.string
         request.headers.forEach { header in
@@ -376,7 +380,8 @@ extension URLRequest {
         }
     }
 
-    init(_ request: HTTPClient.Request) {
+    @_spi(SwiftPMTestSuite)
+    public init(_ request: HTTPClient.Request) {
         self.init(url: request.url)
         self.httpMethod = request.method.string
         request.headers.forEach { header in

@@ -369,6 +369,8 @@ def test(args):
     for arg in args.filter:
         cmd.extend(["--filter", arg])
 
+    cmd.append("--disable-testable-imports")
+
     # Test SwiftPM.
     call_swiftpm(args, cmd)
 

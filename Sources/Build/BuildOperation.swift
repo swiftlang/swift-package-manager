@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2015-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2015-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -572,7 +572,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Compute the llbuild target name using the given subset.
-    func computeLLBuildTargetName(for subset: BuildSubset) async throws -> String {
+    @_spi(SwiftPMTestSuite)
+    public func computeLLBuildTargetName(for subset: BuildSubset) async throws -> String {
         func inferTestDestination(
             testModule: ResolvedModule,
             graph: ModulesGraph
@@ -1017,7 +1018,8 @@ extension BuildDescription {
 }
 
 extension BuildSubset {
-    func recursiveDependencies(for graph: ModulesGraph, observabilityScope: ObservabilityScope) throws -> [ResolvedModule]? {
+    @_spi(SwiftPMTestSuite)
+    public func recursiveDependencies(for graph: ModulesGraph, observabilityScope: ObservabilityScope) throws -> [ResolvedModule]? {
         switch self {
         case .allIncludingTests:
             return Array(graph.reachableModules)

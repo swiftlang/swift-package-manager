@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2015-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2015-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -122,7 +122,8 @@ public enum ModuleBuildDescription: SPMBuildCore.ModuleBuildDescription {
         }
     }
 
-    var destination: BuildParameters.Destination {
+    @_spi(SwiftPMTestSuite)
+    public var destination: BuildParameters.Destination {
         switch self {
         case .swift(let buildDescription):
             buildDescription.destination
@@ -152,6 +153,12 @@ public enum ModuleBuildDescription: SPMBuildCore.ModuleBuildDescription {
 
 extension ModuleBuildDescription: Identifiable {
     public struct ID: Hashable {
+        @_spi(SwiftPMTestSuite)
+        public init(moduleID: ResolvedModule.ID, destination: BuildParameters.Destination) {
+            self.moduleID = moduleID
+            self.destination = destination
+        }
+        
         let moduleID: ResolvedModule.ID
         let destination: BuildParameters.Destination
     }

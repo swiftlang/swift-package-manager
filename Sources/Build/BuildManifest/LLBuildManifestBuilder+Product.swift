@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2015-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2015-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -18,7 +18,8 @@ import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedProduct
 
 extension LLBuildManifestBuilder {
-    func createProductCommand(_ buildProduct: ProductBuildDescription) throws {
+    @_spi(SwiftPMTestSuite)
+    public func createProductCommand(_ buildProduct: ProductBuildDescription) throws {
         let cmdName = try buildProduct.commandName
 
         // Add dependency on Info.plist generation on Darwin platforms.

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2022-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -24,7 +24,8 @@ import Workspace
 import protocol TSCBasic.OutputByteStream
 import struct TSCUtility.Version
 
-final class CommandWorkspaceDelegate: WorkspaceDelegate {
+@_spi(SwiftPMTestSuite)
+public final class CommandWorkspaceDelegate: WorkspaceDelegate {
     private struct DownloadProgress {
         let bytesDownloaded: Int64
         let totalBytesToDownload: Int64
@@ -49,7 +50,8 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     private let progressHandler: (Int64, Int64, String?) -> Void
     private let inputHandler: (String, (String?) -> Void) -> Void
 
-    init(
+    @_spi(SwiftPMTestSuite)
+    public init(
         observabilityScope: ObservabilityScope,
         outputHandler: @escaping (String, Bool) -> Void,
         progressHandler: @escaping (Int64, Int64, String?) -> Void,
@@ -61,11 +63,13 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         self.inputHandler = inputHandler
     }
 
-    func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails) {
+    @_spi(SwiftPMTestSuite)
+    public func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails) {
         self.outputHandler("Fetching \(packageLocation ?? package.description)\(fetchDetails.fromCache ? " from cache" : "")", false)
     }
 
-    func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
+    @_spi(SwiftPMTestSuite)
+    public func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
         guard case .success = result, !self.observabilityScope.errorsReported else {
             return
         }
@@ -84,7 +88,8 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         self.outputHandler("Fetched \(packageLocation ?? package.description) from cache (\(duration.descriptionInSeconds))", false)
     }
 
-    func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
+    @_spi(SwiftPMTestSuite)
+    public func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
         let (step, total, packages) = self.fetchProgressLock.withLock { () -> (Int64, Int64, String) in
             self.fetchProgress[package] = FetchProgress(
                 progress: progress,
@@ -99,43 +104,53 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         self.progressHandler(step, total, "Fetching \(packages)")
     }
 
-    func willUpdateRepository(package: PackageIdentity, repository url: String) {
+    @_spi(SwiftPMTestSuite)
+    public func willUpdateRepository(package: PackageIdentity, repository url: String) {
         self.outputHandler("Updating \(url)", false)
     }
 
-    func didUpdateRepository(package: PackageIdentity, repository url: String, duration: DispatchTimeInterval) {
+    @_spi(SwiftPMTestSuite)
+    public func didUpdateRepository(package: PackageIdentity, repository url: String, duration: DispatchTimeInterval) {
         self.outputHandler("Updated \(url) (\(duration.descriptionInSeconds))", false)
     }
 
-    func dependenciesUpToDate() {
+    @_spi(SwiftPMTestSuite)
+    public func dependenciesUpToDate() {
         self.outputHandler("Everything is already up-to-date", false)
     }
 
-    func willCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {
+    @_spi(SwiftPMTestSuite)
+    public func willCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {
         self.outputHandler("Creating working copy for \(url)", false)
     }
 
-    func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath, duration: DispatchTimeInterval) {
+    @_spi(SwiftPMTestSuite)
+    public func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath, duration: DispatchTimeInterval) {
         self.outputHandler("Working copy of \(url) resolved at \(revision)", false)
     }
 
-    func removing(package: PackageIdentity, packageLocation: String?) {
+    @_spi(SwiftPMTestSuite)
+    public func removing(package: PackageIdentity, packageLocation: String?) {
         self.outputHandler("Removing \(packageLocation ?? package.description)", false)
     }
 
-    func willResolveDependencies(reason: WorkspaceResolveReason) {
+    @_spi(SwiftPMTestSuite)
+    public func willResolveDependencies(reason: WorkspaceResolveReason) {
         self.outputHandler(Workspace.format(workspaceResolveReason: reason), true)
     }
 
-    func willComputeVersion(package: PackageIdentity, location: String) {
+    @_spi(SwiftPMTestSuite)
+    public func willComputeVersion(package: PackageIdentity, location: String) {
         self.outputHandler("Computing version for \(location)", false)
     }
 
-    func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: DispatchTimeInterval) {
+    @_spi(SwiftPMTestSuite)
+    public func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: DispatchTimeInterval) {
         self.outputHandler("Computed \(location) at \(version) (\(duration.descriptionInSeconds))", false)
     }
 
-    func willDownloadBinaryArtifact(from url: String, fromCache: Bool) {
+    @_spi(SwiftPMTestSuite)
+    public func willDownloadBinaryArtifact(from url: String, fromCache: Bool) {
         if fromCache {
             self.outputHandler("Fetching binary artifact \(url) from cache", false)
         } else {
@@ -143,7 +158,8 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func didDownloadBinaryArtifact(from url: String, result: Result<(path: AbsolutePath, fromCache: Bool), Error>, duration: DispatchTimeInterval) {
+    @_spi(SwiftPMTestSuite)
+    public func didDownloadBinaryArtifact(from url: String, result: Result<(path: AbsolutePath, fromCache: Bool), Error>, duration: DispatchTimeInterval) {
         guard case .success(let fetchDetails) = result, !self.observabilityScope.errorsReported else {
             return
         }
@@ -166,7 +182,8 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+    @_spi(SwiftPMTestSuite)
+    public func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
         let (step, total, artifacts) = self.binaryDownloadProgressLock.withLock { () -> (Int64, Int64, String) in
             self.binaryDownloadProgress[url] = DownloadProgress(
                 bytesDownloaded: bytesDownloaded,
@@ -184,7 +201,8 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
 
     // registry signature handlers
 
-    func onUnsignedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+    @_spi(SwiftPMTestSuite)
+    public func onUnsignedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
         self.inputHandler("\(package) \(version) from \(registryURL) is unsigned. okay to proceed? (yes/no) ") { response in
             switch response?.lowercased() {
             case "yes":
@@ -198,7 +216,8 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func onUntrustedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+    @_spi(SwiftPMTestSuite)
+    public func onUntrustedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
         self.inputHandler("\(package) \(version) from \(registryURL) is signed with an untrusted certificate. okay to proceed? (yes/no) ") { response in
             switch response?.lowercased() {
             case "yes":
@@ -232,36 +251,54 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         os_signpost(.end, name: SignpostName.resolvingDependencies)
     }
 
-    func willLoadGraph() {
+    @_spi(SwiftPMTestSuite)
+    public func willLoadGraph() {
         self.observabilityScope.emit(debug: "Loading and validating graph")
         os_signpost(.begin, name: SignpostName.loadingGraph)
     }
 
-    func didLoadGraph(duration: DispatchTimeInterval) {
+    @_spi(SwiftPMTestSuite)
+    public func didLoadGraph(duration: DispatchTimeInterval) {
         self.observabilityScope.emit(debug: "Graph loaded in (\(duration.descriptionInSeconds))")
         os_signpost(.end, name: SignpostName.loadingGraph)
     }
 
-    func didCompileManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+    @_spi(SwiftPMTestSuite)
+    public func didCompileManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
         self.observabilityScope.emit(debug: "Compiled manifest for '\(packageIdentity)' (from '\(packageLocation)') in \(duration.descriptionInSeconds)")
     }
 
-    func didEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+    @_spi(SwiftPMTestSuite)
+    public func didEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
         self.observabilityScope.emit(debug: "Evaluated manifest for '\(packageIdentity)' (from '\(packageLocation)') in \(duration.descriptionInSeconds)")
     }
 
-    func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic], duration: DispatchTimeInterval) {
+    @_spi(SwiftPMTestSuite)
+    public func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic], duration: DispatchTimeInterval) {
         self.observabilityScope.emit(debug: "Loaded manifest for '\(packageIdentity)' (from '\(url)') in \(duration.descriptionInSeconds)")
     }
 
     // noop
-    func willCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {}
-    func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath, duration: DispatchTimeInterval) {}
-    func resolvedFileChanged() {}
-    func didDownloadAllBinaryArtifacts() {}
-    func willCompileManifest(packageIdentity: PackageIdentity, packageLocation: String) {}
-    func willEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String) {}
-    func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
+    @_spi(SwiftPMTestSuite)
+    public func willCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {}
+
+    @_spi(SwiftPMTestSuite)
+    public func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath, duration: DispatchTimeInterval) {}
+
+    @_spi(SwiftPMTestSuite)
+    public func resolvedFileChanged() {}
+
+    @_spi(SwiftPMTestSuite)
+    public func didDownloadAllBinaryArtifacts() {}
+
+    @_spi(SwiftPMTestSuite)
+    public func willCompileManifest(packageIdentity: PackageIdentity, packageLocation: String) {}
+
+    @_spi(SwiftPMTestSuite)
+    public func willEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String) {}
+
+    @_spi(SwiftPMTestSuite)
+    public func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
 }
 
 public extension _SwiftCommand {

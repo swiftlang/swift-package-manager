@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -21,12 +21,25 @@ import protocol TSCBasic.OutputByteStream
 import var TSCBasic.stdoutStream
 
 extension SwiftPackageCommand {
-    struct ShowDependencies: AsyncSwiftCommand {
-        static let configuration = CommandConfiguration(
+    @_spi(SwiftPMTestSuite)
+    public struct ShowDependencies: AsyncSwiftCommand {
+        @_spi(SwiftPMTestSuite)
+        public init() {}
+        
+        @_spi(SwiftPMTestSuite)
+        public init(globalOptions: GlobalOptions, format: SwiftPackageCommand.ShowDependencies.ShowDependenciesMode = .text, outputPath: AbsolutePath? = nil) {
+            self.globalOptions = globalOptions
+            self.format = format
+            self.outputPath = outputPath
+        }
+        
+        @_spi(SwiftPMTestSuite)
+        public static let configuration = CommandConfiguration(
             abstract: "Print the resolved dependency graph")
 
         @OptionGroup(visibility: .hidden)
-        var globalOptions: GlobalOptions
+        @_spi(SwiftPMTestSuite)
+        public var globalOptions: GlobalOptions
 
         @Option(help: "Set the output format")
         var format: ShowDependenciesMode = .text
@@ -35,7 +48,8 @@ extension SwiftPackageCommand {
                 help: "The absolute or relative path to output the resolved dependency graph.")
         var outputPath: AbsolutePath?
 
-        func run(_ swiftCommandState: SwiftCommandState) async throws {
+        @_spi(SwiftPMTestSuite)
+        public func run(_ swiftCommandState: SwiftCommandState) async throws {
             let graph = try await swiftCommandState.loadPackageGraph()
             // command's result output goes on stdout
             // ie "swift package show-dependencies" should output to stdout
@@ -48,7 +62,8 @@ extension SwiftPackageCommand {
             )
         }
 
-        static func dumpDependenciesOf(
+        @_spi(SwiftPMTestSuite)
+        public static func dumpDependenciesOf(
             graph: ModulesGraph,
             rootPackage: ResolvedPackage,
             mode: ShowDependenciesMode,
@@ -69,7 +84,8 @@ extension SwiftPackageCommand {
             stream.flush()
         }
 
-        enum ShowDependenciesMode: String, RawRepresentable, CustomStringConvertible, ExpressibleByArgument, CaseIterable {
+        @_spi(SwiftPMTestSuite)
+        public enum ShowDependenciesMode: String, RawRepresentable, CustomStringConvertible, ExpressibleByArgument, CaseIterable {
             case text, dot, json, flatlist
 
             public init?(rawValue: String) {

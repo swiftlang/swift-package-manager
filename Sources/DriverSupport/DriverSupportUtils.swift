@@ -55,7 +55,8 @@ public enum DriverSupport {
     // This checks if given flags are supported in the built-in toolchain driver. Currently
     // there's no good way to get the supported flags from it, so run `swiftc -h` directly
     // to get the flags and cache the result.
-    static func checkToolchainDriverFlags(
+    @_spi(SwiftPMTestSuite)
+    public static func checkToolchainDriverFlags(
         flags: Set<String>,
         toolchain: PackageModel.Toolchain,
         fileSystem: FileSystem

@@ -18,8 +18,10 @@ import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import PackageGraph
 import PackageLoading
+
 @_spi(SwiftPMInternal)
 import PackageModel
+
 import SPMBuildCore
 import Workspace
 
@@ -56,7 +58,8 @@ import class TSCBasic.ThreadSafeOutputByteStream
 
 import var TSCUtility.verbosity
 
-typealias Diagnostic = Basics.Diagnostic
+@_spi(SwiftPMTestSuite)
+public typealias Diagnostic = Basics.Diagnostic
 
 public struct ToolWorkspaceConfiguration {
     let shouldInstallSignalHandlers: Bool
@@ -297,8 +300,8 @@ public final class SwiftCommandState {
         )
     }
 
-    // marked internal for testing
-    internal init(
+    @_spi(SwiftPMTestSuite)
+    public init(
         outputStream: OutputByteStream,
         options: GlobalOptions,
         toolWorkspaceConfiguration: ToolWorkspaceConfiguration,
@@ -417,7 +420,8 @@ public final class SwiftCommandState {
         }
     }
 
-    func waitForObservabilityEvents(timeout: DispatchTime) {
+    @_spi(SwiftPMTestSuite)
+    public func waitForObservabilityEvents(timeout: DispatchTime) {
         self.observabilityHandler.wait(timeout: timeout)
     }
 
@@ -754,7 +758,8 @@ public final class SwiftCommandState {
         return buildSystem
     }
 
-    static let entitlementsMacOSWarning = """
+    @_spi(SwiftPMTestSuite)
+    public static let entitlementsMacOSWarning = """
     `--disable-get-task-allow-entitlement` and `--disable-get-task-allow-entitlement` only have an effect \
     when building on macOS.
     """

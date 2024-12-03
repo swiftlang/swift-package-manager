@@ -13,6 +13,14 @@
 extension PackageCollectionsModel {
     /// A representation of paginated list of packages.
     public struct PaginatedPackageList {
+        @_spi(SwiftPMTestSuite)
+        public init(items: [PackageCollectionsModel.Package], offset: Int, limit: Int, total: Int) {
+            self.items = items
+            self.offset = offset
+            self.limit = limit
+            self.total = total
+        }
+        
         /// List of packages
         public let items: [PackageCollectionsModel.Package]
 

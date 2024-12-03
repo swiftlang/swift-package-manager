@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2023-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -16,21 +16,25 @@ import struct Foundation.Date
 /// an `async` closure. This type serves as a replacement for `ThreadSafeBox`
 /// implemented with Swift Concurrency primitives.
 public actor SendableBox<Value: Sendable> {
-    init(_ value: Value? = nil) {
+    @_spi(SwiftPMTestSuite)
+    public init(_ value: Value? = nil) {
         self.value = value
     }
 
-    var value: Value?
+    @_spi(SwiftPMTestSuite)
+    public var value: Value?
 }
 
 extension SendableBox where Value == Int {
-    func increment() {
+    @_spi(SwiftPMTestSuite)
+    public func increment() {
         if let value {
             self.value = value + 1
         }
     }
 
-    func decrement() {
+    @_spi(SwiftPMTestSuite)
+    public func decrement() {
         if let value {
             self.value = value - 1
         }
@@ -38,7 +42,8 @@ extension SendableBox where Value == Int {
 }
 
 extension SendableBox where Value == Date {
-    func resetDate() {
+    @_spi(SwiftPMTestSuite)
+    public func resetDate() {
         value = Date()
     }
 }

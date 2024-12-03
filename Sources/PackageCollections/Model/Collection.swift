@@ -19,7 +19,8 @@ import SourceControl
 public enum PackageCollectionsModel {}
 
 // make things less verbose internally
-internal typealias Model = PackageCollectionsModel
+@_spi(SwiftPMTestSuite)
+public typealias Model = PackageCollectionsModel
 
 extension PackageCollectionsModel {
     /// A `Collection` is a collection of packages.
@@ -63,7 +64,8 @@ extension PackageCollectionsModel {
         }
 
         /// Initializes a `Collection`
-        init(
+        @_spi(SwiftPMTestSuite)
+        public init(
             source: Source,
             name: String,
             overview: String?,
@@ -142,7 +144,8 @@ extension PackageCollectionsModel {
         case json(URL)
 
         /// Creates an `Identifier` from `Source`
-        init(from source: CollectionSource) {
+        @_spi(SwiftPMTestSuite)
+        public init(from source: CollectionSource) {
             switch source.type {
             case .json:
                 self = .json(source.url)
@@ -190,6 +193,11 @@ extension PackageCollectionsModel.CollectionIdentifier: Codable {
 extension PackageCollectionsModel.Collection {
     /// Represents the author of a `Collection`
     public struct Author: Equatable, Codable {
+        @_spi(SwiftPMTestSuite)
+        public init(name: String) {
+            self.name = name
+        }
+        
         /// The name of the author
         public let name: String
     }

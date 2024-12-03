@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -53,8 +53,9 @@ extension AuthorizationProvider {
 // MARK: - netrc
 
 public final class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWriter {
-    // marked internal for testing
-    internal let path: AbsolutePath
+    @_spi(SwiftPMTestSuite)
+    public let path: AbsolutePath
+    
     private let fileSystem: FileSystem
 
     private let cache = ThreadSafeKeyValueStore<String, (user: String, password: String)>()
@@ -138,8 +139,8 @@ public final class NetrcAuthorizationProvider: AuthorizationProvider, Authorizat
         return .none
     }
 
-    // marked internal for testing
-    internal var machines: [Basics.Netrc.Machine] {
+    @_spi(SwiftPMTestSuite)
+    public  var machines: [Basics.Netrc.Machine] {
         // this ignores any errors reading the file
         // initial validation is done at the time of initializing the provider
         // and if the file becomes corrupt at runtime it will handle it gracefully
@@ -407,16 +408,23 @@ public final class KeychainAuthorizationProvider: AuthorizationProvider, Authori
         return item
     }
 
-    struct ProtocolHostPort: Hashable, CustomStringConvertible {
-        let `protocol`: String?
-        let host: String
-        let port: Int?
+    @_spi(SwiftPMTestSuite)
+    public struct ProtocolHostPort: Hashable, CustomStringConvertible {
+        @_spi(SwiftPMTestSuite)
+        public let `protocol`: String?
+
+        @_spi(SwiftPMTestSuite)
+        public let host: String
+
+        @_spi(SwiftPMTestSuite)
+        public let port: Int?
 
         var server: String {
             self.host
         }
 
-        var protocolCFString: CFString {
+        @_spi(SwiftPMTestSuite)
+        public var protocolCFString: CFString {
             // See
             // https://developer.apple.com/documentation/security/keychain_services/keychain_items/item_attribute_keys_and_values?language=swift
             // for a list of possible values for the `kSecAttrProtocol` attribute.
@@ -430,7 +438,8 @@ public final class KeychainAuthorizationProvider: AuthorizationProvider, Authori
             }
         }
 
-        init?(from url: URL) {
+        @_spi(SwiftPMTestSuite)
+        public init?(from url: URL) {
             guard let host = url.host?.lowercased(), !host.isEmpty else {
                 return nil
             }
@@ -440,7 +449,8 @@ public final class KeychainAuthorizationProvider: AuthorizationProvider, Authori
             self.port = url.port
         }
 
-        var description: String {
+        @_spi(SwiftPMTestSuite)
+        public var description: String {
             "\(self.protocol.map { "\($0)://" } ?? "")\(self.host)\(self.port.map { ":\($0)" } ?? "")"
         }
     }
@@ -450,8 +460,9 @@ public final class KeychainAuthorizationProvider: AuthorizationProvider, Authori
 // MARK: - Composite
 
 public struct CompositeAuthorizationProvider: AuthorizationProvider {
-    // marked internal for testing
-    internal let providers: [AuthorizationProvider]
+    @_spi(SwiftPMTestSuite)
+    public let providers: [AuthorizationProvider]
+
     private let observabilityScope: ObservabilityScope
 
     public init(_ providers: AuthorizationProvider..., observabilityScope: ObservabilityScope) {
