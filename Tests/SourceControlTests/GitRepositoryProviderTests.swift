@@ -58,8 +58,10 @@ class GitRepositoryProviderTests: XCTestCase {
 
     func testGitShelErrorIsPrintable() throws {
         let output = "An error from Git"
+        let arguments = ["git", "error"]
+        let command = "git error"
         let result = AsyncProcessResult(
-            arguments: [],
+            arguments: arguments,
             environment: [:],
             exitStatus: .terminated(code: 1),
             output: .success(Array(output.utf8)),
@@ -70,5 +72,8 @@ class GitRepositoryProviderTests: XCTestCase {
         XCTAssertTrue(
             errorString.contains(output),
             "Error string '\(errorString)' should contain '\(output)'")
+        XCTAssertTrue(
+            errorString.contains(command),
+            "Error string '\(errorString)' should contain '\(command)'")
         }
 }
