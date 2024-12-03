@@ -40,4 +40,20 @@ class GitRepositoryProviderTests: XCTestCase {
             XCTAssertThrowsError(try provider.isValidDirectory(notGitChildPath))
         }
     }
+
+    func testIsValidDirectoryThrowsPrintableError() throws {
+        try testWithTemporaryDirectory { temp in
+            let provider = GitRepositoryProvider()
+            let expectedErrorMessage = "not a git repository"
+            do {
+                try _ = provider.isValidDirectory(temp)
+            } catch let error {
+                let errorString = String(describing: error)
+                XCTAssertTrue(
+                    errorString.contains(expectedErrorMessage),
+                    "Error string '\(errorString)' should contain '\(expectedErrorMessage)'")
+            }
+        }
+    }
+
 }

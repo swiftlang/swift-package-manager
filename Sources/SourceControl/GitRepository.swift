@@ -1161,8 +1161,15 @@ extension GitFileSystemView: @unchecked Sendable {}
 
 // MARK: - Errors
 
-private struct GitShellError: Error {
+private struct GitShellError: Error, CustomStringConvertible {
     let result: AsyncProcessResult
+
+    public var description: String {
+        let stdout = (try? self.result.utf8Output()) ?? ""
+        let stderr = (try? self.result.utf8stderrOutput()) ?? ""
+        let output = (stdout + stderr).spm_chomp()
+        return output
+    }
 }
 
 private enum GitInterfaceError: Swift.Error {
