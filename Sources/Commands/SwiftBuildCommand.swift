@@ -191,9 +191,3 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
 
     public init() {}
 }
-
-public extension _SwiftCommand {
-    func buildSystemProvider(_ swiftCommandState: SwiftCommandState) throws -> BuildSystemProvider {
-        swiftCommandState.defaultBuildSystemProvider
-    }
-}

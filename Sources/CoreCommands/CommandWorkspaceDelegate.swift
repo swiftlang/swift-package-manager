@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import CoreCommands
 import Dispatch
 import class Foundation.NSLock
 import struct Foundation.URL
@@ -273,12 +272,6 @@ public extension _SwiftCommand {
                 progressHandler: $2,
                 inputHandler: $3
             )
-        }
-    }
-
-    var workspaceLoaderProvider: WorkspaceLoaderProvider {
-        return {
-            XcodeWorkspaceLoader(fileSystem: $0, observabilityScope: $1)
         }
     }
 }
