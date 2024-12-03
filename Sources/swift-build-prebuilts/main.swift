@@ -52,10 +52,6 @@ var prebuiltRepos: [PrebuiltRepos.ID: PrebuiltRepos] = [
                         ],
                         cModules: [
                             "_SwiftSyntaxCShims",
-                        ],
-                        artifacts: [
-                            .init(platform: .macos_arm64, checksum: ""),
-                            .init(platform: .macos_x86_64, checksum: ""),
                         ]
                     ),
 
@@ -71,8 +67,18 @@ var prebuiltRepos: [PrebuiltRepos.ID: PrebuiltRepos] = [
 let fm = FileManager.default
 let args = ProcessInfo.processInfo.arguments
 
-var stageDir = Path(fm.currentDirectoryPath + "/stage")
 let swiftVersion = "\(SwiftVersion.current.major).\(SwiftVersion.current.minor)"
+
+var stageDir = Path(fm.currentDirectoryPath + "/stage")
+
+var oses: Set<Workspace.PrebuiltsManifest.Platform.OS>
+#if os(macOS)
+    oses = [.macos]
+#elseif os(Windows)
+    oses = [.windows]
+#else 
+    oses = []
+#endif
 
 var i = 1
 while i < args.count {
@@ -120,11 +126,15 @@ for repo in prebuiltRepos.values {
 
             var newArtifacts: [Workspace.PrebuiltsManifest.Library.Artifact] = []
 
-            for artifact in library.artifacts {
+            for platform in Workspace.PrebuiltsManifest.Platform.allCases {
+                guard oses.contains(platform.os) else {
+                    continue
+                }
+
                 try libDir.mkdirs()
                 try modulesDir.mkdirs()
                 try includesDir.mkdirs()
-                try shell("swift build -c release --arch \(artifact.platform.arch) --product \(library.name)")
+                try shell("swift build -c release --arch \(platform.arch) --product \(library.name)")
                 let lib = "lib\(library.name).a"
                 try (buildDir / lib).cp(to: libDir / lib)
 
@@ -143,12 +153,12 @@ for repo in prebuiltRepos.values {
                 }
 
                 stageDir.cd()
-                let zipFile = stageDir / "\(swiftVersion)-\(library.name)-\(artifact.platform).zip"
+                let zipFile = stageDir / "\(swiftVersion)-\(library.name)-\(platform).zip"
                 let contentDirs = ["lib", "Modules"] + (library.cModules.isEmpty ? [] : ["include"])
                 try zipFile.compress(contentDirs)
                 repoDir.cd()
 
-                newArtifacts.append(.init(platform: artifact.platform, checksum: try zipFile.checksum()))
+                newArtifacts.append(.init(platform: platform, checksum: try zipFile.checksum()))
 
                 try libDir.remove()
                 try modulesDir.remove()
@@ -177,8 +187,14 @@ for repo in prebuiltRepos.values {
 
 func shell(_ command: String) throws {
     let process = Process()
+#if os(Windows)
+    process.executableURL = URL(fileURLWithPath: "C:\\Windows\\System32\\cmd.exe")
+    process.arguments = ["/c", command]
+#else
     process.executableURL = URL(fileURLWithPath: "/bin/bash")
     process.arguments = ["-c", command]
+#endif
+    print("Running:", command)
     try process.run()
     process.waitUntilExit()
     if process.terminationStatus != 0 {
@@ -218,12 +234,10 @@ struct Path: CustomStringConvertible {
         self.components = value.split(separator: Self.separator)
     }
 
-    private var path: String {
+    var path: String {
 #if os(Windows)
         if let drive {
             return drive + ":\\" + components.joined(separator: "\\")
-        } else {
-            return "\\" + components.joined(separator: "\\")
         }
 #endif
         return Self.separator + components.joined(separator: Self.separator)
@@ -258,7 +272,7 @@ struct Path: CustomStringConvertible {
     }
 
     func cd() {
-        fm.changeCurrentDirectoryPath(path)
+        _ = fm.changeCurrentDirectoryPath(path)
     }
 
     func cp(to other: Path) throws {

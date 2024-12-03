@@ -72,16 +72,37 @@ extension Workspace {
             self.libraries = libraries
         }
 
-        public enum Platform: String, Codable {
-            case macos_arm64
+        public enum Platform: String, Codable, CaseIterable {
+            case macos_aarch64
             case macos_x86_64
+            case windows_aarch64
+            case windows_x86_64
 
-            public var arch: String {
+            public enum Arch: String {
+                case x86_64
+                case aarch64
+            }
+
+            public enum OS {
+                case macos
+                case windows
+            }
+
+            public var arch: Arch {
                 switch self {
-                    case .macos_arm64:
-                    return "arm64"
-                case .macos_x86_64:
-                    return "x86_64"
+                    case .macos_aarch64, .windows_aarch64:
+                        return .aarch64
+                    case .macos_x86_64, .windows_x86_64:
+                        return .x86_64
+                }
+            }
+
+            public var os: OS {
+                switch self {
+                    case .macos_aarch64, .macos_x86_64:
+                        return .macos
+                    case .windows_aarch64, .windows_x86_64:
+                        return .windows
                 }
             }
         }
@@ -91,9 +112,18 @@ extension Workspace {
         if self.hostToolchain.targetTriple.isDarwin() {
             switch self.hostToolchain.targetTriple.arch {
             case .aarch64:
-                return .macos_arm64
+                return .macos_aarch64
             case .x86_64:
                 return .macos_x86_64
+            default:
+                return nil
+            }
+        } else if self.hostToolchain.targetTriple.isWindows() {
+            switch self.hostToolchain.targetTriple.arch {
+            case .aarch64:
+                return .windows_aarch64
+            case .x86_64:
+                return .windows_x86_64
             default:
                 return nil
             }
