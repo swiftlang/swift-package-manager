@@ -33,27 +33,11 @@ class GitRepositoryProviderTests: XCTestCase {
 
             // non-git directory
             let notGitPath = sandbox.appending("test-not-git")
-            XCTAssertThrowsError(try provider.isValidDirectory(notGitPath))
+            XCTAssertFalse(try provider.isValidDirectory(notGitPath))
 
             // non-git child directory of a git directory
             let notGitChildPath = repositoryPath.appending("test-not-git")
-            XCTAssertThrowsError(try provider.isValidDirectory(notGitChildPath))
+            XCTAssertFalse(try provider.isValidDirectory(notGitChildPath))
         }
     }
-
-    func testIsValidDirectoryThrowsPrintableError() throws {
-        try testWithTemporaryDirectory { temp in
-            let provider = GitRepositoryProvider()
-            let expectedErrorMessage = "not a git repository"
-            do {
-                try _ = provider.isValidDirectory(temp)
-            } catch let error {
-                let errorString = String(describing: error)
-                XCTAssertTrue(
-                    errorString.contains(expectedErrorMessage),
-                    "Error string '\(errorString)' should contain '\(expectedErrorMessage)'")
-            }
-        }
-    }
-
 }
