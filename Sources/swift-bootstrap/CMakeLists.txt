@@ -23,4 +23,5 @@ target_link_libraries(swift-bootstrap PRIVATE
   SwiftDriver
   TSCBasic
   TSCUtility
+  Workspace
   XCBuildSupport)
