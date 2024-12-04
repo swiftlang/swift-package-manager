@@ -1161,7 +1161,7 @@ extension GitFileSystemView: @unchecked Sendable {}
 
 // MARK: - Errors
 
-public struct GitShellError: Error, CustomStringConvertible {
+package struct GitShellError: Error, CustomStringConvertible {
     let result: AsyncProcessResult
 
     public var description: String {
