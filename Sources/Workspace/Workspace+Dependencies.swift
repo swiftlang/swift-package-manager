@@ -185,6 +185,13 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
+        // Update prebuilts
+        try await self.updatePrebuilts(
+            manifests: currentManifests,
+            addedOrUpdatedPackages: addedOrUpdatedPackages,
+            observabilityScope: observabilityScope
+        )
+
         return packageStateChanges
     }
 
@@ -450,6 +457,13 @@ extension Workspace {
         )
 
         try await self.updateBinaryArtifacts(
+            manifests: currentManifests,
+            addedOrUpdatedPackages: [],
+            observabilityScope: observabilityScope
+        )
+
+        // Update prebuilts
+        try await self.updatePrebuilts(
             manifests: currentManifests,
             addedOrUpdatedPackages: [],
             observabilityScope: observabilityScope

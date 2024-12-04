@@ -198,18 +198,20 @@ extension Workspace {
             observabilityScope: ObservabilityScope
         ) async throws -> PrebuiltsManifest? {
             let manifestFile = swiftVersion + "-manifest.json"
-            let manifestURL = package.prebuiltsURL.appending(components: version.description, manifestFile)
-
-            // TODO: pull it out of the cache if it's there
-            // For now though, always fetch it
             let prebuiltsDir = cachePath ?? scratchPath
             let destination = prebuiltsDir.appending(components: package.packageRef.identity.description, manifestFile)
             if fileSystem.exists(destination) {
-                // remove for now so we can overwrite it
-                try fileSystem.removeFileTree(destination)
+                do {
+                    return try JSONDecoder().decode(PrebuiltsManifest.self, from: try Data(contentsOf: destination.asURL))
+                } catch {
+                    // redownload it
+                    observabilityScope.emit(info: "Failed to decode prebuilt manifest", underlyingError: error)
+                    try fileSystem.removeFileTree(destination)
+                }
             }
             try fileSystem.createDirectory(destination.parentDirectory, recursive: true)
 
+            let manifestURL = package.prebuiltsURL.appending(components: version.description, manifestFile)
             var headers = HTTPClientHeaders()
             headers.add(name: "Accept", value: "application/json")
             var request = HTTPClient.Request.download(
@@ -248,8 +250,14 @@ extension Workspace {
             observabilityScope: ObservabilityScope
         ) async throws -> AbsolutePath? {
             let artifactName = "\(swiftVersion)-\(library.name)-\(artifact.platform.rawValue)"
+            let scratchDir = scratchPath.appending(package.packageRef.identity.description)
+            let artifactDir = scratchDir.appending(artifactName)
+            guard !fileSystem.exists(artifactDir) else {
+                // already there
+                return artifactDir
+            }
+
             let artifactFile = artifactName + ".zip"
-            let artifactURL = package.prebuiltsURL.appending(components: version.description, artifactFile)
 
             // TODO: pull it out of the cache if it's there
             // For now though, always fetch it
@@ -262,6 +270,7 @@ extension Workspace {
             try fileSystem.createDirectory(destination.parentDirectory, recursive: true)
 
             // Download
+            let artifactURL = package.prebuiltsURL.appending(components: version.description, artifactFile)
             let fetchStart = DispatchTime.now()
             var headers = HTTPClientHeaders()
             headers.add(name: "Accept", value: "application/octet-stream")
@@ -307,7 +316,6 @@ extension Workspace {
             }
 
             // Copy over to scratch dir if it's not already there
-            let scratchDir = scratchPath.appending(package.packageRef.identity.description)
             if scratchPath != cachePath {
                 let scratchDest = scratchDir.appending(artifactFile)
                 if fileSystem.exists(scratchDest) {
@@ -318,7 +326,6 @@ extension Workspace {
             }
 
             // Extract
-            let artifactDir = scratchDir.appending(artifactName)
             if fileSystem.exists(artifactDir) {
                 try fileSystem.removeFileTree(artifactDir)
             }
@@ -345,7 +352,7 @@ extension Workspace {
         addedOrUpdatedPackages: [PackageReference],
         observabilityScope: ObservabilityScope
     ) async throws {
-        for prebuilt in self.prebuiltsManager.findPrebuilts(packages: addedOrUpdatedPackages) {
+        for prebuilt in self.prebuiltsManager.findPrebuilts(packages: try manifests.requiredPackages) {
             guard let manifest = manifests.allDependencyManifests[prebuilt.packageRef.identity],
                   let packageVersion = manifest.manifest.version,
                   let prebuiltManifest = try await self.prebuiltsManager.downloadManifest(
