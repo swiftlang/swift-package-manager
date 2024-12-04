@@ -359,16 +359,9 @@ def test(args):
     """Builds SwiftPM, then tests itself."""
     build(args)
 
-    if '-macosx' in args.build_target:
-        extra_env = ["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS=YES"]
-    else:
-        extra_env = []
-
     note("Testing")
     parse_test_args(args)
-    cmd = extra_env + [
-        "SWIFT_EXEC=" + args.swiftc_path,
-        "SWIFT_DRIVER_SWIFT_EXEC=" + args.swiftc_path,
+    cmd = [
         os.path.join(args.bin_dir, "swift-test")
     ]
     if args.parallel:
@@ -646,11 +639,7 @@ def build_swiftpm_with_cmake(args):
 def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
     """Builds SwiftPM using the version of SwiftPM built with CMake."""
 
-    swiftpm_args = [
-        "SWIFT_EXEC=" + args.swiftc_path,
-        "SWIFT_DRIVER_SWIFT_EXEC=" + args.swiftc_path,
-        "CC=" + args.clang_path
-    ]
+    swiftpm_args = []
 
     if args.bootstrap:
         note("Building SwiftPM (with a freshly built swift-bootstrap)")
@@ -777,6 +766,14 @@ def get_swiftpm_env_cmd(args):
             libs_joined = ":".join(libs + args.target_info["paths"]["runtimeLibraryPaths"])
             env_cmd.append("LD_LIBRARY_PATH=%s" % libs_joined)
 
+    if '-macosx' in args.build_target:
+        env_cmd.append("SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS=YES")
+
+    env_cmd += [
+        "SWIFT_EXEC=" + args.swiftc_path,
+        "SWIFT_DRIVER_SWIFT_EXEC=" + args.swiftc_path,
+        "CC=" + args.clang_path,
+    ]
     return env_cmd
 
 def get_swiftpm_flags(args):
