@@ -221,8 +221,7 @@ extension PackageRegistryCommand {
                 metadataSignature: metadataSignature,
                 signatureFormat: self.signatureFormat,
                 fileSystem: localFileSystem,
-                observabilityScope: swiftCommandState.observabilityScope,
-                callbackQueue: .sharedConcurrent
+                observabilityScope: swiftCommandState.observabilityScope
             )
 
             switch result {

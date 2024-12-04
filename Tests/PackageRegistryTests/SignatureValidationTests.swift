@@ -42,13 +42,10 @@ final class SignatureValidationTests: XCTestCase {
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = LegacyHTTPClient.packageReleaseMetadataAPIHandler(
+        let httpClient = HTTPClient(implementation: HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum
-        )
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        ))
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -106,13 +103,10 @@ final class SignatureValidationTests: XCTestCase {
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = LegacyHTTPClient.packageReleaseMetadataAPIHandler(
+        let httpClient = HTTPClient(implementation: HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum
-        )
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        ))
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -172,13 +166,10 @@ final class SignatureValidationTests: XCTestCase {
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = LegacyHTTPClient.packageReleaseMetadataAPIHandler(
+        let httpClient = HTTPClient(implementation: HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum
-        )
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        ))
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -265,9 +256,7 @@ final class SignatureValidationTests: XCTestCase {
             errorDescription: "not found"
         )
 
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        let httpClient = HTTPClient { try serverErrorHandler.handle(request: $0, progress: $1) }
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -324,13 +313,10 @@ final class SignatureValidationTests: XCTestCase {
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = LegacyHTTPClient.packageReleaseMetadataAPIHandler(
+        let httpClient = HTTPClient(implementation: HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum
-        )
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        ))
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -413,13 +399,10 @@ final class SignatureValidationTests: XCTestCase {
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = LegacyHTTPClient.packageReleaseMetadataAPIHandler(
+        let httpClient = HTTPClient(implementation: HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum
-        )
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        ))
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -485,9 +468,7 @@ final class SignatureValidationTests: XCTestCase {
             errorDescription: "not found"
         )
 
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        let httpClient = HTTPClient { try serverErrorHandler.handle(request: $0, progress: $1) }
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -557,15 +538,13 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = LegacyHTTPClient.packageReleaseMetadataAPIHandler(
+
+        let httpClient = HTTPClient(implementation: HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum,
             signatureBytes: signatureBytes,
             signatureFormat: signatureFormat
-        )
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        ))
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -647,15 +626,12 @@ final class SignatureValidationTests: XCTestCase {
         """
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = LegacyHTTPClient.packageReleaseMetadataAPIHandler(
+        let httpClient = HTTPClient(implementation: HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum,
             signatureBytes: signatureBytes,
             signatureFormat: signatureFormat
-        )
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        ))
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -731,15 +707,12 @@ final class SignatureValidationTests: XCTestCase {
         """
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = LegacyHTTPClient.packageReleaseMetadataAPIHandler(
+        let httpClient = HTTPClient(implementation: HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum,
             signatureBytes: signatureBytes,
             signatureFormat: signatureFormat
-        )
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        ))
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -812,15 +785,12 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = LegacyHTTPClient.packageReleaseMetadataAPIHandler(
+        let httpClient = HTTPClient(implementation: HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum,
             signatureBytes: signatureBytes,
             signatureFormat: signatureFormat
-        )
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        ))
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -890,15 +860,12 @@ final class SignatureValidationTests: XCTestCase {
         let signatureFormat = SignatureFormat.cms_1_0_0
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = LegacyHTTPClient.packageReleaseMetadataAPIHandler(
+        let httpClient = HTTPClient(implementation: HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum,
             signatureBytes: signatureBytes,
             signatureFormat: signatureFormat
-        )
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        ))
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -951,13 +918,9 @@ final class SignatureValidationTests: XCTestCase {
         let version = Version("1.1.1")
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = { _, _, completion in
-            completion(.failure(StringError("unexpected request")))
+        let httpClient = HTTPClient { _, _ in
+            throw StringError("unexpected request")
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -1020,15 +983,12 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = LegacyHTTPClient.packageReleaseMetadataAPIHandler(
+        let httpClient = HTTPClient(implementation: HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum,
             signatureBytes: signatureBytes,
             signatureFormat: signatureFormat
-        )
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        ))
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -1114,15 +1074,12 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = LegacyHTTPClient.packageReleaseMetadataAPIHandler(
+        let httpClient = HTTPClient(implementation: HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum,
             signatureBytes: signatureBytes,
             signatureFormat: signatureFormat
-        )
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        ))
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -1199,15 +1156,12 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = LegacyHTTPClient.packageReleaseMetadataAPIHandler(
+        let httpClient = HTTPClient(implementation: HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum,
             signatureBytes: signatureBytes,
             signatureFormat: signatureFormat
-        )
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        ))
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -1308,15 +1262,12 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = LegacyHTTPClient.packageReleaseMetadataAPIHandler(
+        let httpClient = HTTPClient(implementation: HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum,
             signatureBytes: signatureBytes,
             signatureFormat: signatureFormat
-        )
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        ))
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -1405,15 +1356,12 @@ final class SignatureValidationTests: XCTestCase {
         """
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = LegacyHTTPClient.packageReleaseMetadataAPIHandler(
+        let httpClient = HTTPClient(implementation: HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum,
             signatureBytes: signatureBytes,
             signatureFormat: signatureFormat
-        )
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        ))
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -1499,15 +1447,12 @@ final class SignatureValidationTests: XCTestCase {
         """
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = LegacyHTTPClient.packageReleaseMetadataAPIHandler(
+        let httpClient = HTTPClient(implementation: HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum,
             signatureBytes: signatureBytes,
             signatureFormat: signatureFormat
-        )
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        ))
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -1581,15 +1526,12 @@ final class SignatureValidationTests: XCTestCase {
         """
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = LegacyHTTPClient.packageReleaseMetadataAPIHandler(
+        let httpClient = HTTPClient(implementation: HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum,
             signatureBytes: signatureBytes,
             signatureFormat: signatureFormat
-        )
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        ))
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -1663,15 +1605,12 @@ final class SignatureValidationTests: XCTestCase {
         """
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = LegacyHTTPClient.packageReleaseMetadataAPIHandler(
+        let httpClient = HTTPClient(implementation: HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum,
             signatureBytes: signatureBytes,
             signatureFormat: signatureFormat
-        )
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        ))
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -1768,15 +1707,12 @@ final class SignatureValidationTests: XCTestCase {
         """
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = LegacyHTTPClient.packageReleaseMetadataAPIHandler(
+        let httpClient = HTTPClient(implementation: HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum,
             signatureBytes: signatureBytes,
             signatureFormat: signatureFormat
-        )
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        ))
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -1889,15 +1825,12 @@ final class SignatureValidationTests: XCTestCase {
         """
 
         // Get metadata endpoint will be called to see if package version is signed
-        let handler: LegacyHTTPClient.Handler = LegacyHTTPClient.packageReleaseMetadataAPIHandler(
+        let httpClient = HTTPClient(implementation: HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum,
             signatureBytes: signatureBytes,
             signatureFormat: signatureFormat
-        )
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        ))
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -1944,7 +1877,7 @@ final class SignatureValidationTests: XCTestCase {
             registry: registry,
             package: package,
             version: version,
-            toolsVersion: .none,
+            toolsVersion: nil,
             manifestContent: manifestContent,
             configuration: configuration.signing(for: package, registry: registry),
             observabilityScope: observability.topScope
@@ -2027,8 +1960,7 @@ extension SignatureValidation {
             configuration: configuration,
             timeout: nil,
             fileSystem: localFileSystem,
-            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP
         )
     }
 
@@ -2050,8 +1982,7 @@ extension SignatureValidation {
             configuration: configuration,
             timeout: nil,
             fileSystem: localFileSystem,
-            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP
         )
     }
 }
@@ -2060,19 +1991,17 @@ private struct RejectingSignatureValidationDelegate: SignatureValidation.Delegat
     func onUnsigned(
         registry: Registry,
         package: PackageIdentity,
-        version: Version,
-        completion: (Bool) -> Void
-    ) {
-        completion(false)
+        version: Version
+    ) -> Bool {
+        return false
     }
 
     func onUntrusted(
         registry: Registry,
         package: PackageIdentity,
-        version: Version,
-        completion: (Bool) -> Void
-    ) {
-        completion(false)
+        version: Version
+    ) -> Bool {
+        return false
     }
 }
 
@@ -2080,19 +2009,17 @@ private struct AcceptingSignatureValidationDelegate: SignatureValidation.Delegat
     func onUnsigned(
         registry: Registry,
         package: PackageIdentity,
-        version: Version,
-        completion: (Bool) -> Void
-    ) {
-        completion(true)
+        version: Version
+    ) -> Bool {
+        return true
     }
 
     func onUntrusted(
         registry: Registry,
         package: PackageIdentity,
-        version: Version,
-        completion: (Bool) -> Void
-    ) {
-        completion(true)
+        version: Version
+    ) -> Bool {
+        return true
     }
 }
 
@@ -2105,12 +2032,12 @@ extension PackageSigningEntityStorage {
     }
 }
 
-extension LegacyHTTPClient {
+extension HTTPClient {
     static func packageReleaseMetadataAPIHandler(
         metadataURL: URL,
         checksum: String
-    ) -> LegacyHTTPClient.Handler {
-        { request, _, completion in
+    ) -> HTTPClient.Implementation {
+        { request, _ in
             switch (request.method, request.url) {
             case (.get, metadataURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
@@ -2132,7 +2059,7 @@ extension LegacyHTTPClient {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -2140,9 +2067,10 @@ extension LegacyHTTPClient {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
     }
@@ -2152,8 +2080,8 @@ extension LegacyHTTPClient {
         checksum: String,
         signatureBytes: [UInt8],
         signatureFormat: SignatureFormat
-    ) -> LegacyHTTPClient.Handler {
-        { request, _, completion in
+    ) -> HTTPClient.Implementation {
+        { request, _ in
             switch (request.method, request.url) {
             case (.get, metadataURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
@@ -2179,7 +2107,7 @@ extension LegacyHTTPClient {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -2187,9 +2115,10 @@ extension LegacyHTTPClient {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
     }

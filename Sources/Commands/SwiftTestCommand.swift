@@ -560,7 +560,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     ) async throws {
         let workspace = try swiftCommandState.getActiveWorkspace()
         let root = try swiftCommandState.getWorkspaceRoot()
-        let rootManifests = try await workspace.loadRootManifests(
+        let rootManifests = await workspace.loadRootManifests(
             packages: root.packages,
             observabilityScope: swiftCommandState.observabilityScope
         )
@@ -676,7 +676,7 @@ extension SwiftTestCommand {
     func printCodeCovPath(_ swiftCommandState: SwiftCommandState) async throws {
         let workspace = try swiftCommandState.getActiveWorkspace()
         let root = try swiftCommandState.getWorkspaceRoot()
-        let rootManifests = try await workspace.loadRootManifests(
+        let rootManifests = await workspace.loadRootManifests(
             packages: root.packages,
             observabilityScope: swiftCommandState.observabilityScope
         )

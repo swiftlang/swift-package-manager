@@ -43,7 +43,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // Package doesn't have any recorded signer.
         // It should be ok to assign one.
-        _ = try await tofu.validate(
+        _ = try tofu.validate(
             registry: registry,
             package: package,
             version: version,
@@ -75,7 +75,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // Package doesn't have any recorded signer.
         // It should be ok to continue not to have one.
-        _ = try await tofu.validate(
+        _ = try tofu.validate(
             registry: registry,
             package: package,
             version: version,
@@ -110,7 +110,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // Package doesn't have any recorded signer.
         // It should be ok to continue not to have one.
-        _ = try await tofu.validate(
+        _ = try tofu.validate(
             registry: registry,
             package: package,
             version: version,
@@ -155,7 +155,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // Storage has "J. Appleseed" as signer for package version.
         // Signer remaining the same should be ok.
-        _ = try await tofu.validate(
+        _ = try tofu.validate(
             registry: registry,
             package: package,
             version: version,
@@ -200,7 +200,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // Storage has "J. Smith" as signer for package version.
         // The given signer "J. Appleseed" is different so it should fail.
         await XCTAssertAsyncThrowsError(
-            try await tofu.validate(
+            try tofu.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -262,7 +262,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // Storage has "J. Smith" as signer for package version.
         // The given signer "J. Appleseed" is different, but because
         // of .warn mode, no error is thrown.
-        _ = try await tofu.validate(
+        _ = try tofu.validate(
             registry: registry,
             package: package,
             version: version,
@@ -314,8 +314,8 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // Storage has "J. Smith" as signer for package version.
         // The given signer is nil which is different so it should fail.
-        await XCTAssertAsyncThrowsError(
-            try await tofu.validate(
+        XCTAssertThrowsError(
+            try tofu.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -369,7 +369,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // Storage has "J. Appleseed" as signer for package v2.0.0.
         // Signer remaining the same should be ok.
-        _ = try await tofu.validate(
+        _ = try tofu.validate(
             registry: registry,
             package: package,
             version: version,
@@ -422,8 +422,8 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // Storage has "J. Smith" as signer for package v2.0.0.
         // The given signer "J. Appleseed" is different so it should fail.
-        await XCTAssertAsyncThrowsError(
-            try await tofu.validate(
+        XCTAssertThrowsError(
+            try tofu.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -494,7 +494,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // Storage has "J. Smith" as signer for package v2.0.0.
         // The given signer "J. Appleseed" is different, but because
         // of .warn mode, no error is thrown.
-        _ = try await tofu.validate(
+        _ = try tofu.validate(
             registry: registry,
             package: package,
             version: version,
@@ -548,7 +548,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // Storage has versions 1.5.0 and 2.0.0 signed. The given version 1.1.1 is
         // "older" than both, and we allow nil signer in this case, assuming
         // this is before package started being signed.
-        _ = try await tofu.validate(
+        _ = try tofu.validate(
             registry: registry,
             package: package,
             version: version,
@@ -596,8 +596,8 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // Storage has versions 1.5.0 and 2.0.0 signed. The given version 1.6.1 is
         // "newer" than 1.5.0, which we don't allow, because we assume from 1.5.0
         // onwards all versions are signed.
-        await XCTAssertAsyncThrowsError(
-            try await tofu.validate(
+        XCTAssertThrowsError(
+            try tofu.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -663,7 +663,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // "newer" than 1.5.0, which we don't allow, because we assume from 1.5.0
         // onwards all versions are signed. However, because of .warn mode,
         // no error is thrown.
-        _ = try await tofu.validate(
+        _ = try tofu.validate(
             registry: registry,
             package: package,
             version: version,
@@ -719,7 +719,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // We allow this with the assumption that package signing might not have
         // begun until a later 2.x version, so until we encounter a signed 2.x version,
         // we assume none of them is signed.
-        _ = try await tofu.validate(
+        _ = try tofu.validate(
             registry: registry,
             package: package,
             version: version,
@@ -767,7 +767,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // Package has expected signer starting from v1.5.0.
         // The given v2.0.0 is newer than v1.5.0, and signer
         // matches the expected signer.
-        _ = try await tofu.validate(
+        _ = try tofu.validate(
             registry: registry,
             package: package,
             version: version,
@@ -830,7 +830,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // the given signer was recorded previously for v2.2.0.
         // The given v2.0.0 is before v2.2.0, and we allow the same
         // signer for older versions.
-        _ = try await tofu.validate(
+        _ = try tofu.validate(
             registry: registry,
             package: package,
             version: version,
@@ -894,8 +894,8 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // the given signer was recorded previously for v2.2.0, but
         // the given v2.3.0 is after v2.2.0, which we don't allow
         // because we assume the signer has "stopped" signing at v2.2.0.
-        await XCTAssertAsyncThrowsError(
-            try await tofu.validate(
+        XCTAssertThrowsError(
+            try tofu.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -947,8 +947,8 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // This triggers a storage write conflict
-        await XCTAssertAsyncThrowsError(
-            try await tofu.validate(
+        XCTAssertThrowsError(
+            try tofu.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -984,7 +984,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // This triggers a storage write conflict, but
         // because of .warn mode, no error is thrown.
-        _ = try await tofu.validate(
+        _ = try tofu.validate(
             registry: registry,
             package: package,
             version: version,
@@ -1004,16 +1004,14 @@ extension PackageSigningEntityTOFU {
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         version: Version,
-        signingEntity: SigningEntity?,
-        observabilityScope: ObservabilityScope? = nil
-    ) async throws {
-        try await self.validate(
+        signingEntity: SigningEntity?
+    ) throws {
+        try self.validate(
             registry: registry,
             package: package,
             version: version,
             signingEntity: signingEntity,
-            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 }

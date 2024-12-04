@@ -126,9 +126,8 @@ public protocol ManifestLoaderProtocol {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Manifest, Error>) -> Void
-    )
+        callbackQueue: DispatchQueue
+    ) async throws -> Manifest
 
     /// Reset any internal cache held by the manifest loader.
     func resetCache(observabilityScope: ObservabilityScope)
@@ -201,71 +200,28 @@ extension ManifestLoaderProtocol {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Manifest, Error>) -> Void
-    ) {
-        do {
-            // find the manifest path and parse it's tools-version
-            let manifestPath = try ManifestLoader.findManifest(packagePath: packagePath, fileSystem: fileSystem, currentToolsVersion: currentToolsVersion)
-            let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
-            // validate the manifest tools-version against the toolchain tools-version
-            try manifestToolsVersion.validateToolsVersion(currentToolsVersion, packageIdentity: packageIdentity, packageVersion: packageVersion?.version?.description ?? packageVersion?.revision)
-
-            self.load(
-                manifestPath: manifestPath,
-                manifestToolsVersion: manifestToolsVersion,
-                packageIdentity: packageIdentity,
-                packageKind: packageKind,
-                packageLocation: packageLocation,
-                packageVersion: packageVersion,
-                identityResolver: identityResolver,
-                dependencyMapper: dependencyMapper,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                delegateQueue: delegateQueue,
-                callbackQueue: callbackQueue,
-                completion: completion
-            )
-        } catch {
-            callbackQueue.async {
-                completion(.failure(error))
-            }
-        }
-    }    
-
-    public func load(
-        packagePath: AbsolutePath,
-        packageIdentity: PackageIdentity,
-        packageKind: PackageReference.Kind,
-        packageLocation: String,
-        packageVersion: (version: Version?, revision: String?)?,
-        currentToolsVersion: ToolsVersion,
-        identityResolver: IdentityResolver,
-        dependencyMapper: DependencyMapper,
-        fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue
     ) async throws -> Manifest {
-        try await withCheckedThrowingContinuation { continuation in
-            self.load(
-                packagePath: packagePath,
-                packageIdentity: packageIdentity,
-                packageKind: packageKind,
-                packageLocation: packageLocation,
-                packageVersion: packageVersion,
-                currentToolsVersion: currentToolsVersion,
-                identityResolver: identityResolver,
-                dependencyMapper: dependencyMapper,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                delegateQueue: delegateQueue,
-                callbackQueue: callbackQueue,
-                completion: {
-                  continuation.resume(with: $0)
-                }
-            )
-        }
+        // find the manifest path and parse it's tools-version
+        let manifestPath = try ManifestLoader.findManifest(packagePath: packagePath, fileSystem: fileSystem, currentToolsVersion: currentToolsVersion)
+        let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
+        // validate the manifest tools-version against the toolchain tools-version
+        try manifestToolsVersion.validateToolsVersion(currentToolsVersion, packageIdentity: packageIdentity, packageVersion: packageVersion?.version?.description ?? packageVersion?.revision)
+
+        return try await self.load(
+            manifestPath: manifestPath,
+            manifestToolsVersion: manifestToolsVersion,
+            packageIdentity: packageIdentity,
+            packageKind: packageKind,
+            packageLocation: packageLocation,
+            packageVersion: packageVersion,
+            identityResolver: identityResolver,
+            dependencyMapper: dependencyMapper,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope,
+            delegateQueue: delegateQueue,
+            callbackQueue: callbackQueue
+        )
     }
 }
 
@@ -300,6 +256,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     /// OperationQueue to park pending lookups
     private let evaluationQueue: OperationQueue
 
+    private let tokenBucket = TokenBucket(tokens: Concurrency.maxOperations)
+
     public init(
         toolchain: UserToolchain,
         serializedDiagnostics: Bool = false,
@@ -327,7 +285,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         self.evaluationQueue.maxConcurrentOperationCount = Concurrency.maxOperations
         self.concurrencySemaphore = DispatchSemaphore(value: Concurrency.maxOperations)
     }
-    
+
     public func load(
         manifestPath: AbsolutePath,
         manifestToolsVersion: ToolsVersion,
@@ -342,43 +300,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue
     ) async throws -> Manifest {
-        try await withCheckedThrowingContinuation { continuation in
-            self.load(
-                manifestPath: manifestPath,
-                manifestToolsVersion: manifestToolsVersion,
-                packageIdentity: packageIdentity,
-                packageKind: packageKind,
-                packageLocation: packageLocation,
-                packageVersion: packageVersion,
-                identityResolver: identityResolver,
-                dependencyMapper: dependencyMapper,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                delegateQueue: delegateQueue, 
-                callbackQueue: callbackQueue,
-                completion: {
-                  continuation.resume(with: $0)
-                }
-            )
-        }
-    }
-    
-    @available(*, noasync, message: "Use the async alternative")
-    public func load(
-        manifestPath: AbsolutePath,
-        manifestToolsVersion: ToolsVersion,
-        packageIdentity: PackageIdentity,
-        packageKind: PackageReference.Kind,
-        packageLocation: String,
-        packageVersion: (version: Version?, revision: String?)?,
-        identityResolver: IdentityResolver,
-        dependencyMapper: DependencyMapper,
-        fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Manifest, Error>) -> Void
-    ) {
         // Inform the delegate.
         let start = DispatchTime.now()
         delegateQueue.async {
@@ -391,12 +312,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // Validate that the file exists.
         guard fileSystem.isFile(manifestPath) else {
-            return callbackQueue.async {
-                completion(.failure(PackageModel.Package.Error.noManifest(at: manifestPath, version: packageVersion?.version)))
-            }
+            throw PackageModel.Package.Error.noManifest(at: manifestPath, version: packageVersion?.version)
         }
 
-        self.loadAndCacheManifest(
+        let parsedManifest = try await self.loadAndCacheManifest(
             at: manifestPath,
             toolsVersion: manifestToolsVersion,
             packageIdentity: packageIdentity,
@@ -410,69 +329,60 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             delegate: delegate,
             delegateQueue: delegateQueue,
             callbackQueue: callbackQueue
-        ) { parseResult in
-            do {
-                dispatchPrecondition(condition: .onQueue(callbackQueue))
+        )
 
-                let parsedManifest = try parseResult.get()
-                // Convert legacy system packages to the current target‐based model.
-                var products = parsedManifest.products
-                var targets = parsedManifest.targets
-                if products.isEmpty, targets.isEmpty,
-                   fileSystem.isFile(manifestPath.parentDirectory.appending(component: moduleMapFilename)) {
-                    try products.append(ProductDescription(
-                        name: parsedManifest.name,
-                        type: .library(.automatic),
-                        targets: [parsedManifest.name])
-                    )
-                    targets.append(try TargetDescription(
-                        name: parsedManifest.name,
-                        path: "",
-                        type: .system,
-                        packageAccess: false,
-                        pkgConfig: parsedManifest.pkgConfig,
-                        providers: parsedManifest.providers
-                    ))
-                }
-
-                let manifest = Manifest(
-                    displayName: parsedManifest.name,
-                    path: manifestPath,
-                    packageKind: packageKind,
-                    packageLocation: packageLocation,
-                    defaultLocalization: parsedManifest.defaultLocalization,
-                    platforms: parsedManifest.platforms,
-                    version: packageVersion?.version,
-                    revision: packageVersion?.revision,
-                    toolsVersion: manifestToolsVersion,
-                    pkgConfig: parsedManifest.pkgConfig,
-                    providers: parsedManifest.providers,
-                    cLanguageStandard: parsedManifest.cLanguageStandard,
-                    cxxLanguageStandard: parsedManifest.cxxLanguageStandard,
-                    swiftLanguageVersions: parsedManifest.swiftLanguageVersions,
-                    dependencies: parsedManifest.dependencies,
-                    products: products,
-                    targets: targets,
-                    traits: parsedManifest.traits
-                )
-
-                // Inform the delegate.
-                delegateQueue.async {
-                    self.delegate?.didLoad(
-                        packageIdentity: packageIdentity,
-                        packageLocation: packageLocation,
-                        manifestPath: manifestPath,
-                        duration: start.distance(to: .now())
-                    )
-                }
-
-                completion(.success(manifest))
-            } catch {
-                callbackQueue.async {
-                    completion(.failure(error))
-                }
-            }
+        // Convert legacy system packages to the current target‐based model.
+        var products = parsedManifest.products
+        var targets = parsedManifest.targets
+        if products.isEmpty, targets.isEmpty,
+           fileSystem.isFile(manifestPath.parentDirectory.appending(component: moduleMapFilename)) {
+            try products.append(ProductDescription(
+                name: parsedManifest.name,
+                type: .library(.automatic),
+                targets: [parsedManifest.name])
+            )
+            targets.append(try TargetDescription(
+                name: parsedManifest.name,
+                path: "",
+                type: .system,
+                packageAccess: false,
+                pkgConfig: parsedManifest.pkgConfig,
+                providers: parsedManifest.providers
+            ))
         }
+
+        let manifest = Manifest(
+            displayName: parsedManifest.name,
+            path: manifestPath,
+            packageKind: packageKind,
+            packageLocation: packageLocation,
+            defaultLocalization: parsedManifest.defaultLocalization,
+            platforms: parsedManifest.platforms,
+            version: packageVersion?.version,
+            revision: packageVersion?.revision,
+            toolsVersion: manifestToolsVersion,
+            pkgConfig: parsedManifest.pkgConfig,
+            providers: parsedManifest.providers,
+            cLanguageStandard: parsedManifest.cLanguageStandard,
+            cxxLanguageStandard: parsedManifest.cxxLanguageStandard,
+            swiftLanguageVersions: parsedManifest.swiftLanguageVersions,
+            dependencies: parsedManifest.dependencies,
+            products: products,
+            targets: targets,
+            traits: parsedManifest.traits
+        )
+
+        // Inform the delegate.
+        delegateQueue.async {
+            self.delegate?.didLoad(
+                packageIdentity: packageIdentity,
+                packageLocation: packageLocation,
+                manifestPath: manifestPath,
+                duration: start.distance(to: .now())
+            )
+        }
+
+        return manifest
     }
 
     /// Load the JSON string for the given manifest.
@@ -553,47 +463,23 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         observabilityScope: ObservabilityScope,
         delegate: Delegate?,
         delegateQueue: DispatchQueue?,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<ManifestJSONParser.Result, Error>) -> Void
-    ) {
-        // put callback on right queue
-        var completion = completion
-        do {
-            let previousCompletion = completion
-            completion = { result in callbackQueue.async { previousCompletion(result) } }
-        }
-
-        let key : CacheKey
-        do {
-            key = try CacheKey(
-                packageIdentity: packageIdentity,
-                packageLocation: packageLocation,
-                manifestPath: path,
-                toolsVersion: toolsVersion,
-                env: Environment.current.cachable,
-                swiftpmVersion: SwiftVersion.current.displayString,
-                extraManifestFlags: self.extraManifestFlags,
-                fileSystem: fileSystem
-            )
-        } catch {
-            return completion(.failure(error))
-        }
+        callbackQueue: DispatchQueue
+    ) async throws -> ManifestJSONParser.Result {
+        let key = try CacheKey(
+            packageIdentity: packageIdentity,
+            packageLocation: packageLocation,
+            manifestPath: path,
+            toolsVersion: toolsVersion,
+            env: Environment.current.cachable,
+            swiftpmVersion: SwiftVersion.current.displayString,
+            extraManifestFlags: self.extraManifestFlags,
+            fileSystem: fileSystem
+        )
 
         // try from in-memory cache
         if self.useInMemoryCache, let parsedManifest = self.memoryCache[key] {
             observabilityScope.emit(debug: "loading manifest for '\(packageIdentity)' v. \(packageVersion?.description ?? "unknown") from memory cache")
-            return completion(.success(parsedManifest))
-        }
-
-        // make sure callback record results in-memory
-        do {
-            let previousCompletion = completion
-            completion = { result in
-                if self.useInMemoryCache, case .success(let parsedManifest) = result {
-                    self.memoryCache[key] = parsedManifest
-                }
-                previousCompletion(result)
-            }
+            return parsedManifest
         }
 
         // initialize db cache
@@ -610,19 +496,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             )
         }
 
-        // make sure callback closes db cache
-        do {
-            let previousCompletion = completion
-            completion = { result in
-                do {
-                    try dbCache?.close()
-                } catch {
-                    observabilityScope.emit(
-                        warning: "failed closing manifest db cache",
-                        underlyingError: error
-                    )
-                }
-                previousCompletion(result)
+        defer {
+            do {
+                try dbCache?.close()
+            } catch {
+                observabilityScope.emit(
+                    warning: "failed closing manifest db cache",
+                    underlyingError: error
+                )
             }
         }
 
@@ -645,7 +526,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     delegate: delegate,
                     delegateQueue: delegateQueue
                 )
-                return completion(.success(parsedManifest))
+
+                if self.useInMemoryCache {
+                    self.memoryCache[key] = parsedManifest
+                }
+                return parsedManifest
             }
         } catch {
             observabilityScope.emit(
@@ -656,104 +541,75 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // shells out and compiles the manifest, finally output a JSON
         observabilityScope.emit(debug: "evaluating manifest for '\(packageIdentity)' v. \(packageVersion?.description ?? "unknown")")
+
+        let evaluationResult = try await self.evaluateManifest(
+            packageIdentity: key.packageIdentity,
+            packageLocation: packageLocation,
+            manifestPath: key.manifestPath,
+            manifestContents: key.manifestContents,
+            toolsVersion: key.toolsVersion,
+            observabilityScope: observabilityScope,
+            delegate: delegate,
+            delegateQueue: delegateQueue,
+            callbackQueue: callbackQueue
+        )
+
+        // only cache successfully parsed manifests
+        let parsedManifest = try self.parseManifest(
+            evaluationResult,
+            packageIdentity: packageIdentity,
+            packageKind: packageKind,
+            packagePath: path.parentDirectory,
+            packageLocation: packageLocation,
+            toolsVersion: toolsVersion,
+            identityResolver: identityResolver,
+            dependencyMapper: dependencyMapper,
+            fileSystem: fileSystem,
+            emitCompilerOutput: true,
+            observabilityScope: observabilityScope,
+            delegate: delegate,
+            delegateQueue: delegateQueue
+        )
+
         do {
-            try self.evaluateManifest(
-                packageIdentity: key.packageIdentity,
-                packageLocation: packageLocation,
-                manifestPath: key.manifestPath,
-                manifestContents: key.manifestContents,
-                toolsVersion: key.toolsVersion,
-                observabilityScope: observabilityScope,
-                delegate: delegate,
-                delegateQueue: delegateQueue,
-                callbackQueue: callbackQueue
-            ) { result in
-                dispatchPrecondition(condition: .onQueue(callbackQueue))
-
-                do {
-                    let evaluationResult = try result.get()
-                    // only cache successfully parsed manifests
-                    let parsedManifest = try self.parseManifest(
-                        evaluationResult,
-                        packageIdentity: packageIdentity,
-                        packageKind: packageKind,
-                        packagePath: path.parentDirectory,
-                        packageLocation: packageLocation,
-                        toolsVersion: toolsVersion,
-                        identityResolver: identityResolver,
-                        dependencyMapper: dependencyMapper,
-                        fileSystem: fileSystem,
-                        emitCompilerOutput: true,
-                        observabilityScope: observabilityScope,
-                        delegate: delegate,
-                        delegateQueue: delegateQueue
-                    )
-
-                    do {
-                        self.memoryCache[key] = parsedManifest
-                        try dbCache?.put(key: key.sha256Checksum, value: evaluationResult, observabilityScope: observabilityScope)
-                    } catch {
-                        observabilityScope.emit(
-                            warning: "failed storing manifest for '\(key.packageIdentity)' in cache",
-                            underlyingError: error
-                        )
-                    }
-
-                    return completion(.success(parsedManifest))
-                } catch {
-                    return completion(.failure(error))
-                }
-            }
+            self.memoryCache[key] = parsedManifest
+            try dbCache?.put(key: key.sha256Checksum, value: evaluationResult, observabilityScope: observabilityScope)
         } catch {
-            return completion(.failure(error))
+            observabilityScope.emit(
+                warning: "failed storing manifest for '\(key.packageIdentity)' in cache",
+                underlyingError: error
+            )
         }
+
+        return parsedManifest
     }
 
     private func validateImports(
         manifestPath: AbsolutePath,
-        toolsVersion: ToolsVersion,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void) {
-            // If there are no import restrictions, we do not need to validate.
-            guard let importRestrictions = self.importRestrictions, toolsVersion >= importRestrictions.startingToolsVersion else {
-                return callbackQueue.async {
-                    completion(.success(()))
-                }
-            }
+        toolsVersion: ToolsVersion
+    ) async throws {
+        // If there are no import restrictions, we do not need to validate.
+        guard let importRestrictions = self.importRestrictions, toolsVersion >= importRestrictions.startingToolsVersion else {
+            return
+        }
 
-            // Allowed are the expected defaults, plus anything allowed by the configured restrictions.
-            let allowedImports = ["PackageDescription", "Swift",
-                                  "SwiftOnoneSupport", "_SwiftConcurrencyShims"] + importRestrictions.allowedImports
+        // Allowed are the expected defaults, plus anything allowed by the configured restrictions.
+        let allowedImports = ["PackageDescription", "Swift",
+                              "SwiftOnoneSupport", "_SwiftConcurrencyShims"] + importRestrictions.allowedImports
 
-            // wrap the completion to free concurrency control semaphore
-            let completion: (Result<Void, Error>) -> Void = { result in
-                self.concurrencySemaphore.signal()
-                callbackQueue.async {
-                    completion(result)
-                }
-            }
+        // we must not block the calling thread (for concurrency control) so scheduling this with a token bucket
+        try await self.tokenBucket.withToken {
+            let importScanner = SwiftcImportScanner(swiftCompilerEnvironment: self.toolchain.swiftCompilerEnvironment,
+                                                    swiftCompilerFlags: self.extraManifestFlags,
+                                                    swiftCompilerPath: self.toolchain.swiftCompilerPathForManifests)
 
-            // we must not block the calling thread (for concurrency control) so nesting this in a queue
-            self.evaluationQueue.addOperation {
-                // park the evaluation thread based on the max concurrency allowed
-                self.concurrencySemaphore.wait()
-
-                let importScanner = SwiftcImportScanner(swiftCompilerEnvironment: self.toolchain.swiftCompilerEnvironment,
-                                                        swiftCompilerFlags: self.extraManifestFlags,
-                                                        swiftCompilerPath: self.toolchain.swiftCompilerPathForManifests)
-
-                Task {
-                    let result = try await importScanner.scanImports(manifestPath)
-                    let imports = result.filter { !allowedImports.contains($0) }
-                    guard imports.isEmpty else {
-                        callbackQueue.async {
-                            completion(.failure(ManifestParseError.importsRestrictedModules(imports)))
-                        }
-                        return
-                    }
-                }
+            let result = try await importScanner.scanImports(manifestPath)
+            let imports = result.filter { !allowedImports.contains($0) }
+            guard imports.isEmpty else {
+                throw ManifestParseError.importsRestrictedModules(imports)
             }
         }
+    }
 
     /// Compiler the manifest at the given path and retrieve the JSON.
     fileprivate func evaluateManifest(
@@ -765,9 +621,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         observabilityScope: ObservabilityScope,
         delegate: Delegate?,
         delegateQueue: DispatchQueue?,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<EvaluationResult, Error>) -> Void
-    ) throws {
+        callbackQueue: DispatchQueue
+    ) async throws -> EvaluationResult {
         let manifestPreamble: ByteString
         if toolsVersion >= .v5_8 {
             manifestPreamble = ByteString()
@@ -775,57 +630,42 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             manifestPreamble = ByteString("\nimport Foundation")
         }
 
-        do {
-            try withTemporaryDirectory { tempDir, cleanupTempDir in
-                let manifestTempFilePath = tempDir.appending("manifest.swift")
-                // Since this isn't overwriting the original file, append Foundation library
-                // import to avoid having diagnostics being displayed on the incorrect line.
-                try localFileSystem.writeFileContents(manifestTempFilePath, bytes: ByteString(manifestContents + manifestPreamble.contents))
+        return try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDir in
+            let manifestTempFilePath = tempDir.appending("manifest.swift")
+            // Since this isn't overwriting the original file, append Foundation library
+            // import to avoid having diagnostics being displayed on the incorrect line.
+            try localFileSystem.writeFileContents(manifestTempFilePath, bytes: ByteString(manifestContents + manifestPreamble.contents))
 
-                let vfsOverlayTempFilePath = tempDir.appending("vfs.yaml")
-                try VFSOverlay(roots: [
-                    VFSOverlay.File(
-                        name: manifestPath._normalized.replacingOccurrences(of: #"\"#, with: #"\\"#),
-                        externalContents: manifestTempFilePath._nativePathString(escaped: true)
+            let vfsOverlayTempFilePath = tempDir.appending("vfs.yaml")
+            try VFSOverlay(roots: [
+                VFSOverlay.File(
+                    name: manifestPath._normalized.replacingOccurrences(of: #"\"#, with: #"\\"#),
+                    externalContents: manifestTempFilePath._nativePathString(escaped: true)
+                )
+            ]).write(to: vfsOverlayTempFilePath, fileSystem: localFileSystem)
+
+            try await validateImports(
+                manifestPath: manifestTempFilePath,
+                toolsVersion: toolsVersion
+            )
+
+            return try await withCheckedThrowingContinuation { continuation in
+                do {
+                    try self.evaluateManifest(
+                        at: manifestPath,
+                        vfsOverlayPath: vfsOverlayTempFilePath,
+                        packageIdentity: packageIdentity,
+                        packageLocation: packageLocation,
+                        toolsVersion: toolsVersion,
+                        observabilityScope: observabilityScope,
+                        delegate: delegate,
+                        delegateQueue: delegateQueue,
+                        callbackQueue: callbackQueue,
+                        completion: { continuation.resume(with: $0) }
                     )
-                ]).write(to: vfsOverlayTempFilePath, fileSystem: localFileSystem)
-
-                validateImports(
-                    manifestPath: manifestTempFilePath,
-                    toolsVersion: toolsVersion,
-                    callbackQueue: callbackQueue
-                ) { result in
-                    dispatchPrecondition(condition: .onQueue(callbackQueue))
-
-                    do {
-                        try result.get()
-
-                        try self.evaluateManifest(
-                            at: manifestPath,
-                            vfsOverlayPath: vfsOverlayTempFilePath,
-                            packageIdentity: packageIdentity,
-                            packageLocation: packageLocation,
-                            toolsVersion: toolsVersion,
-                            observabilityScope: observabilityScope,
-                            delegate: delegate,
-                            delegateQueue: delegateQueue,
-                            callbackQueue: callbackQueue
-                        ) { result in
-                            dispatchPrecondition(condition: .onQueue(callbackQueue))
-                            cleanupTempDir(tempDir)
-                            completion(result)
-                        }
-                    } catch {
-                        cleanupTempDir(tempDir)
-                        callbackQueue.async {
-                            completion(.failure(error))
-                        }
-                    }
+                } catch {
+                    continuation.resume(throwing: error)
                 }
-            }
-        } catch {
-            callbackQueue.async {
-                completion(.failure(error))
             }
         }
     }

@@ -31,7 +31,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
         // Get package version metadata endpoint will be called to fetch expected checksum
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.get, metadataURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
@@ -53,7 +53,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -61,15 +61,12 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -121,7 +118,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.get, metadataURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
@@ -143,7 +140,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -151,15 +148,12 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -206,7 +200,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.get, metadataURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
@@ -228,7 +222,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -236,15 +230,12 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -300,9 +291,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
             errorDescription: "not found"
         )
 
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        let httpClient = HTTPClient { try serverErrorHandler.handle(request: $0, progress: $1) }
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -353,9 +342,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
             errorDescription: UUID().uuidString
         )
 
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        let httpClient = HTTPClient{ try serverErrorHandler.handle(request: $0, progress: $1) }
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -400,9 +387,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
 
         let serverErrorHandler = UnavailableServerErrorHandler(registryURL: registryURL)
 
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        let httpClient = HTTPClient { try serverErrorHandler.handle(request: $0, progress: $1) }
 
         let registry = Registry(url: registryURL, supportsAvailability: true)
         var configuration = RegistryConfiguration()
@@ -446,13 +431,9 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
         // Checksum already exists in storage so API will not be called
-        let handler: LegacyHTTPClient.Handler = { _, _, completion in
-            completion(.failure(StringError("Unexpected request")))
+        let httpClient = HTTPClient { _, _ in
+            throw StringError("Unexpected request")
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -504,13 +485,9 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
         // Checksum already exists in storage so API will not be called
-        let handler: LegacyHTTPClient.Handler = { _, _, completion in
-            completion(.failure(StringError("Unexpected request")))
+        let httpClient = HTTPClient { _, _ in
+            throw StringError("Unexpected request")
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -570,13 +547,9 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
         // Checksum already exists in storage so API will not be called
-        let handler: LegacyHTTPClient.Handler = { _, _, completion in
-            completion(.failure(StringError("Unexpected request")))
+        let httpClient = HTTPClient { _, _ in
+            throw StringError("Unexpected request")
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -637,13 +610,9 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         let version = Version("1.1.1")
 
         // Registry API doesn't include manifest checksum so we don't call it
-        let handler: LegacyHTTPClient.Handler = { _, _, completion in
-            completion(.failure(StringError("Unexpected request")))
+        let httpClient = HTTPClient { _, _ in
+            throw StringError("Unexpected request")
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -716,13 +685,9 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
         // Registry API doesn't include manifest checksum so we don't call it
-        let handler: LegacyHTTPClient.Handler = { _, _, completion in
-            completion(.failure(StringError("Unexpected request")))
+        let httpClient = HTTPClient { _, _ in
+            throw StringError("Unexpected request")
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -776,13 +741,9 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
         // Registry API doesn't include manifest checksum so we don't call it
-        let handler: LegacyHTTPClient.Handler = { _, _, completion in
-            completion(.failure(StringError("Unexpected request")))
+        let httpClient = HTTPClient { _, _ in
+            throw StringError("Unexpected request")
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -844,13 +805,9 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
         // Registry API doesn't include manifest checksum so we don't call it
-        let handler: LegacyHTTPClient.Handler = { _, _, completion in
-            completion(.failure(StringError("Unexpected request")))
+        let httpClient = HTTPClient { _, _ in
+            throw StringError("Unexpected request")
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
@@ -921,8 +878,7 @@ extension PackageVersionChecksumTOFU {
             version: version,
             checksum: checksum,
             timeout: nil,
-            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP
         )
     }
 

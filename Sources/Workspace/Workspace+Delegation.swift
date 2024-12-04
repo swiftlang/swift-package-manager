@@ -142,15 +142,14 @@ public protocol WorkspaceDelegate: AnyObject {
     func onUnsignedRegistryPackage(
         registryURL: URL,
         package: PackageModel.PackageIdentity,
-        version: TSCUtility.Version,
-        completion: (Bool) -> Void
-    )
+        version: TSCUtility.Version
+    ) async -> Bool
+
     func onUntrustedRegistryPackage(
         registryURL: URL,
         package: PackageModel.PackageIdentity,
-        version: TSCUtility.Version,
-        completion: (Bool) -> Void
-    )
+        version: TSCUtility.Version
+    ) async -> Bool
 
     /// The workspace has started updating dependencies
     func willUpdateDependencies()
@@ -173,23 +172,21 @@ extension WorkspaceDelegate {
     public func onUnsignedRegistryPackage(
         registryURL: URL,
         package: PackageModel.PackageIdentity,
-        version: TSCUtility.Version,
-        completion: (Bool) -> Void
-    ) {
+        version: TSCUtility.Version
+    ) async -> Bool {
         // true == continue resolution
         // false == stop dependency resolution
-        completion(true)
+        return true
     }
 
     public func onUntrustedRegistryPackage(
         registryURL: URL,
         package: PackageModel.PackageIdentity,
-        version: TSCUtility.Version,
-        completion: (Bool) -> Void
-    ) {
+        version: TSCUtility.Version
+    ) async -> Bool {
         // true == continue resolution
         // false == stop dependency resolution
-        completion(true)
+        return true
     }
 }
 
@@ -361,33 +358,31 @@ struct WorkspaceRegistryClientDelegate: RegistryClient.Delegate {
         self.workspaceDelegate = workspaceDelegate
     }
 
-    func onUnsigned(registry: Registry, package: PackageIdentity, version: Version, completion: (Bool) -> Void) {
+    func onUnsigned(registry: Registry, package: PackageIdentity, version: Version) async -> Bool {
         if let delegate = self.workspaceDelegate {
-            delegate.onUnsignedRegistryPackage(
+            return await delegate.onUnsignedRegistryPackage(
                 registryURL: registry.url,
                 package: package,
-                version: version,
-                completion: completion
+                version: version
             )
         } else {
             // true == continue resolution
             // false == stop dependency resolution
-            completion(true)
+            return true
         }
     }
 
-    func onUntrusted(registry: Registry, package: PackageIdentity, version: Version, completion: (Bool) -> Void) {
+    func onUntrusted(registry: Registry, package: PackageIdentity, version: Version) async -> Bool {
         if let delegate = self.workspaceDelegate {
-            delegate.onUntrustedRegistryPackage(
+            return await delegate.onUntrustedRegistryPackage(
                 registryURL: registry.url,
                 package: package,
-                version: version,
-                completion: completion
+                version: version
             )
         } else {
             // true == continue resolution
             // false == stop dependency resolution
-            completion(true)
+            return true
         }
     }
 }
