@@ -16,12 +16,11 @@ target_link_libraries(swift-bootstrap PRIVATE
   ArgumentParser
   Basics
   Build
-  CoreCommands
+  Commands
   PackageGraph
   PackageLoading
   PackageModel
   SwiftDriver
   TSCBasic
   TSCUtility
-  Workspace
   XCBuildSupport)
