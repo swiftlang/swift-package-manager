@@ -56,7 +56,7 @@ class GitRepositoryProviderTests: XCTestCase {
         }
     }
 
-    func testGitShelErrorIsPrintable() throws {
+    func testGitShellErrorIsPrintable() throws {
         let stdOut = "An error from Git - stdout"
         let stdErr = "An error from Git - stderr"
         let arguments = ["git", "error"]
@@ -81,7 +81,7 @@ class GitRepositoryProviderTests: XCTestCase {
             "Error string '\(errorString)' should contain '\(command)'")
         }
 
-    func testGitShelErrorEmptyStdOut() throws {
+    func testGitShellErrorEmptyStdOut() throws {
         let stdErr = "An error from Git - stderr"
         let result = AsyncProcessResult(
             arguments: ["git", "error"],
@@ -97,7 +97,7 @@ class GitRepositoryProviderTests: XCTestCase {
             "Error string '\(errorString)' should contain '\(stdErr)'")
         }
 
-    func testGitShelErrorEmptyStdErr() throws {
+    func testGitShellErrorEmptyStdErr() throws {
         let stdOut = "An error from Git - stdout"
         let result = AsyncProcessResult(
             arguments: ["git", "error"],
