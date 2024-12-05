@@ -1168,7 +1168,7 @@ package struct GitShellError: Error, CustomStringConvertible {
         let stdout = (try? self.result.utf8Output()) ?? ""
         let stderr = (try? self.result.utf8stderrOutput()) ?? ""
         let output = (stdout + stderr).spm_chomp()
-        let command = result.arguments.joined(separator: " ")
+        let command = self.result.arguments.joined(separator: " ")
         return "Git command '\(command)' failed: \(output)"
     }
 }

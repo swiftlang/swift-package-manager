@@ -45,11 +45,12 @@ class GitRepositoryProviderTests: XCTestCase {
         try testWithTemporaryDirectory { temp in
             let provider = GitRepositoryProvider()
             let expectedErrorMessage = "not a git repository"
-            XCTAssertThrowsError(try provider.isValidDirectory(temp)) {error in
+            XCTAssertThrowsError(try provider.isValidDirectory(temp)) { error in
                 let errorString = String(describing: error)
                 XCTAssertTrue(
                     errorString.contains(expectedErrorMessage),
-                    "Error string '\(errorString)' should contain '\(expectedErrorMessage)'")
+                    "Error string '\(errorString)' should contain '\(expectedErrorMessage)'"
+                )
             }
         }
     }
@@ -70,14 +71,17 @@ class GitRepositoryProviderTests: XCTestCase {
         let errorString = "\(error)"
         XCTAssertTrue(
             errorString.contains(stdOut),
-            "Error string '\(errorString)' should contain '\(stdOut)'")
+            "Error string '\(errorString)' should contain '\(stdOut)'"
+        )
         XCTAssertTrue(
             errorString.contains(stdErr),
-            "Error string '\(errorString)' should contain '\(stdErr)'")
+            "Error string '\(errorString)' should contain '\(stdErr)'"
+        )
         XCTAssertTrue(
             errorString.contains(command),
-            "Error string '\(errorString)' should contain '\(command)'")
-        }
+            "Error string '\(errorString)' should contain '\(command)'"
+        )
+    }
 
     func testGitShellErrorEmptyStdOut() throws {
         let stdErr = "An error from Git - stderr"
@@ -92,8 +96,9 @@ class GitRepositoryProviderTests: XCTestCase {
         let errorString = "\(error)"
         XCTAssertTrue(
             errorString.contains(stdErr),
-            "Error string '\(errorString)' should contain '\(stdErr)'")
-        }
+            "Error string '\(errorString)' should contain '\(stdErr)'"
+        )
+    }
 
     func testGitShellErrorEmptyStdErr() throws {
         let stdOut = "An error from Git - stdout"
@@ -108,6 +113,7 @@ class GitRepositoryProviderTests: XCTestCase {
         let errorString = "\(error)"
         XCTAssertTrue(
             errorString.contains(stdOut),
-            "Error string '\(errorString)' should contain '\(stdOut)'")
-        }
+            "Error string '\(errorString)' should contain '\(stdOut)'"
+        )
+    }
 }
