@@ -2318,6 +2318,8 @@ final class BuildPlanTests: XCTestCase {
                 "-enable-batch-mode",
                 "-Onone",
                 "-enable-testing",
+                "-Xfrontend",
+                "-enable-cross-import-overlays",
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
                 "-DDEBUG",
