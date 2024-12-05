@@ -45,9 +45,7 @@ class GitRepositoryProviderTests: XCTestCase {
         try testWithTemporaryDirectory { temp in
             let provider = GitRepositoryProvider()
             let expectedErrorMessage = "not a git repository"
-            do {
-                try _ = provider.isValidDirectory(temp)
-            } catch let error {
+            XCTAssertThrowsError(try provider.isValidDirectory(temp)) {error in
                 let errorString = String(describing: error)
                 XCTAssertTrue(
                     errorString.contains(expectedErrorMessage),
