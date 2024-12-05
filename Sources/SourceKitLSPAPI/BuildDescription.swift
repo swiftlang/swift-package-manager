@@ -82,15 +82,15 @@ private struct WrappedClangTargetBuildDescription: BuildTarget {
     }
 
     var resources: [URL] {
-        return description.resources.map { URL(fileURLWithPath: $0.path.pathString) }
+        return description.resources.map(\.path.asURL)
     }
 
     var ignored: [URL] {
-        return description.ignored.map { URL(fileURLWithPath: $0.pathString) }
+        return description.ignored.map(\.asURL)
     }
 
     var others: [URL] {
-        return description.others.map { URL(fileURLWithPath: $0.pathString) }
+        return description.others.map(\.asURL)
     }
 
     public var name: String {
