@@ -204,13 +204,25 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     }
 
     public func isValidDirectory(_ directory: Basics.AbsolutePath) throws -> Bool {
-        let result = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
-        return result == ".git" || result == "." || result == directory.pathString
+        do {
+            let result = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
+            return result == ".git" || result == "." || result == directory.pathString
+        } catch let error as GitShellError {
+            guard try error.result.utf8stderrOutput().contains("safe.bareRepository is 'explicit'") else { return false }
+            let result = try self.git.run(["-C", directory.pathString, "--git-dir", directory.pathString, "rev-parse", "--git-dir"])
+            return result == directory.pathString
+        }
     }
 
     public func isValidDirectory(_ directory: Basics.AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
-        let remoteURL = try self.git.run(["-C", directory.pathString, "config", "--get", "remote.origin.url"])
-        return CanonicalPackageURL(remoteURL) == CanonicalPackageURL(repository.url)
+        do {
+            let remoteURL = try self.git.run(["-C", directory.pathString, "config", "--get", "remote.origin.url"])
+            return CanonicalPackageURL(remoteURL) == CanonicalPackageURL(repository.url)
+        } catch let error as GitShellError {
+            guard try error.result.utf8stderrOutput().contains("safe.bareRepository is 'explicit'") else { return false }
+            let remoteURL = try self.git.run(["-C", directory.pathString,  "--git-dir", directory.pathString, "config", "--get", "remote.origin.url"])
+            return CanonicalPackageURL(remoteURL) == CanonicalPackageURL(repository.url)
+        }
     }
 
     public func copy(from sourcePath: Basics.AbsolutePath, to destinationPath: Basics.AbsolutePath) throws {
@@ -220,7 +232,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     public func open(repository: RepositorySpecifier, at path: Basics.AbsolutePath) -> Repository {
         let key = "\(repository)@\(path)"
         return self.repositoryCache.memoize(key) {
-            GitRepository(git: self.git, path: path, isWorkingRepo: false)
+            GitRepository(git: self.git, path: path, isWorkingRepo: false, isForceBare: true)
         }
     }
 
@@ -405,6 +417,10 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     /// If this repo is a work tree repo (checkout) as opposed to a bare repo.
     private let isWorkingRepo: Bool
+    
+    // Fix cycle issue to check bare using `git rev-parse --is-bare-repository`
+    // safe.bareRepository is set to 'explicit'
+    private let isForceBare: Bool
 
     /// Dictionary for memoizing results of git calls that are not expected to change.
     private var cachedHashes = ThreadSafeKeyValueStore<String, Hash>()
@@ -414,18 +430,19 @@ public final class GitRepository: Repository, WorkingCheckout {
     private var cachedBranches = ThreadSafeBox<[String]>()
     private var cachedIsBareRepo = ThreadSafeBox<Bool>()
     private var cachedHasSubmodules = ThreadSafeBox<Bool>()
-
-    public convenience init(path: AbsolutePath, isWorkingRepo: Bool = true, cancellator: Cancellator? = .none) {
+    
+    public convenience init(path: AbsolutePath, isWorkingRepo: Bool = true, cancellator: Cancellator? = .none, isForceBare: Bool = false) {
         // used in one-off operations on git repo, as such the terminator is not ver important
         let cancellator = cancellator ?? Cancellator(observabilityScope: .none)
         let git = GitShellHelper(cancellator: cancellator)
-        self.init(git: git, path: path, isWorkingRepo: isWorkingRepo)
+        self.init(git: git, path: path, isWorkingRepo: isWorkingRepo, isForceBare: isForceBare)
     }
 
-    fileprivate init(git: GitShellHelper, path: AbsolutePath, isWorkingRepo: Bool = true) {
+    fileprivate init(git: GitShellHelper, path: AbsolutePath, isWorkingRepo: Bool = true, isForceBare: Bool = false) {
         self.git = git
         self.path = path
         self.isWorkingRepo = isWorkingRepo
+        self.isForceBare = isForceBare
         assert({
             // Ignore if we couldn't run popen for some reason.
             (try? self.isBare() != isWorkingRepo) ?? true
@@ -442,6 +459,10 @@ public final class GitRepository: Repository, WorkingCheckout {
         failureMessage: String = "",
         progress: FetchProgress.Handler? = nil
     ) throws -> String {
+        var extraArgs = ["-C", self.path.pathString]
+        if isForceBare {
+            extraArgs.append(contentsOf: ["--git-dir", self.path.pathString])
+        }
         if let progress {
             var stdoutBytes: [UInt8] = [], stderrBytes: [UInt8] = []
             do {
@@ -452,7 +473,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                     gitFetchStatusFilter($0, progress: progress)
                 })
                 return try self.git.run(
-                    ["-C", self.path.pathString] + args,
+                    extraArgs + args,
                     environment: environment,
                     outputRedirection: outputHandler
                 )
@@ -467,7 +488,7 @@ public final class GitRepository: Repository, WorkingCheckout {
             }
         } else {
             do {
-                return try self.git.run(["-C", self.path.pathString] + args, environment: environment)
+                return try self.git.run(extraArgs + args, environment: environment)
             } catch let error as GitShellError {
                 throw GitRepositoryError(path: self.path, message: failureMessage, result: error.result)
             }
@@ -662,8 +683,10 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     internal func isBare() throws -> Bool {
+        if isForceBare { return true }
         return try self.cachedIsBareRepo.memoize(body: {
             let output = try callGit(
+                "--git-dir", self.path.pathString,
                 "rev-parse",
                 "--is-bare-repository",
                 failureMessage: "Couldn’t test for bare repository"
@@ -1163,6 +1186,10 @@ extension GitFileSystemView: @unchecked Sendable {}
 
 private struct GitShellError: Error {
     let result: AsyncProcessResult
+    
+    init(result: AsyncProcessResult) {
+        self.result = result
+    }
 }
 
 private enum GitInterfaceError: Swift.Error {
