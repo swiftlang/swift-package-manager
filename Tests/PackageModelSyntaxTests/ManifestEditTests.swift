@@ -67,15 +67,12 @@ func assertManifestRefactor(
 }
 
 class ManifestEditTests: XCTestCase {
-    static let swiftSystemURL: SourceControlURL = "https://github.com/apple/swift-system.git"
-    static let swiftSystemPackageDependency = PackageDependency.remoteSourceControl(
-            identity: PackageIdentity(url: swiftSystemURL),
-            nameForTargetDependencyResolutionOnly: nil,
-            url: swiftSystemURL,
-            requirement: .branch("main"), productFilter: .nothing,
-            traits: []
-        )
-
+    static let swiftSystemURL: String = "https://github.com/apple/swift-system.git"
+    static let swiftSystemPackageDependency: MappablePackageDependency.Kind = .sourceControl(
+        name: nil,
+        location: swiftSystemURL,
+        requirement: .branch("main")
+    )
     func testAddPackageDependencyExistingComma() throws {
         try assertManifestRefactor("""
             // swift-tools-version: 5.5
@@ -96,13 +93,7 @@ class ManifestEditTests: XCTestCase {
             )
             """) { manifest in
                 try AddPackageDependency.addPackageDependency(
-                    PackageDependency.remoteSourceControl(
-                        identity: PackageIdentity(url: Self.swiftSystemURL),
-                        nameForTargetDependencyResolutionOnly: nil,
-                        url: Self.swiftSystemURL,
-                        requirement: .branch("main"), productFilter: .nothing,
-                        traits:[]
-                    ),
+                    .sourceControl(name: nil, location: Self.swiftSystemURL, requirement: .branch("main")),
                     to: manifest
                 )
             }
@@ -128,14 +119,7 @@ class ManifestEditTests: XCTestCase {
             )
             """) { manifest in
                 try AddPackageDependency.addPackageDependency(
-                    PackageDependency.remoteSourceControl(
-                        identity: PackageIdentity(url: Self.swiftSystemURL),
-                        nameForTargetDependencyResolutionOnly: nil,
-                        url: Self.swiftSystemURL,
-                        requirement: .exact("510.0.0"),
-                        productFilter: .nothing,
-                        traits: []
-                    ),
+                    .sourceControl(name: nil, location: Self.swiftSystemURL, requirement: .exact("510.0.0")),
                     to: manifest
                 )
             }
@@ -163,14 +147,7 @@ class ManifestEditTests: XCTestCase {
                 let versionRange = Range<Version>.upToNextMajor(from: Version(510, 0, 0))
 
                 return try AddPackageDependency.addPackageDependency(
-                    PackageDependency.remoteSourceControl(
-                        identity: PackageIdentity(url: Self.swiftSystemURL),
-                        nameForTargetDependencyResolutionOnly: nil,
-                        url: Self.swiftSystemURL,
-                        requirement: .range(versionRange),
-                        productFilter: .nothing,
-                        traits: []
-                    ),
+                    .sourceControl(name: nil, location: Self.swiftSystemURL, requirement: .range(versionRange)),
                     to: manifest
                 )
         }
@@ -193,14 +170,7 @@ class ManifestEditTests: XCTestCase {
                 let versionRange = Range<Version>.upToNextMajor(from: Version(510, 0, 0))
 
                 return try AddPackageDependency.addPackageDependency(
-                    PackageDependency.remoteSourceControl(
-                        identity: PackageIdentity(url: Self.swiftSystemURL),
-                        nameForTargetDependencyResolutionOnly: nil,
-                        url: Self.swiftSystemURL,
-                        requirement: .range(versionRange),
-                        productFilter: .nothing,
-                        traits: []
-                    ),
+                    .sourceControl(name: nil, location: Self.swiftSystemURL, requirement: .range(versionRange)),
                     to: manifest
                 )
         }
@@ -223,14 +193,7 @@ class ManifestEditTests: XCTestCase {
             )
             """) { manifest in
             try AddPackageDependency.addPackageDependency(
-                    PackageDependency.remoteSourceControl(
-                        identity: PackageIdentity(url: Self.swiftSystemURL),
-                        nameForTargetDependencyResolutionOnly: nil,
-                        url: Self.swiftSystemURL,
-                        requirement: .range(Version(508,0,0)..<Version(510,0,0)),
-                        productFilter: .nothing,
-                        traits: []
-                    ),
+                .sourceControl(name: nil, location: Self.swiftSystemURL, requirement: .range(Version(508,0,0)..<Version(510,0,0))),
                 to: manifest
             )
         }

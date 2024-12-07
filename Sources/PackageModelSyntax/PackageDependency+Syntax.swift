@@ -16,38 +16,16 @@ import SwiftParser
 import SwiftSyntax
 import struct TSCUtility.Version
 
-extension PackageDependency: ManifestSyntaxRepresentable {
+extension MappablePackageDependency.Kind: ManifestSyntaxRepresentable {
     func asSyntax() -> ExprSyntax {
         switch self {
-        case .fileSystem(let filesystem): filesystem.asSyntax()
-        case .sourceControl(let sourceControl): sourceControl.asSyntax()
-        case .registry(let registry): registry.asSyntax()
+        case .fileSystem(name: _, path: let path):
+            ".package(path: \(literal: path.description))"
+        case .sourceControl(name: _, location: let location, requirement: let requirement):
+            ".package(url: \(literal: location.description), \(requirement.asSyntax()))"
+        case .registry(id: let id, requirement: let requirement):
+            ".package(id: \(literal: id.description), \(requirement.asSyntax()))"
         }
-    }
-}
-
-extension PackageDependency.FileSystem: ManifestSyntaxRepresentable {
-    func asSyntax() -> ExprSyntax {
-        ".package(path: \(literal: path.description))"
-    }
-}
-
-extension PackageDependency.SourceControl: ManifestSyntaxRepresentable {
-    func asSyntax() -> ExprSyntax {
-        // TODO: Not handling identity, nameForTargetDependencyResolutionOnly,
-        // or productFilter yet.
-        switch location {
-        case .local:
-            fatalError()
-        case .remote(let url):
-            ".package(url: \(literal: url.description), \(requirement.asSyntax()))"
-        }
-    }
-}
-
-extension PackageDependency.Registry: ManifestSyntaxRepresentable {
-    func asSyntax() -> ExprSyntax {
-        ".package(id: \(literal: identity.description), \(requirement.asSyntax()))"
     }
 }
 
