@@ -142,9 +142,9 @@ public final class Cancellator: Cancellable, Sendable {
         self._cancel(deadline: deadline)
     }
 
-    // marked internal for testing
+    // marked `package` for testing
     @discardableResult
-    internal func _cancel(deadline: DispatchTime? = .none) -> Int {
+    package func _cancel(deadline: DispatchTime? = .none) -> Int {
         self.cancelling.put(true)
 
         self.observabilityScope?

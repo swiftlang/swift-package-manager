@@ -21,7 +21,6 @@ import struct PackageModel.ProductDescription
 import struct PackageModel.TargetDescription
 import func _InternalTestSupport.XCTAssertNoDiagnostics
 
-@testable
 import Commands
 
 import XCTest

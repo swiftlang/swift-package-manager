@@ -58,7 +58,7 @@ extension BinaryModule {
 
     public func parseArtifactArchives(for triple: Triple, fileSystem: FileSystem) throws -> [ExecutableInfo] {
         // The host triple might contain a version which we don't want to take into account here.
-        let versionLessTriple = try triple.withoutVersion()
+        let versionLessTriple = try triple.withoutVersion
         // We return at most a single variant of each artifact.
         let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: self.artifactPath)
         // Currently we filter out everything except executables.
@@ -73,7 +73,7 @@ extension BinaryModule {
                     throw StringError("No \"supportedTriples\" found in the artifact metadata for \(entry.key) in \(self.artifactPath)")
                 }
                 let filteredSupportedTriples = try supportedTriples
-                    .filter { try $0.withoutVersion() == versionLessTriple }
+                    .filter { try $0.withoutVersion == versionLessTriple }
                 return ExecutableInfo(
                     name: entry.key,
                     executablePath: self.artifactPath.appending($0.path),
@@ -85,12 +85,14 @@ extension BinaryModule {
 }
 
 extension Triple {
-    func withoutVersion() throws -> Triple {
-        if isDarwin() {
-            let stringWithoutVersion = tripleString(forPlatformVersion: "")
-            return try Triple(stringWithoutVersion)
-        } else {
-            return self
+    package var withoutVersion: Triple {
+        get throws {
+            if isDarwin() {
+                let stringWithoutVersion = tripleString(forPlatformVersion: "")
+                return try Triple(stringWithoutVersion)
+            } else {
+                return self
+            }
         }
     }
 }

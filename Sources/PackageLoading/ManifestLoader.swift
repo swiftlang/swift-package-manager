@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -1183,23 +1183,24 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 }
 
 extension ManifestLoader {
-    struct CacheKey: Hashable {
+    package struct CacheKey: Hashable {
         let packageIdentity: PackageIdentity
         let manifestPath: AbsolutePath
         let manifestContents: [UInt8]
         let toolsVersion: ToolsVersion
         let env: Environment
         let swiftpmVersion: String
-        let sha256Checksum: String
+        package let sha256Checksum: String
 
-        init (packageIdentity: PackageIdentity,
-              packageLocation: String,
-              manifestPath: AbsolutePath,
-              toolsVersion: ToolsVersion,
-              env: Environment,
-              swiftpmVersion: String,
-              extraManifestFlags: [String],
-              fileSystem: FileSystem
+        package init(
+            packageIdentity: PackageIdentity,
+            packageLocation: String,
+            manifestPath: AbsolutePath,
+            toolsVersion: ToolsVersion,
+            env: Environment,
+            swiftpmVersion: String,
+            extraManifestFlags: [String],
+            fileSystem: FileSystem
         ) throws {
             let manifestContents = try fileSystem.readFileContents(manifestPath).contents
             let sha256Checksum = try Self.computeSHA256Checksum(
@@ -1221,7 +1222,7 @@ extension ManifestLoader {
             self.sha256Checksum = sha256Checksum
         }
 
-        func hash(into hasher: inout Hasher) {
+        package func hash(into hasher: inout Hasher) {
             hasher.combine(self.sha256Checksum)
         }
 
@@ -1252,7 +1253,21 @@ extension ManifestLoader {
 }
 
 extension ManifestLoader {
-    struct EvaluationResult: Codable {
+    package struct EvaluationResult: Codable {
+        package init(
+            diagnosticFile: AbsolutePath? = nil,
+            compilerOutput: String? = nil,
+            manifestJSON: String? = nil,
+            compilerCommandLine: [String]? = nil,
+            errorOutput: String? = nil
+        ) {
+            self.diagnosticFile = diagnosticFile
+            self.compilerOutput = compilerOutput
+            self.manifestJSON = manifestJSON
+            self.compilerCommandLine = compilerCommandLine
+            self.errorOutput = errorOutput
+        }
+        
         /// The path to the diagnostics file (.dia).
         ///
         /// This is only present if serialized diagnostics are enabled.
@@ -1264,7 +1279,7 @@ extension ManifestLoader {
         var compilerOutput: String?
 
         /// The manifest in JSON format.
-        var manifestJSON: String?
+        package var manifestJSON: String?
 
         /// The command line used to compile the manifest
         var compilerCommandLine: [String]?

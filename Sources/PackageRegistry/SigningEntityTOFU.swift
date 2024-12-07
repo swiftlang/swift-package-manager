@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2023-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -19,11 +19,11 @@ import PackageSigning
 
 import struct TSCUtility.Version
 
-struct PackageSigningEntityTOFU {
+package struct PackageSigningEntityTOFU {
     private let signingEntityStorage: PackageSigningEntityStorage?
     private let signingEntityCheckingMode: SigningEntityCheckingMode
 
-    init(
+    package init(
         signingEntityStorage: PackageSigningEntityStorage?,
         signingEntityCheckingMode: SigningEntityCheckingMode
     ) {
@@ -31,7 +31,7 @@ struct PackageSigningEntityTOFU {
         self.signingEntityCheckingMode = signingEntityCheckingMode
     }
     
-    func validate(
+    package func validate(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         version: Version,

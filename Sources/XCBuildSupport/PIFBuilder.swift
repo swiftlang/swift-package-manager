@@ -23,7 +23,27 @@ import func TSCBasic.memoize
 import func TSCBasic.topologicalSort
 
 /// The parameters required by `PIFBuilder`.
-struct PIFBuilderParameters {
+package struct PIFBuilderParameters {
+    package init(
+        triple: Triple,
+        isPackageAccessModifierSupported: Bool,
+        enableTestability: Bool,
+        shouldCreateDylibForDynamicProducts: Bool,
+        toolchainLibDir: AbsolutePath,
+        pkgConfigDirectories: [AbsolutePath],
+        sdkRootPath: AbsolutePath? = nil,
+        supportedSwiftVersions: [SwiftLanguageVersion]
+    ) {
+        self.triple = triple
+        self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
+        self.enableTestability = enableTestability
+        self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
+        self.toolchainLibDir = toolchainLibDir
+        self.pkgConfigDirectories = pkgConfigDirectories
+        self.sdkRootPath = sdkRootPath
+        self.supportedSwiftVersions = supportedSwiftVersions
+    }
+    
     let triple: Triple
 
     /// Whether the toolchain supports `-package-name` option.
@@ -76,7 +96,7 @@ public final class PIFBuilder {
     ///   - parameters: The parameters used to configure the PIF.
     ///   - fileSystem: The file system to read from.
     ///   - observabilityScope: The ObservabilityScope to emit diagnostics to.
-    init(
+    package init(
         graph: ModulesGraph,
         parameters: PIFBuilderParameters,
         fileSystem: FileSystem,
@@ -437,7 +457,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
         self.addSources(mainTarget.sources, to: pifTarget)
 
-        let dependencies = try! topologicalSort(mainTarget.dependencies) { $0.packageDependencies }.sorted()
+        let dependencies = try! TSCBasic.topologicalSort(mainTarget.dependencies) { $0.packageDependencies }.sorted()
         for dependency in dependencies {
             self.addDependency(to: dependency, in: pifTarget, linkProduct: true)
         }
@@ -719,7 +739,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         self.addSources(target.sources, to: pifTarget)
 
         // Handle the target's dependencies (but don't link against them).
-        let dependencies = try! topologicalSort(target.dependencies) { $0.packageDependencies }.sorted()
+        let dependencies = try! TSCBasic.topologicalSort(target.dependencies) { $0.packageDependencies }.sorted()
         for dependency in dependencies {
             self.addDependency(to: dependency, in: pifTarget, linkProduct: false)
         }
@@ -1529,7 +1549,7 @@ extension ResolvedProduct {
     ///     - environment: The build environment to use to filter dependencies on.
     public func recursivePackageDependencies() -> [ResolvedModule.Dependency] {
         let initialDependencies = modules.map { ResolvedModule.Dependency.module($0, conditions: []) }
-        return try! topologicalSort(initialDependencies) { dependency in
+        return try! TSCBasic.topologicalSort(initialDependencies) { dependency in
             dependency.packageDependencies
         }.sorted()
     }

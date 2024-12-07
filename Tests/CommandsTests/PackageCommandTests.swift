@@ -11,8 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@testable import CoreCommands
-@testable import Commands
+import CoreCommands
+import Commands
 import Foundation
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)

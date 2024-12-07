@@ -12,10 +12,10 @@
 
 import Basics
 import _InternalTestSupport
-@testable import SourceControl
+import SourceControl
 import XCTest
 
-class GitRepositoryProviderTests: XCTestCase {
+final class GitRepositoryProviderTests: XCTestCase {
     func testIsValidDirectory() throws {
         try testWithTemporaryDirectory { sandbox in
             let provider = GitRepositoryProvider()

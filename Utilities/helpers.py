@@ -59,7 +59,7 @@ def call(cmd, cwd=None, verbose=False):
             print(' '.join(cmd), flush=True)
         error(str(e))
 
-def call_output(cmd, cwd=None, stderr=False, verbose=False):
+def call_output(cmd, cwd=None, stderr=None, verbose=False):
     """Calls a subprocess for its return data."""
     if verbose:
         print(' '.join(cmd), flush=True)

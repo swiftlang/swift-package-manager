@@ -12,8 +12,8 @@
 
 import Build
 import Foundation
-@testable import Commands
-@testable import CoreCommands
+import Commands
+import CoreCommands
 import LLBuildManifest
 import _InternalTestSupport
 import TSCBasic
@@ -24,7 +24,7 @@ import func PackageGraph.loadModulesGraph
 import class PackageModel.Manifest
 import struct PackageModel.TargetDescription
 
-class PrepareForIndexTests: XCTestCase {
+final class PrepareForIndexTests: XCTestCase {
     func testPrepare() async throws {
         let (graph, fs, scope) = try macrosPackageGraph()
 

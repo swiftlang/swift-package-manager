@@ -14,7 +14,7 @@ import Foundation
 import XCTest
 
 import Basics
-@testable import PackageCollections
+import PackageCollections
 import PackageCollectionsSigning
 import PackageModel
 import SourceControl

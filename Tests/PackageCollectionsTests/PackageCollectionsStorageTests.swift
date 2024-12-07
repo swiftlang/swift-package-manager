@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -11,12 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@testable import PackageCollections
+import PackageCollections
 import _InternalTestSupport
 import tsan_utils
 import XCTest
 
-class PackageCollectionsStorageTests: XCTestCase {
+package class PackageCollectionsStorageTests: XCTestCase {
     func testHappyCase() async throws {
         try await testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending("test.db")

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -157,7 +157,7 @@ extension PkgConfig {
 ///
 /// See: https://www.freedesktop.org/wiki/Software/pkg-config/
 // This is only internal so it can be unit tested.
-internal struct PkgConfigParser {
+package struct PkgConfigParser {
     public let pcFile: AbsolutePath
     private let fileSystem: FileSystem
     public private(set) var variables = [String: String]()
@@ -456,7 +456,7 @@ internal struct PkgConfigParser {
 }
 
 // This is only internal so it can be unit tested.
-internal struct PCFileFinder {
+package struct PCFileFinder {
     /// Cached results of locations `pkg-config` will search for `.pc` files
     /// FIXME: This shouldn't use a static variable, since the first lookup
     /// will cache the result of whatever `brewPrefix` was passed in.  It is
@@ -510,7 +510,7 @@ internal struct PCFileFinder {
     /// again when instantiating a `PCFileFinder()`.  This is intended only for
     /// use by testing.  This is a temporary workaround for the use of a static
     /// variable by this class.
-    internal static func resetCachedPkgConfigPaths() {
+    package static func resetCachedPkgConfigPaths() {
         PCFileFinder.pkgConfigPaths = nil
     }
 
@@ -537,7 +537,7 @@ internal struct PCFileFinder {
     }
 }
 
-internal enum PkgConfigError: Swift.Error, CustomStringConvertible {
+package enum PkgConfigError: Swift.Error, CustomStringConvertible {
     case couldNotFindConfigFile(name: String)
     case parsingError(String)
     case prohibitedFlags(String)

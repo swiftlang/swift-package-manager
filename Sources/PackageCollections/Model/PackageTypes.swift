@@ -88,7 +88,7 @@ extension PackageCollectionsModel {
         public let languages: Set<String>?
 
         /// Initializes a `Package`
-        init(
+        package init(
             identity: PackageIdentity,
             location: String,
             summary: String?,
@@ -117,6 +117,30 @@ extension PackageCollectionsModel {
 extension PackageCollectionsModel.Package {
     /// A representation of package version
     public struct Version: Codable, Equatable {
+        package init(
+            version: TSCUtility.Version,
+            title: String? = nil,
+            summary: String? = nil,
+            manifests: [ToolsVersion : PackageCollectionsModel.Package.Version.Manifest],
+            defaultToolsVersion: ToolsVersion,
+            verifiedCompatibility: [PackageCollectionsModel.Compatibility]? = nil,
+            license: PackageCollectionsModel.License? = nil,
+            author: PackageCollectionsModel.Package.Author? = nil,
+            signer: PackageCollectionsModel.Signer? = nil,
+            createdAt: Date? = nil
+        ) {
+            self.version = version
+            self.title = title
+            self.summary = summary
+            self.manifests = manifests
+            self.defaultToolsVersion = defaultToolsVersion
+            self.verifiedCompatibility = verifiedCompatibility
+            self.license = license
+            self.author = author
+            self.signer = signer
+            self.createdAt = createdAt
+        }
+        
         public typealias Target = PackageCollectionsModel.Target
         public typealias Product = PackageCollectionsModel.Product
 
@@ -151,6 +175,20 @@ extension PackageCollectionsModel.Package {
         public let createdAt: Date?
 
         public struct Manifest: Equatable, Codable {
+            package init(
+                toolsVersion: ToolsVersion,
+                packageName: String,
+                targets: [PackageCollectionsModel.Package.Version.Target],
+                products: [PackageCollectionsModel.Package.Version.Product],
+                minimumPlatformVersions: [SupportedPlatform]? = nil
+            ) {
+                self.toolsVersion = toolsVersion
+                self.packageName = packageName
+                self.targets = targets
+                self.products = products
+                self.minimumPlatformVersions = minimumPlatformVersions
+            }
+            
             /// The Swift tools version specified in `Package.swift`.
             public let toolsVersion: ToolsVersion
 
@@ -174,6 +212,11 @@ extension PackageCollectionsModel.Package {
 extension PackageCollectionsModel {
     /// A representation of package target
     public struct Target: Equatable, Hashable, Codable {
+        package init(name: String, moduleName: String? = nil) {
+            self.name = name
+            self.moduleName = moduleName
+        }
+        
         /// The target name
         public let name: String
 
@@ -185,6 +228,12 @@ extension PackageCollectionsModel {
 extension PackageCollectionsModel {
     /// A representation of package product
     public struct Product: Equatable, Codable {
+        package init(name: String, type: ProductType, targets: [PackageCollectionsModel.Target]) {
+            self.name = name
+            self.type = type
+            self.targets = targets
+        }
+        
         /// The product name
         public let name: String
 
@@ -199,6 +248,11 @@ extension PackageCollectionsModel {
 extension PackageCollectionsModel {
     /// Compatible platform and Swift version.
     public struct Compatibility: Equatable, Codable {
+        package init(platform: Platform, swiftVersion: SwiftLanguageVersion) {
+            self.platform = platform
+            self.swiftVersion = swiftVersion
+        }
+        
         /// The platform (e.g., macOS, Linux, etc.)
         public let platform: PackageModel.Platform
 
@@ -210,6 +264,16 @@ extension PackageCollectionsModel {
 extension PackageCollectionsModel.Package {
     /// A representation of package author
     public struct Author: Equatable, Codable {
+        package init(
+            username: String,
+            url: URL? = nil,
+            service: PackageCollectionsModel.Package.Author.Service? = nil
+        ) {
+            self.username = username
+            self.url = url
+            self.service = service
+        }
+        
         /// Author's username
         public let username: String
 
@@ -221,6 +285,10 @@ extension PackageCollectionsModel.Package {
 
         /// A representation of user service
         public struct Service: Equatable, Codable {
+            package init(name: String) {
+                self.name = name
+            }
+            
             /// The service name
             public let name: String
         }
@@ -272,13 +340,13 @@ extension PackageCollectionsModel.Package.Version: Comparable {
 }
 
 extension Array where Element == PackageCollectionsModel.Package.Version {
-    var latestRelease: PackageCollectionsModel.Package.Version? {
+    package var latestRelease: PackageCollectionsModel.Package.Version? {
         self.filter { $0.version.prereleaseIdentifiers.isEmpty }
             .sorted(by: >)
             .first
     }
 
-    var latestPrerelease: PackageCollectionsModel.Package.Version? {
+    package var latestPrerelease: PackageCollectionsModel.Package.Version? {
         self.filter { !$0.version.prereleaseIdentifiers.isEmpty }
             .sorted(by: >)
             .first

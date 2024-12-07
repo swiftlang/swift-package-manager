@@ -88,5 +88,5 @@ extension SwiftPackageCommand {
 #if compiler(<6.0)
 extension InitPackage.PackageType: ExpressibleByArgument {}
 #else
-extension InitPackage.PackageType: @retroactive ExpressibleByArgument {}
+extension InitPackage.PackageType: @retroactive ArgumentParser.ExpressibleByArgument {}
 #endif

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2023-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -39,11 +39,11 @@ extension SecIdentity: SigningIdentity {}
 // MARK: - SwiftSigningIdentity is created using raw private key and certificate bytes
 
 public struct SwiftSigningIdentity: SigningIdentity {
-    let certificate: Certificate
+    package let certificate: Certificate
     let privateKey: Certificate.PrivateKey
 
     // for testing
-    init(certificate: Certificate, privateKey: Certificate.PrivateKey) {
+    package init(certificate: Certificate, privateKey: Certificate.PrivateKey) {
         self.certificate = certificate
         self.privateKey = privateKey
     }

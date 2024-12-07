@@ -14,7 +14,7 @@ import Basics
 import struct Foundation.Date
 import struct Foundation.URL
 import struct Foundation.UUID
-@testable import PackageCollections
+import PackageCollections
 import PackageCollectionsModel
 import PackageCollectionsSigning
 import PackageModel

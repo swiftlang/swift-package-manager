@@ -194,6 +194,11 @@ extension ResolvedProduct {
 extension ResolvedProduct: Identifiable {
     /// Resolved module identity that uniquely identifies it in a resolution graph.
     public struct ID: Hashable {
+        package init(productName: String, packageIdentity: PackageIdentity) {
+            self.productName = productName
+            self.packageIdentity = packageIdentity
+        }
+        
         public let productName: String
         let packageIdentity: PackageIdentity
     }

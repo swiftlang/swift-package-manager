@@ -15,6 +15,10 @@ import struct Foundation.URL
 extension PackageCollectionsModel {
     /// A representation of package in search result
     public struct PackageSearchResult {
+        package init(items: [PackageCollectionsModel.PackageSearchResult.Item]) {
+            self.items = items
+        }
+        
         /// Result items of the search
         public let items: [Item]
 
@@ -30,7 +34,7 @@ extension PackageCollectionsModel {
             /// Package indexes that contain the package
             public internal(set) var indexes: [URL]
             
-            init(
+            package init(
                 package: PackageCollectionsModel.Package,
                 collections: [PackageCollectionsModel.CollectionIdentifier] = [],
                 indexes: [URL] = []

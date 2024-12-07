@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2022-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2022-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -18,7 +18,17 @@ import struct TSCBasic.RegEx
 
 /// Represents an `.artifactbundle` on the filesystem that contains a Swift SDK.
 public struct SwiftSDKBundle {
+    package init(path: AbsolutePath, artifacts: [String : [SwiftSDKBundle.Variant]] = [String: [Variant]]()) {
+        self.path = path
+        self.artifacts = artifacts
+    }
+    
     public struct Variant: Equatable {
+        package init(metadata: ArtifactsArchiveMetadata.Variant, swiftSDKs: [SwiftSDK]) {
+            self.metadata = metadata
+            self.swiftSDKs = swiftSDKs
+        }
+        
         let metadata: ArtifactsArchiveMetadata.Variant
         let swiftSDKs: [SwiftSDK]
     }
@@ -81,7 +91,7 @@ extension [SwiftSDKBundle] {
     ///   - hostTriple: triple of the host building with these Swift SDKs.
     ///   - observabilityScope: observability scope to log warnings about multiple matches.
     /// - Returns: ``SwiftSDK`` value matching `query` either by artifact ID or target triple, `nil` if none found.
-    func selectSwiftSDK(
+    package func selectSwiftSDK(
         matching selector: String,
         hostTriple: Triple,
         observabilityScope: ObservabilityScope
