@@ -21,7 +21,15 @@ echo "Current directory is ${PWD}"
 CONFIGURATION=debug
 export SWIFTCI_IS_SELF_HOSTED=1
 
+# Ensure SDKROOT is configured
+host=$(uname)
+if [ "${host}" == "Darwin" ]; then
+  export SDKROOT=$(xcode-select -p)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+fi
+
 set -x
+
+env | sort
 
 # Perform package update in order to get the latest commits for the dependencies.
 swift package update
@@ -35,7 +43,7 @@ cd IntegrationTests
 swift package update
 $SWIFTPM_BIN_DIR/swift-test --parallel
 
-if [ "$(uname)" == "Darwin" ]; then
+if [ "${host}" == "Darwin" ]; then
   cd ..
   echo "Current working directory is ${PWD}"
   echo "Bootstrapping with the XCBuild codepath..."
