@@ -6,7 +6,7 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-add_library(SourceControl STATIC
+add_library(SourceControl
   GitRepository.swift
   Repository.swift
   RepositoryManager.swift)
@@ -20,3 +20,9 @@ target_link_libraries(SourceControl PUBLIC
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(SourceControl PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
+
+install(TARGETS SourceControl
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin)
+set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS SourceControl)
