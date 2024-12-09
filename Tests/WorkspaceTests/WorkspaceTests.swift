@@ -12856,7 +12856,7 @@ final class WorkspaceTests: XCTestCase {
                     alternativeURLs: ["https://git/org/foo"],
                     targets: [
                         MockTarget(name: "FooTarget", dependencies: [
-                            "Bar"
+                            "Bar",
                         ]),
                     ],
                     products: [
@@ -12871,14 +12871,14 @@ final class WorkspaceTests: XCTestCase {
         )
 
         workspace.sourceControlToRegistryDependencyTransformation = .swizzle
-        
+
         try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "org.bar", "org.foo", "Root")
                 result.check(modules: "FooTarget", "BarTarget", "RootTarget")
-                result.checkTarget("RootTarget") { result in 
+                result.checkTarget("RootTarget") { result in
                     result.check(dependencies: "FooProduct")
                 }
                 result.checkTarget("FooTarget") { result in
@@ -12886,7 +12886,7 @@ final class WorkspaceTests: XCTestCase {
                 }
             }
         }
-        
+
         workspace.checkManagedDependencies { result in
             result.check(dependency: "org.foo", at: .registryDownload("1.2.0"))
             result.check(dependency: "org.bar", at: .registryDownload("1.1.0"))

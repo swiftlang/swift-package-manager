@@ -258,10 +258,16 @@ extension Workspace {
                     for dependency in target.dependencies {
                         var modifiedDependency = dependency
                         switch dependency {
-                        case let .product(name: name, package: packageName, moduleAliases: moduleAliases, condition: condition):
+                        case .product(
+                            name: let name,
+                            package: let packageName,
+                            moduleAliases: let moduleAliases,
+                            condition: let condition
+                        ):
                             if let packageName,
                                // makes sure we use the updated package name for target based dependencies
-                               let modifiedPackageName = targetDependencyPackageNameTransformations[packageName] {
+                               let modifiedPackageName = targetDependencyPackageNameTransformations[packageName]
+                            {
                                 modifiedDependency = .product(
                                     name: name,
                                     package: modifiedPackageName,
@@ -269,7 +275,7 @@ extension Workspace {
                                     condition: condition
                                 )
                             }
-                        case let .byName(name: packageName, condition: condition):
+                        case .byName(name: let packageName, condition: let condition):
                             if let modifiedPackageName = targetDependencyPackageNameTransformations[packageName] {
                                 modifiedDependency = .product(
                                     name: packageName,
