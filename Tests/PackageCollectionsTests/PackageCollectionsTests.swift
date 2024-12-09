@@ -15,7 +15,7 @@ import XCTest
 import _InternalTestSupport
 
 import Basics
-@testable import PackageCollections
+import PackageCollections
 import PackageModel
 import SourceControl
 
@@ -1585,8 +1585,8 @@ final class PackageCollectionsTests: XCTestCase {
     }
 }
 
-private extension PackageCollections {
-    init(
+extension PackageCollections {
+    package init(
         configuration: Configuration = .init(),
         storage: Storage,
         collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider],

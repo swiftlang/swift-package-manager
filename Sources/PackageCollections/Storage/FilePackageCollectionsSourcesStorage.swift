@@ -18,14 +18,14 @@ import class Foundation.JSONDecoder
 import class Foundation.JSONEncoder
 import struct Foundation.URL
 
-struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
+package struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
     let fileSystem: FileSystem
-    let path: AbsolutePath
+    package let path: AbsolutePath
 
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
-    init(fileSystem: FileSystem, path: AbsolutePath? = nil) {
+    package init(fileSystem: FileSystem, path: AbsolutePath? = nil) {
         self.fileSystem = fileSystem
 
         self.path = path ?? (try? fileSystem.swiftPMConfigurationDirectory.appending("collections.json")) ?? .root
@@ -33,13 +33,13 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
         self.decoder = JSONDecoder.makeWithDefaults()
     }
 
-    func list() async throws -> [PackageCollectionsModel.CollectionSource] {
+    package func list() async throws -> [PackageCollectionsModel.CollectionSource] {
         try self.withLock {
             try self.loadFromDisk()
         }
     }
 
-    func add(source: PackageCollectionsModel.CollectionSource, order: Int? = nil) async throws {
+    package func add(source: PackageCollectionsModel.CollectionSource, order: Int? = nil) async throws {
         try self.withLock {
             var sources = try self.loadFromDisk()
             sources = sources.filter { $0 != source }
@@ -49,7 +49,7 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
         }
     }
 
-    func remove(source: PackageCollectionsModel.CollectionSource) async throws {
+    package func remove(source: PackageCollectionsModel.CollectionSource) async throws {
         try self.withLock {
             var sources = try self.loadFromDisk()
             sources = sources.filter { $0 != source }
@@ -57,7 +57,7 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
         }
     }
 
-    func move(source: PackageCollectionsModel.CollectionSource, to order: Int) async throws {
+    package func move(source: PackageCollectionsModel.CollectionSource, to order: Int) async throws {
         try self.withLock {
             var sources = try self.loadFromDisk()
             sources = sources.filter { $0 != source }
@@ -67,13 +67,13 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
         }
     }
 
-    func exists(source: PackageCollectionsModel.CollectionSource) async throws -> Bool {
+    package func exists(source: PackageCollectionsModel.CollectionSource) async throws -> Bool {
         try self.withLock {
             try self.loadFromDisk()
         }.contains(source)
     }
 
-    func update(source: PackageCollectionsModel.CollectionSource) async throws {
+    package func update(source: PackageCollectionsModel.CollectionSource) async throws {
         try self.withLock {
             var sources = try self.loadFromDisk()
             if let index = sources.firstIndex(where: { $0 == source }) {

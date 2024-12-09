@@ -15,6 +15,11 @@ import struct Foundation.URL
 extension PackageCollectionsModel {
     /// A representation of a package license
     public struct License: Equatable, Codable {
+        package init(type: PackageCollectionsModel.LicenseType, url: URL) {
+            self.type = type
+            self.url = url
+        }
+        
         /// License type
         public let type: LicenseType
 

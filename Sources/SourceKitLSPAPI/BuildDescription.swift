@@ -15,7 +15,7 @@ import struct Foundation.URL
 private import struct Basics.AbsolutePath
 private import func Basics.resolveSymlinks
 
-internal import SPMBuildCore
+package import SPMBuildCore
 
 // FIXME: should import these module with `private` or `internal` access control
 import class Build.BuildPlan
@@ -168,7 +168,7 @@ public struct BuildDescription {
         self.inputs = buildPlan.inputs
     }
 
-    func getBuildTarget(
+    package func getBuildTarget(
         for module: ResolvedModule,
         destination: BuildParameters.Destination
     ) -> BuildTarget? {

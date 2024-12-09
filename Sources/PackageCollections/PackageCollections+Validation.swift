@@ -19,7 +19,7 @@ import struct TSCUtility.Version
 // MARK: - Model validations
 
 extension Model.CollectionSource {
-    func validate(fileSystem: FileSystem) -> [ValidationMessage]? {
+    package func validate(fileSystem: FileSystem) -> [ValidationMessage]? {
         var messages: [ValidationMessage]?
         let appendMessage = { (message: ValidationMessage) in
             if messages == nil {
@@ -196,11 +196,11 @@ public struct ValidationMessage: Equatable, CustomStringConvertible {
         self.property = property
     }
 
-    static func error(_ message: String, property: String? = nil) -> ValidationMessage {
+    package static func error(_ message: String, property: String? = nil) -> ValidationMessage {
         .init(message, level: .error, property: property)
     }
 
-    static func warning(_ message: String, property: String? = nil) -> ValidationMessage {
+    package static func warning(_ message: String, property: String? = nil) -> ValidationMessage {
         .init(message, level: .warning, property: property)
     }
 
@@ -215,7 +215,7 @@ public struct ValidationMessage: Equatable, CustomStringConvertible {
 }
 
 extension Array where Element == ValidationMessage {
-    func errors(include levels: Set<ValidationMessage.Level> = [.error]) -> [ValidationError]? {
+    package func errors(include levels: Set<ValidationMessage.Level> = [.error]) -> [ValidationError]? {
         let errors = self.filter { levels.contains($0.level) }
 
         guard !errors.isEmpty else { return nil }

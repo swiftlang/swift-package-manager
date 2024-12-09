@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@testable import Workspace
+import Workspace
 import XCTest
 
 final class WorkspaceStateTests: XCTestCase {

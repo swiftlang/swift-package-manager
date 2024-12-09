@@ -33,15 +33,17 @@ import struct TSCBasic.SHA256
 import struct TSCUtility.Version
 
 extension PackageRegistryCommand {
-    struct Publish: AsyncSwiftCommand {
-        static let metadataFilename = "package-metadata.json"
+    package struct Publish: AsyncSwiftCommand {
+        package init() {}
 
-        static let configuration = CommandConfiguration(
+        package static let metadataFilename = "package-metadata.json"
+
+        package static let configuration = CommandConfiguration(
             abstract: "Publish to a registry"
         )
 
         @OptionGroup(visibility: .hidden)
-        var globalOptions: GlobalOptions
+        package var globalOptions: GlobalOptions
 
         @Argument(help: .init("The package identifier.", valueName: "package-id"))
         var packageIdentity: PackageIdentity
@@ -88,7 +90,7 @@ extension PackageRegistryCommand {
         @Flag(help: "Dry run only; prepare the archive and sign it but do not publish to the registry.")
         var dryRun: Bool = false
 
-        func run(_ swiftCommandState: SwiftCommandState) async throws {
+        package func run(_ swiftCommandState: SwiftCommandState) async throws {
             // Require both local and user-level registries config
             let configuration = try getRegistriesConfig(swiftCommandState, global: false).configuration
 
@@ -250,7 +252,7 @@ extension SignatureFormat {
 #if compiler(<6.0)
 extension SignatureFormat: ExpressibleByArgument {}
 #else
-extension SignatureFormat: @retroactive ExpressibleByArgument {}
+extension SignatureFormat: @retroactive ArgumentParser.ExpressibleByArgument {}
 #endif
 
 enum MetadataLocation {
@@ -464,8 +466,8 @@ enum PackageArchiveSigner {
     }
 }
 
-enum PackageArchiver {
-    static func archive(
+package enum PackageArchiver {
+    package static func archive(
         packageIdentity: PackageIdentity,
         packageVersion: Version,
         packageDirectory: AbsolutePath,

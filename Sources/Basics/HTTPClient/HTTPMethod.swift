@@ -17,7 +17,7 @@ public enum HTTPMethod: Sendable {
     case put
     case delete
 
-    var string: String {
+    package var string: String {
         switch self {
         case .head:
             return "HEAD"

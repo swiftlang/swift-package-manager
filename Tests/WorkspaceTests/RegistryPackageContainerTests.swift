@@ -18,7 +18,7 @@ import PackageLoading
 import PackageModel
 import PackageRegistry
 import _InternalTestSupport
-@testable import Workspace
+import Workspace
 import XCTest
 
 import struct TSCUtility.Version

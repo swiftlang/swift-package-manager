@@ -128,7 +128,7 @@ public final class ClangModuleBuildDescription {
     public let buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
 
     /// Create a new target description with target and build parameters.
-    init(
+    package init(
         package: ResolvedPackage,
         target: ResolvedModule,
         toolsVersion: ToolsVersion,

@@ -13,7 +13,7 @@
 import Basics
 import Dispatch
 import Foundation
-@testable import PackageCollectionsSigning
+import PackageCollectionsSigning
 import X509
 
 // Set `REAL_CERT_USER_ID` and `REAL_CERT_ORG_UNIT` env vars when running ENABLE_REAL_CERT_TEST tests

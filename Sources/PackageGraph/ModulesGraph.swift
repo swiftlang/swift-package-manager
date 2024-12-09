@@ -17,7 +17,7 @@ import OrderedCollections
 import PackageLoading
 import PackageModel
 
-enum PackageGraphError: Swift.Error {
+package enum PackageGraphError: Swift.Error {
     /// Indicates a non-root package with no modules.
     case noModules(Package)
 
@@ -347,7 +347,7 @@ extension PackageGraphError: CustomStringConvertible {
     }
 }
 
-enum GraphError: Error {
+package enum GraphError: Error {
     /// A cycle was detected in the input.
     case unexpectedCycle
 }
@@ -369,7 +369,7 @@ enum GraphError: Error {
 ///
 /// - Complexity: O(v + e) where (v, e) are the number of vertices and edges
 /// reachable from the input nodes via the relation.
-func topologicalSort<T: Identifiable>(
+package func topologicalSort<T: Identifiable>(
     _ nodes: [T], successors: (T) throws -> [T]
 ) throws -> [T] {
     // Implements a topological sort via recursion and reverse postorder DFS.
