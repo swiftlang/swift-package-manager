@@ -269,10 +269,10 @@ extension Workspace {
                                     condition: condition
                                 )
                             }
-                        case let .byName(name: name, condition: condition):
-                            if let modifiedPackageName = targetDependencyPackageNameTransformations[name] {
+                        case let .byName(name: packageName, condition: condition):
+                            if let modifiedPackageName = targetDependencyPackageNameTransformations[packageName] {
                                 modifiedDependency = .product(
-                                    name: name,
+                                    name: packageName,
                                     package: modifiedPackageName,
                                     moduleAliases: [:],
                                     condition: condition

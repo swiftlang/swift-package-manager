@@ -12814,7 +12814,7 @@ final class WorkspaceTests: XCTestCase {
         )
     }
     
-    func testTransitiveResolutionFromRegistryWithByNameReferencesWhenSourceControlToRegistryDependencyTransformationIsSwizzle() async throws {
+    func testTransitiveResolutionFromRegistryWithByNameDependencies() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
