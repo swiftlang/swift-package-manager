@@ -257,11 +257,11 @@ extension Workspace {
                     var modifiedDependencies = [TargetDescription.Dependency]()
                     for dependency in target.dependencies {
                         var modifiedDependency = dependency
-                        if case .product(let name, let packageName, let moduleAliases, let condition) = dependency,
-                           let packageName
-                        {
-                            // makes sure we use the updated package name for target based dependencies
-                            if let modifiedPackageName = targetDependencyPackageNameTransformations[packageName] {
+                        switch dependency {
+                        case let .product(name: name, package: packageName, moduleAliases: moduleAliases, condition: condition):
+                            if let packageName,
+                               // makes sure we use the updated package name for target based dependencies
+                               let modifiedPackageName = targetDependencyPackageNameTransformations[packageName] {
                                 modifiedDependency = .product(
                                     name: name,
                                     package: modifiedPackageName,
@@ -269,6 +269,17 @@ extension Workspace {
                                     condition: condition
                                 )
                             }
+                        case let .byName(name: name, condition: condition):
+                            if let modifiedPackageName = targetDependencyPackageNameTransformations[name] {
+                                modifiedDependency = .product(
+                                    name: name,
+                                    package: modifiedPackageName,
+                                    moduleAliases: [:],
+                                    condition: condition
+                                )
+                            }
+                        case .target:
+                            break
                         }
                         modifiedDependencies.append(modifiedDependency)
                     }

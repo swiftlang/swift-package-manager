@@ -12813,6 +12813,83 @@ final class WorkspaceTests: XCTestCase {
             ["did load manifest for registry package: org.baz (identity: org.baz)"]
         )
     }
+    
+    func testTransitiveResolutionFromRegistryWithByNameReferencesWhenSourceControlToRegistryDependencyTransformationIsSwizzle() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Bar",
+                    identity: "org.bar",
+                    alternativeURLs: ["https://git/org/Bar"],
+                    targets: [
+                        MockTarget(name: "BarTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", modules: ["BarTarget"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0"]
+                ),
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
+                    targets: [
+                        MockTarget(name: "FooTarget", dependencies: [
+                            "Bar"
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "1.2.0"]
+                ),
+            ]
+        )
+
+        workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+        
+        try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "org.bar", "org.foo", "Root")
+                result.check(modules: "FooTarget", "BarTarget", "RootTarget")
+                result
+                    .checkTarget("RootTarget") { result in result.check(dependencies: "FooProduct") }
+                result
+                    .checkTarget("FooTarget") { result in result.check(dependencies: "Bar") }
+            }
+        }
+        
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "org.foo", at: .registryDownload("1.2.0"))
+            result.check(dependency: "org.bar", at: .registryDownload("1.1.0"))
+        }
+    }
 
     // no dups
     func testResolutionMixedRegistryAndSourceControl1() async throws {
