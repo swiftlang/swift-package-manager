@@ -182,6 +182,42 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         self.progressHandler(step, total, "Downloading \(artifacts)")
     }
 
+    /// The workspace has started downloading a binary artifact.
+    func willDownloadPrebuilt(from url: String, fromCache: Bool) {
+        if fromCache {
+            self.outputHandler("Fetching package prebuilt \(url) from cache", false)
+        } else {
+            self.outputHandler("Downloading package prebuilt \(url)", false)
+        }
+    }
+
+    /// The workspace has finished downloading a binary artifact.
+    func didDownloadPrebuilt(
+        from url: String,
+        result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
+        duration: DispatchTimeInterval
+    ) {
+        guard case .success(let fetchDetails) = result, !self.observabilityScope.errorsReported else {
+            return
+        }
+
+        if fetchDetails.fromCache {
+            self.outputHandler("Fetched \(url) from cache (\(duration.descriptionInSeconds))", false)
+        } else {
+            self.outputHandler("Downloaded \(url) (\(duration.descriptionInSeconds))", false)
+        }
+    }
+
+    /// The workspace is downloading a binary artifact.
+    func downloadingPrebuilt(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+
+    }
+
+    /// The workspace finished downloading all binary artifacts.
+    func didDownloadAllPrebuilts() {
+
+    }
+
     // registry signature handlers
 
     func onUnsignedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
