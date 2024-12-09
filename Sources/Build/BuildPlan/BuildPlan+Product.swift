@@ -54,27 +54,6 @@ extension BuildPlan {
             }
         }
 
-        // Don't link libc++ or libstd++ when building for Embedded Swift.
-        // Users can still link it manually for embedded platforms when needed,
-        // by providing `-Xlinker -lc++` options via CLI or `Package.swift`.
-        if !buildProduct.product.modules.contains(where: \.underlying.isEmbeddedSwiftTarget) {
-            // Link C++ if needed.
-            // Note: This will come from build settings in future.
-            for description in dependencies.staticTargets {
-                if case let target as ClangModule = description.module.underlying, target.isCXX {
-                    let triple = buildProduct.buildParameters.triple
-                    if triple.isDarwin() {
-                        buildProduct.additionalFlags += ["-lc++"]
-                    } else if triple.isWindows() {
-                        // Don't link any C++ library.
-                    } else {
-                        buildProduct.additionalFlags += ["-lstdc++"]
-                    }
-                    break
-                }
-            }
-        }
-
         for description in dependencies.staticTargets {
             switch description.module.underlying {
             case is SwiftModule:
