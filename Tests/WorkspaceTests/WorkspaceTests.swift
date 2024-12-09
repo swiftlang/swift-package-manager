@@ -12878,10 +12878,12 @@ final class WorkspaceTests: XCTestCase {
                 result.check(roots: "Root")
                 result.check(packages: "org.bar", "org.foo", "Root")
                 result.check(modules: "FooTarget", "BarTarget", "RootTarget")
-                result
-                    .checkTarget("RootTarget") { result in result.check(dependencies: "FooProduct") }
-                result
-                    .checkTarget("FooTarget") { result in result.check(dependencies: "Bar") }
+                result.checkTarget("RootTarget") { result in 
+                    result.check(dependencies: "FooProduct")
+                }
+                result.checkTarget("FooTarget") { result in
+                    result.check(dependencies: "Bar")
+                }
             }
         }
         
