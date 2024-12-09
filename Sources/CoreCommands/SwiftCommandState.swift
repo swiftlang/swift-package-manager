@@ -238,9 +238,9 @@ public final class SwiftCommandState {
 
     /// Holds the currently active workspace.
     ///
-    /// It is not initialized in init() because for some of the commands like package init , usage etc,
-    /// workspace is not needed, in-fact it would be an error to ask for the workspace object
-    /// for package init because the Manifest file should *not* present.
+    /// It is not initialized in init() because for some of the commands like `package init`, usage etc,
+    /// a workspace is not needed. In fact it would be an error to ask for the workspace object
+    /// for `package init` because the manifest file should *not* be present.
     private var _workspace: Workspace?
     private var _workspaceDelegate: WorkspaceDelegate?
 
