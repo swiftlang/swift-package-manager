@@ -439,6 +439,7 @@ public final class InitPackage {
                 .swiftpm/configuration/registries.json
                 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
                 .netrc
+                .vscode
 
                 """
             )
