@@ -14,9 +14,9 @@ import Basics
 import Foundation
 import PackageModel
 
-import struct TSCUtility.Version
 import protocol TSCBasic.HashAlgorithm
 import struct TSCBasic.SHA256
+import struct TSCUtility.Version
 
 /// Delegate to notify clients about actions being performed by BinaryArtifactsDownloadsManage.
 public protocol PrebuiltsManagerDelegate {
@@ -29,7 +29,11 @@ public protocol PrebuiltsManagerDelegate {
         duration: DispatchTimeInterval
     )
     /// The workspace is downloading a binary artifact.
-    func downloadingPrebuilt(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?)
+    func downloadingPrebuilt(
+        from url: String,
+        bytesDownloaded: Int64,
+        totalBytesToDownload: Int64?
+    )
     /// The workspace finished downloading all binary artifacts.
     func didDownloadAllPrebuilts()
 }
@@ -41,9 +45,9 @@ extension Workspace {
 
         public struct Library: Identifiable, Codable {
             public let name: String
-            public let products: [String]
-            public let cModules: [String]
-            public let artifacts: [Artifact]
+            public var products: [String]
+            public var cModules: [String]
+            public var artifacts: [Artifact]
 
             public var id: String { name }
 
@@ -59,7 +63,12 @@ extension Workspace {
                 }
             }
 
-            public init(name: String, products: [String] = [], cModules: [String] = [], artifacts: [Artifact] = []) {
+            public init(
+                name: String,
+                products: [String] = [],
+                cModules: [String] = [],
+                artifacts: [Artifact] = []
+            ) {
                 self.name = name
                 self.products = products
                 self.cModules = cModules
@@ -77,6 +86,17 @@ extension Workspace {
             case macos_x86_64
             case windows_aarch64
             case windows_x86_64
+            // noble is currently missing
+            case ubuntu_jammy_aarch64
+            case ubuntu_jammy_x86_64
+            case ubuntu_focal_aarch64
+            case ubuntu_focal_x86_64
+            // bookworm is currently missing
+            // fedora39 is currently missing
+            case amazonlinux2_aarch64
+            case amazonlinux2_x86_64
+            case rhel_ubi9_aarch64
+            case rhel_ubi9_x86_64
 
             public enum Arch: String {
                 case x86_64
@@ -86,23 +106,381 @@ extension Workspace {
             public enum OS {
                 case macos
                 case windows
+                case linux
             }
 
             public var arch: Arch {
                 switch self {
-                    case .macos_aarch64, .windows_aarch64:
-                        return .aarch64
-                    case .macos_x86_64, .windows_x86_64:
-                        return .x86_64
+                case .macos_aarch64, .windows_aarch64,
+                    .ubuntu_jammy_aarch64, .ubuntu_focal_aarch64,
+                    .amazonlinux2_aarch64,
+                    .rhel_ubi9_aarch64:
+                    return .aarch64
+                case .macos_x86_64, .windows_x86_64,
+                    .ubuntu_jammy_x86_64, .ubuntu_focal_x86_64,
+                    .amazonlinux2_x86_64,
+                    .rhel_ubi9_x86_64:
+                    return .x86_64
                 }
             }
 
             public var os: OS {
                 switch self {
-                    case .macos_aarch64, .macos_x86_64:
-                        return .macos
-                    case .windows_aarch64, .windows_x86_64:
-                        return .windows
+                case .macos_aarch64, .macos_x86_64:
+                    return .macos
+                case .windows_aarch64, .windows_x86_64:
+                    return .windows
+                case .ubuntu_jammy_aarch64, .ubuntu_jammy_x86_64,
+                    .ubuntu_focal_aarch64, .ubuntu_focal_x86_64,
+                    .amazonlinux2_aarch64, .amazonlinux2_x86_64,
+                    .rhel_ubi9_aarch64, .rhel_ubi9_x86_64:
+                    return .linux
+                }
+            }
+        }
+    }
+
+    /// Provider of prebuilt binaries for packages. Currently only supports swift-syntax for macros.
+    public struct PrebuiltsManager: Cancellable {
+        public typealias Delegate = PrebuiltsManagerDelegate
+
+        private let fileSystem: FileSystem
+        private let authorizationProvider: AuthorizationProvider?
+        private let httpClient: HTTPClient
+        private let archiver: Archiver
+        private let scratchPath: AbsolutePath
+        private let cachePath: AbsolutePath?
+        private let delegate: Delegate?
+
+        init(
+            fileSystem: FileSystem,
+            authorizationProvider: AuthorizationProvider?,
+            scratchPath: AbsolutePath,
+            cachePath: AbsolutePath?,
+            delegate: Delegate?
+        ) {
+            self.fileSystem = fileSystem
+            self.authorizationProvider = authorizationProvider
+            self.httpClient = HTTPClient()  // TODO: mock
+            self.archiver = ZipArchiver(fileSystem: fileSystem)  // TODO: mock
+            self.scratchPath = scratchPath
+            self.cachePath = cachePath
+            self.delegate = delegate
+        }
+
+        struct PrebuiltPackage {
+            let packageRef: PackageReference
+            let prebuiltsURL: URL
+        }
+
+        private let prebuiltPackages: [PackageReference: PrebuiltPackage] = [
+            .init(
+                packageRef: .init(
+                    identity: .plain("swift-syntax"),
+                    kind: .remoteSourceControl(
+                        .init("https://github.com/swiftlang/swift-syntax.git")
+                    )
+                ),
+                prebuiltsURL: URL(
+                    string:
+                        "https://github.com/dschaefer2/swift-syntax/releases/download"
+                )!
+            ),
+            .init(
+                packageRef: .init(
+                    identity: .plain("swift-syntax"),
+                    kind: .remoteSourceControl(
+                        .init("https://github.com/swiftlang/swift-syntax")
+                    )
+                ),
+                prebuiltsURL: URL(
+                    string:
+                        "https://github.com/dschaefer2/swift-syntax/releases/download"
+                )!
+            ),
+        ].reduce(into: .init()) { $0[$1.packageRef] = $1 }
+
+        // Version of the compiler we're building against
+        private let swiftVersion =
+            "\(SwiftVersion.current.major).\(SwiftVersion.current.minor)"
+
+        fileprivate func findPrebuilts(packages: [PackageReference])
+            -> [PrebuiltPackage]
+        {
+            var prebuilts: [PrebuiltPackage] = []
+            for packageRef in packages {
+                guard let prebuilt = prebuiltPackages[packageRef] else {
+                    continue
+                }
+                prebuilts.append(prebuilt)
+            }
+            return prebuilts
+        }
+
+        func downloadManifest(
+            package: PrebuiltPackage,
+            version: Version,
+            observabilityScope: ObservabilityScope
+        ) async throws -> PrebuiltsManifest? {
+            let manifestFile = swiftVersion + "-manifest.json"
+            let prebuiltsDir = cachePath ?? scratchPath
+            let destination = prebuiltsDir.appending(
+                components: package.packageRef.identity.description,
+                manifestFile
+            )
+            if fileSystem.exists(destination) {
+                do {
+                    return try JSONDecoder().decode(
+                        PrebuiltsManifest.self,
+                        from: try Data(contentsOf: destination.asURL)
+                    )
+                } catch {
+                    // redownload it
+                    observabilityScope.emit(
+                        info: "Failed to decode prebuilt manifest",
+                        underlyingError: error
+                    )
+                    try fileSystem.removeFileTree(destination)
+                }
+            }
+            try fileSystem.createDirectory(
+                destination.parentDirectory,
+                recursive: true
+            )
+
+            let manifestURL = package.prebuiltsURL.appending(
+                components: version.description,
+                manifestFile
+            )
+            var headers = HTTPClientHeaders()
+            headers.add(name: "Accept", value: "application/json")
+            var request = HTTPClient.Request.download(
+                url: manifestURL,
+                headers: headers,
+                fileSystem: self.fileSystem,
+                destination: destination
+            )
+            request.options.authorizationProvider =
+                self.authorizationProvider?.httpAuthorizationHeader(for:)
+            request.options.retryStrategy = .exponentialBackoff(
+                maxAttempts: 3,
+                baseDelay: .milliseconds(50)
+            )
+            request.options.validResponseCodes = [200]
+
+            do {
+                _ = try await self.httpClient.execute(request) { _, _ in
+                    // TODO: send to delegate
+                }
+            } catch {
+                observabilityScope.emit(
+                    info: "Prebuilt \(manifestFile)",
+                    underlyingError: error
+                )
+                return nil
+            }
+
+            do {
+                return try JSONDecoder().decode(
+                    PrebuiltsManifest.self,
+                    from: try Data(contentsOf: destination.asURL)
+                )
+            } catch {
+                observabilityScope.emit(
+                    info: "Failed to decode prebuilt manifest",
+                    underlyingError: error
+                )
+                return nil
+            }
+        }
+
+        func downloadPrebuilt(
+            package: PrebuiltPackage,
+            version: Version,
+            library: PrebuiltsManifest.Library,
+            artifact: PrebuiltsManifest.Library.Artifact,
+            hashAlgorithm: HashAlgorithm = SHA256(),
+            observabilityScope: ObservabilityScope
+        ) async throws -> AbsolutePath? {
+            let artifactName =
+                "\(swiftVersion)-\(library.name)-\(artifact.platform.rawValue)"
+            let scratchDir = scratchPath.appending(
+                package.packageRef.identity.description
+            )
+            let artifactDir = scratchDir.appending(artifactName)
+            guard !fileSystem.exists(artifactDir) else {
+                // already there
+                return artifactDir
+            }
+
+            let artifactFile = artifactName + ".zip"
+
+            // TODO: pull it out of the cache if it's there
+            // For now though, always fetch it
+            let prebuiltsDir = cachePath ?? scratchPath
+            let destination = prebuiltsDir.appending(
+                components: package.packageRef.identity.description,
+                artifactFile
+            )
+            if fileSystem.exists(destination) {
+                // remove for now so we can overwrite it
+                try fileSystem.removeFileTree(destination)
+            }
+            try fileSystem.createDirectory(
+                destination.parentDirectory,
+                recursive: true
+            )
+
+            // Download
+            let artifactURL = package.prebuiltsURL.appending(
+                components: version.description,
+                artifactFile
+            )
+            let fetchStart = DispatchTime.now()
+            var headers = HTTPClientHeaders()
+            headers.add(name: "Accept", value: "application/octet-stream")
+            var request = HTTPClient.Request.download(
+                url: artifactURL,
+                headers: headers,
+                fileSystem: self.fileSystem,
+                destination: destination
+            )
+            request.options.authorizationProvider =
+                self.authorizationProvider?.httpAuthorizationHeader(for:)
+            request.options.retryStrategy = .exponentialBackoff(
+                maxAttempts: 3,
+                baseDelay: .milliseconds(50)
+            )
+            request.options.validResponseCodes = [200]
+
+            self.delegate?.willDownloadPrebuilt(
+                from: artifactURL.absoluteString,
+                fromCache: false
+            )
+            do {
+                _ = try await self.httpClient.execute(request) {
+                    bytesDownloaded,
+                    totalBytesToDownload in
+                    self.delegate?.downloadingPrebuilt(
+                        from: artifactURL.absoluteString,
+                        bytesDownloaded: bytesDownloaded,
+                        totalBytesToDownload: totalBytesToDownload
+                    )
+                }
+            } catch {
+                observabilityScope.emit(
+                    info: "Prebuilt artifact \(artifactFile)",
+                    underlyingError: error
+                )
+                self.delegate?.didDownloadPrebuilt(
+                    from: artifactURL.absoluteString,
+                    result: .failure(error),
+                    duration: fetchStart.distance(to: .now())
+                )
+                return nil
+            }
+
+            // Check the checksum
+            let contents = try fileSystem.readFileContents(destination)
+            let hash = hashAlgorithm.hash(contents).hexadecimalRepresentation
+            if hash != artifact.checksum {
+                let errorString =
+                    "Prebuilt artifact \(artifactFile) checksum mismatch"
+                observabilityScope.emit(info: errorString)
+                self.delegate?.didDownloadPrebuilt(
+                    from: artifactURL.absoluteString,
+                    result: .failure(StringError(errorString)),
+                    duration: fetchStart.distance(to: .now())
+                )
+                return nil
+            }
+
+            // Copy over to scratch dir if it's not already there
+            if scratchPath != cachePath {
+                let scratchDest = scratchDir.appending(artifactFile)
+                if fileSystem.exists(scratchDest) {
+                    try fileSystem.removeFileTree(scratchDest)
+                }
+                try fileSystem.createDirectory(scratchDir, recursive: true)
+                try fileSystem.copy(from: destination, to: scratchDest)
+            }
+
+            // Extract
+            if fileSystem.exists(artifactDir) {
+                try fileSystem.removeFileTree(artifactDir)
+            }
+            try fileSystem.createDirectory(artifactDir, recursive: true)
+            try await archiver.extract(from: destination, to: artifactDir)
+
+            observabilityScope.emit(
+                info: "Prebuilt artifact \(artifactFile) downloaded"
+            )
+            self.delegate?.didDownloadPrebuilt(
+                from: artifactURL.absoluteString,
+                result: .success((destination, false)),
+                duration: fetchStart.distance(to: .now())
+            )
+
+            return artifactDir
+        }
+
+        public func cancel(deadline: DispatchTime) throws {
+        }
+    }
+}
+
+extension Workspace {
+    func updatePrebuilts(
+        manifests: DependencyManifests,
+        addedOrUpdatedPackages: [PackageReference],
+        observabilityScope: ObservabilityScope
+    ) async throws {
+        for prebuilt in self.prebuiltsManager.findPrebuilts(
+            packages: try manifests.requiredPackages
+        ) {
+            guard
+                let manifest = manifests.allDependencyManifests[
+                    prebuilt.packageRef.identity
+                ],
+                let packageVersion = manifest.manifest.version,
+                let prebuiltManifest = try await self.prebuiltsManager
+                    .downloadManifest(
+                        package: prebuilt,
+                        version: packageVersion,
+                        observabilityScope: observabilityScope
+                    )
+            else {
+                continue
+            }
+
+            let hostPlatform = hostPrebuiltsPlatform
+
+            for library in prebuiltManifest.libraries {
+                for artifact in library.artifacts {
+                    guard artifact.platform == hostPlatform else {
+                        continue
+                    }
+
+                    if let path = try await self.prebuiltsManager
+                        .downloadPrebuilt(
+                            package: prebuilt,
+                            version: packageVersion,
+                            library: library,
+                            artifact: artifact,
+                            observabilityScope: observabilityScope
+                        )
+                    {
+                        // Add to workspace state
+                        let managedPrebuilt = ManagedPrebuilt(
+                            packageRef: prebuilt.packageRef,
+                            libraryName: library.name,
+                            path: path,
+                            products: library.products,
+                            cModules: library.cModules
+                        )
+                        self.state.prebuilts.add(managedPrebuilt)
+                        try self.state.save()
+                    }
                 }
             }
         }
@@ -128,270 +506,81 @@ extension Workspace {
                 return nil
             }
         } else if self.hostToolchain.targetTriple.isLinux() {
-            return nil
+            // Load up the os-release file into a dictionary
+            guard let osData = try? String(contentsOfFile: "/etc/os-release")
+            else {
+                return nil
+            }
+            let osLines = osData.split(separator: "\n")
+            let osDict = osLines.reduce(into: [Substring: String]()) {
+                (dict, line) in
+                let parts = line.split(separator: "=")
+                if parts.count >= 2 {
+                    dict[parts[0]] = parts[1...].joined(separator: "=")
+                }
+            }
+
+            switch osDict["ID"] {
+            case "ubuntu":
+                switch osDict["ID_VERSION"] {
+                case "22.04":
+                    switch self.hostToolchain.targetTriple.arch {
+                    case .aarch64:
+                        return .ubuntu_jammy_aarch64
+                    case .x86_64:
+                        return .ubuntu_jammy_x86_64
+                    default:
+                        return nil
+                    }
+                case "20.04":
+                    switch self.hostToolchain.targetTriple.arch {
+                    case .aarch64:
+                        return .ubuntu_focal_aarch64
+                    case .x86_64:
+                        return .ubuntu_focal_x86_64
+                    default:
+                        return nil
+                    }
+                default:
+                    return nil
+                }
+            case "amzn":
+                switch osDict["ID_VERSION"] {
+                case "2":
+                    switch self.hostToolchain.targetTriple.arch {
+                    case .aarch64:
+                        return .amazonlinux2_aarch64
+                    case .x86_64:
+                        return .amazonlinux2_x86_64
+                    default:
+                        return nil
+                    }
+                default:
+                    return nil
+                }
+            case "rhel":
+                guard let version = osDict["ID_VERSION"] else {
+                    return nil
+                }
+                switch version.split(separator: ".")[0] {
+                case "9":
+                    switch self.hostToolchain.targetTriple.arch {
+                    case .aarch64:
+                        return .rhel_ubi9_aarch64
+                    case .x86_64:
+                        return .rhel_ubi9_x86_64
+                    default:
+                        return nil
+                    }
+                default:
+                    return nil
+                }
+            default:
+                return nil
+            }
         } else {
             return nil
         }
     }
 
-    /// Provider of prebuilt binaries for packages. Currently only supports swift-syntax for macros.
-    public struct PrebuiltsManager: Cancellable {
-        public typealias Delegate = PrebuiltsManagerDelegate
-
-        private let fileSystem: FileSystem
-        private let authorizationProvider: AuthorizationProvider?
-        private let httpClient: HTTPClient
-        private let archiver: Archiver
-        private let scratchPath: AbsolutePath
-        private let cachePath: AbsolutePath?
-        private let delegate: Delegate?
-
-        init(
-            fileSystem: FileSystem,
-            authorizationProvider: AuthorizationProvider?,
-            scratchPath: AbsolutePath,
-            cachePath: AbsolutePath?,
-            delegate: Delegate?
-        ) {
-            self.fileSystem = fileSystem
-            self.authorizationProvider = authorizationProvider
-            self.httpClient = HTTPClient() // TODO: mock
-            self.archiver = ZipArchiver(fileSystem: fileSystem) // TODO: mock
-            self.scratchPath = scratchPath
-            self.cachePath = cachePath
-            self.delegate = delegate
-        }
-
-        struct PrebuiltPackage {
-            let packageRef: PackageReference
-            let prebuiltsURL: URL
-        }
-
-        private let prebuiltPackages: [PackageReference: PrebuiltPackage] = [
-            .init(
-                packageRef: .init(identity: .plain("swift-syntax"), kind: .remoteSourceControl(.init("https://github.com/swiftlang/swift-syntax.git"))),
-                prebuiltsURL: URL(string: "https://github.com/dschaefer2/swift-syntax/releases/download")!
-            ),
-            .init(
-                packageRef: .init(identity: .plain("swift-syntax"), kind: .remoteSourceControl(.init("https://github.com/swiftlang/swift-syntax"))),
-                prebuiltsURL: URL(string: "https://github.com/dschaefer2/swift-syntax/releases/download")!
-            ),
-        ].reduce(into: .init()) { $0[$1.packageRef] = $1 }
-
-        // Version of the compiler we're building against
-        private let swiftVersion = "\(SwiftVersion.current.major).\(SwiftVersion.current.minor)"
-
-        fileprivate func findPrebuilts(packages: [PackageReference]) -> [PrebuiltPackage] {
-            var prebuilts: [PrebuiltPackage] = []
-            for packageRef in packages {
-                guard let prebuilt = prebuiltPackages[packageRef] else {
-                    continue
-                }
-                prebuilts.append(prebuilt)
-            }
-            return prebuilts
-        }
-
-        func downloadManifest(
-            package: PrebuiltPackage,
-            version: Version,
-            observabilityScope: ObservabilityScope
-        ) async throws -> PrebuiltsManifest? {
-            let manifestFile = swiftVersion + "-manifest.json"
-            let prebuiltsDir = cachePath ?? scratchPath
-            let destination = prebuiltsDir.appending(components: package.packageRef.identity.description, manifestFile)
-            if fileSystem.exists(destination) {
-                do {
-                    return try JSONDecoder().decode(PrebuiltsManifest.self, from: try Data(contentsOf: destination.asURL))
-                } catch {
-                    // redownload it
-                    observabilityScope.emit(info: "Failed to decode prebuilt manifest", underlyingError: error)
-                    try fileSystem.removeFileTree(destination)
-                }
-            }
-            try fileSystem.createDirectory(destination.parentDirectory, recursive: true)
-
-            let manifestURL = package.prebuiltsURL.appending(components: version.description, manifestFile)
-            var headers = HTTPClientHeaders()
-            headers.add(name: "Accept", value: "application/json")
-            var request = HTTPClient.Request.download(
-                url: manifestURL,
-                headers: headers,
-                fileSystem: self.fileSystem,
-                destination: destination
-            )
-            request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
-            request.options.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
-            request.options.validResponseCodes = [200]
-
-            do {
-                _ = try await self.httpClient.execute(request) { _, _ in
-                    // TODO: send to delegate
-                }
-            } catch {
-                observabilityScope.emit(info: "Prebuilt \(manifestFile)", underlyingError: error)
-                return nil
-            }
-
-            do {
-                return try JSONDecoder().decode(PrebuiltsManifest.self, from: try Data(contentsOf: destination.asURL))
-            } catch {
-                observabilityScope.emit(info: "Failed to decode prebuilt manifest", underlyingError: error)
-                return nil
-            }
-        }
-
-        func downloadPrebuilt(
-            package: PrebuiltPackage,
-            version: Version,
-            library: PrebuiltsManifest.Library,
-            artifact: PrebuiltsManifest.Library.Artifact,
-            hashAlgorithm: HashAlgorithm = SHA256(),
-            observabilityScope: ObservabilityScope
-        ) async throws -> AbsolutePath? {
-            let artifactName = "\(swiftVersion)-\(library.name)-\(artifact.platform.rawValue)"
-            let scratchDir = scratchPath.appending(package.packageRef.identity.description)
-            let artifactDir = scratchDir.appending(artifactName)
-            guard !fileSystem.exists(artifactDir) else {
-                // already there
-                return artifactDir
-            }
-
-            let artifactFile = artifactName + ".zip"
-
-            // TODO: pull it out of the cache if it's there
-            // For now though, always fetch it
-            let prebuiltsDir = cachePath ?? scratchPath
-            let destination = prebuiltsDir.appending(components: package.packageRef.identity.description, artifactFile)
-            if fileSystem.exists(destination) {
-                // remove for now so we can overwrite it
-                try fileSystem.removeFileTree(destination)
-            }
-            try fileSystem.createDirectory(destination.parentDirectory, recursive: true)
-
-            // Download
-            let artifactURL = package.prebuiltsURL.appending(components: version.description, artifactFile)
-            let fetchStart = DispatchTime.now()
-            var headers = HTTPClientHeaders()
-            headers.add(name: "Accept", value: "application/octet-stream")
-            var request = HTTPClient.Request.download(
-                url: artifactURL,
-                headers: headers,
-                fileSystem: self.fileSystem,
-                destination: destination
-            )
-            request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
-            request.options.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
-            request.options.validResponseCodes = [200]
-
-            self.delegate?.willDownloadPrebuilt(from: artifactURL.absoluteString, fromCache: false)
-            do {
-                _ = try await self.httpClient.execute(request) { bytesDownloaded, totalBytesToDownload in
-                    self.delegate?.downloadingPrebuilt(
-                        from: artifactURL.absoluteString,
-                        bytesDownloaded: bytesDownloaded,
-                        totalBytesToDownload: totalBytesToDownload
-                    )
-                }
-            } catch {
-                observabilityScope.emit(info: "Prebuilt artifact \(artifactFile)", underlyingError: error)
-                self.delegate?.didDownloadPrebuilt(
-                    from: artifactURL.absoluteString,
-                    result: .failure(error),
-                    duration: fetchStart.distance(to: .now()))
-                return nil
-            }
-
-            // Check the checksum
-            let contents = try fileSystem.readFileContents(destination)
-            let hash = hashAlgorithm.hash(contents).hexadecimalRepresentation
-            if hash != artifact.checksum {
-                let errorString = "Prebuilt artifact \(artifactFile) checksum mismatch"
-                observabilityScope.emit(info: errorString)
-                self.delegate?.didDownloadPrebuilt(
-                    from: artifactURL.absoluteString,
-                    result: .failure(StringError(errorString)),
-                    duration: fetchStart.distance(to: .now()))
-                return nil
-            }
-
-            // Copy over to scratch dir if it's not already there
-            if scratchPath != cachePath {
-                let scratchDest = scratchDir.appending(artifactFile)
-                if fileSystem.exists(scratchDest) {
-                    try fileSystem.removeFileTree(scratchDest)
-                }
-                try fileSystem.createDirectory(scratchDir, recursive: true)
-                try fileSystem.copy(from: destination, to: scratchDest)
-            }
-
-            // Extract
-            if fileSystem.exists(artifactDir) {
-                try fileSystem.removeFileTree(artifactDir)
-            }
-            try fileSystem.createDirectory(artifactDir, recursive: true)
-            try await archiver.extract(from: destination, to: artifactDir)
-
-            observabilityScope.emit(info: "Prebuilt artifact \(artifactFile) downloaded")
-            self.delegate?.didDownloadPrebuilt(
-                from: artifactURL.absoluteString,
-                result: .success((destination, false)),
-                duration: fetchStart.distance(to: .now()))
-
-            return artifactDir
-        }
-
-        public func cancel(deadline: DispatchTime) throws {
-        }
-    }
-}
-
-extension Workspace {
-    func updatePrebuilts(
-        manifests: DependencyManifests,
-        addedOrUpdatedPackages: [PackageReference],
-        observabilityScope: ObservabilityScope
-    ) async throws {
-        for prebuilt in self.prebuiltsManager.findPrebuilts(packages: try manifests.requiredPackages) {
-            guard let manifest = manifests.allDependencyManifests[prebuilt.packageRef.identity],
-                  let packageVersion = manifest.manifest.version,
-                  let prebuiltManifest = try await self.prebuiltsManager.downloadManifest(
-                    package: prebuilt,
-                    version: packageVersion,
-                    observabilityScope: observabilityScope
-                  )
-            else {
-                continue
-            }
-
-            let hostPlatform = hostPrebuiltsPlatform
-
-            for library in prebuiltManifest.libraries {
-                for artifact in library.artifacts {
-                    guard artifact.platform == hostPlatform else {
-                        continue
-                    }
-
-                    if let path = try await self.prebuiltsManager.downloadPrebuilt(
-                        package: prebuilt,
-                        version: packageVersion,
-                        library: library,
-                        artifact: artifact,
-                        observabilityScope: observabilityScope
-                    ) {
-                        // Add to workspace state
-                        let managedPrebuilt = ManagedPrebuilt(
-                            packageRef: prebuilt.packageRef,
-                            libraryName: library.name,
-                            path: path,
-                            products: library.products,
-                            cModules: library.cModules
-                        )
-                        self.state.prebuilts.add(managedPrebuilt)
-                        try self.state.save()
-                    }
-                }
-            }
-        }
-    }
 }

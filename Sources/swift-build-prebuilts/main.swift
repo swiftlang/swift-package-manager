@@ -36,7 +36,7 @@ struct PrebuiltRepos: Identifiable {
     }
 }
 
-var prebuiltRepos: [PrebuiltRepos.ID: PrebuiltRepos] = [
+var prebuiltRepos: IdentifiableSet<PrebuiltRepos> = [
     .init(
         url: .init(string: "https://github.com/swiftlang/swift-syntax")!,
         versions: [
@@ -64,6 +64,8 @@ var prebuiltRepos: [PrebuiltRepos.ID: PrebuiltRepos] = [
     ),
 ]
 
+let manifestHost = URL(string: "https://github.com/dschaefer2/swift-syntax/releases/download")!
+
 let fm = FileManager.default
 let args = ProcessInfo.processInfo.arguments
 
@@ -71,14 +73,10 @@ let swiftVersion = "\(SwiftVersion.current.major).\(SwiftVersion.current.minor)"
 
 var stageDir = Path(fm.currentDirectoryPath + "/stage")
 
-var oses: Set<Workspace.PrebuiltsManifest.Platform.OS>
-#if os(macOS)
-    oses = [.macos]
-#elseif os(Windows)
-    oses = [.windows]
-#else 
-    oses = []
-#endif
+var docker = false
+var dockeronly = false
+var dockercmd = "docker"
+let dockerImageRoot = "swiftlang/swift:nightly-"
 
 var i = 1
 while i < args.count {
@@ -91,6 +89,18 @@ while i < args.count {
         } else {
             fatalError("Stage directory not specified")
         }
+    case "--docker":
+        docker = true
+    case "--docker-only":
+        docker = true
+        dockeronly = true
+    case "--docker-command":
+        if i + 1 < args.count {
+            dockercmd = args[i + 1]
+            i += 1
+        } else {
+            fatalError("Docker command not specified")
+        }
     default:
         fatalError("Unknown option \(arg)")
     }
@@ -98,9 +108,7 @@ while i < args.count {
 }
 
 print("Stage directory: \(stageDir)")
-if stageDir.exists {
-    try stageDir.remove()
-}
+try stageDir.remove()
 try stageDir.mkdirs()
 stageDir.cd()
 
@@ -109,7 +117,8 @@ for repo in prebuiltRepos.values {
     let libDir = stageDir / "lib"
     let modulesDir = stageDir / "modules"
     let includesDir = stageDir / "include"
-    let buildDir = repoDir / ".build" / "release"
+    let scratchDir = repoDir / ".build"
+    let buildDir = scratchDir / "release"
     let srcModulesDir = buildDir / "Modules"
 
     try shell("git clone \(repo.url)")
@@ -118,7 +127,7 @@ for repo in prebuiltRepos.values {
         repoDir.cd()
         try shell("git checkout \(version.tag)")
 
-        var newLibraries: [Workspace.PrebuiltsManifest.Library] = []
+        var newLibraries: IdentifiableSet<Workspace.PrebuiltsManifest.Library> = []
 
         for library in version.manifest.libraries {
             // TODO: this is assuming products map to target names which is not always true
@@ -127,21 +136,35 @@ for repo in prebuiltRepos.values {
             var newArtifacts: [Workspace.PrebuiltsManifest.Library.Artifact] = []
 
             for platform in Workspace.PrebuiltsManifest.Platform.allCases {
-                guard oses.contains(platform.os) else {
+                guard canBuild(platform) else {
                     continue
                 }
 
                 try libDir.mkdirs()
                 try modulesDir.mkdirs()
                 try includesDir.mkdirs()
-                try shell("swift build -c release --arch \(platform.arch) --product \(library.name)")
+
+                // Clean out the scratch dir
+                try scratchDir.remove()
+
+                // Build
+                var cmd = ""
+                if let dockerTag = platform.dockerTag, let dockerPlatform = platform.arch.dockerPlatform {
+                    cmd += "\(dockercmd) run --rm --platform \(dockerPlatform) -v \(repoDir):\(repoDir) -w \(repoDir) \(dockerImageRoot)\(dockerTag) "
+                }
+                cmd += "swift build -c release --arch \(platform.arch) --product \(library.name)"
+                try shell(cmd)
+
+                // Copy the library to staging
                 let lib = "lib\(library.name).a"
                 try (buildDir / lib).cp(to: libDir / lib)
 
+                // Copy the swiftmodules
                 for file in try srcModulesDir.ls() {
                     try (srcModulesDir / file).cp(to: modulesDir / file)
                 }
 
+                // Copy the C module headers
                 for cModule in library.cModules {
                     let cModuleDir = version.cModulePaths[cModule] ?? ["Sources", cModule]
                     let srcIncludeDir = repoDir / cModuleDir / "include"
@@ -152,6 +175,7 @@ for repo in prebuiltRepos.values {
                     }
                 }
 
+                // Zip it up
                 stageDir.cd()
                 let zipFile = stageDir / "\(swiftVersion)-\(library.name)-\(platform).zip"
                 let contentDirs = ["lib", "Modules"] + (library.cModules.isEmpty ? [] : ["include"])
@@ -171,18 +195,52 @@ for repo in prebuiltRepos.values {
                 cModules: library.cModules,
                 artifacts: newArtifacts
             )
-            newLibraries.append(newLibrary)
+            newLibraries.insert(newLibrary)
 
             try shell("git reset --hard")
         }
 
-        let newManifest = Workspace.PrebuiltsManifest(libraries: newLibraries)
+        if let oldManifest = try await downloadManifest(version: version) {
+            // Add in elements from the old manifest we haven't generated
+            for library in oldManifest.libraries {
+                if var newLibrary = newLibraries[library.name] {
+                    var newArtifacts = IdentifiableSet<Workspace.PrebuiltsManifest.Library.Artifact>(newLibrary.artifacts)
+                    for oldArtifact in library.artifacts {
+                        if !newArtifacts.contains(id: oldArtifact.id) {
+                            newArtifacts.insert(oldArtifact)
+                        }
+                    }
+                    newLibrary.artifacts = .init(newArtifacts.values)
+                    newLibraries.insert(newLibrary)
+                } else {
+                    newLibraries.insert(library)
+                }
+            }
+        }
+        let newManifest = Workspace.PrebuiltsManifest(libraries: .init(newLibraries.values))
+
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
         let manifestData = try encoder.encode(newManifest)
         let manifestFile = stageDir / "\(swiftVersion)-manifest.json"
         try manifestFile.write(manifestData)
     }
+}
+
+func canBuild(_ platform: Workspace.PrebuiltsManifest.Platform) -> Bool {
+    if dockeronly {
+        return platform.os == .linux
+    }
+    #if os(macOS)
+    if platform.os == .macos {
+        return true
+    }
+    #elseif os(Windows)
+    if platform.os == .windows {
+        return true
+    }
+    #endif
+    return docker && platform.os == .linux
 }
 
 func shell(_ command: String) throws {
@@ -200,6 +258,39 @@ func shell(_ command: String) throws {
     if process.terminationStatus != 0 {
         throw StringError("failed: \(command)")
     }
+}
+
+func downloadManifest(version: PrebuiltRepos.Version) async throws -> Workspace.PrebuiltsManifest? {
+    let manifestFile = swiftVersion + "-manifest.json"
+    let destination = await stageDir / manifestFile
+    if destination.exists {
+        do {
+            return try JSONDecoder().decode(
+                Workspace.PrebuiltsManifest.self,
+                from: try destination.read()
+            )
+        } catch {
+            // redownload it
+            try destination.remove()
+        }
+    }
+    let manifestURL = manifestHost.appending(components: version.tag, manifestFile)
+    print("Downloading:", manifestURL.absoluteString)
+    let httpClient = HTTPClient()
+    var headers = HTTPClientHeaders()
+    headers.add(name: "Accept", value: "application/json")
+    var request = HTTPClient.Request(kind: .generic(.get), url: manifestURL)
+    request.options.validResponseCodes = [200]
+
+    let response = try await httpClient.execute(request) { _, _ in }
+    if let body = response.body {
+        return try JSONDecoder().decode(
+            Workspace.PrebuiltsManifest.self,
+            from: body
+        )
+    }
+
+    return nil
 }
 
 // Path utility
@@ -264,6 +355,10 @@ struct Path: CustomStringConvertible {
     }
 
     func remove() throws {
+        guard exists else {
+            // Already gone
+            return
+        }
         try fm.removeItem(atPath: path)
     }
 
@@ -300,16 +395,43 @@ struct Path: CustomStringConvertible {
         return SHA256().hash(contents).hexadecimalRepresentation
     }
 
+    func read() throws -> Data {
+        try Data(contentsOf: url)
+    }
+
     func write(_ data: Data) throws {
         try data.write(to: url)
     }
 }
 
-extension Dictionary: @retroactive ExpressibleByArrayLiteral where Value: Identifiable, Key == Value.ID {
-    public init(arrayLiteral elements: Value...) {
-        self.init()
-        for element in elements {
-            self[element.id] = element
+extension Workspace.PrebuiltsManifest.Platform {
+    var dockerTag: String? {
+        guard docker else {
+            return nil
+        }
+
+        switch self {
+        case .ubuntu_jammy_aarch64, .ubuntu_jammy_x86_64:
+            return "jammy"
+        case .ubuntu_focal_aarch64, .ubuntu_focal_x86_64:
+            return "focal"
+        case .rhel_ubi9_aarch64, .rhel_ubi9_x86_64:
+            return "rhel-ubi9"
+        case .amazonlinux2_aarch64, .amazonlinux2_x86_64:
+            return "amazonlinux2"
+        default:
+            return nil
+        }
+    }
+}
+
+extension Workspace.PrebuiltsManifest.Platform.Arch {
+    var dockerPlatform: String? {
+        switch self {
+        case .aarch64:
+            return "linux/arm64"
+        case .x86_64:
+            return "linux/amd64"
         }
     }
 }
