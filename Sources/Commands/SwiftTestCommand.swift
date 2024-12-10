@@ -119,6 +119,11 @@ struct TestEventStreamOptions: ParsableArguments {
     @Option(name: .customLong("event-stream-version"),
             help: .hidden)
     var eventStreamVersion: Int?
+
+  /// Experimental path for writing attachments (Swift Testing only.)
+  @Option(name: .customLong("experimental-attachments-path"),
+          help: .private)
+  var experimentalAttachmentsPath: AbsolutePath?
 }
 
 struct TestCommandOptions: ParsableArguments {
