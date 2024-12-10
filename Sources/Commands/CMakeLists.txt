@@ -41,7 +41,6 @@ add_library(Commands
   SwiftBuildCommand.swift
   SwiftRunCommand.swift
   SwiftTestCommand.swift
-  CommandWorkspaceDelegate.swift
   Utilities/APIDigester.swift
   Utilities/DependenciesSerializer.swift
   Utilities/DescribedPackage.swift
