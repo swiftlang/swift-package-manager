@@ -982,7 +982,15 @@ public final class SwiftModuleBuildDescription {
         if self.isTestTarget {
             // test targets must be built with -enable-testing
             // since its required for test discovery (the non objective-c reflection kind)
-            return ["-enable-testing"]
+            var result = ["-enable-testing"]
+
+            // Test targets need to enable cross-import overlays because Swift
+            // Testing cannot directly link to most other modules and needs to
+            // provide API that works with e.g. Foundation. (Developers can
+            // override this flag by passing -disable-cross-import-overlays.)
+            result += ["-Xfrontend", "-enable-cross-import-overlays"]
+
+            return result
         } else if self.buildParameters.enableTestability {
             return ["-enable-testing"]
         } else {
