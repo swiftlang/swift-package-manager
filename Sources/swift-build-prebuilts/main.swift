@@ -282,8 +282,8 @@ func downloadManifest(version: PrebuiltRepos.Version) async throws -> Workspace.
     var request = HTTPClient.Request(kind: .generic(.get), url: manifestURL)
     request.options.validResponseCodes = [200]
 
-    let response = try await httpClient.execute(request) { _, _ in }
-    if let body = response.body {
+    let response = try? await httpClient.execute(request) { _, _ in }
+    if let body = response?.body {
         return try JSONDecoder().decode(
             Workspace.PrebuiltsManifest.self,
             from: body
