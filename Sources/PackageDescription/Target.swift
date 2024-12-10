@@ -42,7 +42,7 @@ public final class Target {
     }
 
     /// The different types of a target's dependency on another entity.
-    public enum Dependency {
+    public enum Dependency: Sendable {
         /// A dependency on a target.
         ///
         ///  - Parameters:
@@ -1357,7 +1357,7 @@ extension Target.Dependency {
 }
 
 /// A condition that limits the application of a target's dependency.
-public struct TargetDependencyCondition {
+public struct TargetDependencyCondition: Sendable {
     let platforms: [Platform]?
     let traits: Set<String>?
 

@@ -36,21 +36,21 @@ struct PluginTargetBuildDescription: BuildTarget {
     }
 
     var sources: [URL] {
-        return target.sources.paths.map { URL(fileURLWithPath: $0.pathString) }
+        return target.sources.paths.map(\.asURL)
     }
 
     var headers: [URL] { [] }
 
     var resources: [URL] {
-        return target.underlying.resources.map { URL(fileURLWithPath: $0.path.pathString) }
+        return target.underlying.resources.map(\.path.asURL)
     }
 
     var ignored: [URL] {
-        return target.underlying.ignored.map { URL(fileURLWithPath: $0.pathString) }
+        return target.underlying.ignored.map(\.asURL)
     }
 
     var others: [URL] {
-        return target.underlying.others.map { URL(fileURLWithPath: $0.pathString) }
+        return target.underlying.others.map(\.asURL)
     }
 
     var name: String {
