@@ -516,14 +516,14 @@ extension Workspace {
                 (dict, line) in
                 let parts = line.split(separator: "=")
                 if parts.count >= 2 {
-                    dict[parts[0]] = parts[1...].joined(separator: "=")
+                    dict[parts[0]] = parts[1...].joined(separator: "=").trimmingCharacters(in: ["\""])
                 }
             }
 
             switch osDict["ID"] {
             case "ubuntu":
-                switch osDict["ID_VERSION"] {
-                case "22.04":
+                switch osDict["VERSION_CODENAME"] {
+                case "jammy":
                     switch self.hostToolchain.targetTriple.arch {
                     case .aarch64:
                         return .ubuntu_jammy_aarch64
@@ -532,7 +532,7 @@ extension Workspace {
                     default:
                         return nil
                     }
-                case "20.04":
+                case "focal":
                     switch self.hostToolchain.targetTriple.arch {
                     case .aarch64:
                         return .ubuntu_focal_aarch64
@@ -545,7 +545,7 @@ extension Workspace {
                     return nil
                 }
             case "amzn":
-                switch osDict["ID_VERSION"] {
+                switch osDict["VERSION_ID"] {
                 case "2":
                     switch self.hostToolchain.targetTriple.arch {
                     case .aarch64:
@@ -559,7 +559,7 @@ extension Workspace {
                     return nil
                 }
             case "rhel":
-                guard let version = osDict["ID_VERSION"] else {
+                guard let version = osDict["VERSION_ID"] else {
                     return nil
                 }
                 switch version.split(separator: ".")[0] {
