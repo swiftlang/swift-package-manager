@@ -9,8 +9,9 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
-import XCTest
+import Testing
 
 import _CryptoExtras // For RSA
 import Basics
@@ -19,8 +20,9 @@ import Crypto
 import _InternalTestSupport
 import X509
 
-final class SigningIdentityTests: XCTestCase {
-    func testSwiftSigningIdentityWithECKey() throws {
+struct SigningIdentityTests {
+    @Test
+    func swiftSigningIdentityWithECKey() throws {
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
             let certificateBytes = try readFileContents(
                 in: fixturePath,
@@ -30,9 +32,9 @@ final class SigningIdentityTests: XCTestCase {
             let certificate = try Certificate(certificateBytes)
 
             let subject = certificate.subject
-            XCTAssertEqual("Test (EC) leaf", subject.commonName)
-            XCTAssertEqual("Test (EC) org unit", subject.organizationalUnitName)
-            XCTAssertEqual("Test (EC) org", subject.organizationName)
+            #expect("Test (EC) leaf" == subject.commonName)
+            #expect("Test (EC) org unit" == subject.organizationalUnitName)
+            #expect("Test (EC) org" == subject.organizationName)
 
             let privateKeyBytes = try readFileContents(
                 in: fixturePath,
@@ -43,17 +45,19 @@ final class SigningIdentityTests: XCTestCase {
             _ = SwiftSigningIdentity(certificate: certificate, privateKey: Certificate.PrivateKey(privateKey))
 
             // Test public API
-            XCTAssertNoThrow(
+            #expect(throws: Never.self) {
+
                 try SwiftSigningIdentity(
                     derEncodedCertificate: certificateBytes,
                     derEncodedPrivateKey: privateKeyBytes,
                     privateKeyType: .p256
                 )
-            )
+            }
         }
     }
 
-    func testSwiftSigningIdentityWithRSAKey() throws {
+    @Test
+    func swiftSigningIdentityWithRSAKey() throws {
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
             let certificateBytes = try readFileContents(
                 in: fixturePath,
@@ -63,9 +67,9 @@ final class SigningIdentityTests: XCTestCase {
             let certificate = try Certificate(certificateBytes)
 
             let subject = certificate.subject
-            XCTAssertEqual("Test (RSA) leaf", subject.commonName)
-            XCTAssertEqual("Test (RSA) org unit", subject.organizationalUnitName)
-            XCTAssertEqual("Test (RSA) org", subject.organizationName)
+            #expect("Test (RSA) leaf" == subject.commonName)
+            #expect("Test (RSA) org unit" == subject.organizationalUnitName)
+            #expect("Test (RSA) org" == subject.organizationName)
 
             let privateKeyBytes = try readFileContents(
                 in: fixturePath,
@@ -77,24 +81,18 @@ final class SigningIdentityTests: XCTestCase {
         }
     }
 
-    #if os(macOS)
+    @Test(
+        .enabled(if: isMacOS() && isRealSigningIdentityTestEnabled() && isEnvironmentVariableSet("REAL_SIGNING_IDENTITY_LABEL"))
+    )
     func testSigningIdentityFromKeychain() async throws {
-        #if ENABLE_REAL_SIGNING_IDENTITY_TEST
-        #else
-        try XCTSkipIf(true)
-        #endif
-
-        guard let label = Environment.current["REAL_SIGNING_IDENTITY_LABEL"] else {
-            throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_LABEL' env var is not set")
-        }
+        let label = try #require(Environment.current["REAL_SIGNING_IDENTITY_LABEL"])
         let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
         let matches = identityStore.find(by: label)
-        XCTAssertTrue(!matches.isEmpty)
+        #expect(!matches.isEmpty)
 
         let subject = try Certificate(secIdentity: matches[0] as! SecIdentity).subject
-        XCTAssertNotNil(subject.commonName)
-        XCTAssertNotNil(subject.organizationalUnitName)
-        XCTAssertNotNil(subject.organizationName)
+        #expect(subject.commonName != nil)
+        #expect(subject.organizationalUnitName != nil)
+        #expect(subject.organizationName != nil)
     }
-    #endif
 }
