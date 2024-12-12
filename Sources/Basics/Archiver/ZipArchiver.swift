@@ -48,7 +48,9 @@ public struct ZipArchiver: Archiver, Cancellable {
             }
 
             #if os(Windows)
-            let process = AsyncProcess(arguments: ["tar.exe", "xf", archivePath.pathString, "-C", destinationPath.pathString])
+            // FileManager lost the ability to detect tar.exe as executable.
+            // It's part of system32 anyway so use the absolute path.
+            let process = AsyncProcess(arguments: ["C:\\Windows\\system32\\tar.exe", "xf", archivePath.pathString, "-C", destinationPath.pathString])
             #else
             let process = AsyncProcess(arguments: ["unzip", archivePath.pathString, "-d", destinationPath.pathString])
             #endif
