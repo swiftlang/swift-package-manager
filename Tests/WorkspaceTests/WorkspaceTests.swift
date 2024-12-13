@@ -228,6 +228,36 @@ final class WorkspaceTests: XCTestCase {
 
                 XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-package-description-version")])
             }
+
+            do {
+                let ws = try createWorkspace(
+                    """
+                    // swift-tools-version:3.0
+                    import PackageDescription
+                    """
+                )
+                XCTAssertThrowsError(
+                    try ws.interpreterFlags(for: packageManifest),
+                    "error expected"
+                ) { error in
+                    XCTAssertEqual(
+                        error as? StringError,
+                        StringError("invalid tools version")
+                    )
+                }
+            }
+
+            do {
+                // Invalid package manifest should still produce build settings.
+                let ws = try createWorkspace(
+                    """
+                    // swift-tools-version:5.1
+                    import PackageDescription
+                    """
+                )
+
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-package-description-version"), .equal("5.1.0")])
+            }
         }
     }
 
