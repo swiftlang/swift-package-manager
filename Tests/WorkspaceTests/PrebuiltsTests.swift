@@ -498,4 +498,33 @@ final class PrebuiltsTests: XCTestCase {
             try checkSettings(testTarget, usePrebuilt: true)
         }
     }
+
+    func testDisabled() async throws {
+        let sandbox = AbsolutePath("/tmp/ws")
+        let fs = InMemoryFileSystem()
+
+        let artifact = Data()
+        let (_, rootPackage, swiftSyntax) = try initData(artifact: artifact, swiftSyntaxVersion: "600.0.1")
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                rootPackage
+            ],
+            packages: [
+                swiftSyntax
+            ],
+            customHostTriple: Triple("arm64-apple-macosx15.0")
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
+            XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
+            let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
+            let macroTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooMacros" }))
+            try checkSettings(macroTarget, usePrebuilt: false)
+            let testTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooTests" }))
+            try checkSettings(testTarget, usePrebuilt: false)
+        }
+    }
 }

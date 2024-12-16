@@ -71,7 +71,7 @@ extension ModulesGraph {
         requiredDependencies: [PackageReference] = [],
         unsafeAllowedPackages: Set<PackageReference> = [],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]],
-        prebuilts: [PackageIdentity: [String: PrebuiltLibrary]],
+        prebuilts: [PackageIdentity: [String: PrebuiltLibrary]], // Product name to library mapping
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         traitConfiguration: TraitConfiguration? = nil,

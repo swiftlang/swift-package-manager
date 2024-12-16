@@ -471,7 +471,8 @@ public final class SwiftCommandState {
                     // TODO: should supportsAvailability be a flag as well?
                     .init(url: $0, supportsAvailability: true)
                 },
-                manifestImportRestrictions: .none
+                manifestImportRestrictions: .none,
+                usePrebuilts: options.caching.usePrebuilts
             ),
             cancellator: self.cancellator,
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },

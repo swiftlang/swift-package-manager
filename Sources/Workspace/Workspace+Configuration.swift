@@ -789,6 +789,9 @@ public struct WorkspaceConfiguration {
     /// Whether or not there should be import restrictions applied when loading manifests
     public var manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
 
+    /// Whether or not to use prebuilt swift-syntax for macros
+    public var usePrebuilts: Bool
+
     public init(
         skipDependenciesUpdates: Bool,
         prefetchBasedOnResolvedFile: Bool,
@@ -801,7 +804,8 @@ public struct WorkspaceConfiguration {
         skipSignatureValidation: Bool,
         sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation,
         defaultRegistry: Registry?,
-        manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
+        manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?,
+        usePrebuilts: Bool
     ) {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
@@ -815,6 +819,7 @@ public struct WorkspaceConfiguration {
         self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
         self.defaultRegistry = defaultRegistry
         self.manifestImportRestrictions = manifestImportRestrictions
+        self.usePrebuilts = usePrebuilts
     }
 
     /// Default instance of WorkspaceConfiguration
@@ -831,7 +836,8 @@ public struct WorkspaceConfiguration {
             skipSignatureValidation: false,
             sourceControlToRegistryDependencyTransformation: .disabled,
             defaultRegistry: .none,
-            manifestImportRestrictions: .none
+            manifestImportRestrictions: .none,
+            usePrebuilts: false
         )
     }
 

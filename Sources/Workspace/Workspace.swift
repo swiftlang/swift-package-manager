@@ -138,7 +138,7 @@ public class Workspace {
     let binaryArtifactsManager: BinaryArtifactsManager
 
     /// Prebuilts manager used for downloading and extracting package prebuilt libraries
-    let prebuiltsManager: PrebuiltsManager
+    let prebuiltsManager: PrebuiltsManager?
 
     /// The package fingerprints storage
     let fingerprints: PackageFingerprintStorage?
@@ -560,7 +560,7 @@ public class Workspace {
         // register the binary artifacts downloader with the cancellation handler
         cancellator?.register(name: "binary artifacts downloads", handler: binaryArtifactsManager)
 
-        let prebuiltsManager = PrebuiltsManager(
+        let prebuiltsManager: PrebuiltsManager? = configuration.usePrebuilts ? PrebuiltsManager(
             fileSystem: fileSystem,
             authorizationProvider: authorizationProvider,
             scratchPath: location.prebuiltsDirectory,
@@ -568,9 +568,11 @@ public class Workspace {
             customHTTPClient: customPrebuiltsManager?.httpClient,
             customArchiver: customPrebuiltsManager?.archiver,
             delegate: delegate.map(WorkspacePrebuiltsManagerDelegate.init(workspaceDelegate:))
-        )
+        ) : .none
         // register the prebuilt packages downloader with the cancellation handler
-        cancellator?.register(name: "package prebuilts downloads", handler: prebuiltsManager)
+        if let prebuiltsManager {
+            cancellator?.register(name: "package prebuilts downloads", handler: prebuiltsManager)
+        }
 
         // initialize
         self.fileSystem = fileSystem

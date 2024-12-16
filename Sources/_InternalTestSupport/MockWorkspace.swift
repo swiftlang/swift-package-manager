@@ -71,7 +71,7 @@ public final class MockWorkspace {
     public var registryClient: RegistryClient
     let registry: MockRegistry
     let customBinaryArtifactsManager: Workspace.CustomBinaryArtifactsManager
-    let customPrebuiltsManager: Workspace.CustomPrebuiltsManager
+    let customPrebuiltsManager: Workspace.CustomPrebuiltsManager?
     public var checksumAlgorithm: MockHashAlgorithm
     public private(set) var manifestLoader: MockManifestLoader
     public let repositoryProvider: InMemoryGitRepositoryProvider
@@ -134,10 +134,7 @@ public final class MockWorkspace {
             httpClient: HTTPClient.mock(fileSystem: fileSystem),
             archiver: MockArchiver()
         )
-        self.customPrebuiltsManager = customPrebuiltsManager ?? .init(
-            httpClient: HTTPClient.mock(fileSystem: fileSystem),
-            archiver: MockArchiver()
-        )
+        self.customPrebuiltsManager = customPrebuiltsManager
         self.customHostToolchain = try UserToolchain.mockHostToolchain(fileSystem, hostTriple: customHostTriple)
         try await self.create()
     }
@@ -349,7 +346,8 @@ public final class MockWorkspace {
                 skipSignatureValidation: false,
                 sourceControlToRegistryDependencyTransformation: self.sourceControlToRegistryDependencyTransformation,
                 defaultRegistry: self.defaultRegistry,
-                manifestImportRestrictions: .none
+                manifestImportRestrictions: .none,
+                usePrebuilts: customPrebuiltsManager != nil
             ),
             customFingerprints: self.fingerprints,
             customMirrors: self.mirrors,

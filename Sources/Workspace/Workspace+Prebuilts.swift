@@ -447,7 +447,12 @@ extension Workspace {
         addedOrUpdatedPackages: [PackageReference],
         observabilityScope: ObservabilityScope
     ) async throws {
-        for prebuilt in self.prebuiltsManager.findPrebuilts(
+        guard let prebuiltsManager = self.prebuiltsManager else {
+            // Disabled
+            return
+        }
+
+        for prebuilt in prebuiltsManager.findPrebuilts(
             packages: try manifests.requiredPackages
         ) {
             guard
@@ -455,7 +460,7 @@ extension Workspace {
                     prebuilt.packageRef.identity
                 ],
                 let packageVersion = manifest.manifest.version,
-                let prebuiltManifest = try await self.prebuiltsManager
+                let prebuiltManifest = try await prebuiltsManager
                     .downloadManifest(
                         package: prebuilt,
                         version: packageVersion,
@@ -473,7 +478,7 @@ extension Workspace {
                         continue
                     }
 
-                    if let path = try await self.prebuiltsManager
+                    if let path = try await prebuiltsManager
                         .downloadPrebuilt(
                             package: prebuilt,
                             version: packageVersion,
