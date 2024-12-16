@@ -140,6 +140,23 @@ extension Workspace {
         }
     }
 
+    /// For simplified init in tests
+    public struct CustomPrebuiltsManager {
+        let httpClient: HTTPClient?
+        let archiver: Archiver?
+        let useCache: Bool?
+
+        public init(
+            httpClient: HTTPClient? = .none,
+            archiver: Archiver? = .none,
+            useCache: Bool? = .none
+        ) {
+            self.httpClient = httpClient
+            self.archiver = archiver
+            self.useCache = useCache
+        }
+    }
+
     /// Provider of prebuilt binaries for packages. Currently only supports swift-syntax for macros.
     public struct PrebuiltsManager: Cancellable {
         public typealias Delegate = PrebuiltsManagerDelegate
@@ -151,18 +168,21 @@ extension Workspace {
         private let scratchPath: AbsolutePath
         private let cachePath: AbsolutePath?
         private let delegate: Delegate?
+        private let hashAlgorithm: HashAlgorithm = SHA256()
 
         init(
             fileSystem: FileSystem,
             authorizationProvider: AuthorizationProvider?,
             scratchPath: AbsolutePath,
             cachePath: AbsolutePath?,
+            customHTTPClient: HTTPClient?,
+            customArchiver: Archiver?,
             delegate: Delegate?
         ) {
             self.fileSystem = fileSystem
             self.authorizationProvider = authorizationProvider
-            self.httpClient = HTTPClient()  // TODO: mock
-            self.archiver = ZipArchiver(fileSystem: fileSystem)  // TODO: mock
+            self.httpClient = customHTTPClient ?? HTTPClient()
+            self.archiver = customArchiver ?? ZipArchiver(fileSystem: fileSystem)
             self.scratchPath = scratchPath
             self.cachePath = cachePath
             self.delegate = delegate
@@ -177,9 +197,7 @@ extension Workspace {
             .init(
                 packageRef: .init(
                     identity: .plain("swift-syntax"),
-                    kind: .remoteSourceControl(
-                        .init("https://github.com/swiftlang/swift-syntax.git")
-                    )
+                    kind: .remoteSourceControl("https://github.com/swiftlang/swift-syntax.git")
                 ),
                 prebuiltsURL: URL(
                     string:
@@ -189,9 +207,7 @@ extension Workspace {
             .init(
                 packageRef: .init(
                     identity: .plain("swift-syntax"),
-                    kind: .remoteSourceControl(
-                        .init("https://github.com/swiftlang/swift-syntax")
-                    )
+                    kind: .remoteSourceControl("https://github.com/swiftlang/swift-syntax")
                 ),
                 prebuiltsURL: URL(
                     string:
@@ -281,9 +297,10 @@ extension Workspace {
             }
 
             do {
+                let data = try fileSystem.readFileContents(destination)
                 return try JSONDecoder().decode(
                     PrebuiltsManifest.self,
-                    from: try Data(contentsOf: destination.asURL)
+                    from: Data(data.contents)
                 )
             } catch {
                 observabilityScope.emit(
@@ -294,12 +311,17 @@ extension Workspace {
             }
         }
 
+        func checksum(path: AbsolutePath, checksum: String) throws -> Bool {
+            let contents = try fileSystem.readFileContents(path)
+            let hash = hashAlgorithm.hash(contents).hexadecimalRepresentation
+            return hash == checksum
+        }
+
         func downloadPrebuilt(
             package: PrebuiltPackage,
             version: Version,
             library: PrebuiltsManifest.Library,
             artifact: PrebuiltsManifest.Library.Artifact,
-            hashAlgorithm: HashAlgorithm = SHA256(),
             observabilityScope: ObservabilityScope
         ) async throws -> AbsolutePath? {
             let artifactName =
@@ -309,100 +331,95 @@ extension Workspace {
             )
             let artifactDir = scratchDir.appending(artifactName)
             guard !fileSystem.exists(artifactDir) else {
-                // already there
                 return artifactDir
             }
 
             let artifactFile = artifactName + ".zip"
-
-            // TODO: pull it out of the cache if it's there
-            // For now though, always fetch it
             let prebuiltsDir = cachePath ?? scratchPath
             let destination = prebuiltsDir.appending(
                 components: package.packageRef.identity.description,
                 artifactFile
             )
-            if fileSystem.exists(destination) {
-                // remove for now so we can overwrite it
-                try fileSystem.removeFileTree(destination)
-            }
-            try fileSystem.createDirectory(
-                destination.parentDirectory,
-                recursive: true
-            )
 
-            // Download
-            let artifactURL = package.prebuiltsURL.appending(
-                components: version.description,
-                artifactFile
-            )
-            let fetchStart = DispatchTime.now()
-            var headers = HTTPClientHeaders()
-            headers.add(name: "Accept", value: "application/octet-stream")
-            var request = HTTPClient.Request.download(
-                url: artifactURL,
-                headers: headers,
-                fileSystem: self.fileSystem,
-                destination: destination
-            )
-            request.options.authorizationProvider =
-                self.authorizationProvider?.httpAuthorizationHeader(for:)
-            request.options.retryStrategy = .exponentialBackoff(
-                maxAttempts: 3,
-                baseDelay: .milliseconds(50)
-            )
-            request.options.validResponseCodes = [200]
+            let zipExists = fileSystem.exists(destination)
+            if try (!zipExists || !checksum(path: destination, checksum: artifact.checksum)) {
+                if zipExists {
+                    observabilityScope.emit(info: "Prebuilt artifact \(artifactFile) checksum mismatch, redownloading.")
+                    try fileSystem.removeFileTree(destination)
+                }
 
-            self.delegate?.willDownloadPrebuilt(
-                from: artifactURL.absoluteString,
-                fromCache: false
-            )
-            do {
-                _ = try await self.httpClient.execute(request) {
-                    bytesDownloaded,
-                    totalBytesToDownload in
-                    self.delegate?.downloadingPrebuilt(
-                        from: artifactURL.absoluteString,
-                        bytesDownloaded: bytesDownloaded,
-                        totalBytesToDownload: totalBytesToDownload
+                try fileSystem.createDirectory(
+                    destination.parentDirectory,
+                    recursive: true
+                )
+
+                // Download
+                let artifactURL = package.prebuiltsURL.appending(
+                    components: version.description,
+                    artifactFile
+                )
+                let fetchStart = DispatchTime.now()
+                var headers = HTTPClientHeaders()
+                headers.add(name: "Accept", value: "application/octet-stream")
+                var request = HTTPClient.Request.download(
+                    url: artifactURL,
+                    headers: headers,
+                    fileSystem: self.fileSystem,
+                    destination: destination
+                )
+                request.options.authorizationProvider =
+                    self.authorizationProvider?.httpAuthorizationHeader(for:)
+                request.options.retryStrategy = .exponentialBackoff(
+                    maxAttempts: 3,
+                    baseDelay: .milliseconds(50)
+                )
+                request.options.validResponseCodes = [200]
+
+                self.delegate?.willDownloadPrebuilt(
+                    from: artifactURL.absoluteString,
+                    fromCache: false
+                )
+                do {
+                    _ = try await self.httpClient.execute(request) {
+                        bytesDownloaded,
+                        totalBytesToDownload in
+                        self.delegate?.downloadingPrebuilt(
+                            from: artifactURL.absoluteString,
+                            bytesDownloaded: bytesDownloaded,
+                            totalBytesToDownload: totalBytesToDownload
+                        )
+                    }
+                } catch {
+                    observabilityScope.emit(
+                        info: "Prebuilt artifact \(artifactFile)",
+                        underlyingError: error
                     )
+                    self.delegate?.didDownloadPrebuilt(
+                        from: artifactURL.absoluteString,
+                        result: .failure(error),
+                        duration: fetchStart.distance(to: .now())
+                    )
+                    return nil
                 }
-            } catch {
-                observabilityScope.emit(
-                    info: "Prebuilt artifact \(artifactFile)",
-                    underlyingError: error
-                )
+
+                // Check the checksum
+                if try !checksum(path: destination, checksum: artifact.checksum) {
+                    let errorString =
+                        "Prebuilt artifact \(artifactFile) checksum mismatch"
+                    observabilityScope.emit(info: errorString)
+                    self.delegate?.didDownloadPrebuilt(
+                        from: artifactURL.absoluteString,
+                        result: .failure(StringError(errorString)),
+                        duration: fetchStart.distance(to: .now())
+                    )
+                    return nil
+                }
+
                 self.delegate?.didDownloadPrebuilt(
                     from: artifactURL.absoluteString,
-                    result: .failure(error),
+                    result: .success((destination, false)),
                     duration: fetchStart.distance(to: .now())
                 )
-                return nil
-            }
-
-            // Check the checksum
-            let contents = try fileSystem.readFileContents(destination)
-            let hash = hashAlgorithm.hash(contents).hexadecimalRepresentation
-            if hash != artifact.checksum {
-                let errorString =
-                    "Prebuilt artifact \(artifactFile) checksum mismatch"
-                observabilityScope.emit(info: errorString)
-                self.delegate?.didDownloadPrebuilt(
-                    from: artifactURL.absoluteString,
-                    result: .failure(StringError(errorString)),
-                    duration: fetchStart.distance(to: .now())
-                )
-                return nil
-            }
-
-            // Copy over to scratch dir if it's not already there
-            if scratchPath != cachePath {
-                let scratchDest = scratchDir.appending(artifactFile)
-                if fileSystem.exists(scratchDest) {
-                    try fileSystem.removeFileTree(scratchDest)
-                }
-                try fileSystem.createDirectory(scratchDir, recursive: true)
-                try fileSystem.copy(from: destination, to: scratchDest)
             }
 
             // Extract
@@ -414,11 +431,6 @@ extension Workspace {
 
             observabilityScope.emit(
                 info: "Prebuilt artifact \(artifactFile) downloaded"
-            )
-            self.delegate?.didDownloadPrebuilt(
-                from: artifactURL.absoluteString,
-                result: .success((destination, false)),
-                duration: fetchStart.distance(to: .now())
             )
 
             return artifactDir

@@ -23,7 +23,7 @@ import XCTest
 import struct TSCUtility.Version
 
 extension UserToolchain {
-    package static func mockHostToolchain(_ fileSystem: InMemoryFileSystem) throws -> UserToolchain {
+    package static func mockHostToolchain(_ fileSystem: InMemoryFileSystem, hostTriple: Triple = hostTriple) throws -> UserToolchain {
         var hostSwiftSDK = try SwiftSDK.hostSwiftSDK(environment: .mockEnvironment, fileSystem: fileSystem)
         hostSwiftSDK.targetTriple = hostTriple
 
@@ -50,7 +50,7 @@ extension Environment {
 
 extension InMemoryFileSystem {
     package func createMockToolchain() throws {
-        let files = ["/fake/path/to/swiftc", "/fake/path/to/ar"]
+        let files = ["/fake/path/to/swiftc", "/fake/path/to/ar", "/fake/path/to/libtool"]
         self.createEmptyFiles(at: AbsolutePath.root, files: files)
         for toolPath in files {
             try self.updatePermissions(.init(toolPath), isExecutable: true)
@@ -71,6 +71,7 @@ public final class MockWorkspace {
     public var registryClient: RegistryClient
     let registry: MockRegistry
     let customBinaryArtifactsManager: Workspace.CustomBinaryArtifactsManager
+    let customPrebuiltsManager: Workspace.CustomPrebuiltsManager
     public var checksumAlgorithm: MockHashAlgorithm
     public private(set) var manifestLoader: MockManifestLoader
     public let repositoryProvider: InMemoryGitRepositoryProvider
@@ -92,11 +93,13 @@ public final class MockWorkspace {
         mirrors customMirrors: DependencyMirrors? = nil,
         registryClient customRegistryClient: RegistryClient? = .none,
         binaryArtifactsManager customBinaryArtifactsManager: Workspace.CustomBinaryArtifactsManager? = .none,
+        prebuiltsManager customPrebuiltsManager: Workspace.CustomPrebuiltsManager? = .none,
         checksumAlgorithm customChecksumAlgorithm: MockHashAlgorithm? = .none,
         customPackageContainerProvider: MockPackageContainerProvider? = .none,
         skipDependenciesUpdates: Bool = false,
         sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation = .disabled,
-        defaultRegistry: Registry? = .none
+        defaultRegistry: Registry? = .none,
+        customHostTriple: Triple = hostTriple
     ) async throws {
         try fileSystem.createMockToolchain()
 
@@ -131,7 +134,11 @@ public final class MockWorkspace {
             httpClient: HTTPClient.mock(fileSystem: fileSystem),
             archiver: MockArchiver()
         )
-        self.customHostToolchain = try UserToolchain.mockHostToolchain(fileSystem)
+        self.customPrebuiltsManager = customPrebuiltsManager ?? .init(
+            httpClient: HTTPClient.mock(fileSystem: fileSystem),
+            archiver: MockArchiver()
+        )
+        self.customHostToolchain = try UserToolchain.mockHostToolchain(fileSystem, hostTriple: customHostTriple)
         try await self.create()
     }
 
@@ -353,6 +360,7 @@ public final class MockWorkspace {
             customRepositoryProvider: self.repositoryProvider,
             customRegistryClient: self.registryClient,
             customBinaryArtifactsManager: self.customBinaryArtifactsManager,
+            customPrebuiltsManager: self.customPrebuiltsManager,
             customIdentityResolver: self.identityResolver,
             customChecksumAlgorithm: self.checksumAlgorithm,
             delegate: self.delegate

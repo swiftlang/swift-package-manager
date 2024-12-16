@@ -216,6 +216,7 @@ public class Workspace {
             customRepositoryProvider: customRepositoryProvider,
             customRegistryClient: .none,
             customBinaryArtifactsManager: .none,
+            customPrebuiltsManager: .none,
             customIdentityResolver: .none,
             customDependencyMapper: .none,
             customChecksumAlgorithm: .none,
@@ -364,6 +365,7 @@ public class Workspace {
         customRepositoryProvider: RepositoryProvider? = .none,
         customRegistryClient: RegistryClient? = .none,
         customBinaryArtifactsManager: CustomBinaryArtifactsManager? = .none,
+        customPrebuiltsManager: CustomPrebuiltsManager? = .none,
         customIdentityResolver: IdentityResolver? = .none,
         customDependencyMapper: DependencyMapper? = .none,
         customChecksumAlgorithm: HashAlgorithm? = .none,
@@ -392,6 +394,7 @@ public class Workspace {
             customRepositoryProvider: customRepositoryProvider,
             customRegistryClient: customRegistryClient,
             customBinaryArtifactsManager: customBinaryArtifactsManager,
+            customPrebuiltsManager: customPrebuiltsManager,
             customIdentityResolver: customIdentityResolver,
             customDependencyMapper: customDependencyMapper,
             customChecksumAlgorithm: customChecksumAlgorithm,
@@ -423,6 +426,7 @@ public class Workspace {
         customRepositoryProvider: RepositoryProvider?,
         customRegistryClient: RegistryClient?,
         customBinaryArtifactsManager: CustomBinaryArtifactsManager?,
+        customPrebuiltsManager: CustomPrebuiltsManager?,
         customIdentityResolver: IdentityResolver?,
         customDependencyMapper: DependencyMapper?,
         customChecksumAlgorithm: HashAlgorithm?,
@@ -560,7 +564,9 @@ public class Workspace {
             fileSystem: fileSystem,
             authorizationProvider: authorizationProvider,
             scratchPath: location.prebuiltsDirectory,
-            cachePath: !configuration.sharedDependenciesCacheEnabled ? .none : location.sharedPrebuiltsCacheDirectory,
+            cachePath: customPrebuiltsManager?.useCache == false || !configuration.sharedDependenciesCacheEnabled ? .none : location.sharedPrebuiltsCacheDirectory,
+            customHTTPClient: customPrebuiltsManager?.httpClient,
+            customArchiver: customPrebuiltsManager?.archiver,
             delegate: delegate.map(WorkspacePrebuiltsManagerDelegate.init(workspaceDelegate:))
         )
         // register the prebuilt packages downloader with the cancellation handler
