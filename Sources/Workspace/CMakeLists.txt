@@ -27,6 +27,7 @@ add_library(Workspace
   Workspace+Editing.swift
   Workspace+Manifests.swift
   Workspace+PackageContainer.swift
+  Workspace+Prebuilts.swift
   Workspace+Registry.swift
   Workspace+ResolvedPackages.swift
   Workspace+Signing.swift
