@@ -238,5 +238,31 @@ final class TraitTests: XCTestCase {
             XCTAssertTrue(stdout.contains(expectedOut))
         }
     }
+
+    func testPackageDumpSymbolGraph_enablesAllTraits() async throws {
+        try await fixture(name: "Traits") { fixturePath in
+            let (stdout, _) = try await executeSwiftPackage(fixturePath.appending("Package10"), extraArgs: ["dump-symbol-graph"])
+            let optionalPath = stdout
+                .lazy
+                .split(whereSeparator: \.isNewline)
+                .first { String($0).hasPrefix("Files written to ") }?
+                .dropFirst(17)
+
+            let path = String(try XCTUnwrap(optionalPath))
+            let symbolGraph = try String(contentsOfFile: "\(path)/Package10Library1.symbols.json", encoding: .utf8)
+            XCTAssertTrue(symbolGraph.contains("TypeGatedByPackage10Trait1"))
+            XCTAssertTrue(symbolGraph.contains("TypeGatedByPackage10Trait2"))
+        }
+    }
+
+    func testPackagePluginGetSymbolGraph_enablesAllTraits() async throws {
+        try await fixture(name: "Traits") { fixturePath in
+            let (stdout, _) = try await executeSwiftPackage(fixturePath.appending("Package10"), extraArgs: ["plugin", "extract"])
+            let path = String(stdout.split(whereSeparator: \.isNewline).first!)
+            let symbolGraph = try String(contentsOfFile: "\(path)/Package10Library1.symbols.json", encoding: .utf8)
+            XCTAssertTrue(symbolGraph.contains("TypeGatedByPackage10Trait1"))
+            XCTAssertTrue(symbolGraph.contains("TypeGatedByPackage10Trait2"))
+        }
+    }
 }
 #endif

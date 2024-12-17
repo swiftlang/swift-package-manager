@@ -16,6 +16,7 @@ import CoreCommands
 import Foundation
 import PackageModel
 import SPMBuildCore
+import PackageGraph
 
 import protocol TSCBasic.OutputByteStream
 import class TSCBasic.BufferedOutputByteStream
@@ -398,7 +399,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Create a build system for building the target., skipping the the cache because we need the build plan.
         let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitBuildSystem: .native,
-            traitConfiguration: .init(),
+            traitConfiguration: TraitConfiguration(enableAllTraits: true),
             cacheBuildManifest: false
         )
 
