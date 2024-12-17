@@ -18,5 +18,11 @@ let package = Package(
         .target(
             name: "Package10Library1"
         ),
+        .plugin(
+            name: "SymbolGraphExtract",
+            capability: .command(
+                intent: .custom(verb: "extract", description: "")
+            )
+        ),
     ]
 )
