@@ -12,7 +12,7 @@
 
 import Basics
 import PackageFingerprint
-@testable import PackageGraph
+import PackageGraph
 import PackageLoading
 import PackageModel
 import PackageRegistry
@@ -20,7 +20,7 @@ import PackageSigning
 import SourceControl
 import SPMBuildCore
 import _InternalTestSupport
-@testable import Workspace
+import Workspace
 import XCTest
 
 import struct TSCBasic.ByteString
@@ -8684,7 +8684,6 @@ final class WorkspaceTests: XCTestCase {
 
         let maxConcurrentRequests = 2
         let concurrentRequests = ThreadSafeBox(0)
-        let concurrentRequestsLock = NSLock()
 
         var configuration = HTTPClient.Configuration()
         configuration.maxConcurrentRequests = maxConcurrentRequests

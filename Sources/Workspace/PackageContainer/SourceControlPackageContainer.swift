@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -26,7 +26,7 @@ import enum TSCUtility.Git
 import struct TSCUtility.Version
 
 /// Adaptor to expose an individual repository as a package container.
-internal final class SourceControlPackageContainer: PackageContainer, CustomStringConvertible {
+package final class SourceControlPackageContainer: PackageContainer, CustomStringConvertible {
     public typealias Constraint = PackageContainerConstraint
 
     // A wrapper for getDependencies() errors. This adds additional information
@@ -75,7 +75,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
 
     /// This is used to remember if tools version of a particular version is
     /// valid or not.
-    internal var validToolsVersionsCache = ThreadSafeKeyValueStore<Version, Bool>()
+    package var validToolsVersionsCache = ThreadSafeKeyValueStore<Version, Bool>()
 
     init(
         package: PackageReference,

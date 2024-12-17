@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -457,14 +457,14 @@ extension PackageIdentity: ExpressibleByStringInterpolation {}
 extension AbsolutePath: ExpressibleByStringLiteral {}
 extension AbsolutePath: ExpressibleByStringInterpolation {}
 #else
-extension RelativePath: @retroactive ExpressibleByStringLiteral {}
-extension RelativePath: @retroactive ExpressibleByStringInterpolation {}
+extension RelativePath: @retroactive Swift.ExpressibleByStringLiteral {}
+extension RelativePath: @retroactive Swift.ExpressibleByStringInterpolation {}
 extension URL: @retroactive ExpressibleByStringLiteral {}
 extension URL: @retroactive ExpressibleByStringInterpolation {}
-extension PackageIdentity: @retroactive ExpressibleByStringLiteral {}
-extension PackageIdentity: @retroactive ExpressibleByStringInterpolation {}
-extension AbsolutePath: @retroactive ExpressibleByStringLiteral {}
-extension AbsolutePath: @retroactive ExpressibleByStringInterpolation {}
+extension PackageIdentity: @retroactive Swift.ExpressibleByStringLiteral {}
+extension PackageIdentity: @retroactive Swift.ExpressibleByStringInterpolation {}
+extension AbsolutePath: @retroactive Swift.ExpressibleByStringLiteral {}
+extension AbsolutePath: @retroactive Swift.ExpressibleByStringInterpolation {}
 #endif
 
 public func getNumberOfMatches(of match: String, in value: String) -> Int {

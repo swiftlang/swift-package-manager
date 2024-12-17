@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2023-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -37,7 +37,7 @@ extension Certificate {
         self = try Certificate(Array(data))
     }
 
-    init(secIdentity: SecIdentity) throws {
+    package init(secIdentity: SecIdentity) throws {
         var secCertificate: SecCertificate?
         let status = SecIdentityCopyCertificate(secIdentity, &secCertificate)
         guard status == errSecSuccess, let secCertificate else {
@@ -55,15 +55,15 @@ extension Certificate {
 }
 
 extension DistinguishedName {
-    var commonName: String? {
+    package var commonName: String? {
         self.stringAttribute(oid: ASN1ObjectIdentifier.NameAttributes.commonName)
     }
 
-    var organizationalUnitName: String? {
+    package var organizationalUnitName: String? {
         self.stringAttribute(oid: ASN1ObjectIdentifier.NameAttributes.organizationalUnitName)
     }
 
-    var organizationName: String? {
+    package var organizationName: String? {
         self.stringAttribute(oid: ASN1ObjectIdentifier.NameAttributes.organizationName)
     }
 
@@ -82,7 +82,7 @@ extension DistinguishedName {
 extension Certificate {
     private static let cache = ThreadSafeKeyValueStore<[UInt8], Certificate>()
 
-    init(_ bytes: [UInt8]) throws {
+    package init(_ bytes: [UInt8]) throws {
         if let cached = Self.cache[bytes] {
             self = cached
         } else {

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2023-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -19,17 +19,18 @@ import PackageModel
 
 import struct TSCUtility.Version
 
-struct PackageVersionChecksumTOFU {
+package struct PackageVersionChecksumTOFU {
+    package typealias VersionMetadataProvider =
+        (PackageIdentity.RegistryIdentity, Version) async throws -> RegistryClient.PackageVersionMetadata
+
     private let fingerprintStorage: PackageFingerprintStorage?
     private let fingerprintCheckingMode: FingerprintCheckingMode
-    private let versionMetadataProvider: (PackageIdentity.RegistryIdentity, Version) async throws -> RegistryClient
-        .PackageVersionMetadata
+    private let versionMetadataProvider: VersionMetadataProvider
 
-    init(
+    package init(
         fingerprintStorage: PackageFingerprintStorage?,
         fingerprintCheckingMode: FingerprintCheckingMode,
-        versionMetadataProvider: @escaping (PackageIdentity.RegistryIdentity, Version) async throws -> RegistryClient
-            .PackageVersionMetadata
+        versionMetadataProvider: @escaping VersionMetadataProvider
     ) {
         self.fingerprintStorage = fingerprintStorage
         self.fingerprintCheckingMode = fingerprintCheckingMode
@@ -37,7 +38,7 @@ struct PackageVersionChecksumTOFU {
     }
 
     // MARK: - source archive
-    func validateSourceArchive(
+    package func validateSourceArchive(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         version: Version,
@@ -155,7 +156,7 @@ struct PackageVersionChecksumTOFU {
     }
 
     @available(*, noasync, message: "Use the async alternative")
-    func validateManifest(
+    package func validateManifest(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         version: Version,

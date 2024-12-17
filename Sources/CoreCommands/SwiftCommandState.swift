@@ -56,7 +56,7 @@ import class TSCBasic.ThreadSafeOutputByteStream
 
 import var TSCUtility.verbosity
 
-typealias Diagnostic = Basics.Diagnostic
+package typealias Diagnostic = Basics.Diagnostic
 
 public struct ToolWorkspaceConfiguration {
     let shouldInstallSignalHandlers: Bool
@@ -206,8 +206,9 @@ public final class SwiftCommandState {
         let packages: [AbsolutePath]
 
         if let workspace = options.locations.multirootPackageDataFile {
-            packages = try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope)
-                .load(workspace: workspace)
+            packages = try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope).load(
+                workspace: workspace
+            )
         } else {
             packages = [try getPackageRoot()]
         }
@@ -297,8 +298,8 @@ public final class SwiftCommandState {
         )
     }
 
-    // marked internal for testing
-    internal init(
+    // marked `package` for testing
+    package init(
         outputStream: OutputByteStream,
         options: GlobalOptions,
         toolWorkspaceConfiguration: ToolWorkspaceConfiguration,
@@ -417,7 +418,7 @@ public final class SwiftCommandState {
         }
     }
 
-    func waitForObservabilityEvents(timeout: DispatchTime) {
+    package func waitForObservabilityEvents(timeout: DispatchTime) {
         self.observabilityHandler.wait(timeout: timeout)
     }
 
@@ -754,7 +755,7 @@ public final class SwiftCommandState {
         return buildSystem
     }
 
-    static let entitlementsMacOSWarning = """
+    package static let entitlementsMacOSWarning = """
     `--disable-get-task-allow-entitlement` and `--disable-get-task-allow-entitlement` only have an effect \
     when building on macOS.
     """
@@ -1016,6 +1017,50 @@ public final class SwiftCommandState {
 
         workspaceLock?.unlock()
     }
+
+    /// Builds the "test" target if enabled in options.
+    ///
+    /// - Returns: The paths to the build test products.
+    package func buildTestsIfNeeded(
+        productsBuildParameters: BuildParameters,
+        toolsBuildParameters: BuildParameters,
+        testProduct: String?,
+        traitConfiguration: TraitConfiguration
+    ) async throws -> [BuiltTestProduct] {
+        let buildSystem = try await self.createBuildSystem(
+            traitConfiguration: traitConfiguration,
+            productsBuildParameters: productsBuildParameters,
+            toolsBuildParameters: toolsBuildParameters
+        )
+
+        let subset: BuildSubset = if let testProduct {
+            .product(testProduct)
+        } else {
+            .allIncludingTests
+        }
+
+        try await buildSystem.build(subset: subset)
+
+        // Find the test product.
+        let testProducts = await buildSystem.builtTestProducts
+        guard !testProducts.isEmpty else {
+            if let testProduct {
+                throw TestError.productIsNotTest(productName: testProduct)
+            } else {
+                throw TestError.testsNotFound
+            }
+        }
+
+        if let testProductName = testProduct {
+            guard let selectedTestProduct = testProducts.first(where: { $0.productName == testProductName }) else {
+                throw TestError.testProductNotFound(productName: testProductName)
+            }
+
+            return [selectedTestProduct]
+        } else {
+            return testProducts
+        }
+    }
 }
 
 /// Returns path of the nearest directory containing the manifest file w.r.t
@@ -1104,7 +1149,7 @@ extension Workspace.ManagedDependency {
 }
 
 extension LoggingOptions {
-    fileprivate var logLevel: Diagnostic.Severity {
+    package var logLevel: Diagnostic.Severity {
         if self.verbose {
             return .info
         } else if self.veryVerbose {
@@ -1183,5 +1228,43 @@ extension BuildOptions.DebugInfoFormat {
 extension Basics.Diagnostic {
     public static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
         .error(arguments.map { "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
+    }
+}
+
+package enum TestError: Swift.Error {
+    case invalidListTestJSONData(context: String, underlyingError: Error? = nil)
+    case testsNotFound
+    case testProductNotFound(productName: String)
+    case productIsNotTest(productName: String)
+    case multipleTestProducts([String])
+    case xctestNotAvailable(reason: String)
+    case xcodeNotInstalled
+}
+
+extension TestError: CustomStringConvertible {
+    package var description: String {
+        switch self {
+        case .testsNotFound:
+            return "no tests found; create a target in the 'Tests' directory"
+        case .testProductNotFound(let productName):
+            return "there is no test product named '\(productName)'"
+        case .productIsNotTest(let productName):
+            return "the product '\(productName)' is not a test"
+        case .invalidListTestJSONData(let context, let underlyingError):
+            let underlying = underlyingError != nil ? ", underlying error: \(underlyingError!)" : ""
+            return "invalid list test JSON structure, produced by \(context)\(underlying)"
+        case .multipleTestProducts(let products):
+            return "found multiple test products: \(products.joined(separator: ", ")); use --test-product to select one"
+        case let .xctestNotAvailable(reason):
+            return "XCTest not available: \(reason)"
+        case .xcodeNotInstalled:
+            return "XCTest not available; download and install Xcode to use XCTest on this platform"
+        }
+    }
+}
+
+public extension _SwiftCommand {
+    func buildSystemProvider(_ swiftCommandState: SwiftCommandState) throws -> BuildSystemProvider {
+        swiftCommandState.defaultBuildSystemProvider
     }
 }

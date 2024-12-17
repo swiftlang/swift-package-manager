@@ -130,8 +130,8 @@ public class RegistryPackageContainer: PackageContainer {
         return self.package
     }
 
-    // marked internal for testing
-    internal func loadManifest(version: Version) async throws -> Manifest {
+    // marked `package` for testing
+    package func loadManifest(version: Version) async throws -> Manifest {
         return try await self.manifestsCache.memoize(version) {
             try await withCheckedThrowingContinuation { continuation in
                 self.loadManifest(version: version, completion: {

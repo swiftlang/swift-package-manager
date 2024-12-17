@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2015-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2015-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -758,7 +758,7 @@ extension BuildPlan {
     ///
     /// Note that warnings emitted by the the plugin itself will be returned in the `BuildToolPluginInvocationResult`
     /// structures for later showing to the user, and not added directly to the diagnostics engine.
-    static func invokeBuildToolPlugins(
+    package static func invokeBuildToolPlugins(
         for module: ResolvedModule,
         destination: BuildParameters.Destination,
         configuration: PluginConfiguration,

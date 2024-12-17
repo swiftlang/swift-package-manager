@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -12,9 +12,9 @@
 
 import XCTest
 
-@testable import PackageCollections
+import PackageCollections
 
-class TrieTests: XCTestCase {
+final class TrieTests: XCTestCase {
     func testContains() {
         let trie = Trie<Int>()
 

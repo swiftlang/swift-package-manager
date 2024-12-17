@@ -46,37 +46,6 @@ import WinSDK // for ERROR_NOT_FOUND
 import Android
 #endif
 
-private enum TestError: Swift.Error {
-    case invalidListTestJSONData(context: String, underlyingError: Error? = nil)
-    case testsNotFound
-    case testProductNotFound(productName: String)
-    case productIsNotTest(productName: String)
-    case multipleTestProducts([String])
-    case xctestNotAvailable(reason: String)
-    case xcodeNotInstalled
-}
-
-extension TestError: CustomStringConvertible {
-    var description: String {
-        switch self {
-        case .testsNotFound:
-            return "no tests found; create a target in the 'Tests' directory"
-        case .testProductNotFound(let productName):
-            return "there is no test product named '\(productName)'"
-        case .productIsNotTest(let productName):
-            return "the product '\(productName)' is not a test"
-        case .invalidListTestJSONData(let context, let underlyingError):
-            let underlying = underlyingError != nil ? ", underlying error: \(underlyingError!)" : ""
-            return "invalid list test JSON structure, produced by \(context)\(underlying)"
-        case .multipleTestProducts(let products):
-            return "found multiple test products: \(products.joined(separator: ", ")); use --test-product to select one"
-        case let .xctestNotAvailable(reason):
-            return "XCTest not available: \(reason)"
-        case .xcodeNotInstalled:
-            return "XCTest not available; download and install Xcode to use XCTest on this platform"
-        }
-    }
-}
 
 struct SharedOptions: ParsableArguments {
     @Flag(name: .customLong("skip-build"),
@@ -257,7 +226,11 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     @OptionGroup()
     var options: TestCommandOptions
 
-    private func run(_ swiftCommandState: SwiftCommandState, buildParameters: BuildParameters, testProducts: [BuiltTestProduct]) async throws {
+    private func run(
+        _ swiftCommandState: SwiftCommandState,
+        buildParameters: BuildParameters,
+        testProducts: [BuiltTestProduct]
+    ) async throws {
         // Remove test output from prior runs and validate priors.
         if self.options.enableExperimentalTestOutput && buildParameters.triple.supportsTestSummary {
             _ = try? localFileSystem.removeFileTree(buildParameters.testOutputPath)
@@ -637,8 +610,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         swiftCommandState: SwiftCommandState
     ) async throws -> [BuiltTestProduct] {
         let (productsBuildParameters, toolsBuildParameters) = try swiftCommandState.buildParametersForTest(options: self.options)
-        return try await Commands.buildTestsIfNeeded(
-            swiftCommandState: swiftCommandState,
+        return try await swiftCommandState.buildTestsIfNeeded(
             productsBuildParameters: productsBuildParameters,
             toolsBuildParameters: toolsBuildParameters,
             testProduct: self.options.sharedOptions.testProduct,
@@ -829,8 +801,7 @@ extension SwiftTestCommand {
             productsBuildParameters: BuildParameters,
             toolsBuildParameters: BuildParameters
         ) async throws -> [BuiltTestProduct] {
-            return try await Commands.buildTestsIfNeeded(
-                swiftCommandState: swiftCommandState,
+            return try await swiftCommandState.buildTestsIfNeeded(
                 productsBuildParameters: productsBuildParameters,
                 toolsBuildParameters: toolsBuildParameters,
                 testProduct: self.sharedOptions.testProduct,
@@ -1499,49 +1470,4 @@ private var EXIT_NO_TESTS_FOUND: CInt {
 #warning("Platform-specific implementation missing: value for EXIT_NO_TESTS_FOUND unavailable")
     return 2 // We're assuming that EXIT_SUCCESS = 0 and EXIT_FAILURE = 1.
 #endif
-}
-
-/// Builds the "test" target if enabled in options.
-///
-/// - Returns: The paths to the build test products.
-private func buildTestsIfNeeded(
-    swiftCommandState: SwiftCommandState,
-    productsBuildParameters: BuildParameters,
-    toolsBuildParameters: BuildParameters,
-    testProduct: String?,
-    traitConfiguration: TraitConfiguration
-) async throws -> [BuiltTestProduct] {
-    let buildSystem = try await swiftCommandState.createBuildSystem(
-        traitConfiguration: traitConfiguration,
-        productsBuildParameters: productsBuildParameters,
-        toolsBuildParameters: toolsBuildParameters
-    )
-
-    let subset: BuildSubset = if let testProduct {
-        .product(testProduct)
-    } else {
-        .allIncludingTests
-    }
-
-    try await buildSystem.build(subset: subset)
-
-    // Find the test product.
-    let testProducts = await buildSystem.builtTestProducts
-    guard !testProducts.isEmpty else {
-        if let testProduct {
-            throw TestError.productIsNotTest(productName: testProduct)
-        } else {
-            throw TestError.testsNotFound
-        }
-    }
-
-    if let testProductName = testProduct {
-        guard let selectedTestProduct = testProducts.first(where: { $0.productName == testProductName }) else {
-            throw TestError.testProductNotFound(productName: testProductName)
-        }
-
-        return [selectedTestProduct]
-    } else {
-        return testProducts
-    }
 }

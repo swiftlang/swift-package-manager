@@ -19,7 +19,7 @@ import struct TSCUtility.Version
 
 public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
     let fileSystem: FileSystem
-    let directoryPath: AbsolutePath
+    package let directoryPath: AbsolutePath
 
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
@@ -349,13 +349,13 @@ protocol FingerprintReference {
 }
 
 extension PackageIdentity: FingerprintReference {
-    var fingerprintsFilename: String {
+    package var fingerprintsFilename: String {
         "\(self.description).json"
     }
 }
 
 extension PackageReference: FingerprintReference {
-    var fingerprintsFilename: String {
+    package var fingerprintsFilename: String {
         get throws {
             guard case .remoteSourceControl(let sourceControlURL) = self.kind else {
                 throw StringError("Package kind [\(self.kind)] does not support fingerprints")

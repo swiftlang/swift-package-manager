@@ -151,7 +151,7 @@ public struct ResolvedModule {
         self.underlying.sources
     }
 
-    let packageIdentity: PackageIdentity
+    package let packageIdentity: PackageIdentity
 
     /// The underlying module represented in this resolved module.
     public let underlying: Module
@@ -277,6 +277,11 @@ extension ResolvedModule.Dependency: Hashable {
 extension ResolvedModule: Identifiable {
     /// Resolved module identity that uniquely identifies it in a modules graph.
     public struct ID: Hashable {
+        package init(moduleName: String, packageIdentity: PackageIdentity) {
+            self.moduleName = moduleName
+            self.packageIdentity = packageIdentity
+        }
+        
         @available(*, deprecated, renamed: "moduleName")
         public var targetName: String { self.moduleName }
 

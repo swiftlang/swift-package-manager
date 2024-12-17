@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2022-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2022-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -336,6 +336,11 @@ public protocol RegistryDownloadsManagerDelegate {
 extension RegistryDownloadsManager {
     /// Additional information about a fetch
     public struct FetchDetails: Equatable {
+        package init(fromCache: Bool, updatedCache: Bool) {
+            self.fromCache = fromCache
+            self.updatedCache = updatedCache
+        }
+        
         /// Indicates if the repository was fetched from the cache or from the remote.
         public let fromCache: Bool
         /// Indicates whether the repository was already present in the cache and updated or if a clean fetch was performed.
@@ -360,7 +365,7 @@ extension PackageIdentity {
         return try RelativePath(validating: registryIdentity.scope.description).appending(component: registryIdentity.name.description)
     }
 
-    internal func downloadPath(version: Version) throws -> RelativePath {
+    package func downloadPath(version: Version) throws -> RelativePath {
         try self.downloadPath().appending(component: version.description)
     }
 }

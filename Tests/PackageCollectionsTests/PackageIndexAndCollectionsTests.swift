@@ -12,14 +12,14 @@
 
 import Basics
 import Foundation
-@testable import PackageCollections
+import PackageCollections
 import PackageModel
 import _InternalTestSupport
 import XCTest
 
 import struct TSCUtility.Version
 
-class PackageIndexAndCollectionsTests: XCTestCase {
+final class PackageIndexAndCollectionsTests: XCTestCase {
     func testCollectionAddRemoveGetList() async throws {
         try PackageCollectionsTests_skipIfUnsupportedPlatform()
         

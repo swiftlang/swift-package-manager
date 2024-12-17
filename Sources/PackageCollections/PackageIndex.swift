@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2022-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2022-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -17,7 +17,7 @@ import PackageModel
 
 import protocol TSCBasic.Closable
 
-struct PackageIndex: PackageIndexProtocol, Closable {
+package struct PackageIndex: PackageIndexProtocol, Closable {
     private let configuration: PackageIndexConfiguration
     private let httpClient: LegacyHTTPClient
     private let callbackQueue: DispatchQueue
@@ -27,11 +27,11 @@ struct PackageIndex: PackageIndexProtocol, Closable {
 
     private let cache: SQLiteBackedCache<CacheValue>?
     
-    var isEnabled: Bool {
+    package var isEnabled: Bool {
         self.configuration.enabled && self.configuration.url != .none
     }
 
-    init(
+    package init(
         configuration: PackageIndexConfiguration,
         customHTTPClient: LegacyHTTPClient? = nil,
         callbackQueue: DispatchQueue,
@@ -57,11 +57,11 @@ struct PackageIndex: PackageIndexProtocol, Closable {
         }
     }
     
-    func close() throws {
+    package func close() throws {
         try self.cache?.close()
     }
 
-    func getPackageMetadata(
+    package func getPackageMetadata(
         identity: PackageIdentity,
         location: String?
     ) async throws -> PackageCollectionsModel.PackageMetadata {
@@ -100,7 +100,7 @@ struct PackageIndex: PackageIndexProtocol, Closable {
         }
     }
     
-    func findPackages(
+    package func findPackages(
         _ query: String
     ) async throws -> PackageCollectionsModel.PackageSearchResult {
         let url = try await self.urlIfConfigured()
@@ -132,7 +132,7 @@ struct PackageIndex: PackageIndexProtocol, Closable {
         }
     }
 
-    func listPackages(
+    package func listPackages(
         offset: Int,
         limit: Int
     ) async throws -> PackageCollectionsModel.PaginatedPackageList {
@@ -213,7 +213,12 @@ struct PackageIndex: PackageIndexProtocol, Closable {
 }
 
 extension PackageIndex {
-    struct ListResponse: Codable {
+    package struct ListResponse: Codable {
+        package init(items: [PackageCollectionsModel.Package], total: Int) {
+            self.items = items
+            self.total = total
+        }
+        
         let items: [PackageCollectionsModel.Package]
         let total: Int
     }
@@ -222,7 +227,7 @@ extension PackageIndex {
 // MARK: - PackageMetadataProvider conformance
 
 extension PackageIndex: PackageMetadataProvider {
-    func get(
+    package func get(
         identity: PackageIdentity,
         location: String
     ) async -> (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) {

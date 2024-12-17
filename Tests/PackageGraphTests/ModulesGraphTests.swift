@@ -13,7 +13,7 @@
 import Basics
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-@testable import PackageGraph
+import PackageGraph
 
 import PackageModel
 import _InternalTestSupport

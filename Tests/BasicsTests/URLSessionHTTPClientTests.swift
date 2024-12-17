@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import Basics
+import Basics
 import Foundation
 #if canImport(FoundationNetworking)
 // TODO: this brings OpenSSL dependency` on Linux

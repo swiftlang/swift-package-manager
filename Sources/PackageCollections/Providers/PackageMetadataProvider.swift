@@ -18,7 +18,7 @@ import PackageModel
 import struct TSCUtility.Version
 
 /// `PackageBasicMetadata` provider
-protocol PackageMetadataProvider {
+package protocol PackageMetadataProvider {
 
     // TODO: Review if this API is correct
     // This API is awkward because it unconditionally provides a context
@@ -41,23 +41,57 @@ protocol PackageMetadataProvider {
 }
 
 extension Model {
-    struct PackageBasicMetadata: Equatable, Codable {
-        let summary: String?
-        let keywords: [String]?
-        let versions: [PackageBasicVersionMetadata]
-        let watchersCount: Int?
-        let readmeURL: URL?
-        let license: PackageCollectionsModel.License?
-        let authors: [PackageCollectionsModel.Package.Author]?
-        let languages: Set<String>?
+    package struct PackageBasicMetadata: Equatable, Codable {
+        package init(
+            summary: String? = nil,
+            keywords: [String]? = nil,
+            versions: [PackageCollectionsModel.PackageBasicVersionMetadata],
+            watchersCount: Int? = nil,
+            readmeURL: URL? = nil,
+            license: PackageCollectionsModel.License? = nil,
+            authors: [PackageCollectionsModel.Package.Author]? = nil,
+            languages: Set<String>? = nil
+        ) {
+            self.summary = summary
+            self.keywords = keywords
+            self.versions = versions
+            self.watchersCount = watchersCount
+            self.readmeURL = readmeURL
+            self.license = license
+            self.authors = authors
+            self.languages = languages
+        }
+        
+        package let summary: String?
+        package let keywords: [String]?
+        package let versions: [PackageBasicVersionMetadata]
+        package let watchersCount: Int?
+        package let readmeURL: URL?
+        package let license: PackageCollectionsModel.License?
+        package let authors: [PackageCollectionsModel.Package.Author]?
+        package let languages: Set<String>?
     }
 
-    struct PackageBasicVersionMetadata: Equatable, Codable {
-        let version: TSCUtility.Version
-        let title: String?
-        let summary: String?
-        let author: PackageCollectionsModel.Package.Author?
-        let createdAt: Date?
+    package struct PackageBasicVersionMetadata: Equatable, Codable {
+        package init(
+            version: Version,
+            title: String? = nil,
+            summary: String? = nil,
+            author: PackageCollectionsModel.Package.Author? = nil,
+            createdAt: Date? = nil
+        ) {
+            self.version = version
+            self.title = title
+            self.summary = summary
+            self.author = author
+            self.createdAt = createdAt
+        }
+        
+        package let version: TSCUtility.Version
+        package let title: String?
+        package let summary: String?
+        package let author: PackageCollectionsModel.Package.Author?
+        package let createdAt: Date?
     }
 }
 
@@ -67,7 +101,7 @@ public struct PackageMetadataProviderContext: Equatable {
     public let isAuthTokenConfigured: Bool
     public let error: PackageMetadataProviderError?
 
-    init(
+    package init(
         name: String,
         authTokenType: AuthTokenType?,
         isAuthTokenConfigured: Bool,

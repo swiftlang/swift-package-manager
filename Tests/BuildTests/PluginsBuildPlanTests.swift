@@ -12,7 +12,7 @@
 
 import Basics
 import _InternalTestSupport
-@testable import SPMBuildCore
+import SPMBuildCore
 import XCTest
 import PackageModel
 
@@ -39,7 +39,7 @@ final class PluginsBuildPlanTests: XCTestCase {
         #endif
 
         let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK(environment: [:]), environment: [:])
-        let hostTriple = try! hostToolchain.targetTriple.withoutVersion().tripleString
+        let hostTriple = try! hostToolchain.targetTriple.withoutVersion.tripleString
 
         let x86Triple = "x86_64-apple-macosx"
         let armTriple = "arm64-apple-macosx"

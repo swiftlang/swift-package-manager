@@ -8,6 +8,7 @@
 
 add_library(CoreCommands
   BuildSystemSupport.swift
+  CommandWorkspaceDelegate.swift
   SwiftCommandState.swift
   SwiftCommandObservabilityHandler.swift
   Options.swift)
