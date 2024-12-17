@@ -12,8 +12,7 @@
 
 extension Package.Dependency {
     /// A struct representing an enabled trait of a dependency.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public struct Trait: Hashable, Sendable, ExpressibleByStringLiteral {
         /// Enables all default traits of a package.
         public static let defaults = Self.init(name: "default")

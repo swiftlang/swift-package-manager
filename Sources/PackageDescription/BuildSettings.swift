@@ -83,8 +83,7 @@ public struct BuildSettingCondition: Sendable {
     ///   - platforms: The applicable platforms for this build setting condition.
     ///   - configuration: The applicable build configuration for this build setting condition.
     ///   - traits: The applicable traits for this build setting condition.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func when(
         platforms: [Platform]? = nil,
         configuration: BuildConfiguration? = nil,

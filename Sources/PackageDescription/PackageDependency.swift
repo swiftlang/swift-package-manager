@@ -51,7 +51,6 @@ extension Package {
         public let kind: Kind
 
         /// The dependencies traits configuration.
-        @_spi(ExperimentalTraits)
         @available(_PackageDescription, introduced: 999.0)
         public let traits: Set<Trait>
 
@@ -224,8 +223,7 @@ extension Package.Dependency {
     /// - Parameter traits: The trait configuration of this dependency. Defaults to enabling the default traits.
     ///
     /// - Returns: A package dependency.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         path: String,
         traits: Set<Trait> = [.defaults]
@@ -266,8 +264,7 @@ extension Package.Dependency {
     ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
     ///
     /// - Returns: A package dependency.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         name: String,
         path: String,
@@ -332,8 +329,7 @@ extension Package.Dependency {
     ///    - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
     ///
     /// - Returns: A `Package.Dependency` instance.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         url: String,
         from version: Version,
@@ -408,8 +404,7 @@ extension Package.Dependency {
     ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
     ///
     /// - Returns: A `Package.Dependency` instance.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         url: String,
         branch: String,
@@ -470,8 +465,7 @@ extension Package.Dependency {
     ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
     ///
     /// - Returns: A `Package.Dependency` instance.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         url: String,
         revision: String,
@@ -541,8 +535,7 @@ extension Package.Dependency {
     ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
     ///
     /// - Returns: A `Package.Dependency` instance.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         url: String,
         _ range: Range<Version>,
@@ -616,8 +609,7 @@ extension Package.Dependency {
     ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
     ///
     /// - Returns: A `Package.Dependency` instance.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         url: String,
         _ range: ClosedRange<Version>,
@@ -779,8 +771,7 @@ extension Package.Dependency {
     ///   - traits: The trait configuration of this dependency.  Defaults to enabling the default traits.
     ///
     /// - Returns: A `Package.Dependency` instance.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         url: String,
         exact version: Version,
@@ -900,8 +891,7 @@ extension Package.Dependency {
     ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
     ///
     /// - Returns: A `Package.Dependency` instance.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         id: String,
         from version: Version,
@@ -955,8 +945,7 @@ extension Package.Dependency {
     ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
     ///
     /// - Returns: A `Package.Dependency` instance.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         id: String,
         exact version: Version,
@@ -1032,8 +1021,7 @@ extension Package.Dependency {
     ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
     ///
     /// - Returns: A `Package.Dependency` instance.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         id: String,
         _ range: Range<Version>,
@@ -1087,8 +1075,7 @@ extension Package.Dependency {
     ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
     ///
     /// - Returns: A `Package.Dependency` instance.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func package(
         id: String,
         _ range: ClosedRange<Version>,
