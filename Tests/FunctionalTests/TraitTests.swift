@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 #if compiler(>=6.0)
+import Basics
 import DriverSupport
 import _InternalTestSupport
 import PackageModel
@@ -17,6 +18,11 @@ import TSCBasic
 import XCTest
 
 final class TraitTests: XCTestCase {
+
+    override func setUpWithError() throws {
+        try XCTSkipIf(!SwiftVersion.current.isDevelopment, "Dev mode is disabled - traits are only available in dev mode")
+    }
+
     func testTraits_whenNoFlagPassed() async throws {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example")

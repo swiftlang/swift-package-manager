@@ -18,6 +18,10 @@ import _InternalTestSupport
 import XCTest
 
 final class TraitLoadingTests: PackageDescriptionLoadingTests {
+    override func setUpWithError() throws {
+         try XCTSkipIf(!SwiftVersion.current.isDevelopment, "Dev mode is disabled - traits are only available in dev mode")
+     }
+
     override var toolsVersion: ToolsVersion {
         .vNext
     }
