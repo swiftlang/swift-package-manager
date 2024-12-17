@@ -50,7 +50,15 @@ extension Environment {
 
 extension InMemoryFileSystem {
     package func createMockToolchain() throws {
-        let files = ["/fake/path/to/swiftc", "/fake/path/to/ar", "/fake/path/to/libtool"]
+        let files = [
+            "/fake/path/to/swiftc",
+            "/fake/path/to/swiftc.exe",
+            "/fake/path/to/ar",
+            "/fake/path/to/ar.exe",
+            "/fake/path/to/libtool",
+            "/fake/path/to/libtool.exe",
+            "/fake/path/to/link.exe"
+        ]
         self.createEmptyFiles(at: AbsolutePath.root, files: files)
         for toolPath in files {
             try self.updatePermissions(.init(toolPath), isExecutable: true)
