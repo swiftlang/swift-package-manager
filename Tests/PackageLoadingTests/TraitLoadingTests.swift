@@ -95,7 +95,6 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
             ".",
             "?",
             ",",
-            "ⒶⒷⒸ",
         ]
 
         for traitName in invalidTraitNames {
@@ -114,7 +113,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
             XCTAssertNoDiagnostics(observability.diagnostics)
             let firstDiagnostic = try XCTUnwrap(validationDiagnostics.first)
             XCTAssertEqual(firstDiagnostic.severity, .error)
-            XCTAssertEqual(firstDiagnostic.message, "Invalid first character (\(traitName.first!)) in trait \(traitName). The first character must be a Unicode XID start character (most letters), a digit, or _.")
+            XCTAssertEqual(firstDiagnostic.message, "Invalid trait name \(traitName). Trait names must be valid Swift identifiers")
         }
     }
 
@@ -129,7 +128,6 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
             "foo,",
             "foo:bar",
             "foo?",
-            "a¼",
         ]
 
         for traitName in invalidTraitNames {
