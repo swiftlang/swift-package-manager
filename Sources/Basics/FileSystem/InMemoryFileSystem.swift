@@ -8,8 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import class Foundation.NSLock
 import class Dispatch.DispatchQueue
+import class Foundation.NSLock
 import struct TSCBasic.AbsolutePath
 import struct TSCBasic.ByteString
 import class TSCBasic.FileLock
@@ -23,7 +23,7 @@ public final class InMemoryFileSystem: FileSystem {
     private class Node {
         /// The actual node data.
         let contents: NodeContents
-        
+
         /// Whether the node has executable bit enabled.
         var isExecutable: Bool
 
@@ -86,9 +86,11 @@ public final class InMemoryFileSystem: FileSystem {
     /// tests.
     private let lock = NSLock()
     /// A map that keeps weak references to all locked files.
-    private var lockFiles = Dictionary<TSCBasic.AbsolutePath, WeakReference<DispatchQueue>>()
+    private var lockFiles = [TSCBasic.AbsolutePath: WeakReference<DispatchQueue>]()
     /// Used to access lockFiles in a thread safe manner.
     private let lockFilesLock = NSLock()
+
+    private let asyncFilesLock = [TSCBasic.AbsolutePath: NSLock]()
 
     /// Exclusive file system lock vended to clients through `withLock()`.
     /// Used to ensure that DispatchQueues are released when they are no longer in use.
@@ -488,10 +490,40 @@ public final class InMemoryFileSystem: FileSystem {
             }
         }
 
-        return try fileQueue.sync(flags: type == .exclusive ? .barrier : .init() , execute: body)
+        return try fileQueue.sync(flags: type == .exclusive ? .barrier : .init(), execute: body)
     }
-    
-    public func withLock<T>(on path: TSCBasic.AbsolutePath, type: FileLock.LockType, blocking: Bool, _ body: () throws -> T) throws -> T {
+
+    @available(*, deprecated, message: "Use of this overload can lead to deadlocks, use `AsyncFileSystem` instead.")
+    public func withLock<T>(
+        on path: TSCBasic.AbsolutePath,
+        type: FileLock.LockType = .exclusive,
+        blocking: Bool,
+        _ body: () async throws -> T
+    ) async throws -> T {
+        let resolvedPath: TSCBasic.AbsolutePath = try lock.withLock {
+            if case let .symlink(destination) = try getNode(path)?.contents {
+                return try .init(validating: destination, relativeTo: path.parentDirectory)
+            } else {
+                return path
+            }
+        }
+
+        // FIXME: code calling this function should be migrated to `AsyncFileSystem` instead.
+        self.asyncFilesLock[resolvedPath, default: NSLock()].lock()
+
+        let result = try await body()
+
+        self.asyncFilesLock[resolvedPath, default: NSLock()].unlock()
+
+        return result
+    }
+
+    public func withLock<T>(
+        on path: TSCBasic.AbsolutePath,
+        type: FileLock.LockType,
+        blocking: Bool,
+        _ body: () throws -> T
+    ) throws -> T {
         try self.withLock(on: path, type: type, body)
     }
 }

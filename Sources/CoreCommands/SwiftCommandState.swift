@@ -486,7 +486,7 @@ public final class SwiftCommandState {
     public func getRootPackageInformation() async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
         let workspace = try self.getActiveWorkspace()
         let root = try self.getWorkspaceRoot()
-        let rootManifests = try await workspace.loadRootManifests(
+        let rootManifests = await workspace.loadRootManifests(
             packages: root.packages,
             observabilityScope: self.observabilityScope
         )
