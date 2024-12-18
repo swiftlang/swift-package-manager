@@ -101,8 +101,7 @@ public final class Package {
     public var products: [Product]
 
     /// The set of traits of this package.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public var traits: Set<Trait>
 
     /// The list of package dependencies.
@@ -352,8 +351,7 @@ public final class Package {
     ///   - swiftLanguageModes: The list of Swift language modes with which this package is compatible.
     ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
     ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public init(
         name: String,
         defaultLocalization: LanguageTag? = nil,

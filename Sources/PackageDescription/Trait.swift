@@ -15,8 +15,7 @@
 /// Traits can be used for expressing conditional compilation and optional dependencies.
 ///
 /// - Important: Traits must be strictly additive and enabling a trait **must not** remove API.
-@_spi(ExperimentalTraits)
-@available(_PackageDescription, introduced: 999.0)
+@available(_PackageDescription, introduced: 6.1)
 public struct Trait: Hashable, ExpressibleByStringLiteral {
     /// Declares the default traits for this package.
     public static func `default`(enabledTraits: Set<String>) -> Self {

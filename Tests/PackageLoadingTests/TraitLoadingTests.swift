@@ -24,7 +24,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
 
     func testTraits() async throws {
         let content =  """
-            @_spi(ExperimentalTraits) import PackageDescription
+            import PackageDescription
             let package = Package(
                 name: "Foo",
                 traits: [
@@ -50,7 +50,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
     func testTraits_whenTooMany() async throws {
         let traits = Array(0...300).map { "\"Trait\($0)\"" }.joined(separator: ",")
         let content =  """
-            @_spi(ExperimentalTraits) import PackageDescription
+            import PackageDescription
             let package = Package(
                 name: "Foo",
                 traits: [\(traits)]
@@ -67,7 +67,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
 
     func testTraits_whenUnknownEnabledTrait() async throws {
         let content =  """
-            @_spi(ExperimentalTraits) import PackageDescription
+            import PackageDescription
             let package = Package(
                 name: "Foo",
                 traits: [
@@ -99,7 +99,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
 
         for traitName in invalidTraitNames {
             let content =  """
-            @_spi(ExperimentalTraits) import PackageDescription
+            import PackageDescription
             let package = Package(
                 name: "Foo",
                 traits: [
@@ -132,7 +132,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
 
         for traitName in invalidTraitNames {
             let content =  """
-            @_spi(ExperimentalTraits) import PackageDescription
+            import PackageDescription
             let package = Package(
                 name: "Foo",
                 traits: [
@@ -151,7 +151,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
 
     func testDefaultTraits() async throws {
         let content =  """
-            @_spi(ExperimentalTraits) import PackageDescription
+            import PackageDescription
             let package = Package(
                 name: "Foo",
                 traits: [
@@ -178,7 +178,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
 
     func testDependencies() async throws {
         let content =  """
-            @_spi(ExperimentalTraits) import PackageDescription
+            import PackageDescription
             let package = Package(
                 name: "Foo",
                 traits: [
