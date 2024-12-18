@@ -423,6 +423,7 @@ final class MiscellaneousTestCase: XCTestCase {
         }
     }
 
+    @available(macOS 15, *)
     func testTestsCanLinkAgainstAsyncExecutable() async throws {
         #if compiler(<5.10)
         try XCTSkipIf(true, "skipping because host compiler doesn't have a fix for symbol conflicts yet")
