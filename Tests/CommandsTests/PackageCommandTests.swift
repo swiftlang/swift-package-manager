@@ -2323,6 +2323,8 @@ final class PackageCommandTests: CommandsTestCase {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
+        throw XCTSkip("Skipping test due to flakiness, see https://github.com/swiftlang/swift-package-manager/issues/8180")
+
         // Match patterns for expected messages
         let isEmpty = StringPattern.equal("")
         let isOnlyPrint = StringPattern.equal("command plugin: print\n")
