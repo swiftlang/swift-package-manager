@@ -1393,8 +1393,7 @@ public struct TargetDependencyCondition: Sendable {
     ///
     /// - Parameter platforms: The applicable platforms for this target dependency condition.
     /// - Parameter traits: The applicable traits for this target dependency condition.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func when(
         platforms: [Platform],
         traits: Set<String>
@@ -1405,8 +1404,7 @@ public struct TargetDependencyCondition: Sendable {
     /// Creates a target dependency condition.
     ///
     /// - Parameter traits: The applicable traits for this target dependency condition.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func when(
         traits: Set<String>
     ) -> TargetDependencyCondition? {

@@ -647,7 +647,7 @@ package struct TraitOptions: ParsableArguments {
 
     /// The traits to enable for the package.
     @Option(
-        name: .customLong("experimental-traits"),
+        name: .customLong("traits"),
         help: "Enables the passed traits of the package. Multiple traits can be specified by providing a space separated list e.g. `--traits Trait1 Trait2`. When enabling specific traits the defaults traits need to explictily enabled as well by passing `defaults` to this command."
     )
     package var _enabledTraits: String?
@@ -659,14 +659,14 @@ package struct TraitOptions: ParsableArguments {
 
     /// Enables all traits of the package.
     @Flag(
-        name: .customLong("experimental-enable-all-traits"),
+        name: .customLong("enable-all-traits"),
         help: "Enables all traits of the package."
     )
     package var enableAllTraits: Bool = false
 
     /// Disables all default traits of the package.
     @Flag(
-        name: .customLong("experimental-disable-default-traits"),
+        name: .customLong("disable-default-traits"),
         help: "Disables all default traits of the package."
     )
     public var disableDefaultTraits: Bool = false
