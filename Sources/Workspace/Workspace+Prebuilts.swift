@@ -524,17 +524,15 @@ extension Workspace {
             }
         } else if self.hostToolchain.targetTriple.isLinux() {
             // Load up the os-release file into a dictionary
-            guard let osData = try? String(contentsOfFile: "/etc/os-release")
+            guard let osData = try? String(contentsOfFile: "/etc/os-release", encoding: .utf8)
             else {
                 return nil
             }
             let osLines = osData.split(separator: "\n")
             let osDict = osLines.reduce(into: [Substring: String]()) {
                 (dict, line) in
-                let parts = line.split(separator: "=")
-                if parts.count >= 2 {
-                    dict[parts[0]] = parts[1...].joined(separator: "=").trimmingCharacters(in: ["\""])
-                }
+                let parts = line.split(separator: "=", maxSplits: 2)
+                dict[parts[0]] = parts[1...].joined(separator: "=").trimmingCharacters(in: ["\""])
             }
 
             switch osDict["ID"] {

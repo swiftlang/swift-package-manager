@@ -13,6 +13,10 @@
 import Dispatch
 import struct TSCBasic.FileSystemError
 
+#if os(Windows)
+import WinSDK
+#endif
+
 /// An `Archiver` that handles ZIP archives using the command-line `zip` and `unzip` tools.
 public struct ZipArchiver: Archiver, Cancellable {
     public var supportedExtensions: Set<String> { ["zip"] }
@@ -23,6 +27,11 @@ public struct ZipArchiver: Archiver, Cancellable {
     /// Helper for cancelling in-flight requests
     private let cancellator: Cancellator
 
+    /// Absolute path to the Windows tar in the system folder
+    #if os(Windows)
+    private let windowsTar: String
+    #endif
+
     /// Creates a `ZipArchiver`.
     ///
     /// - Parameters:
@@ -31,6 +40,20 @@ public struct ZipArchiver: Archiver, Cancellable {
     public init(fileSystem: FileSystem, cancellator: Cancellator? = .none) {
         self.fileSystem = fileSystem
         self.cancellator = cancellator ?? Cancellator(observabilityScope: .none)
+
+        #if os(Windows)
+        var tarPath: PWSTR?
+        defer { CoTaskMemFree(tarPath) }
+        let hr = withUnsafePointer(to: FOLDERID_System) { id in
+            SHGetKnownFolderPath(id, DWORD(KF_FLAG_DEFAULT.rawValue), nil, &tarPath)
+        }
+        if hr == S_OK, let tarPath {
+            windowsTar = String(decodingCString: tarPath, as: UTF16.self) + "\\tar.exe"
+        } else {
+            windowsTar = "tar.exe"
+        }
+        print(windowsTar)
+        #endif
     }
 
     public func extract(
@@ -50,7 +73,7 @@ public struct ZipArchiver: Archiver, Cancellable {
             #if os(Windows)
             // FileManager lost the ability to detect tar.exe as executable.
             // It's part of system32 anyway so use the absolute path.
-            let process = AsyncProcess(arguments: ["C:\\Windows\\system32\\tar.exe", "xf", archivePath.pathString, "-C", destinationPath.pathString])
+            let process = AsyncProcess(arguments: [windowsTar, "xf", archivePath.pathString, "-C", destinationPath.pathString])
             #else
             let process = AsyncProcess(arguments: ["unzip", archivePath.pathString, "-d", destinationPath.pathString])
             #endif
@@ -84,7 +107,7 @@ public struct ZipArchiver: Archiver, Cancellable {
         #if os(Windows)
         let process = AsyncProcess(
             // FIXME: are these the right arguments?
-            arguments: ["tar.exe", "-a", "-c", "-f", destinationPath.pathString, directory.basename],
+            arguments: [windowsTar, "-a", "-c", "-f", destinationPath.pathString, directory.basename],
             workingDirectory: directory.parentDirectory
         )
         #else
@@ -123,7 +146,7 @@ public struct ZipArchiver: Archiver, Cancellable {
             }
 
             #if os(Windows)
-            let process = AsyncProcess(arguments: ["tar.exe", "tf", path.pathString])
+            let process = AsyncProcess(arguments: [windowsTar, "tf", path.pathString])
             #else
             let process = AsyncProcess(arguments: ["unzip", "-t", path.pathString])
             #endif

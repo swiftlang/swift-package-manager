@@ -58,15 +58,10 @@ extension Workspace {
         init(_ artifacts: [ManagedPrebuilt]) throws {
             let artifactsByPackagePath = Dictionary(grouping: artifacts, by: { $0.packageRef.identity })
             self.artifactMap = try artifactsByPackagePath.mapValues{ artifacts in
-                // rdar://86857825 do not use Dictionary(uniqueKeysWithValues:) as it can crash the process when input is incorrect such as in older versions of SwiftPM
-                var map = [String: ManagedPrebuilt]()
-                for artifact in artifacts {
-                    if map[artifact.libraryName] != nil {
-                        throw StringError("binary artifact for '\(artifact.libraryName)' already exists in managed artifacts")
-                    }
-                    map[artifact.libraryName] = artifact
-                }
-                return map
+                try Dictionary(artifacts.map { ($0.libraryName, $0) }, uniquingKeysWith: { _, _ in
+                    // should be unique
+                    throw StringError("binary artifact already exists in managed artifacts")
+                })
             }
         }
 
