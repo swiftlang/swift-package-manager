@@ -402,6 +402,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                     partial[item.key] = (manifest: item.value, fs: self.fileSystem)
                 },
                 binaryArtifacts: [:],
+                prebuilts: [:],
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope
             )
