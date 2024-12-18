@@ -52,7 +52,6 @@ public struct ZipArchiver: Archiver, Cancellable {
         } else {
             windowsTar = "tar.exe"
         }
-        print(windowsTar)
         #endif
     }
 
