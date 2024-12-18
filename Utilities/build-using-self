@@ -14,14 +14,23 @@
 set -eu
 
 __dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+root_dir="$(cd ${__dir}/.. && pwd)"
 
-cd "${__dir}/.."
+cd "${root_dir}/"
 echo "Current directory is ${PWD}"
 
 CONFIGURATION=debug
 export SWIFTCI_IS_SELF_HOSTED=1
 
+# Ensure SDKROOT is configured
+host=$(uname)
+if [ "${host}" == "Darwin" ]; then
+    export SDKROOT=$(xcrun --show-sdk-path --sdk macosx)
+fi
+
 set -x
+
+env | sort
 
 # Perform package update in order to get the latest commits for the dependencies.
 swift package update
@@ -30,17 +39,21 @@ swift test -c $CONFIGURATION --parallel
 
 # Run the integration tests with just built SwiftPM.
 export SWIFTPM_BIN_DIR=$(swift build -c $CONFIGURATION --show-bin-path)
-cd IntegrationTests
-# Perform package update in order to get the latest commits for the dependencies.
-swift package update
-$SWIFTPM_BIN_DIR/swift-test --parallel
+(
+    cd ${root_dir}/IntegrationTests
+    # Perform package update in order to get the latest commits for the dependencies.
+    swift package update
+    $SWIFTPM_BIN_DIR/swift-test --parallel
+)
 
-if [ "$(uname)" == "Darwin" ]; then
-  cd ..
-  echo "Current working directory is ${PWD}"
-  echo "Bootstrapping with the XCBuild codepath..."
-  ./Utilities/bootstrap build --release \
-    --cross-compile-hosts macosx-arm64 \
-    --skip-cmake-bootstrap \
-    --swift-build-path "${SWIFTPM_BIN_DIR}/swift-build"
+if [ "${host}" == "Darwin" ]; then
+    echo "Current working directory is ${PWD}"
+    echo "Bootstrapping with the XCBuild codepath..."
+    ${root_dir}/Utilities/bootstrap \
+      build \
+      --release \
+      --verbose \
+      --cross-compile-hosts macosx-arm64 \
+      --skip-cmake-bootstrap \
+      --swift-build-path "${SWIFTPM_BIN_DIR}/swift-build"
 fi
