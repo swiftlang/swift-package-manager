@@ -1185,3 +1185,9 @@ extension Basics.Diagnostic {
         .error(arguments.map { "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
     }
 }
+
+public extension _SwiftCommand {
+    func buildSystemProvider(_ swiftCommandState: SwiftCommandState) throws -> BuildSystemProvider {
+        swiftCommandState.defaultBuildSystemProvider
+    }
+}
