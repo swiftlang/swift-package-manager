@@ -101,17 +101,17 @@ struct BuildPrebuilts: AsyncParsableCommand {
             let buildDir = scratchDir.appending("release")
             let srcModulesDir = buildDir.appending("Modules")
 
-            try shell("git clone \(repo.url)")
+            try await shell("git clone \(repo.url)")
 
             for version in repo.versions {
                 _ = fm.changeCurrentDirectoryPath(repoDir.pathString)
-                try shell("git checkout \(version.tag)")
+                try await shell("git checkout \(version.tag)")
 
                 var newLibraries: IdentifiableSet<Workspace.PrebuiltsManifest.Library> = []
 
                 for library in version.manifest.libraries {
                     // TODO: this is assuming products map to target names which is not always true
-                    try shell("swift package add-product \(library.name) --type static-library --targets \(library.products.joined(separator: " "))")
+                    try await shell("swift package add-product \(library.name) --type static-library --targets \(library.products.joined(separator: " "))")
 
                     var newArtifacts: [Workspace.PrebuiltsManifest.Library.Artifact] = []
 
@@ -135,7 +135,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                             cmd += "\(dockerCommand) run --rm --platform \(dockerPlatform) -v \(repoDir):\(repoDir) -w \(repoDir) \(dockerImageRoot)\(dockerTag) "
                         }
                         cmd += "swift build -c release --arch \(platform.arch) --product \(library.name)"
-                        try shell(cmd)
+                        try await shell(cmd)
 
                         // Copy the library to staging
                         let lib = "lib\(library.name).a"
@@ -162,9 +162,9 @@ struct BuildPrebuilts: AsyncParsableCommand {
                         let zipFile = stageDir.appending("\(swiftVersion)-\(library.name)-\(platform).zip")
                         let contentDirs = ["lib", "Modules"] + (library.cModules.isEmpty ? [] : ["include"])
 #if os(Windows)
-                        try shell("tar -acf \(zipFile.pathString) \(contentDirs.joined(separator: " "))")
+                        try await shell("tar -acf \(zipFile.pathString) \(contentDirs.joined(separator: " "))")
 #else
-                        try shell("zip -r \(zipFile.pathString) \(contentDirs.joined(separator: " "))")
+                        try await shell("zip -r \(zipFile.pathString) \(contentDirs.joined(separator: " "))")
 #endif
 
                         _ = fm.changeCurrentDirectoryPath(repoDir.pathString)
@@ -186,7 +186,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                     )
                     newLibraries.insert(newLibrary)
 
-                    try shell("git reset --hard")
+                    try await shell("git reset --hard")
                 }
 
                 if let oldManifest = try await downloadManifest(version: version) {
@@ -233,20 +233,26 @@ struct BuildPrebuilts: AsyncParsableCommand {
         return docker && platform.os == .linux
     }
 
-    func shell(_ command: String) throws {
-        let process = Process()
+    func shell(_ command: String) async throws {
 #if os(Windows)
-        process.executableURL = URL(fileURLWithPath: "C:\\Windows\\System32\\cmd.exe")
-        process.arguments = ["/c", command]
+        let arguments = ["C:\\Windows\\System32\\cmd.exe", "/c", command]
 #else
-        process.executableURL = URL(fileURLWithPath: "/bin/bash")
-        process.arguments = ["-c", command]
+        let arguments = ["/bin/bash", "-c", command]
 #endif
+        let process = AsyncProcess(
+            arguments: arguments,
+            outputRedirection: .none
+        )
         print("Running:", command)
-        try process.run()
-        process.waitUntilExit()
-        if process.terminationStatus != 0 {
-            throw StringError("failed: \(command)")
+        try process.launch()
+        let result = try await process.waitUntilExit()
+        switch result.exitStatus {
+        case .terminated(code: let code):
+            if code != 0 {
+                throw StringError("Command exited with code \(code): \(command)")
+            }
+        case .signalled(signal: let signal):
+            throw StringError("Command exited on signal \(signal): \(command)")
         }
     }
 
