@@ -218,10 +218,24 @@ final class WorkspaceTests: XCTestCase {
             }
 
             do {
+                let ws = try createWorkspace(
+                    """
+                    // swift-tools-version:5.9.2
+                    import PackageDescription
+                    let package = Package(
+                        name: "foo"
+                    )
+                    """
+                )
+
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("5")])
+            }
+
+            do {
                 // Invalid package manifest should still produce build settings.
                 let ws = try createWorkspace(
                     """
-                    // swift-tools-version:999.0
+                    // swift-tools-version:5.9.2
                     import PackageDescription
                     """
                 )
@@ -4122,7 +4136,7 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(url: "https://localhost/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(url: "https://localhost/org/bar", requirement: .upToNextMinor(from: "1.1.0"))
                     ],
-                    toolsVersion: .vNext // change to the one after 5.9
+                    toolsVersion: .v5_10
                 ),
             ],
             packages: [
