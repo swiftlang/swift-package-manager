@@ -186,6 +186,12 @@ public struct CachingOptions: ParsableArguments {
             self.init(rawValue: argument)
         }
     }
+
+    /// Whether to use macro prebuilts or not
+    @Flag(name: .customLong("experimental-prebuilts"),
+          inversion: .prefixedEnableDisable,
+          help: "Whether to use prebuilt swift-syntax libraries for macros")
+    public var usePrebuilts: Bool = false
 }
 
 public struct LoggingOptions: ParsableArguments {

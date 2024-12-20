@@ -77,6 +77,11 @@ extension Workspace {
             self.scratchDirectory.appending("artifacts")
         }
 
+        /// Path to the downloaded prebuilts directory
+        public var prebuiltsDirectory: AbsolutePath {
+            self.scratchDirectory.appending("prebuilts")
+        }
+
         // Path to temporary files related to running plugins in the workspace
         public var pluginWorkingDirectory: AbsolutePath {
             self.scratchDirectory.appending("plugins")
@@ -147,6 +152,11 @@ extension Workspace {
         /// Path to the shared repositories cache.
         public var sharedBinaryArtifactsCacheDirectory: AbsolutePath? {
             self.sharedCacheDirectory.map { $0.appending("artifacts") }
+        }
+
+        /// Path to the shared prebuilts cache
+        public var sharedPrebuiltsCacheDirectory: AbsolutePath? {
+            self.sharedCacheDirectory.map { $0.appending("prebuilts")}
         }
 
         /// Create a new workspace location.
@@ -779,6 +789,9 @@ public struct WorkspaceConfiguration {
     /// Whether or not there should be import restrictions applied when loading manifests
     public var manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
 
+    /// Whether or not to use prebuilt swift-syntax for macros
+    public var usePrebuilts: Bool
+
     public init(
         skipDependenciesUpdates: Bool,
         prefetchBasedOnResolvedFile: Bool,
@@ -791,7 +804,8 @@ public struct WorkspaceConfiguration {
         skipSignatureValidation: Bool,
         sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation,
         defaultRegistry: Registry?,
-        manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
+        manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?,
+        usePrebuilts: Bool
     ) {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
@@ -805,6 +819,7 @@ public struct WorkspaceConfiguration {
         self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
         self.defaultRegistry = defaultRegistry
         self.manifestImportRestrictions = manifestImportRestrictions
+        self.usePrebuilts = usePrebuilts
     }
 
     /// Default instance of WorkspaceConfiguration
@@ -821,7 +836,8 @@ public struct WorkspaceConfiguration {
             skipSignatureValidation: false,
             sourceControlToRegistryDependencyTransformation: .disabled,
             defaultRegistry: .none,
-            manifestImportRestrictions: .none
+            manifestImportRestrictions: .none,
+            usePrebuilts: false
         )
     }
 
