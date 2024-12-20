@@ -322,7 +322,7 @@ public final class PackageBuilder {
     private let binaryArtifacts: [String: BinaryArtifact]
 
     /// Prebuilts that may referenced from this package's targets
-    private let prebuilts: [PackageIdentity: [String: PrebuiltLibrary]]
+    private let prebuilts: [PackageIdentity: [Product.ID: PrebuiltLibrary]]
 
     /// Create multiple test products.
     ///
@@ -1255,9 +1255,9 @@ public final class PackageBuilder {
         }
 
         for prebuilt in prebuiltLibraries.values {
-            let libDir = prebuilt.path.appending(component: "lib").pathString
+            let lib = prebuilt.path.appending(components: ["lib", "lib\(prebuilt.libraryName).a"]).pathString
             var ldFlagsAssignment = BuildSettings.Assignment()
-            ldFlagsAssignment.values = ["\(libDir)/lib\(prebuilt.libraryName).a"]
+            ldFlagsAssignment.values = [lib]
             table.add(ldFlagsAssignment, for: .OTHER_LDFLAGS)
 
             var includeDirs: [AbsolutePath] = [prebuilt.path.appending(component: "Modules")]

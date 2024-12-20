@@ -77,7 +77,7 @@ final class PrebuiltsTests: XCTestCase {
             ],
             dependencies: [
                 .sourceControl(
-                    url: "https://github.com/swiftlang/swift-syntax.git",
+                    url: "https://github.com/swiftlang/swift-syntax",
                     requirement: .exact(try XCTUnwrap(Version(swiftSyntaxVersion)))
                 )
             ]
@@ -85,7 +85,7 @@ final class PrebuiltsTests: XCTestCase {
 
         let swiftSyntax = try MockPackage(
             name: "swift-syntax",
-            url: "https://github.com/swiftlang/swift-syntax.git",
+            url: "https://github.com/swiftlang/swift-syntax",
             targets: [
                 MockTarget(name: "SwiftSyntaxMacrosTestSupport"),
                 MockTarget(name: "SwiftCompilerPlugin"),
@@ -501,6 +501,59 @@ final class PrebuiltsTests: XCTestCase {
             try checkSettings(macroTarget, usePrebuilt: true)
             let testTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooTests" }))
             try checkSettings(testTarget, usePrebuilt: true)
+        }
+    }
+
+    func testBadManifest() async throws {
+        let sandbox = AbsolutePath("/tmp/ws")
+        let fs = InMemoryFileSystem()
+
+        let artifact = Data()
+        let (manifest, rootPackage, swiftSyntax) = try initData(artifact: artifact, swiftSyntaxVersion: "600.0.1")
+        let manifestData = try JSONEncoder().encode(manifest)
+
+        let httpClient = HTTPClient { request, progressHandler in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
+            }
+
+            if request.url == "https://github.com/dschaefer2/swift-syntax/releases/download/600.0.1/\(self.swiftVersion)-manifest.json" {
+                let badManifestData = manifestData + Data("bad".utf8)
+                try fileSystem.writeFileContents(destination, data: badManifestData)
+                return .okay()
+             } else {
+                XCTFail("Unexpected URL \(request.url)")
+                return .notFound()
+            }
+        }
+
+        let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
+            XCTFail("Unexpected call to archiver")
+            completion(.success(()))
+        })
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                rootPackage
+            ],
+            packages: [
+                swiftSyntax
+            ],
+            prebuiltsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver
+            )
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
+            XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
+            let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
+            let macroTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooMacros" }))
+            try checkSettings(macroTarget, usePrebuilt: false)
+            let testTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooTests" }))
+            try checkSettings(testTarget, usePrebuilt: false)
         }
     }
 

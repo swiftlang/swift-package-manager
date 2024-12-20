@@ -193,7 +193,7 @@ extension Workspace {
             let prebuiltsURL: URL
         }
 
-        private let prebuiltPackages: [PackageReference: PrebuiltPackage] = [
+        private let prebuiltPackages: [PrebuiltPackage] = [
             .init(
                 packageRef: .init(
                     identity: .plain("swift-syntax"),
@@ -204,17 +204,7 @@ extension Workspace {
                         "https://github.com/dschaefer2/swift-syntax/releases/download"
                 )!
             ),
-            .init(
-                packageRef: .init(
-                    identity: .plain("swift-syntax"),
-                    kind: .remoteSourceControl("https://github.com/swiftlang/swift-syntax")
-                ),
-                prebuiltsURL: URL(
-                    string:
-                        "https://github.com/dschaefer2/swift-syntax/releases/download"
-                )!
-            ),
-        ].reduce(into: .init()) { $0[$1.packageRef] = $1 }
+        ]
 
         // Version of the compiler we're building against
         private let swiftVersion =
@@ -225,10 +215,30 @@ extension Workspace {
         {
             var prebuilts: [PrebuiltPackage] = []
             for packageRef in packages {
-                guard let prebuilt = prebuiltPackages[packageRef] else {
+                guard case let .remoteSourceControl(pkgURL) = packageRef.kind else {
+                    // Only support remote source control for now
                     continue
                 }
-                prebuilts.append(prebuilt)
+
+                if let prebuilt = prebuiltPackages.first(where: {
+                    guard case let .remoteSourceControl(prebuiltURL) = $0.packageRef.kind,
+                        $0.packageRef.identity == packageRef.identity else {
+                        return false
+                    }
+
+                    if pkgURL == prebuiltURL {
+                        return true
+                    } else if !pkgURL.lastPathComponent.hasSuffix(".git") {
+                        // try with the git extension
+                        // TODO: Does this need to be in the PackageRef Equatable?
+                        let gitURL = SourceControlURL(pkgURL.absoluteString + ".git")
+                        return gitURL == prebuiltURL
+                    } else {
+                        return false
+                    }
+                }) {
+                    prebuilts.append(prebuilt)
+                }
             }
             return prebuilts
         }
@@ -311,7 +321,7 @@ extension Workspace {
             }
         }
 
-        func checksum(path: AbsolutePath, checksum: String) throws -> Bool {
+        func check(path: AbsolutePath, checksum: String) throws -> Bool {
             let contents = try fileSystem.readFileContents(path)
             let hash = hashAlgorithm.hash(contents).hexadecimalRepresentation
             return hash == checksum
@@ -342,7 +352,7 @@ extension Workspace {
             )
 
             let zipExists = fileSystem.exists(destination)
-            if try (!zipExists || !checksum(path: destination, checksum: artifact.checksum)) {
+            if try (!zipExists || !check(path: destination, checksum: artifact.checksum)) {
                 if zipExists {
                     observabilityScope.emit(info: "Prebuilt artifact \(artifactFile) checksum mismatch, redownloading.")
                     try fileSystem.removeFileTree(destination)
@@ -403,7 +413,7 @@ extension Workspace {
                 }
 
                 // Check the checksum
-                if try !checksum(path: destination, checksum: artifact.checksum) {
+                if try !check(path: destination, checksum: artifact.checksum) {
                     let errorString =
                         "Prebuilt artifact \(artifactFile) checksum mismatch"
                     observabilityScope.emit(info: errorString)
@@ -437,6 +447,9 @@ extension Workspace {
         }
 
         public func cancel(deadline: DispatchTime) throws {
+            if let cancellableArchiver = self.archiver as? Cancellable {
+                try cancellableArchiver.cancel(deadline: deadline)
+            }
         }
     }
 }

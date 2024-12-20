@@ -573,7 +573,7 @@ extension CheckoutState {
     }
 }
 
-// MARK: - V5 format (deprecated)
+// MARK: - V6 format (deprecated)
 
 extension WorkspaceStateStorage {
     // v6 storage format
@@ -867,7 +867,71 @@ extension WorkspaceStateStorage {
             }
         }
     }
+}
 
+extension Workspace.ManagedDependency {
+    fileprivate init(_ dependency: WorkspaceStateStorage.V6.Dependency) throws {
+        try self.init(
+            packageRef: .init(dependency.packageRef),
+            state: dependency.state.underlying,
+            subpath: RelativePath(validating: dependency.subpath)
+        )
+    }
+}
+
+extension Workspace.ManagedArtifact {
+    fileprivate init(_ artifact: WorkspaceStateStorage.V6.Artifact) throws {
+        try self.init(
+            packageRef: .init(artifact.packageRef),
+            targetName: artifact.targetName,
+            source: artifact.source.underlying,
+            path: AbsolutePath(validating: artifact.path),
+            kind: artifact.kind.underlying
+        )
+    }
+}
+
+extension PackageModel.PackageReference {
+    fileprivate init(_ reference: WorkspaceStateStorage.V6.PackageReference) throws {
+        let identity = PackageIdentity.plain(reference.identity)
+        let kind: PackageModel.PackageReference.Kind
+        switch reference.kind {
+        case .root:
+            kind = try .root(.init(validating: reference.location))
+        case .fileSystem:
+            kind = try .fileSystem(.init(validating: reference.location))
+        case .localSourceControl:
+            kind = try .localSourceControl(.init(validating: reference.location))
+        case .remoteSourceControl:
+            kind = .remoteSourceControl(SourceControlURL(reference.location))
+        case .registry:
+            kind = .registry(identity)
+        }
+
+        self.init(
+            identity: identity,
+            kind: kind,
+            name: reference.name
+        )
+    }
+}
+
+extension CheckoutState {
+    fileprivate init(_ state: WorkspaceStateStorage.V6.Dependency.State.CheckoutInfo) throws {
+        let revision: Revision = .init(identifier: state.revision)
+        if let branch = state.branch {
+            self = .branch(name: branch, revision: revision)
+        } else if let version = state.version {
+            self = try .version(Version(versionString: version), revision: revision)
+        } else {
+            self = .revision(revision)
+        }
+    }
+}
+
+// MARK: - V5 format (deprecated)
+
+extension WorkspaceStateStorage {
     // v5 storage format
     struct V5: Codable {
         let version: Int
@@ -1127,66 +1191,6 @@ extension WorkspaceStateStorage {
                 case remoteSourceControl
                 case registry
             }
-        }
-    }
-}
-
-extension Workspace.ManagedDependency {
-    fileprivate init(_ dependency: WorkspaceStateStorage.V6.Dependency) throws {
-        try self.init(
-            packageRef: .init(dependency.packageRef),
-            state: dependency.state.underlying,
-            subpath: RelativePath(validating: dependency.subpath)
-        )
-    }
-}
-
-extension Workspace.ManagedArtifact {
-    fileprivate init(_ artifact: WorkspaceStateStorage.V6.Artifact) throws {
-        try self.init(
-            packageRef: .init(artifact.packageRef),
-            targetName: artifact.targetName,
-            source: artifact.source.underlying,
-            path: AbsolutePath(validating: artifact.path),
-            kind: artifact.kind.underlying
-        )
-    }
-}
-
-extension PackageModel.PackageReference {
-    fileprivate init(_ reference: WorkspaceStateStorage.V6.PackageReference) throws {
-        let identity = PackageIdentity.plain(reference.identity)
-        let kind: PackageModel.PackageReference.Kind
-        switch reference.kind {
-        case .root:
-            kind = try .root(.init(validating: reference.location))
-        case .fileSystem:
-            kind = try .fileSystem(.init(validating: reference.location))
-        case .localSourceControl:
-            kind = try .localSourceControl(.init(validating: reference.location))
-        case .remoteSourceControl:
-            kind = .remoteSourceControl(SourceControlURL(reference.location))
-        case .registry:
-            kind = .registry(identity)
-        }
-
-        self.init(
-            identity: identity,
-            kind: kind,
-            name: reference.name
-        )
-    }
-}
-
-extension CheckoutState {
-    fileprivate init(_ state: WorkspaceStateStorage.V6.Dependency.State.CheckoutInfo) throws {
-        let revision: Revision = .init(identifier: state.revision)
-        if let branch = state.branch {
-            self = .branch(name: branch, revision: revision)
-        } else if let version = state.version {
-            self = try .version(Version(versionString: version), revision: revision)
-        } else {
-            self = .revision(revision)
         }
     }
 }
