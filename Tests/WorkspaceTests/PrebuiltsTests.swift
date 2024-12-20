@@ -108,12 +108,7 @@ final class PrebuiltsTests: XCTestCase {
             XCTAssertTrue(swiftFlags.contains("-I/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64/Modules".fixwin))
             XCTAssertTrue(swiftFlags.contains("-I/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64/include/_SwiftSyntaxCShims".fixwin))
             let ldFlags = try XCTUnwrap(target.buildSettings.assignments[.OTHER_LDFLAGS]).flatMap({ $0.values })
-            #if os(Windows)
-            print("ldFlags: ", ldFlags)
-            XCTAssertTrue(ldFlags.contains("\\tmp\\ws\\.build\\prebuilts\\swift-syntax\\\(self.swiftVersion)-MacroSupport-macos_aarch64\\lib/libMacroSupport.a"))
-            #else
-            XCTAssertTrue(ldFlags.contains("/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64/lib/libMacroSupport.a"))
-            #endif
+            XCTAssertTrue(ldFlags.contains("/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64/lib/libMacroSupport.a".fixwin))
         } else {
             XCTAssertNil(target.buildSettings.assignments[.OTHER_SWIFT_FLAGS])
             XCTAssertNil(target.buildSettings.assignments[.OTHER_LDFLAGS])

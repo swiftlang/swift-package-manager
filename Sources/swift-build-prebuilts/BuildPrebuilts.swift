@@ -90,7 +90,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
         print("Stage directory: \(stageDir)")
         try fm.removeItem(atPath: stageDir.pathString)
         try fm.createDirectory(atPath: stageDir.pathString, withIntermediateDirectories: true)
-        fm.changeCurrentDirectoryPath(stageDir.pathString)
+        _ = fm.changeCurrentDirectoryPath(stageDir.pathString)
 
         for repo in prebuiltRepos.values {
             let repoDir = stageDir.appending(repo.url.lastPathComponent)
@@ -104,7 +104,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
             try shell("git clone \(repo.url)")
 
             for version in repo.versions {
-                fm.changeCurrentDirectoryPath(repoDir.pathString)
+                _ = fm.changeCurrentDirectoryPath(repoDir.pathString)
                 try shell("git checkout \(version.tag)")
 
                 var newLibraries: IdentifiableSet<Workspace.PrebuiltsManifest.Library> = []
@@ -158,16 +158,16 @@ struct BuildPrebuilts: AsyncParsableCommand {
                         }
 
                         // Zip it up
-                        fm.changeCurrentDirectoryPath(stageDir.pathString)
+                        _ = fm.changeCurrentDirectoryPath(stageDir.pathString)
                         let zipFile = stageDir.appending("\(swiftVersion)-\(library.name)-\(platform).zip")
                         let contentDirs = ["lib", "Modules"] + (library.cModules.isEmpty ? [] : ["include"])
 #if os(Windows)
-                        try shell("tar -acf \(path) \(files.joined(separator: " "))")
+                        try shell("tar -acf \(zipFile.pathString) \(contentDirs.joined(separator: " "))")
 #else
                         try shell("zip -r \(zipFile.pathString) \(contentDirs.joined(separator: " "))")
 #endif
 
-                        fm.changeCurrentDirectoryPath(repoDir.pathString)
+                        _ = fm.changeCurrentDirectoryPath(repoDir.pathString)
                         let contents = try ByteString(Data(contentsOf: zipFile.asURL))
                         let checksum = SHA256().hash(contents).hexadecimalRepresentation
 
