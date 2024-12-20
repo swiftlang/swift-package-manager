@@ -19,7 +19,7 @@ import XCTest
 final class TraitTests: XCTestCase {
     func testTraits_whenNoFlagPassed() async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example")
+            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example")
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             // When fixed, GitHub issue #8131 should re-enable the below assert.
             // XCTAssertFalse(stderr.contains("warning:"))
@@ -38,7 +38,7 @@ final class TraitTests: XCTestCase {
 
     func testTraits_whenTraitUnification() async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--traits", "default,Package9,Package10"])
+            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--traits", "default,Package9,Package10"])
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             // When fixed, GitHub issue #8131 should re-enable the below assert.
             // XCTAssertFalse(stderr.contains("warning:"))
@@ -61,7 +61,7 @@ final class TraitTests: XCTestCase {
 
     func testTraits_whenTraitUnification_whenSecondTraitNotEnabled() async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--traits", "default,Package9"])
+            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--traits", "default,Package9"])
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             // When fixed, GitHub issue #8131 should re-enable the below assert.
             // XCTAssertFalse(stderr.contains("warning:"))
@@ -82,7 +82,7 @@ final class TraitTests: XCTestCase {
 
     func testTraits_whenIndividualTraitsEnabled_andDefaultTraits() async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--traits", "default,Package5,Package7,BuildCondition3"])
+            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--traits", "default,Package5,Package7,BuildCondition3"])
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             // When fixed, GitHub issue #8131 should re-enable the below assert.
             // XCTAssertFalse(stderr.contains("warning:"))
@@ -119,7 +119,7 @@ final class TraitTests: XCTestCase {
 
     func testTraits_whenIndividualTraitsEnabled_andDefaultTraitsDisabled() async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--traits", "Package5,Package7"])
+            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--traits", "Package5,Package7"])
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             // When fixed, GitHub issue #8131 should re-enable the below assert.
             // XCTAssertFalse(stderr.contains("warning:"))
@@ -137,7 +137,7 @@ final class TraitTests: XCTestCase {
 
     func testTraits_whenAllTraitsEnabled() async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--enable-all-traits"])
+            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--enable-all-traits"])
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             // GitHub issue #8131
             // XCTAssertFalse(stderr.contains("warning:"))
@@ -163,7 +163,7 @@ final class TraitTests: XCTestCase {
 
     func testTraits_whenAllTraitsEnabled_andDefaultTraitsDisabled() async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--enable-all-traits", "--disable-default-traits"])
+            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--enable-all-traits", "--disable-default-traits"])
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             // GitHub issue #8131
             // XCTAssertFalse(stderr.contains("warning:"))

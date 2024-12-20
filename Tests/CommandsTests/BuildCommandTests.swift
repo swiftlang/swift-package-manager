@@ -142,7 +142,7 @@ final class BuildCommandTests: CommandsTestCase {
                     stderr.contains(
                         "error: Target A imports another target (B) in the package without declaring it a dependency."
                     ),
-                    "got stdout: \(stdout), stderr: \(stderr)"
+                    "got stdout: \(String(describing: stdout)), stderr: \(String(describing: stderr))"
                 )
             }
         }
@@ -159,7 +159,7 @@ final class BuildCommandTests: CommandsTestCase {
                     stderr.contains(
                         "warning: Target A imports another target (B) in the package without declaring it a dependency."
                     ),
-                    "got stdout: \(stdout), stderr: \(stderr)"
+                    "got stdout: \(String(describing: stdout)), stderr: \(String(describing: stderr))"
                 )
             }
         }
