@@ -251,8 +251,13 @@ struct BuildPrebuilts: AsyncParsableCommand {
             if code != 0 {
                 throw StringError("Command exited with code \(code): \(command)")
             }
+#if os(Windows)
+        case .abnormal(exception: let exception):
+            throw StringError("Command threw exception \(exception): \(command)")
+#else
         case .signalled(signal: let signal):
             throw StringError("Command exited on signal \(signal): \(command)")
+#endif
         }
     }
 
