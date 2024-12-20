@@ -659,6 +659,7 @@ let package = Package(
             /** Utility to produce the artifacts for prebuilts */
             name: "swift-build-prebuilts",
             dependencies: [
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Basics",
                 "Workspace",
             ]
