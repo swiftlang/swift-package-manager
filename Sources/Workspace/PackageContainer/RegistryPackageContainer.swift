@@ -200,6 +200,8 @@ public class RegistryPackageContainer: PackageContainer {
                                             return true
                                         } else if preferredToolsVersion.patch == 0, file == Manifest.basename + "@swift-\(preferredToolsVersion.major).\(preferredToolsVersion.minor).swift" {
                                             return true
+                                        } else if preferredToolsVersion.patch == 0, preferredToolsVersion.minor == 0, file == Manifest.basename + "@swift-\(preferredToolsVersion.major).swift" {
+                                            return true
                                         } else {
                                             return false
                                         }
