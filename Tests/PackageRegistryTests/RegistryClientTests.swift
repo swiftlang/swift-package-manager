@@ -30,7 +30,7 @@ final class RegistryClientTests: XCTestCase {
         let identity = PackageIdentity.plain("mona.LinkedList")
         let releasesURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)")
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.get, releasesURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
@@ -63,7 +63,7 @@ final class RegistryClientTests: XCTestCase {
                 <https://gitlab.com/mona/LinkedList>; rel="alternate"
                 """
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -72,15 +72,12 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Link", value: links),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -108,9 +105,7 @@ final class RegistryClientTests: XCTestCase {
             errorDescription: UUID().uuidString
         )
 
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        let httpClient = HTTPClient { try serverErrorHandler.handle(request: $0, progress: $1) }
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -139,9 +134,7 @@ final class RegistryClientTests: XCTestCase {
             errorDescription: UUID().uuidString
         )
 
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        let httpClient = HTTPClient { try serverErrorHandler.handle(request: $0, progress: $1) }
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -169,9 +162,7 @@ final class RegistryClientTests: XCTestCase {
 
         let serverErrorHandler = UnavailableServerErrorHandler(registryURL: registryURL)
 
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        let httpClient = HTTPClient { try serverErrorHandler.handle(request: $0, progress: $1) }
 
         let registry = Registry(url: registryURL, supportsAvailability: true)
         var configuration = RegistryConfiguration()
@@ -192,7 +183,7 @@ final class RegistryClientTests: XCTestCase {
         let version = Version("1.1.1")
         let releaseURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.get, releaseURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
@@ -223,7 +214,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """#.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -231,15 +222,12 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -276,9 +264,7 @@ final class RegistryClientTests: XCTestCase {
             errorDescription: UUID().uuidString
         )
 
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        let httpClient = HTTPClient { try serverErrorHandler.handle(request: $0, progress: $1) }
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -314,9 +300,7 @@ final class RegistryClientTests: XCTestCase {
             errorDescription: UUID().uuidString
         )
 
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        let httpClient = HTTPClient { try serverErrorHandler.handle(request: $0, progress: $1) }
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -349,9 +333,7 @@ final class RegistryClientTests: XCTestCase {
 
         let serverErrorHandler = UnavailableServerErrorHandler(registryURL: registryURL)
 
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        let httpClient = HTTPClient { try serverErrorHandler.handle(request: $0, progress: $1) }
 
         let registry = Registry(url: registryURL, supportsAvailability: true)
         var configuration = RegistryConfiguration()
@@ -397,7 +379,7 @@ final class RegistryClientTests: XCTestCase {
         )
         """
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.get, metadataURL):
                 let data = """
@@ -426,7 +408,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -434,7 +416,8 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
@@ -446,7 +429,7 @@ final class RegistryClientTests: XCTestCase {
                 <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=5.3>; rel="alternate"; filename="Package@swift-5.3.swift"; swift-tools-version="5.3"
                 """
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(defaultManifestData.count)"),
@@ -455,15 +438,12 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Link", value: links),
                     ]),
                     body: defaultManifestData
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -517,7 +497,7 @@ final class RegistryClientTests: XCTestCase {
         )
         """
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.get, metadataURL):
                 let data = """
@@ -546,7 +526,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -554,7 +534,8 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
@@ -566,7 +547,7 @@ final class RegistryClientTests: XCTestCase {
                 <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=5.3>; rel="alternate"; filename="Package@swift-5.3.swift"; swift-tools-version="5.3"
                 """
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(defaultManifestData.count)"),
@@ -575,15 +556,12 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Link", value: links),
                     ]),
                     body: defaultManifestData
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -656,7 +634,7 @@ final class RegistryClientTests: XCTestCase {
         )
         """
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.get, metadataURL):
                 let data = """
@@ -685,7 +663,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -693,7 +671,8 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
@@ -705,7 +684,7 @@ final class RegistryClientTests: XCTestCase {
                 <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=5.3>; rel="alternate"; filename="Package@swift-5.3.swift"; swift-tools-version="5.3"
                 """
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(defaultManifestData.count)"),
@@ -714,15 +693,12 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Link", value: links),
                     ]),
                     body: defaultManifestData
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -791,7 +767,7 @@ final class RegistryClientTests: XCTestCase {
         )
         """
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.get, metadataURL):
                 let data = """
@@ -820,7 +796,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -828,7 +804,8 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
@@ -840,7 +817,7 @@ final class RegistryClientTests: XCTestCase {
                 <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=5.3>; rel="alternate"; filename="Package@swift-5.3.swift"; swift-tools-version="5.3"
                 """
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(defaultManifestData.count)"),
@@ -849,15 +826,12 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Link", value: links),
                     ]),
                     body: defaultManifestData
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -925,7 +899,7 @@ final class RegistryClientTests: XCTestCase {
             errorDescription: "not found"
         )
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.kind, request.method, request.url) {
             case (.generic, .get, metadataURL):
                 let data = """
@@ -937,7 +911,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -945,29 +919,24 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                serverErrorHandler.handle(request: request, progress: nil, completion: completion)
+                return try serverErrorHandler.handle(request: request, progress: nil)
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
         await XCTAssertAsyncThrowsError(try await registryClient.getAvailableManifests(package: identity, version: version)) { error in
-            guard case RegistryError
-                .failedRetrievingManifest(
-                    registry: configuration.defaultRegistry!,
-                    package: identity,
-                    version: version,
-                    error: RegistryError.packageVersionNotFound
-                ) = error
-            else {
+            guard case RegistryError.failedRetrievingManifest(
+                registry: configuration.defaultRegistry!,
+                package: identity,
+                version: version,
+                error: RegistryError.packageVersionNotFound
+            ) = error else {
                 return XCTFail("unexpected error: '\(error)'")
             }
         }
@@ -988,7 +957,7 @@ final class RegistryClientTests: XCTestCase {
             errorDescription: UUID().uuidString
         )
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.kind, request.method, request.url) {
             case (.generic, .get, metadataURL):
                 let data = """
@@ -1000,7 +969,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -1008,15 +977,12 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                serverErrorHandler.handle(request: request, progress: nil, completion: completion)
+                return try serverErrorHandler.handle(request: request, progress: nil)
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -1044,9 +1010,7 @@ final class RegistryClientTests: XCTestCase {
 
         let serverErrorHandler = UnavailableServerErrorHandler(registryURL: registryURL)
 
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        let httpClient = HTTPClient { try serverErrorHandler.handle(request: $0, progress: $1) }
 
         let registry = Registry(url: registryURL, supportsAvailability: true)
         var configuration = RegistryConfiguration()
@@ -1072,7 +1036,7 @@ final class RegistryClientTests: XCTestCase {
         let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
             let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }
                 .flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.current
@@ -1107,7 +1071,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -1115,7 +1079,8 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
@@ -1127,7 +1092,7 @@ final class RegistryClientTests: XCTestCase {
                 let package = Package()
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -1135,15 +1100,12 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -1197,7 +1159,7 @@ final class RegistryClientTests: XCTestCase {
         let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
             let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }
                 .flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.current
@@ -1232,7 +1194,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -1240,7 +1202,8 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
@@ -1252,7 +1215,7 @@ final class RegistryClientTests: XCTestCase {
                 let package = Package()
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -1260,15 +1223,12 @@ final class RegistryClientTests: XCTestCase {
                         // Omit `Content-Version` header
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -1312,7 +1272,7 @@ final class RegistryClientTests: XCTestCase {
         let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
             let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }
                 .flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.current
@@ -1347,7 +1307,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -1355,13 +1315,14 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
                 let data = Data(manifestContent(toolsVersion: toolsVersion).utf8)
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -1369,15 +1330,12 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -1446,7 +1404,7 @@ final class RegistryClientTests: XCTestCase {
         let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
             let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }
                 .flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.current
@@ -1481,7 +1439,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -1489,13 +1447,14 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
                 let data = Data(manifestContent(toolsVersion: toolsVersion).utf8)
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -1503,15 +1462,12 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -1580,7 +1536,7 @@ final class RegistryClientTests: XCTestCase {
         let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
             let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }
                 .flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.current
@@ -1615,7 +1571,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -1623,13 +1579,14 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
                 let data = Data(manifestContent(toolsVersion: toolsVersion).utf8)
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -1637,15 +1594,12 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -1734,7 +1688,7 @@ final class RegistryClientTests: XCTestCase {
             errorDescription: "not found"
         )
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.kind, request.method, request.url) {
             case (.generic, .get, metadataURL):
                 let data = """
@@ -1746,7 +1700,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -1754,32 +1708,26 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                serverErrorHandler.handle(request: request, progress: nil, completion: completion)
+                return try serverErrorHandler.handle(request: request, progress: nil)
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
         await XCTAssertAsyncThrowsError(
-            try await registryClient
-                .getManifestContent(package: identity, version: version, customToolsVersion: nil)
+            try await registryClient.getManifestContent(package: identity, version: version, customToolsVersion: nil)
         ) { error in
-            guard case RegistryError
-                .failedRetrievingManifest(
+            guard case RegistryError.failedRetrievingManifest(
                     registry: configuration.defaultRegistry!,
                     package: identity,
                     version: version,
                     error: RegistryError.packageVersionNotFound
-                ) = error
-            else {
+            ) = error else {
                 return XCTFail("unexpected error: '\(error)'")
             }
         }
@@ -1800,7 +1748,7 @@ final class RegistryClientTests: XCTestCase {
             errorDescription: UUID().uuidString
         )
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.kind, request.method, request.url) {
             case (.generic, .get, metadataURL):
                 let data = """
@@ -1812,7 +1760,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -1820,15 +1768,12 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                serverErrorHandler.handle(request: request, progress: nil, completion: completion)
+                return try serverErrorHandler.handle(request: request, progress: nil)
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -1859,9 +1804,7 @@ final class RegistryClientTests: XCTestCase {
 
         let serverErrorHandler = UnavailableServerErrorHandler(registryURL: registryURL)
 
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        let httpClient = HTTPClient { try serverErrorHandler.handle(request: $0, progress: $1) }
 
         let registry = Registry(url: registryURL, supportsAvailability: true)
         var configuration = RegistryConfiguration()
@@ -1899,7 +1842,7 @@ final class RegistryClientTests: XCTestCase {
             SourceControlURL("git@github.com:\(identity.scope)/\(identity.name).git"),
         ]
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.kind, request.method, request.url) {
             case (.generic, .get, metadataURL):
                 let data = """
@@ -1924,7 +1867,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -1932,14 +1875,14 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
             case (.download(let fileSystem, let path), .get, downloadURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+zip")
 
                 let data = Data(emptyZipFile.contents)
                 try! fileSystem.writeFileContents(path, data: data)
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -1955,15 +1898,12 @@ final class RegistryClientTests: XCTestCase {
                         ),
                     ]),
                     body: nil
-                )))
+                )
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
 
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -2026,7 +1966,7 @@ final class RegistryClientTests: XCTestCase {
         let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.kind, request.method, request.url) {
             case (.generic, .get, metadataURL):
                 let data = """
@@ -2055,7 +1995,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -2063,14 +2003,14 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
             case (.download(let fileSystem, let path), .get, downloadURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+zip")
 
                 let data = Data(emptyZipFile.contents)
                 try! fileSystem.writeFileContents(path, data: data)
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -2083,15 +2023,12 @@ final class RegistryClientTests: XCTestCase {
                         ),
                     ]),
                     body: nil
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -2157,7 +2094,7 @@ final class RegistryClientTests: XCTestCase {
         let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.kind, request.method, request.url) {
             case (.generic, .get, metadataURL):
                 let data = """
@@ -2186,7 +2123,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -2194,14 +2131,15 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             case (.download(let fileSystem, let path), .get, downloadURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+zip")
 
                 let data = Data(emptyZipFile.contents)
                 try! fileSystem.writeFileContents(path, data: data)
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -2214,15 +2152,12 @@ final class RegistryClientTests: XCTestCase {
                         ),
                     ]),
                     body: nil
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -2294,7 +2229,7 @@ final class RegistryClientTests: XCTestCase {
         let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.kind, request.method, request.url) {
             case (.generic, .get, metadataURL):
                 let data = """
@@ -2323,7 +2258,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -2331,14 +2266,15 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             case (.download(let fileSystem, let path), .get, downloadURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+zip")
 
                 let data = Data(emptyZipFile.contents)
                 try! fileSystem.writeFileContents(path, data: data)
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -2351,15 +2287,12 @@ final class RegistryClientTests: XCTestCase {
                         ),
                     ]),
                     body: nil
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -2434,7 +2367,7 @@ final class RegistryClientTests: XCTestCase {
         let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.kind, request.method, request.url) {
             case (.download(let fileSystem, let path), .get, downloadURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+zip")
@@ -2442,7 +2375,7 @@ final class RegistryClientTests: XCTestCase {
                 let data = Data(emptyZipFile.contents)
                 try! fileSystem.writeFileContents(path, data: data)
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -2455,7 +2388,8 @@ final class RegistryClientTests: XCTestCase {
                         ),
                     ]),
                     body: nil
-                )))
+                )
+
             // `downloadSourceArchive` calls this API to fetch checksum
             case (.generic, .get, metadataURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
@@ -2477,7 +2411,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -2485,15 +2419,12 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -2559,7 +2490,7 @@ final class RegistryClientTests: XCTestCase {
         let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.kind, request.method, request.url) {
             case (.download(let fileSystem, let path), .get, downloadURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+zip")
@@ -2567,7 +2498,7 @@ final class RegistryClientTests: XCTestCase {
                 let data = Data(emptyZipFile.contents)
                 try! fileSystem.writeFileContents(path, data: data)
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -2580,7 +2511,8 @@ final class RegistryClientTests: XCTestCase {
                         ),
                     ]),
                     body: nil
-                )))
+                )
+
             // `downloadSourceArchive` calls this API to fetch checksum
             case (.generic, .get, metadataURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
@@ -2602,7 +2534,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -2610,15 +2542,12 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -2677,7 +2606,7 @@ final class RegistryClientTests: XCTestCase {
             errorDescription: "not found"
         )
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.kind, request.method, request.url) {
             case (.generic, .get, metadataURL):
                 let data = """
@@ -2689,7 +2618,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -2697,15 +2626,12 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                serverErrorHandler.handle(request: request, progress: nil, completion: completion)
+                return try serverErrorHandler.handle(request: request, progress: nil)
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -2758,7 +2684,7 @@ final class RegistryClientTests: XCTestCase {
             errorDescription: UUID().uuidString
         )
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.kind, request.method, request.url) {
             case (.generic, .get, metadataURL):
                 let data = """
@@ -2770,7 +2696,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -2778,15 +2704,12 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                serverErrorHandler.handle(request: request, progress: nil, completion: completion)
+                return try serverErrorHandler.handle(request: request, progress: nil)
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -2833,9 +2756,7 @@ final class RegistryClientTests: XCTestCase {
 
         let serverErrorHandler = UnavailableServerErrorHandler(registryURL: registryURL)
 
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        let httpClient = HTTPClient { try serverErrorHandler.handle(request: $0, progress: $1) }
 
         let registry = Registry(url: registryURL, supportsAvailability: true)
         var configuration = RegistryConfiguration()
@@ -2875,7 +2796,7 @@ final class RegistryClientTests: XCTestCase {
         let packageURL = SourceControlURL("https://example.com/mona/LinkedList")
         let identifiersURL = URL("\(registryURL)/identifiers?url=\(packageURL.absoluteString)")
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.get, identifiersURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
@@ -2888,7 +2809,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """#.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -2896,15 +2817,12 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -2919,19 +2837,16 @@ final class RegistryClientTests: XCTestCase {
         let packageURL = SourceControlURL("https://example.com/mona/LinkedList")
         let identifiersURL = URL("\(registryURL)/identifiers?url=\(packageURL.absoluteString)")
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.get, identifiersURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
-                completion(.success(.notFound()))
+                return .notFound()
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -2953,9 +2868,7 @@ final class RegistryClientTests: XCTestCase {
             errorDescription: UUID().uuidString
         )
 
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
+        let httpClient = HTTPClient { try serverErrorHandler.handle(request: $0, progress: $1) }
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -2982,7 +2895,7 @@ final class RegistryClientTests: XCTestCase {
 
         let token = "top-sekret"
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.get, identifiersURL):
                 XCTAssertEqual(request.headers.get("Authorization").first, "Bearer \(token)")
@@ -2996,7 +2909,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """#.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -3004,15 +2917,12 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -3037,7 +2947,7 @@ final class RegistryClientTests: XCTestCase {
         let user = "jappleseed"
         let password = "top-sekret"
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.get, identifiersURL):
                 XCTAssertEqual(
@@ -3054,7 +2964,7 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """#.data(using: .utf8)!
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
@@ -3062,15 +2972,12 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: data
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -3093,25 +3000,22 @@ final class RegistryClientTests: XCTestCase {
 
         let token = "top-sekret"
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.post, loginURL):
                 XCTAssertEqual(request.headers.get("Authorization").first, "Bearer \(token)")
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Version", value: "1"),
                     ])
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -3131,25 +3035,22 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = URL("https://packages.example.com")
         let loginURL = URL("\(registryURL)/login")
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.post, loginURL):
                 XCTAssertNil(request.headers.get("Authorization").first)
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 401,
                     headers: .init([
                         .init(name: "Content-Version", value: "1"),
                     ])
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -3172,25 +3073,22 @@ final class RegistryClientTests: XCTestCase {
 
         let token = "top-sekret"
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.post, loginURL):
                 XCTAssertNotNil(request.headers.get("Authorization").first)
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 501,
                     headers: .init([
                         .init(name: "Content-Version", value: "1"),
                     ])
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -3222,7 +3120,7 @@ final class RegistryClientTests: XCTestCase {
         let archiveContent = UUID().uuidString
         let metadataContent = UUID().uuidString
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.put, publishURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
@@ -3233,16 +3131,17 @@ final class RegistryClientTests: XCTestCase {
                 XCTAssertMatch(body, .contains(archiveContent))
                 XCTAssertMatch(body, .contains(metadataContent))
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 201,
                     headers: .init([
                         .init(name: "Location", value: expectedLocation.absoluteString),
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: .none
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
 
@@ -3252,10 +3151,6 @@ final class RegistryClientTests: XCTestCase {
 
             let metadataPath = temporaryDirectory.appending("\(identity)-\(version)-metadata.json")
             try localFileSystem.writeFileContents(metadataPath, string: metadataContent)
-
-            let httpClient = LegacyHTTPClient(handler: handler)
-            httpClient.configuration.circuitBreakerStrategy = .none
-            httpClient.configuration.retryStrategy = .none
 
             var configuration = RegistryConfiguration()
             configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -3289,7 +3184,7 @@ final class RegistryClientTests: XCTestCase {
         let archiveContent = UUID().uuidString
         let metadataContent = UUID().uuidString
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.put, publishURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
@@ -3300,7 +3195,7 @@ final class RegistryClientTests: XCTestCase {
                 XCTAssertMatch(body, .contains(archiveContent))
                 XCTAssertMatch(body, .contains(metadataContent))
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 202,
                     headers: .init([
                         .init(name: "Location", value: expectedLocation.absoluteString),
@@ -3308,9 +3203,10 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: .none
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
 
@@ -3320,10 +3216,6 @@ final class RegistryClientTests: XCTestCase {
 
             let metadataPath = temporaryDirectory.appending("\(identity)-\(version)-metadata.json")
             try localFileSystem.writeFileContents(metadataPath, string: metadataContent)
-
-            let httpClient = LegacyHTTPClient(handler: handler)
-            httpClient.configuration.circuitBreakerStrategy = .none
-            httpClient.configuration.retryStrategy = .none
 
             var configuration = RegistryConfiguration()
             configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -3359,7 +3251,7 @@ final class RegistryClientTests: XCTestCase {
         let metadataSignature = UUID().uuidString
         let signatureFormat = SignatureFormat.cms_1_0_0
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.put, publishURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
@@ -3372,16 +3264,17 @@ final class RegistryClientTests: XCTestCase {
                 XCTAssertMatch(body, .contains(signature))
                 XCTAssertMatch(body, .contains(metadataSignature))
 
-                completion(.success(.init(
+                return .init(
                     statusCode: 201,
                     headers: .init([
                         .init(name: "Location", value: expectedLocation.absoluteString),
                         .init(name: "Content-Version", value: "1"),
                     ]),
                     body: .none
-                )))
+                )
+
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
 
@@ -3391,10 +3284,6 @@ final class RegistryClientTests: XCTestCase {
 
             let metadataPath = temporaryDirectory.appending(component: "\(identity)-\(version)-metadata.json")
             try localFileSystem.writeFileContents(metadataPath, string: metadataContent)
-
-            let httpClient = LegacyHTTPClient(handler: handler)
-            httpClient.configuration.circuitBreakerStrategy = .none
-            httpClient.configuration.retryStrategy = .none
 
             var configuration = RegistryConfiguration()
             configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -3426,8 +3315,8 @@ final class RegistryClientTests: XCTestCase {
         let signature = UUID().uuidString
         let metadataSignature = UUID().uuidString
 
-        let handler: LegacyHTTPClient.Handler = { _, _, completion in
-            completion(.failure(StringError("should not be called")))
+        let httpClient = HTTPClient { _, _ in
+            throw StringError("should not be called")
         }
 
         try withTemporaryDirectory { temporaryDirectory in
@@ -3436,10 +3325,6 @@ final class RegistryClientTests: XCTestCase {
 
             let metadataPath = temporaryDirectory.appending(component: "\(identity)-\(version)-metadata.json")
             try localFileSystem.writeFileContents(metadataPath, string: metadataContent)
-
-            let httpClient = LegacyHTTPClient(handler: handler)
-            httpClient.configuration.circuitBreakerStrategy = .none
-            httpClient.configuration.retryStrategy = .none
 
             var configuration = RegistryConfiguration()
             configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -3473,8 +3358,8 @@ final class RegistryClientTests: XCTestCase {
         let signature = UUID().uuidString
         let signatureFormat = SignatureFormat.cms_1_0_0
 
-        let handler: LegacyHTTPClient.Handler = { _, _, completion in
-            completion(.failure(StringError("should not be called")))
+        let httpClient = HTTPClient { _, _ in
+            throw StringError("should not be called")
         }
 
         try withTemporaryDirectory { temporaryDirectory in
@@ -3483,10 +3368,6 @@ final class RegistryClientTests: XCTestCase {
 
             let metadataPath = temporaryDirectory.appending(component: "\(identity)-\(version)-metadata.json")
             try localFileSystem.writeFileContents(metadataPath, string: metadataContent)
-
-            let httpClient = LegacyHTTPClient(handler: handler)
-            httpClient.configuration.circuitBreakerStrategy = .none
-            httpClient.configuration.retryStrategy = .none
 
             var configuration = RegistryConfiguration()
             configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -3520,8 +3401,8 @@ final class RegistryClientTests: XCTestCase {
         let metadataSignature = UUID().uuidString
         let signatureFormat = SignatureFormat.cms_1_0_0
 
-        let handler: LegacyHTTPClient.Handler = { _, _, completion in
-            completion(.failure(StringError("should not be called")))
+        let httpClient = HTTPClient { _, _ in
+            throw StringError("should not be called")
         }
 
         try withTemporaryDirectory { temporaryDirectory in
@@ -3530,10 +3411,6 @@ final class RegistryClientTests: XCTestCase {
 
             let metadataPath = temporaryDirectory.appending(component: "\(identity)-\(version)-metadata.json")
             try localFileSystem.writeFileContents(metadataPath, string: metadataContent)
-
-            let httpClient = LegacyHTTPClient(handler: handler)
-            httpClient.configuration.circuitBreakerStrategy = .none
-            httpClient.configuration.retryStrategy = .none
 
             var configuration = RegistryConfiguration()
             configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -3577,9 +3454,7 @@ final class RegistryClientTests: XCTestCase {
             let metadataPath = temporaryDirectory.appending("\(identity)-\(version)-metadata.json")
             try localFileSystem.writeFileContents(metadataPath, bytes: [])
 
-            let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
-            httpClient.configuration.circuitBreakerStrategy = .none
-            httpClient.configuration.retryStrategy = .none
+            let httpClient = HTTPClient { try serverErrorHandler.handle(request: $0, progress: $1) }
 
             var configuration = RegistryConfiguration()
             configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -3616,8 +3491,8 @@ final class RegistryClientTests: XCTestCase {
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
 
-        let handler: LegacyHTTPClient.Handler = { _, _, completion in
-            completion(.failure(StringError("should not be called")))
+        let httpClient = HTTPClient { _, _ in
+            throw StringError("should not be called")
         }
 
         try withTemporaryDirectory { temporaryDirectory in
@@ -3625,10 +3500,6 @@ final class RegistryClientTests: XCTestCase {
             // try localFileSystem.writeFileContents(archivePath, bytes: [])
 
             let metadataPath = temporaryDirectory.appending("\(identity)-\(version)-metadata.json")
-
-            let httpClient = LegacyHTTPClient(handler: handler)
-            httpClient.configuration.circuitBreakerStrategy = .none
-            httpClient.configuration.retryStrategy = .none
 
             var configuration = RegistryConfiguration()
             configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -3657,8 +3528,8 @@ final class RegistryClientTests: XCTestCase {
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
 
-        let handler: LegacyHTTPClient.Handler = { _, _, completion in
-            completion(.failure(StringError("should not be called")))
+        let httpClient = HTTPClient { _, _ in
+            throw StringError("should not be called")
         }
 
         try withTemporaryDirectory { temporaryDirectory in
@@ -3666,10 +3537,6 @@ final class RegistryClientTests: XCTestCase {
             try localFileSystem.writeFileContents(archivePath, bytes: [])
 
             let metadataPath = temporaryDirectory.appending("\(identity)-\(version)-metadata.json")
-
-            let httpClient = LegacyHTTPClient(handler: handler)
-            httpClient.configuration.circuitBreakerStrategy = .none
-            httpClient.configuration.retryStrategy = .none
 
             var configuration = RegistryConfiguration()
             configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
@@ -3697,18 +3564,14 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = URL("https://packages.example.com")
         let availabilityURL = URL("\(registryURL)/availability")
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.get, availabilityURL):
-                completion(.success(.okay()))
+                return .okay()
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         let registry = Registry(url: registryURL, supportsAvailability: true)
 
@@ -3726,18 +3589,14 @@ final class RegistryClientTests: XCTestCase {
         let availabilityURL = URL("\(registryURL)/availability")
 
         for unavailableStatus in RegistryClient.AvailabilityStatus.unavailableStatusCodes {
-            let handler: LegacyHTTPClient.Handler = { request, _, completion in
+            let httpClient = HTTPClient { request, _ in
                 switch (request.method, request.url) {
                 case (.get, availabilityURL):
-                    completion(.success(.init(statusCode: unavailableStatus)))
+                    return .init(statusCode: unavailableStatus)
                 default:
-                    completion(.failure(StringError("method and url should match")))
+                    throw StringError("method and url should match")
                 }
             }
-
-            let httpClient = LegacyHTTPClient(handler: handler)
-            httpClient.configuration.circuitBreakerStrategy = .none
-            httpClient.configuration.retryStrategy = .none
 
             let registry = Registry(url: registryURL, supportsAvailability: true)
 
@@ -3755,18 +3614,14 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = URL("https://packages.example.com")
         let availabilityURL = URL("\(registryURL)/availability")
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.get, availabilityURL):
-                completion(.success(.serverError(reason: "boom")))
+                return .serverError(reason: "boom")
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         let registry = Registry(url: registryURL, supportsAvailability: true)
 
@@ -3783,18 +3638,14 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = URL("https://packages.example.com")
         let availabilityURL = URL("\(registryURL)/availability")
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch (request.method, request.url) {
             case (.get, availabilityURL):
-                completion(.success(.serverError(reason: "boom")))
+                return .serverError(reason: "boom")
             default:
-                completion(.failure(StringError("method and url should match")))
+                throw StringError("method and url should match")
             }
         }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
 
         let registry = Registry(url: registryURL, supportsAvailability: false)
 
@@ -3818,8 +3669,7 @@ extension RegistryClient {
     fileprivate func getPackageMetadata(package: PackageIdentity) async throws -> RegistryClient.PackageMetadata {
         try await self.getPackageMetadata(
             package: package,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 
@@ -3831,8 +3681,7 @@ extension RegistryClient {
             package: package,
             version: version,
             fileSystem: InMemoryFileSystem(),
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 
@@ -3840,45 +3689,35 @@ extension RegistryClient {
         package: PackageIdentity.RegistryIdentity,
         version: Version
     ) async throws -> PackageVersionMetadata {
-        return try await withCheckedThrowingContinuation { continuation in
-            self.getPackageVersionMetadata(
-                package: package.underlying,
-                version: version,
-                fileSystem: InMemoryFileSystem(),
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: {
-                  continuation.resume(with: $0)
-                }
-            )
-        }
+        try await self.getPackageVersionMetadata(
+            package: package.underlying,
+            version: version,
+            fileSystem: InMemoryFileSystem(),
+            observabilityScope: ObservabilitySystem.NOOP
+        )
     }
 
     fileprivate func getAvailableManifests(
         package: PackageIdentity,
-        version: Version,
-        observabilityScope: ObservabilityScope = ObservabilitySystem.NOOP
+        version: Version
     ) async throws -> [String: (toolsVersion: ToolsVersion, content: String?)] {
         try await self.getAvailableManifests(
             package: package,
             version: version,
-            observabilityScope: observabilityScope,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 
     fileprivate func getManifestContent(
         package: PackageIdentity,
         version: Version,
-        customToolsVersion: ToolsVersion?,
-        observabilityScope: ObservabilityScope = ObservabilitySystem.NOOP
+        customToolsVersion: ToolsVersion?
     ) async throws -> String {
         try await self.getManifestContent(
             package: package,
             version: version,
             customToolsVersion: customToolsVersion,
-            observabilityScope: observabilityScope,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 
@@ -3895,24 +3734,21 @@ extension RegistryClient {
             destinationPath: destinationPath,
             progressHandler: .none,
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: observabilityScope
         )
     }
 
     fileprivate func lookupIdentities(scmURL: SourceControlURL) async throws -> Set<PackageIdentity> {
         try await self.lookupIdentities(
             scmURL: scmURL,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 
     fileprivate func login(loginURL: URL) async throws {
         try await self.login(
             loginURL: loginURL,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 
@@ -3937,23 +3773,21 @@ extension RegistryClient {
             metadataSignature: metadataSignature,
             signatureFormat: signatureFormat,
             fileSystem: fileSystem,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 
     func checkAvailability(registry: Registry) async throws -> AvailabilityStatus {
         try await self.checkAvailability(
             registry: registry,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 }
 
 func makeRegistryClient(
     configuration: RegistryConfiguration,
-    httpClient: LegacyHTTPClient,
+    httpClient: HTTPClient,
     authorizationProvider: AuthorizationProvider? = .none,
     fingerprintStorage: PackageFingerprintStorage = MockPackageFingerprintStorage(),
     fingerprintCheckingMode: FingerprintCheckingMode = .strict,
@@ -4004,10 +3838,9 @@ struct ServerErrorHandler {
     }
 
     func handle(
-        request: LegacyHTTPClient.Request,
-        progress: LegacyHTTPClient.ProgressHandler?,
-        completion: @escaping ((Result<LegacyHTTPClient.Response, Error>) -> Void)
-    ) {
+        request: HTTPClient.Request,
+        progress: HTTPClient.ProgressHandler?
+    ) throws -> HTTPClient.Response {
         let data = """
         {
             "detail": "\(self.errorDescription)"
@@ -4017,21 +3850,17 @@ struct ServerErrorHandler {
         if request.method == self.method &&
             request.url == self.url
         {
-            completion(
-                .success(.init(
-                    statusCode: self.errorCode,
-                    headers: .init([
-                        .init(name: "Content-Length", value: "\(data.count)"),
-                        .init(name: "Content-Type", value: "application/problem+json"),
-                        .init(name: "Content-Version", value: "1"),
-                    ]),
-                    body: data
-                ))
+            return .init(
+                statusCode: self.errorCode,
+                headers: .init([
+                    .init(name: "Content-Length", value: "\(data.count)"),
+                    .init(name: "Content-Type", value: "application/problem+json"),
+                    .init(name: "Content-Version", value: "1"),
+                ]),
+                body: data
             )
         } else {
-            completion(
-                .failure(StringError("unexpected request"))
-            )
+            throw StringError("unexpected request")
         }
     }
 }
@@ -4043,20 +3872,15 @@ struct UnavailableServerErrorHandler {
     }
 
     func handle(
-        request: LegacyHTTPClient.Request,
-        progress: LegacyHTTPClient.ProgressHandler?,
-        completion: @escaping ((Result<LegacyHTTPClient.Response, Error>) -> Void)
-    ) {
+        request: HTTPClient.Request,
+        progress: HTTPClient.ProgressHandler?
+    ) throws -> HTTPClient.Response {
         if request.method == .get && request.url == URL("\(self.registryURL)/availability") {
-            completion(
-                .success(.init(
-                    statusCode: RegistryClient.AvailabilityStatus.unavailableStatusCodes.first!
-                ))
+            return .init(
+                statusCode: RegistryClient.AvailabilityStatus.unavailableStatusCodes.first!
             )
         } else {
-            completion(
-                .failure(StringError("unexpected request"))
-            )
+            throw StringError("unexpected request")
         }
     }
 }

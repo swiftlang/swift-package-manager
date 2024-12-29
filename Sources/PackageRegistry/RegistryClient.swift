@@ -24,13 +24,13 @@ import protocol TSCBasic.HashAlgorithm
 import struct TSCUtility.Version
 
 public protocol RegistryClientDelegate {
-    func onUnsigned(registry: Registry, package: PackageIdentity, version: Version, completion: (Bool) -> Void)
-    func onUntrusted(registry: Registry, package: PackageIdentity, version: Version, completion: (Bool) -> Void)
+    func onUnsigned(registry: Registry, package: PackageIdentity, version: Version) async -> Bool
+    func onUntrusted(registry: Registry, package: PackageIdentity, version: Version) async -> Bool
 }
 
 /// Package registry client.
 /// API specification: https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md
-public final class RegistryClient: Cancellable {
+public final class RegistryClient {
     public typealias Delegate = RegistryClientDelegate
 
     private static let apiVersion: APIVersion = .v1
@@ -39,8 +39,8 @@ public final class RegistryClient: Cancellable {
 
     private var configuration: RegistryConfiguration
     private let archiverProvider: (FileSystem) -> Archiver
-    private let httpClient: LegacyHTTPClient
-    private let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
+    private let httpClient: HTTPClient
+    private let authorizationProvider: HTTPClientConfiguration.AuthorizationProvider?
     private let fingerprintStorage: PackageFingerprintStorage?
     private let fingerprintCheckingMode: FingerprintCheckingMode
     private let skipSignatureValidation: Bool
@@ -68,7 +68,7 @@ public final class RegistryClient: Cancellable {
         signingEntityStorage: PackageSigningEntityStorage?,
         signingEntityCheckingMode: SigningEntityCheckingMode,
         authorizationProvider: AuthorizationProvider? = .none,
-        customHTTPClient: LegacyHTTPClient? = .none,
+        customHTTPClient: HTTPClient? = .none,
         customArchiverProvider: ((FileSystem) -> Archiver)? = .none,
         delegate: Delegate?,
         checksumAlgorithm: HashAlgorithm
@@ -97,7 +97,7 @@ public final class RegistryClient: Cancellable {
             self.authorizationProvider = .none
         }
 
-        self.httpClient = customHTTPClient ?? LegacyHTTPClient()
+        self.httpClient = customHTTPClient ?? HTTPClient()
         self.archiverProvider = customArchiverProvider ?? { fileSystem in ZipArchiver(fileSystem: fileSystem) }
         self.fingerprintStorage = fingerprintStorage
         self.fingerprintCheckingMode = fingerprintCheckingMode
@@ -124,11 +124,6 @@ public final class RegistryClient: Cancellable {
         }
     }
 
-    /// Cancel any outstanding requests
-    public func cancel(deadline: DispatchTime) throws {
-        try self.httpClient.cancel(deadline: deadline)
-    }
-
     public func changeSigningEntityFromVersion(
         package: PackageIdentity,
         version: Version,
@@ -148,66 +143,39 @@ public final class RegistryClient: Cancellable {
     public func getPackageMetadata(
         package: PackageIdentity,
         timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws -> PackageMetadata {
-        try await withCheckedThrowingContinuation { continuation in
-            self.getPackageMetadata(
-                package: package,
-                timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: {
-                    continuation.resume(with: $0)
-                }
-            )
-        }
-    }
-
-    @available(*, noasync, message: "Use the async alternative")
-    public func getPackageMetadata(
-        package: PackageIdentity,
-        timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<PackageMetadata, Error>) -> Void
-    ) {
-        let completion = self.makeAsync(completion, on: callbackQueue)
-
         guard let registryIdentity = package.registry else {
-            return completion(.failure(RegistryError.invalidPackageIdentity(package)))
+            throw RegistryError.invalidPackageIdentity(package)
         }
 
         guard let registry = self.configuration.registry(for: registryIdentity.scope) else {
-            return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
+            throw RegistryError.registryNotConfigured(scope: registryIdentity.scope)
         }
 
         observabilityScope.emit(debug: "registry for \(package): \(registry)")
 
         let underlying = {
-            self._getPackageMetadata(
+            try await self._getPackageMetadata(
                 registry: registry,
                 package: registryIdentity,
                 timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: completion
+                observabilityScope: observabilityScope
             )
         }
 
         if registry.supportsAvailability {
-            self.withAvailabilityCheck(
+            return try await self.withAvailabilityCheck(
                 registry: registry,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             ) { error in
                 if let error {
-                    return completion(.failure(error))
+                    throw error
                 }
-                underlying()
+                return try await underlying()
             }
         } else {
-            underlying()
+            return try await underlying()
         }
     }
 
@@ -216,65 +184,59 @@ public final class RegistryClient: Cancellable {
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         timeout: DispatchTimeInterval?,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<PackageMetadata, Error>) -> Void
-    ) {
-        let completion = self.makeAsync(completion, on: callbackQueue)
-
+        observabilityScope: ObservabilityScope
+    ) async throws -> PackageMetadata {
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
-            return completion(.failure(RegistryError.invalidURL(registry.url)))
+            throw RegistryError.invalidURL(registry.url)
         }
         components.appendPathComponents("\(package.scope)", "\(package.name)")
         guard let url = components.url else {
-            return completion(.failure(RegistryError.invalidURL(registry.url)))
+            throw RegistryError.invalidURL(registry.url)
         }
 
-        let request = LegacyHTTPClient.Request(
+        let request = HTTPClient.Request(
             method: .get,
             url: url,
             headers: [
                 "Accept": self.acceptHeader(mediaType: .json),
             ],
-            options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
+            options: self.defaultRequestOptions(timeout: timeout)
         )
 
         let start = DispatchTime.now()
         observabilityScope.emit(info: "retrieving \(package) metadata from \(request.url)")
-        self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
-            completion(
-                result.tryMap { response in
-                    observabilityScope
-                        .emit(
-                            debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-                        )
-                    switch response.statusCode {
-                    case 200:
-                        let packageMetadata = try response.parseJSON(
-                            Serialization.PackageMetadata.self,
-                            decoder: self.jsonDecoder
-                        )
 
-                        let versions = packageMetadata.releases.filter { $0.value.problem == nil }
-                            .compactMap { Version($0.key) }
-                            .sorted(by: >)
-
-                        let alternateLocations = try response.headers.parseAlternativeLocationLinks()
-
-                        return PackageMetadata(
-                            registry: registry,
-                            versions: versions,
-                            alternateLocations: alternateLocations?.map(\.url)
-                        )
-                    case 404:
-                        throw RegistryError.packageNotFound
-                    default:
-                        throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
-                    }
-                }.mapError {
-                    RegistryError.failedRetrievingReleases(registry: registry, package: package.underlying, error: $0)
-                }
+        do {
+            let response = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil)
+            observabilityScope.emit(
+                debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
             )
+
+            switch response.statusCode {
+            case 200:
+                let packageMetadata = try response.parseJSON(
+                    Serialization.PackageMetadata.self,
+                    decoder: self.jsonDecoder
+                )
+
+                let versions = packageMetadata.releases.filter { $0.value.problem == nil }
+                    .compactMap { Version($0.key) }
+                    .sorted(by: >)
+
+                let alternateLocations = try response.headers.parseAlternativeLocationLinks()
+
+                return PackageMetadata(
+                    registry: registry,
+                    versions: versions,
+                    alternateLocations: alternateLocations?.map(\.url)
+                )
+            case 404:
+                throw RegistryError.packageNotFound
+            default:
+                throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
+            }
+        } catch {
+            throw RegistryError.failedRetrievingReleases(registry: registry, package: package.underlying, error: error)
         }
     }
 
@@ -283,70 +245,39 @@ public final class RegistryClient: Cancellable {
         version: Version,
         timeout: DispatchTimeInterval? = .none,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws -> PackageVersionMetadata {
-        try await withCheckedThrowingContinuation { continuation in
-            self.getPackageVersionMetadata(
-                package: package,
-                version: version,
-                timeout: timeout,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: {
-                    continuation.resume(with: $0)
-                }
-            )
-        }
-    }
-
-    @available(*, noasync, message: "Use the async alternative")
-    public func getPackageVersionMetadata(
-        package: PackageIdentity,
-        version: Version,
-        timeout: DispatchTimeInterval? = .none,
-        fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<PackageVersionMetadata, Error>) -> Void
-    ) {
-        let completion = self.makeAsync(completion, on: callbackQueue)
-
         guard let registryIdentity = package.registry else {
-            return completion(.failure(RegistryError.invalidPackageIdentity(package)))
+            throw RegistryError.invalidPackageIdentity(package)
         }
 
         guard let registry = self.configuration.registry(for: registryIdentity.scope) else {
-            return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
+            throw RegistryError.registryNotConfigured(scope: registryIdentity.scope)
         }
 
         let underlying = {
-            self._getPackageVersionMetadata(
+            try await self._getPackageVersionMetadata(
                 registry: registry,
                 package: registryIdentity,
                 version: version,
                 timeout: timeout,
                 fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: completion
+                observabilityScope: observabilityScope
             )
         }
 
         if registry.supportsAvailability {
-            self.withAvailabilityCheck(
+            return try await self.withAvailabilityCheck(
                 registry: registry,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             ) { error in
                 if let error {
-                    return completion(.failure(error))
+                    throw error
                 }
-                underlying()
+                return try await underlying()
             }
         } else {
-            underlying()
+            return try await underlying()
         }
     }
 
@@ -357,91 +288,73 @@ public final class RegistryClient: Cancellable {
         version: Version,
         timeout: DispatchTimeInterval?,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<PackageVersionMetadata, Error>) -> Void
-    ) {
-        self._getRawPackageVersionMetadata(
+        observabilityScope: ObservabilityScope
+    ) async throws -> PackageVersionMetadata {
+        let versionMetadata = try await self._getRawPackageVersionMetadata(
             registry: registry,
             package: package,
             version: version,
             timeout: timeout,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
-        ) { result in
-            switch result {
-            case .failure(let failure):
-                completion(.failure(failure))
-            case .success(let versionMetadata):
-                Task {
-                    // WIP: async map the signing entity
+            observabilityScope: observabilityScope
+        )
 
-                    var resourceSigning: [(resource: RegistryClient.Serialization.VersionMetadata.Resource, signingEntity: SigningEntity?)] = []
-                    for resource in versionMetadata.resources {
-                        guard let signing = resource.signing,
-                              let signatureData = Data(base64Encoded: signing.signatureBase64Encoded),
-                              let signatureFormat = SignatureFormat(rawValue: signing.signatureFormat) else {
-                            resourceSigning.append((resource, nil))
-                            continue
-                        }
-                        let configuration = self.configuration.signing(for: package, registry: registry)
-
-                        let result = try? await withCheckedThrowingContinuation { continuation in
-                            SignatureValidation.extractSigningEntity(
-                                signature: [UInt8](signatureData),
-                                signatureFormat: signatureFormat,
-                                configuration: configuration,
-                                fileSystem: fileSystem,
-                                completion: {
-                                    continuation.resume(with: $0)
-                                }
-                            )
-                        }
-                        resourceSigning.append((resource, result))
-                    }
-
-                    let packageVersionMetadata = PackageVersionMetadata(
-                        registry: registry,
-                        licenseURL: versionMetadata.metadata?.licenseURL.flatMap { URL(string: $0) },
-                        readmeURL: versionMetadata.metadata?.readmeURL.flatMap { URL(string: $0) },
-                        repositoryURLs: versionMetadata.metadata?.repositoryURLs?.compactMap { SourceControlURL($0) },
-                        resources: resourceSigning.map {
-                            .init(
-                                name: $0.resource.name,
-                                type: $0.resource.type,
-                                checksum: $0.resource.checksum,
-                                signing: $0.resource.signing.flatMap {
-                                    PackageVersionMetadata.Signing(
-                                        signatureBase64Encoded: $0.signatureBase64Encoded,
-                                        signatureFormat: $0.signatureFormat
-                                    )
-                                },
-                                signingEntity: $0.signingEntity
-                            )
-                        },
-                        author: versionMetadata.metadata?.author.map {
-                            .init(
-                                name: $0.name,
-                                email: $0.email,
-                                description: $0.description,
-                                organization: $0.organization.map {
-                                    .init(
-                                        name: $0.name,
-                                        email: $0.email,
-                                        description: $0.description,
-                                        url: $0.url.flatMap { URL(string: $0) }
-                                    )
-                                },
-                                url: $0.url.flatMap { URL(string: $0) }
-                            )
-                        },
-                        description: versionMetadata.metadata?.description,
-                        publishedAt: versionMetadata.metadata?.originalPublicationTime ?? versionMetadata.publishedAt
-                    )
-                    completion(.success(packageVersionMetadata))
-                }
+        var resourceSigning: [(resource: RegistryClient.Serialization.VersionMetadata.Resource, signingEntity: SigningEntity?)] = []
+        for resource in versionMetadata.resources {
+            guard let signing = resource.signing,
+                  let signatureData = Data(base64Encoded: signing.signatureBase64Encoded),
+                  let signatureFormat = SignatureFormat(rawValue: signing.signatureFormat) else {
+                resourceSigning.append((resource, nil))
+                continue
             }
+            let configuration = self.configuration.signing(for: package, registry: registry)
+
+            let result = try? await SignatureValidation.extractSigningEntity(
+                signature: [UInt8](signatureData),
+                signatureFormat: signatureFormat,
+                configuration: configuration,
+                fileSystem: fileSystem
+            )
+            resourceSigning.append((resource, result))
         }
+
+        return PackageVersionMetadata(
+            registry: registry,
+            licenseURL: versionMetadata.metadata?.licenseURL.flatMap { URL(string: $0) },
+            readmeURL: versionMetadata.metadata?.readmeURL.flatMap { URL(string: $0) },
+            repositoryURLs: versionMetadata.metadata?.repositoryURLs?.compactMap { SourceControlURL($0) },
+            resources: resourceSigning.map {
+                .init(
+                    name: $0.resource.name,
+                    type: $0.resource.type,
+                    checksum: $0.resource.checksum,
+                    signing: $0.resource.signing.flatMap {
+                        PackageVersionMetadata.Signing(
+                            signatureBase64Encoded: $0.signatureBase64Encoded,
+                            signatureFormat: $0.signatureFormat
+                        )
+                    },
+                    signingEntity: $0.signingEntity
+                )
+            },
+            author: versionMetadata.metadata?.author.map {
+                .init(
+                    name: $0.name,
+                    email: $0.email,
+                    description: $0.description,
+                    organization: $0.organization.map {
+                        .init(
+                            name: $0.name,
+                            email: $0.email,
+                            description: $0.description,
+                            url: $0.url.flatMap { URL(string: $0) }
+                        )
+                    },
+                    url: $0.url.flatMap { URL(string: $0) }
+                )
+            },
+            description: versionMetadata.metadata?.description,
+            publishedAt: versionMetadata.metadata?.originalPublicationTime ?? versionMetadata.publishedAt
+        )
     }
 
     private func _getRawPackageVersionMetadata(
@@ -449,134 +362,99 @@ public final class RegistryClient: Cancellable {
         package: PackageIdentity.RegistryIdentity,
         version: Version,
         timeout: DispatchTimeInterval?,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Serialization.VersionMetadata, Error>) -> Void
-    ) {
-        let completion = self.makeAsync(completion, on: callbackQueue)
-
+        observabilityScope: ObservabilityScope
+    ) async throws -> Serialization.VersionMetadata {
         let cacheKey = MetadataCacheKey(registry: registry, package: package)
         if let cached = self.metadataCache[cacheKey], cached.expires < .now() {
-            return completion(.success(cached.metadata))
+            return cached.metadata
         }
 
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
-            return completion(.failure(RegistryError.invalidURL(registry.url)))
+            throw RegistryError.invalidURL(registry.url)
         }
         components.appendPathComponents("\(package.scope)", "\(package.name)", "\(version)")
 
         guard let url = components.url else {
-            return completion(.failure(RegistryError.invalidURL(registry.url)))
+            throw RegistryError.invalidURL(registry.url)
         }
 
-        let request = LegacyHTTPClient.Request(
+        let request = HTTPClient.Request(
             method: .get,
             url: url,
             headers: [
                 "Accept": self.acceptHeader(mediaType: .json),
             ],
-            options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
+            options: self.defaultRequestOptions(timeout: timeout)
         )
 
         let start = DispatchTime.now()
         observabilityScope.emit(info: "retrieving \(package) \(version) metadata from \(request.url)")
-        self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
-            completion(
-                result.tryMap { response in
-                    observabilityScope
-                        .emit(
-                            debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-                        )
-                    switch response.statusCode {
-                    case 200:
-                        let metadata = try response.parseJSON(
-                            Serialization.VersionMetadata.self,
-                            decoder: self.jsonDecoder
-                        )
-                        self.metadataCache[cacheKey] = (metadata: metadata, expires: .now() + Self.metadataCacheTTL)
-                        return metadata
-                    case 404:
-                        throw RegistryError.packageVersionNotFound
-                    default:
-                        throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
-                    }
-                }.mapError {
-                    RegistryError.failedRetrievingReleaseInfo(
-                        registry: registry,
-                        package: package.underlying,
-                        version: version,
-                        error: $0
-                    )
-                }
-            )
-        }
-    }
 
-    public func getAvailableManifests(
-        package: PackageIdentity,
-        version: Version,
-        timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
-    ) async throws -> [String: (toolsVersion: ToolsVersion, content: String?)]{
-        try await withCheckedThrowingContinuation { continuation in
-            self.getAvailableManifests(
-                package: package,
+        do {
+            let response = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil)
+            observabilityScope.emit(
+                debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+            )
+
+            switch response.statusCode {
+            case 200:
+                let metadata = try response.parseJSON(
+                    Serialization.VersionMetadata.self,
+                    decoder: self.jsonDecoder
+                )
+                self.metadataCache[cacheKey] = (metadata: metadata, expires: .now() + Self.metadataCacheTTL)
+                return metadata
+            case 404:
+                throw RegistryError.packageVersionNotFound
+            default:
+                throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
+            }
+        } catch {
+            throw RegistryError.failedRetrievingReleaseInfo(
+                registry: registry,
+                package: package.underlying,
                 version: version,
-                timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: {
-                    continuation.resume(with: $0)
-                }
+                error: error
             )
         }
     }
 
-    @available(*, noasync, message: "Use the async alternative")
     public func getAvailableManifests(
         package: PackageIdentity,
         version: Version,
         timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<[String: (toolsVersion: ToolsVersion, content: String?)], Error>) -> Void
-    ) {
-        let completion = self.makeAsync(completion, on: callbackQueue)
-
+        observabilityScope: ObservabilityScope
+    ) async throws -> [String: (toolsVersion: ToolsVersion, content: String?)] {
         guard let registryIdentity = package.registry else {
-            return completion(.failure(RegistryError.invalidPackageIdentity(package)))
+            throw RegistryError.invalidPackageIdentity(package)
         }
 
         guard let registry = self.configuration.registry(for: registryIdentity.scope) else {
-            return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
+            throw RegistryError.registryNotConfigured(scope: registryIdentity.scope)
         }
 
         let underlying = {
-            self._getAvailableManifests(
+            try await self._getAvailableManifests(
                 registry: registry,
                 package: registryIdentity,
                 version: version,
                 timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: completion
+                observabilityScope: observabilityScope
             )
         }
 
         if registry.supportsAvailability {
-            self.withAvailabilityCheck(
+            return try await self.withAvailabilityCheck(
                 registry: registry,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             ) { error in
                 if let error {
-                    return completion(.failure(error))
+                    throw error
                 }
-                underlying()
+                return try await underlying()
             }
         } else {
-            underlying()
+            return try await underlying()
         }
     }
 
@@ -586,247 +464,206 @@ public final class RegistryClient: Cancellable {
         package: PackageIdentity.RegistryIdentity,
         version: Version,
         timeout: DispatchTimeInterval?,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<[String: (toolsVersion: ToolsVersion, content: String?)], Error>) -> Void
-    ) {
-        let completion = self.makeAsync(completion, on: callbackQueue)
-
+        observabilityScope: ObservabilityScope
+    ) async throws -> [String: (toolsVersion: ToolsVersion, content: String?)] {
         // first get the release metadata to see if archive is signed (therefore manifest is also signed)
-        self._getPackageVersionMetadata(
+        let versionMetadata = try await self._getPackageVersionMetadata(
             registry: registry,
             package: package,
             version: version,
             timeout: timeout,
             fileSystem: localFileSystem,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
-        ) { result in
-            switch result {
-            case .success(let versionMetadata):
-                guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
-                    return completion(.failure(RegistryError.invalidURL(registry.url)))
-                }
-                components.appendPathComponents(
-                    "\(package.scope)",
-                    "\(package.name)",
-                    "\(version)",
-                    Manifest.filename
-                )
-
-                guard let url = components.url else {
-                    return completion(.failure(RegistryError.invalidURL(registry.url)))
-                }
-
-                let request = LegacyHTTPClient.Request(
-                    method: .get,
-                    url: url,
-                    headers: [
-                        "Accept": self.acceptHeader(mediaType: .swift),
-                    ],
-                    options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
-                )
-
-                // signature validation helper
-                let signatureValidation = SignatureValidation(
-                    skipSignatureValidation: self.skipSignatureValidation,
-                    signingEntityStorage: self.signingEntityStorage,
-                    signingEntityCheckingMode: self.signingEntityCheckingMode,
-                    versionMetadataProvider: { _, _ in versionMetadata },
-                    delegate: RegistryClientSignatureValidationDelegate(underlying: self.delegate)
-                )
-
-                // checksum TOFU validation helper
-                let checksumTOFU = PackageVersionChecksumTOFU(
-                    fingerprintStorage: self.fingerprintStorage,
-                    fingerprintCheckingMode: self.fingerprintCheckingMode,
-                    versionMetadataProvider: { _, _ in versionMetadata }
-                )
-
-                let start = DispatchTime.now()
-                observabilityScope
-                    .emit(info: "retrieving available manifests for \(package) \(version) from \(request.url)")
-                self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
-                    switch result {
-                    case .success(let response):
-                        do {
-                            observabilityScope
-                                .emit(
-                                    debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-                                )
-                            switch response.statusCode {
-                            case 200:
-                                try response.validateAPIVersion()
-                                try response.validateContentType(.swift)
-
-                                guard let data = response.body else {
-                                    throw RegistryError.invalidResponse
-                                }
-                                let manifestContent = String(decoding: data, as: UTF8.self)
-
-                                signatureValidation.validate(
-                                    registry: registry,
-                                    package: package,
-                                    version: version,
-                                    toolsVersion: .none,
-                                    manifestContent: manifestContent,
-                                    configuration: self.configuration.signing(for: package, registry: registry),
-                                    timeout: timeout,
-                                    fileSystem: localFileSystem,
-                                    observabilityScope: observabilityScope,
-                                    callbackQueue: callbackQueue
-                                ) { signatureResult in
-                                    switch signatureResult {
-                                    case .success:
-                                        // TODO: expose Data based API on checksumAlgorithm
-                                        let actualChecksum = self.checksumAlgorithm.hash(.init(data))
-                                            .hexadecimalRepresentation
-
-                                        do {
-                                            try checksumTOFU.validateManifest(
-                                                registry: registry,
-                                                package: package,
-                                                version: version,
-                                                toolsVersion: .none,
-                                                checksum: actualChecksum,
-                                                timeout: timeout,
-                                                observabilityScope: observabilityScope
-                                            )
-                                            do {
-                                                var result =
-                                                    [String: (toolsVersion: ToolsVersion, content: String?)]()
-                                                let toolsVersion = try ToolsVersionParser
-                                                    .parse(utf8String: manifestContent)
-                                                result[Manifest.filename] = (
-                                                    toolsVersion: toolsVersion,
-                                                    content: manifestContent
-                                                )
-
-                                                let alternativeManifests = try response.headers.parseManifestLinks()
-                                                for alternativeManifest in alternativeManifests {
-                                                    result[alternativeManifest.filename] = (
-                                                        toolsVersion: alternativeManifest.toolsVersion,
-                                                        content: .none
-                                                    )
-                                                }
-                                                completion(.success(result))
-                                            } catch {
-                                                completion(.failure(
-                                                    RegistryError.failedRetrievingManifest(
-                                                        registry: registry,
-                                                        package: package.underlying,
-                                                        version: version,
-                                                        error: error
-                                                    )
-                                                ))
-                                            }
-                                        } catch {
-                                            completion(.failure(error))
-                                        }
-                                    case .failure(let error):
-                                        completion(.failure(error))
-                                    }
-                                }
-                            case 404:
-                                throw RegistryError.packageVersionNotFound
-                            default:
-                                throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
-                            }
-                        } catch {
-                            completion(.failure(
-                                RegistryError.failedRetrievingManifest(
-                                    registry: registry,
-                                    package: package.underlying,
-                                    version: version,
-                                    error: error
-                                )
-                            ))
-                        }
-                    case .failure(let error):
-                        completion(.failure(
-                            RegistryError.failedRetrievingManifest(
-                                registry: registry,
-                                package: package.underlying,
-                                version: version,
-                                error: error
-                            )
-                        ))
-                    }
-                }
-            case .failure(let error):
-                completion(.failure(error))
-            }
+            observabilityScope: observabilityScope
+        )
+        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
+            throw RegistryError.invalidURL(registry.url)
         }
-    }
-    public func getManifestContent(
-        package: PackageIdentity,
-        version: Version,
-        customToolsVersion: ToolsVersion?,
-        timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
-    ) async throws -> String {
-        try await withCheckedThrowingContinuation { continuation in
-            self.getManifestContent(
+        components.appendPathComponents(
+            "\(package.scope)",
+            "\(package.name)",
+            "\(version)",
+            Manifest.filename
+        )
+
+        guard let url = components.url else {
+            throw RegistryError.invalidURL(registry.url)
+        }
+
+        let request = HTTPClient.Request(
+            method: .get,
+            url: url,
+            headers: [
+                "Accept": self.acceptHeader(mediaType: .swift),
+            ],
+            options: self.defaultRequestOptions(timeout: timeout)
+        )
+
+        // signature validation helper
+        let signatureValidation = SignatureValidation(
+            skipSignatureValidation: self.skipSignatureValidation,
+            signingEntityStorage: self.signingEntityStorage,
+            signingEntityCheckingMode: self.signingEntityCheckingMode,
+            versionMetadataProvider: { _, _ in versionMetadata },
+            delegate: RegistryClientSignatureValidationDelegate(underlying: self.delegate)
+        )
+
+        // checksum TOFU validation helper
+        let checksumTOFU = PackageVersionChecksumTOFU(
+            fingerprintStorage: self.fingerprintStorage,
+            fingerprintCheckingMode: self.fingerprintCheckingMode,
+            versionMetadataProvider: { _, _ in versionMetadata }
+        )
+
+        let start = DispatchTime.now()
+        observabilityScope.emit(info: "retrieving available manifests for \(package) \(version) from \(request.url)")
+
+        let response: HTTPClientResponse
+        do {
+            response = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil)
+
+            observabilityScope.emit(
+                debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+            )
+        } catch {
+            throw RegistryError.failedRetrievingManifest(
+                registry: registry,
+                package: package.underlying,
+                version: version,
+                error: error
+            )
+        }
+
+        switch response.statusCode {
+        case 200:
+            let data: Data
+            let manifestContent: String
+
+            do {
+                try response.validateAPIVersion()
+                try response.validateContentType(.swift)
+
+                guard let responseBody = response.body else {
+                    throw RegistryError.invalidResponse
+                }
+                data = responseBody
+
+                manifestContent = String(decoding: data, as: UTF8.self)
+            } catch {
+                throw RegistryError.failedRetrievingManifest(
+                    registry: registry,
+                    package: package.underlying,
+                    version: version,
+                    error: error
+                )
+            }
+
+            _ = try await signatureValidation.validate(
+                registry: registry,
                 package: package,
                 version: version,
-                customToolsVersion: customToolsVersion,
+                toolsVersion: .none,
+                manifestContent: manifestContent,
+                configuration: self.configuration.signing(for: package, registry: registry),
                 timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: {
-                    continuation.resume(with: $0)
+                fileSystem: localFileSystem,
+                observabilityScope: observabilityScope
+            )
+
+            // TODO: expose Data based API on checksumAlgorithm
+            let actualChecksum = self.checksumAlgorithm.hash(.init(data))
+                .hexadecimalRepresentation
+
+            try checksumTOFU.validateManifest(
+                registry: registry,
+                package: package,
+                version: version,
+                toolsVersion: .none,
+                checksum: actualChecksum,
+                timeout: timeout,
+                observabilityScope: observabilityScope
+            )
+
+            do {
+                var result = [String: (toolsVersion: ToolsVersion, content: String?)]()
+                let toolsVersion = try ToolsVersionParser.parse(utf8String: manifestContent)
+                result[Manifest.filename] = (
+                    toolsVersion: toolsVersion,
+                    content: manifestContent
+                )
+
+                let alternativeManifests = try response.headers.parseManifestLinks()
+                for alternativeManifest in alternativeManifests {
+                    result[alternativeManifest.filename] = (
+                        toolsVersion: alternativeManifest.toolsVersion,
+                        content: .none
+                    )
                 }
+                return result
+            } catch {
+                throw RegistryError.failedRetrievingManifest(
+                    registry: registry,
+                    package: package.underlying,
+                    version: version,
+                    error: error
+                )
+            }
+
+        case 404:
+            throw RegistryError.failedRetrievingManifest(
+                registry: registry,
+                package: package.underlying,
+                version: version,
+                error: RegistryError.packageVersionNotFound
+            )
+
+        default:
+            throw RegistryError.failedRetrievingManifest(
+                registry: registry,
+                package: package.underlying,
+                version: version,
+                error: self.unexpectedStatusError(response, expectedStatus: [200, 404])
             )
         }
     }
 
-    @available(*, noasync, message: "Use the async alternative")
     public func getManifestContent(
         package: PackageIdentity,
         version: Version,
         customToolsVersion: ToolsVersion?,
         timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<String, Error>) -> Void
-    ) {
-        let completion = self.makeAsync(completion, on: callbackQueue)
-
+        observabilityScope: ObservabilityScope
+    ) async throws -> String {
         guard let registryIdentity = package.registry else {
-            return completion(.failure(RegistryError.invalidPackageIdentity(package)))
+            throw RegistryError.invalidPackageIdentity(package)
         }
 
         guard let registry = self.configuration.registry(for: registryIdentity.scope) else {
-            return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
+            throw RegistryError.registryNotConfigured(scope: registryIdentity.scope)
         }
 
         let underlying = {
-            self._getManifestContent(
+            try await self._getManifestContent(
                 registry: registry,
                 package: registryIdentity,
                 version: version,
                 customToolsVersion: customToolsVersion,
                 timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: completion
+                observabilityScope: observabilityScope
             )
         }
 
         if registry.supportsAvailability {
-            self.withAvailabilityCheck(
+            return try await self.withAvailabilityCheck(
                 registry: registry,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             ) { error in
                 if let error {
-                    return completion(.failure(error))
+                    throw error
                 }
-                underlying()
+                return try await underlying()
             }
         } else {
-            underlying()
+            return try await underlying()
         }
     }
 
@@ -837,207 +674,160 @@ public final class RegistryClient: Cancellable {
         version: Version,
         customToolsVersion: ToolsVersion?,
         timeout: DispatchTimeInterval?,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<String, Error>) -> Void
-    ) {
-        let completion = self.makeAsync(completion, on: callbackQueue)
-
+        observabilityScope: ObservabilityScope
+    ) async throws -> String {
         // first get the release metadata to see if archive is signed (therefore manifest is also signed)
-        self._getPackageVersionMetadata(
+        let versionMetadata = try await self._getPackageVersionMetadata(
             registry: registry,
             package: package,
             version: version,
             timeout: timeout,
             fileSystem: localFileSystem,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
-        ) { result in
-            switch result {
-            case .success(let versionMetadata):
-                guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
-                    return completion(.failure(RegistryError.invalidURL(registry.url)))
-                }
-                components.appendPathComponents(
-                    "\(package.scope)",
-                    "\(package.name)",
-                    "\(version)",
-                    Manifest.filename
-                )
-
-                if let toolsVersion = customToolsVersion {
-                    components.queryItems = [
-                        URLQueryItem(name: "swift-version", value: toolsVersion.description),
-                    ]
-                }
-
-                guard let url = components.url else {
-                    return completion(.failure(RegistryError.invalidURL(registry.url)))
-                }
-
-                let request = LegacyHTTPClient.Request(
-                    method: .get,
-                    url: url,
-                    headers: [
-                        "Accept": self.acceptHeader(mediaType: .swift),
-                    ],
-                    options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
-                )
-
-                // signature validation helper
-                let signatureValidation = SignatureValidation(
-                    skipSignatureValidation: self.skipSignatureValidation,
-                    signingEntityStorage: self.signingEntityStorage,
-                    signingEntityCheckingMode: self.signingEntityCheckingMode,
-                    versionMetadataProvider: { _, _ in versionMetadata },
-                    delegate: RegistryClientSignatureValidationDelegate(underlying: self.delegate)
-                )
-
-                // checksum TOFU validation helper
-                let checksumTOFU = PackageVersionChecksumTOFU(
-                    fingerprintStorage: self.fingerprintStorage,
-                    fingerprintCheckingMode: self.fingerprintCheckingMode,
-                    versionMetadataProvider: { _, _ in versionMetadata }
-                )
-
-                let start = DispatchTime.now()
-                observabilityScope.emit(info: "retrieving \(package) \(version) manifest from \(request.url)")
-                self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
-                    switch result {
-                    case .success(let response):
-                        do {
-                            observabilityScope
-                                .emit(
-                                    debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-                                )
-                            switch response.statusCode {
-                            case 200:
-                                try response.validateAPIVersion(isOptional: true)
-                                try response.validateContentType(.swift)
-
-                                guard let data = response.body else {
-                                    throw RegistryError.invalidResponse
-                                }
-                                let manifestContent = String(decoding: data, as: UTF8.self)
-
-                                signatureValidation.validate(
-                                    registry: registry,
-                                    package: package,
-                                    version: version,
-                                    toolsVersion: customToolsVersion,
-                                    manifestContent: manifestContent,
-                                    configuration: self.configuration.signing(for: package, registry: registry),
-                                    timeout: timeout,
-                                    fileSystem: localFileSystem,
-                                    observabilityScope: observabilityScope,
-                                    callbackQueue: callbackQueue
-                                ) { signatureResult in
-                                    switch signatureResult {
-                                    case .success:
-                                        // TODO: expose Data based API on checksumAlgorithm
-                                        let actualChecksum = self.checksumAlgorithm.hash(.init(data))
-                                            .hexadecimalRepresentation
-
-                                        do {
-                                            try checksumTOFU.validateManifest(
-                                                registry: registry,
-                                                package: package,
-                                                version: version,
-                                                toolsVersion: customToolsVersion,
-                                                checksum: actualChecksum,
-                                                timeout: timeout,
-                                                observabilityScope: observabilityScope
-                                            )
-                                            completion(.success(manifestContent))
-                                        } catch {
-                                            completion(.failure(error))
-                                        }
-                                    case .failure(let error):
-                                        completion(.failure(error))
-                                    }
-                                }
-                            case 404:
-                                throw RegistryError.packageVersionNotFound
-                            default:
-                                throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
-                            }
-                        } catch {
-                            completion(.failure(
-                                RegistryError.failedRetrievingManifest(
-                                    registry: registry,
-                                    package: package.underlying,
-                                    version: version,
-                                    error: error
-                                )
-                            ))
-                        }
-                    case .failure(let error):
-                        completion(.failure(
-                            RegistryError.failedRetrievingManifest(
-                                registry: registry,
-                                package: package.underlying,
-                                version: version,
-                                error: error
-                            )
-                        ))
-                    }
-                }
-            case .failure(let error):
-                completion(.failure(error))
-            }
+            observabilityScope: observabilityScope
+        )
+        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
+            throw RegistryError.invalidURL(registry.url)
         }
-    }
-    public func downloadSourceArchive(
-        package: PackageIdentity,
-        version: Version,
-        destinationPath: AbsolutePath,
-        progressHandler: (@Sendable (_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
-        timeout: DispatchTimeInterval? = .none,
-        fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
-    ) async throws {
-        try await withCheckedThrowingContinuation { continuation in
-            self.downloadSourceArchive(
-                package: package,
+        components.appendPathComponents(
+            "\(package.scope)",
+            "\(package.name)",
+            "\(version)",
+            Manifest.filename
+        )
+
+        if let toolsVersion = customToolsVersion {
+            components.queryItems = [
+                URLQueryItem(name: "swift-version", value: toolsVersion.description),
+            ]
+        }
+
+        guard let url = components.url else {
+            throw RegistryError.invalidURL(registry.url)
+        }
+
+        let request = HTTPClient.Request(
+            method: .get,
+            url: url,
+            headers: [
+                "Accept": self.acceptHeader(mediaType: .swift),
+            ],
+            options: self.defaultRequestOptions(timeout: timeout)
+        )
+
+        // signature validation helper
+        let signatureValidation = SignatureValidation(
+            skipSignatureValidation: self.skipSignatureValidation,
+            signingEntityStorage: self.signingEntityStorage,
+            signingEntityCheckingMode: self.signingEntityCheckingMode,
+            versionMetadataProvider: { _, _ in versionMetadata },
+            delegate: RegistryClientSignatureValidationDelegate(underlying: self.delegate)
+        )
+
+        // checksum TOFU validation helper
+        let checksumTOFU = PackageVersionChecksumTOFU(
+            fingerprintStorage: self.fingerprintStorage,
+            fingerprintCheckingMode: self.fingerprintCheckingMode,
+            versionMetadataProvider: { _, _ in versionMetadata }
+        )
+
+        let start = DispatchTime.now()
+        observabilityScope.emit(info: "retrieving \(package) \(version) manifest from \(request.url)")
+
+        let response: HTTPClientResponse
+        do {
+            response = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil)
+            observabilityScope.emit(
+                debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+            )
+        } catch {
+            throw RegistryError.failedRetrievingManifest(
+                registry: registry,
+                package: package.underlying,
                 version: version,
-                destinationPath: destinationPath,
-                progressHandler: progressHandler,
-                timeout: timeout,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: {
-                    continuation.resume(with: $0)
-                }
+                error: error
             )
         }
+
+            switch response.statusCode {
+            case 200:
+                let data: Data
+
+                do {
+                    try response.validateAPIVersion(isOptional: true)
+                    try response.validateContentType(.swift)
+
+                    guard let responseBody = response.body else {
+                        throw RegistryError.invalidResponse
+                    }
+
+                    data = responseBody
+                }
+
+                let manifestContent = String(decoding: data, as: UTF8.self)
+                _ = try await signatureValidation.validate(
+                    registry: registry,
+                    package: package,
+                    version: version,
+                    toolsVersion: customToolsVersion,
+                    manifestContent: manifestContent,
+                    configuration: self.configuration.signing(for: package, registry: registry),
+                    timeout: timeout,
+                    fileSystem: localFileSystem,
+                    observabilityScope: observabilityScope
+                )
+
+                // TODO: expose Data based API on checksumAlgorithm
+                let actualChecksum = self.checksumAlgorithm.hash(.init(data)).hexadecimalRepresentation
+
+                try checksumTOFU.validateManifest(
+                    registry: registry,
+                    package: package,
+                    version: version,
+                    toolsVersion: customToolsVersion,
+                    checksum: actualChecksum,
+                    timeout: timeout,
+                    observabilityScope: observabilityScope
+                )
+
+                return manifestContent
+
+            case 404:
+                throw RegistryError.failedRetrievingManifest(
+                    registry: registry,
+                    package: package.underlying,
+                    version: version,
+                    error: RegistryError.packageVersionNotFound
+                )
+            default:
+                throw RegistryError.failedRetrievingManifest(
+                    registry: registry,
+                    package: package.underlying,
+                    version: version,
+                    error: self.unexpectedStatusError(response, expectedStatus: [200, 404])
+                )
+            }
+
     }
 
-    @available(*, noasync, message: "Use the async alternative")
     public func downloadSourceArchive(
         package: PackageIdentity,
         version: Version,
         destinationPath: AbsolutePath,
         progressHandler: (@Sendable (_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
-        timeout: DispatchTimeInterval? = .none,
+        timeout: DispatchTimeInterval? = nil,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
-        let completion = self.makeAsync(completion, on: callbackQueue)
-
+        observabilityScope: ObservabilityScope
+    ) async throws {
         guard let registryIdentity = package.registry else {
-            return completion(.failure(RegistryError.invalidPackageIdentity(package)))
+            throw RegistryError.invalidPackageIdentity(package)
         }
 
         guard let registry = self.configuration.registry(for: registryIdentity.scope) else {
-            return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
+            throw RegistryError.registryNotConfigured(scope: registryIdentity.scope)
         }
 
         let underlying = {
-            self._downloadSourceArchive(
+            try await self._downloadSourceArchive(
                 registry: registry,
                 package: registryIdentity,
                 version: version,
@@ -1045,25 +835,22 @@ public final class RegistryClient: Cancellable {
                 progressHandler: progressHandler,
                 timeout: timeout,
                 fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: completion
+                observabilityScope: observabilityScope
             )
         }
 
         if registry.supportsAvailability {
-            self.withAvailabilityCheck(
+            try await self.withAvailabilityCheck(
                 registry: registry,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             ) { error in
                 if let error {
-                    return completion(.failure(error))
+                    throw error
                 }
-                underlying()
+                try await underlying()
             }
         } else {
-            underlying()
+            try await underlying()
         }
     }
 
@@ -1076,293 +863,224 @@ public final class RegistryClient: Cancellable {
         progressHandler: (@Sendable (_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
         timeout: DispatchTimeInterval?,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
-        let completion = self.makeAsync(completion, on: callbackQueue)
-
+        observabilityScope: ObservabilityScope
+    ) async throws {
         // first get the release metadata
         // TODO: this should be included in the archive to save the extra HTTP call
-        self._getPackageVersionMetadata(
+        let versionMetadata = try await self._getPackageVersionMetadata(
             registry: registry,
             package: package,
             version: version,
             timeout: timeout,
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
-        ) { result in
-            switch result {
-            case .success(let versionMetadata):
-                // download archive
-                guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
-                    return completion(.failure(RegistryError.invalidURL(registry.url)))
-                }
-                components.appendPathComponents("\(package.scope)", "\(package.name)", "\(version).zip")
+            observabilityScope: observabilityScope
+        )
 
-                guard let url = components.url else {
-                    return completion(.failure(RegistryError.invalidURL(registry.url)))
-                }
-
-                // prepare target download locations
-                let downloadPath = destinationPath.appending(extension: "zip")
-                do {
-                    // prepare directories
-                    if !fileSystem.exists(downloadPath.parentDirectory) {
-                        try fileSystem.createDirectory(downloadPath.parentDirectory, recursive: true)
-                    }
-                    // clear out download path if exists
-                    try fileSystem.removeFileTree(downloadPath)
-                    // validate that the destination does not already exist
-                    guard !fileSystem.exists(destinationPath) else {
-                        throw RegistryError.pathAlreadyExists(destinationPath)
-                    }
-                } catch {
-                    return completion(.failure(error))
-                }
-
-                // signature validation helper
-                let signatureValidation = SignatureValidation(
-                    skipSignatureValidation: self.skipSignatureValidation,
-                    signingEntityStorage: self.signingEntityStorage,
-                    signingEntityCheckingMode: self.signingEntityCheckingMode,
-                    versionMetadataProvider: { _, _ in versionMetadata },
-                    delegate: RegistryClientSignatureValidationDelegate(underlying: self.delegate)
-                )
-
-                // checksum TOFU validation helper
-                let checksumTOFU = PackageVersionChecksumTOFU(
-                    fingerprintStorage: self.fingerprintStorage,
-                    fingerprintCheckingMode: self.fingerprintCheckingMode,
-                    versionMetadataProvider: { _, _ in versionMetadata }
-                )
-
-                let request = LegacyHTTPClient.Request.download(
-                    url: url,
-                    headers: [
-                        "Accept": self.acceptHeader(mediaType: .zip),
-                    ],
-                    options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue),
-                    fileSystem: fileSystem,
-                    destination: downloadPath
-                )
-
-                let downloadStart = DispatchTime.now()
-                observabilityScope.emit(info: "downloading \(package) \(version) source archive from \(request.url)")
-                self.httpClient
-                    .execute(request, observabilityScope: observabilityScope, progress: progressHandler) { result in
-                        switch result {
-                        case .success(let response):
-                            do {
-                                observabilityScope
-                                    .emit(
-                                        debug: "server response for \(request.url): \(response.statusCode) in \(downloadStart.distance(to: .now()).descriptionInSeconds)"
-                                    )
-                                switch response.statusCode {
-                                case 200:
-                                    try response.validateAPIVersion(isOptional: true)
-                                    try response.validateContentType(.zip)
-
-                                    do {
-                                        let archiveContent: Data = try fileSystem.readFileContents(downloadPath)
-                                        // TODO: expose Data based API on checksumAlgorithm
-                                        let actualChecksum = self.checksumAlgorithm.hash(.init(archiveContent))
-                                            .hexadecimalRepresentation
-
-                                        observabilityScope
-                                            .emit(
-                                                debug: "performing TOFU checks on \(package) \(version) source archive (checksum: '\(actualChecksum)'"
-                                            )
-                                        signatureValidation.validate(
-                                            registry: registry,
-                                            package: package,
-                                            version: version,
-                                            content: archiveContent,
-                                            configuration: self.configuration.signing(for: package, registry: registry),
-                                            timeout: timeout,
-                                            fileSystem: fileSystem,
-                                            observabilityScope: observabilityScope,
-                                            callbackQueue: callbackQueue
-                                        ) { signatureResult in
-                                            switch signatureResult {
-                                            case .success(let signingEntity):
-                                                checksumTOFU.validateSourceArchive(
-                                                    registry: registry,
-                                                    package: package,
-                                                    version: version,
-                                                    checksum: actualChecksum,
-                                                    timeout: timeout,
-                                                    observabilityScope: observabilityScope,
-                                                    callbackQueue: callbackQueue
-                                                ) { checksumResult in
-                                                    switch checksumResult {
-                                                    case .success:
-                                                        do {
-                                                            // validate that the destination does not already exist
-                                                            // (again, as this
-                                                            // is
-                                                            // async)
-                                                            guard !fileSystem.exists(destinationPath) else {
-                                                                throw RegistryError.pathAlreadyExists(destinationPath)
-                                                            }
-                                                            try fileSystem.createDirectory(
-                                                                destinationPath,
-                                                                recursive: true
-                                                            )
-                                                            // extract the content
-                                                            let extractStart = DispatchTime.now()
-                                                            observabilityScope
-                                                                .emit(
-                                                                    debug: "extracting \(package) \(version) source archive to '\(destinationPath)'"
-                                                                )
-                                                            let archiver = self.archiverProvider(fileSystem)
-                                                            // TODO: Bail if archive contains relative paths or overlapping files
-                                                            archiver
-                                                                .extract(
-                                                                    from: downloadPath,
-                                                                    to: destinationPath
-                                                                ) { result in
-                                                                    defer {
-                                                                        try? fileSystem.removeFileTree(downloadPath)
-                                                                    }
-                                                                    observabilityScope
-                                                                        .emit(
-                                                                            debug: "extracted \(package) \(version) source archive to '\(destinationPath)' in \(extractStart.distance(to: .now()).descriptionInSeconds)"
-                                                                        )
-                                                                    completion(result.tryMap {
-                                                                        // strip first level component
-                                                                        try fileSystem
-                                                                            .stripFirstLevel(of: destinationPath)
-                                                                        // write down copy of version metadata
-                                                                        let registryMetadataPath = destinationPath
-                                                                            .appending(
-                                                                                component: RegistryReleaseMetadataStorage
-                                                                                    .fileName
-                                                                            )
-                                                                        observabilityScope
-                                                                            .emit(
-                                                                                debug: "saving \(package) \(version) metadata to '\(registryMetadataPath)'"
-                                                                            )
-                                                                        try RegistryReleaseMetadataStorage.save(
-                                                                            metadata: versionMetadata,
-                                                                            signingEntity: signingEntity,
-                                                                            to: registryMetadataPath,
-                                                                            fileSystem: fileSystem
-                                                                        )
-                                                                    }.mapError { error in
-                                                                        StringError(
-                                                                            "failed extracting '\(downloadPath)' to '\(destinationPath)': \(error.interpolationDescription)"
-                                                                        )
-                                                                    })
-                                                                }
-                                                        } catch {
-                                                            completion(.failure(
-                                                                RegistryError
-                                                                    .failedDownloadingSourceArchive(
-                                                                        registry: registry,
-                                                                        package: package.underlying,
-                                                                        version: version,
-                                                                        error: error
-                                                                    )
-                                                            ))
-                                                        }
-                                                    case .failure(let error):
-                                                        completion(.failure(error))
-                                                    }
-                                                }
-                                            case .failure(let error):
-                                                completion(.failure(error))
-                                            }
-                                        }
-                                    } catch {
-                                        throw RegistryError.failedToComputeChecksum(error)
-                                    }
-                                case 404:
-                                    throw RegistryError.packageVersionNotFound
-                                default:
-                                    throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
-                                }
-                            } catch {
-                                completion(.failure(RegistryError.failedDownloadingSourceArchive(
-                                    registry: registry,
-                                    package: package.underlying,
-                                    version: version,
-                                    error: error
-                                )))
-                            }
-                        case .failure(let error):
-                            completion(.failure(RegistryError.failedDownloadingSourceArchive(
-                                registry: registry,
-                                package: package.underlying,
-                                version: version,
-                                error: error
-                            )))
-                        }
-                    }
-            case .failure(let error):
-                completion(.failure(error))
-            }
+        // download archive
+        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
+            throw RegistryError.invalidURL(registry.url)
         }
-    }
+        components.appendPathComponents("\(package.scope)", "\(package.name)", "\(version).zip")
 
-    public func lookupIdentities(
-        scmURL: SourceControlURL,
-        timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
-    ) async throws -> Set<PackageIdentity> {
-        try await withCheckedThrowingContinuation { continuation in
-            self.lookupIdentities(
-                scmURL: scmURL,
-                timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: {
-                    continuation.resume(with: $0)
-                }
+        guard let url = components.url else {
+            throw RegistryError.invalidURL(registry.url)
+        }
+
+        // prepare target download locations
+        let downloadPath = destinationPath.appending(extension: "zip")
+        // prepare directories
+        if !fileSystem.exists(downloadPath.parentDirectory) {
+            try fileSystem.createDirectory(downloadPath.parentDirectory, recursive: true)
+        }
+        // clear out download path if exists
+        try fileSystem.removeFileTree(downloadPath)
+        // validate that the destination does not already exist
+        guard !fileSystem.exists(destinationPath) else {
+            throw RegistryError.pathAlreadyExists(destinationPath)
+        }
+
+        // signature validation helper
+        let signatureValidation = SignatureValidation(
+            skipSignatureValidation: self.skipSignatureValidation,
+            signingEntityStorage: self.signingEntityStorage,
+            signingEntityCheckingMode: self.signingEntityCheckingMode,
+            versionMetadataProvider: { _, _ in versionMetadata },
+            delegate: RegistryClientSignatureValidationDelegate(underlying: self.delegate)
+        )
+
+        // checksum TOFU validation helper
+        let checksumTOFU = PackageVersionChecksumTOFU(
+            fingerprintStorage: self.fingerprintStorage,
+            fingerprintCheckingMode: self.fingerprintCheckingMode,
+            versionMetadataProvider: { _, _ in versionMetadata }
+        )
+
+        let request = HTTPClient.Request.download(
+            url: url,
+            headers: [
+                "Accept": self.acceptHeader(mediaType: .zip),
+            ],
+            options: self.defaultRequestOptions(timeout: timeout),
+            fileSystem: fileSystem,
+            destination: downloadPath
+        )
+
+        let downloadStart = DispatchTime.now()
+        observabilityScope.emit(info: "downloading \(package) \(version) source archive from \(request.url)")
+
+        let response: HTTPClientResponse
+        do {
+            response = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: progressHandler)
+            observabilityScope.emit(
+                debug: "server response for \(request.url): \(response.statusCode) in \(downloadStart.distance(to: .now()).descriptionInSeconds)"
             )
-        }
-    }
-
-    @available(*, noasync, message: "Use the async alternative")
-    public func lookupIdentities(
-        scmURL: SourceControlURL,
-        timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Set<PackageIdentity>, Error>) -> Void
-    ) {
-        let completion = self.makeAsync(completion, on: callbackQueue)
-
-        guard let registry = self.configuration.defaultRegistry else {
-            return completion(.failure(RegistryError.registryNotConfigured(scope: nil)))
-        }
-
-        let underlying = {
-            self._lookupIdentities(
+        } catch {
+            throw RegistryError.failedDownloadingSourceArchive(
                 registry: registry,
-                scmURL: scmURL,
-                timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: completion
+                package: package.underlying,
+                version: version,
+                error: error
             )
+        }
+
+        switch response.statusCode {
+        case 200:
+            try response.validateAPIVersion(isOptional: true)
+            try response.validateContentType(.zip)
+
+            let archiveContent: Data = try fileSystem.readFileContents(downloadPath)
+            // TODO: expose Data based API on checksumAlgorithm
+            let actualChecksum = self.checksumAlgorithm.hash(.init(archiveContent)).hexadecimalRepresentation
+
+            observabilityScope.emit(
+                debug: "performing TOFU checks on \(package) \(version) source archive (checksum: '\(actualChecksum)')"
+            )
+            let signingEntity = try await signatureValidation.validate(
+                registry: registry,
+                package: package,
+                version: version,
+                content: archiveContent,
+                configuration: self.configuration.signing(for: package, registry: registry),
+                timeout: timeout,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope
+            )
+
+            try await checksumTOFU.validateSourceArchive(
+                registry: registry,
+                package: package,
+                version: version,
+                checksum: actualChecksum,
+                timeout: timeout,
+                observabilityScope: observabilityScope
+            )
+
+            do {
+                // validate that the destination does not already exist
+                // (again, as this is async)
+                guard !fileSystem.exists(destinationPath) else {
+                    throw RegistryError.pathAlreadyExists(destinationPath)
+                }
+                try fileSystem.createDirectory(
+                    destinationPath,
+                    recursive: true
+                )
+                // extract the content
+                let extractStart = DispatchTime.now()
+                observabilityScope.emit(
+                    debug: "extracting \(package) \(version) source archive to '\(destinationPath)'"
+                )
+                let archiver = self.archiverProvider(fileSystem)
+
+                do {
+                    // TODO: Bail if archive contains relative paths or overlapping files
+                    try await archiver.extract(from: downloadPath, to: destinationPath)
+                    defer {
+                        try? fileSystem.removeFileTree(downloadPath)
+                    }
+                    observabilityScope.emit(
+                        debug: "extracted \(package) \(version) source archive to '\(destinationPath)' in \(extractStart.distance(to: .now()).descriptionInSeconds)"
+                    )
+
+                    // strip first level component
+                    try fileSystem
+                        .stripFirstLevel(of: destinationPath)
+                    // write down copy of version metadata
+                    let registryMetadataPath = destinationPath.appending(
+                        component: RegistryReleaseMetadataStorage.fileName
+                    )
+                    observabilityScope.emit(
+                        debug: "saving \(package) \(version) metadata to '\(registryMetadataPath)'"
+                    )
+                    try RegistryReleaseMetadataStorage.save(
+                        metadata: versionMetadata,
+                        signingEntity: signingEntity,
+                        to: registryMetadataPath,
+                        fileSystem: fileSystem
+                    )
+                } catch {
+                    throw StringError(
+                        "failed extracting '\(downloadPath)' to '\(destinationPath)': \(error.interpolationDescription)"
+                    )
+                }
+            } catch {
+                throw RegistryError.failedDownloadingSourceArchive(
+                    registry: registry,
+                    package: package.underlying,
+                    version: version,
+                    error: error
+                )
+            }
+        case 404:
+            throw RegistryError.failedDownloadingSourceArchive(
+                registry: registry,
+                package: package.underlying,
+                version: version,
+                error: RegistryError.packageVersionNotFound
+            )
+
+        default:
+            throw RegistryError.failedDownloadingSourceArchive(
+                registry: registry,
+                package: package.underlying,
+                version: version,
+                error: self.unexpectedStatusError(response, expectedStatus: [200, 404])
+            )
+        }
+    }
+
+    public func lookupIdentities(
+        scmURL: SourceControlURL,
+        timeout: DispatchTimeInterval? = .none,
+        observabilityScope: ObservabilityScope
+    ) async throws -> Set<PackageIdentity> {
+        guard let registry = self.configuration.defaultRegistry else {
+            throw RegistryError.registryNotConfigured(scope: nil)
         }
 
         if registry.supportsAvailability {
-            self.withAvailabilityCheck(
+            return try await self.withAvailabilityCheck(
                 registry: registry,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             ) { error in
                 if let error {
-                    return completion(.failure(error))
+                   throw error
                 }
-                underlying()
+
+                return try await self._lookupIdentities(
+                    registry: registry,
+                    scmURL: scmURL,
+                    timeout: timeout,
+                    observabilityScope: observabilityScope
+                )
             }
         } else {
-            underlying()
+            return try await self._lookupIdentities(
+                registry: registry,
+                scmURL: scmURL,
+                timeout: timeout,
+                observabilityScope: observabilityScope
+            )
         }
     }
 
@@ -1371,14 +1089,10 @@ public final class RegistryClient: Cancellable {
         registry: Registry,
         scmURL: SourceControlURL,
         timeout: DispatchTimeInterval?,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Set<PackageIdentity>, Error>) -> Void
-    ) {
-        let completion = self.makeAsync(completion, on: callbackQueue)
-
+        observabilityScope: ObservabilityScope
+    ) async throws -> Set<PackageIdentity> {
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
-            return completion(.failure(RegistryError.invalidURL(registry.url)))
+            throw RegistryError.invalidURL(registry.url)
         }
         components.appendPathComponents("identifiers")
 
@@ -1387,143 +1101,78 @@ public final class RegistryClient: Cancellable {
         ]
 
         guard let url = components.url else {
-            return completion(.failure(RegistryError.invalidURL(registry.url)))
+            throw RegistryError.invalidURL(registry.url)
         }
 
-        let request = LegacyHTTPClient.Request(
+        let request = HTTPClient.Request(
             method: .get,
             url: url,
             headers: [
                 "Accept": self.acceptHeader(mediaType: .json),
             ],
-            options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
+            options: self.defaultRequestOptions(timeout: timeout)
         )
 
         let start = DispatchTime.now()
         observabilityScope.emit(info: "looking up identity for \(scmURL) from \(request.url)")
-        self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
-            completion(
-                result.tryMap { response in
-                    observabilityScope
-                        .emit(
-                            debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-                        )
-                    switch response.statusCode {
-                    case 200:
-                        let packageIdentities = try response.parseJSON(
-                            Serialization.PackageIdentifiers.self,
-                            decoder: self.jsonDecoder
-                        )
-                        observabilityScope.emit(debug: "matched identities for \(scmURL): \(packageIdentities)")
-                        return Set(packageIdentities.identifiers.map {
-                            PackageIdentity.plain($0)
-                        })
-                    case 404:
-                        // 404 is valid, no identities mapped
-                        return []
-                    default:
-                        throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
-                    }
-                }.mapError {
-                    RegistryError.failedIdentityLookup(registry: registry, scmURL: scmURL, error: $0)
-                }
+
+        do {
+            let response = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil)
+            observabilityScope.emit(
+                debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
             )
+            switch response.statusCode {
+            case 200:
+                let packageIdentities = try response.parseJSON(
+                    Serialization.PackageIdentifiers.self,
+                    decoder: self.jsonDecoder
+                )
+                observabilityScope.emit(debug: "matched identities for \(scmURL): \(packageIdentities)")
+                return Set(packageIdentities.identifiers.map {
+                    PackageIdentity.plain($0)
+                })
+            case 404:
+                // 404 is valid, no identities mapped
+                return []
+            default:
+                throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
+            }
+        } catch {
+            throw RegistryError.failedIdentityLookup(registry: registry, scmURL: scmURL, error: error)
         }
     }
 
     public func login(
         loginURL: URL,
         timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws {
-        try await withCheckedThrowingContinuation { continuation in
-            self.login(
-                loginURL: loginURL,
-                timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: {
-                    continuation.resume(with: $0)
-                }
-            )
-        }
-    }
-
-    @available(*, noasync, message: "Use the async alternative")
-    public func login(
-        loginURL: URL,
-        timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
-        let completion = self.makeAsync(completion, on: callbackQueue)
-
-        let request = LegacyHTTPClient.Request(
+        let request = HTTPClient.Request(
             method: .post,
             url: loginURL,
-            options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
+            options: self.defaultRequestOptions(timeout: timeout)
         )
 
         let start = DispatchTime.now()
         observabilityScope.emit(info: "logging-in into \(request.url)")
-        self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
-            switch result {
-            case .success(let response):
-                observabilityScope
-                    .emit(
-                        debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-                    )
-                switch response.statusCode {
-                case 200:
-                    return completion(.success(()))
-                default:
-                    let error = self.unexpectedStatusError(response, expectedStatus: [200])
-                    return completion(.failure(RegistryError.loginFailed(url: loginURL, error: error)))
-                }
-            case .failure(let error):
-                return completion(.failure(RegistryError.loginFailed(url: loginURL, error: error)))
-            }
-        }
-    }
 
-    public func publish(
-        registryURL: URL,
-        packageIdentity: PackageIdentity,
-        packageVersion: Version,
-        packageArchive: AbsolutePath,
-        packageMetadata: AbsolutePath?,
-        signature: [UInt8]?,
-        metadataSignature: [UInt8]?,
-        signatureFormat: SignatureFormat?,
-        timeout: DispatchTimeInterval? = .none,
-        fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
-    ) async throws -> PublishResult  {
-        try await withCheckedThrowingContinuation { continuation in
-            self.publish(
-                registryURL: registryURL,
-                packageIdentity: packageIdentity,
-                packageVersion: packageVersion,
-                packageArchive: packageArchive,
-                packageMetadata: packageMetadata,
-                signature: signature,
-                metadataSignature: metadataSignature,
-                signatureFormat: signatureFormat,
-                timeout: timeout,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: {
-                    continuation.resume(with: $0)
-                }
+        do {
+            let response = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil)
+            observabilityScope.emit(
+                debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
             )
+            switch response.statusCode {
+            case 200:
+                return
+            default:
+                let error = self.unexpectedStatusError(response, expectedStatus: [200])
+                throw RegistryError.loginFailed(url: loginURL, error: error)
+            }
+        } catch {
+            throw RegistryError.loginFailed(url: loginURL, error: error)
         }
     }
 
-    @available(*, noasync, message: "Use the async alternative")
     public func publish(
         registryURL: URL,
         packageIdentity: PackageIdentity,
@@ -1535,36 +1184,32 @@ public final class RegistryClient: Cancellable {
         signatureFormat: SignatureFormat?,
         timeout: DispatchTimeInterval? = .none,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<PublishResult, Error>) -> Void
-    ) {
-        let completion = self.makeAsync(completion, on: callbackQueue)
-
+        observabilityScope: ObservabilityScope
+    ) async throws -> PublishResult {
         guard let registryIdentity = packageIdentity.registry else {
-            return completion(.failure(RegistryError.invalidPackageIdentity(packageIdentity)))
+            throw RegistryError.invalidPackageIdentity(packageIdentity)
         }
         guard var components = URLComponents(url: registryURL, resolvingAgainstBaseURL: true) else {
-            return completion(.failure(RegistryError.invalidURL(registryURL)))
+            throw RegistryError.invalidURL(registryURL)
         }
         components.appendPathComponents(registryIdentity.scope.description)
         components.appendPathComponents(registryIdentity.name.description)
         components.appendPathComponents(packageVersion.description)
 
         guard let url = components.url else {
-            return completion(.failure(RegistryError.invalidURL(registryURL)))
+            throw RegistryError.invalidURL(registryURL)
         }
 
         // TODO: don't load the entire file in memory
         guard let packageArchiveContent: Data = try? fileSystem.readFileContents(packageArchive) else {
-            return completion(.failure(RegistryError.failedLoadingPackageArchive(packageArchive)))
+            throw RegistryError.failedLoadingPackageArchive(packageArchive)
         }
         var metadataContent: String? = .none
         if let packageMetadata {
             do {
                 metadataContent = try fileSystem.readFileContents(packageMetadata)
             } catch {
-                return completion(.failure(RegistryError.failedLoadingPackageMetadata(packageMetadata)))
+                throw RegistryError.failedLoadingPackageMetadata(packageMetadata)
             }
         }
 
@@ -1584,7 +1229,7 @@ public final class RegistryClient: Cancellable {
 
         if let signature {
             guard signatureFormat != nil else {
-                return completion(.failure(RegistryError.missingSignatureFormat))
+                throw RegistryError.missingSignatureFormat
             }
 
             body.append(contentsOf: """
@@ -1612,20 +1257,17 @@ public final class RegistryClient: Cancellable {
 
             if signature != nil {
                 guard metadataSignature != nil else {
-                    return completion(.failure(
-                        RegistryError.invalidSignature(reason: "both archive and metadata must be signed")
-                    ))
+                    throw RegistryError.invalidSignature(reason: "both archive and metadata must be signed")
                 }
             }
 
             if let metadataSignature {
                 guard signature != nil else {
-                    return completion(.failure(
-                        RegistryError.invalidSignature(reason: "both archive and metadata must be signed")
-                    ))
+                    throw RegistryError.invalidSignature(reason: "both archive and metadata must be signed")
                 }
+
                 guard signatureFormat != nil else {
-                    return completion(.failure(RegistryError.missingSignatureFormat))
+                    throw RegistryError.missingSignatureFormat
                 }
 
                 body.append(contentsOf: """
@@ -1643,7 +1285,7 @@ public final class RegistryClient: Cancellable {
         // footer
         body.append(contentsOf: "\r\n--\(boundary)--\r\n".utf8)
 
-        var request = LegacyHTTPClient.Request(
+        var request = HTTPClient.Request(
             method: .put,
             url: url,
             headers: [
@@ -1653,7 +1295,7 @@ public final class RegistryClient: Cancellable {
                 "Prefer": "respond-async",
             ],
             body: body,
-            options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
+            options: self.defaultRequestOptions(timeout: timeout)
         )
 
         if signature != nil, let signatureFormat {
@@ -1662,146 +1304,121 @@ public final class RegistryClient: Cancellable {
 
         let start = DispatchTime.now()
         observabilityScope.emit(info: "publishing \(packageIdentity) \(packageVersion) to \(request.url)")
-        self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
-            completion(
-                result.tryMap { response in
-                    observabilityScope
-                        .emit(
-                            debug: "server response for \(url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-                        )
-                    switch response.statusCode {
-                    case 201:
-                        try response.validateAPIVersion()
-                        let location = response.headers.get("Location").first.flatMap { URL(string: $0) }
-                        return PublishResult.published(location)
-                    case 202:
-                        try response.validateAPIVersion()
 
-                        guard let location = (response.headers.get("Location").first.flatMap { URL(string: $0) }) else {
-                            throw RegistryError.missingPublishingLocation
-                        }
-                        let retryAfter = response.headers.get("Retry-After").first.flatMap { Int($0) }
-                        return PublishResult.processing(statusURL: location, retryAfter: retryAfter)
-                    default:
-                        throw self.unexpectedStatusError(response, expectedStatus: [201, 202])
-                    }
-                }.mapError {
-                    RegistryError.failedPublishing($0)
-                }
+        do {
+            let response = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil)
+            observabilityScope.emit(
+                debug: "server response for \(url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
             )
-        }
-    }
 
-    func checkAvailability(
-        registry: Registry,
-        timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
-    ) async throws -> AvailabilityStatus {
-        try await withCheckedThrowingContinuation { continuation in
-            self.checkAvailability(
-                registry: registry,
-                timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: {
-                    continuation.resume(with: $0)
+            switch response.statusCode {
+            case 201:
+                try response.validateAPIVersion()
+                let location = response.headers.get("Location").first.flatMap { URL(string: $0) }
+                return PublishResult.published(location)
+            case 202:
+                try response.validateAPIVersion()
+
+                guard let location = (response.headers.get("Location").first.flatMap { URL(string: $0) }) else {
+                    throw RegistryError.missingPublishingLocation
                 }
-            )
+                let retryAfter = response.headers.get("Retry-After").first.flatMap { Int($0) }
+                return PublishResult.processing(statusURL: location, retryAfter: retryAfter)
+            default:
+                throw self.unexpectedStatusError(response, expectedStatus: [201, 202])
+            }
+        } catch {
+            throw RegistryError.failedPublishing(error)
         }
     }
 
     // marked internal for testing
-    @available(*, noasync, message: "Use the async alternative")
     func checkAvailability(
         registry: Registry,
         timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<AvailabilityStatus, Error>) -> Void
-    ) {
-        let completion = self.makeAsync(completion, on: callbackQueue)
-
+        observabilityScope: ObservabilityScope
+    ) async throws -> AvailabilityStatus {
         guard registry.supportsAvailability else {
-            return completion(.failure(StringError("registry \(registry.url) does not support availability checks.")))
+            throw StringError("registry \(registry.url) does not support availability checks.")
         }
 
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
-            return completion(.failure(RegistryError.invalidURL(registry.url)))
+            throw RegistryError.invalidURL(registry.url)
         }
         components.appendPathComponents("availability")
 
         guard let url = components.url else {
-            return completion(.failure(RegistryError.invalidURL(registry.url)))
+            throw RegistryError.invalidURL(registry.url)
         }
 
-        let request = LegacyHTTPClient.Request(
+        let request = HTTPClient.Request(
             method: .get,
             url: url,
-            options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
+            options: self.defaultRequestOptions(timeout: timeout)
         )
 
         let start = DispatchTime.now()
         observabilityScope.emit(info: "checking availability of \(registry.url) using \(request.url)")
-        self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
-            switch result {
-            case .success(let response):
-                observabilityScope
-                    .emit(
-                        debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-                    )
-                switch response.statusCode {
-                case 200:
-                    return completion(.success(.available))
-                case let value where AvailabilityStatus.unavailableStatusCodes.contains(value):
-                    return completion(.success(.unavailable))
-                default:
-                    if let error = try? response.parseError(decoder: self.jsonDecoder) {
-                        return completion(.success(.error(error.detail)))
-                    }
-                    return completion(.success(.error("unknown server error (\(response.statusCode))")))
+
+        do {
+            let response = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil)
+            observabilityScope.emit(
+                debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+            )
+            switch response.statusCode {
+            case 200:
+                return .available
+            case let value where AvailabilityStatus.unavailableStatusCodes.contains(value):
+                return .unavailable
+            default:
+                if let error = try? response.parseError(decoder: self.jsonDecoder) {
+                    return .error(error.detail)
                 }
-            case .failure(let error):
-                return completion(.failure(RegistryError.availabilityCheckFailed(registry: registry, error: error)))
+                return .error("unknown server error (\(response.statusCode))")
             }
+        } catch {
+            throw RegistryError.availabilityCheckFailed(registry: registry, error: error)
         }
     }
 
-    private func withAvailabilityCheck(
+    private func withAvailabilityCheck<T>(
         registry: Registry,
         observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        next: @escaping (Error?) -> Void
-    ) {
-        let availabilityHandler: (Result<AvailabilityStatus, Error>)
-            -> Void = { (result: Result<AvailabilityStatus, Error>) in
+        next: @escaping (Error?) async throws -> T
+    ) async throws -> T {
+        let availabilityHandler = { (result: Result<AvailabilityStatus, Error>) in
                 switch result {
                 case .success(let status):
                     switch status {
                     case .available:
-                        return next(.none)
+                        return try await next(.none)
                     case .unavailable:
-                        return next(RegistryError.registryNotAvailable(registry))
+                        return try await next(RegistryError.registryNotAvailable(registry))
                     case .error(let description):
-                        return next(StringError(description))
+                        return try await next(StringError(description))
                     }
                 case .failure(let error):
-                    return next(error)
+                    return try await next(error)
                 }
             }
 
         if let cached = self.availabilityCache[registry.url], cached.expires < .now() {
-            return availabilityHandler(cached.status)
+            return try await availabilityHandler(cached.status)
         }
 
-        self.checkAvailability(
-            registry: registry,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
-        ) { result in
-            self.availabilityCache[registry.url] = (status: result, expires: .now() + Self.availabilityCacheTTL)
-            availabilityHandler(result)
+        let result: Result<AvailabilityStatus, Error>
+
+        do {
+            result = try await .success(self.checkAvailability(
+                registry: registry,
+                observabilityScope: observabilityScope
+            ))
+        } catch {
+            result = .failure(error)
         }
+
+        self.availabilityCache[registry.url] = (status: result, expires: .now() + Self.availabilityCacheTTL)
+        return try await availabilityHandler(result)
     }
 
     private func unexpectedStatusError(
@@ -1842,12 +1459,10 @@ public final class RegistryClient: Cancellable {
     }
 
     private func defaultRequestOptions(
-        timeout: DispatchTimeInterval? = .none,
-        callbackQueue: DispatchQueue
-    ) -> LegacyHTTPClient.Request.Options {
-        var options = LegacyHTTPClient.Request.Options()
+        timeout: DispatchTimeInterval? = nil
+    ) -> HTTPClient.Request.Options {
+        var options = HTTPClient.Request.Options()
         options.timeout = timeout
-        options.callbackQueue = callbackQueue
         options.authorizationProvider = self.authorizationProvider
         return options
     }
@@ -2588,54 +2203,52 @@ private struct RegistryClientSignatureValidationDelegate: SignatureValidation.De
     func onUnsigned(
         registry: Registry,
         package: PackageModel.PackageIdentity,
-        version: TSCUtility.Version,
-        completion: (Bool) -> Void
-    ) {
+        version: TSCUtility.Version
+    ) async -> Bool {
         let responseCacheKey = ResponseCacheKey(registry: registry, package: package, version: version)
         if let cachedResponse = self.onUnsignedResponseCache[responseCacheKey] {
-            return completion(cachedResponse)
+            return cachedResponse
         }
 
         if let underlying {
-            underlying.onUnsigned(
+            let response = await underlying.onUnsigned(
                 registry: registry,
                 package: package,
                 version: version
-            ) { response in
-                self.onUnsignedResponseCache[responseCacheKey] = response
-                completion(response)
-            }
+            )
+
+            self.onUnsignedResponseCache[responseCacheKey] = response
+            return response
         } else {
             // true == continue resolution
             // false == stop dependency resolution
-            completion(false)
+            return false
         }
     }
 
     func onUntrusted(
         registry: Registry,
         package: PackageModel.PackageIdentity,
-        version: TSCUtility.Version,
-        completion: (Bool) -> Void
-    ) {
+        version: TSCUtility.Version
+    ) async -> Bool {
         let responseCacheKey = ResponseCacheKey(registry: registry, package: package, version: version)
         if let cachedResponse = self.onUntrustedResponseCache[responseCacheKey] {
-            return completion(cachedResponse)
+            return cachedResponse
         }
 
         if let underlying {
-            underlying.onUntrusted(
+            let response = await underlying.onUntrusted(
                 registry: registry,
                 package: package,
                 version: version
-            ) { response in
-                self.onUntrustedResponseCache[responseCacheKey] = response
-                completion(response)
-            }
+            )
+
+            self.onUntrustedResponseCache[responseCacheKey] = response
+            return response
         } else {
             // true == continue resolution
             // false == stop dependency resolution
-            completion(false)
+            return false
         }
     }
 

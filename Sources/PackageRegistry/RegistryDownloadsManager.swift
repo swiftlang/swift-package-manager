@@ -19,7 +19,7 @@ import PackageModel
 
 import struct TSCUtility.Version
 
-public class RegistryDownloadsManager: Cancellable {
+public actor RegistryDownloadsManager {
     public typealias Delegate = RegistryDownloadsManagerDelegate
 
     private let fileSystem: FileSystem
@@ -28,8 +28,12 @@ public class RegistryDownloadsManager: Cancellable {
     private let registryClient: RegistryClient
     private let delegate: Delegate?
 
-    private var pendingLookups = [PackageIdentity: DispatchGroup]()
-    private var pendingLookupsLock = NSLock()
+    private struct LookupKey: Hashable {
+        let id: PackageIdentity
+        let version: Version
+    }
+
+    private var pendingLookups = [LookupKey: [CheckedContinuation<AbsolutePath, Never>]]()
 
     public init(
         fileSystem: FileSystem,
@@ -44,135 +48,93 @@ public class RegistryDownloadsManager: Cancellable {
         self.registryClient = registryClient
         self.delegate = delegate
     }
-    
+
     public func lookup(
         package: PackageIdentity,
         version: Version,
-        observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws -> AbsolutePath {
-        try await withCheckedThrowingContinuation { continuation in
-            self.lookup(
-                package: package,
-                version: version,
-                observabilityScope: observabilityScope,
-                delegateQueue: delegateQueue,
-                callbackQueue: callbackQueue,
-                completion: { continuation.resume(with: $0) }
-            )
-        }
-    }
-
-    @available(*, noasync, message: "Use the async alternative")
-    public func lookup(
-        package: PackageIdentity,
-        version: Version,
-        observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<AbsolutePath, Error>) -> Void
-    ) {
-        // wrap the callback in the requested queue
-        let completion = { result in callbackQueue.async { completion(result) } }
-
         let packageRelativePath: RelativePath
         let packagePath: AbsolutePath
 
-        do {
-            packageRelativePath = try package.downloadPath(version: version)
-            packagePath = self.path.appending(packageRelativePath)
+        packageRelativePath = try package.downloadPath(version: version)
+        packagePath = self.path.appending(packageRelativePath)
 
-            // TODO: we can do some finger-print checking to improve the validation
-            // already exists and valid, we can exit early
-            if try self.fileSystem.validPackageDirectory(packagePath) {
-                return completion(.success(packagePath))
-            }
-        } catch {
-            return completion(.failure(error))
+        // TODO: we can do some finger-print checking to improve the validation
+        // already exists and valid, we can exit early
+        if try self.fileSystem.validPackageDirectory(packagePath) {
+            return packagePath
         }
 
         // next we check if there is a pending lookup
-        self.pendingLookupsLock.lock()
-        if let pendingLookup = self.pendingLookups[package] {
-            self.pendingLookupsLock.unlock()
+        let key = LookupKey(id: package, version: version)
+        if self.pendingLookups.keys.contains(key) {
             // chain onto the pending lookup
-            pendingLookup.notify(queue: callbackQueue) {
-                // at this point the previous lookup should be complete and we can re-lookup
-                self.lookup(
-                    package: package,
-                    version: version,
-                    observabilityScope: observabilityScope,
-                    delegateQueue: delegateQueue,
-                    callbackQueue: callbackQueue,
-                    completion: completion
-                )
+            return await withCheckedContinuation {
+                self.pendingLookups[key]!.append($0)
             }
         } else {
-            // record the pending lookup
-            assert(self.pendingLookups[package] == nil)
-            let group = DispatchGroup()
-            group.enter()
-            self.pendingLookups[package] = group
-            self.pendingLookupsLock.unlock()
+            self.pendingLookups[key] = []
 
             // inform delegate that we are starting to fetch
             // calculate if cached (for delegate call) outside queue as it may change while queue is processing
             let isCached = self.cachePath.map { self.fileSystem.exists($0.appending(packageRelativePath)) } ?? false
-            delegateQueue.async {
-                let details = FetchDetails(fromCache: isCached, updatedCache: false)
-                self.delegate?.willFetch(package: package, version: version, fetchDetails: details)
-            }
+            let delegate = self.delegate
+            let details = FetchDetails(fromCache: isCached, updatedCache: false)
+            delegate?.willFetch(package: package, version: version, fetchDetails: details)
 
             // make sure destination is free.
             try? self.fileSystem.removeFileTree(packagePath)
 
             let start = DispatchTime.now()
-            self.downloadAndPopulateCache(
-                package: package,
-                version: version,
-                packagePath: packagePath,
-                observabilityScope: observabilityScope,
-                delegateQueue: delegateQueue,
-                callbackQueue: callbackQueue
-            ) { result in
-                // inform delegate that we finished to fetch
-                let duration = start.distance(to: .now())
-                delegateQueue.async {
-                    self.delegate?.didFetch(package: package, version: version, result: result, duration: duration)
-                }
-                // remove the pending lookup
-                self.pendingLookupsLock.lock()
-                self.pendingLookups[package]?.leave()
-                self.pendingLookups[package] = nil
-                self.pendingLookupsLock.unlock()
-                // and done
-                completion(result.map { _ in packagePath })
-            }
-        }
-    }
 
-    /// Cancel any outstanding requests
-    public func cancel(deadline: DispatchTime) throws {
-        try self.registryClient.cancel(deadline: deadline)
+            // `Result` type is used by the `didFetch` delegate method called below.
+            let result: Result<FetchDetails, Error>
+            do {
+                result = try await .success(self.downloadAndPopulateCache(
+                    package: package,
+                    version: version,
+                    packagePath: packagePath,
+                    observabilityScope: observabilityScope
+                ))
+            } catch {
+                result = .failure(error)
+            }
+
+            // inform delegate that we finished to fetch
+            let duration = start.distance(to: .now())
+            delegate?.didFetch(package: package, version: version, result: result, duration: duration)
+
+            // remove the pending lookup
+            defer {
+                if let pendingLookups = self.pendingLookups[key] {
+                    for lookup in pendingLookups {
+                        lookup.resume(returning: packagePath)
+                    }
+
+                    self.pendingLookups[key] = nil
+                }
+            }
+
+            // and done
+            _ = try result.get()
+            return packagePath
+        }
     }
 
     private func downloadAndPopulateCache(
         package: PackageIdentity,
         version: Version,
         packagePath: AbsolutePath,
-        observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue,
-        callbackQueue: DispatchQueue,
-        completion: @escaping @Sendable (Result<FetchDetails, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) async throws -> FetchDetails {
         if let cachePath {
             do {
                 let relativePath = try package.downloadPath(version: version)
                 let cachedPackagePath = cachePath.appending(relativePath)
 
                 try self.initializeCacheIfNeeded(cachePath: cachePath)
-                try self.fileSystem.withLock(on: cachedPackagePath, type: .exclusive) {
+                return try await self.fileSystem.withLock(on: cachedPackagePath, type: .exclusive) {
                     // download the package into the cache unless already exists
                     if try self.fileSystem.validPackageDirectory(cachedPackagePath) {
                         // extra validation to defend from racy edge cases
@@ -182,34 +144,36 @@ public class RegistryDownloadsManager: Cancellable {
                         // copy the package from the cache into the package path.
                         try self.fileSystem.createDirectory(packagePath.parentDirectory, recursive: true)
                         try self.fileSystem.copy(from: cachedPackagePath, to: packagePath)
-                        completion(.success(.init(fromCache: true, updatedCache: false)))
+                        return FetchDetails(fromCache: true, updatedCache: false)
                     } else {
                         // it is possible that we already created the directory before from failed attempts, so clear leftover data if present.
                         try? self.fileSystem.removeFileTree(cachedPackagePath)
                         // download the package from the registry
-                        self.registryClient.downloadSourceArchive(
+                        try await self.registryClient.downloadSourceArchive(
                             package: package,
                             version: version,
                             destinationPath: cachedPackagePath,
                             progressHandler: updateDownloadProgress,
                             fileSystem: self.fileSystem,
-                            observabilityScope: observabilityScope,
-                            callbackQueue: callbackQueue
-                        ) { result in
-                            completion(result.tryMap {
-                                // extra validation to defend from racy edge cases
-                                if self.fileSystem.exists(packagePath) {
-                                    throw StringError("\(packagePath) already exists unexpectedly")
-                                }
-                                // copy the package from the cache into the package path.
-                                try self.fileSystem.createDirectory(packagePath.parentDirectory, recursive: true)
-                                try self.fileSystem.copy(from: cachedPackagePath, to: packagePath)
-                                return FetchDetails(fromCache: true, updatedCache: true)
-                            })
+                            observabilityScope: observabilityScope
+                        )
+
+                        // extra validation to defend from racy edge cases
+                        if self.fileSystem.exists(packagePath) {
+                            throw StringError("\(packagePath) already exists unexpectedly")
                         }
+                        // copy the package from the cache into the package path.
+                        try self.fileSystem.createDirectory(packagePath.parentDirectory, recursive: true)
+                        try self.fileSystem.copy(from: cachedPackagePath, to: packagePath)
+                        return FetchDetails(fromCache: true, updatedCache: true)
                     }
                 }
             } catch {
+                if error is RegistryError {
+                    // Avoid handling `RegistryError`s here, propagate those back in the call stack
+                    throw error
+                }
+
                 // download without populating the cache in the case of an error.
                 observabilityScope.emit(
                     warning: "skipping cache due to an error",
@@ -217,56 +181,53 @@ public class RegistryDownloadsManager: Cancellable {
                 )
                 // it is possible that we already created the directory from failed attempts, so clear leftover data if present.
                 try? self.fileSystem.removeFileTree(packagePath)
-                self.registryClient.downloadSourceArchive(
+                _ = try await self.registryClient.downloadSourceArchive(
                     package: package,
                     version: version,
                     destinationPath: packagePath,
                     progressHandler: updateDownloadProgress,
                     fileSystem: self.fileSystem,
-                    observabilityScope: observabilityScope,
-                    callbackQueue: callbackQueue
-                ) { result in
-                    completion(result.map { FetchDetails(fromCache: false, updatedCache: false) })
-                }
+                    observabilityScope: observabilityScope
+                )
+
+                return FetchDetails(fromCache: false, updatedCache: false)
             }
         } else {
             // it is possible that we already created the directory from failed attempts, so clear leftover data if present.
             try? self.fileSystem.removeFileTree(packagePath)
             // download without populating the cache when no `cachePath` is set.
-            self.registryClient.downloadSourceArchive(
+            _ = try await self.registryClient.downloadSourceArchive(
                 package: package,
                 version: version,
                 destinationPath: packagePath,
                 progressHandler: updateDownloadProgress,
                 fileSystem: self.fileSystem,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
-            ) { result in
-                completion(result.map { FetchDetails(fromCache: false, updatedCache: false) })
-            }
+                observabilityScope: observabilityScope
+            )
+
+            return FetchDetails(fromCache: false, updatedCache: false)
         }
 
         // utility to update progress
 
-        @Sendable func updateDownloadProgress(downloaded: Int64, total: Int64?) {
-            delegateQueue.async {
-                self.delegate?.fetching(
-                    package: package,
-                    version: version,
-                    bytesDownloaded: downloaded,
-                    totalBytesToDownload: total
-                )
-            }
+        @Sendable
+        func updateDownloadProgress(downloaded: Int64, total: Int64?) {
+            self.delegate?.fetching(
+                package: package,
+                version: version,
+                bytesDownloaded: downloaded,
+                totalBytesToDownload: total
+            )
         }
     }
 
-    public func remove(package: PackageIdentity) throws {
+    public nonisolated func remove(package: PackageIdentity) throws {
         let relativePath = try package.downloadPath()
         let packagesPath = self.path.appending(relativePath)
         try self.fileSystem.removeFileTree(packagesPath)
     }
 
-    public func reset(observabilityScope: ObservabilityScope) {
+    public nonisolated func reset(observabilityScope: ObservabilityScope) {
         do {
             try self.fileSystem.removeFileTree(self.path)
         } catch {
@@ -277,7 +238,7 @@ public class RegistryDownloadsManager: Cancellable {
         }
     }
 
-    public func purgeCache(observabilityScope: ObservabilityScope) {
+    public nonisolated func purgeCache(observabilityScope: ObservabilityScope) {
         guard let cachePath else {
             return
         }

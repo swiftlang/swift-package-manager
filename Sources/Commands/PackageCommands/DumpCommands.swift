@@ -118,7 +118,7 @@ struct DumpPackage: AsyncSwiftCommand {
         let workspace = try swiftCommandState.getActiveWorkspace()
         let root = try swiftCommandState.getWorkspaceRoot()
 
-        let rootManifests = try await workspace.loadRootManifests(
+        let rootManifests = await workspace.loadRootManifests(
             packages: root.packages,
             observabilityScope: swiftCommandState.observabilityScope
         )

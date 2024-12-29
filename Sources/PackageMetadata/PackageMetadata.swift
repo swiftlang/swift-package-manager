@@ -174,8 +174,8 @@ public struct PackageSearchClient {
             package: package,
             version: version,
             fileSystem: self.fileSystem,
-            observabilityScope: observabilityScope,
-            callbackQueue: DispatchQueue.sharedConcurrent)
+            observabilityScope: observabilityScope
+        )
 
         return Metadata(
             licenseURL: metadata.licenseURL,
@@ -285,7 +285,7 @@ public struct PackageSearchClient {
         }
         let metadata: RegistryClient.PackageMetadata
         do {
-            metadata = try await self.registryClient.getPackageMetadata(package: identity, observabilityScope: observabilityScope, callbackQueue: DispatchQueue.sharedConcurrent)
+            metadata = try await self.registryClient.getPackageMetadata(package: identity, observabilityScope: observabilityScope)
         } catch {
             return try await fetchStandalonePackageByURL(error)
         }
@@ -324,16 +324,12 @@ public struct PackageSearchClient {
     public func lookupIdentities(
         scmURL: SourceControlURL,
         timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Set<PackageIdentity>, Error>) -> Void
-    ) {
-        registryClient.lookupIdentities(
+        observabilityScope: ObservabilityScope
+    ) async throws -> Set<PackageIdentity> {
+        try await self.registryClient.lookupIdentities(
             scmURL: scmURL,
             timeout: timeout,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue,
-            completion: completion
+            observabilityScope: observabilityScope
         )
     }
 
@@ -343,21 +339,15 @@ public struct PackageSearchClient {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<Set<SourceControlURL>, Error>) -> Void
-    ) {
-        registryClient.getPackageMetadata(
+    ) async throws -> Set<SourceControlURL> {
+        let metadata = try await self.registryClient.getPackageMetadata(
             package: package,
             timeout: timeout,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
-        ) { result in
-            do {
-                let metadata = try result.get()
-                let alternateLocations = metadata.alternateLocations ?? []
-                return completion(.success(Set(alternateLocations)))
-            } catch {
-                return completion(.failure(error))
-            }
-        }
+            observabilityScope: observabilityScope
+        )
+
+        let alternateLocations = metadata.alternateLocations ?? []
+        return Set(alternateLocations)
     }
 }
 
