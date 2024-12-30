@@ -220,7 +220,7 @@ extension Workspace {
                                     info: "swizzling '\(dependency.locationString)' with registry dependency '\(registryIdentity)'."
                                 )
                             targetDependencyPackageNameTransformations[dependency
-                                .nameForModuleDependencyResolutionOnly] = registryIdentity.description
+                                .nameForModuleDependencyResolutionOnly.lowercased()] = registryIdentity.description
                             modifiedDependency = .registry(
                                 identity: registryIdentity,
                                 requirement: requirement,
@@ -261,7 +261,7 @@ extension Workspace {
                            let packageName
                         {
                             // makes sure we use the updated package name for target based dependencies
-                            if let modifiedPackageName = targetDependencyPackageNameTransformations[packageName] {
+                            if let modifiedPackageName = targetDependencyPackageNameTransformations[packageName.lowercased()] {
                                 modifiedDependency = .product(
                                     name: name,
                                     package: modifiedPackageName,
