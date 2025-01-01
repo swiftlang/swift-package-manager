@@ -49,6 +49,8 @@ public struct Platform: Equatable, Hashable, Codable, Sendable {
     public static let windows: Platform = Platform(name: "windows", oldestSupportedVersion: .unknown)
     public static let wasi: Platform = Platform(name: "wasi", oldestSupportedVersion: .unknown)
     public static let openbsd: Platform = Platform(name: "openbsd", oldestSupportedVersion: .unknown)
+    public static let freebsd: Platform = Platform(name: "freebsd", oldestSupportedVersion: .unknown)
+
 
 }
 

@@ -1682,6 +1682,20 @@ final class BuildPlanTests: XCTestCase {
             "-target", defaultTargetTriple,
             "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf",
         ])
+        #elseif os(FreeBSD)
+        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
+            result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
+            "-lc++",
+            "-L", buildPath.pathString,
+            "-o", buildPath.appending(components: "exe").pathString,
+            "-module-name", "exe",
+            "-emit-executable",
+            "-Xlinker", "-rpath=$ORIGIN",
+            "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
+            "-runtime-compatibility-version", "none",
+            "-target", defaultTargetTriple,
+            "-g",
+        ])
         #else
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
@@ -2905,7 +2919,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(2)
         var linkArgs = try result.buildProduct(for: "exe").linkArguments()
 
-        #if os(macOS)
+        #if os(macOS) || os(FreeBSD)
         XCTAssertMatch(linkArgs, ["-lc++"])
         #elseif !os(Windows)
         XCTAssertMatch(linkArgs, ["-lstdc++"])
@@ -3337,6 +3351,21 @@ final class BuildPlanTests: XCTestCase {
             "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf",
         ])
         #else
+        #if os(FreeBSD)
+        XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), [
+            result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
+            "-lc++",
+            "-L", buildPath.pathString,
+            "-o", buildPath.appending(components: "liblib.so").pathString,
+            "-module-name", "lib",
+            "-emit-library",
+            "-Xlinker", "-rpath=$ORIGIN",
+            "@\(buildPath.appending(components: "lib.product", "Objects.LinkFileList"))",
+            "-runtime-compatibility-version", "none",
+            "-target", defaultTargetTriple,
+            "-g",
+        ])
+        #else
         XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), [
             result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-lstdc++",
@@ -3350,6 +3379,7 @@ final class BuildPlanTests: XCTestCase {
             "-target", defaultTargetTriple,
             "-g",
         ])
+        #endif
 
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
@@ -3635,6 +3665,7 @@ final class BuildPlanTests: XCTestCase {
                                 .brew(["BTarget"]),
                                 .apt(["BTarget"]),
                                 .yum(["BTarget"]),
+                                .pkg(["BTarget"])
                             ]
                         ),
                     ]

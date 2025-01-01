@@ -69,6 +69,10 @@ public struct Platform: Equatable, Sendable {
     /// The OpenBSD platform.
     @available(_PackageDescription, introduced: 5.8)
     public static let openbsd: Platform = Platform(name: "openbsd")
+
+    /// The FreeBSD platform
+//    @available(_PackageDescription, introduced: ??.??)
+    public static let freebsd: Platform = Platform(name: "freebsd")
 }
 
 /// A platform that the Swift package supports.
