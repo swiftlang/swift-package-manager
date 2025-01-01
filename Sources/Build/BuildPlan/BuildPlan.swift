@@ -148,7 +148,7 @@ extension BuildParameters {
         let args: [String]
         if self.triple.isApple() {
             args = ["-alias", "_\(target.c99name)_main", "_main"]
-        } else if self.triple.isLinux() {
+        } else if self.triple.isLinux() || self.triple.isFreeBSD() {
             args = ["--defsym", "main=\(target.c99name)_main"]
         } else {
             return nil

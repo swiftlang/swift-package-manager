@@ -304,7 +304,7 @@ extension Triple {
 
     case .linux:
       return environment == .android ? "android" : "linux"
-    case .freeBSD:
+    case .freebsd:
       return "freebsd"
     case .openbsd:
       return "openbsd"
