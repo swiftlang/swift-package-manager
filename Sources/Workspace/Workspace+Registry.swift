@@ -257,11 +257,17 @@ extension Workspace {
                     var modifiedDependencies = [TargetDescription.Dependency]()
                     for dependency in target.dependencies {
                         var modifiedDependency = dependency
-                        if case .product(let name, let packageName, let moduleAliases, let condition) = dependency,
-                           let packageName
-                        {
-                            // makes sure we use the updated package name for target based dependencies
-                            if let modifiedPackageName = targetDependencyPackageNameTransformations[packageName] {
+                        switch dependency {
+                        case .product(
+                            name: let name,
+                            package: let packageName,
+                            moduleAliases: let moduleAliases,
+                            condition: let condition
+                        ):
+                            if let packageName,
+                               // makes sure we use the updated package name for target based dependencies
+                               let modifiedPackageName = targetDependencyPackageNameTransformations[packageName]
+                            {
                                 modifiedDependency = .product(
                                     name: name,
                                     package: modifiedPackageName,
@@ -269,6 +275,17 @@ extension Workspace {
                                     condition: condition
                                 )
                             }
+                        case .byName(name: let packageName, condition: let condition):
+                            if let modifiedPackageName = targetDependencyPackageNameTransformations[packageName] {
+                                modifiedDependency = .product(
+                                    name: packageName,
+                                    package: modifiedPackageName,
+                                    moduleAliases: [:],
+                                    condition: condition
+                                )
+                            }
+                        case .target:
+                            break
                         }
                         modifiedDependencies.append(modifiedDependency)
                     }
