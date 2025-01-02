@@ -9,14 +9,17 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 @testable import Basics
 import _Concurrency
 import _InternalTestSupport
-import XCTest
+import Testing
+import Numerics  // for
 
-final class HTTPClientTests: XCTestCase {
-    func testHead() async throws {
+struct HTTPClientTests {
+    @Test
+    func head() async throws {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseStatus = Int.random(in: 201 ..< 500)
@@ -24,18 +27,19 @@ final class HTTPClientTests: XCTestCase {
         let responseBody: Data? = nil
 
         let httpClient = HTTPClient { request, _ in
-            XCTAssertEqual(request.url, url, "url should match")
-            XCTAssertEqual(request.method, .head, "method should match")
+            #expect(request.url == url, "url should match")
+            #expect(request.method == .head, "method should match")
             assertRequestHeaders(request.headers, expected: requestHeaders)
             return .init(statusCode: responseStatus, headers: responseHeaders, body: responseBody)
         }
 
         let response = try await httpClient.head(url, headers: requestHeaders)
-        XCTAssertEqual(response.statusCode, responseStatus, "statusCode should match")
+        #expect(response.statusCode == responseStatus, "statusCode should match")
         assertResponseHeaders(response.headers, expected: responseHeaders)
-        XCTAssertEqual(response.body, responseBody, "body should match")
+        #expect(response.body == responseBody, "body should match")
     }
 
+    @Test
     func testGet() async throws {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -44,19 +48,20 @@ final class HTTPClientTests: XCTestCase {
         let responseBody = Data(UUID().uuidString.utf8)
 
         let httpClient = HTTPClient { request, _ in
-            XCTAssertEqual(request.url, url, "url should match")
-            XCTAssertEqual(request.method, .get, "method should match")
+            #expect(request.url == url, "url should match")
+            #expect(request.method == .get, "method should match")
             assertRequestHeaders(request.headers, expected: requestHeaders)
             return .init(statusCode: responseStatus, headers: responseHeaders, body: responseBody)
         }
 
         let response = try await httpClient.get(url, headers: requestHeaders)
-        XCTAssertEqual(response.statusCode, responseStatus, "statusCode should match")
+        #expect(response.statusCode == responseStatus, "statusCode should match")
         assertResponseHeaders(response.headers, expected: responseHeaders)
-        XCTAssertEqual(response.body, responseBody, "body should match")
+        #expect(response.body == responseBody, "body should match")
     }
 
-    func testPost() async throws {
+    @Test
+    func post() async throws {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestBody = Data(UUID().uuidString.utf8)
@@ -65,20 +70,21 @@ final class HTTPClientTests: XCTestCase {
         let responseBody = Data(UUID().uuidString.utf8)
 
         let httpClient = HTTPClient { request, _ in
-            XCTAssertEqual(request.url, url, "url should match")
-            XCTAssertEqual(request.method, .post, "method should match")
+            #expect(request.url == url, "url should match")
+            #expect(request.method == .post, "method should match")
             assertRequestHeaders(request.headers, expected: requestHeaders)
-            XCTAssertEqual(request.body, requestBody, "body should match")
+            #expect(request.body == requestBody, "body should match")
             return .init(statusCode: responseStatus, headers: responseHeaders, body: responseBody)
         }
 
         let response = try await httpClient.post(url, body: requestBody, headers: requestHeaders)
-        XCTAssertEqual(response.statusCode, responseStatus, "statusCode should match")
+        #expect(response.statusCode == responseStatus, "statusCode should match")
         assertResponseHeaders(response.headers, expected: responseHeaders)
-        XCTAssertEqual(response.body, responseBody, "body should match")
+        #expect(response.body == responseBody, "body should match")
     }
 
-    func testPut() async throws {
+    @Test
+    func put() async throws {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestBody = Data(UUID().uuidString.utf8)
@@ -87,20 +93,21 @@ final class HTTPClientTests: XCTestCase {
         let responseBody = Data(UUID().uuidString.utf8)
 
         let httpClient = HTTPClient { request, _ in
-            XCTAssertEqual(request.url, url, "url should match")
-            XCTAssertEqual(request.method, .put, "method should match")
+            #expect(request.url == url, "url should match")
+            #expect(request.method == .put, "method should match")
             assertRequestHeaders(request.headers, expected: requestHeaders)
-            XCTAssertEqual(request.body, requestBody, "body should match")
+            #expect(request.body == requestBody, "body should match")
             return .init(statusCode: responseStatus, headers: responseHeaders, body: responseBody)
         }
 
         let response = try await httpClient.put(url, body: requestBody, headers: requestHeaders)
-        XCTAssertEqual(response.statusCode, responseStatus, "statusCode should match")
+        #expect(response.statusCode == responseStatus, "statusCode should match")
         assertResponseHeaders(response.headers, expected: responseHeaders)
-        XCTAssertEqual(response.body, responseBody, "body should match")
+        #expect(response.body == responseBody, "body should match")
     }
 
-    func testDelete() async throws {
+    @Test
+    func delete() async throws {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseStatus = Int.random(in: 201 ..< 500)
@@ -108,19 +115,20 @@ final class HTTPClientTests: XCTestCase {
         let responseBody = Data(UUID().uuidString.utf8)
 
         let httpClient = HTTPClient { request, _ in
-            XCTAssertEqual(request.url, url, "url should match")
-            XCTAssertEqual(request.method, .delete, "method should match")
+            #expect(request.url == url, "url should match")
+            #expect(request.method == .delete, "method should match")
             assertRequestHeaders(request.headers, expected: requestHeaders)
             return .init(statusCode: responseStatus, headers: responseHeaders, body: responseBody)
         }
 
         let response = try await httpClient.delete(url, headers: requestHeaders)
-        XCTAssertEqual(response.statusCode, responseStatus, "statusCode should match")
+        #expect(response.statusCode == responseStatus, "statusCode should match")
         assertResponseHeaders(response.headers, expected: responseHeaders)
-        XCTAssertEqual(response.body, responseBody, "body should match")
+        #expect(response.body == responseBody, "body should match")
     }
 
-    func testExtraHeaders() async throws {
+    @Test
+    func extraHeaders() async throws {
         let url = URL("http://test")
         let globalHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -136,15 +144,16 @@ final class HTTPClientTests: XCTestCase {
         request.options.addUserAgent = true
 
         let response = try await httpClient.execute(request)
-        XCTAssertEqual(response.statusCode, 200, "statusCode should match")
+        #expect(response.statusCode == 200, "statusCode should match")
     }
 
-    func testUserAgent() async throws {
+    @Test
+    func userAgent() async throws {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
 
         let httpClient = HTTPClient { request, _ in
-            XCTAssertTrue(request.headers.contains("User-Agent"), "expecting User-Agent")
+            #expect(request.headers.contains("User-Agent"), "expecting User-Agent")
             assertRequestHeaders(request.headers, expected: requestHeaders)
             return .init(statusCode: 200)
         }
@@ -152,15 +161,16 @@ final class HTTPClientTests: XCTestCase {
         request.options.addUserAgent = true
 
         let response = try await httpClient.execute(request)
-        XCTAssertEqual(response.statusCode, 200, "statusCode should match")
+        #expect(response.statusCode == 200, "statusCode should match")
     }
 
-    func testNoUserAgent() async throws {
+    @Test
+    func noUserAgent() async throws {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
 
         let httpClient = HTTPClient { request, _ in
-            XCTAssertFalse(request.headers.contains("User-Agent"), "expecting User-Agent")
+            #expect(!request.headers.contains("User-Agent"), "expecting User-Agent")
             assertRequestHeaders(request.headers, expected: requestHeaders)
             return .init(statusCode: 200)
         }
@@ -169,18 +179,19 @@ final class HTTPClientTests: XCTestCase {
         request.options.addUserAgent = false
 
         let response = try await httpClient.execute(request)
-        XCTAssertEqual(response.statusCode, 200, "statusCode should match")
+        #expect(response.statusCode == 200, "statusCode should match")
     }
 
-    func testAuthorization() async throws {
+    @Test
+    func authorization() async throws {
         let url = URL("http://test")
 
         do {
             let authorization = UUID().uuidString
 
             let httpClient = HTTPClient { request, _ in
-                XCTAssertTrue(request.headers.contains("Authorization"), "expecting Authorization")
-                XCTAssertEqual(request.headers.get("Authorization").first, authorization, "expecting Authorization to match")
+                #expect(request.headers.contains("Authorization"), "expecting Authorization")
+                #expect(request.headers.get("Authorization").first == authorization, "expecting Authorization to match")
                 return .init(statusCode: 200)
             }
 
@@ -190,12 +201,12 @@ final class HTTPClientTests: XCTestCase {
             }
 
             let response = try await httpClient.execute(request)
-            XCTAssertEqual(response.statusCode, 200, "statusCode should match")
+            #expect(response.statusCode == 200, "statusCode should match")
         }
 
         do {
             let httpClient = HTTPClient { request, _ in
-                XCTAssertFalse(request.headers.contains("Authorization"), "not expecting Authorization")
+                #expect(!request.headers.contains("Authorization"), "not expecting Authorization")
                 return .init(statusCode: 200)
             }
 
@@ -203,11 +214,12 @@ final class HTTPClientTests: XCTestCase {
             request.options.authorizationProvider = { _ in "" }
 
             let response = try await httpClient.execute(request)
-            XCTAssertEqual(response.statusCode, 200, "statusCode should match")
+            #expect(response.statusCode == 200, "statusCode should match")
         }
     }
 
-    func testValidResponseCodes() async throws {
+    @Test
+    func validResponseCodes() async throws {
         let statusCode = Int.random(in: 201 ..< 500)
 
         let httpClient = HTTPClient { _, _ in
@@ -217,15 +229,13 @@ final class HTTPClientTests: XCTestCase {
         var request = HTTPClient.Request(method: .get, url: "http://test")
         request.options.validResponseCodes = [200]
 
-        do {
-            let response = try await httpClient.execute(request)
-            XCTFail("unexpected success \(response)")
-        } catch {
-            XCTAssertEqual(error as? HTTPClientError, .badResponseStatusCode(statusCode), "expected error to match")
+        await #expect(throws: HTTPClientError.badResponseStatusCode(statusCode)) {
+            let _ = try await httpClient.execute(request)
         }
     }
 
-    func testExponentialBackoff() async throws {
+    @Test
+    func exponentialBackoff() async throws {
         let counter = SendableBox(0)
         let lastCall = SendableBox<Date>()
         let maxAttempts = 5
@@ -236,7 +246,7 @@ final class HTTPClientTests: XCTestCase {
             let count = await counter.value!
             let expectedDelta = pow(2.0, Double(count - 1)) * delay.timeInterval()!
             let delta = await lastCall.value.flatMap { Date().timeIntervalSince($0) } ?? 0
-            XCTAssertEqual(delta, expectedDelta, accuracy: 0.1)
+            #expect(delta.isApproximatelyEqual(to: expectedDelta, absoluteTolerance: 0.1))
 
             await counter.increment()
             await lastCall.resetDate()
@@ -246,12 +256,13 @@ final class HTTPClientTests: XCTestCase {
         request.options.retryStrategy = .exponentialBackoff(maxAttempts: maxAttempts, baseDelay: delay)
 
         let response = try await httpClient.execute(request)
-        XCTAssertEqual(response.statusCode, errorCode)
+        #expect(response.statusCode == errorCode)
         let count = await counter.value
-        XCTAssertEqual(count, maxAttempts, "retries should match")
+        #expect(count == maxAttempts, "retries should match")
     }
 
-    func testHostCircuitBreaker() async throws {
+    @Test
+    func hostCircuitBreaker() async throws {
         let maxErrors = 5
         let errorCode = Int.random(in: 500 ..< 600)
         let age = SendableTimeInterval.seconds(5)
@@ -268,31 +279,29 @@ final class HTTPClientTests: XCTestCase {
             for index in (0 ..< maxErrors) {
                 let response = try await httpClient.get(URL("\(host)/\(index)/foo"))
                 await counter.increment()
-                XCTAssertEqual(response.statusCode, errorCode)
+                #expect(response.statusCode == errorCode)
             }
             let count = await counter.value
-            XCTAssertEqual(count, maxErrors, "expected results count to match")
+            #expect(count == maxErrors, "expected results count to match")
         }
 
         // these should all circuit break
         let counter = SendableBox(0)
         let total = Int.random(in: 10 ..< 20)
         for index in (0 ..< total) {
-            do {
-                let response = try await httpClient.get(URL("\(host)/\(index)/foo"))
-                XCTFail("unexpected success \(response)")
-            } catch {
-                XCTAssertEqual(error as? HTTPClientError, .circuitBreakerTriggered, "expected error to match")
+            await #expect(throws: HTTPClientError.circuitBreakerTriggered) {
+                let _ = try await httpClient.get(URL("\(host)/\(index)/foo"))
             }
 
             await counter.increment()
         }
 
         let count = await counter.value
-        XCTAssertEqual(count, total, "expected results count to match")
+        #expect(count == total, "expected results count to match")
     }
 
-    func testHostCircuitBreakerAging() async throws {
+    @Test
+    func hostCircuitBreakerAging() async throws {
         let maxErrors = 5
         let errorCode = Int.random(in: 500 ..< 600)
         let ageInMilliseconds = 100
@@ -320,10 +329,10 @@ final class HTTPClientTests: XCTestCase {
             for index in (0 ..< maxErrors) {
                 let response = try await httpClient.get(URL("\(host)/\(index)/error"))
                 await counter.increment()
-                XCTAssertEqual(response.statusCode, errorCode)
+                #expect(response.statusCode == errorCode)
             }
             let count = await counter.value
-            XCTAssertEqual(count, maxErrors, "expected results count to match")
+            #expect(count == maxErrors, "expected results count to match")
         }
 
         // these should not circuit break since they are deliberately aged
@@ -336,49 +345,51 @@ final class HTTPClientTests: XCTestCase {
             try await Task.sleep(nanoseconds: UInt64(sleepInterval.nanoseconds()!))
             let response = try await httpClient.get("\(host)/\(index)/okay")
             count.increment()
-            XCTAssertEqual(response.statusCode, 200, "expected status code to match")
+            #expect(response.statusCode == 200, "expected status code to match")
         }
 
-        XCTAssertEqual(count.get(), total, "expected results count to match")
+        #expect(count.get() == total, "expected status code to match")
     }
 
-    func testHTTPClientHeaders() async throws {
+    @Test
+    func hTTPClientHeaders() async throws {
         var headers = HTTPClientHeaders()
 
         let items = (1 ... Int.random(in: 10 ... 20)).map { index in HTTPClientHeaders.Item(name: "header-\(index)", value: UUID().uuidString) }
         headers.add(items)
 
-        XCTAssertEqual(headers.count, items.count, "headers count should match")
+        #expect(headers.count == items.count, "headers count should match")
         items.forEach { item in
-            XCTAssertEqual(headers.get(item.name).first, item.value, "headers value should match")
+            #expect(headers.get(item.name).first == item.value, "headers value should match")
         }
 
         headers.add(items.first!)
-        XCTAssertEqual(headers.count, items.count, "headers count should match (no duplicates)")
+        #expect(headers.count == items.count, "headers count should match (no duplicates)")
 
         let name = UUID().uuidString
         let values = (1 ... Int.random(in: 10 ... 20)).map { "value-\($0)" }
         values.forEach { value in
             headers.add(name: name, value: value)
         }
-        XCTAssertEqual(headers.count, items.count + 1, "headers count should match (no duplicates)")
-        XCTAssertEqual(values, headers.get(name), "multiple headers value should match")
+        #expect(headers.count == items.count + 1, "headers count should match (no duplicates)")
+        #expect(values == headers.get(name), "multiple headers value should match")
     }
 
-    func testExceedsDownloadSizeLimitProgress() async throws {
+    @Test
+    func exceedsDownloadSizeLimitProgress() async throws {
         let maxSize: Int64 = 50
 
         let httpClient = HTTPClient { request, progress in
             switch request.method {
-            case .head:
-                return .init(
-                    statusCode: 200,
-                    headers: .init([.init(name: "Content-Length", value: "0")])
-                )
-            case .get:
-                try progress?(Int64(maxSize * 2), 0)
-            default:
-                XCTFail("method should match")
+                case .head:
+                    return .init(
+                        statusCode: 200,
+                        headers: .init([.init(name: "Content-Length", value: "0")])
+                    )
+                case .get:
+                    try progress?(Int64(maxSize * 2), 0)
+                default:
+                    Issue.record("method should match. Received: \(request.method)")
             }
 
             fatalError("unreachable")
@@ -387,15 +398,13 @@ final class HTTPClientTests: XCTestCase {
         var request = HTTPClient.Request(url: "http://test")
         request.options.maximumResponseSizeInBytes = 10
 
-        do {
-            let response = try await httpClient.execute(request)
-            XCTFail("unexpected success \(response)")
-        } catch {
-            XCTAssertEqual(error as? HTTPClientError, .responseTooLarge(maxSize * 2), "expected error to match")
+        await #expect(throws: HTTPClientError.responseTooLarge(maxSize * 2)) {
+            let _ = try await httpClient.execute(request)
         }
     }
 
-    func testMaxConcurrency() async throws {
+    @Test
+    func maxConcurrency() async throws {
         let maxConcurrentRequests = 2
         let concurrentRequests = SendableBox(0)
 
@@ -404,8 +413,9 @@ final class HTTPClientTests: XCTestCase {
         let httpClient = HTTPClient(configuration: configuration) { request, _ in
             await concurrentRequests.increment()
 
-            if await concurrentRequests.value! > maxConcurrentRequests {
-                XCTFail("too many concurrent requests \(concurrentRequests), expected \(maxConcurrentRequests)")
+            let concurrentRequestsCounts = await concurrentRequests.value!
+            if concurrentRequestsCounts > maxConcurrentRequests {
+                Issue.record("too many concurrent requests \(concurrentRequestsCounts), expected \(maxConcurrentRequests)")
             }
 
             await concurrentRequests.decrement()
@@ -426,10 +436,10 @@ final class HTTPClientTests: XCTestCase {
                 results.append(result)
             }
 
-            XCTAssertEqual(results.count, total, "expected number of results to match")
+            #expect(results.count == total, "expected number of results to match")
 
             for result in results {
-                XCTAssertEqual(result.statusCode, 200, "expected '200 okay' response")
+                #expect(result.statusCode == 200, "expected '200 okay' response")
             }
         }
     }
@@ -437,9 +447,9 @@ final class HTTPClientTests: XCTestCase {
 
 private func assertRequestHeaders(_ headers: HTTPClientHeaders, expected: HTTPClientHeaders) {
     let noAgent = HTTPClientHeaders(headers.filter { $0.name != "User-Agent" })
-    XCTAssertEqual(noAgent, expected, "expected headers to match")
+    #expect(noAgent == expected, "expected headers to match")
 }
 
 private func assertResponseHeaders(_ headers: HTTPClientHeaders, expected: HTTPClientHeaders) {
-    XCTAssertEqual(headers, expected, "expected headers to match")
+    #expect(headers == expected, "expected headers to match")
 }
