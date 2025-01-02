@@ -226,7 +226,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         let v5_3_3 = ToolsVersion(string: "5.3.3")!
 
         func createProvider(_ toolsVersion: ToolsVersion) throws -> PackageContainerProvider {
-            let supportedVersions = Set<ToolsVersion>([ToolsVersion.v5_3, v5_3_3, .v5_4, .v5_5])
+            let supportedVersions = Set<ToolsVersion>([ToolsVersion.v5, .v5_3, v5_3_3, .v5_4, .v5_5])
             let registryClient = try makeRegistryClient(
                 packageIdentity: packageIdentity,
                 packageVersion: packageVersion,
@@ -333,6 +333,14 @@ final class RegistryPackageContainerTests: XCTestCase {
             let container = try await provider.getContainer(for: ref) as! RegistryPackageContainer
             let manifest = try await container.loadManifest(version: packageVersion)
             XCTAssertEqual(manifest.toolsVersion, .v5_5)
+        }
+        
+        do {
+            let provider = try createProvider(.v5) // the version of the alternate
+            let ref = PackageReference.registry(identity: packageIdentity)
+            let container = try await provider.getContainer(for: ref) as! RegistryPackageContainer
+            let manifest = try await container.loadManifest(version: packageVersion)
+            XCTAssertEqual(manifest.toolsVersion, .v5)
         }
     }
 
@@ -492,7 +500,13 @@ final class RegistryPackageContainerTests: XCTestCase {
         guard let registryIdentity = identity.registry else {
             preconditionFailure("invalid registry identity: '\(identity)'")
         }
-        let versionString = version.patch == 0 ? "\(version.major).\(version.minor)" : version.description
+        let versionString = if version.patch == 0 && version.minor == 0 {
+            "\(version.major)"
+        } else if version.patch == 0 {
+            "\(version.major).\(version.minor)"
+        } else {
+            version.description
+        }
         return "<http://localhost/\(registryIdentity.scope)/\(registryIdentity.name)/\(version)/\(Manifest.filename)?swift-version=\(version)>; rel=\"alternate\"; filename=\"\(Manifest.basename)@swift-\(versionString).swift\"; swift-tools-version=\"\(version)\""
     }
 }
