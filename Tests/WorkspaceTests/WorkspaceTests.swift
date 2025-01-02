@@ -206,7 +206,7 @@ final class WorkspaceTests: XCTestCase {
             do {
                 let ws = try createWorkspace(
                     """
-                    // swift-tools-version:999.0
+                    // swift-tools-version:5.9.2
                     import PackageDescription
                     let package = Package(
                         name: "foo"
@@ -214,7 +214,7 @@ final class WorkspaceTests: XCTestCase {
                     """
                 )
 
-                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("6")])
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("5")])
             }
 
             do {
