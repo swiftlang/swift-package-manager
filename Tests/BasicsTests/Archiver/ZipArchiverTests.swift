@@ -62,7 +62,8 @@ final class ZipArchiverTests: XCTestCase {
             let inputArchivePath = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.zip")
             await XCTAssertAsyncThrowsError(try await archiver.extract(from: inputArchivePath, to: tmpdir)) { error in
-#if os(Windows)
+#if os(Windows) || os(FreeBSD)
+                // On FreeBSD, unzip (bsdunzip) is backed by libarchive
                 XCTAssertMatch((error as? StringError)?.description, .contains("Unrecognized archive format"))
 #else
                 XCTAssertMatch((error as? StringError)?.description, .contains("End-of-central-directory signature not found"))

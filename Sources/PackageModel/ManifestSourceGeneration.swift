@@ -416,6 +416,9 @@ fileprivate extension SourceCodeFragment {
         case .nuget(let names):
             let params = [SourceCodeFragment(strings: names)]
             self.init(enum: "nuget", subnodes: params)
+        case .pkg(let names):
+            let params = [SourceCodeFragment(strings: names)]
+            self.init(enum: "pkg", subnodes: params)
         }
     }
 

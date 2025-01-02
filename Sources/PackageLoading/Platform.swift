@@ -25,6 +25,7 @@ public enum Platform: Equatable, Sendable {
     case darwin
     case linux(LinuxFlavor)
     case windows
+    case freebsd
 
     /// Recognized flavors of linux.
     public enum LinuxFlavor: Equatable, Sendable {
@@ -44,6 +45,8 @@ extension Platform {
         {
         case "darwin"?:
             return .darwin
+        case "freebsd"?:
+            return .freebsd
         case "linux"?:
             return Platform.findCurrentPlatformLinux(localFileSystem)
         default:
@@ -89,7 +92,7 @@ extension Platform {
     public var dynamicLibraryExtension: String {
         switch self {
         case .darwin: return ".dylib"
-        case .linux, .android: return ".so"
+        case .linux, .android, .freebsd: return ".so"
         case .windows: return ".dll"
         }
     }
@@ -97,7 +100,7 @@ extension Platform {
     public var executableExtension: String {
         switch self {
         case .windows: return ".exe"
-        case .linux, .android, .darwin: return ""
+        case .linux, .android, .darwin, .freebsd: return ""
         }
     }
 }
