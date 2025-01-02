@@ -15,7 +15,7 @@ import PackageModel
 
 public struct MockTarget {
     public enum `Type` {
-        case regular, test, binary
+        case regular, test, binary, macro, executable
     }
 
     public let name: String
@@ -86,6 +86,30 @@ public struct MockTarget {
                 packageAccess: packageAccess,
                 settings: [],
                 checksum: self.checksum
+            )
+        case .macro:
+            return try TargetDescription(
+                name: self.name,
+                dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
+                path: self.path,
+                exclude: [],
+                sources: nil,
+                publicHeadersPath: nil,
+                type: .macro,
+                packageAccess: packageAccess,
+                settings: self.settings
+            )
+        case .executable:
+            return try TargetDescription(
+                name: self.name,
+                dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
+                path: self.path,
+                exclude: [],
+                sources: nil,
+                publicHeadersPath: nil,
+                type: .executable,
+                packageAccess: packageAccess,
+                settings: self.settings
             )
         }
     }
