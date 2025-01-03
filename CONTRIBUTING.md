@@ -353,12 +353,20 @@ To run the swift toolchain test suite including SwiftPM use:
 @swift-ci please test
 ```
 
+To run the swift toolchain test suite against a specific platform use one of the following:
+
+```
+@swift-ci please test macos
+@swift-ci please test linux
+@swift-ci please test windows
+```
 
 To run package compatibility test suite (validates we do not break 3rd party packages) use:
 
 ```
 @swift-ci please test package compatibility
 ```
+
 
 ## Generating Documentation
 
