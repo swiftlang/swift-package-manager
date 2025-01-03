@@ -51,13 +51,11 @@ final class APIDiffTests: CommandsTestCase {
       guard (try? UserToolchain.default.getSwiftAPIDigester()) != nil else {
         throw XCTSkip("swift-api-digester unavailable")
       }
-      // SwiftPM's swift-api-digester integration relies on post-5.5 bugfixes and features,
-      // not all of which can be tested for easily. Fortunately, we can test for the
-      // `-disable-fail-on-error` option, and any version which supports this flag
-      // will meet the other requirements.
-      guard DriverSupport.checkSupportedFrontendFlags(flags: ["disable-fail-on-error"], toolchain: try UserToolchain.default, fileSystem: localFileSystem) else {
-        throw XCTSkip("swift-api-digester is too old")
-      }
+      // The tests rely on swift-api-digester post-5.5 version and are certain
+      // to work with Swift compiler v6.0 and later.
+      #if compiler(<6.0)
+        throw XCTSkip("Skipping because test requires at least Swift compiler v6.0")
+      #endif
     }
 
     func testInvokeAPIDiffDigester() async throws {
