@@ -39,11 +39,11 @@ final class APIDiffTests: CommandsTestCase {
 
     func skipIfApiDigesterUnsupportedOrUnset() throws {
         try skipIfApiDigesterUnsupported()
-        // The following is added to separate out the integration point testing of the API
-        // diff digester with SwiftPM from the functionality tests of the digester itself
-        guard Environment.current["SWIFTPM_TEST_API_DIFF_OUTPUT"] == "1" else {
-            throw XCTSkip("Env var SWIFTPM_TEST_API_DIFF_OUTPUT must be set to test the output")
-        }
+        // Opt out from testing the API diff if necessary.
+        try XCTSkipIf(
+            Environment.current["SWIFTPM_TEST_API_DIFF_OUTPUT"] == "0",
+            "Env var SWIFTPM_TEST_API_DIFF_OUTPUT is set to skip the API diff tests."
+        )
     }
 
     func skipIfApiDigesterUnsupported() throws {
