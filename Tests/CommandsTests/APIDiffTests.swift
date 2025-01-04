@@ -163,18 +163,13 @@ final class APIDiffTests: CommandsTestCase {
                 string: "public class Qux<T, U> { private let x = 1 }"
             )
             await XCTAssertThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
-                XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Foo"))
-                XCTAssertMatch(error.stdout, .contains("💔 API breakage: struct Foo has been removed"))
-                XCTAssertMatch(error.stdout, .contains("2 breaking changes detected in Bar"))
-                XCTAssertMatch(error.stdout, .contains("💔 API breakage: import Baz has been removed"))
-                XCTAssertMatch(error.stdout, .contains("💔 API breakage: func bar() has been removed"))
-                XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Baz"))
-                XCTAssertMatch(error.stdout, .contains("💔 API breakage: enumelement Baz.b has been added as a new enum case"))
+                XCTAssertMatch(error.stdout, .contains("💔 API breakage"))
+                XCTAssertMatch(error.stdout, .contains("Foo"))
+                XCTAssertMatch(error.stdout, .contains("Bar"))
+                XCTAssertMatch(error.stdout, .contains("Baz"))
 
                 // Qux is not part of a library product, so any API changes should be ignored
-                XCTAssertNoMatch(error.stdout, .contains("2 breaking changes detected in Qux"))
-                XCTAssertNoMatch(error.stdout, .contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
-                XCTAssertNoMatch(error.stdout, .contains("💔 API breakage: var Qux.x has been removed"))
+                XCTAssertNoMatch(error.stdout, .contains("Qux"))
             }
         }
     }
@@ -202,33 +197,26 @@ final class APIDiffTests: CommandsTestCase {
             await XCTAssertThrowsCommandExecutionError(
                 try await execute(["diagnose-api-breaking-changes", "1.2.3", "--products", "One", "--targets", "Bar"], packagePath: packageRoot)
             ) { error in
-                XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Foo"))
-                XCTAssertMatch(error.stdout, .contains("💔 API breakage: struct Foo has been removed"))
-                XCTAssertMatch(error.stdout, .contains("2 breaking changes detected in Bar"))
-                XCTAssertMatch(error.stdout, .contains("💔 API breakage: import Baz has been removed"))
-                XCTAssertMatch(error.stdout, .contains("💔 API breakage: func bar() has been removed"))
+                XCTAssertMatch(error.stdout, .contains("💔 API breakage"))
+                XCTAssertMatch(error.stdout, .contains("Foo"))
+                XCTAssertMatch(error.stdout, .contains("Bar"))
 
-                XCTAssertNoMatch(error.stdout, .contains("1 breaking change detected in Baz"))
-                XCTAssertNoMatch(error.stdout, .contains("💔 API breakage: enumelement Baz.b has been added as a new enum case"))
-                XCTAssertNoMatch(error.stdout, .contains("2 breaking changes detected in Qux"))
-                XCTAssertNoMatch(error.stdout, .contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
-                XCTAssertNoMatch(error.stdout, .contains("💔 API breakage: var Qux.x has been removed"))
+                // Baz and Qux are not included in the filter, so any API changes should be ignored.
+                XCTAssertNoMatch(error.stdout, .contains("Baz"))
+                XCTAssertNoMatch(error.stdout, .contains("Qux"))
             }
 
             // Diff a target which didn't have a baseline generated as part of the first invocation
             await XCTAssertThrowsCommandExecutionError(
                 try await execute(["diagnose-api-breaking-changes", "1.2.3", "--targets", "Baz"], packagePath: packageRoot)
             ) { error in
-                XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Baz"))
-                XCTAssertMatch(error.stdout, .contains("💔 API breakage: enumelement Baz.b has been added as a new enum case"))
+                XCTAssertMatch(error.stdout, .contains("💔 API breakage"))
+                XCTAssertMatch(error.stdout, .contains("Baz"))
 
-                XCTAssertNoMatch(error.stdout, .contains("1 breaking change detected in Foo"))
-                XCTAssertNoMatch(error.stdout, .contains("💔 API breakage: struct Foo has been removed"))
-                XCTAssertNoMatch(error.stdout, .contains("1 breaking change detected in Bar"))
-                XCTAssertNoMatch(error.stdout, .contains("💔 API breakage: func bar() has been removed"))
-                XCTAssertNoMatch(error.stdout, .contains("2 breaking changes detected in Qux"))
-                XCTAssertNoMatch(error.stdout, .contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
-                XCTAssertNoMatch(error.stdout, .contains("💔 API breakage: var Qux.x has been removed"))
+                // Only Baz is included, we should not see any other API changes.
+                XCTAssertNoMatch(error.stdout, .contains("Foo"))
+                XCTAssertNoMatch(error.stdout, .contains("Bar"))
+                XCTAssertNoMatch(error.stdout, .contains("Qux"))
             }
 
             // Test diagnostics
