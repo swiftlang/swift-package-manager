@@ -70,7 +70,7 @@ public struct Platform: Equatable, Sendable {
     @available(_PackageDescription, introduced: 5.8)
     public static let openbsd: Platform = Platform(name: "openbsd")
 
-    /// The FreeBSD platform
+    /// The FreeBSD platform.
 //    @available(_PackageDescription, introduced: ??.??)
     public static let freebsd: Platform = Platform(name: "freebsd")
 }
