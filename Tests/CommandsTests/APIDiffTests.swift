@@ -164,9 +164,9 @@ final class APIDiffTests: CommandsTestCase {
             )
             await XCTAssertThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
                 XCTAssertMatch(error.stdout, .contains("💔 API breakage"))
-                XCTAssertMatch(error.stdout, .contains("Foo"))
-                XCTAssertMatch(error.stdout, .contains("Bar"))
-                XCTAssertMatch(error.stdout, .contains("Baz"))
+                XCTAssertMatch(error.stdout, .regex("\\d+ breaking change(s?) detected in Foo"))
+                XCTAssertMatch(error.stdout, .regex("\\d+ breaking change(s?) detected in Bar"))
+                XCTAssertMatch(error.stdout, .regex("\\d+ breaking change(s?) detected in Baz"))
 
                 // Qux is not part of a library product, so any API changes should be ignored
                 XCTAssertNoMatch(error.stdout, .contains("Qux"))
@@ -198,8 +198,8 @@ final class APIDiffTests: CommandsTestCase {
                 try await execute(["diagnose-api-breaking-changes", "1.2.3", "--products", "One", "--targets", "Bar"], packagePath: packageRoot)
             ) { error in
                 XCTAssertMatch(error.stdout, .contains("💔 API breakage"))
-                XCTAssertMatch(error.stdout, .contains("Foo"))
-                XCTAssertMatch(error.stdout, .contains("Bar"))
+                XCTAssertMatch(error.stdout, .regex("\\d+ breaking change(s?) detected in Foo"))
+                XCTAssertMatch(error.stdout, .regex("\\d+ breaking change(s?) detected in Bar"))
 
                 // Baz and Qux are not included in the filter, so any API changes should be ignored.
                 XCTAssertNoMatch(error.stdout, .contains("Baz"))
@@ -211,7 +211,7 @@ final class APIDiffTests: CommandsTestCase {
                 try await execute(["diagnose-api-breaking-changes", "1.2.3", "--targets", "Baz"], packagePath: packageRoot)
             ) { error in
                 XCTAssertMatch(error.stdout, .contains("💔 API breakage"))
-                XCTAssertMatch(error.stdout, .contains("Baz"))
+                XCTAssertMatch(error.stdout, .regex("\\d+ breaking change(s?) detected in Baz"))
 
                 // Only Baz is included, we should not see any other API changes.
                 XCTAssertNoMatch(error.stdout, .contains("Foo"))
