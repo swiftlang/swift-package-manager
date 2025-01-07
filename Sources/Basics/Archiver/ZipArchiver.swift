@@ -110,6 +110,8 @@ public struct ZipArchiver: Archiver, Cancellable {
             workingDirectory: directory.parentDirectory
         )
         #elseif os(FreeBSD)
+        // On FreeBSD, the unzip command is available in base but not the zip command.
+        // Therefore; we use libarchive(bsdtar) to produce the ZIP archive instead.
         let process = AsyncProcess(
           arguments: ["tar", "-c", "--format", "zip", "-f", destinationPath.pathString, directory.basename],
           workingDirectory: directory.parentDirectory
