@@ -312,16 +312,20 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         sigfillset(&sig_set_all)
         sigprocmask(SIG_UNBLOCK, &sig_set_all, nil)
 
+        #if os(FreeBSD) || os(OpenBSD)
+        closefrom(3)
+        #else
         #if os(Android)
         let number_fds = Int32(sysconf(_SC_OPEN_MAX))
         #else
         let number_fds = getdtablesize()
-        #endif
+        #endif /* os(Android) */
         
         // 2. close all file descriptors.
         for i in 3..<number_fds {
             close(i)
         }
+        #endif /* os(FreeBSD) || os(OpenBSD) */
         #endif
 
         try TSCBasic.exec(path: path, args: args)
