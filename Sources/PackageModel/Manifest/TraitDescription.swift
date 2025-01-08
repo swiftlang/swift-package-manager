@@ -42,3 +42,9 @@ public struct TraitDescription: Sendable, Hashable, Codable, ExpressibleByString
         self.init(name: value)
     }
 }
+
+extension TraitDescription {
+    public var isDefault: Bool {
+        self.name == "default"
+    }
+}

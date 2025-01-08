@@ -118,7 +118,7 @@ extension ModulesGraph {
                 )
             )
         }
-        let rootDependencyNodes = try root.dependencies.lazy.compactMap { dependency in
+        let rootDependencyNodes = try root.dependencies.lazy.filter({ requiredDependencies.contains($0.packageRef) }).compactMap { dependency in
             try manifestMap[dependency.identity].map {
                 try GraphLoadingNode(
                     identity: dependency.identity,
@@ -128,6 +128,7 @@ extension ModulesGraph {
                 )
             }
         }
+
         let inputManifests = (rootManifestNodes + rootDependencyNodes).map {
             KeyedPair($0, key: $0.identity)
         }
@@ -664,11 +665,17 @@ private func createResolvedPackages(
 
             // Establish product dependencies.
             for case .product(let productRef, let conditions) in moduleBuilder.module.dependencies {
+                // TODO: comment out for now, test traits in resolution functionality
+//                if let traitCondition = conditions.compactMap({ $0.traitCondition }).first {
+//                    if packageBuilder.enabledTraits.intersection(traitCondition.traits).isEmpty {
+//                        ///  If we land here non of the traits required to enable this dependency has been enabled.
+//                        continue
+//                    }
+//                }
+
                 if let traitCondition = conditions.compactMap({ $0.traitCondition }).first {
-                    if packageBuilder.enabledTraits.intersection(traitCondition.traits).isEmpty {
-                        ///  If we land here non of the traits required to enable this depenendcy has been enabled.
-                        continue
-                    }
+//                    print("enabled traits: \(packageBuilder.enabledTraits)")
+//                    print("trait condition traits: \(traitCondition.traits)")
                 }
 
                 if let package = productRef.package, prebuilts[.plain(package)]?[productRef.name] != nil {
@@ -702,6 +709,7 @@ private func createResolvedPackages(
                                 break
                             }
                         }
+                        print("============error product dep not found=============")
                         let error = PackageGraphError.productDependencyNotFound(
                             package: package.identity.description,
                             moduleName: moduleBuilder.module.name,
@@ -741,6 +749,9 @@ private func createResolvedPackages(
                 moduleBuilder.dependencies.append(.product(product, conditions: conditions))
             }
         }
+
+        // dummy error to view print messages in tests
+        // throw PackageGraphError.duplicateProduct(product: "asdf", packages: [])
     }
 
     // If a module with similar name was encountered before, we emit a diagnostic.
