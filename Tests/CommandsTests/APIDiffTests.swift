@@ -40,6 +40,10 @@ final class APIDiffTests: CommandsTestCase {
     func skipIfApiDigesterUnsupportedOrUnset() throws {
         try skipIfApiDigesterUnsupported()
         // Opt out from testing the API diff if necessary.
+        // TODO: Cleanup after March 2025.
+        // The opt-in/opt-out mechanism doesn't seem to be used.
+        // It is kept around for abundance of caution. If "why is it needed"
+        // not identified by March 2025, then it is OK to remove it.
         try XCTSkipIf(
             Environment.current["SWIFTPM_TEST_API_DIFF_OUTPUT"] == "0",
             "Env var SWIFTPM_TEST_API_DIFF_OUTPUT is set to skip the API diff tests."
