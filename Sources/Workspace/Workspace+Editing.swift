@@ -233,7 +233,8 @@ extension Workspace {
                 root: root,
                 explicitProduct: .none,
                 resolvedFileStrategy: .update(forceResolution: false),
-                observabilityScope: observabilityScope
+                observabilityScope: observabilityScope,
+                traitConfiguration: nil // TODO
             )
         }
     }

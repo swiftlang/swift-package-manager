@@ -677,7 +677,8 @@ extension Workspace {
             explicitProduct: explicitProduct,
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : forceResolution ? .update(forceResolution: true) :
                 .bestEffort,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: nil // TODO?
         )
     }
 
@@ -740,7 +741,8 @@ extension Workspace {
         let constraint = PackageContainerConstraint(
             package: dependency.packageRef,
             requirement: requirement,
-            products: .nothing
+            products: .nothing,
+            traitConfiguration: nil // TODO: to add configuration
         )
 
         // Run the resolution.
@@ -748,7 +750,8 @@ extension Workspace {
             root: root,
             forceResolution: false,
             constraints: [constraint],
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: nil // TODO
         )
     }
 
@@ -923,11 +926,13 @@ extension Workspace {
         try self.state.reload()
 
         // Perform dependency resolution, if required.
+        // TODO: pass in trait configuration, if applicable
         let manifests = try await self._resolve(
             root: root,
             explicitProduct: explicitProduct,
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : .bestEffort,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: nil // TODO
         )
 
         let binaryArtifacts = self.state.artifacts
@@ -938,6 +943,8 @@ extension Workspace {
                     path: artifact.path
                 )
             }
+
+        print("loading package graph from workspace method")
 
         // Load the graph.
         let packageGraph = try ModulesGraph.load(

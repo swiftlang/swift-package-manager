@@ -114,18 +114,34 @@ public struct PackageGraphRoot {
     }
 
     /// Returns the constraints imposed by root manifests + dependencies.
-    public func constraints() throws -> [PackageContainerConstraint] {
-        let constraints = self.packageReferences.map {
-            PackageContainerConstraint(package: $0, requirement: .unversioned, products: .everything)
+    public func constraints(_ usedDependencies: Set<TargetDescription.Dependency>? = nil) throws -> [PackageContainerConstraint] {
+        let constraints = self.packages.map { (identity, package) in
+            PackageContainerConstraint(package: package.reference, requirement: .unversioned, products: .everything, traitConfiguration: TraitConfiguration(enabledTraits: Set(package.manifest.enabledTraits?.compactMap(\.name) ?? [])))
         }
         
-        let depend = try dependencies.map{
-            PackageContainerConstraint(
-                package: $0.packageRef,
-                requirement: try $0.toConstraintRequirement(),
-                products: $0.productFilter
-            )
+        // Filter out dependencies that aren't used; don't include these in the constraint calculation
+        // TODO: may not be necessary to filter at this stage, since constraints are also processed in
+        // TODO: the pub grub solver
+        let depend = try dependencies
+            .filter { dep in
+                guard let usedDependencies else { return true }
+
+                // Case insensitive identity comparison
+                return usedDependencies.contains(where: {
+                    $0.package?.caseInsensitiveCompare(dep.identity.description) == .orderedSame
+                })
+            }
+            .map {
+                let traits = $0.traits?.compactMap(\.name) ?? []
+                let traitConfiguration = TraitConfiguration(enabledTraits: Set(traits))
+                return PackageContainerConstraint(
+                    package: $0.packageRef,
+                    requirement: try $0.toConstraintRequirement(),
+                    products: $0.productFilter,
+                    traitConfiguration: traitConfiguration
+                )
         }
+
         return constraints + depend
     }
 }

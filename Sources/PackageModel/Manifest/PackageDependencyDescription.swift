@@ -23,7 +23,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
     package struct Trait: Hashable, Sendable, Codable, ExpressibleByStringLiteral {
         /// A condition that limits the application of a dependencies trait.
         package struct Condition: Hashable, Sendable, Codable {
-            /// The set of traits of this package that enable the dependencie's trait.
+            /// The set of traits of this package that enable the dependency's trait.
             package let traits: Set<String>?
 
             public init(traits: Set<String>?) {
