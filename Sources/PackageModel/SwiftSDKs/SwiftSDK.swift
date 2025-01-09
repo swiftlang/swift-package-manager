@@ -582,10 +582,10 @@ public struct SwiftSDK: Equatable {
         #if os(macOS)
         do {
             let sdkPaths = try SwiftSDK.sdkPlatformPaths(for: darwinPlatform, environment: environment)
-            extraCCFlags += ["-F", sdkPaths.frameworks.pathString]
-            extraSwiftCFlags += ["-F", sdkPaths.frameworks.pathString]
-            extraSwiftCFlags += ["-I", sdkPaths.libraries.pathString]
-            extraSwiftCFlags += ["-L", sdkPaths.libraries.pathString]
+            extraCCFlags.append(contentsOf: sdkPaths.frameworks.flatMap { ["-F", $0.pathString] })
+            extraSwiftCFlags.append(contentsOf: sdkPaths.frameworks.flatMap { ["-F", $0.pathString] })
+            extraSwiftCFlags.append(contentsOf: sdkPaths.libraries.flatMap { ["-I", $0.pathString] })
+            extraSwiftCFlags.append(contentsOf: sdkPaths.libraries.flatMap { ["-L", $0.pathString] })
             xctestSupport = .supported
         } catch {
             xctestSupport = .unsupported(reason: String(describing: error))
@@ -617,11 +617,11 @@ public struct SwiftSDK: Equatable {
     ///
     /// - SeeAlso: ``sdkPlatformPaths(for:environment:)``
     public struct PlatformPaths {
-        /// Path to the directory containing auxiliary platform frameworks.
-        public var frameworks: AbsolutePath
+        /// Paths of directories containing auxiliary platform frameworks.
+        public var frameworks: [AbsolutePath]
 
-        /// Path to the directory containing auxiliary platform libraries.
-        public var libraries: AbsolutePath
+        /// Paths of directories containing auxiliary platform libraries.
+        public var libraries: [AbsolutePath]
     }
 
     /// Returns `macosx` sdk platform framework path.
@@ -630,7 +630,13 @@ public struct SwiftSDK: Equatable {
         environment: Environment = .current
     ) throws -> (fwk: AbsolutePath, lib: AbsolutePath) {
         let paths = try sdkPlatformPaths(for: .macOS, environment: environment)
-        return (fwk: paths.frameworks, lib: paths.libraries)
+        guard let frameworkPath = paths.frameworks.first else {
+            throw StringError("could not determine SDK platform framework path")
+        }
+        guard let libraryPath = paths.libraries.first else {
+            throw StringError("could not determine SDK platform library path")
+        }
+        return (fwk: frameworkPath, lib: libraryPath)
     }
 
     /// Returns ``SwiftSDK/PlatformPaths`` for the provided Darwin platform.
@@ -652,17 +658,20 @@ public struct SwiftSDK: Equatable {
             throw StringError("could not determine SDK platform path")
         }
 
-        // For XCTest framework.
-        let fwk = try AbsolutePath(validating: platformPath).appending(
+        // For testing frameworks.
+        let frameworksPath = try AbsolutePath(validating: platformPath).appending(
             components: "Developer", "Library", "Frameworks"
         )
+        let privateFrameworksPath = try AbsolutePath(validating: platformPath).appending(
+            components: "Developer", "Library", "PrivateFrameworks"
+        )
 
-        // For XCTest Swift library.
-        let lib = try AbsolutePath(validating: platformPath).appending(
+        // For testing libraries.
+        let librariesPath = try AbsolutePath(validating: platformPath).appending(
             components: "Developer", "usr", "lib"
         )
 
-        let sdkPlatformFrameworkPath = PlatformPaths(frameworks: fwk, libraries: lib)
+        let sdkPlatformFrameworkPath = PlatformPaths(frameworks: [frameworksPath, privateFrameworksPath], libraries: [librariesPath])
         _sdkPlatformFrameworkPath[darwinPlatform] = sdkPlatformFrameworkPath
         return sdkPlatformFrameworkPath
     }
