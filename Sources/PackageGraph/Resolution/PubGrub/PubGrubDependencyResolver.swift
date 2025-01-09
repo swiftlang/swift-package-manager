@@ -305,6 +305,9 @@ public struct PubGrubDependencyResolver {
         overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)],
         rootIncompatibilities: [Incompatibility]
     ) {
+        print("processing inputs")
+        print("constraints:")
+        constraints.forEach({ print($0) })
         // The list of constraints that we'll be working with. We start with the input constraints
         // and process them in two phases. The first phase finds all unversioned constraints and
         // the second phase discovers all branch-based constraints.
@@ -449,6 +452,16 @@ public struct PubGrubDependencyResolver {
                 }
             }
         }
+
+        // TODO: add a section here that processes trait-guarded constraints, also for used dependencies
+//        while let constraint = constraints.first(where: { $0.traitConfiguration != nil }) {
+//            print("processing constraint: \(constraint.package.identity.description): \(constraint.description)")
+//            if root.enabledTraits.intersection(constraint.traitConfiguration?.enabledTraits ?? []).isEmpty {
+//                constraints.remove(constraint)
+//                print("removed constraint: \(constraint.description)")
+//            }
+//            // what else is there to process?
+//        }
 
         // At this point, we should be left with only version-based requirements in our constraints
         // list. Add them to our version-based dependency list.

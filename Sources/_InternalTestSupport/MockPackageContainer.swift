@@ -60,7 +60,7 @@ public class MockPackageContainer: CustomPackageContainer {
         }
         return dependencies.map { value in
             let (package, requirement) = value
-            return MockPackageContainer.Constraint(package: package, requirement: requirement, products: productFilter)
+            return MockPackageContainer.Constraint(package: package, requirement: requirement, products: productFilter, traitConfiguration: nil /*TODO: to add configuration*/)
         }
     }
 

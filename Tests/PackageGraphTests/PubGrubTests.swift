@@ -3179,7 +3179,7 @@ public class MockContainer: PackageContainer {
         }
         return filteredDependencies.map({ value in
             let (package, requirement, filter) = value
-            return PackageContainerConstraint(package: package, requirement: requirement, products: filter)
+            return PackageContainerConstraint(package: package, requirement: requirement, products: filter, traitConfiguration: nil)
         })
     }
 
@@ -3215,7 +3215,7 @@ public class MockContainer: PackageContainer {
     ) {
         self.init(package: package)
         self.unversionedDeps = unversionedDependencies
-            .map { PackageContainerConstraint(package: $0.package, requirement: $0.requirement, products: $0.productFilter) }
+            .map { PackageContainerConstraint(package: $0.package, requirement: $0.requirement, products: $0.productFilter, traitConfiguration: nil) }
     }
 
     public convenience init(
@@ -3308,7 +3308,7 @@ class DependencyGraphBuilder {
         dependencies: OrderedCollections.OrderedDictionary<PackageReference, (PackageRequirement, ProductFilter)>
     ) -> [PackageContainerConstraint] {
         return dependencies.map {
-            PackageContainerConstraint(package: $0, requirement: $1.0, products: $1.1)
+            PackageContainerConstraint(package: $0, requirement: $1.0, products: $1.1, traitConfiguration: nil)
         }
     }
 
