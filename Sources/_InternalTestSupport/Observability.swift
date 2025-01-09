@@ -14,10 +14,10 @@ import Basics
 import func XCTest.XCTAssertTrue
 import func XCTest.XCTAssertEqual
 import func XCTest.XCTFail
-
 import struct TSCBasic.StringError
 
 import TSCTestSupport
+import Testing
 
 extension ObservabilitySystem {
     public static func makeForTesting(verbose: Bool = true) -> TestingObservability {
@@ -138,6 +138,39 @@ public func testDiagnostics(
         XCTFail("unchecked diagnostics \(testResult.uncheckedDiagnostics)", file: file, line: line)
     }
 }
+
+
+public func expectDiagnostics(
+    _ diagnostics: [Basics.Diagnostic],
+    problemsOnly: Bool = true,
+    sourceLocation: SourceLocation = #_sourceLocation,
+    handler: (DiagnosticsTestResult) throws -> Void
+) throws {
+    try expectDiagnostics(
+        diagnostics,
+        minSeverity: problemsOnly ? .warning : .debug,
+        sourceLocation: sourceLocation,
+        handler: handler
+    )
+}
+
+
+public func expectDiagnostics(
+    _ diagnostics: [Basics.Diagnostic],
+    minSeverity: Basics.Diagnostic.Severity,
+    sourceLocation: SourceLocation = #_sourceLocation,
+    handler: (DiagnosticsTestResult) throws -> Void
+) throws {
+    let diagnostics = diagnostics.filter { $0.severity >= minSeverity }
+    let testResult = DiagnosticsTestResult(diagnostics)
+
+    try handler(testResult)
+
+    if !testResult.uncheckedDiagnostics.isEmpty {
+        Issue.record("unchecked diagnostics \(testResult.uncheckedDiagnostics)", sourceLocation: sourceLocation)
+    }
+}
+
 
 public func testPartialDiagnostics(
     _ diagnostics: [Basics.Diagnostic],
