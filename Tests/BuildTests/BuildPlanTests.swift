@@ -1657,7 +1657,6 @@ final class BuildPlanTests: XCTestCase {
         #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
-            "-lc++",
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
@@ -1684,7 +1683,6 @@ final class BuildPlanTests: XCTestCase {
         #else
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
-            "-lstdc++",
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
@@ -2902,15 +2900,7 @@ final class BuildPlanTests: XCTestCase {
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
-        var linkArgs = try result.buildProduct(for: "exe").linkArguments()
 
-        #if os(macOS)
-        XCTAssertMatch(linkArgs, ["-lc++"])
-        #elseif !os(Windows)
-        XCTAssertMatch(linkArgs, ["-lstdc++"])
-        #endif
-
-        // Verify that `-lstdc++` is passed instead of `-lc++` when cross-compiling to Linux.
         result = try await BuildPlanResult(plan: mockBuildPlan(
             triple: .arm64Linux,
             graph: graph,
@@ -2919,9 +2909,6 @@ final class BuildPlanTests: XCTestCase {
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
-        linkArgs = try result.buildProduct(for: "exe").linkArguments()
-
-        XCTAssertMatch(linkArgs, ["-lstdc++"])
     }
 
     func testDynamicProducts() async throws {
@@ -3284,7 +3271,6 @@ final class BuildPlanTests: XCTestCase {
         #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), [
             result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
-            "-lc++",
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "liblib.dylib").pathString,
             "-module-name", "lib",
@@ -3338,7 +3324,6 @@ final class BuildPlanTests: XCTestCase {
         #else
         XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), [
             result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
-            "-lstdc++",
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "liblib.so").pathString,
             "-module-name", "lib",
