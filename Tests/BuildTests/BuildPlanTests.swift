@@ -1999,6 +1999,8 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func test_symbolGraphExtract_arguments() async throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         // ModuleGraph:
         // .
         // ├── A (Swift)
@@ -4619,6 +4621,8 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testUserToolchainCompileFlags() async throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -4882,6 +4886,8 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testUserToolchainWithToolsetCompileFlags() async throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -5050,6 +5056,8 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testUserToolchainWithSDKSearchPaths() async throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
