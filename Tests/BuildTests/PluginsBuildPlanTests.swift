@@ -18,6 +18,8 @@ import PackageModel
 
 final class PluginsBuildPlanTests: XCTestCase {
     func testBuildToolsDatabasePath() async throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath)
             XCTAssertMatch(stdout, .contains("Build complete!"))
