@@ -188,6 +188,15 @@ struct TestCommandOptions: ParsableArguments {
             help: "Path where the xUnit xml file should be generated.")
     var xUnitOutput: AbsolutePath?
 
+    @Flag(
+        name: .customLong("experimental-xunit-message-failure"),
+        help: ArgumentHelp(
+            "When Set, enabled an experimental message failure content (XCTest only).",
+            visibility: .hidden
+        )
+    )
+    var shouldShowDetailedFailureMessage: Bool = false
+
     /// Generate LinuxMain entries and exit.
     @Flag(name: .customLong("testable-imports"), inversion: .prefixedEnableDisable, help: "Enable or disable testable imports. Enabled by default.")
     var enableTestableImports: Bool = true
@@ -330,7 +339,11 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                     result = runner.ranSuccessfully ? .success : .failure
                 }
 
-                try generateXUnitOutputIfRequested(for: testResults, swiftCommandState: swiftCommandState)
+                try generateXUnitOutputIfRequested(
+                    for: testResults,
+                    swiftCommandState: swiftCommandState,
+                    detailedFailureMessage: self.options.shouldShowDetailedFailureMessage
+                )
                 results.append(result)
             }
         }
@@ -406,7 +419,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     /// Generate xUnit file if requested.
     private func generateXUnitOutputIfRequested(
         for testResults: [ParallelTestRunner.TestResult],
-        swiftCommandState: SwiftCommandState
+        swiftCommandState: SwiftCommandState,
+        detailedFailureMessage: Bool
     ) throws {
         guard let xUnitOutput = options.xUnitOutput else {
             return
@@ -416,7 +430,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             fileSystem: swiftCommandState.fileSystem,
             results: testResults
         )
-        try generator.generate(at: xUnitOutput)
+        try generator.generate(at: xUnitOutput, detailedFailureMessage: detailedFailureMessage)
     }
 
     // MARK: - Common implementation
@@ -1371,7 +1385,7 @@ final class XUnitGenerator {
     }
 
     /// Generate the file at the given path.
-    func generate(at path: AbsolutePath) throws {
+    func generate(at path: AbsolutePath, detailedFailureMessage: Bool) throws {
         var content =
             """
             <?xml version="1.0" encoding="UTF-8"?>
@@ -1404,7 +1418,15 @@ final class XUnitGenerator {
                 """
 
             if !result.success {
-                content += "<failure message=\"failed\"></failure>\n"
+                var failureMessage: String = "failed"
+                if detailedFailureMessage {
+                    failureMessage = result.output
+                    failureMessage.replace("&", with: "&amp;")
+                    failureMessage.replace("\"", with:"&quot;")
+                    failureMessage.replace(">", with: "&gt;")
+                    failureMessage.replace("<", with: "&lt;")
+                }
+                content += "<failure message=\"\(failureMessage)\"></failure>\n"
             }
 
             content += "</testcase>\n"
