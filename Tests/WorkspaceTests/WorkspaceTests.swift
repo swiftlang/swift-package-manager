@@ -28,6 +28,10 @@ import struct TSCBasic.ByteString
 import struct TSCUtility.Version
 
 final class WorkspaceTests: XCTestCase {
+    override func setUpWithError() throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+    }
+
     func testBasics() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()

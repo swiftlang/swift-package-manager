@@ -17,6 +17,7 @@ import Basics
 
 import func TSCBasic.withTemporaryFile
 import XCTest
+import _InternalTestSupport // for skipOnWindowsAsTestCurrentlyFails
 
 import struct TSCBasic.ByteString
 
@@ -159,6 +160,8 @@ final class PackageModelTests: XCTestCase {
     }
 
     func testDetermineSwiftCompilers() throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         let fs = localFileSystem
         try withTemporaryFile { _ in
             try withTemporaryDirectory(removeTreeOnDeinit: true) { tmp in

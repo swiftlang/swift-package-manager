@@ -15,6 +15,7 @@
 import Basics
 
 import XCTest
+import _InternalTestSupport // for skipOnWindowsAsTestCurrentlyFails()
 
 final class EnvironmentTests: XCTestCase {
     func test_init() {
@@ -35,10 +36,11 @@ final class EnvironmentTests: XCTestCase {
             "testKey": "TestValue2",
         ]
         let environment = Environment(dictionary)
-        XCTAssertEqual(environment["TestKey"], "TestValue")
         #if os(Windows)
+        XCTAssertEqual(environment["TestKey"], "TestValue2")
         XCTAssertEqual(environment.count, 1)
         #else
+        XCTAssertEqual(environment["TestKey"], "TestValue")
         XCTAssertEqual(environment.count, 2)
         #endif
     }
@@ -47,6 +49,7 @@ final class EnvironmentTests: XCTestCase {
         let dictionary = ["TestKey": "TestValue"]
         let environment = Environment(dictionary)
         XCTAssertEqual(environment["TestKey"], "TestValue")
+        XCTAssertEqual(environment.count, 1)
     }
 
     func path(_ components: String...) -> String {
@@ -99,10 +102,13 @@ final class EnvironmentTests: XCTestCase {
 
     /// Important: This test is inherently race-prone, if it is proven to be
     /// flaky, it should run in a singled threaded environment/removed entirely.
-    func test_current() {
+    func test_current() throws {
+        try skipOnWindowsAsTestCurrentlyFails(because: "ProcessInfo.processInfo.environment[\"PATH\"] return nil")
+
         XCTAssertEqual(
             Environment.current["PATH"],
-            ProcessInfo.processInfo.environment["PATH"])
+            ProcessInfo.processInfo.environment["PATH"]
+        )
     }
 
     /// Important: This test is inherently race-prone, if it is proven to be

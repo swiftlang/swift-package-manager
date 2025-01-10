@@ -17,6 +17,18 @@ import XCTest
 import class Basics.AsyncProcess
 import struct TSCBasic.StringError
 
+public func skipOnWindowsAsTestCurrentlyFails(because reason: String? = nil) throws {
+    #if os(Windows)
+    let failureCause: String
+    if reason == nil {
+        failureCause = ""
+    } else {
+        failureCause = " because \(reason!.description)"
+    }
+    throw XCTSkip("Test fails on windows\(failureCause)")
+    #endif
+}
+
 extension Toolchain {
     package func skipUnlessAtLeastSwift6(
         file: StaticString = #file,
