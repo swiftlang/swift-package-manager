@@ -20,10 +20,10 @@ import struct TSCBasic.StringError
 public func skipOnWindowsAsTestCurrentlyFails(because reason: String? = nil) throws {
     #if os(Windows)
     let failureCause: String
-    if reason == nil {
-        failureCause = ""
+    if let reason {
+        failureCause = " because \(reason.description)"
     } else {
-        failureCause = " because \(reason!.description)"
+        failureCause = ""
     }
     throw XCTSkip("Test fails on windows\(failureCause)")
     #endif
