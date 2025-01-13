@@ -268,6 +268,32 @@ public struct BinaryArtifact {
     }
 }
 
+/// A structure representing a prebuilt library to be used instead of a source dependency
+public struct PrebuiltLibrary {
+    /// The package reference.
+    public let packageRef: PackageReference
+
+    /// The name of the binary target the artifact corresponds to.
+    public let libraryName: String
+
+    /// The path to the extracted prebuilt artifacts
+    public let path: AbsolutePath
+
+    /// The products in the library
+    public let products: [String]
+
+    /// The C modules that need their includes directory added to the include path
+    public let cModules: [String]
+
+    public init(packageRef: PackageReference, libraryName: String, path: AbsolutePath, products: [String], cModules: [String]) {
+        self.packageRef = packageRef
+        self.libraryName = libraryName
+        self.path = path
+        self.products = products
+        self.cModules = cModules
+    }
+}
+
 /// Helper for constructing a package following the convention system.
 ///
 /// The 'builder' here refers to the builder pattern and not any build system
@@ -294,6 +320,9 @@ public final class PackageBuilder {
 
     /// Information concerning the different downloaded or local (archived) binary target artifacts.
     private let binaryArtifacts: [String: BinaryArtifact]
+
+    /// Prebuilts that may referenced from this package's targets
+    private let prebuilts: [PackageIdentity: [Product.ID: PrebuiltLibrary]]
 
     /// Create multiple test products.
     ///
@@ -351,6 +380,7 @@ public final class PackageBuilder {
         path: AbsolutePath,
         additionalFileRules: [FileRuleDescription],
         binaryArtifacts: [String: BinaryArtifact],
+        prebuilts: [PackageIdentity: [String: PrebuiltLibrary]],
         shouldCreateMultipleTestProducts: Bool = false,
         testEntryPointPath: AbsolutePath? = nil,
         warnAboutImplicitExecutableTargets: Bool = true,
@@ -365,6 +395,7 @@ public final class PackageBuilder {
         self.packagePath = path
         self.additionalFileRules = additionalFileRules
         self.binaryArtifacts = binaryArtifacts
+        self.prebuilts = prebuilts
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
         self.testEntryPointPath = testEntryPointPath
         self.createREPLProduct = createREPLProduct
@@ -1209,6 +1240,33 @@ public final class PackageBuilder {
             assignment.values = ["\(trait)"]
             assignment.conditions = []
             table.add(assignment, for: .SWIFT_ACTIVE_COMPILATION_CONDITIONS)
+        }
+
+        // Add in flags for prebuilts
+        let prebuiltLibraries: [String: PrebuiltLibrary] = target.dependencies.reduce(into: .init()) {
+            guard case let .product(name: name, package: package, moduleAliases: _, condition: _) = $1,
+                  let package = package,
+                  let prebuilt = prebuilts[.plain(package)]?[name]
+            else {
+                return
+            }
+
+            $0[prebuilt.libraryName] = prebuilt
+        }
+
+        for prebuilt in prebuiltLibraries.values {
+            let lib = prebuilt.path.appending(components: ["lib", "lib\(prebuilt.libraryName).a"]).pathString
+            var ldFlagsAssignment = BuildSettings.Assignment()
+            ldFlagsAssignment.values = [lib]
+            table.add(ldFlagsAssignment, for: .OTHER_LDFLAGS)
+
+            var includeDirs: [AbsolutePath] = [prebuilt.path.appending(component: "Modules")]
+            for cModule in prebuilt.cModules {
+                includeDirs.append(prebuilt.path.appending(components: "include", cModule))
+            }
+            var includeAssignment = BuildSettings.Assignment()
+            includeAssignment.values = includeDirs.map({ "-I\($0.pathString)" })
+            table.add(includeAssignment, for: .OTHER_SWIFT_FLAGS)
         }
 
         return table
