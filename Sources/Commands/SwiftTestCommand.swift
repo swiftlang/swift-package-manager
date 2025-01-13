@@ -339,10 +339,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                     result = runner.ranSuccessfully ? .success : .failure
                 }
 
-                try generateXUnitOutputIfRequested(
-                    for: testResults,
-                    swiftCommandState: swiftCommandState,
-                )
+                try generateXUnitOutputIfRequested(for: testResults, swiftCommandState: swiftCommandState)
                 results.append(result)
             }
         }
@@ -418,7 +415,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     /// Generate xUnit file if requested.
     private func generateXUnitOutputIfRequested(
         for testResults: [ParallelTestRunner.TestResult],
-        swiftCommandState: SwiftCommandState,
+        swiftCommandState: SwiftCommandState
     ) throws {
         guard let xUnitOutput = options.xUnitOutput else {
             return
