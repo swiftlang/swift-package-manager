@@ -191,7 +191,7 @@ struct TestCommandOptions: ParsableArguments {
     @Flag(
         name: .customLong("experimental-xunit-message-failure"),
         help: ArgumentHelp(
-            "When Set, enabled an experimental message failure content (XCTest only).",
+            "When set, include the content of stdout/stderr in failure messages (XCTest only, experimental).",
             visibility: .hidden
         )
     )
