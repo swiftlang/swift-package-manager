@@ -13,6 +13,7 @@ add_library(Workspace
   LoadableResult.swift
   ManagedArtifact.swift
   ManagedDependency.swift
+  ManagedPrebuilt.swift
   PackageContainer/FileSystemPackageContainer.swift
   PackageContainer/RegistryPackageContainer.swift
   PackageContainer/SourceControlPackageContainer.swift
@@ -27,6 +28,7 @@ add_library(Workspace
   Workspace+Editing.swift
   Workspace+Manifests.swift
   Workspace+PackageContainer.swift
+  Workspace+Prebuilts.swift
   Workspace+Registry.swift
   Workspace+ResolvedPackages.swift
   Workspace+Signing.swift
