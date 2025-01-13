@@ -21,9 +21,9 @@ final class TestCommandTests: CommandsTestCase {
     private func execute(
         _ args: [String],
         packagePath: AbsolutePath? = nil,
-        errorIfCommandUnsuccessful: Bool = true
+        throwIfCommandFails: Bool = true
     ) async throws -> (stdout: String, stderr: String) {
-        try await SwiftPM.Test.execute(args, packagePath: packagePath, errorIfCommandUnsuccessful: errorIfCommandUnsuccessful)
+        try await SwiftPM.Test.execute(args, packagePath: packagePath, throwIfCommandFails: throwIfCommandFails)
     }
 
     func testUsage() async throws {
@@ -208,7 +208,7 @@ final class TestCommandTests: CommandsTestCase {
                     xUnitOutput.pathString
                 ] + extraCommandArgs,
                 packagePath: fixturePath,
-                errorIfCommandUnsuccessful: false
+                throwIfCommandFails: false
             )
 
             // THEN we expect \(xUnitUnderTest) to exists

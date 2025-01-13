@@ -76,6 +76,7 @@ extension SwiftPM {
     ///         - args: The arguments to pass.
     ///         - env: Additional environment variables to pass. The values here are merged with default env.
     ///         - packagePath: Adds argument `--package-path <path>` if not nil.
+    ///         - throwIfCommandFails: If set, will throw an error if the command does not have a 0 return code.
     ///
     /// - Returns: The output of the process.
     @discardableResult
@@ -83,7 +84,7 @@ extension SwiftPM {
         _ args: [String] = [],
         packagePath: AbsolutePath? = nil,
         env: Environment? = nil,
-        errorIfCommandUnsuccessful: Bool = true
+        throwIfCommandFails: Bool = true
     ) async throws -> (stdout: String, stderr: String) {
         let result = try await executeProcess(
             args,
@@ -95,7 +96,7 @@ extension SwiftPM {
         let stderr = try result.utf8stderrOutput()
         
         let returnValue = (stdout: stdout, stderr: stderr)
-        if (!errorIfCommandUnsuccessful) { return returnValue }
+        if (!throwIfCommandFails) { return returnValue }
 
         if result.exitStatus == .terminated(code: 0) {
             return returnValue

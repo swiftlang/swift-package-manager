@@ -342,7 +342,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 try generateXUnitOutputIfRequested(
                     for: testResults,
                     swiftCommandState: swiftCommandState,
-                    detailedFailureMessage: self.options.shouldShowDetailedFailureMessage
                 )
                 results.append(result)
             }
@@ -420,7 +419,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     private func generateXUnitOutputIfRequested(
         for testResults: [ParallelTestRunner.TestResult],
         swiftCommandState: SwiftCommandState,
-        detailedFailureMessage: Bool
     ) throws {
         guard let xUnitOutput = options.xUnitOutput else {
             return
@@ -430,7 +428,10 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             fileSystem: swiftCommandState.fileSystem,
             results: testResults
         )
-        try generator.generate(at: xUnitOutput, detailedFailureMessage: detailedFailureMessage)
+        try generator.generate(
+            at: xUnitOutput,
+            detailedFailureMessage: self.options.shouldShowDetailedFailureMessage
+        )
     }
 
     // MARK: - Common implementation
@@ -1418,14 +1419,7 @@ final class XUnitGenerator {
                 """
 
             if !result.success {
-                var failureMessage: String = "failed"
-                if detailedFailureMessage {
-                    failureMessage = result.output
-                    failureMessage.replace("&", with: "&amp;")
-                    failureMessage.replace("\"", with:"&quot;")
-                    failureMessage.replace(">", with: "&gt;")
-                    failureMessage.replace("<", with: "&lt;")
-                }
+                let failureMessage = detailedFailureMessage ? result.output.map(_escapeForXML).joined() : "failure"
                 content += "<failure message=\"\(failureMessage)\"></failure>\n"
             }
 
@@ -1440,6 +1434,32 @@ final class XUnitGenerator {
             """
 
         try self.fileSystem.writeFileContents(path, string: content)
+    }
+}
+
+/// Escape a single Unicode character for use in an XML-encoded string.
+///
+/// - Parameters:
+///   - character: The character to escape.
+///
+/// - Returns: `character`, or a string containing its escaped form.
+private func _escapeForXML(_ character: Character) -> String {
+    switch character {
+    case "\"":
+        "&quot;"
+    case "<":
+        "&lt;"
+    case ">":
+        "&gt;"
+    case "&":
+        "&amp;"
+    case _ where !character.isASCII || character.isNewline:
+    character.unicodeScalars.lazy
+        .map(\.value)
+        .map { "&#\($0);" }
+        .joined()
+    default:
+    String(character)
     }
 }
 
