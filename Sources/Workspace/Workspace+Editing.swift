@@ -28,7 +28,7 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async throws {
         // Look up the dependency and check if we can edit it.
-        guard let dependency = self.state.dependencies[.plain(packageIdentity)] else {
+        guard let dependency = await self.state.dependencies[.plain(packageIdentity)] else {
             observabilityScope.emit(.dependencyNotFound(packageName: packageIdentity))
             return
         }
@@ -157,10 +157,10 @@ extension Workspace {
         }
 
         // Save the new state.
-        try self.state.dependencies.add(
+        try await self.state.dependencies.add(
             dependency.edited(subpath: RelativePath(validating: packageIdentity), unmanagedPath: path)
         )
-        try self.state.save()
+        try await self.state.save()
     }
 
     /// Unedit a managed dependency. See public API unedit(packageName:forceRemove:).
@@ -222,8 +222,8 @@ extension Workspace {
             )
         } else {
             // The original dependency was removed, update the managed dependency state.
-            self.state.dependencies.remove(dependency.packageRef.identity)
-            try self.state.save()
+            await self.state.dependencies.remove(dependency.packageRef.identity)
+            try await self.state.save()
         }
 
         // Resolve the dependencies if workspace root is provided. We do this to

@@ -19,7 +19,7 @@ import SourceControl
 import struct TSCUtility.Version
 
 /// Represents the workspace internal state persisted on disk.
-public final class WorkspaceState {
+public actor WorkspaceState {
     /// The dependencies managed by the Workspace.
     public private(set) var dependencies: Workspace.ManagedDependencies
 

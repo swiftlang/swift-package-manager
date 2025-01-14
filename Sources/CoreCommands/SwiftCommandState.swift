@@ -99,13 +99,13 @@ extension _SwiftCommand {
 }
 
 public protocol SwiftCommand: ParsableCommand, _SwiftCommand {
-    func run(_ swiftCommandState: SwiftCommandState) throws
+    func run(_ swiftCommandState: SwiftCommandState) async throws
 }
 
 extension SwiftCommand {
     public static var _errorLabel: String { "error" }
 
-    public func run() throws {
+    public func run() async throws {
         let swiftCommandState = try SwiftCommandState(
             options: globalOptions,
             toolWorkspaceConfiguration: self.toolWorkspaceConfiguration,
@@ -119,7 +119,7 @@ extension SwiftCommand {
         swiftCommandState.buildSystemProvider = try buildSystemProvider(swiftCommandState)
         var toolError: Error? = .none
         do {
-            try self.run(swiftCommandState)
+            try await self.run(swiftCommandState)
             if swiftCommandState.observabilityScope.errorsReported || swiftCommandState.executionStatus == .failure {
                 throw ExitCode.failure
             }
@@ -689,7 +689,7 @@ public final class SwiftCommandState {
         try _manifestLoader.get()
     }
 
-    public func canUseCachedBuildManifest() throws -> Bool {
+    public func canUseCachedBuildManifest() async throws -> Bool {
         if !self.options.caching.cacheBuildManifest {
             return false
         }
@@ -706,7 +706,7 @@ public final class SwiftCommandState {
         // Perform steps for build manifest caching if we can enabled it.
         //
         // FIXME: We don't add edited packages in the package structure command yet (SR-11254).
-        let hasEditedPackages = try self.getActiveWorkspace().state.dependencies.contains(where: \.isEdited)
+        let hasEditedPackages = try await self.getActiveWorkspace().state.dependencies.contains(where: \.isEdited)
         if hasEditedPackages {
             return false
         }
