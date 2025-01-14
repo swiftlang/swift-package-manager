@@ -432,28 +432,29 @@ extension Workspace {
                     description: "retrieving resolved package versions for dependencies",
                     metadata: resolvedPackage.packageRef.diagnosticsMetadata
                 )
-                taskGroup.addTask {
-                    await observabilityScope.trap {
-                        switch resolvedPackage.packageRef.kind {
-                        case .localSourceControl, .remoteSourceControl:
-                            _ = try await self.checkoutRepository(
-                                package: resolvedPackage.packageRef,
-                                at: resolvedPackage.state,
-                                observabilityScope: observabilityScope
-                            )
-                        case .registry:
+                await observabilityScope.trap {
+                    switch resolvedPackage.packageRef.kind {
+                    case .localSourceControl, .remoteSourceControl:
+                        _ = try await self.checkoutRepository(
+                            package: resolvedPackage.packageRef,
+                            at: resolvedPackage.state,
+                            observabilityScope: observabilityScope
+                        )
+                    case .registry:
+                        taskGroup.addTask {
                             _ = try await self.downloadRegistryArchive(
                                 package: resolvedPackage.packageRef,
                                 at: resolvedPackage.state,
                                 observabilityScope: observabilityScope
                             )
-                        default:
-                            throw InternalError("invalid resolved package type \(resolvedPackage.packageRef.kind)")
                         }
+                    default:
+                        throw InternalError("invalid resolved package type \(resolvedPackage.packageRef.kind)")
                     }
                 }
             }
         }
+    }
 
         let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,
