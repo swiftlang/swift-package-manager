@@ -88,7 +88,7 @@ final class RegistryClientTests: XCTestCase {
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
         let metadata = try await registryClient.getPackageMetadata(package: identity)
         XCTAssertEqual(metadata.versions, ["1.1.1", "1.0.0"])
-        XCTAssertEqual(metadata.alternateLocations!, [
+        XCTAssertEqual(metadata.alternateLocations, [
             SourceControlURL("https://github.com/mona/LinkedList"),
             SourceControlURL("ssh://git@github.com:mona/LinkedList.git"),
             SourceControlURL("git@github.com:mona/LinkedList.git"),
