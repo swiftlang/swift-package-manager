@@ -90,18 +90,6 @@ public enum DependencyResolutionNode {
         }
     }
 
-    /// The enabled traits for this package.
-    public var enabledTraits: Set<String> {
-        switch self {
-        case .empty:
-            return []
-        case .product:
-            return []
-        case .root:
-            return []
-        }
-    }
-
     /// Returns the dependency that a product has on its own package, if relevant.
     ///
     /// This is the constraint that requires all products from a package resolve to the same version.

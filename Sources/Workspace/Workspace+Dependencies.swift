@@ -61,7 +61,8 @@ extension Workspace {
         root: PackageGraphRootInput,
         packages: [String] = [],
         dryRun: Bool = false,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        traitConfiguration: TraitConfiguration?
     ) async throws -> [(PackageReference, Workspace.PackageStateChange)]? {
         let start = DispatchTime.now()
         self.delegate?.willUpdateDependencies()
@@ -90,7 +91,8 @@ extension Workspace {
         )
         let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: traitConfiguration
         )
 
         // Abort if we're unable to load the `Package.resolved` store or have any diagnostics.
@@ -163,7 +165,8 @@ extension Workspace {
         // Load the updated manifests.
         let updatedDependencyManifests = try await self.loadDependencyManifests(
             root: graphRoot,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: traitConfiguration
         )
         // If we have missing packages, something is fundamentally wrong with the resolution of the graph
         let stillMissingPackages = try updatedDependencyManifests.missingPackages
@@ -219,7 +222,8 @@ extension Workspace {
             return try await self._resolveBasedOnResolvedVersionsFile(
                 root: root,
                 explicitProduct: explicitProduct,
-                observabilityScope: observabilityScope
+                observabilityScope: observabilityScope,
+                traitConfiguration: traitConfiguration
             )
         case .update(let forceResolution):
             return try await resolveAndUpdateResolvedFile(forceResolution: forceResolution)
@@ -255,7 +259,8 @@ extension Workspace {
             let (manifests, precomputationResult) = try await self.tryResolveBasedOnResolvedVersionsFile(
                 root: root,
                 explicitProduct: explicitProduct,
-                observabilityScope: observabilityScope
+                observabilityScope: observabilityScope,
+                traitConfiguration: traitConfiguration
             )
             switch precomputationResult {
             case .notRequired:
@@ -305,12 +310,14 @@ extension Workspace {
     func _resolveBasedOnResolvedVersionsFile(
         root: PackageGraphRootInput,
         explicitProduct: String?,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        traitConfiguration: TraitConfiguration?
     ) async throws -> DependencyManifests {
         let (manifests, precomputationResult) = try await self.tryResolveBasedOnResolvedVersionsFile(
             root: root,
             explicitProduct: explicitProduct,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: traitConfiguration
         )
         switch precomputationResult {
         case .notRequired:
@@ -342,7 +349,8 @@ extension Workspace {
     fileprivate func tryResolveBasedOnResolvedVersionsFile(
         root: PackageGraphRootInput,
         explicitProduct: String?,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        traitConfiguration: TraitConfiguration?
     ) async throws -> (DependencyManifests, ResolutionPrecomputationResult) {
         // Ensure the cache path exists.
         self.createCacheDirectories(observabilityScope: observabilityScope)
@@ -367,7 +375,8 @@ extension Workspace {
             return try await (
                 self.loadDependencyManifests(
                     root: graphRoot,
-                    observabilityScope: observabilityScope
+                    observabilityScope: observabilityScope,
+                    traitConfiguration: traitConfiguration
                 ),
                 .notRequired
             )
@@ -459,7 +468,8 @@ extension Workspace {
         let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,
             automaticallyAddManagedDependencies: true,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: traitConfiguration
         )
 
         try await self.updateBinaryArtifacts(
@@ -523,7 +533,7 @@ extension Workspace {
         )
 
         let enabledAndUsedTargetDependencies = try graphRoot.manifests.values.compactMap { manifest in
-            try manifest.usedDependencies()
+            try manifest.usedTargetDependencies(traitConfiguration: .init(traitConfiguration))
         }
             .reduce(into: [String: Set<TargetDescription.Dependency>]()) { flattenedMap, element in
                 flattenedMap.merge(element, uniquingKeysWith: { lhs, rhs in
@@ -536,7 +546,8 @@ extension Workspace {
         let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,
             observabilityScope: observabilityScope,
-            usedDependencies: Set(usedDependencies.compactMap(\.package))
+            usedDependencies: Set(usedDependencies.compactMap(\.package)),
+            traitConfiguration: traitConfiguration
         )
         guard !observabilityScope.errorsReported else {
             return currentManifests
@@ -636,7 +647,8 @@ extension Workspace {
         let updatedDependencyManifests = try await self.loadDependencyManifests(
             root: graphRoot,
             observabilityScope: observabilityScope,
-            usedDependencies: Set(usedDependencies.compactMap(\.package))
+            usedDependencies: Set(usedDependencies.compactMap(\.package)),
+            traitConfiguration: traitConfiguration
         )
 
         // If we still have missing packages, something is fundamentally wrong with the resolution of the graph
@@ -1284,118 +1296,13 @@ extension Workspace.ManagedDependencies {
     }
 }
 
-/*extension Manifest {
-    /// The enabled traits as defined in the passed TraitConfiguration - if no such configuration exists, then the default traits
-    /// are enabled.
-    public func enabledTraits(_ traitConfiguration: TraitConfiguration? = nil) -> Set<String> {
-        guard let traitConfiguration else {
-            return Set(defaultTraits.map(\.name))
-        }
-
-        var enabledTraits = traitConfiguration.enabledTraits ?? []
-
-        if traitConfiguration.enableAllTraits {
-            enabledTraits = Set(traits.map(\.name))
-        }
-
-        return enabledTraits
+extension Manifest.TraitConfiguration {
+    public init(_ traitConfiguration: TraitConfiguration) {
+        self.init(enabledTraits: traitConfiguration.enabledTraits, enableAllTraits: traitConfiguration.enableAllTraits)
     }
 
-    /// Given a trait, determine if the trait is enabled given the current trait configuration.
-    public func isTraitEnabled(_ trait: TraitDescription, _ traitConfiguration: TraitConfiguration?) throws -> Bool {
-        let allEnabledTraits = try calculateAllEnabledTraits(explictlyEnabledTraits: enabledTraits(traitConfiguration))
-
-        return allEnabledTraits.contains(trait.name)
-    }
-
-    /// Calculates and returns a set of all enabled traits, beginning with a set of explicitly enabled traits (either defined by default traits of
-    /// this manifest, or by a user-generated traits configuration) and determines which traits are transitively enabled.
-    public func calculateAllEnabledTraits(explictlyEnabledTraits: Set<String>?) throws -> Set<String> {
-        // This the point where we flatten the enabled traits and resolve the recursive traits
-        var enabledTraits = explictlyEnabledTraits ?? []
-
-        // We have to enable all default traits if no traits are enabled or the defaults are explicitly enabled
-        let defaultTraits = self.defaultTraits
-        if explictlyEnabledTraits == nil || !defaultTraits.isEmpty {
-            enabledTraits.formUnion(defaultTraits.flatMap(\.enabledTraits))
-        }
-
-        // Iteratively flatten transitively enabled traits; stop when all transitive traits have been found.
-        while true {
-            let transitivelyEnabledTraits = Set(
-                // We are going to calculate which traits are actually enabled for a node here. To do this
-                // we have to check if default traits should be used and then flatten all the enabled traits.
-                try enabledTraits
-                    .flatMap { trait in
-                        guard let traitDescription = traitsMap[trait] else {
-                            // TODO: replace displayName with package identity.
-                            throw InternalError("Trait '\(trait)' is not declared by package '\(self.displayName)'")
-                        }
-                        return traitDescription.enabledTraits
-                    }
-            )
-
-            let appendedList = enabledTraits.union(transitivelyEnabledTraits)
-            if appendedList.count == enabledTraits.count {
-                break
-            } else {
-                enabledTraits = appendedList
-            }
-        }
-
-        return enabledTraits
-    }
-
-    // TODO: consider traits flag to modify calculation
-    public func usedDependencies(_ keepTraitGuardedDeps: Bool = true) throws -> [String: Set<TargetDescription.Dependency>] {
-        try self.targets.reduce(into: [String: Set<TargetDescription.Dependency>]()) { depMap, target in
-            let nonTraitDeps = target.dependencies.filter {
-                $0.condition?.traits?.isEmpty ?? true
-            }
-
-            let traitGuardedDeps = try target.dependencies.filter { dep in
-                let traits = dep.condition?.traits ?? []
-
-                let package = self.packageDependency(referencedBy: dep)?.identity.description
-                return try traits.allSatisfy({ try isTraitEnabled(.init(stringLiteral: $0), nil) })
-            }
-
-            let deps = nonTraitDeps + traitGuardedDeps
-            depMap[target.name] = Set(deps)
-        }
-    }
-
-    /// Returns the set of dependencies that are guarded by traits. This does not calculate enabled and disabled dependencies
-    /// enforced by traits.
-    public func traitGuardedDependencies() -> [String: Set<String>] {
-        self.targets.reduce(into: [String: Set<String>]()) { depMap, target in
-            let traitGuardedTargetDependencies = target.dependencies.filter({
-                !($0.condition?.traits?.isEmpty ?? true)
-            })
-            traitGuardedTargetDependencies.forEach {
-                guard let package = $0.package else { return }
-                depMap[package, default: []].formUnion($0.condition?.traits ?? [])
-            }
-        }
-    }
-
-    /// Computes the trait configuration for a given target dependency
-    public func traitConfiguration(forDependency dependency: TargetDescription.Dependency) -> TraitConfiguration? {
-        guard let package = self.packageDependency(referencedBy: dependency),
-              let traits = package.traits?.compactMap(\.name)
-        else {
-            return nil
-        }
-
-        return TraitConfiguration(enabledTraits: Set(traits))
-    }
-
-    public func isTargetDependencyEnabled(_ dependency: TargetDescription.Dependency) throws -> Bool {
-        let traitsThatEnableDependency = traitGuardedDependencies()[dependency.name] ?? []
-
-        let isEnabled = try traitsThatEnableDependency.allSatisfy({ try isTraitEnabled(.init(stringLiteral: $0), nil) })
-
-        return traitsThatEnableDependency.isEmpty || isEnabled
+    public init?(_ traitConfiguration: TraitConfiguration?) {
+        guard let traitConfiguration else { return nil }
+        self.init(traitConfiguration)
     }
 }
-*/

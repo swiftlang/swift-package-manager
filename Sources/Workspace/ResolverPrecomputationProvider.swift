@@ -176,4 +176,8 @@ private struct LocalPackageContainer: PackageContainer {
             return .root(identity: self.package.identity, path: self.manifest.path)
         }
     }
+
+    func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
+        return manifest.enabledTraits(.init(traitConfiguration))
+    }
 }

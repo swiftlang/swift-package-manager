@@ -27,6 +27,7 @@ import protocol PackageGraph.CustomPackageContainer
 import struct PackageGraph.GraphLoadingNode
 import struct PackageGraph.PackageContainerConstraint
 import struct PackageGraph.PackageGraphRoot
+import struct PackageGraph.TraitConfiguration
 import class PackageLoading.ManifestLoader
 import struct PackageLoading.ManifestValidator
 import struct PackageLoading.ToolsVersionParser
@@ -61,9 +62,6 @@ extension Workspace {
         )]
 
         // TODO: track enabled traits here as a trait configuration?
-        // the trait configuratino for a dependency manifest is given by
-        // the root manifest, who specifies the dependencies enabled through
-        // its dependencies list.
 
         private let workspace: Workspace
 
@@ -86,7 +84,8 @@ extension Workspace {
                 fileSystem: FileSystem
             )],
             workspace: Workspace,
-            observabilityScope: ObservabilityScope
+            observabilityScope: ObservabilityScope,
+            traitConfiguration: TraitConfiguration?
         ) {
             self.root = root
             self.dependencies = dependencies
@@ -97,7 +96,8 @@ extension Workspace {
                     root: root,
                     dependencies: dependencies,
                     workspace: workspace,
-                    observabilityScope: observabilityScope
+                    observabilityScope: observabilityScope,
+                    traitConfiguration: traitConfiguration
                 )
             }
             self._constraints = LoadableResult {
@@ -181,7 +181,8 @@ extension Workspace {
                 fileSystem: FileSystem
             )],
             workspace: Workspace,
-            observabilityScope: ObservabilityScope
+            observabilityScope: ObservabilityScope,
+            traitConfiguration: TraitConfiguration?
         ) throws
             -> (
                 required: OrderedCollections.OrderedSet<PackageReference>,
@@ -201,7 +202,7 @@ extension Workspace {
             var inputIdentities: OrderedCollections.OrderedSet<PackageReference> = []
             let inputNodes: [GraphLoadingNode] = try root.packages.map { identity, package in
                 inputIdentities.append(package.reference)
-                let traits = package.manifest.enabledTraits() // for now, no config
+                let traits = package.manifest.enabledTraits(.init(traitConfiguration))
                 let node = try GraphLoadingNode(
                     identity: identity,
                     manifest: package.manifest,
@@ -213,7 +214,7 @@ extension Workspace {
                 let package = dependency.packageRef
                 inputIdentities.append(package)
                 return try manifestsMap[dependency.identity].map { manifest in
-                    let traits = manifest.enabledTraits(.init(enabledTraits: Set(dependency.traits?.compactMap(\.name) ?? []))) // for now, no config.
+                    let traits = manifest.enabledTraits(.init(traitConfiguration))
 
                     return try GraphLoadingNode(
                         identity: dependency.identity,
@@ -230,7 +231,7 @@ extension Workspace {
                     depMap[packageIdentity.lowercased(), default: []].formUnion(traitsToEnable)
                 }
             }
-            let enabledTraits = Set(try root.manifests.values.compactMap({ try  $0.calculateAllEnabledTraits(explictlyEnabledTraits: nil) }).flatMap(\.self))
+            let enabledTraits = Set(root.manifests.values.compactMap({ $0.enabledTraits(.init(traitConfiguration)) }).flatMap(\.self))
 
             let topLevelDependencies = root.packages.flatMap { $1.manifest.dependencies.map(\.packageRef) }
 
@@ -244,6 +245,11 @@ extension Workspace {
                        !traitsToEnableDep.isEmpty,
                        enabledTraits.intersection(traitsToEnableDep).isEmpty {
                         unusedIdentities.append(package)
+                        observabilityScope.emit(debug: """
+                    '\(package.identity)' from '\(package.locationString)' was omitted \
+                    from required dependencies because it is being guarded by the following traits:' \
+                    \(traitsToEnableDep.joined(separator: ", "))
+                    """)
                     } else {
                         let (inserted, index) = requiredIdentities.append(package)
                         if !inserted {
@@ -287,13 +293,12 @@ extension Workspace {
                     }
 
                     return try manifestsMap[dependency.identity].map { manifest in
-                        let traits = manifest.enabledTraits() // no config for now
+                        let traits = manifest.enabledTraits(.init(traitConfiguration))
                         return try GraphLoadingNode(
                             identity: dependency.identity,
                             manifest: manifest,
                             productFilter: dependency.productFilter,
-                            // We are enabling all traits of the root packages in the workspace integration for now
-                            enabledTraits: traits //Set(manifest.traits.map { $0.name })
+                            enabledTraits: traits
                         )
                     }
                 }
@@ -301,7 +306,7 @@ extension Workspace {
             requiredIdentities = inputIdentities.union(requiredIdentities)
             requiredIdentities = requiredIdentities.subtracting(unusedIdentities)
 
-            let availableIdentities: Set<PackageReference> = try Set(manifestsMap.map {
+            var availableIdentities: Set<PackageReference> = try Set(manifestsMap.map {
                 // FIXME: adding this guard to ensure refactoring is correct 9/21
                 // we only care about remoteSourceControl for this validation. it would otherwise trigger for
                 // a dependency is put into edit mode, which we want to deprecate anyways
@@ -315,6 +320,8 @@ extension Workspace {
                 }
                 return PackageReference(identity: $0.key, kind: $0.1.packageKind)
             })
+            // FIXME: is this the correct method to handle unused identities?
+            availableIdentities = availableIdentities.subtracting(unusedIdentities)
             // We should never have loaded a manifest we don't need.
             assert(
                 availableIdentities.isSubset(of: requiredIdentities),
@@ -322,10 +329,6 @@ extension Workspace {
             )
             // These are the missing package identities.
             let missingIdentities = requiredIdentities.subtracting(availableIdentities)
-
-            print("unused identities: \(unusedIdentities)")
-            print("required identities: \(requiredIdentities)")
-            print("missing identities: \(missingIdentities)")
 
             return (requiredIdentities, missingIdentities, unusedIdentities)
         }
@@ -451,7 +454,8 @@ extension Workspace {
         root: PackageGraphRoot,
         automaticallyAddManagedDependencies: Bool = false,
         observabilityScope: ObservabilityScope,
-        usedDependencies: Set<String> = []
+        usedDependencies: Set<String> = [],
+        traitConfiguration: TraitConfiguration?
     ) async throws -> DependencyManifests {
         let prepopulateManagedDependencies: ([PackageReference]) throws -> Void = { refs in
             // pre-populate managed dependencies if we are asked to do so (this happens when resolving to a resolved
@@ -492,19 +496,21 @@ extension Workspace {
         }
 
         // FIXME: Remove any dependencies that aren't being used; see if this is correct
-        for dependency in dependenciesToCheck {
-            if !usedDependencies.contains(where: {
-                $0.caseInsensitiveCompare(dependency.packageRef.identity.description) == .orderedSame
-            }) {
-                observabilityScope.makeChildScope(
-                    description: "removing managed dependencies",
-                    metadata: dependency.packageRef.diagnosticsMetadata
-                ).trap {
-                    print("removing \(dependency.packageRef)")
-                    try self.remove(package: dependency.packageRef)
-                }
-            }
-        }
+//        for dependency in dependenciesToCheck {
+//            if !usedDependencies.contains(where: {
+//                $0.caseInsensitiveCompare(dependency.packageRef.identity.description) == .orderedSame
+//            }) {
+//                observabilityScope.makeChildScope(
+//                    description: "removing managed dependencies",
+//                    metadata: dependency.packageRef.diagnosticsMetadata
+//                ).trap {
+//                    print("removing \(dependency.packageRef)")
+//                    try self.remove(package: dependency.packageRef)
+//                }
+//            }
+//        }
+
+        // TODO: compute used dependencies, and only load those manifests.
 
         // Validates that all the managed dependencies are still present in the file system.
         await self.fixManagedDependencies(
@@ -516,7 +522,8 @@ extension Workspace {
                 root: root,
                 dependencies: [],
                 workspace: self,
-                observabilityScope: observabilityScope
+                observabilityScope: observabilityScope,
+                traitConfiguration: traitConfiguration
             )
         }
 
@@ -627,7 +634,8 @@ extension Workspace {
             root: root,
             dependencies: dependencies,
             workspace: self,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: traitConfiguration
         )
     }
 

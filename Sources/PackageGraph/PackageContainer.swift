@@ -97,6 +97,11 @@ public protocol PackageContainer {
     /// after the container is available. The updated identifier is returned in result of the
     /// dependency resolution.
     func loadPackageReference(at boundVersion: BoundVersion) async throws -> PackageReference
+
+
+    /// Fetch the enabled traits of a package container.
+    /// TODO: finish fn description
+    func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String>
 }
 
 extension PackageContainer {
