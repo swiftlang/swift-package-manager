@@ -138,6 +138,19 @@ public protocol WorkspaceDelegate: AnyObject {
     /// The workspace finished downloading all binary artifacts.
     func didDownloadAllBinaryArtifacts()
 
+    /// The workspace has started downloading a binary artifact.
+    func willDownloadPrebuilt(from url: String, fromCache: Bool)
+    /// The workspace has finished downloading a binary artifact.
+    func didDownloadPrebuilt(
+        from url: String,
+        result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
+        duration: DispatchTimeInterval
+    )
+    /// The workspace is downloading a binary artifact.
+    func downloadingPrebuilt(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?)
+    /// The workspace finished downloading all binary artifacts.
+    func didDownloadAllPrebuilts()
+
     // handlers for unsigned and untrusted registry based dependencies
     func onUnsignedRegistryPackage(
         registryURL: URL,
@@ -421,5 +434,37 @@ struct WorkspaceBinaryArtifactsManagerDelegate: Workspace.BinaryArtifactsManager
 
     func didDownloadAllBinaryArtifacts() {
         self.workspaceDelegate?.didDownloadAllBinaryArtifacts()
+    }
+}
+
+struct WorkspacePrebuiltsManagerDelegate: Workspace.PrebuiltsManager.Delegate {
+    private weak var workspaceDelegate: Workspace.Delegate?
+
+    init(workspaceDelegate: Workspace.Delegate) {
+        self.workspaceDelegate = workspaceDelegate
+    }
+
+    func willDownloadPrebuilt(from url: String, fromCache: Bool) {
+        self.workspaceDelegate?.willDownloadPrebuilt(from: url, fromCache: fromCache)
+    }
+
+    func didDownloadPrebuilt(
+        from url: String,
+        result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
+        duration: DispatchTimeInterval
+    ) {
+        self.workspaceDelegate?.didDownloadPrebuilt(from: url, result: result, duration: duration)
+    }
+
+    func downloadingPrebuilt(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+        self.workspaceDelegate?.downloadingPrebuilt(
+            from: url,
+            bytesDownloaded: bytesDownloaded,
+            totalBytesToDownload: totalBytesToDownload
+        )
+    }
+
+    func didDownloadAllPrebuilts() {
+        self.workspaceDelegate?.didDownloadAllPrebuilts()
     }
 }

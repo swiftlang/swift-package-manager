@@ -29,6 +29,7 @@ extension ModulesGraph {
         requiredDependencies: [PackageReference] = [],
         unsafeAllowedPackages: Set<PackageReference> = [],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]],
+        prebuilts: [PackageIdentity: [String: PrebuiltLibrary]],
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         customPlatformsRegistry: PlatformRegistry? = .none,
@@ -47,6 +48,7 @@ extension ModulesGraph {
             requiredDependencies: requiredDependencies,
             unsafeAllowedPackages: unsafeAllowedPackages,
             binaryArtifacts: binaryArtifacts,
+            prebuilts: prebuilts,
             shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
             createREPLProduct: createREPLProduct,
             traitConfiguration: nil,
@@ -69,6 +71,7 @@ extension ModulesGraph {
         requiredDependencies: [PackageReference] = [],
         unsafeAllowedPackages: Set<PackageReference> = [],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]],
+        prebuilts: [PackageIdentity: [String: PrebuiltLibrary]], // Product name to library mapping
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         traitConfiguration: TraitConfiguration? = nil,
@@ -212,7 +215,8 @@ extension ModulesGraph {
                     productFilter: node.productFilter,
                     path: packagePath,
                     additionalFileRules: additionalFileRules,
-                    binaryArtifacts: binaryArtifacts[node.identity] ?? [:],                
+                    binaryArtifacts: binaryArtifacts[node.identity] ?? [:],
+                    prebuilts: prebuilts,
                     shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                     testEntryPointPath: testEntryPointPath,
                     createREPLProduct: manifest.packageKind.isRoot ? createREPLProduct : false,
@@ -246,6 +250,7 @@ extension ModulesGraph {
             manifestToPackage: manifestToPackage,
             rootManifests: root.manifests,
             unsafeAllowedPackages: unsafeAllowedPackages,
+            prebuilts: prebuilts,
             platformRegistry: customPlatformsRegistry ?? .default,
             platformVersionProvider: platformVersionProvider,
             fileSystem: fileSystem,
@@ -377,6 +382,7 @@ private func createResolvedPackages(
     // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
     rootManifests: [PackageIdentity: Manifest],
     unsafeAllowedPackages: Set<PackageReference>,
+    prebuilts: [PackageIdentity: [String: PrebuiltLibrary]],
     platformRegistry: PlatformRegistry,
     platformVersionProvider: PlatformVersionProvider,
     fileSystem: FileSystem,
@@ -663,6 +669,11 @@ private func createResolvedPackages(
                         ///  If we land here non of the traits required to enable this depenendcy has been enabled.
                         continue
                     }
+                }
+
+                if moduleBuilder.module.type == .macro, let package = productRef.package, prebuilts[.plain(package)]?[productRef.name] != nil {
+                    // using a prebuilt instead.
+                    continue
                 }
 
                 // Find the product in this package's dependency products.

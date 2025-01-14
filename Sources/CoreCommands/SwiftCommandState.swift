@@ -80,6 +80,7 @@ public typealias WorkspaceDelegateProvider = (
     _ progressHandler: @escaping (Int64, Int64, String?) -> Void,
     _ inputHandler: @escaping (String, (String?) -> Void) -> Void
 ) -> WorkspaceDelegate
+
 public typealias WorkspaceLoaderProvider = (_ fileSystem: FileSystem, _ observabilityScope: ObservabilityScope)
     -> WorkspaceLoader
 
@@ -470,7 +471,8 @@ public final class SwiftCommandState {
                     // TODO: should supportsAvailability be a flag as well?
                     .init(url: $0, supportsAvailability: true)
                 },
-                manifestImportRestrictions: .none
+                manifestImportRestrictions: .none,
+                usePrebuilts: options.caching.usePrebuilts
             ),
             cancellator: self.cancellator,
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },

@@ -12,9 +12,11 @@
 
 import Basics
 
-public class Product {
+public class Product: Identifiable {
     /// The name of the product.
     public let name: String
+
+    public var id: String { name }
 
     /// Fully qualified name for this product: package ID + name of this product
     public let identity: String
