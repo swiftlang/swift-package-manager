@@ -141,7 +141,7 @@ final class PrebuiltsTests: XCTestCase {
         }
 
         let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
-            XCTAssertEqual(archivePath.pathString, "/home/user/caches/org.swift.swiftpm/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip".fixwin)
+            XCTAssertEqual(archivePath.pathString, "/home/user/caches/org.swift.swiftpm/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip".fixwin)
             XCTAssertEqual(destination.pathString, "/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64".fixwin)
             completion(.success(()))
         })
@@ -168,7 +168,7 @@ final class PrebuiltsTests: XCTestCase {
             let macroTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooMacros" }))
             try checkSettings(macroTarget, usePrebuilt: true)
             let testTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooTests" }))
-            try checkSettings(testTarget, usePrebuilt: true)
+            try checkSettings(testTarget, usePrebuilt: false)
         }
     }
 
@@ -177,7 +177,7 @@ final class PrebuiltsTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let artifact = Data()
-        let cacheFile = try AbsolutePath(validating: "/home/user/caches/org.swift.swiftpm/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip")
+        let cacheFile = try AbsolutePath(validating: "/home/user/caches/org.swift.swiftpm/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip")
         try fs.writeFileContents(cacheFile, data: artifact)
 
         let (manifest, rootPackage, swiftSyntax) = try initData(artifact: artifact, swiftSyntaxVersion: "600.0.1")
@@ -202,7 +202,7 @@ final class PrebuiltsTests: XCTestCase {
         }
 
         let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
-            XCTAssertEqual(archivePath.pathString, "/home/user/caches/org.swift.swiftpm/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip".fixwin)
+            XCTAssertEqual(archivePath.pathString, "/home/user/caches/org.swift.swiftpm/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip".fixwin)
             XCTAssertEqual(destination.pathString, "/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64".fixwin)
             completion(.success(()))
         })
@@ -229,7 +229,7 @@ final class PrebuiltsTests: XCTestCase {
             let macroTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooMacros" }))
             try checkSettings(macroTarget, usePrebuilt: true)
             let testTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooTests" }))
-            try checkSettings(testTarget, usePrebuilt: true)
+            try checkSettings(testTarget, usePrebuilt: false)
         }
     }
 
@@ -468,7 +468,7 @@ final class PrebuiltsTests: XCTestCase {
         }
 
         let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
-            XCTAssertEqual(archivePath.pathString, "/home/user/caches/org.swift.swiftpm/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip".fixwin)
+            XCTAssertEqual(archivePath.pathString, "/home/user/caches/org.swift.swiftpm/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip".fixwin)
             XCTAssertEqual(destination.pathString, "/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64".fixwin)
             completion(.success(()))
         })
@@ -495,7 +495,7 @@ final class PrebuiltsTests: XCTestCase {
             let macroTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooMacros" }))
             try checkSettings(macroTarget, usePrebuilt: true)
             let testTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooTests" }))
-            try checkSettings(testTarget, usePrebuilt: true)
+            try checkSettings(testTarget, usePrebuilt: false)
         }
     }
 
