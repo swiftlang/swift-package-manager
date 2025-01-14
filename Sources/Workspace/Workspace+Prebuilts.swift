@@ -250,8 +250,9 @@ extension Workspace {
         ) async throws -> PrebuiltsManifest? {
             let manifestFile = swiftVersion + "-manifest.json"
             let prebuiltsDir = cachePath ?? scratchPath
-            let destination = prebuiltsDir.appending(
-                components: package.packageRef.identity.description,
+            let destination = prebuiltsDir.appending(components:
+                package.packageRef.identity.description,
+                version.description,
                 manifestFile
             )
             if fileSystem.exists(destination) {
@@ -346,8 +347,9 @@ extension Workspace {
 
             let artifactFile = artifactName + ".zip"
             let prebuiltsDir = cachePath ?? scratchPath
-            let destination = prebuiltsDir.appending(
-                components: package.packageRef.identity.description,
+            let destination = prebuiltsDir.appending(components:
+                package.packageRef.identity.description,
+                version.description,
                 artifactFile
             )
 

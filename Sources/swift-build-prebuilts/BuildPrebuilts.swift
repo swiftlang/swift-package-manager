@@ -48,9 +48,19 @@ var prebuiltRepos: IdentifiableSet<PrebuiltRepos> = [
                     .init(
                         name: "MacroSupport",
                         products: [
-                            "SwiftSyntaxMacrosTestSupport",
+                            "SwiftBasicFormat",
                             "SwiftCompilerPlugin",
-                            "SwiftSyntaxMacros"
+                            "SwiftDiagnostics",
+                            "SwiftIDEUtils",
+                            "SwiftOperators",
+                            "SwiftParser",
+                            "SwiftParserDiagnostics",
+                            "SwiftRefactor",
+                            "SwiftSyntax",
+                            "SwiftSyntaxMacros",
+                            "SwiftSyntaxMacroExpansion",
+                            "SwiftSyntaxMacrosTestSupport",
+                            "SwiftSyntaxMacrosGenericTestSupport",
                         ],
                         cModules: [
                             "_SwiftSyntaxCShims",
@@ -68,7 +78,7 @@ var prebuiltRepos: IdentifiableSet<PrebuiltRepos> = [
 
 let manifestHost = URL(string: "https://github.com/dschaefer2/swift-syntax/releases/download")!
 let swiftVersion = "\(SwiftVersion.current.major).\(SwiftVersion.current.minor)"
-let dockerImageRoot = "swiftlang/swift:nightly-"
+let dockerImageRoot = "swiftlang/swift:nightly-6.1-"
 
 @main
 struct BuildPrebuilts: AsyncParsableCommand {
@@ -88,7 +98,9 @@ struct BuildPrebuilts: AsyncParsableCommand {
         let fm = FileManager.default
 
         print("Stage directory: \(stageDir)")
-        try fm.removeItem(atPath: stageDir.pathString)
+        if fm.fileExists(atPath: stageDir.pathString) {
+            try fm.removeItem(atPath: stageDir.pathString)
+        }
         try fm.createDirectory(atPath: stageDir.pathString, withIntermediateDirectories: true)
         _ = fm.changeCurrentDirectoryPath(stageDir.pathString)
 
@@ -134,7 +146,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                         if docker, let dockerTag = platform.dockerTag, let dockerPlatform = platform.arch.dockerPlatform {
                             cmd += "\(dockerCommand) run --rm --platform \(dockerPlatform) -v \(repoDir):\(repoDir) -w \(repoDir) \(dockerImageRoot)\(dockerTag) "
                         }
-                        cmd += "swift build -c release --arch \(platform.arch) --product \(library.name)"
+                        cmd += "swift build -c release -debug-info-format none --arch \(platform.arch) --product \(library.name)"
                         try await shell(cmd)
 
                         // Copy the library to staging

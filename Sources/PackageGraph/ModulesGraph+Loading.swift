@@ -671,7 +671,7 @@ private func createResolvedPackages(
                     }
                 }
 
-                if let package = productRef.package, prebuilts[.plain(package)]?[productRef.name] != nil {
+                if moduleBuilder.module.type == .macro, let package = productRef.package, prebuilts[.plain(package)]?[productRef.name] != nil {
                     // using a prebuilt instead.
                     continue
                 }
