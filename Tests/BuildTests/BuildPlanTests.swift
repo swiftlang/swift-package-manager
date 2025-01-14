@@ -6738,4 +6738,108 @@ final class BuildPlanTests: XCTestCase {
             )
         }
     }
+
+    func testProductWithBinaryArtifactDependency() async throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "Test is only supported on macOS")
+        #endif
+
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/testpackage/Sources/SwiftLib/lib.swift",
+            "/testpackage/Sources/CLib/include/lib.h",
+            "/testpackage/Sources/CLib/lib.c"
+        )
+
+        try fs.createDirectory("/testpackagedep/SomeArtifact.xcframework", recursive: true)
+        try fs.writeFileContents(
+            "/testpackagedep/SomeArtifact.xcframework/Info.plist",
+            string: """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+                <key>AvailableLibraries</key>
+                <array>
+                    <dict>
+                        <key>LibraryIdentifier</key>
+                        <string>macos</string>
+                        <key>HeadersPath</key>
+                        <string>Headers</string>
+                        <key>LibraryPath</key>
+                        <string>libSomeArtifact.a</string>
+                        <key>SupportedArchitectures</key>
+                        <array>
+                            <string>arm64</string>
+                            <string>x86_64</string>
+                        </array>
+                        <key>SupportedPlatform</key>
+                        <string>macos</string>
+                    </dict>
+                </array>
+                <key>CFBundlePackageType</key>
+                <string>XFWK</string>
+                <key>XCFrameworkFormatVersion</key>
+                <string>1.0</string>
+            </dict>
+            </plist>
+            """
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "testpackagedep",
+                    path: "/testpackagedep",
+                    products: [
+                        ProductDescription(name: "SomeArtifact", type: .library(.static), targets: ["SomeArtifact"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "SomeArtifact", path: "SomeArtifact.xcframework", type: .binary),
+                    ]
+                ),
+                Manifest.createRootManifest(
+                    displayName: "testpackage",
+                    path: "/testpackage",
+                    dependencies: [
+                        .localSourceControl(path: "/testpackagedep", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "SwiftLib", type: .library(.static), targets: ["SwiftLib"]),
+                        ProductDescription(name: "CLib", type: .library(.static), targets: ["CLib"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "SwiftLib", dependencies: ["SomeArtifact"]),
+                        TargetDescription(name: "CLib", dependencies: ["SomeArtifact"])
+                    ]
+                ),
+            ],
+            binaryArtifacts: [
+                .plain("testpackagedep"): [
+                    "SomeArtifact": .init(kind: .xcframework, originURL: nil, path: "/testpackagedep/SomeArtifact.xcframework"),
+                ],
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let plan = try await mockBuildPlan(
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let llbuild = LLBuildManifestBuilder(
+            plan,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        try llbuild.generateManifest(at: "/manifest.yaml")
+        let contents: String = try fs.readFileContents("/manifest.yaml")
+
+        XCTAssertMatch(contents, .regex(#"args: \[.*"-I","/testpackagedep/SomeArtifact.xcframework/macos/Headers".*,"/testpackage/Sources/CLib/lib.c".*]"#))
+        XCTAssertMatch(contents, .regex(#"args: \[.*"-module-name","SwiftLib",.*"-I","/testpackagedep/SomeArtifact.xcframework/macos/Headers".*]"#))
+    }
 }
