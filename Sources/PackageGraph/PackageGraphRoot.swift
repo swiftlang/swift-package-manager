@@ -115,22 +115,23 @@ public struct PackageGraphRoot {
 
     /// Returns the constraints imposed by root manifests + dependencies.
     public func constraints(_ usedDependencies: Set<TargetDescription.Dependency>? = nil) throws -> [PackageContainerConstraint] {
+        // TODO: to passs in traint configuration + properly compute enabled traits
         let constraints = self.packages.map { (identity, package) in
-            PackageContainerConstraint(package: package.reference, requirement: .unversioned, products: .everything, traitConfiguration: TraitConfiguration(enabledTraits: Set(package.manifest.enabledTraits?.compactMap(\.name) ?? [])))
+            PackageContainerConstraint(package: package.reference, requirement: .unversioned, products: .everything, traitConfiguration: TraitConfiguration(enabledTraits: Set(package.manifest.enabledTraits())))
         }
         
         // Filter out dependencies that aren't used; don't include these in the constraint calculation
         // TODO: may not be necessary to filter at this stage, since constraints are also processed in
         // TODO: the pub grub solver
         let depend = try dependencies
-            .filter { dep in
-                guard let usedDependencies else { return true }
-
-                // Case insensitive identity comparison
-                return usedDependencies.contains(where: {
-                    $0.package?.caseInsensitiveCompare(dep.identity.description) == .orderedSame
-                })
-            }
+//            .filter { dep in
+//                guard let usedDependencies else { return true }
+//
+//                // Case insensitive identity comparison
+//                return usedDependencies.contains(where: {
+//                    $0.package?.caseInsensitiveCompare(dep.identity.description) == .orderedSame
+//                })
+//            }
             .map {
                 let traits = $0.traits?.compactMap(\.name) ?? []
                 let traitConfiguration = TraitConfiguration(enabledTraits: Set(traits))

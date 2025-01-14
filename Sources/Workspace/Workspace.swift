@@ -761,12 +761,14 @@ extension Workspace {
     /// according to the information in the resolved file.
     public func resolveBasedOnResolvedVersionsFile(
         root: PackageGraphRootInput,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        traitConfiguration: TraitConfiguration?
     ) async throws {
         try await self._resolveBasedOnResolvedVersionsFile(
             root: root,
             explicitProduct: .none,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: traitConfiguration
         )
     }
 
@@ -876,7 +878,8 @@ extension Workspace {
             root: root,
             packages: packages,
             dryRun: dryRun,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: nil
         )
     }
 
@@ -888,12 +891,13 @@ extension Workspace {
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        traitConfiguration: TraitConfiguration?
     ) async throws -> ModulesGraph {
         try await self.loadPackageGraph(
             rootInput: root,
             explicitProduct: explicitProduct,
-            traitConfiguration: nil,
+            traitConfiguration: traitConfiguration,
             forceResolvedVersions: forceResolvedVersions,
             customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
             testEntryPointPath: testEntryPointPath,
@@ -932,7 +936,7 @@ extension Workspace {
             explicitProduct: explicitProduct,
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : .bestEffort,
             observabilityScope: observabilityScope,
-            traitConfiguration: nil // TODO
+            traitConfiguration: traitConfiguration
         )
 
         let binaryArtifacts = self.state.artifacts
@@ -943,8 +947,6 @@ extension Workspace {
                     path: artifact.path
                 )
             }
-
-        print("loading package graph from workspace method")
 
         // Load the graph.
         let packageGraph = try ModulesGraph.load(

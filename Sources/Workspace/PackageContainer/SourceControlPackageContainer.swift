@@ -417,6 +417,11 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
+    public func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
+        // TODO: complete
+        return []
+    }
+
     public var isRemoteContainer: Bool? {
         return true
     }

@@ -83,9 +83,6 @@ public final class Manifest: Sendable {
     /// The set of traits of this package.
     public let traits: Set<TraitDescription>
 
-    /// The configuration of enabled traits of this package.
-    public let enabledTraits: Set<TraitDescription>?
-
     /// The C language standard flag.
     public let cLanguageStandard: String?
 
@@ -125,8 +122,7 @@ public final class Manifest: Sendable {
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
-        traits: Set<TraitDescription>,
-        enabledTraits: Set<TraitDescription> = []
+        traits: Set<TraitDescription>
     ) {
         self.displayName = displayName
         self.path = path
@@ -147,8 +143,6 @@ public final class Manifest: Sendable {
         self.targets = targets
         self.targetMap = Dictionary(targets.lazy.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
         self.traits = traits
-        // TODO: pass config in init
-        self.enabledTraits = enabledTraits
     }
 
     /// Returns the targets required for a particular product filter.
@@ -207,7 +201,8 @@ public final class Manifest: Sendable {
             var requiredDependencies: Set<PackageIdentity> = []
             for target in self.targetsRequired(for: self.products) {
                 for targetDependency in target.dependencies {
-                    guard self.isTargetDependencyEnabled(targetDependency) else { continue }
+                    // TODO: to pass proper trait configuration
+                    guard self.isTargetDependencyEnabled(targetDependency, traitConfiguration: nil) else { continue }
                     if let dependency = self.packageDependency(referencedBy: targetDependency) {
                         requiredDependencies.insert(dependency.identity)
                     }
@@ -584,7 +579,7 @@ extension Manifest {
     }
 
     // TODO: temporary workaround struct, to remove
-    public struct TraitConfiguration: Codable, Hashable {
+    public struct TraitConfiguration: Codable, Hashable, Sendable {
         /// The traits to enable for the package.
         package var enabledTraits: Set<String>?
 
@@ -612,6 +607,10 @@ extension Manifest {
             enabledTraits = Set(traits.map(\.name))
         }
 
+        if let allEnabledTraits = try? calculateAllEnabledTraits(explictlyEnabledTraits: enabledTraits) {
+            enabledTraits = allEnabledTraits
+        }
+
         return enabledTraits
     }
 
@@ -624,7 +623,7 @@ extension Manifest {
 
     /// Calculates and returns a set of all enabled traits, beginning with a set of explicitly enabled traits (either defined by default traits of
     /// this manifest, or by a user-generated traits configuration) and determines which traits are transitively enabled.
-    public func calculateAllEnabledTraits(explictlyEnabledTraits: Set<String>?) throws -> Set<String> {
+    private func calculateAllEnabledTraits(explictlyEnabledTraits: Set<String>?) throws -> Set<String> {
         // This the point where we flatten the enabled traits and resolve the recursive traits
         var enabledTraits = explictlyEnabledTraits ?? []
 
@@ -642,7 +641,7 @@ extension Manifest {
                 try enabledTraits
                     .flatMap { trait in
                         guard let traitDescription = traitsMap[trait] else {
-                            // TODO: replace displayName with package identity.
+                            // TODO: replace displayName with package identity + proper error
                             throw InternalError("Trait '\(trait)' is not declared by package '\(self.displayName)'")
                         }
                         return traitDescription.enabledTraits
@@ -661,7 +660,7 @@ extension Manifest {
     }
 
     // TODO: consider traits flag to modify calculation
-    public func usedDependencies(_ keepTraitGuardedDeps: Bool = true) throws -> [String: Set<TargetDescription.Dependency>] {
+    public func usedTargetDependencies(traitConfiguration: TraitConfiguration?) throws -> [String: Set<TargetDescription.Dependency>] {
         try self.targets.reduce(into: [String: Set<TargetDescription.Dependency>]()) { depMap, target in
             let nonTraitDeps = target.dependencies.filter {
                 $0.condition?.traits?.isEmpty ?? true
@@ -677,6 +676,13 @@ extension Manifest {
             let deps = nonTraitDeps + traitGuardedDeps
             depMap[target.name] = Set(deps)
         }
+    }
+
+    public func usedDependencies(traitConfiguration: TraitConfiguration?) throws -> Set<String> {
+        guard let deps = try? self.usedTargetDependencies(traitConfiguration: traitConfiguration).values.flatMap({ $0 }).compactMap(\.package) else {
+            return []
+        }
+        return Set(deps)
     }
 
     /// Returns the set of dependencies that are guarded by traits. This does not calculate enabled and disabled dependencies
@@ -704,8 +710,9 @@ extension Manifest {
         return TraitConfiguration(enabledTraits: Set(traits))
     }
 
-    public func isTargetDependencyEnabled(_ dependency: TargetDescription.Dependency) -> Bool {
+    public func isTargetDependencyEnabled(_ dependency: TargetDescription.Dependency, traitConfiguration: TraitConfiguration?) -> Bool {
         guard let package = dependency.package else { return false }
+        guard let traitConfiguration, !traitConfiguration.enableAllTraits else { return true }
         let traitsThatEnableDependency = traitGuardedDependencies()[package] ?? []
 
         do {
@@ -718,4 +725,9 @@ extension Manifest {
         }
     }
 
+    public func isDependencyUsed(_ dependency: String, traitConfiguration: TraitConfiguration?) throws -> Bool {
+        try self.usedDependencies(traitConfiguration: traitConfiguration).contains(where: {
+            $0.caseInsensitiveCompare(dependency) == .orderedSame
+        })
+    }
 }
