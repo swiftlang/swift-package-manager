@@ -427,31 +427,26 @@ extension Workspace {
         }
 
         // Retrieve the required resolved packages.
-        await withThrowingTaskGroup(of: Void.self) { taskGroup in
-            for resolvedPackage in requiredResolvedPackages {
-                let observabilityScope = observabilityScope.makeChildScope(
-                    description: "retrieving resolved package versions for dependencies",
-                    metadata: resolvedPackage.packageRef.diagnosticsMetadata
-                )
-                taskGroup.addTask {
-                    await observabilityScope.trap {
-                        switch resolvedPackage.packageRef.kind {
-                        case .localSourceControl, .remoteSourceControl:
-                            _ = try await self.checkoutRepository(
-                                package: resolvedPackage.packageRef,
-                                at: resolvedPackage.state,
-                                observabilityScope: observabilityScope
-                            )
-                        case .registry:
-                            _ = try await self.downloadRegistryArchive(
-                                package: resolvedPackage.packageRef,
-                                at: resolvedPackage.state,
-                                observabilityScope: observabilityScope
-                            )
-                        default:
-                            throw InternalError("invalid resolved package type \(resolvedPackage.packageRef.kind)")
-                        }
-                    }
+        for resolvedPackage in requiredResolvedPackages {
+            await observabilityScope.makeChildScope(
+                description: "retrieving resolved package versions for dependencies",
+                metadata: resolvedPackage.packageRef.diagnosticsMetadata
+            ).trap {
+                switch resolvedPackage.packageRef.kind {
+                case .localSourceControl, .remoteSourceControl:
+                    _ = try await self.checkoutRepository(
+                        package: resolvedPackage.packageRef,
+                        at: resolvedPackage.state,
+                        observabilityScope: observabilityScope
+                    )
+                case .registry:
+                    _ = try await self.downloadRegistryArchive(
+                        package: resolvedPackage.packageRef,
+                        at: resolvedPackage.state,
+                        observabilityScope: observabilityScope
+                    )
+                default:
+                    throw InternalError("invalid resolved package type \(resolvedPackage.packageRef.kind)")
                 }
             }
         }
