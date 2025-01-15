@@ -69,8 +69,8 @@ extension Workspace {
             debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies",
             metadata: package.diagnosticsMetadata
         )
-        try await self.state.dependencies.add(
-            .sourceControlCheckout(
+        try await self.state.add(
+            dependency: .sourceControlCheckout(
                 packageRef: package,
                 state: checkoutState,
                 subpath: checkoutPath.relative(to: self.location.repositoriesCheckoutsDirectory)

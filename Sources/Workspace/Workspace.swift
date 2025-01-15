@@ -1302,7 +1302,7 @@ extension Workspace {
         //
         // Note that we don't actually remove a local package from disk.
         if case .fileSystem = dependency.state {
-            await self.state.dependencies.remove(package.identity)
+            await self.state.remove(identity: package.identity)
             try await self.state.save()
             return
         }
@@ -1323,10 +1323,10 @@ extension Workspace {
                 basedOn: .none,
                 unmanagedPath: unmanagedPath
             )
-            await self.state.dependencies.add(updatedDependency)
+            await self.state.add(dependency: updatedDependency)
         } else {
             dependencyToRemove = dependency
-            await self.state.dependencies.remove(dependencyToRemove.packageRef.identity)
+            await self.state.remove(identity: dependencyToRemove.packageRef.identity)
         }
 
         switch package.kind {

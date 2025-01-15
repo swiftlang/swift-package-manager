@@ -644,7 +644,7 @@ public final class MockWorkspace {
             } else {
                 try self.fileSystem.createDirectory(managedPath, recursive: true)
             }
-            await workspace.state.dependencies.add(dependency.value)
+            await workspace.state.add(dependency: dependency.value)
         }
 
         for artifact in managedArtifacts {

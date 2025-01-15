@@ -424,8 +424,8 @@ extension Workspace {
             debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies",
             metadata: package.diagnosticsMetadata
         )
-        try await self.state.dependencies.add(
-            .registryDownload(
+        try await self.state.add(
+            dependency: .registryDownload(
                 packageRef: package,
                 version: version,
                 subpath: downloadPath.relative(to: self.location.registryDownloadDirectory)

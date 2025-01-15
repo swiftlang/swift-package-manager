@@ -423,7 +423,7 @@ extension Workspace {
                     // that would lead to loading the given package twice, once as a root and once as a dependency
                     // which violates various assumptions.
                     if case .fileSystem = ref.kind, !root.manifests.keys.contains(ref.identity) {
-                        try await self.state.dependencies.add(.fileSystem(packageRef: ref))
+                        try await self.state.add(dependency: .fileSystem(packageRef: ref))
                     }
                 }
                 await observabilityScope.trap { try await self.state.save() }
@@ -841,7 +841,7 @@ extension Workspace {
                         .emit(.editedDependencyMissing(packageName: dependency.packageRef.identity.description))
 
                 case .fileSystem:
-                    await self.state.dependencies.remove(dependency.packageRef.identity)
+                    await self.state.remove(identity: dependency.packageRef.identity)
                     try await self.state.save()
                 }
             }

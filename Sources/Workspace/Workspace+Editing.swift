@@ -157,8 +157,8 @@ extension Workspace {
         }
 
         // Save the new state.
-        try await self.state.dependencies.add(
-            dependency.edited(subpath: RelativePath(validating: packageIdentity), unmanagedPath: path)
+        try await self.state.add(
+            dependency: dependency.edited(subpath: RelativePath(validating: packageIdentity), unmanagedPath: path)
         )
         try await self.state.save()
     }
@@ -222,7 +222,7 @@ extension Workspace {
             )
         } else {
             // The original dependency was removed, update the managed dependency state.
-            await self.state.dependencies.remove(dependency.packageRef.identity)
+            await self.state.remove(identity: dependency.packageRef.identity)
             try await self.state.save()
         }
 

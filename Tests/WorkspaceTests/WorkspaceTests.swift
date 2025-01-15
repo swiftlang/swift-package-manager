@@ -3084,8 +3084,8 @@ final class WorkspaceTests: XCTestCase {
                 storageDirectory: underlying.state.storagePath.parentDirectory,
                 initializationWarningHandler: { _ in }
             )
-            await externalState.dependencies.remove(fooState.packageRef.identity)
-            await externalState.dependencies.add(try fooState.edited(subpath: "foo", unmanagedPath: fooEditPath))
+            await externalState.remove(identity: fooState.packageRef.identity)
+            await externalState.add(dependency: try fooState.edited(subpath: "foo", unmanagedPath: fooEditPath))
             try await externalState.save()
         }
 

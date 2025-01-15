@@ -88,6 +88,14 @@ public actor WorkspaceState {
         self.artifacts = storedState.artifacts
         self.prebuilts = storedState.prebuilts
     }
+    
+    public func add(dependency: Workspace.ManagedDependency) {
+        dependencies = dependencies.add(dependency)
+    }
+
+    public func remove(identity: PackageIdentity) {
+        dependencies = dependencies.remove(identity)
+    }
 }
 
 // MARK: - Serialization

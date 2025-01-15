@@ -778,7 +778,7 @@ extension Workspace {
                     state: .custom(version: version, path: path),
                     subpath: RelativePath(validating: "")
                 )
-                await self.state.dependencies.add(dependency)
+                await self.state.add(dependency: dependency)
                 try await self.state.save()
                 return path
             } else {
@@ -806,7 +806,7 @@ extension Workspace {
                 throw InternalError("invalid package type: \(package.kind)")
             }
 
-            await self.state.dependencies.add(dependency)
+            await self.state.add(dependency: dependency)
             try await self.state.save()
             return path
         }
