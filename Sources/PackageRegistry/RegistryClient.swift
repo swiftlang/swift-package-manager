@@ -151,17 +151,35 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> PackageMetadata {
-        try await withCheckedThrowingContinuation { continuation in
-            self.getPackageMetadata(
-                package: package,
+        guard let registryIdentity = package.registry else {
+            throw RegistryError.invalidPackageIdentity(package)
+        }
+
+        guard let registry = self.configuration.registry(for: registryIdentity.scope) else {
+            throw RegistryError.registryNotConfigured(scope: registryIdentity.scope)
+        }
+
+        let underlying = {
+            try await self._getPackageMetadata(
+                registry: registry,
+                package: registryIdentity,
                 timeout: timeout,
                 observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: {
-                    continuation.resume(with: $0)
-                }
+                callbackQueue: callbackQueue
             )
         }
+
+        if registry.supportsAvailability {
+            // The only value that will return is .available, otherwise this check throws an error.
+            if case .available = try await self.withAvailabilityCheck(
+                registry: registry,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue
+            ) {
+                return try await underlying()
+            }
+        }
+        return try await underlying()
     }
 
     @available(*, noasync, message: "Use the async alternative")
@@ -173,43 +191,18 @@ public final class RegistryClient: Cancellable {
         completion: @escaping (Result<PackageMetadata, Error>) -> Void
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
-
-        guard let registryIdentity = package.registry else {
-            return completion(.failure(RegistryError.invalidPackageIdentity(package)))
-        }
-
-        guard let registry = self.configuration.registry(for: registryIdentity.scope) else {
-            return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
-        }
-
-        observabilityScope.emit(debug: "registry for \(package): \(registry)")
-
-        let underlying = {
-            _ = Task {
-                let result = await self._getPackageMetadata(
-                    registry: registry,
-                    package: registryIdentity,
+        _ = Task {
+            do {
+                let result = try await self.getPackageMetadata(
+                    package: package,
                     timeout: timeout,
                     observabilityScope: observabilityScope,
                     callbackQueue: callbackQueue
                 )
-                completion(result)
+                completion(.success(result))
+            } catch {
+                completion(.failure(error))
             }
-        }
-
-        if registry.supportsAvailability {
-            self.withAvailabilityCheck(
-                registry: registry,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
-            ) { error in
-                if let error {
-                    return completion(.failure(error))
-                }
-                underlying()
-            }
-        } else {
-            underlying()
         }
     }
 
@@ -220,18 +213,18 @@ public final class RegistryClient: Cancellable {
         timeout: DispatchTimeInterval?,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
-    ) async -> Result<PackageMetadata, Error> {
+    ) async throws -> PackageMetadata {
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
-            return .failure(RegistryError.invalidURL(registry.url))
+            throw RegistryError.invalidURL(registry.url)
         }
         components.appendPathComponents("\(package.scope)", "\(package.name)")
         guard let url = components.url else {
-            return .failure(RegistryError.invalidURL(registry.url))
+            throw RegistryError.invalidURL(registry.url)
         }
 
         // If the responses are paginated then iterate until we've exasuasted all the pages and have a full versions list.
-        func iterateResponses(url: URL, existingMetadata: PackageMetadata) async -> Result<PackageMetadata, Error> {
-            let response = await self._getIndividualPackageMetadata(
+        func iterateResponses(url: URL, existingMetadata: PackageMetadata) async throws -> PackageMetadata {
+            let metadata = try await self._getIndividualPackageMetadata(
                 url: url,
                 registry: registry,
                 package: package,
@@ -240,32 +233,38 @@ public final class RegistryClient: Cancellable {
                 callbackQueue: callbackQueue
             )
 
-            if case .success(let metadata) = response {
-                let mergedMetadata = PackageMetadata(
-                    registry: registry,
-                    versions: existingMetadata.versions + metadata.versions,
-                    alternateLocations: existingMetadata.alternateLocations.count > 0
-                        ? existingMetadata.alternateLocations
-                        : metadata.alternateLocations,
-                    nextPage: metadata.nextPage
+            let mergedMetadata = PackageMetadata(
+                registry: registry,
+                versions: existingMetadata.versions + metadata.versions,
+                alternateLocations: existingMetadata.alternateLocations.count > 0
+                    ? existingMetadata.alternateLocations
+                    : metadata.alternateLocations,
+                nextPage: metadata.nextPage
+            )
+            if let nextPage = mergedMetadata.nextPage?.url {
+                return try await iterateResponses(
+                    url: nextPage,
+                    existingMetadata: mergedMetadata
                 )
-                if let nextPage = mergedMetadata.nextPage?.url {
-                    return await iterateResponses(url: nextPage, existingMetadata: mergedMetadata)
-                } else {
-                    return .success(
-                        PackageMetadata(
-                            registry: registry,
-                            versions: mergedMetadata.versions.sorted(by: >),
-                            alternateLocations: mergedMetadata.alternateLocations,
-                            nextPage: mergedMetadata.nextPage
-                        )
-                    )
-                }
+            } else {
+                return PackageMetadata(
+                    registry: registry,
+                    versions: mergedMetadata.versions.sorted(by: >),
+                    alternateLocations: mergedMetadata.alternateLocations,
+                    nextPage: mergedMetadata.nextPage
+                )
             }
-            return response
         }
 
-        return await iterateResponses(url: url, existingMetadata: PackageMetadata(registry: registry, versions: [], alternateLocations: [], nextPage: nil))
+        return try await iterateResponses(
+            url: url,
+            existingMetadata: PackageMetadata(
+                registry: registry,
+                versions: [],
+                alternateLocations: [],
+                nextPage: nil
+            )
+        )
     }
 
     private func _getIndividualPackageMetadata(
@@ -275,11 +274,13 @@ public final class RegistryClient: Cancellable {
         timeout: DispatchTimeInterval?,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
-    ) async -> Result<PackageMetadata, Error> {
+    ) async throws -> PackageMetadata {
+        let start = DispatchTime.now()
+        observabilityScope.emit(info: "retrieving \(package) metadata from \(url)")
+
+        let response: LegacyHTTPClient.Response
         do {
-            let start = DispatchTime.now()
-            observabilityScope.emit(info: "retrieving \(package) metadata from \(url)")
-            let response = try await self.httpClient.get(
+            response = try await self.httpClient.get(
                 url,
                 headers: [
                     "Accept": self.acceptHeader(mediaType: .json),
@@ -287,38 +288,45 @@ public final class RegistryClient: Cancellable {
                 options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue),
                 observabilityScope: observabilityScope
             )
-
-            observabilityScope
-                .emit(
-                    debug: "server response for \(url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-                )
-
-            switch response.statusCode {
-                case 200:
-                    let packageMetadata = try response.parseJSON(
-                        Serialization.PackageMetadata.self,
-                        decoder: self.jsonDecoder
-                    )
-
-                    let versions = packageMetadata.releases.filter { $0.value.problem == nil }
-                        .compactMap { Version($0.key) }
-
-                    let alternateLocations = response.headers.parseAlternativeLocationLinks()
-                    let paginationLinks = response.headers.parsePagniationLinks()
-
-                    return .success(PackageMetadata(
-                        registry: registry,
-                        versions: versions,
-                        alternateLocations: alternateLocations.map(\.url),
-                        nextPage: paginationLinks.first { $0.kind == .next }?.url
-                    ))
-                case 404:
-                    return .failure(RegistryError.failedRetrievingReleases(registry: registry, package: package.underlying, error: RegistryError.packageNotFound))
-                default:
-                    return .failure(RegistryError.failedRetrievingReleases(registry: registry, package: package.underlying, error: self.unexpectedStatusError(response, expectedStatus: [200, 404])))
-                }
         } catch {
-            return .failure(RegistryError.failedRetrievingReleases(registry: registry, package: package.underlying, error: error))
+            throw RegistryError.failedRetrievingReleases(registry: registry, package: package.underlying, error: error)
+        }
+        observabilityScope
+            .emit(
+                debug: "server response for \(url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+            )
+
+        switch response.statusCode {
+        case 200:
+            let packageMetadata = try response.parseJSON(
+                Serialization.PackageMetadata.self,
+                decoder: self.jsonDecoder
+            )
+
+            let versions = packageMetadata.releases.filter { $0.value.problem == nil }
+                .compactMap { Version($0.key) }
+
+            let alternateLocations = response.headers.parseAlternativeLocationLinks()
+            let paginationLinks = response.headers.parsePagniationLinks()
+
+            return PackageMetadata(
+                registry: registry,
+                versions: versions,
+                alternateLocations: alternateLocations.map(\.url),
+                nextPage: paginationLinks.first { $0.kind == .next }?.url
+            )
+        case 404:
+            throw RegistryError.failedRetrievingReleases(
+                registry: registry,
+                package: package.underlying,
+                error: RegistryError.packageNotFound
+            )
+        default:
+            throw RegistryError.failedRetrievingReleases(
+                registry: registry,
+                package: package.underlying,
+                error: self.unexpectedStatusError(response, expectedStatus: [200, 404])
+            )
         }
     }
 
@@ -1811,6 +1819,28 @@ public final class RegistryClient: Cancellable {
         }
     }
 
+    private func withAvailabilityCheck(
+        registry: Registry,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws -> AvailabilityStatus {
+        try await withCheckedThrowingContinuation { continuation in
+            self.withAvailabilityCheck(
+                registry: registry,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                next: {
+                    if let error = $0 {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume(returning: .available)
+                    }
+                }
+            )
+        }
+    }
+
+    @available(*, noasync, message: "Use the async alternative")
     private func withAvailabilityCheck(
         registry: Registry,
         observabilityScope: ObservabilityScope,
