@@ -22,6 +22,7 @@ import PackageLoading
 import PackageModel
 
 @testable import SPMBuildCore
+import _InternalBuildTestSupport
 import _InternalTestSupport
 import Workspace
 import XCTest

@@ -28,11 +28,11 @@ import func _InternalTestSupport.embeddedCxxInteropPackageGraph
 import func _InternalTestSupport.macrosPackageGraph
 import func _InternalTestSupport.macrosTestsPackageGraph
 import func _InternalTestSupport.mockBuildParameters
-import func _InternalTestSupport.mockBuildPlan
+import func _InternalBuildTestSupport.mockBuildPlan
 import func _InternalTestSupport.toolsExplicitLibrariesGraph
 import func _InternalTestSupport.trivialPackageGraph
 
-import struct _InternalTestSupport.BuildPlanResult
+import struct _InternalBuildTestSupport.BuildPlanResult
 import func _InternalTestSupport.XCTAssertMatch
 import func _InternalTestSupport.XCTAssertNoDiagnostics
 
