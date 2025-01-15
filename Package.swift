@@ -435,7 +435,10 @@ let package = Package(
         .target(
             /** Support for building using Xcode's build system */
             name: "XCBuildSupport",
-            dependencies: ["SPMBuildCore", "PackageGraph"],
+            dependencies: [
+                "SPMBuildCore",
+                "PackageGraph",
+            ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .unsafeFlags(["-static"]),
