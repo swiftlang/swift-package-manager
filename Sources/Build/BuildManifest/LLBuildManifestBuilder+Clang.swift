@@ -54,13 +54,10 @@ extension LLBuildManifestBuilder {
 
                 case .library(.automatic), .library(.static), .plugin:
                     for module in product.modules {
-                        guard let dependencyDescription = self.plan.description(
+                        let dependencyDescription = self.plan.description(
                             for: module,
                             context: product.type == .plugin ? .host : target.destination
-                        ) else
-                        {
-                            throw InternalError("unknown module: \(module)")
-                        }
+                        )
                         addStaticTargetInputs(dependencyDescription)
                     }
                 case .test:
