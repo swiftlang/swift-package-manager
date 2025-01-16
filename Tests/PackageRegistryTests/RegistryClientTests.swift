@@ -85,15 +85,19 @@ final class RegistryClientTests: XCTestCase {
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
+        let assert: (RegistryClient.PackageMetadata) -> Void = { metadata in
+            XCTAssertEqual(metadata.versions, ["1.1.1", "1.0.0"])
+            XCTAssertEqual(metadata.alternateLocations, [
+                SourceControlURL("https://github.com/mona/LinkedList"),
+                SourceControlURL("ssh://git@github.com:mona/LinkedList.git"),
+                SourceControlURL("git@github.com:mona/LinkedList.git"),
+                SourceControlURL("https://gitlab.com/mona/LinkedList"),
+            ])
+        }
+
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
         let metadata = try await registryClient.getPackageMetadata(package: identity)
-        XCTAssertEqual(metadata.versions, ["1.1.1", "1.0.0"])
-        XCTAssertEqual(metadata.alternateLocations, [
-            SourceControlURL("https://github.com/mona/LinkedList"),
-            SourceControlURL("ssh://git@github.com:mona/LinkedList.git"),
-            SourceControlURL("git@github.com:mona/LinkedList.git"),
-            SourceControlURL("https://gitlab.com/mona/LinkedList"),
-        ])
+        assert(metadata)
 
         let metadataSync = try await withCheckedThrowingContinuation { continuation in
             return registryClient.getPackageMetadata(
@@ -104,13 +108,7 @@ final class RegistryClientTests: XCTestCase {
                 completion: { continuation.resume(with: $0) }
             )
         }
-        XCTAssertEqual(metadataSync.versions, ["1.1.1", "1.0.0"])
-        XCTAssertEqual(metadataSync.alternateLocations, [
-            SourceControlURL("https://github.com/mona/LinkedList"),
-            SourceControlURL("ssh://git@github.com:mona/LinkedList.git"),
-            SourceControlURL("git@github.com:mona/LinkedList.git"),
-            SourceControlURL("https://gitlab.com/mona/LinkedList"),
-        ])
+        assert(metadataSync)
     }
 
     func testGetPackageMetadataPaginated() async throws {
@@ -437,23 +435,39 @@ final class RegistryClientTests: XCTestCase {
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
+        let assert: (RegistryClient.PackageVersionMetadata) -> Void = { metadata in
+            XCTAssertEqual(metadata.resources.count, 1)
+            XCTAssertEqual(metadata.resources[0].name, "source-archive")
+            XCTAssertEqual(metadata.resources[0].type, "application/zip")
+            XCTAssertEqual(
+                metadata.resources[0].checksum,
+                "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
+            )
+            XCTAssertEqual(metadata.author?.name, "J. Appleseed")
+            XCTAssertEqual(metadata.licenseURL, URL("https://github.com/mona/LinkedList/license"))
+            XCTAssertEqual(metadata.readmeURL, URL("https://github.com/mona/LinkedList/readme"))
+            XCTAssertEqual(metadata.repositoryURLs!, [
+                SourceControlURL("https://github.com/mona/LinkedList"),
+                SourceControlURL("ssh://git@github.com:mona/LinkedList.git"),
+                SourceControlURL("git@github.com:mona/LinkedList.git"),
+            ])
+        }
+
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
         let metadata = try await registryClient.getPackageVersionMetadata(package: identity, version: version)
-        XCTAssertEqual(metadata.resources.count, 1)
-        XCTAssertEqual(metadata.resources[0].name, "source-archive")
-        XCTAssertEqual(metadata.resources[0].type, "application/zip")
-        XCTAssertEqual(
-            metadata.resources[0].checksum,
-            "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-        )
-        XCTAssertEqual(metadata.author?.name, "J. Appleseed")
-        XCTAssertEqual(metadata.licenseURL, URL("https://github.com/mona/LinkedList/license"))
-        XCTAssertEqual(metadata.readmeURL, URL("https://github.com/mona/LinkedList/readme"))
-        XCTAssertEqual(metadata.repositoryURLs!, [
-            SourceControlURL("https://github.com/mona/LinkedList"),
-            SourceControlURL("ssh://git@github.com:mona/LinkedList.git"),
-            SourceControlURL("git@github.com:mona/LinkedList.git"),
-        ])
+        assert(metadata)
+
+        let metadataSync = try await withCheckedThrowingContinuation { continuation in
+            return registryClient.getPackageVersionMetadata(
+                package: identity,
+                version: version,
+                fileSystem: InMemoryFileSystem(),
+                observabilityScope: ObservabilitySystem.NOOP,
+                callbackQueue: .sharedConcurrent,
+                completion: { continuation.resume(with: $0) }
+            )
+        }
+        assert(metadataSync)
     }
 
     func testGetPackageVersionMetadata_404() async throws {
@@ -667,19 +681,34 @@ final class RegistryClientTests: XCTestCase {
             httpClient: httpClient,
             checksumAlgorithm: checksumAlgorithm
         )
+
+        let assert: ([String: (toolsVersion: ToolsVersion, content: String?)]) -> Void = { availableManifests in
+            XCTAssertEqual(availableManifests["Package.swift"]?.toolsVersion, .v5_5)
+            XCTAssertEqual(availableManifests["Package.swift"]?.content, defaultManifest)
+            XCTAssertEqual(availableManifests["Package@swift-4.swift"]?.toolsVersion, .v4)
+            XCTAssertEqual(availableManifests["Package@swift-4.swift"]?.content, .none)
+            XCTAssertEqual(availableManifests["Package@swift-4.2.swift"]?.toolsVersion, .v4_2)
+            XCTAssertEqual(availableManifests["Package@swift-4.2.swift"]?.content, .none)
+            XCTAssertEqual(availableManifests["Package@swift-5.3.swift"]?.toolsVersion, .v5_3)
+            XCTAssertEqual(availableManifests["Package@swift-5.3.swift"]?.content, .none)
+        }
+
         let availableManifests = try await registryClient.getAvailableManifests(
             package: identity,
             version: version
         )
+        assert(availableManifests)
 
-        XCTAssertEqual(availableManifests["Package.swift"]?.toolsVersion, .v5_5)
-        XCTAssertEqual(availableManifests["Package.swift"]?.content, defaultManifest)
-        XCTAssertEqual(availableManifests["Package@swift-4.swift"]?.toolsVersion, .v4)
-        XCTAssertEqual(availableManifests["Package@swift-4.swift"]?.content, .none)
-        XCTAssertEqual(availableManifests["Package@swift-4.2.swift"]?.toolsVersion, .v4_2)
-        XCTAssertEqual(availableManifests["Package@swift-4.2.swift"]?.content, .none)
-        XCTAssertEqual(availableManifests["Package@swift-5.3.swift"]?.toolsVersion, .v5_3)
-        XCTAssertEqual(availableManifests["Package@swift-5.3.swift"]?.content, .none)
+        let availableManifestsSync = try await withCheckedThrowingContinuation { continuation in
+            return registryClient.getAvailableManifests(
+                package: identity,
+                version: version,
+                observabilityScope: ObservabilitySystem.NOOP,
+                callbackQueue: .sharedConcurrent,
+                completion: { continuation.resume(with: $0) }
+            )
+        }
+        assert(availableManifestsSync)
     }
 
     func testAvailableManifests_matchingChecksumInStorage() async throws {
@@ -1376,6 +1405,20 @@ final class RegistryClientTests: XCTestCase {
             )
             let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
             XCTAssertEqual(parsedToolsVersion, .v4)
+        }
+
+        do {
+            let manifestSync = try await withCheckedThrowingContinuation { continuation in
+                return registryClient.getManifestContent(
+                    package: identity,
+                    version: version,
+                    customToolsVersion: nil,
+                    observabilityScope: ObservabilitySystem.NOOP,
+                    callbackQueue: .sharedConcurrent,
+                ) { continuation.resume(with: $0) }
+            }
+            let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifestSync)
+            XCTAssertEqual(parsedToolsVersion, .current)
         }
     }
 
@@ -2195,18 +2238,37 @@ final class RegistryClientTests: XCTestCase {
             destinationPath: path
         )
 
-        let contents = try fileSystem.getDirectoryContents(path)
-        XCTAssertEqual(contents.sorted(), [RegistryReleaseMetadataStorage.fileName, "Package.swift"].sorted())
+        let assert: (AbsolutePath) throws -> Void = { path in
+            let contents = try fileSystem.getDirectoryContents(path)
+            XCTAssertEqual(contents.sorted(), [RegistryReleaseMetadataStorage.fileName, "Package.swift"].sorted())
 
-        let storedMetadata = try RegistryReleaseMetadataStorage.load(
-            from: path.appending(component: RegistryReleaseMetadataStorage.fileName),
-            fileSystem: fileSystem
-        )
-        XCTAssertEqual(storedMetadata.source, .registry(registryURL))
-        XCTAssertEqual(storedMetadata.metadata.author?.name, author)
-        XCTAssertEqual(storedMetadata.metadata.licenseURL, licenseURL)
-        XCTAssertEqual(storedMetadata.metadata.readmeURL, readmeURL)
-        XCTAssertEqual(storedMetadata.metadata.scmRepositoryURLs, repositoryURLs)
+            let storedMetadata = try RegistryReleaseMetadataStorage.load(
+                from: path.appending(component: RegistryReleaseMetadataStorage.fileName),
+                fileSystem: fileSystem
+            )
+            XCTAssertEqual(storedMetadata.source, .registry(registryURL))
+            XCTAssertEqual(storedMetadata.metadata.author?.name, author)
+            XCTAssertEqual(storedMetadata.metadata.licenseURL, licenseURL)
+            XCTAssertEqual(storedMetadata.metadata.readmeURL, readmeURL)
+            XCTAssertEqual(storedMetadata.metadata.scmRepositoryURLs, repositoryURLs)
+        }
+        try assert(path)
+
+        let syncPath = try! AbsolutePath(validating: "/\(identity)-\(version)-sync")
+        try await withCheckedThrowingContinuation { continuation in
+            registryClient.downloadSourceArchive(
+                package: identity.underlying,
+                version: version,
+                destinationPath: syncPath,
+                progressHandler: nil,
+                fileSystem: fileSystem,
+                observabilityScope: ObservabilitySystem.NOOP,
+                callbackQueue: .sharedConcurrent,
+                completion: { continuation.resume(with: $0) }
+            )
+        }
+
+        try assert(syncPath)
     }
 
     func testDownloadSourceArchive_matchingChecksumInStorage() async throws {
@@ -3105,6 +3167,16 @@ final class RegistryClientTests: XCTestCase {
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
         let identities = try await registryClient.lookupIdentities(scmURL: packageURL)
         XCTAssertEqual([PackageIdentity.plain("mona.LinkedList")], identities)
+
+        let syncIdentities = try await withCheckedThrowingContinuation { continuation in
+            registryClient.lookupIdentities(
+                scmURL: packageURL,
+                observabilityScope: ObservabilitySystem.NOOP,
+                callbackQueue: .sharedConcurrent,
+                completion: { continuation.resume(with: $0) }
+            )
+        }
+        XCTAssertEqual([PackageIdentity.plain("mona.LinkedList")], syncIdentities)
     }
 
     func testLookupIdentities404() async throws {
@@ -3318,6 +3390,15 @@ final class RegistryClientTests: XCTestCase {
             authorizationProvider: authorizationProvider
         )
         try await registryClient.login(loginURL: loginURL)
+
+        try await withCheckedThrowingContinuation { continuation in
+            registryClient.login(
+                loginURL: loginURL,
+                observabilityScope: ObservabilitySystem.NOOP,
+                callbackQueue: .sharedConcurrent,
+                completion: { continuation.resume(with: $0) }
+            )
+        }
     }
 
     func testLogin_missingCredentials() async throws {
@@ -3454,17 +3535,22 @@ final class RegistryClientTests: XCTestCase {
             configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
             let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-            let result = try await registryClient.publish(
-                registryURL: registryURL,
-                packageIdentity: identity,
-                packageVersion: version,
-                packageArchive: archivePath,
-                packageMetadata: metadataPath,
-                signature: .none,
-                metadataSignature: .none,
-                signatureFormat: .none,
-                fileSystem: localFileSystem
-            )
+
+            let result = try await withCheckedThrowingContinuation { continuation in
+                return registryClient.publish(
+                    registryURL: registryURL,
+                    packageIdentity: identity,
+                    packageVersion: version,
+                    packageArchive: archivePath,
+                    packageMetadata: metadataPath,
+                    signature: .none,
+                    metadataSignature: .none,
+                    signatureFormat: .none,
+                    fileSystem: localFileSystem,
+                    observabilityScope: ObservabilitySystem.NOOP,
+                    callbackQueue: .sharedConcurrent,
+                ) { result in continuation.resume(with: result) }
+            }
 
             XCTAssertEqual(result, .published(expectedLocation))
         }
@@ -3912,6 +3998,16 @@ final class RegistryClientTests: XCTestCase {
 
         let status = try await registryClient.checkAvailability(registry: registry)
         XCTAssertEqual(status, .available)
+
+        let syncStatus = try await withCheckedThrowingContinuation { continuation in
+            registryClient.checkAvailability(
+                registry: registry,
+                observabilityScope: ObservabilitySystem.NOOP,
+                callbackQueue: .sharedConcurrent,
+                completion: { continuation.resume(with: $0) }
+            )
+        }
+        XCTAssertEqual(syncStatus, .available)
     }
 
     func testRegistryAvailability_NotAvailable() async throws {

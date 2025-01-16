@@ -154,7 +154,6 @@ struct PackageVersionChecksumTOFU {
         }
     }
 
-    @available(*, noasync, message: "Use the async alternative")
     func validateManifest(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
