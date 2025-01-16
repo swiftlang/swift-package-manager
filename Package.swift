@@ -682,12 +682,23 @@ let package = Package(
 
         // MARK: Additional Test Dependencies
 
+            .target(
+                /** SwiftPM internal build test suite support library */
+                name: "_InternalBuildTestSupport",
+                dependencies: [
+                    "Build",
+                    "_InternalTestSupport"
+                ],
+                swiftSettings: [
+                    .unsafeFlags(["-static"]),
+                ]
+            ),
+
         .target(
             /** SwiftPM internal test suite support library */
             name: "_InternalTestSupport",
             dependencies: [
                 "Basics",
-                "Build",
                 "PackageFingerprint",
                 "PackageGraph",
                 "PackageLoading",
@@ -748,7 +759,7 @@ let package = Package(
         ),
         .testTarget(
             name: "BuildTests",
-            dependencies: ["Build", "PackageModel", "Commands", "_InternalTestSupport"]
+            dependencies: ["Build", "PackageModel", "Commands", "_InternalTestSupport", "_InternalBuildTestSupport"]
         ),
         .testTarget(
             name: "LLBuildManifestTests",
