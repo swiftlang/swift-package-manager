@@ -1,0 +1,236 @@
+#!/usr/bin/env python3
+# ===----------------------------------------------------------------------===##
+#
+# This source file is part of the Swift open source project
+#
+# Copyright (c) 2025 Apple Inc. and the Swift project authors
+# Licensed under Apache License v2.0 with Runtime Library Exception
+#
+# See http://swift.org/LICENSE.txt for license information
+# See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+#
+# ===----------------------------------------------------------------------===##
+
+import argparse
+import dataclasses
+import datetime
+import logging
+import os
+import pathlib
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import types
+import typing as t
+
+logging.basicConfig(
+    stream=sys.stdout,
+    format=" | ".join(
+        [
+            "%(asctime)s",
+            # "%(levelname)-7s",
+            # "%(module)s",
+            # "%(funcName)s",
+            # "Line:%(lineno)d",
+            "%(message)s",
+        ]
+    ),
+    level=logging.INFO,
+)
+
+
+def get_command(command: str) -> str:
+    return f'"{c}"' if (c := shutil.which(command)) else ""
+
+
+ALWAYS_EXECUTED_COMMANDS: t.Sequence[str] = [
+    f"{get_command('git')} log -n1",
+    f"{get_command('swift')} --version",
+]
+
+
+def pad_number(actual: int, max_num: int) -> str:
+    num_digits = len(str(max_num))
+    return str(actual).zfill(num_digits)
+
+
+@dataclasses.dataclass
+class Configuration:
+    logs_path: pathlib.Path
+    num_iterations: int
+    is_dryrun: bool
+
+
+class CommandsRepeater:
+    def __init__(
+        self,
+        commands: t.Sequence[str],
+        *,
+        config: Configuration,
+    ) -> None:
+        self.commands: t.Sequence[str] = commands
+        self.config = config
+
+    @property
+    def failed_logs_path(self) -> pathlib.Path:
+        failulre_path = self.config.logs_path / "failed"
+        if not failulre_path.exists():
+            os.makedirs(failulre_path, exist_ok=True)
+        return failulre_path
+
+    def _construct_command(self, cmd: str) -> str:
+        return " ".join(
+            [
+                get_command("echo") if self.config.is_dryrun else "",
+                get_command("caffeinate"),
+                cmd,
+            ]
+        )
+
+    def execute_command(self, command: str, *, log_file: pathlib.Path) -> bool:
+        """ """
+        with log_file.open("a+") as logfile_fd:
+            logfile_fd.write(f"❯❯❯ Executing: {command}\n")
+            logfile_fd.flush()
+            logging.info(" --> executing command: %s", command)
+            process_results = subprocess.run(
+                shlex.split(command),
+                stdout=logfile_fd,
+                stderr=subprocess.STDOUT,
+                shell=False,
+            )
+            logfile_fd.write("\n")
+            logfile_fd.flush()
+            logging.debug("   --- return code: %d", process_results.returncode)
+            return process_results.returncode == 0
+
+    def run(self) -> None:
+        self.emit_log_directories()
+        for number in range(1, self.config.num_iterations + 1):
+            padded_num = pad_number(number, self.config.num_iterations)
+            iteration_log_pathname = (
+                self.config.logs_path
+                / padded_num
+                / f"swift_test_console_{padded_num}.txt"
+            )
+            os.makedirs(iteration_log_pathname.parent, exist_ok=True)
+            iteration_log_pathname.touch()
+            logging.info(
+                "[%s/%d] executing and writing log to %s ...",
+                padded_num,
+                self.config.num_iterations,
+                iteration_log_pathname.parent,
+            )
+            start_time = time.time()
+            command_status = [
+                self.execute_command(
+                    self._construct_command(cmd), log_file=iteration_log_pathname
+                )
+                for cmd in self.commands
+            ]
+
+            if not all(command_status):
+                # command failed. so create a symlink
+                os.symlink(
+                    iteration_log_pathname.parent,
+                    self.failed_logs_path / padded_num,
+                    target_is_directory=True,
+                )
+
+            end_time = time.time()
+            elapsed_time_seconds = end_time - start_time
+            elapsed_time = datetime.timedelta(seconds=elapsed_time_seconds)
+            logging.info(
+                "[%s/%d] executing and writing log to %s completed in %s",
+                padded_num,
+                self.config.num_iterations,
+                iteration_log_pathname.parent,
+                elapsed_time,
+            )
+
+    def __enter__(self) -> "CommandsRepeater":
+        return self
+
+    def __exit__(
+        self,
+        exc_type: t.AbstractSet[t.Type[BaseException]],
+        exc_inst: t.Optional[BaseException],
+        exc_tb: t.Optional[types.TracebackType],
+    ) -> bool:
+        logging.info("-" * 100)
+        self.emit_log_directories()
+        return True
+
+    def emit_log_directories(self) -> None:
+        logging.info("Root Log Directory  : %s", self.config.logs_path.resolve())
+        logging.info("Failed Log Directory: %s", self.failed_logs_path.resolve())
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "--verbose",
+        dest="is_verbose",
+        action="store_true",
+        help="When set, prints verbose information.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        dest="is_dryrun",
+        action="store_true",
+        help="When set, print the commands that will be executed",
+    )
+    parser.add_argument(
+        "-l",
+        "--logs-dir",
+        dest="logs_path",
+        help="The directory to store the logs files",
+        type=pathlib.Path,
+    )
+    parser.add_argument(
+        "-n",
+        "--number-iterations",
+        "--iterations",
+        dest="num_iterations",
+        type=int,
+        help="The number of iterations to runs the set of commands",
+        default=200,
+    )
+    parser.add_argument(
+        "--command",
+        action="append",
+        help="The command to executes. Accepted multiple times.",
+        default=ALWAYS_EXECUTED_COMMANDS,
+    )
+
+    args = parser.parse_args()
+    logging.getLogger().setLevel(logging.DEBUG if args.is_verbose else logging.INFO)
+
+    logging.debug(f"args: {args}")
+    config = Configuration(
+        logs_path=(args.logs_path or get_default_log_directory()).resolve(),
+        num_iterations=args.num_iterations,
+        is_dryrun=args.is_dryrun,
+    )
+
+    if config.logs_path.exists():
+        logging.debug("logs directory %s exists. deleting...", config.logs_path)
+        shutil.rmtree(config.logs_path)
+
+    with CommandsRepeater(args.command, config=config) as repeater:
+        repeater.run()
+
+
+def get_default_log_directory() -> pathlib.Path:
+    current_time = datetime.datetime.now(datetime.timezone.utc)
+    time_string = current_time.strftime("%Y%m%dT%H%M%S%Z")
+    return pathlib.Path(tempfile.TemporaryDirectory(prefix=time_string).name)
+
+
+if __name__ == "__main__":
+    main()
