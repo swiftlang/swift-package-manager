@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct SystemPackage.FilePath
+package import struct SystemPackage.FilePath
 
 package protocol Query: Sendable {
     associatedtype Key: CacheKey

@@ -13,7 +13,7 @@
 import _AsyncFileSystem
 import Basics
 import Crypto
-@preconcurrency import SystemPackage
+@preconcurrency package import SystemPackage
 
 package func withQueryEngine(
     _ fileSystem: some AsyncFileSystem,
