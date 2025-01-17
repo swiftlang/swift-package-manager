@@ -16,8 +16,8 @@ import PackageModel
 extension Workspace {
     /// A downloaded prebuilt managed by the workspace.
     public struct ManagedPrebuilt {
-        /// The package reference.
-        public let packageRef: PackageReference
+        /// The package identity
+        public let identity: PackageIdentity
 
         /// The name of the binary target the artifact corresponds to.
         public let libraryName: String
@@ -35,7 +35,7 @@ extension Workspace {
 
 extension Workspace.ManagedPrebuilt: CustomStringConvertible {
     public var description: String {
-        return "<ManagedArtifact: \(self.packageRef.identity).\(self.libraryName)>"
+        return "<ManagedArtifact: \(self.identity).\(self.libraryName)>"
     }
 }
 
@@ -56,7 +56,7 @@ extension Workspace {
         }
 
         init(_ artifacts: [ManagedPrebuilt]) throws {
-            let artifactsByPackagePath = Dictionary(grouping: artifacts, by: { $0.packageRef.identity })
+            let artifactsByPackagePath = Dictionary(grouping: artifacts, by: { $0.identity })
             self.artifactMap = try artifactsByPackagePath.mapValues{ artifacts in
                 try Dictionary(artifacts.map { ($0.libraryName, $0) }, uniquingKeysWith: { _, _ in
                     // should be unique
@@ -70,7 +70,7 @@ extension Workspace {
         }
 
         public func add(_ artifact: ManagedPrebuilt) {
-            self.artifactMap[artifact.packageRef.identity, default: [:]][artifact.libraryName] = artifact
+            self.artifactMap[artifact.identity, default: [:]][artifact.libraryName] = artifact
         }
 
         public func remove(packageIdentity: PackageIdentity, targetName: String) {

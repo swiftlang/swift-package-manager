@@ -671,9 +671,22 @@ private func createResolvedPackages(
                     }
                 }
 
-                if moduleBuilder.module.type == .macro, let package = productRef.package, prebuilts[.plain(package)]?[productRef.name] != nil {
-                    // using a prebuilt instead.
-                    continue
+                if let package = productRef.package, prebuilts[.plain(package)]?[productRef.name] != nil {
+                    // See if we're using a prebuilt instead
+                    if moduleBuilder.module.type == .macro {
+                        continue
+                    } else if moduleBuilder.module.type == .test {
+                        // use prebuilt if this is a test that depends a macro target
+                        // these are guaranteed built for host
+                        if moduleBuilder.module.dependencies.contains(where: { dep in
+                            guard let module = dep.module else {
+                                return false
+                            }
+                            return module.type == .macro
+                        }) {
+                            continue
+                        }
+                    }
                 }
 
                 // Find the product in this package's dependency products.

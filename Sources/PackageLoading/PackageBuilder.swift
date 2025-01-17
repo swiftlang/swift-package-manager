@@ -270,8 +270,8 @@ public struct BinaryArtifact {
 
 /// A structure representing a prebuilt library to be used instead of a source dependency
 public struct PrebuiltLibrary {
-    /// The package reference.
-    public let packageRef: PackageReference
+    /// The package identity.
+    public let identity: PackageIdentity
 
     /// The name of the binary target the artifact corresponds to.
     public let libraryName: String
@@ -285,8 +285,8 @@ public struct PrebuiltLibrary {
     /// The C modules that need their includes directory added to the include path
     public let cModules: [String]
 
-    public init(packageRef: PackageReference, libraryName: String, path: AbsolutePath, products: [String], cModules: [String]) {
-        self.packageRef = packageRef
+    public init(identity: PackageIdentity, libraryName: String, path: AbsolutePath, products: [String], cModules: [String]) {
+        self.identity = identity
         self.libraryName = libraryName
         self.path = path
         self.products = products
@@ -1242,9 +1242,9 @@ public final class PackageBuilder {
             table.add(assignment, for: .SWIFT_ACTIVE_COMPILATION_CONDITIONS)
         }
 
-        // Add in flags for prebuilts if the target is a macro.
+        // Add in flags for prebuilts if the target is a macro or a macro test.
         // Currently we only support prebuilts for macros.
-        if target.type == .macro {
+        if target.type == .macro || target.isMacroTest(in: manifest) {
             let prebuiltLibraries: [String: PrebuiltLibrary] = target.dependencies.reduce(into: .init()) {
                 guard case let .product(name: name, package: package, moduleAliases: _, condition: _) = $1,
                       let package = package,
@@ -1855,5 +1855,27 @@ extension Sequence {
 extension TargetDescription {
     fileprivate var usesUnsafeFlags: Bool {
         settings.filter(\.kind.isUnsafeFlags).isEmpty == false
+    }
+
+    fileprivate func isMacroTest(in manifest: Manifest) -> Bool {
+        guard self.type == .test else { return false }
+
+        return self.dependencies.contains(where: {
+            let name: String
+            switch $0 {
+            case .byName(name: let n, condition: _):
+                name = n
+            case .target(name: let n, condition: _):
+                name = n
+            default:
+                return false
+            }
+
+            guard let target = manifest.targetMap[name] else {
+                return false
+            }
+
+            return target.type == .macro
+        })
     }
 }
