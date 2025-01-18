@@ -98,7 +98,7 @@ extension _SwiftCommand {
     }
 }
 
-public protocol SwiftCommand: ParsableCommand, _SwiftCommand {
+public protocol SwiftCommand: AsyncParsableCommand, _SwiftCommand {
     func run(_ swiftCommandState: SwiftCommandState) async throws
 }
 
