@@ -168,7 +168,7 @@ final class PrebuiltsTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
-            XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
+            XCTAssertTrue(diagnostics.filter({ $0.severity == .error || $0.severity == .warning }).isEmpty)
             let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
             try checkSettings(rootPackage, "FooMacros", usePrebuilt: true)
             try checkSettings(rootPackage, "FooTests", usePrebuilt: true)
