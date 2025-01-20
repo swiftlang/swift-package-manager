@@ -177,7 +177,8 @@ extension Workspace {
             cachePath: AbsolutePath?,
             customHTTPClient: HTTPClient?,
             customArchiver: Archiver?,
-            delegate: Delegate?
+            delegate: Delegate?,
+            prebuiltsDownloadURL: String?
         ) {
             self.fileSystem = fileSystem
             self.authorizationProvider = authorizationProvider
@@ -186,33 +187,41 @@ extension Workspace {
             self.scratchPath = scratchPath
             self.cachePath = cachePath
             self.delegate = delegate
+
+            self.prebuiltPackages = [
+                // TODO: we should have this in a manifest somewhere, not hardcoded like this
+                .init(
+                    identity: .plain("swift-syntax"),
+                    packageRefs: [
+                        .init(
+                            identity: .plain("swift-syntax"),
+                            kind: .remoteSourceControl("https://github.com/swiftlang/swift-syntax.git")
+                        ),
+                        .init(
+                            identity: .plain("swift-syntax"),
+                            kind: .remoteSourceControl("git@github.com:swiftlang/swift-syntax.git")
+                        ),
+                    ],
+                    prebuiltsURL: URL(
+                        string: prebuiltsDownloadURL ?? "https://github.com/dschaefer2/swift-syntax/releases/download"
+                    )!
+                ),
+            ]
         }
 
         struct PrebuiltPackage {
-            let packageRef: PackageReference
+            let identity: PackageIdentity
+            let packageRefs: [PackageReference]
             let prebuiltsURL: URL
         }
 
-        private let prebuiltPackages: [PrebuiltPackage] = [
-            .init(
-                packageRef: .init(
-                    identity: .plain("swift-syntax"),
-                    kind: .remoteSourceControl("https://github.com/swiftlang/swift-syntax.git")
-                ),
-                prebuiltsURL: URL(
-                    string:
-                        "https://github.com/dschaefer2/swift-syntax/releases/download"
-                )!
-            ),
-        ]
+        private let prebuiltPackages: [PrebuiltPackage]
 
         // Version of the compiler we're building against
         private let swiftVersion =
             "\(SwiftVersion.current.major).\(SwiftVersion.current.minor)"
 
-        fileprivate func findPrebuilts(packages: [PackageReference])
-            -> [PrebuiltPackage]
-        {
+        fileprivate func findPrebuilts(packages: [PackageReference]) -> [PrebuiltPackage] {
             var prebuilts: [PrebuiltPackage] = []
             for packageRef in packages {
                 guard case let .remoteSourceControl(pkgURL) = packageRef.kind else {
@@ -221,21 +230,23 @@ extension Workspace {
                 }
 
                 if let prebuilt = prebuiltPackages.first(where: {
-                    guard case let .remoteSourceControl(prebuiltURL) = $0.packageRef.kind,
-                        $0.packageRef.identity == packageRef.identity else {
-                        return false
-                    }
+                    $0.packageRefs.contains(where: {
+                        guard case let .remoteSourceControl(prebuiltURL) = $0.kind,
+                              $0.identity == packageRef.identity else {
+                            return false
+                        }
 
-                    if pkgURL == prebuiltURL {
-                        return true
-                    } else if !pkgURL.lastPathComponent.hasSuffix(".git") {
-                        // try with the git extension
-                        // TODO: Does this need to be in the PackageRef Equatable?
-                        let gitURL = SourceControlURL(pkgURL.absoluteString + ".git")
-                        return gitURL == prebuiltURL
-                    } else {
-                        return false
-                    }
+                        if pkgURL == prebuiltURL {
+                            return true
+                        } else if !pkgURL.lastPathComponent.hasSuffix(".git") {
+                            // try with the git extension
+                            // TODO: Does this need to be in the PackageRef Equatable?
+                            let gitURL = SourceControlURL(pkgURL.absoluteString + ".git")
+                            return gitURL == prebuiltURL
+                        } else {
+                            return false
+                        }
+                    })
                 }) {
                     prebuilts.append(prebuilt)
                 }
@@ -250,8 +261,9 @@ extension Workspace {
         ) async throws -> PrebuiltsManifest? {
             let manifestFile = swiftVersion + "-manifest.json"
             let prebuiltsDir = cachePath ?? scratchPath
-            let destination = prebuiltsDir.appending(
-                components: package.packageRef.identity.description,
+            let destination = prebuiltsDir.appending(components:
+                package.identity.description,
+                version.description,
                 manifestFile
             )
             if fileSystem.exists(destination) {
@@ -278,32 +290,38 @@ extension Workspace {
                 components: version.description,
                 manifestFile
             )
-            var headers = HTTPClientHeaders()
-            headers.add(name: "Accept", value: "application/json")
-            var request = HTTPClient.Request.download(
-                url: manifestURL,
-                headers: headers,
-                fileSystem: self.fileSystem,
-                destination: destination
-            )
-            request.options.authorizationProvider =
-                self.authorizationProvider?.httpAuthorizationHeader(for:)
-            request.options.retryStrategy = .exponentialBackoff(
-                maxAttempts: 3,
-                baseDelay: .milliseconds(50)
-            )
-            request.options.validResponseCodes = [200]
 
-            do {
-                _ = try await self.httpClient.execute(request) { _, _ in
-                    // TODO: send to delegate
-                }
-            } catch {
-                observabilityScope.emit(
-                    info: "Prebuilt \(manifestFile)",
-                    underlyingError: error
+            if manifestURL.scheme == "file" {
+                // simply copy it over
+                try fileSystem.copy(from: AbsolutePath(validating: manifestURL.path), to: destination)
+            } else {
+                var headers = HTTPClientHeaders()
+                headers.add(name: "Accept", value: "application/json")
+                var request = HTTPClient.Request.download(
+                    url: manifestURL,
+                    headers: headers,
+                    fileSystem: self.fileSystem,
+                    destination: destination
                 )
-                return nil
+                request.options.authorizationProvider =
+                self.authorizationProvider?.httpAuthorizationHeader(for:)
+                request.options.retryStrategy = .exponentialBackoff(
+                    maxAttempts: 3,
+                    baseDelay: .milliseconds(50)
+                )
+                request.options.validResponseCodes = [200]
+
+                do {
+                    _ = try await self.httpClient.execute(request) { _, _ in
+                        // TODO: send to delegate
+                    }
+                } catch {
+                    observabilityScope.emit(
+                        info: "Prebuilt \(manifestFile)",
+                        underlyingError: error
+                    )
+                    return nil
+                }
             }
 
             do {
@@ -337,7 +355,7 @@ extension Workspace {
             let artifactName =
                 "\(swiftVersion)-\(library.name)-\(artifact.platform.rawValue)"
             let scratchDir = scratchPath.appending(
-                package.packageRef.identity.description
+                package.identity.description
             )
             let artifactDir = scratchDir.appending(artifactName)
             guard !fileSystem.exists(artifactDir) else {
@@ -346,8 +364,9 @@ extension Workspace {
 
             let artifactFile = artifactName + ".zip"
             let prebuiltsDir = cachePath ?? scratchPath
-            let destination = prebuiltsDir.appending(
-                components: package.packageRef.identity.description,
+            let destination = prebuiltsDir.appending(components:
+                package.identity.description,
+                version.description,
                 artifactFile
             )
 
@@ -368,48 +387,53 @@ extension Workspace {
                     components: version.description,
                     artifactFile
                 )
-                let fetchStart = DispatchTime.now()
-                var headers = HTTPClientHeaders()
-                headers.add(name: "Accept", value: "application/octet-stream")
-                var request = HTTPClient.Request.download(
-                    url: artifactURL,
-                    headers: headers,
-                    fileSystem: self.fileSystem,
-                    destination: destination
-                )
-                request.options.authorizationProvider =
-                    self.authorizationProvider?.httpAuthorizationHeader(for:)
-                request.options.retryStrategy = .exponentialBackoff(
-                    maxAttempts: 3,
-                    baseDelay: .milliseconds(50)
-                )
-                request.options.validResponseCodes = [200]
 
-                self.delegate?.willDownloadPrebuilt(
-                    from: artifactURL.absoluteString,
-                    fromCache: false
-                )
-                do {
-                    _ = try await self.httpClient.execute(request) {
-                        bytesDownloaded,
-                        totalBytesToDownload in
-                        self.delegate?.downloadingPrebuilt(
-                            from: artifactURL.absoluteString,
-                            bytesDownloaded: bytesDownloaded,
-                            totalBytesToDownload: totalBytesToDownload
-                        )
-                    }
-                } catch {
-                    observabilityScope.emit(
-                        info: "Prebuilt artifact \(artifactFile)",
-                        underlyingError: error
+                let fetchStart = DispatchTime.now()
+                if artifactURL.scheme == "file" {
+                    try fileSystem.copy(from: AbsolutePath(validating: artifactURL.path), to: destination)
+                } else {
+                    var headers = HTTPClientHeaders()
+                    headers.add(name: "Accept", value: "application/octet-stream")
+                    var request = HTTPClient.Request.download(
+                        url: artifactURL,
+                        headers: headers,
+                        fileSystem: self.fileSystem,
+                        destination: destination
                     )
-                    self.delegate?.didDownloadPrebuilt(
+                    request.options.authorizationProvider =
+                    self.authorizationProvider?.httpAuthorizationHeader(for:)
+                    request.options.retryStrategy = .exponentialBackoff(
+                        maxAttempts: 3,
+                        baseDelay: .milliseconds(50)
+                    )
+                    request.options.validResponseCodes = [200]
+
+                    self.delegate?.willDownloadPrebuilt(
                         from: artifactURL.absoluteString,
-                        result: .failure(error),
-                        duration: fetchStart.distance(to: .now())
+                        fromCache: false
                     )
-                    return nil
+                    do {
+                        _ = try await self.httpClient.execute(request) {
+                            bytesDownloaded,
+                            totalBytesToDownload in
+                            self.delegate?.downloadingPrebuilt(
+                                from: artifactURL.absoluteString,
+                                bytesDownloaded: bytesDownloaded,
+                                totalBytesToDownload: totalBytesToDownload
+                            )
+                        }
+                    } catch {
+                        observabilityScope.emit(
+                            info: "Prebuilt artifact \(artifactFile)",
+                            underlyingError: error
+                        )
+                        self.delegate?.didDownloadPrebuilt(
+                            from: artifactURL.absoluteString,
+                            result: .failure(error),
+                            duration: fetchStart.distance(to: .now())
+                        )
+                        return nil
+                    }
                 }
 
                 // Check the checksum
@@ -470,7 +494,7 @@ extension Workspace {
         ) {
             guard
                 let manifest = manifests.allDependencyManifests[
-                    prebuilt.packageRef.identity
+                    prebuilt.identity
                 ],
                 let packageVersion = manifest.manifest.version,
                 let prebuiltManifest = try await prebuiltsManager
@@ -502,7 +526,7 @@ extension Workspace {
                     {
                         // Add to workspace state
                         let managedPrebuilt = ManagedPrebuilt(
-                            packageRef: prebuilt.packageRef,
+                            identity: prebuilt.identity,
                             libraryName: library.name,
                             path: path,
                             products: library.products,
