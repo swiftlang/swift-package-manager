@@ -307,7 +307,7 @@ public final class RegistryClient: Cancellable {
                 .compactMap { Version($0.key) }
 
             let alternateLocations = response.headers.parseAlternativeLocationLinks()
-            let paginationLinks = response.headers.parsePagniationLinks()
+            let paginationLinks = response.headers.parsePaginationLinks()
 
             return PackageMetadata(
                 registry: registry,
@@ -2411,7 +2411,7 @@ extension HTTPClientHeaders {
     <https://github.com/mona/LinkedList?page=2>; rel="next",
     <ssh://git@github.com:mona/LinkedList.git?page=40>; rel="last",
     */
-    fileprivate func parsePagniationLinks() -> [RegistryClient.NextLocationLink] {
+    fileprivate func parsePaginationLinks() -> [RegistryClient.NextLocationLink] {
         self.parseLink(self.parsePaginationLine(_:))
     }
 
