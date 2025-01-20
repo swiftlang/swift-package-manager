@@ -567,7 +567,8 @@ public class Workspace {
             cachePath: customPrebuiltsManager?.useCache == false || !configuration.sharedDependenciesCacheEnabled ? .none : location.sharedPrebuiltsCacheDirectory,
             customHTTPClient: customPrebuiltsManager?.httpClient,
             customArchiver: customPrebuiltsManager?.archiver,
-            delegate: delegate.map(WorkspacePrebuiltsManagerDelegate.init(workspaceDelegate:))
+            delegate: delegate.map(WorkspacePrebuiltsManagerDelegate.init(workspaceDelegate:)),
+            prebuiltsDownloadURL: configuration.prebuiltsDownloadURL
         ) : .none
         // register the prebuilt packages downloader with the cancellation handler
         if let prebuiltsManager {
@@ -962,9 +963,9 @@ extension Workspace {
             }
 
         let prebuilts: [PackageIdentity: [String: PrebuiltLibrary]] = self.state.prebuilts.reduce(into: .init()) {
-            let prebuilt = PrebuiltLibrary(packageRef: $1.packageRef, libraryName: $1.libraryName, path: $1.path, products: $1.products, cModules: $1.cModules)
+            let prebuilt = PrebuiltLibrary(identity: $1.identity, libraryName: $1.libraryName, path: $1.path, products: $1.products, cModules: $1.cModules)
             for product in $1.products {
-                $0[$1.packageRef.identity, default: [:]][product] = prebuilt
+                $0[$1.identity, default: [:]][product] = prebuilt
             }
         }
 

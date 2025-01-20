@@ -18,6 +18,7 @@ import Basics
 import struct TSCBasic.SHA256
 import struct TSCBasic.ByteString
 import struct TSCUtility.Version
+import PackageGraph
 import PackageModel
 import Workspace
 import XCTest
@@ -26,7 +27,9 @@ import _InternalTestSupport
 final class PrebuiltsTests: XCTestCase {
     let swiftVersion = "\(SwiftVersion.current.major).\(SwiftVersion.current.minor)"
 
-    func initData(artifact: Data, swiftSyntaxVersion: String) throws -> (Workspace.PrebuiltsManifest, MockPackage, MockPackage) {
+    func initData(artifact: Data, swiftSyntaxVersion: String, swiftSyntaxURL: String? = nil) throws -> (Workspace.PrebuiltsManifest, MockPackage, MockPackage) {
+        let swiftSyntaxURL = swiftSyntaxURL ?? "https://github.com/swiftlang/swift-syntax"
+
         let manifest = Workspace.PrebuiltsManifest(libraries: [
             .init(
                 name: "MacroSupport",
@@ -72,12 +75,13 @@ final class PrebuiltsTests: XCTestCase {
                     dependencies: [
                         "FooMacros",
                         .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
-                    ]
-                )
+                    ],
+                    type: .test
+                ),
             ],
             dependencies: [
                 .sourceControl(
-                    url: "https://github.com/swiftlang/swift-syntax",
+                    url: swiftSyntaxURL,
                     requirement: .exact(try XCTUnwrap(Version(swiftSyntaxVersion)))
                 )
             ]
@@ -85,7 +89,7 @@ final class PrebuiltsTests: XCTestCase {
 
         let swiftSyntax = try MockPackage(
             name: "swift-syntax",
-            url: "https://github.com/swiftlang/swift-syntax",
+            url: swiftSyntaxURL,
             targets: [
                 MockTarget(name: "SwiftSyntaxMacrosTestSupport"),
                 MockTarget(name: "SwiftCompilerPlugin"),
@@ -102,7 +106,8 @@ final class PrebuiltsTests: XCTestCase {
         return (manifest, rootPackage, swiftSyntax)
     }
 
-    func checkSettings(_ target: Module, usePrebuilt: Bool) throws {
+    func checkSettings(_ rootPackage: ResolvedPackage, _ targetName: String, usePrebuilt: Bool) throws {
+        let target = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == targetName }))
         if usePrebuilt {
             let swiftFlags = try XCTUnwrap(target.buildSettings.assignments[.OTHER_SWIFT_FLAGS]).flatMap({ $0.values })
             XCTAssertTrue(swiftFlags.contains("-I/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64/Modules".fixwin))
@@ -165,13 +170,69 @@ final class PrebuiltsTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
             XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
             let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
-            let macroTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooMacros" }))
-            try checkSettings(macroTarget, usePrebuilt: true)
-            let testTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooTests" }))
-            try checkSettings(testTarget, usePrebuilt: false)
+            try checkSettings(rootPackage, "FooMacros", usePrebuilt: true)
+            try checkSettings(rootPackage, "FooTests", usePrebuilt: true)
+            try checkSettings(rootPackage, "Foo", usePrebuilt: false)
+            try checkSettings(rootPackage, "FooClient", usePrebuilt: false)
         }
     }
 
+    func testSSHURL() async throws {
+        let sandbox = AbsolutePath("/tmp/ws")
+        let fs = InMemoryFileSystem()
+
+        let artifact = Data()
+        let (manifest, rootPackage, swiftSyntax) = try initData(artifact: artifact, swiftSyntaxVersion: "600.0.1", swiftSyntaxURL: "git@github.com:swiftlang/swift-syntax.git")
+        let manifestData = try JSONEncoder().encode(manifest)
+
+        let httpClient = HTTPClient { request, progressHandler in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
+            }
+
+            if request.url == "https://github.com/dschaefer2/swift-syntax/releases/download/600.0.1/\(self.swiftVersion)-manifest.json" {
+                try fileSystem.writeFileContents(destination, data: manifestData)
+                return .okay()
+            } else if request.url == "https://github.com/dschaefer2/swift-syntax/releases/download/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip" {
+                try fileSystem.writeFileContents(destination, data: artifact)
+                return .okay()
+             } else {
+                XCTFail("Unexpected URL \(request.url)")
+                return .notFound()
+            }
+        }
+
+        let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
+            XCTAssertEqual(archivePath.pathString, "/home/user/caches/org.swift.swiftpm/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip".fixwin)
+            XCTAssertEqual(destination.pathString, "/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64".fixwin)
+            completion(.success(()))
+        })
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                rootPackage
+            ],
+            packages: [
+                swiftSyntax
+            ],
+            prebuiltsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver
+            ),
+            customHostTriple: Triple("arm64-apple-macosx15.0")
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
+            XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
+            let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
+            try checkSettings(rootPackage, "FooMacros", usePrebuilt: true)
+            try checkSettings(rootPackage, "FooTests", usePrebuilt: true)
+            try checkSettings(rootPackage, "Foo", usePrebuilt: false)
+            try checkSettings(rootPackage, "FooClient", usePrebuilt: false)
+        }
+    }
     func testCachedArtifact() async throws {
         let sandbox = AbsolutePath("/tmp/ws")
         let fs = InMemoryFileSystem()
@@ -226,10 +287,10 @@ final class PrebuiltsTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
             XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
             let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
-            let macroTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooMacros" }))
-            try checkSettings(macroTarget, usePrebuilt: true)
-            let testTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooTests" }))
-            try checkSettings(testTarget, usePrebuilt: false)
+            try checkSettings(rootPackage, "FooMacros", usePrebuilt: true)
+            try checkSettings(rootPackage, "FooTests", usePrebuilt: true)
+            try checkSettings(rootPackage, "Foo", usePrebuilt: false)
+            try checkSettings(rootPackage, "FooClient", usePrebuilt: false)
         }
     }
 
@@ -272,10 +333,10 @@ final class PrebuiltsTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
             XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
             let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
-            let macroTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooMacros" }))
-            try checkSettings(macroTarget, usePrebuilt: false)
-            let testTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooTests" }))
-            try checkSettings(testTarget, usePrebuilt: false)
+            try checkSettings(rootPackage, "FooMacros", usePrebuilt: false)
+            try checkSettings(rootPackage, "FooTests", usePrebuilt: false)
+            try checkSettings(rootPackage, "Foo", usePrebuilt: false)
+            try checkSettings(rootPackage, "FooClient", usePrebuilt: false)
         }
     }
 
@@ -325,10 +386,10 @@ final class PrebuiltsTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
             XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
             let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
-            let macroTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooMacros" }))
-            try checkSettings(macroTarget, usePrebuilt: false)
-            let testTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooTests" }))
-            try checkSettings(testTarget, usePrebuilt: false)
+            try checkSettings(rootPackage, "FooMacros", usePrebuilt: false)
+            try checkSettings(rootPackage, "FooTests", usePrebuilt: false)
+            try checkSettings(rootPackage, "Foo", usePrebuilt: false)
+            try checkSettings(rootPackage, "FooClient", usePrebuilt: false)
         }
     }
 
@@ -372,12 +433,11 @@ final class PrebuiltsTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
             XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
             let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
-            let macroTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooMacros" }))
-            try checkSettings(macroTarget, usePrebuilt: false)
-            let testTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooTests" }))
-            try checkSettings(testTarget, usePrebuilt: false)
+            try checkSettings(rootPackage, "FooMacros", usePrebuilt: false)
+            try checkSettings(rootPackage, "FooTests", usePrebuilt: false)
+            try checkSettings(rootPackage, "Foo", usePrebuilt: false)
+            try checkSettings(rootPackage, "FooClient", usePrebuilt: false)
         }
-
     }
 
     func testBadChecksumHttp() async throws {
@@ -431,10 +491,10 @@ final class PrebuiltsTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
             XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
             let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
-            let macroTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooMacros" }))
-            try checkSettings(macroTarget, usePrebuilt: false)
-            let testTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooTests" }))
-            try checkSettings(testTarget, usePrebuilt: false)
+            try checkSettings(rootPackage, "FooMacros", usePrebuilt: false)
+            try checkSettings(rootPackage, "FooTests", usePrebuilt: false)
+            try checkSettings(rootPackage, "Foo", usePrebuilt: false)
+            try checkSettings(rootPackage, "FooClient", usePrebuilt: false)
         }
     }
 
@@ -492,10 +552,10 @@ final class PrebuiltsTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
             XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
             let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
-            let macroTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooMacros" }))
-            try checkSettings(macroTarget, usePrebuilt: true)
-            let testTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooTests" }))
-            try checkSettings(testTarget, usePrebuilt: false)
+            try checkSettings(rootPackage, "FooMacros", usePrebuilt: true)
+            try checkSettings(rootPackage, "FooTests", usePrebuilt: true)
+            try checkSettings(rootPackage, "Foo", usePrebuilt: false)
+            try checkSettings(rootPackage, "FooClient", usePrebuilt: false)
         }
     }
 
@@ -545,10 +605,10 @@ final class PrebuiltsTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
             XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
             let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
-            let macroTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooMacros" }))
-            try checkSettings(macroTarget, usePrebuilt: false)
-            let testTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooTests" }))
-            try checkSettings(testTarget, usePrebuilt: false)
+            try checkSettings(rootPackage, "FooMacros", usePrebuilt: false)
+            try checkSettings(rootPackage, "FooTests", usePrebuilt: false)
+            try checkSettings(rootPackage, "Foo", usePrebuilt: false)
+            try checkSettings(rootPackage, "FooClient", usePrebuilt: false)
         }
     }
 
@@ -574,10 +634,10 @@ final class PrebuiltsTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
             XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
             let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
-            let macroTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooMacros" }))
-            try checkSettings(macroTarget, usePrebuilt: false)
-            let testTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooTests" }))
-            try checkSettings(testTarget, usePrebuilt: false)
+            try checkSettings(rootPackage, "FooMacros", usePrebuilt: false)
+            try checkSettings(rootPackage, "FooTests", usePrebuilt: false)
+            try checkSettings(rootPackage, "Foo", usePrebuilt: false)
+            try checkSettings(rootPackage, "FooClient", usePrebuilt: false)
         }
     }
 }

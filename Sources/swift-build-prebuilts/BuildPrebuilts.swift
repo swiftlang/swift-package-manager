@@ -116,6 +116,11 @@ struct BuildPrebuilts: AsyncParsableCommand {
             try await shell("git clone \(repo.url)")
 
             for version in repo.versions {
+                let versionDir = stageDir.appending(version.tag)
+                if !fm.fileExists(atPath: versionDir.pathString) {
+                    try fm.createDirectory(atPath: versionDir.pathString, withIntermediateDirectories: true)
+                }
+
                 _ = fm.changeCurrentDirectoryPath(repoDir.pathString)
                 try await shell("git checkout \(version.tag)")
 
@@ -171,7 +176,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
 
                         // Zip it up
                         _ = fm.changeCurrentDirectoryPath(stageDir.pathString)
-                        let zipFile = stageDir.appending("\(swiftVersion)-\(library.name)-\(platform).zip")
+                        let zipFile = versionDir.appending("\(swiftVersion)-\(library.name)-\(platform).zip")
                         let contentDirs = ["lib", "Modules"] + (library.cModules.isEmpty ? [] : ["include"])
 #if os(Windows)
                         try await shell("tar -acf \(zipFile.pathString) \(contentDirs.joined(separator: " "))")
@@ -223,7 +228,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                 let encoder = JSONEncoder()
                 encoder.outputFormatting = .prettyPrinted
                 let manifestData = try encoder.encode(newManifest)
-                let manifestFile = stageDir.appending("\(swiftVersion)-manifest.json")
+                let manifestFile = versionDir.appending("\(swiftVersion)-manifest.json")
                 try manifestData.write(to: manifestFile.asURL)
             }
         }
@@ -276,7 +281,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
     func downloadManifest(version: PrebuiltRepos.Version) async throws -> Workspace.PrebuiltsManifest? {
         let fm = FileManager.default
         let manifestFile = swiftVersion + "-manifest.json"
-        let destination = stageDir.appending(manifestFile)
+        let destination = stageDir.appending(components: version.tag, manifestFile)
         if fm.fileExists(atPath: destination.pathString) {
             do {
                 return try JSONDecoder().decode(
