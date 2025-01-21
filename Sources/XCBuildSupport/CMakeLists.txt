@@ -18,6 +18,7 @@ target_link_libraries(XCBuildSupport PUBLIC
   DriverSupport
   TSCBasic
   TSCUtility
+  SwiftCollections::OrderedCollections
   PackageGraph
 )
 
