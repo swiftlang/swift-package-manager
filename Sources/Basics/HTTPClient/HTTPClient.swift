@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-import DequeModule
 import Foundation
 
 /// `async`-friendly wrapper for HTTP clients. It allows a specific client implementation (either Foundation or
