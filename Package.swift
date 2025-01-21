@@ -314,6 +314,7 @@ let package = Package(
                 "Basics",
                 "PackageLoading",
                 "PackageModel",
+                .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: [
@@ -397,6 +398,7 @@ let package = Package(
             dependencies: [
                 "Basics",
                 "PackageGraph",
+                .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
@@ -413,6 +415,7 @@ let package = Package(
                 "SPMBuildCore",
                 "SPMLLBuild",
                 .product(name: "SwiftDriver", package: "swift-driver"),
+                .product(name: "OrderedCollections", package: "swift-collections"),
                 "DriverSupport",
             ],
             exclude: ["CMakeLists.txt"],
@@ -438,6 +441,7 @@ let package = Package(
             dependencies: [
                 "SPMBuildCore",
                 "PackageGraph",
+                .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
@@ -456,6 +460,7 @@ let package = Package(
                 "PackageSigning",
                 "SourceControl",
                 "SPMBuildCore",
+                .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
@@ -603,6 +608,7 @@ let package = Package(
             name: "swift-bootstrap",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "OrderedCollections", package: "swift-collections"),
                 "Basics",
                 "Build",
                 "PackageGraph",
@@ -706,6 +712,7 @@ let package = Package(
                 "PackageSigning",
                 "SourceControl",
                 .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
+                .product(name: "OrderedCollections", package: "swift-collections"),
                 "Workspace",
                 "XCBuildSupport",
             ],
