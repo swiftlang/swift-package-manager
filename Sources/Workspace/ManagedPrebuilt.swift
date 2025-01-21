@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import struct TSCUtility.Version
+
 import Basics
 import PackageModel
 
@@ -18,6 +20,9 @@ extension Workspace {
     public struct ManagedPrebuilt {
         /// The package identity
         public let identity: PackageIdentity
+
+        /// The package version
+        public let version: Version
 
         /// The name of the binary target the artifact corresponds to.
         public let libraryName: String
@@ -45,60 +50,60 @@ extension Workspace {
     /// A collection of managed artifacts which have been downloaded.
     public final class ManagedPrebuilts {
         /// A mapping from package identity, to target name, to ManagedArtifact.
-        private var artifactMap: [PackageIdentity: [String: ManagedPrebuilt]]
+        private var prebuiltMap: [PackageIdentity: [String: ManagedPrebuilt]]
 
-        internal var artifacts: AnyCollection<ManagedPrebuilt> {
-            AnyCollection(self.artifactMap.values.lazy.flatMap{ $0.values })
+        internal var prebuilts: AnyCollection<ManagedPrebuilt> {
+            AnyCollection(self.prebuiltMap.values.lazy.flatMap{ $0.values })
         }
 
         init() {
-            self.artifactMap = [:]
+            self.prebuiltMap = [:]
         }
 
-        init(_ artifacts: [ManagedPrebuilt]) throws {
-            let artifactsByPackagePath = Dictionary(grouping: artifacts, by: { $0.identity })
-            self.artifactMap = try artifactsByPackagePath.mapValues{ artifacts in
-                try Dictionary(artifacts.map { ($0.libraryName, $0) }, uniquingKeysWith: { _, _ in
+        init(_ prebuilts: [ManagedPrebuilt]) throws {
+            let prebuiltsByPackagePath = Dictionary(grouping: prebuilts, by: { $0.identity })
+            self.prebuiltMap = try prebuiltsByPackagePath.mapValues{ prebuilt in
+                try Dictionary(prebuilt.map { ($0.libraryName, $0) }, uniquingKeysWith: { _, _ in
                     // should be unique
-                    throw StringError("binary artifact already exists in managed artifacts")
+                    throw StringError("prebuilt already exists in managed prebuilts")
                 })
             }
         }
 
         public subscript(packageIdentity packageIdentity: PackageIdentity, targetName targetName: String) -> ManagedPrebuilt? {
-            self.artifactMap[packageIdentity]?[targetName]
+            self.prebuiltMap[packageIdentity]?[targetName]
         }
 
-        public func add(_ artifact: ManagedPrebuilt) {
-            self.artifactMap[artifact.identity, default: [:]][artifact.libraryName] = artifact
+        public func add(_ prebuilt: ManagedPrebuilt) {
+            self.prebuiltMap[prebuilt.identity, default: [:]][prebuilt.libraryName] = prebuilt
         }
 
         public func remove(packageIdentity: PackageIdentity, targetName: String) {
-            self.artifactMap[packageIdentity]?[targetName] = nil
+            self.prebuiltMap[packageIdentity]?[targetName] = nil
         }
     }
 }
 
 extension Workspace.ManagedPrebuilts: Collection {
     public var startIndex: AnyIndex {
-        self.artifacts.startIndex
+        self.prebuilts.startIndex
     }
 
     public var endIndex: AnyIndex {
-        self.artifacts.endIndex
+        self.prebuilts.endIndex
     }
 
     public subscript(index: AnyIndex) -> Workspace.ManagedPrebuilt {
-        self.artifacts[index]
+        self.prebuilts[index]
     }
 
     public func index(after index: AnyIndex) -> AnyIndex {
-        self.artifacts.index(after: index)
+        self.prebuilts.index(after: index)
     }
 }
 
 extension Workspace.ManagedPrebuilts: CustomStringConvertible {
     public var description: String {
-        "<ManagedArtifacts: \(Array(self.artifacts))>"
+        "<ManagedArtifacts: \(Array(self.prebuilts))>"
     }
 }

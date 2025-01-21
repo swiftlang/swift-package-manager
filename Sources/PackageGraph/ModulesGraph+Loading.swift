@@ -361,7 +361,6 @@ private func checkAllDependenciesAreUsed(
                 // Consider prebuilts as used
                 let prebuilt = prebuilts[dependency.identity]?.keys.contains(product.name) ?? false
 
-                // If the product is either used directly or guarded by a trait we consider it as used
                 return usedByPackage || traitGuarded || prebuilt
             }
 

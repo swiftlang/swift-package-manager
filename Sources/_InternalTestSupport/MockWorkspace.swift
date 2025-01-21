@@ -507,7 +507,7 @@ public final class MockWorkspace {
     public func checkPackageGraph(
         roots: [String] = [],
         deps: [MockDependency],
-        _ result: (ModulesGraph, [Basics.Diagnostic]) -> Void
+        _ result: (ModulesGraph, [Basics.Diagnostic]) throws -> Void
     ) async throws {
         let dependencies = try deps.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
         try await self.checkPackageGraph(roots: roots, dependencies: dependencies, result)
