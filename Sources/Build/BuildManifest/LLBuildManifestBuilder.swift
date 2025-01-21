@@ -107,54 +107,26 @@ public class LLBuildManifestBuilder {
                 case .swift(let desc):
                     try self.createSwiftCompileCommand(desc)
                 case .clang(let desc):
-                    try self.createClangCompileCommand(desc)
+                    if desc.buildParameters.prepareForIndexing == .off {
+                        try self.createClangCompileCommand(desc)
+                    } else {
+                        // Hook up the clang module target when preparing
+                        try self.createClangPrepareCommand(desc)
+                    }
                 }
             }
         }
 
-        try self.addTestDiscoveryGenerationCommand()
-        try self.addTestEntryPointGenerationCommand()
+        // Skip test discovery if preparing for indexing
+        if self.plan.destinationBuildParameters.prepareForIndexing == .off {
+            try self.addTestDiscoveryGenerationCommand()
+            try self.addTestEntryPointGenerationCommand()
+        }
 
         // Create command for all products in the plan.
         for description in self.plan.productMap {
-            try self.createProductCommand(description)
-        }
-
-        try LLBuildManifestWriter.write(self.manifest, at: path, fileSystem: self.fileSystem)
-        return self.manifest
-    }
-
-    package func generatePrepareManifest(at path: AbsolutePath) throws -> LLBuildManifest {
-        self.swiftGetVersionFiles.removeAll()
-
-        self.manifest.createTarget(TargetKind.main.targetName)
-        self.manifest.createTarget(TargetKind.test.targetName)
-        self.manifest.defaultTarget = TargetKind.main.targetName
-
-        addPackageStructureCommand()
-
-        for description in self.plan.targetMap {
-            switch description {
-            case .swift(let desc):
-                try self.createSwiftCompileCommand(desc)
-            case .clang(let desc):
-                if desc.destination == .host {
-                    // Need the clang modules for tools
-                    try self.createClangCompileCommand(desc)
-                } else {
-                    // Hook up the clang module target
-                    try self.createClangPrepareCommand(desc)
-                }
-            }
-        }
-
-        for description in self.plan.productMap {
-            // Need to generate macro products
-            switch description.product.type {
-            case .macro, .plugin:
+            if description.buildParameters.prepareForIndexing == .off {
                 try self.createProductCommand(description)
-            default:
-                break
             }
         }
 
@@ -199,6 +171,9 @@ extension LLBuildManifestBuilder {
         // its source binary.
         var destinations = [AbsolutePath: AbsolutePath]()
         for target in self.plan.targetMap.values {
+            // skip if target is preparing for indexing
+            guard target.buildParameters.prepareForIndexing == .off else { continue }
+
             for binaryPath in target.libraryBinaryPaths {
                 destinations[target.buildParameters.destinationPath(forBinaryAt: binaryPath)] = binaryPath
             }
