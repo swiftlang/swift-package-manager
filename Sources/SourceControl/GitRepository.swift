@@ -201,6 +201,24 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             ["--mirror"],
             progress: progressHandler
         )
+
+        do {
+            try self.callGit(
+                [
+                    "-C",
+                    path.pathString,
+                    "lfs",
+                    "fetch"
+                ],
+                repository: repository,
+                failureMessage: "Failed to fetch Git LFS files for \(repository.location)"
+            )
+        } catch {
+            // Ignore the error if lfs fetch fails, likely the repository either isn't using
+            // git lfs or it isn't installed.
+
+            // TODO: If the repo _is_ using git lfs and it isn't installed can we show a nice error?
+        }
     }
 
     public func isValidDirectory(_ directory: Basics.AbsolutePath) throws -> Bool {
