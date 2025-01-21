@@ -224,6 +224,8 @@ public final class RegistryClient: Cancellable {
 
         // If the responses are paginated then iterate until we've exasuasted all the pages and have a full versions list.
         func iterateResponses(url: URL, existingMetadata: PackageMetadata) async throws -> PackageMetadata {
+            try Task.checkCancellation()
+
             let metadata = try await self._getIndividualPackageMetadata(
                 url: url,
                 registry: registry,
@@ -288,7 +290,7 @@ public final class RegistryClient: Cancellable {
                 options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue),
                 observabilityScope: observabilityScope
             )
-        } catch {
+        } catch let error where !(error is _Concurrency.CancellationError) {
             throw RegistryError.failedRetrievingReleases(registry: registry, package: package.underlying, error: error)
         }
         observabilityScope

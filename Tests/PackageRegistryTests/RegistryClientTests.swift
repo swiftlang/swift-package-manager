@@ -205,6 +205,90 @@ final class RegistryClientTests: XCTestCase {
         ])
     }
 
+    func testGetPackageMetadataPaginated_Cancellation() async throws {
+        let registryURL = URL("https://packages.example.com")
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let releasesURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)")
+        let releasesURLPage2 = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)?page=2")
+
+        var task: Task<Void, Error>? = nil
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+            guard case .get = request.method else {
+                return completion(.failure(StringError("method should be `get`")))
+            }
+
+            XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
+            let links: String
+            let data: Data
+            switch request.url {
+            case releasesURLPage2:
+                // Cancel during the second iteration
+                task?.cancel()
+                fallthrough
+            case releasesURL:
+                data = #"""
+                {
+                    "releases": {
+                        "1.1.1": {
+                            "url": "https://packages.example.com/mona/LinkedList/1.1.1"
+                        },
+                        "1.1.0": {
+                            "url": "https://packages.example.com/mona/LinkedList/1.1.0",
+                            "problem": {
+                                "status": 410,
+                                "title": "Gone",
+                                "detail": "this release was removed from the registry"
+                            }
+                        }
+                    }
+                }
+                """#.data(using: .utf8)!
+
+                links = """
+                <https://github.com/mona/LinkedList>; rel="canonical",
+                <ssh://git@github.com:mona/LinkedList.git>; rel="alternate",
+                <git@github.com:mona/LinkedList.git>; rel="alternate",
+                <https://gitlab.com/mona/LinkedList>; rel="alternate",
+                <\(releasesURLPage2)>; rel="next"
+                """
+            default:
+                return completion(.failure(StringError("method and url should match")))
+            }
+
+            completion(.success(.init(
+                statusCode: 200,
+                headers: .init([
+                    .init(name: "Content-Length", value: "\(data.count)"),
+                    .init(name: "Content-Type", value: "application/json"),
+                    .init(name: "Content-Version", value: "1"),
+                    .init(name: "Link", value: links),
+                ]),
+                body: data
+            )))
+        }
+
+        let httpClient = LegacyHTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+
+        let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
+        task = Task {
+            do {
+                _ = try await registryClient.getPackageMetadata(package: identity)
+                XCTFail("Task completed without being cancelled")
+            } catch let error where error is _Concurrency.CancellationError {
+                // OK
+            } catch {
+                XCTFail("Task failed with unexpected error: \(error)")
+            }
+        }
+
+        try await task?.value
+    }
+
     func testGetPackageMetadata_NotFound() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
