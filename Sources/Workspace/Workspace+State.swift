@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import struct TSCUtility.Version
+
 import Basics
 import Foundation
 import PackageGraph
@@ -447,6 +449,7 @@ extension WorkspaceStateStorage {
 
         struct Prebuilt: Codable {
             let identity: PackageIdentity
+            let version: TSCUtility.Version
             let libraryName: String
             let path: AbsolutePath
             let products: [String]
@@ -454,6 +457,7 @@ extension WorkspaceStateStorage {
 
             init(_ managedPrebuilt: Workspace.ManagedPrebuilt) {
                 self.identity = managedPrebuilt.identity
+                self.version = managedPrebuilt.version
                 self.libraryName = managedPrebuilt.libraryName
                 self.path = managedPrebuilt.path
                 self.products = managedPrebuilt.products
@@ -527,6 +531,7 @@ extension Workspace.ManagedPrebuilt {
     fileprivate init(_ prebuilt: WorkspaceStateStorage.V7.Prebuilt) throws {
         self.init(
             identity: prebuilt.identity,
+            version: prebuilt.version,
             libraryName: prebuilt.libraryName,
             path: prebuilt.path,
             products: prebuilt.products,

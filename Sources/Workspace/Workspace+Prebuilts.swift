@@ -269,8 +269,9 @@ extension Workspace {
             if fileSystem.exists(destination) {
                 do {
                     return try JSONDecoder().decode(
-                        PrebuiltsManifest.self,
-                        from: try Data(contentsOf: destination.asURL)
+                        path: destination,
+                        fileSystem: fileSystem,
+                        as: PrebuiltsManifest.self
                     )
                 } catch {
                     // redownload it
@@ -325,10 +326,10 @@ extension Workspace {
             }
 
             do {
-                let data = try fileSystem.readFileContents(destination)
                 return try JSONDecoder().decode(
-                    PrebuiltsManifest.self,
-                    from: Data(data.contents)
+                    path: destination,
+                    fileSystem: fileSystem,
+                    as: PrebuiltsManifest.self
                 )
             } catch {
                 observabilityScope.emit(
@@ -489,13 +490,11 @@ extension Workspace {
             return
         }
 
-        for prebuilt in prebuiltsManager.findPrebuilts(
-            packages: try manifests.requiredPackages
-        ) {
+        let addedPrebuilts = ManagedPrebuilts()
+
+        for prebuilt in prebuiltsManager.findPrebuilts(packages: try manifests.requiredPackages) {
             guard
-                let manifest = manifests.allDependencyManifests[
-                    prebuilt.identity
-                ],
+                let manifest = manifests.allDependencyManifests[prebuilt.identity],
                 let packageVersion = manifest.manifest.version,
                 let prebuiltManifest = try await prebuiltsManager
                     .downloadManifest(
@@ -523,21 +522,30 @@ extension Workspace {
                             artifact: artifact,
                             observabilityScope: observabilityScope
                         )
-                    {
+                    {   
                         // Add to workspace state
                         let managedPrebuilt = ManagedPrebuilt(
                             identity: prebuilt.identity,
+                            version: packageVersion,
                             libraryName: library.name,
                             path: path,
                             products: library.products,
                             cModules: library.cModules
                         )
+                        addedPrebuilts.add(managedPrebuilt)
                         self.state.prebuilts.add(managedPrebuilt)
-                        try self.state.save()
                     }
                 }
             }
         }
+
+        for prebuilt in self.state.prebuilts.prebuilts {
+            if !addedPrebuilts.contains(where: { $0.identity == prebuilt.identity && $0.version == prebuilt.version }) {
+                self.state.prebuilts.remove(packageIdentity: prebuilt.identity, targetName: prebuilt.libraryName)
+            }
+        }
+
+        try self.state.save()
     }
 
     var hostPrebuiltsPlatform: PrebuiltsManifest.Platform? {
