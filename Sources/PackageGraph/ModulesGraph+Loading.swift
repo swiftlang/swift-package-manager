@@ -260,7 +260,12 @@ extension ModulesGraph {
         )
 
         let rootPackages = resolvedPackages.filter { root.manifests.values.contains($0.manifest) }
-        checkAllDependenciesAreUsed(packages: resolvedPackages, rootPackages, observabilityScope: observabilityScope)
+        checkAllDependenciesAreUsed(
+            packages: resolvedPackages,
+            rootPackages,
+            prebuilts: prebuilts,
+            observabilityScope: observabilityScope
+        )
 
         return try ModulesGraph(
             rootPackages: rootPackages,
@@ -275,6 +280,7 @@ extension ModulesGraph {
 private func checkAllDependenciesAreUsed(
     packages: IdentifiableSet<ResolvedPackage>,
     _ rootPackages: [ResolvedPackage],
+    prebuilts: [PackageIdentity: [String: PrebuiltLibrary]],
     observabilityScope: ObservabilityScope
 ) {
     for package in rootPackages {
@@ -352,9 +358,10 @@ private func checkAllDependenciesAreUsed(
                 let usedByPackage = productDependencies.contains { $0.name == product.name }
                 // We check if any of the products of this dependency is guarded by a trait.
                 let traitGuarded = traitGuardedProductDependencies.contains(product.name)
+                // Consider prebuilts as used
+                let prebuilt = prebuilts[dependency.identity]?.keys.contains(product.name) ?? false
 
-                // If the product is either used directly or guarded by a trait we consider it as used
-                return usedByPackage || traitGuarded
+                return usedByPackage || traitGuarded || prebuilt
             }
 
             if !dependencyIsUsed && !observabilityScope.errorsReportedInAnyScope {
