@@ -103,11 +103,16 @@ final class EnvironmentTests: XCTestCase {
     /// Important: This test is inherently race-prone, if it is proven to be
     /// flaky, it should run in a singled threaded environment/removed entirely.
     func test_current() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: "ProcessInfo.processInfo.environment[\"PATH\"] return nil")
+        #if os(Windows)
+        let pathEnvVarName = "Path"
+        #else
+        let pathEnvVarName = "PATH"
+        #endif
+
 
         XCTAssertEqual(
             Environment.current["PATH"],
-            ProcessInfo.processInfo.environment["PATH"]
+            ProcessInfo.processInfo.environment[pathEnvVarName]
         )
     }
 
