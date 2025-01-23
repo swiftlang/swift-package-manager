@@ -693,6 +693,7 @@ let package = Package(
                 name: "_InternalBuildTestSupport",
                 dependencies: [
                     "Build",
+                    "XCBuildSupport",
                     "_InternalTestSupport"
                 ],
                 swiftSettings: [
@@ -714,7 +715,6 @@ let package = Package(
                 .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 "Workspace",
-                "XCBuildSupport",
             ],
             swiftSettings: [
                 .unsafeFlags(["-static"]),
@@ -853,7 +853,7 @@ let package = Package(
         ),
         .testTarget(
             name: "XCBuildSupportTests",
-            dependencies: ["XCBuildSupport", "_InternalTestSupport"],
+            dependencies: ["XCBuildSupport", "_InternalTestSupport", "_InternalBuildTestSupport"],
             exclude: ["Inputs/Foo.pc"]
         ),
         // Examples (These are built to ensure they stay up to date with the API.)
