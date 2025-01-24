@@ -407,8 +407,12 @@ final class PrebuiltsTests: XCTestCase {
         let artifact = Data()
         let (_, rootPackage, swiftSyntax) = try initData(artifact: artifact, swiftSyntaxVersion: "600.0.2")
 
+        let secondFetch = SendableBox(false)
+
         let httpClient = HTTPClient { request, progressHandler in
             if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.2/\(self.swiftVersion)-manifest.json" {
+                let secondFetch = await secondFetch.value
+                XCTAssertFalse(secondFetch, "unexpected second fetch")
                 return .notFound()
              } else {
                 XCTFail("Unexpected URL \(request.url)")
@@ -435,6 +439,17 @@ final class PrebuiltsTests: XCTestCase {
                 archiver: archiver
             )
         )
+
+        try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
+            XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
+            let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
+            try checkSettings(rootPackage, "FooMacros", usePrebuilt: false)
+            try checkSettings(rootPackage, "FooTests", usePrebuilt: false)
+            try checkSettings(rootPackage, "Foo", usePrebuilt: false)
+            try checkSettings(rootPackage, "FooClient", usePrebuilt: false)
+        }
+
+        await secondFetch.set(true)
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
             XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
