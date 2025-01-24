@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct OrderedCollections.OrderedDictionary
+private import OrderedCollections
 
 /// Replacement for `Set` elements that can't be `Hashable`, but can be `Identifiable`.
 public struct IdentifiableSet<Element: Identifiable>: Collection {
