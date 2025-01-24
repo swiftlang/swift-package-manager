@@ -134,10 +134,10 @@ final class PrebuiltsTests: XCTestCase {
                 throw StringError("invalid request \(request.kind)")
             }
 
-            if request.url == "https://github.com/dschaefer2/swift-syntax/releases/download/600.0.1/\(self.swiftVersion)-manifest.json" {
+            if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-manifest.json" {
                 try fileSystem.writeFileContents(destination, data: manifestData)
                 return .okay()
-            } else if request.url == "https://github.com/dschaefer2/swift-syntax/releases/download/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip" {
+            } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip" {
                 try fileSystem.writeFileContents(destination, data: artifact)
                 return .okay()
             } else {
@@ -191,17 +191,17 @@ final class PrebuiltsTests: XCTestCase {
                 throw StringError("invalid request \(request.kind)")
             }
 
-            if request.url == "https://github.com/dschaefer2/swift-syntax/releases/download/600.0.1/\(self.swiftVersion)-manifest.json" {
+            if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-manifest.json" {
                 try fileSystem.writeFileContents(destination, data: manifestData)
                 return .okay()
-            } else if request.url == "https://github.com/dschaefer2/swift-syntax/releases/download/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip" {
+            } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip" {
                 try fileSystem.writeFileContents(destination, data: artifact)
                 return .okay()
             } else {
                 // make sure it's the updated one
                 XCTAssertEqual(
                     request.url,
-                    "https://github.com/dschaefer2/swift-syntax/releases/download/601.0.0/\(self.swiftVersion)-manifest.json"
+                    "https://download.swift.org/prebuilts/swift-syntax/601.0.0/\(self.swiftVersion)-manifest.json"
                 )
                 return .notFound()
             }
@@ -295,10 +295,10 @@ final class PrebuiltsTests: XCTestCase {
                 throw StringError("invalid request \(request.kind)")
             }
 
-            if request.url == "https://github.com/dschaefer2/swift-syntax/releases/download/600.0.1/\(self.swiftVersion)-manifest.json" {
+            if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-manifest.json" {
                 try fileSystem.writeFileContents(destination, data: manifestData)
                 return .okay()
-            } else if request.url == "https://github.com/dschaefer2/swift-syntax/releases/download/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip" {
+            } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip" {
                 try fileSystem.writeFileContents(destination, data: artifact)
                 return .okay()
              } else {
@@ -355,10 +355,10 @@ final class PrebuiltsTests: XCTestCase {
                 throw StringError("invalid request \(request.kind)")
             }
 
-            if request.url == "https://github.com/dschaefer2/swift-syntax/releases/download/600.0.1/\(self.swiftVersion)-manifest.json" {
+            if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-manifest.json" {
                 try fileSystem.writeFileContents(destination, data: manifestData)
                 return .okay()
-            } else if request.url == "https://github.com/dschaefer2/swift-syntax/releases/download/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip" {
+            } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip" {
                 XCTFail("Unexpect download of archive")
                 try fileSystem.writeFileContents(destination, data: artifact)
                 return .okay()
@@ -408,7 +408,7 @@ final class PrebuiltsTests: XCTestCase {
         let (_, rootPackage, swiftSyntax) = try initData(artifact: artifact, swiftSyntaxVersion: "600.0.2")
 
         let httpClient = HTTPClient { request, progressHandler in
-            if request.url == "https://github.com/dschaefer2/swift-syntax/releases/download/600.0.2/\(self.swiftVersion)-manifest.json" {
+            if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.2/\(self.swiftVersion)-manifest.json" {
                 return .notFound()
              } else {
                 XCTFail("Unexpected URL \(request.url)")
@@ -459,7 +459,7 @@ final class PrebuiltsTests: XCTestCase {
                 throw StringError("invalid request \(request.kind)")
             }
 
-            if request.url == "https://github.com/dschaefer2/swift-syntax/releases/download/600.0.1/\(self.swiftVersion)-manifest.json" {
+            if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-manifest.json" {
                 try fileSystem.writeFileContents(destination, data: manifestData)
                 return .okay()
              } else {
@@ -507,7 +507,7 @@ final class PrebuiltsTests: XCTestCase {
         let (_, rootPackage, swiftSyntax) = try initData(artifact: artifact, swiftSyntaxVersion: "600.0.1")
 
         let httpClient = HTTPClient { request, progressHandler in
-            if request.url == "https://github.com/dschaefer2/swift-syntax/releases/download/600.0.1/\(self.swiftVersion)-manifest.json" {
+            if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-manifest.json" {
                 // Pretend it's a different swift version
                 return .notFound()
              } else {
@@ -561,10 +561,10 @@ final class PrebuiltsTests: XCTestCase {
                 throw StringError("invalid request \(request.kind)")
             }
 
-            if request.url == "https://github.com/dschaefer2/swift-syntax/releases/download/600.0.1/\(self.swiftVersion)-manifest.json" {
+            if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-manifest.json" {
                 try fileSystem.writeFileContents(destination, data: manifestData)
                 return .okay()
-            } else if request.url == "https://github.com/dschaefer2/swift-syntax/releases/download/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip" {
+            } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip" {
                 try fileSystem.writeFileContents(destination, data: fakeArtifact)
                 return .okay()
              } else {
@@ -621,10 +621,10 @@ final class PrebuiltsTests: XCTestCase {
                 throw StringError("invalid request \(request.kind)")
             }
 
-            if request.url == "https://github.com/dschaefer2/swift-syntax/releases/download/600.0.1/\(self.swiftVersion)-manifest.json" {
+            if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-manifest.json" {
                 try fileSystem.writeFileContents(destination, data: manifestData)
                 return .okay()
-            } else if request.url == "https://github.com/dschaefer2/swift-syntax/releases/download/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip" {
+            } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip" {
                 try fileSystem.writeFileContents(destination, data: artifact)
                 return .okay()
              } else {
@@ -678,7 +678,7 @@ final class PrebuiltsTests: XCTestCase {
                 throw StringError("invalid request \(request.kind)")
             }
 
-            if request.url == "https://github.com/dschaefer2/swift-syntax/releases/download/600.0.1/\(self.swiftVersion)-manifest.json" {
+            if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-manifest.json" {
                 let badManifestData = manifestData + Data("bad".utf8)
                 try fileSystem.writeFileContents(destination, data: badManifestData)
                 return .okay()
