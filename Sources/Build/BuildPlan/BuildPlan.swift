@@ -680,6 +680,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         return result
     }
 
+    /// Extracts the library information from an Artifact Bundle.
+    func parseArtifactbundle(for binaryTarget: BinaryModule, triple: Basics.Triple) throws -> [LibraryInfo] {
+        try self.externalLibrariesCache.memoize(key: binaryTarget) {
+            try binaryTarget.parseLibraryArtifacts(for: triple, fileSystem: self.fileSystem)
+        }
+    }
     /// Extracts the library information from an XCFramework.
     func parseXCFramework(for binaryTarget: BinaryModule, triple: Basics.Triple) throws -> [LibraryInfo] {
         try self.externalLibrariesCache.memoize(key: binaryTarget) {

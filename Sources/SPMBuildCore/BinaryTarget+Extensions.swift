@@ -56,6 +56,20 @@ extension BinaryModule {
         return [LibraryInfo(libraryPath: libraryFile, headersPaths: headersDirs)]
     }
 
+    public func parseLibraryArtifacts(for triple: Triple, fileSystem: FileSystem) throws -> [LibraryInfo] {
+        let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: self.artifactPath)
+        return metadata.artifacts.reduce(into: []) {
+            guard case .library = $1.value.type else {
+                return
+            }
+            /// TODO: Handle multiple (or zero) variants.
+            let libraryDir = self.artifactPath.appending($1.value.variants[0].path)
+            let libraryFile = libraryDir.appending(component: "lib\($1.key).so")
+
+            $0.append(.init(libraryPath: libraryFile, headersPaths: [libraryDir]))
+        }
+
+    }
     public func parseArtifactArchives(for triple: Triple, fileSystem: FileSystem) throws -> [ExecutableInfo] {
         // The host triple might contain a version which we don't want to take into account here.
         let versionLessTriple = try triple.withoutVersion()
