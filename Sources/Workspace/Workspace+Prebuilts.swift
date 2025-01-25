@@ -169,6 +169,7 @@ extension Workspace {
         private let cachePath: AbsolutePath?
         private let delegate: Delegate?
         private let hashAlgorithm: HashAlgorithm = SHA256()
+        private let prebuiltsDownloadURL: URL
 
         init(
             fileSystem: FileSystem,
@@ -187,6 +188,11 @@ extension Workspace {
             self.scratchPath = scratchPath
             self.cachePath = cachePath
             self.delegate = delegate
+            if let prebuiltsDownloadURL, let url = URL(string: prebuiltsDownloadURL) {
+                self.prebuiltsDownloadURL = url
+            } else {
+                self.prebuiltsDownloadURL = URL(string: "https://download.swift.org/prebuilts")!
+            }
 
             self.prebuiltPackages = [
                 // TODO: we should have this in a manifest somewhere, not hardcoded like this
@@ -202,9 +208,6 @@ extension Workspace {
                             kind: .remoteSourceControl("git@github.com:swiftlang/swift-syntax.git")
                         ),
                     ],
-                    prebuiltsURL: URL(
-                        string: prebuiltsDownloadURL ?? "https://github.com/dschaefer2/swift-syntax/releases/download"
-                    )!
                 ),
             ]
         }
@@ -212,7 +215,6 @@ extension Workspace {
         struct PrebuiltPackage {
             let identity: PackageIdentity
             let packageRefs: [PackageReference]
-            let prebuiltsURL: URL
         }
 
         private let prebuiltPackages: [PrebuiltPackage]
@@ -260,13 +262,11 @@ extension Workspace {
             observabilityScope: ObservabilityScope
         ) async throws -> PrebuiltsManifest? {
             let manifestFile = swiftVersion + "-manifest.json"
-            let prebuiltsDir = cachePath ?? scratchPath
-            let destination = prebuiltsDir.appending(components:
-                package.identity.description,
-                version.description,
-                manifestFile
-            )
-            if fileSystem.exists(destination) {
+            let manifestPath = try RelativePath(validating: "\(package.identity)/\(version)/\(manifestFile)")
+            let destination = scratchPath.appending(manifestPath)
+            let cacheDest = cachePath?.appending(manifestPath)
+
+            func loadManifest() throws -> PrebuiltsManifest? {
                 do {
                     return try JSONDecoder().decode(
                         path: destination,
@@ -280,21 +280,41 @@ extension Workspace {
                         underlyingError: error
                     )
                     try fileSystem.removeFileTree(destination)
+                    return nil
                 }
             }
-            try fileSystem.createDirectory(
-                destination.parentDirectory,
-                recursive: true
-            )
 
-            let manifestURL = package.prebuiltsURL.appending(
-                components: version.description,
-                manifestFile
+            if fileSystem.exists(destination), let manifest = try? loadManifest() {
+                return manifest
+            } else if let cacheDest, fileSystem.exists(cacheDest) {
+                // Pull it out of the cache
+                try fileSystem.createDirectory(destination.parentDirectory, recursive: true)
+                try fileSystem.copy(from: cacheDest, to: destination)
+
+                if let manifest = try? loadManifest() {
+                    return manifest
+                }
+            }
+
+            try fileSystem.createDirectory(destination.parentDirectory, recursive: true)
+
+            let manifestURL = self.prebuiltsDownloadURL.appending(
+                components: package.identity.description, version.description, manifestFile
             )
 
             if manifestURL.scheme == "file" {
-                // simply copy it over
-                try fileSystem.copy(from: AbsolutePath(validating: manifestURL.path), to: destination)
+                let sourcePath = try AbsolutePath(validating: manifestURL.path)
+                if fileSystem.exists(sourcePath) {
+                    // simply copy it over
+                    try fileSystem.copy(from: sourcePath, to: destination)
+                    // and cache it
+                    if let cacheDest {
+                        try fileSystem.createDirectory(cacheDest.parentDirectory, recursive: true)
+                        try fileSystem.copy(from: destination, to: cacheDest)
+                    }
+                } else {
+                    return nil
+                }
             } else {
                 var headers = HTTPClientHeaders()
                 headers.add(name: "Accept", value: "application/json")
@@ -321,21 +341,21 @@ extension Workspace {
                         info: "Prebuilt \(manifestFile)",
                         underlyingError: error
                     )
+                    // Create an empty manifest so we don't keep trying to download it
+                    let manifest = PrebuiltsManifest(libraries: [])
+                    try? fileSystem.writeFileContents(destination, data: JSONEncoder().encode(manifest))
                     return nil
                 }
             }
 
-            do {
-                return try JSONDecoder().decode(
-                    path: destination,
-                    fileSystem: fileSystem,
-                    as: PrebuiltsManifest.self
-                )
-            } catch {
-                observabilityScope.emit(
-                    info: "Failed to decode prebuilt manifest",
-                    underlyingError: error
-                )
+            if let manifest = try loadManifest() {
+                // Cache the manifest
+                if let cacheDest {
+                    try fileSystem.createDirectory(cacheDest.parentDirectory, recursive: true)
+                    try fileSystem.copy(from: destination, to: cacheDest)
+                }
+                return manifest
+            } else {
                 return nil
             }
         }
@@ -384,14 +404,18 @@ extension Workspace {
                 )
 
                 // Download
-                let artifactURL = package.prebuiltsURL.appending(
-                    components: version.description,
-                    artifactFile
+                let artifactURL = self.prebuiltsDownloadURL.appending(
+                    components: package.identity.description, version.description, artifactFile
                 )
 
                 let fetchStart = DispatchTime.now()
                 if artifactURL.scheme == "file" {
-                    try fileSystem.copy(from: AbsolutePath(validating: artifactURL.path), to: destination)
+                    let artifactPath = try AbsolutePath(validating: artifactURL.path)
+                    if fileSystem.exists(artifactPath) {
+                        try fileSystem.copy(from: artifactPath, to: destination)
+                    } else {
+                        return nil
+                    }
                 } else {
                     var headers = HTTPClientHeaders()
                     headers.add(name: "Accept", value: "application/octet-stream")
