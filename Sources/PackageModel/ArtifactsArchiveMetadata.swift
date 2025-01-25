@@ -44,6 +44,7 @@ public struct ArtifactsArchiveMetadata: Equatable {
     // 3d models along with associated textures, or fonts, etc.
     public enum ArtifactType: String, RawRepresentable, Decodable {
         case executable
+        case library
         case swiftSDK
 
         // Can't be marked as formally deprecated as we still need to use this value for warning users.
