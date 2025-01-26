@@ -41,7 +41,7 @@ extension BuildPlan {
             case let target as BinaryModule:
                 switch target.kind {
                 case .artifactsArchive:
-                    let libraries = try self.parseArtifactbundle(for: target, triple: swiftTarget.buildParameters.triple)
+                    let libraries = try self.parseLibraries(in: target, triple: swiftTarget.buildParameters.triple)
                     for library in libraries {
                         library.headersPaths.forEach {
                             swiftTarget.additionalFlags += ["-I", $0.pathString]
