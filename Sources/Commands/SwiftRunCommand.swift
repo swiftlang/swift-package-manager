@@ -313,6 +313,9 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         sigprocmask(SIG_UNBLOCK, &sig_set_all, nil)
 
         #if os(FreeBSD) || os(OpenBSD)
+        #if os(FreeBSD)
+        pthread_suspend_all_np()
+        #endif
         closefrom(3)
         #else
         #if os(Android)
