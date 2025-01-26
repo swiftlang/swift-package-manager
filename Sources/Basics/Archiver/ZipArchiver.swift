@@ -120,7 +120,7 @@ public struct ZipArchiver: Archiver, Cancellable {
             arguments: [
                 "/bin/sh",
                 "-c",
-                "cd \(directory.parentDirectory.underlying.pathString) && zip -r \(destinationPath.pathString) \(directory.basename)",
+                "cd \(directory.parentDirectory.underlying.pathString) && zip -ry \(destinationPath.pathString) \(directory.basename)",
             ]
         )
         #endif
