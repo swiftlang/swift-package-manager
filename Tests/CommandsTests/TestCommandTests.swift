@@ -54,7 +54,6 @@ final class TestCommandTests: CommandsTestCase {
         }
     #endif
 
-
     func testNumWorkersParallelRequirement() async throws {
         #if !os(macOS)
         // Running swift-test fixtures on linux is not yet possible.
