@@ -45,7 +45,7 @@ final class TestCommandTests: CommandsTestCase {
 
                 // We only expect tool's output on the stdout stream.
                 XCTAssertMatch(stdout, .contains("\(fixturePath)/.build"))
-                XCTAssertMatch(stdout, .contains("--toolset \(fixturePath)/toolset.json"))
+                XCTAssertMatch(stdout, .contains("sentinel"))
 
                 // swift-build-tool output should go to stderr.
                 XCTAssertMatch(stderr, .regex("Compiling"))
