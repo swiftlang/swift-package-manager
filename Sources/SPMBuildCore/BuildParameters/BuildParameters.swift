@@ -302,9 +302,6 @@ public struct BuildParameters: Encodable {
         case .library(.automatic), .plugin:
             fatalError()
         case .test:
-            guard !self.triple.isWasm else {
-                return try RelativePath(validating: "\(product.name).wasm")
-            }
             let base = "\(product.name).xctest"
             if self.triple.isDarwin() {
                 return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")

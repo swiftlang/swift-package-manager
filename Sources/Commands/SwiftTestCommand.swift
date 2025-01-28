@@ -948,23 +948,31 @@ final class TestRunner {
     /// Constructs arguments to execute XCTest.
     private func args(forTestAt testPath: AbsolutePath) throws -> [String] {
         var args: [String] = []
+
+        if let runner = self.toolchain.swiftSDK.toolset.knownTools[.testRunner], let runnerPath = runner.path {
+            args.append(runnerPath.pathString)
+            args.append(contentsOf: runner.extraCLIOptions)
+            args.append(testPath.relative(to: localFileSystem.currentWorkingDirectory!).pathString)
+            args.append(contentsOf: self.additionalArguments)
+        } else {
 #if os(macOS)
-        switch library {
-        case .xctest:
-            guard let xctestPath = self.toolchain.xctestPath else {
-                throw TestError.xcodeNotInstalled
+            switch library {
+            case .xctest:
+                guard let xctestPath = self.toolchain.xctestPath else {
+                    throw TestError.xcodeNotInstalled
+                }
+                args += [xctestPath.pathString]
+            case .swiftTesting:
+                let helper = try self.toolchain.getSwiftTestingHelper()
+                args += [helper.pathString, "--test-bundle-path", testPath.pathString]
             }
-            args += [xctestPath.pathString]
-        case .swiftTesting:
-            let helper = try self.toolchain.getSwiftTestingHelper()
-            args += [helper.pathString, "--test-bundle-path", testPath.pathString]
+            args += self.additionalArguments
+            args += [testPath.pathString]
+    #else
+            args += [testPath.pathString]
+            args += self.additionalArguments
+    #endif
         }
-        args += additionalArguments
-        args += [testPath.pathString]
-#else
-        args += [testPath.pathString]
-        args += additionalArguments
-#endif
 
         if library == .swiftTesting {
             // HACK: tell the test bundle/executable that we want to run Swift Testing, not XCTest.
