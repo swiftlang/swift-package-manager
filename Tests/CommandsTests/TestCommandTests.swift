@@ -40,7 +40,7 @@ final class TestCommandTests: CommandsTestCase {
     #if !os(Windows)
         func testToolsetRunner() async throws {
             try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-                let (stdout, stderr) = try await SwiftPM.Run.execute(
+                let (stdout, stderr) = try await SwiftPM.Test.execute(
                     ["--toolset", "\(fixturePath)/toolset.json"], packagePath: fixturePath)
 
                 // We only expect tool's output on the stdout stream.
