@@ -36,6 +36,25 @@ final class TestCommandTests: CommandsTestCase {
         XCTAssert(stdout.contains("Swift Package Manager"), "got stdout:\n" + stdout)
     }
 
+    // `runner.sh` script from the toolset won't work on Windows
+    #if !os(Windows)
+        func testToolsetRunner() async throws {
+            try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
+                let (stdout, stderr) = try await SwiftPM.Run.execute(
+                    ["--toolset", "\(fixturePath)/toolset.json"], packagePath: fixturePath)
+
+                // We only expect tool's output on the stdout stream.
+                XCTAssertMatch(stdout, .contains("\(fixturePath)/.build"))
+                XCTAssertMatch(stdout, .contains("--toolset \(fixturePath)/toolset.json"))
+
+                // swift-build-tool output should go to stderr.
+                XCTAssertMatch(stderr, .regex("Compiling"))
+                XCTAssertMatch(stderr, .contains("Linking"))
+            }
+        }
+    #endif
+
+
     func testNumWorkersParallelRequirement() async throws {
         #if !os(macOS)
         // Running swift-test fixtures on linux is not yet possible.
