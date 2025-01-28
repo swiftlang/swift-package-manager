@@ -210,7 +210,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
             [
                 result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
                 "-L", buildPath.pathString,
-                "-o", buildPath.appending(components: "PkgPackageTests.wasm").pathString,
+                "-o", buildPath.appending(components: "PkgPackageTests.xctest").pathString,
                 "-module-name", "PkgPackageTests",
                 "-emit-executable",
                 "@\(buildPath.appending(components: "PkgPackageTests.product", "Objects.LinkFileList"))",
@@ -220,7 +220,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         )
 
         let testPathExtension = try testBuildDescription.binaryPath.extension
-        XCTAssertEqual(testPathExtension, "wasm")
+        XCTAssertEqual(testPathExtension, "xctest")
     }
 
     func testMacros() async throws {
