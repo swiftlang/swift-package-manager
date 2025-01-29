@@ -207,7 +207,7 @@ extension Workspace {
                             identity: .plain("swift-syntax"),
                             kind: .remoteSourceControl("git@github.com:swiftlang/swift-syntax.git")
                         ),
-                    ],
+                    ]
                 ),
             ]
         }
