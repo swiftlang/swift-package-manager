@@ -215,6 +215,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
             }
         }
 
+        _ = FileManager.default.changeCurrentDirectoryPath(stageDir.pathString)
         try fm.removeItem(atPath: srcDir.pathString)
     }
 
