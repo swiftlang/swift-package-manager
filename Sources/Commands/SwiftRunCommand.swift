@@ -169,7 +169,8 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                     try await buildSystem.build(subset: .product(productName))
                 }
 
-                let executablePath = try swiftCommandState.productsBuildParameters.buildPath.appending(component: productName)
+                let productRelativePath = try swiftCommandState.productsBuildParameters.executablePath(for: productName)
+                let productAbsolutePath = try swiftCommandState.productsBuildParameters.buildPath.appending(productRelativePath)
 
                 // Make sure we are running from the original working directory.
                 let cwd: AbsolutePath? = swiftCommandState.fileSystem.currentWorkingDirectory
@@ -177,9 +178,19 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                     try ProcessEnv.chdir(swiftCommandState.originalWorkingDirectory)
                 }
 
-                let pathRelativeToWorkingDirectory = executablePath.relative(to: swiftCommandState.originalWorkingDirectory)
-                let lldbPath = try swiftCommandState.getTargetToolchain().getLLDB()
-                try exec(path: lldbPath.pathString, args: ["--", pathRelativeToWorkingDirectory.pathString] + options.arguments)
+                if let debugger = try swiftCommandState.getTargetToolchain().swiftSDK.toolset.knownTools[.debugger],
+                   let debuggerPath = debugger.path {
+                    try self.run(
+                        fileSystem: swiftCommandState.fileSystem,
+                        executablePath: debuggerPath,
+                        originalWorkingDirectory: swiftCommandState.originalWorkingDirectory,
+                        arguments: debugger.extraCLIOptions + [productAbsolutePath.pathString] + options.arguments
+                    )
+                } else {
+                    let pathRelativeToWorkingDirectory = productAbsolutePath.relative(to: swiftCommandState.originalWorkingDirectory)
+                    let lldbPath = try swiftCommandState.getTargetToolchain().getLLDB()
+                    try exec(path: lldbPath.pathString, args: ["--", pathRelativeToWorkingDirectory.pathString] + options.arguments)
+                }
             } catch let error as RunError {
                 swiftCommandState.observabilityScope.emit(error)
                 throw ExitCode.failure
@@ -215,11 +226,27 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                 }
 
                 let executablePath = try swiftCommandState.productsBuildParameters.buildPath.appending(component: productName)
+
+                let productRelativePath = try swiftCommandState.productsBuildParameters.executablePath(for: productName)
+                let productAbsolutePath = try swiftCommandState.productsBuildParameters.buildPath.appending(productRelativePath)
+
+                let runnerPath: AbsolutePath
+                let arguments: [String]
+
+                if let debugger = try swiftCommandState.getTargetToolchain().swiftSDK.toolset.knownTools[.debugger],
+                   let debuggerPath = debugger.path {
+                    runnerPath = debuggerPath
+                    arguments = debugger.extraCLIOptions + [productAbsolutePath.pathString] + options.arguments
+                } else {
+                    runnerPath = executablePath
+                    arguments = options.arguments
+                }
+
                 try self.run(
                     fileSystem: swiftCommandState.fileSystem,
-                    executablePath: executablePath,
+                    executablePath: runnerPath,
                     originalWorkingDirectory: swiftCommandState.originalWorkingDirectory,
-                    arguments: options.arguments
+                    arguments: arguments
                 )
             } catch Diagnostics.fatalError {
                 throw ExitCode.failure
@@ -267,8 +294,8 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         fileSystem: FileSystem,
         executablePath: AbsolutePath,
         originalWorkingDirectory: AbsolutePath,
-        arguments: [String]) throws
-    {
+        arguments: [String]
+    ) throws {
         // Make sure we are running from the original working directory.
         let cwd: AbsolutePath? = fileSystem.currentWorkingDirectory
         if cwd == nil || originalWorkingDirectory != cwd {
