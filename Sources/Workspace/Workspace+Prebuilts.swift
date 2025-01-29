@@ -207,7 +207,7 @@ extension Workspace {
                             identity: .plain("swift-syntax"),
                             kind: .remoteSourceControl("git@github.com:swiftlang/swift-syntax.git")
                         ),
-                    ],
+                    ]
                 ),
             ]
         }
@@ -309,6 +309,9 @@ extension Workspace {
                     try fileSystem.copy(from: sourcePath, to: destination)
                     // and cache it
                     if let cacheDest {
+                        if fileSystem.exists(cacheDest) {
+                            try fileSystem.removeFileTree(cacheDest)
+                        }
                         try fileSystem.createDirectory(cacheDest.parentDirectory, recursive: true)
                         try fileSystem.copy(from: destination, to: cacheDest)
                     }
@@ -351,6 +354,9 @@ extension Workspace {
             if let manifest = try loadManifest() {
                 // Cache the manifest
                 if let cacheDest {
+                    if fileSystem.exists(cacheDest) {
+                        try fileSystem.removeFileTree(cacheDest)
+                    }
                     try fileSystem.createDirectory(cacheDest.parentDirectory, recursive: true)
                     try fileSystem.copy(from: destination, to: cacheDest)
                 }
