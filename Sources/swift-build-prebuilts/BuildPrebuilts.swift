@@ -76,7 +76,6 @@ var prebuiltRepos: IdentifiableSet<PrebuiltRepos> = [
     ),
 ]
 
-let manifestHost = URL(string: "https://github.com/dschaefer2/swift-syntax/releases/download")!
 let swiftVersion = "\(SwiftVersion.current.major).\(SwiftVersion.current.minor)"
 let dockerImageRoot = "swiftlang/swift:nightly-6.1-"
 
@@ -102,33 +101,36 @@ struct BuildPrebuilts: AsyncParsableCommand {
             try fm.removeItem(atPath: stageDir.pathString)
         }
         try fm.createDirectory(atPath: stageDir.pathString, withIntermediateDirectories: true)
-        _ = fm.changeCurrentDirectoryPath(stageDir.pathString)
+
+        let srcDir = stageDir.appending("src")
+        try fm.createDirectory(atPath: srcDir.pathString, withIntermediateDirectories: true)
+
+        let libDir = stageDir.appending("lib")
+        let modulesDir = stageDir.appending("modules")
+        let includesDir = stageDir.appending("include")
 
         for repo in prebuiltRepos.values {
-            let repoDir = stageDir.appending(repo.url.lastPathComponent)
-            let libDir = stageDir.appending("lib")
-            let modulesDir = stageDir.appending("modules")
-            let includesDir = stageDir.appending("include")
+            let repoDir = srcDir.appending(repo.url.lastPathComponent)
             let scratchDir = repoDir.appending(".build")
             let buildDir = scratchDir.appending("release")
             let srcModulesDir = buildDir.appending("Modules")
+            let prebuiltDir = stageDir.appending(repo.url.lastPathComponent)
 
-            try await shell("git clone \(repo.url)")
+            try await shell("git clone \(repo.url)", cwd: srcDir)
 
             for version in repo.versions {
-                let versionDir = stageDir.appending(version.tag)
+                let versionDir = prebuiltDir.appending(version.tag)
                 if !fm.fileExists(atPath: versionDir.pathString) {
                     try fm.createDirectory(atPath: versionDir.pathString, withIntermediateDirectories: true)
                 }
 
-                _ = fm.changeCurrentDirectoryPath(repoDir.pathString)
-                try await shell("git checkout \(version.tag)")
+                try await shell("git checkout \(version.tag)", cwd: repoDir)
 
                 var newLibraries: IdentifiableSet<Workspace.PrebuiltsManifest.Library> = []
 
                 for library in version.manifest.libraries {
                     // TODO: this is assuming products map to target names which is not always true
-                    try await shell("swift package add-product \(library.name) --type static-library --targets \(library.products.joined(separator: " "))")
+                    try await shell("swift package add-product \(library.name) --type static-library --targets \(library.products.joined(separator: " "))", cwd: repoDir)
 
                     var newArtifacts: [Workspace.PrebuiltsManifest.Library.Artifact] = []
 
@@ -152,7 +154,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                             cmd += "\(dockerCommand) run --rm --platform \(dockerPlatform) -v \(repoDir):\(repoDir) -w \(repoDir) \(dockerImageRoot)\(dockerTag) "
                         }
                         cmd += "swift build -c release -debug-info-format none --arch \(platform.arch) --product \(library.name)"
-                        try await shell(cmd)
+                        try await shell(cmd, cwd: repoDir)
 
                         // Copy the library to staging
                         let lib = "lib\(library.name).a"
@@ -175,16 +177,14 @@ struct BuildPrebuilts: AsyncParsableCommand {
                         }
 
                         // Zip it up
-                        _ = fm.changeCurrentDirectoryPath(stageDir.pathString)
                         let zipFile = versionDir.appending("\(swiftVersion)-\(library.name)-\(platform).zip")
                         let contentDirs = ["lib", "Modules"] + (library.cModules.isEmpty ? [] : ["include"])
 #if os(Windows)
                         try await shell("tar -acf \(zipFile.pathString) \(contentDirs.joined(separator: " "))")
 #else
-                        try await shell("zip -r \(zipFile.pathString) \(contentDirs.joined(separator: " "))")
+                        try await shell("zip -r \(zipFile.pathString) \(contentDirs.joined(separator: " "))", cwd: stageDir)
 #endif
 
-                        _ = fm.changeCurrentDirectoryPath(repoDir.pathString)
                         let contents = try ByteString(Data(contentsOf: zipFile.asURL))
                         let checksum = SHA256().hash(contents).hexadecimalRepresentation
 
@@ -203,35 +203,19 @@ struct BuildPrebuilts: AsyncParsableCommand {
                     )
                     newLibraries.insert(newLibrary)
 
-                    try await shell("git reset --hard")
+                    try await shell("git reset --hard", cwd: repoDir)
                 }
 
-                if let oldManifest = try await downloadManifest(version: version) {
-                    // Add in elements from the old manifest we haven't generated
-                    for library in oldManifest.libraries {
-                        if var newLibrary = newLibraries[library.name] {
-                            var newArtifacts = IdentifiableSet<Workspace.PrebuiltsManifest.Library.Artifact>(newLibrary.artifacts)
-                            for oldArtifact in library.artifacts {
-                                if !newArtifacts.contains(id: oldArtifact.id) {
-                                    newArtifacts.insert(oldArtifact)
-                                }
-                            }
-                            newLibrary.artifacts = .init(newArtifacts.values)
-                            newLibraries.insert(newLibrary)
-                        } else {
-                            newLibraries.insert(library)
-                        }
-                    }
-                }
-                let newManifest = Workspace.PrebuiltsManifest(libraries: .init(newLibraries.values))
-
+                let manifest = Workspace.PrebuiltsManifest(libraries: .init(newLibraries.values))
                 let encoder = JSONEncoder()
                 encoder.outputFormatting = .prettyPrinted
-                let manifestData = try encoder.encode(newManifest)
+                let manifestData = try encoder.encode(manifest)
                 let manifestFile = versionDir.appending("\(swiftVersion)-manifest.json")
                 try manifestData.write(to: manifestFile.asURL)
             }
         }
+
+        try fm.removeItem(atPath: srcDir.pathString)
     }
 
     func canBuild(_ platform: Workspace.PrebuiltsManifest.Platform) -> Bool {
@@ -250,7 +234,9 @@ struct BuildPrebuilts: AsyncParsableCommand {
         return docker && platform.os == .linux
     }
 
-    func shell(_ command: String) async throws {
+    func shell(_ command: String, cwd: AbsolutePath) async throws {
+        _ = FileManager.default.changeCurrentDirectoryPath(cwd.pathString)
+
 #if os(Windows)
         let arguments = ["C:\\Windows\\System32\\cmd.exe", "/c", command]
 #else
@@ -276,40 +262,6 @@ struct BuildPrebuilts: AsyncParsableCommand {
             throw StringError("Command exited on signal \(signal): \(command)")
 #endif
         }
-    }
-
-    func downloadManifest(version: PrebuiltRepos.Version) async throws -> Workspace.PrebuiltsManifest? {
-        let fm = FileManager.default
-        let manifestFile = swiftVersion + "-manifest.json"
-        let destination = stageDir.appending(components: version.tag, manifestFile)
-        if fm.fileExists(atPath: destination.pathString) {
-            do {
-                return try JSONDecoder().decode(
-                    Workspace.PrebuiltsManifest.self,
-                    from: Data(contentsOf: destination.asURL)
-                )
-            } catch {
-                // redownload it
-                try fm.removeItem(atPath: destination.pathString)
-            }
-        }
-        let manifestURL = manifestHost.appending(components: version.tag, manifestFile)
-        print("Downloading:", manifestURL.absoluteString)
-        let httpClient = HTTPClient()
-        var headers = HTTPClientHeaders()
-        headers.add(name: "Accept", value: "application/json")
-        var request = HTTPClient.Request(kind: .generic(.get), url: manifestURL)
-        request.options.validResponseCodes = [200]
-
-        let response = try? await httpClient.execute(request) { _, _ in }
-        if let body = response?.body {
-            return try JSONDecoder().decode(
-                Workspace.PrebuiltsManifest.self,
-                from: body
-            )
-        }
-
-        return nil
     }
 }
 
