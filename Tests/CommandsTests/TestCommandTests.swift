@@ -36,7 +36,7 @@ final class TestCommandTests: CommandsTestCase {
         XCTAssert(stdout.contains("Swift Package Manager"), "got stdout:\n" + stdout)
     }
 
-    // `runner.sh` script from the toolset won't work on Windows
+    // `echo.sh` script from the toolset won't work on Windows
     #if !os(Windows)
         func testToolsetRunner() async throws {
             try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
