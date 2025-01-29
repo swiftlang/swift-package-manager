@@ -180,7 +180,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                         let zipFile = versionDir.appending("\(swiftVersion)-\(library.name)-\(platform).zip")
                         let contentDirs = ["lib", "Modules"] + (library.cModules.isEmpty ? [] : ["include"])
 #if os(Windows)
-                        try await shell("tar -acf \(zipFile.pathString) \(contentDirs.joined(separator: " "))")
+                        try await shell("tar -acf \(zipFile.pathString) \(contentDirs.joined(separator: " "))", cwd: stageDir)
 #else
                         try await shell("zip -r \(zipFile.pathString) \(contentDirs.joined(separator: " "))", cwd: stageDir)
 #endif
