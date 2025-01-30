@@ -144,7 +144,7 @@ public final class SwiftModuleBuildDescription {
     public var moduleOutputPath: AbsolutePath { // note: needs to be public because of sourcekit-lsp
         // If we're an executable and we're not allowing test targets to link against us, we hide the module.
         let triple = buildParameters.triple
-        let allowLinkingAgainstExecutables = (triple.isDarwin() || triple.isLinux() || triple.isFreeBSD() || triple.isWindows()) && self.toolsVersion >= .v5_5
+        let allowLinkingAgainstExecutables = [.coff, .macho, .elf].contains(triple.objectFormat) && self.toolsVersion >= .v5_5
         let dirPath = (target.type == .executable && !allowLinkingAgainstExecutables) ? self.tempsPath : self.modulesPath
         return dirPath.appending(component: "\(self.target.c99name).swiftmodule")
     }
