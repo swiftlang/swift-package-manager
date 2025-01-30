@@ -146,11 +146,12 @@ extension BuildParameters {
     /// platform, or nil if the linker doesn't support it for the platform.
     func linkerFlagsForRenamingMainFunction(of target: ResolvedModule) -> [String]? {
         let args: [String]
-        if self.triple.isApple() {
+        switch self.triple.objectFormat {
+        case .macho:
             args = ["-alias", "_\(target.c99name)_main", "_main"]
-        } else if self.triple.isLinux() || self.triple.isFreeBSD() {
+        case .elf:
             args = ["--defsym", "main=\(target.c99name)_main"]
-        } else {
+        case .xcoff, .coff, .wasm:
             return nil
         }
         return args.asSwiftcLinkerFlags()
