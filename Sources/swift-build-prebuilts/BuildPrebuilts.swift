@@ -97,17 +97,28 @@ struct BuildPrebuilts: AsyncParsableCommand {
         let fm = FileManager.default
 
         print("Stage directory: \(stageDir)")
-        if fm.fileExists(atPath: stageDir.pathString) {
-            try fm.removeItem(atPath: stageDir.pathString)
-        }
-        try fm.createDirectory(atPath: stageDir.pathString, withIntermediateDirectories: true)
 
         let srcDir = stageDir.appending("src")
+        let libDir = stageDir.appending("lib")
+        let modulesDir = stageDir.appending("Modules")
+        let includesDir = stageDir.appending("include")
+
+        if fm.fileExists(atPath: srcDir.pathString) {
+            try fm.removeItem(atPath: srcDir.pathString)
+        }
         try fm.createDirectory(atPath: srcDir.pathString, withIntermediateDirectories: true)
 
-        let libDir = stageDir.appending("lib")
-        let modulesDir = stageDir.appending("modules")
-        let includesDir = stageDir.appending("include")
+        if fm.fileExists(atPath: libDir.pathString) {
+            try fm.removeItem(atPath: libDir.pathString)
+        }
+
+        if fm.fileExists(atPath: modulesDir.pathString) {
+            try fm.removeItem(atPath: modulesDir.pathString)
+        }
+
+        if fm.fileExists(atPath: includesDir.pathString) {
+            try fm.removeItem(atPath: includesDir.pathString)
+        }
 
         for repo in prebuiltRepos.values {
             let repoDir = srcDir.appending(repo.url.lastPathComponent)
@@ -206,12 +217,29 @@ struct BuildPrebuilts: AsyncParsableCommand {
                     try await shell("git reset --hard", cwd: repoDir)
                 }
 
-                let manifest = Workspace.PrebuiltsManifest(libraries: .init(newLibraries.values))
+                let manifestFile = versionDir.appending("\(swiftVersion)-manifest.json")
+                var manifest = Workspace.PrebuiltsManifest(libraries: .init(newLibraries.values))
+                if fm.fileExists(atPath: manifestFile.pathString),
+                    let oldManifest = try? JSONDecoder().decode(Workspace.PrebuiltsManifest.self, from: Data(contentsOf: manifestFile.asURL))
+                {
+                    // Copy over any additional artifacts from the old manifest
+                    for oldLibrary in oldManifest.libraries {
+                        guard let index = manifest.libraries.firstIndex(where: { $0.name == oldLibrary.name }) else {
+                            continue
+                        }
+                        var library = manifest.libraries[index]
+                        for artifact in library.artifacts {
+                            guard !library.artifacts.contains(where: { $0.platform == artifact.platform }) else {
+                                continue
+                            }
+                            library.artifacts.append(artifact)
+                        }
+                        manifest.libraries[index] = library
+                    }
+                }
                 let encoder = JSONEncoder()
                 encoder.outputFormatting = .prettyPrinted
-                let manifestData = try encoder.encode(manifest)
-                let manifestFile = versionDir.appending("\(swiftVersion)-manifest.json")
-                try manifestData.write(to: manifestFile.asURL)
+                try encoder.encode(manifest).write(to: manifestFile.asURL)
             }
         }
 
@@ -229,6 +257,10 @@ struct BuildPrebuilts: AsyncParsableCommand {
         }
 #elseif os(Windows)
         if platform.os == .windows {
+            return true
+        }
+#elseif os(Linux)
+        if platform == Workspace.PrebuiltsManifest.Platform.hostPlatform {
             return true
         }
 #endif
