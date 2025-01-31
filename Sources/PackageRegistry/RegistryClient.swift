@@ -39,7 +39,7 @@ public final class RegistryClient: Cancellable {
 
     private var configuration: RegistryConfiguration
     private let archiverProvider: (FileSystem) -> Archiver
-    private let httpClient: LegacyHTTPClient
+    private let httpClient: HTTPClient
     private let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
     private let fingerprintStorage: PackageFingerprintStorage?
     private let fingerprintCheckingMode: FingerprintCheckingMode
@@ -68,7 +68,7 @@ public final class RegistryClient: Cancellable {
         signingEntityStorage: PackageSigningEntityStorage?,
         signingEntityCheckingMode: SigningEntityCheckingMode,
         authorizationProvider: AuthorizationProvider? = .none,
-        customHTTPClient: LegacyHTTPClient? = .none,
+        customHTTPClient: HTTPClient? = .none,
         customArchiverProvider: ((FileSystem) -> Archiver)? = .none,
         delegate: Delegate?,
         checksumAlgorithm: HashAlgorithm
@@ -97,7 +97,7 @@ public final class RegistryClient: Cancellable {
             self.authorizationProvider = .none
         }
 
-        self.httpClient = customHTTPClient ?? LegacyHTTPClient()
+        self.httpClient = customHTTPClient ?? HTTPClient()
         self.archiverProvider = customArchiverProvider ?? { fileSystem in ZipArchiver(fileSystem: fileSystem) }
         self.fingerprintStorage = fingerprintStorage
         self.fingerprintCheckingMode = fingerprintCheckingMode
@@ -126,7 +126,7 @@ public final class RegistryClient: Cancellable {
 
     /// Cancel any outstanding requests
     public func cancel(deadline: DispatchTime) throws {
-        try self.httpClient.cancel(deadline: deadline)
+
     }
 
     public func changeSigningEntityFromVersion(
@@ -243,13 +243,12 @@ public final class RegistryClient: Cancellable {
         let start = DispatchTime.now()
         observabilityScope.emit(info: "retrieving \(package) metadata from \(url)")
 
-        let response: LegacyHTTPClient.Response
+        let response: HTTPClient.Response
         do {
             response = try await self.httpClient.get(
                 url,
                 headers: ["Accept": self.acceptHeader(mediaType: .json)],
-                options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue),
-                observabilityScope: observabilityScope
+                options: self.defaultRequestOptions(timeout: timeout)
             )
         } catch let error where !(error is _Concurrency.CancellationError) {
             throw RegistryError.failedRetrievingReleases(registry: registry, package: package.underlying, error: error)
@@ -425,13 +424,12 @@ public final class RegistryClient: Cancellable {
         let start = DispatchTime.now()
         observabilityScope.emit(info: "retrieving \(package) \(version) metadata from \(url)")
 
-        let response: LegacyHTTPClient.Response
+        let response: HTTPClient.Response
         do {
             response = try await self.httpClient.get(
                 url,
                 headers: ["Accept": self.acceptHeader(mediaType: .json)],
-                options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue),
-                observabilityScope: observabilityScope
+                options: self.defaultRequestOptions(timeout: timeout)
             )
         } catch let error where !(error is _Concurrency.CancellationError) {
             throw RegistryError.failedRetrievingReleaseInfo(
@@ -518,8 +516,7 @@ public final class RegistryClient: Cancellable {
             response = try await self.httpClient.get(
                 url,
                 headers: ["Accept": self.acceptHeader(mediaType: .swift)],
-                options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue),
-                observabilityScope: observabilityScope
+                options: self.defaultRequestOptions(timeout: timeout)
             )
         } catch let error where !(error is _Concurrency.CancellationError) {
             throw RegistryError.failedRetrievingManifest(
@@ -698,13 +695,12 @@ public final class RegistryClient: Cancellable {
         let start = DispatchTime.now()
         observabilityScope.emit(info: "retrieving \(package) \(version) manifest from \(url)")
 
-        let response: LegacyHTTPClient.Response
+        let response: HTTPClient.Response
         do {
             response = try await self.httpClient.get(
                 url,
                 headers: ["Accept": self.acceptHeader(mediaType: .swift)],
-                options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue),
-                observabilityScope: observabilityScope
+                options: self.defaultRequestOptions(timeout: timeout)
             )
         } catch let error where !(error is _Concurrency.CancellationError) {
             throw RegistryError.failedRetrievingManifest(
@@ -883,12 +879,12 @@ public final class RegistryClient: Cancellable {
         let downloadStart = DispatchTime.now()
         observabilityScope.emit(info: "downloading \(package) \(version) source archive from \(url)")
 
-        let response: LegacyHTTPClient.Response
+        let response: HTTPClient.Response
         do {
             response = try await self.httpClient.download(
                 url,
                 headers: ["Accept": self.acceptHeader(mediaType: .zip)],
-                options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue),
+                options: self.defaultRequestOptions(timeout: timeout),
                 progressHandler: progressHandler,
                 fileSystem: fileSystem,
                 destination: downloadPath
@@ -1074,13 +1070,12 @@ public final class RegistryClient: Cancellable {
         let start = DispatchTime.now()
         observabilityScope.emit(info: "looking up identity for \(scmURL) from \(url)")
 
-        let response: LegacyHTTPClient.Response
+        let response: HTTPClient.Response
         do {
             response = try await self.httpClient.get(
                 url,
                 headers: ["Accept": self.acceptHeader(mediaType: .json)],
-                options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue),
-                observabilityScope: observabilityScope
+                options: self.defaultRequestOptions(timeout: timeout)
             )
         } catch let error where !(error is _Concurrency.CancellationError) {
             throw RegistryError.failedIdentityLookup(registry: registry, scmURL: scmURL, error: error)
@@ -1143,8 +1138,7 @@ public final class RegistryClient: Cancellable {
             response = try await self.httpClient.post(
                 loginURL,
                 body: nil,
-                options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue),
-                observabilityScope: observabilityScope
+                options: self.defaultRequestOptions(timeout: timeout)
             )
         } catch let error where !(error is _Concurrency.CancellationError) {
             throw RegistryError.loginFailed(url: loginURL, error: error)
@@ -1340,14 +1334,13 @@ public final class RegistryClient: Cancellable {
         let start = DispatchTime.now()
         observabilityScope.emit(info: "publishing \(packageIdentity) \(packageVersion) to \(url)")
 
-        let response: LegacyHTTPClient.Response
+        let response: HTTPClient.Response
         do {
             response = try await self.httpClient.put(
                 url,
                 body: body,
                 headers: headers,
-                options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue),
-                observabilityScope: observabilityScope
+                options: self.defaultRequestOptions(timeout: timeout)
             )
         } catch let error where !(error is _Concurrency.CancellationError) {
             throw RegistryError.failedPublishing(error)
@@ -1388,8 +1381,7 @@ public final class RegistryClient: Cancellable {
             try await self.checkAvailability(
                 registry: registry,
                 timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             )
         }
     }
@@ -1398,8 +1390,7 @@ public final class RegistryClient: Cancellable {
     func checkAvailability(
         registry: Registry,
         timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws -> AvailabilityStatus {
         guard registry.supportsAvailability else {
             throw StringError("registry \(registry.url) does not support availability checks.")
@@ -1417,12 +1408,11 @@ public final class RegistryClient: Cancellable {
         let start = DispatchTime.now()
         observabilityScope.emit(info: "checking availability of \(registry.url) using \(url)")
 
-        let response: LegacyHTTPClient.Response
+        let response: HTTPClient.Response
         do {
             response = try await self.httpClient.get(
                 url,
-                options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue),
-                observabilityScope: observabilityScope
+                options: self.defaultRequestOptions(timeout: timeout)
             )
         } catch let error where !(error is _Concurrency.CancellationError) {
             throw RegistryError.availabilityCheckFailed(registry: registry, error: error)
@@ -1489,8 +1479,7 @@ public final class RegistryClient: Cancellable {
         let result = await Result(catching: {
             try await self.checkAvailability(
                 registry: registry,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             )
         })
 
@@ -1544,12 +1533,10 @@ public final class RegistryClient: Cancellable {
     }
 
     private func defaultRequestOptions(
-        timeout: DispatchTimeInterval? = .none,
-        callbackQueue: DispatchQueue
-    ) -> LegacyHTTPClient.Request.Options {
-        var options = LegacyHTTPClient.Request.Options()
+        timeout: DispatchTimeInterval? = .none
+    ) -> HTTPClient.Request.Options {
+        var options = HTTPClient.Request.Options()
         options.timeout = timeout
-        options.callbackQueue = callbackQueue
         options.authorizationProvider = self.authorizationProvider
         return options
     }

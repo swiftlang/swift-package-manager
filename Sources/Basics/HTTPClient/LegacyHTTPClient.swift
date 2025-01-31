@@ -363,25 +363,6 @@ extension LegacyHTTPClient {
         body: Data?,
         headers: HTTPClientHeaders = .init(),
         options: Request.Options = .init(),
-        observabilityScope: ObservabilityScope? = .none
-    ) async throws -> Response {
-        try await withCheckedThrowingContinuation { continuation in
-            self.put(
-                url,
-                body: body,
-                headers: headers,
-                options: options,
-                observabilityScope: observabilityScope,
-                completion: { continuation.resume(with: $0) }
-            )
-        }
-    }
-    @available(*, noasync, message: "Use the async alternative")
-    public func put(
-        _ url: URL,
-        body: Data?,
-        headers: HTTPClientHeaders = .init(),
-        options: Request.Options = .init(),
         observabilityScope: ObservabilityScope? = .none,
         completion: @Sendable @escaping (Result<Response, Error>) -> Void
     ) {
@@ -392,25 +373,6 @@ extension LegacyHTTPClient {
         )
     }
 
-    public func post(
-        _ url: URL,
-        body: Data?,
-        headers: HTTPClientHeaders = .init(),
-        options: Request.Options = .init(),
-        observabilityScope: ObservabilityScope? = .none
-    ) async throws -> Response {
-        try await withCheckedThrowingContinuation { continuation in
-            self.post(
-                url,
-                body: body,
-                headers: headers,
-                options: options,
-                observabilityScope: observabilityScope,
-                completion: { continuation.resume(with: $0) }
-            )
-        }
-    }
-    @available(*, noasync, message: "Use the async alternative")
     public func post(
         _ url: URL,
         body: Data?,
@@ -438,31 +400,6 @@ extension LegacyHTTPClient {
             observabilityScope: observabilityScope,
             completion: completion
         )
-    }
-
-    public func download(
-        _ url: URL,
-        headers: HTTPClientHeaders = .init(),
-        options: Request.Options = .init(),
-        progressHandler: ProgressHandler? = nil,
-        fileSystem: FileSystem,
-        destination: AbsolutePath,
-        observabilityScope: ObservabilityScope? = .none
-    ) async throws -> Response {
-        try await withCheckedThrowingContinuation { continuation in
-            self.execute(
-                Request(
-                    kind: .download(fileSystem: fileSystem, destination: destination),
-                    url: url,
-                    headers: headers,
-                    body: nil,
-                    options: options
-                ),
-                observabilityScope: observabilityScope,
-                progress: progressHandler,
-                completion: { continuation.resume(with: $0) }
-            )
-        }
     }
 }
 
