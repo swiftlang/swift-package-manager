@@ -93,7 +93,8 @@ extension Workspace {
             case ubuntu_focal_aarch64
             case ubuntu_focal_x86_64
             // bookworm is currently missing
-            // fedora39 is currently missing
+            case fedora_39_aarch64
+            case fedora_39_x86_64
             case amazonlinux2_aarch64
             case amazonlinux2_x86_64
             case rhel_ubi9_aarch64
@@ -556,11 +557,13 @@ extension Workspace.PrebuiltsManifest.Platform {
         switch self {
         case .macos_aarch64, .windows_aarch64,
             .ubuntu_noble_aarch64, .ubuntu_jammy_aarch64, .ubuntu_focal_aarch64,
+            .fedora_39_aarch64,
             .amazonlinux2_aarch64,
             .rhel_ubi9_aarch64:
             return .aarch64
         case .macos_x86_64, .windows_x86_64,
             .ubuntu_noble_x86_64, .ubuntu_jammy_x86_64, .ubuntu_focal_x86_64,
+            .fedora_39_x86_64,
             .amazonlinux2_x86_64,
             .rhel_ubi9_x86_64:
             return .x86_64
@@ -576,6 +579,7 @@ extension Workspace.PrebuiltsManifest.Platform {
         case .ubuntu_noble_aarch64, .ubuntu_noble_x86_64,
             .ubuntu_jammy_aarch64, .ubuntu_jammy_x86_64,
             .ubuntu_focal_aarch64, .ubuntu_focal_x86_64,
+            .fedora_39_aarch64, .fedora_39_x86_64,
             .amazonlinux2_aarch64, .amazonlinux2_x86_64,
             .rhel_ubi9_aarch64, .rhel_ubi9_x86_64:
             return .linux
@@ -644,6 +648,18 @@ extension Workspace.PrebuiltsManifest.Platform {
                     return .ubuntu_focal_aarch64
                 case .x86_64:
                     return .ubuntu_focal_x86_64
+                }
+            default:
+                return nil
+            }
+        case "fedora":
+            switch osDict["VERSION_ID"] {
+            case "39", "41":
+                switch arch {
+                case .aarch64:
+                    return .fedora_39_aarch64
+                case .x86_64:
+                    return .fedora_39_x86_64
                 }
             default:
                 return nil
