@@ -126,6 +126,8 @@ public actor HTTPClient {
             request: request,
             requestNumber: requestNumber
         ), let retryDelayInNanoseconds = retryDelay.nanoseconds() {
+            try Task.checkCancellation()
+
             observabilityScope?.emit(warning: "\(request.url) failed, retrying in \(retryDelay)")
             try await Task.sleep(nanoseconds: UInt64(retryDelayInNanoseconds))
 
@@ -256,6 +258,28 @@ extension HTTPClient {
     ) async throws -> Response {
         try await self.execute(
             Request(method: .delete, url: url, headers: headers, body: nil, options: options)
+        )
+    }
+
+    public func download(
+        _ url: URL,
+        headers: HTTPClientHeaders = .init(),
+        options: Request.Options = .init(),
+        progressHandler: ProgressHandler? = nil,
+        fileSystem: FileSystem,
+        destination: AbsolutePath,
+        observabilityScope: ObservabilityScope? = .none
+    ) async throws -> Response {
+        try await self.execute(
+            Request(
+                kind: .download(fileSystem: fileSystem, destination: destination),
+                url: url,
+                headers: headers,
+                body: nil,
+                options: options
+            ),
+            observabilityScope: observabilityScope,
+            progress: progressHandler
         )
     }
 }
