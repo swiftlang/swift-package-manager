@@ -92,13 +92,14 @@ extension Workspace {
             case ubuntu_jammy_x86_64
             case ubuntu_focal_aarch64
             case ubuntu_focal_x86_64
-            // bookworm is currently missing
             case fedora_39_aarch64
             case fedora_39_x86_64
             case amazonlinux2_aarch64
             case amazonlinux2_x86_64
             case rhel_ubi9_aarch64
             case rhel_ubi9_x86_64
+            case debian_12_aarch64
+            case debian_12_x86_64
 
             public enum Arch: String {
                 case x86_64
@@ -559,13 +560,15 @@ extension Workspace.PrebuiltsManifest.Platform {
             .ubuntu_noble_aarch64, .ubuntu_jammy_aarch64, .ubuntu_focal_aarch64,
             .fedora_39_aarch64,
             .amazonlinux2_aarch64,
-            .rhel_ubi9_aarch64:
+            .rhel_ubi9_aarch64,
+            .debian_12_aarch64:
             return .aarch64
         case .macos_x86_64, .windows_x86_64,
             .ubuntu_noble_x86_64, .ubuntu_jammy_x86_64, .ubuntu_focal_x86_64,
             .fedora_39_x86_64,
             .amazonlinux2_x86_64,
-            .rhel_ubi9_x86_64:
+            .rhel_ubi9_x86_64,
+            .debian_12_x86_64:
             return .x86_64
         }
     }
@@ -581,7 +584,8 @@ extension Workspace.PrebuiltsManifest.Platform {
             .ubuntu_focal_aarch64, .ubuntu_focal_x86_64,
             .fedora_39_aarch64, .fedora_39_x86_64,
             .amazonlinux2_aarch64, .amazonlinux2_x86_64,
-            .rhel_ubi9_aarch64, .rhel_ubi9_x86_64:
+            .rhel_ubi9_aarch64, .rhel_ubi9_x86_64,
+            .debian_12_aarch64, .debian_12_x86_64:
             return .linux
         }
     }
@@ -687,6 +691,18 @@ extension Workspace.PrebuiltsManifest.Platform {
                     return .rhel_ubi9_aarch64
                 case .x86_64:
                     return .rhel_ubi9_x86_64
+                }
+            default:
+                return nil
+            }
+        case "debian":
+            switch osDict["VERSION_ID"] {
+            case "12":
+                switch arch {
+                case .aarch64:
+                    return .debian_12_aarch64
+                case .x86_64:
+                    return .debian_12_x86_64
                 }
             default:
                 return nil
