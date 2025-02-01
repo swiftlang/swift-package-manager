@@ -432,6 +432,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         if buildParameters.triple.isWindows() {
             settings["ALTERNATE_LINKER"] = "lld-link"
         }
+        // FIXME: workaround for old Xcode installations such as what is in CI
+        settings["LM_SKIP_METADATA_EXTRACTION"] = "YES"
 
         settings["LIBRARY_SEARCH_PATHS"] = try "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)"
         settings["OTHER_CFLAGS"] = (
