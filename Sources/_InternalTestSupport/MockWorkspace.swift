@@ -23,7 +23,7 @@ import XCTest
 import struct TSCUtility.Version
 
 extension UserToolchain {
-    package static func mockHostToolchain(_ fileSystem: InMemoryFileSystem, hostTriple: Triple = hostTriple) throws -> UserToolchain {
+    package static func mockHostToolchain(_ fileSystem: InMemoryFileSystem) throws -> UserToolchain {
         var hostSwiftSDK = try SwiftSDK.hostSwiftSDK(environment: .mockEnvironment, fileSystem: fileSystem)
         hostSwiftSDK.targetTriple = hostTriple
 
@@ -106,8 +106,7 @@ public final class MockWorkspace {
         customPackageContainerProvider: MockPackageContainerProvider? = .none,
         skipDependenciesUpdates: Bool = false,
         sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation = .disabled,
-        defaultRegistry: Registry? = .none,
-        customHostTriple: Triple = hostTriple
+        defaultRegistry: Registry? = .none
     ) async throws {
         try fileSystem.createMockToolchain()
 
@@ -143,7 +142,7 @@ public final class MockWorkspace {
             archiver: MockArchiver()
         )
         self.customPrebuiltsManager = customPrebuiltsManager
-        self.customHostToolchain = try UserToolchain.mockHostToolchain(fileSystem, hostTriple: customHostTriple)
+        self.customHostToolchain = try UserToolchain.mockHostToolchain(fileSystem)
         try await self.create()
     }
 

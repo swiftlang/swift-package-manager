@@ -560,19 +560,22 @@ public class Workspace {
         // register the binary artifacts downloader with the cancellation handler
         cancellator?.register(name: "binary artifacts downloads", handler: binaryArtifactsManager)
 
-        let prebuiltsManager: PrebuiltsManager? = configuration.usePrebuilts ? PrebuiltsManager(
-            fileSystem: fileSystem,
-            authorizationProvider: authorizationProvider,
-            scratchPath: location.prebuiltsDirectory,
-            cachePath: customPrebuiltsManager?.useCache == false || !configuration.sharedDependenciesCacheEnabled ? .none : location.sharedPrebuiltsCacheDirectory,
-            customHTTPClient: customPrebuiltsManager?.httpClient,
-            customArchiver: customPrebuiltsManager?.archiver,
-            delegate: delegate.map(WorkspacePrebuiltsManagerDelegate.init(workspaceDelegate:)),
-            prebuiltsDownloadURL: configuration.prebuiltsDownloadURL
-        ) : .none
-        // register the prebuilt packages downloader with the cancellation handler
-        if let prebuiltsManager {
+        if configuration.usePrebuilts, let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsManifest.Platform.hostPlatform {
+            let prebuiltsManager = PrebuiltsManager(
+                fileSystem: fileSystem,
+                hostPlatform: hostPlatform,
+                authorizationProvider: authorizationProvider,
+                scratchPath: location.prebuiltsDirectory,
+                cachePath: customPrebuiltsManager?.useCache == false || !configuration.sharedDependenciesCacheEnabled ? .none : location.sharedPrebuiltsCacheDirectory,
+                customHTTPClient: customPrebuiltsManager?.httpClient,
+                customArchiver: customPrebuiltsManager?.archiver,
+                delegate: delegate.map(WorkspacePrebuiltsManagerDelegate.init(workspaceDelegate:)),
+                prebuiltsDownloadURL: configuration.prebuiltsDownloadURL
+            )
             cancellator?.register(name: "package prebuilts downloads", handler: prebuiltsManager)
+            self.prebuiltsManager = prebuiltsManager
+        } else {
+            self.prebuiltsManager = nil
         }
 
         // initialize
@@ -591,7 +594,6 @@ public class Workspace {
         self.registryClient = registryClient
         self.registryDownloadsManager = registryDownloadsManager
         self.binaryArtifactsManager = binaryArtifactsManager
-        self.prebuiltsManager = prebuiltsManager
 
         self.identityResolver = identityResolver
         self.dependencyMapper = dependencyMapper
