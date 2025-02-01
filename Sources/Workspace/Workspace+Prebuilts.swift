@@ -119,15 +119,18 @@ extension Workspace {
         let httpClient: HTTPClient?
         let archiver: Archiver?
         let useCache: Bool?
+        let hostPlatform: PrebuiltsManifest.Platform?
 
         public init(
             httpClient: HTTPClient? = .none,
             archiver: Archiver? = .none,
-            useCache: Bool? = .none
+            useCache: Bool? = .none,
+            hostPlatform: PrebuiltsManifest.Platform? = nil
         ) {
             self.httpClient = httpClient
             self.archiver = archiver
             self.useCache = useCache
+            self.hostPlatform = hostPlatform
         }
     }
 
@@ -144,9 +147,11 @@ extension Workspace {
         private let delegate: Delegate?
         private let hashAlgorithm: HashAlgorithm = SHA256()
         private let prebuiltsDownloadURL: URL
+        let hostPlatform: PrebuiltsManifest.Platform
 
         init(
             fileSystem: FileSystem,
+            hostPlatform: PrebuiltsManifest.Platform,
             authorizationProvider: AuthorizationProvider?,
             scratchPath: AbsolutePath,
             cachePath: AbsolutePath?,
@@ -156,6 +161,7 @@ extension Workspace {
             prebuiltsDownloadURL: String?
         ) {
             self.fileSystem = fileSystem
+            self.hostPlatform = hostPlatform
             self.authorizationProvider = authorizationProvider
             self.httpClient = customHTTPClient ?? HTTPClient()
             self.archiver = customArchiver ?? ZipArchiver(fileSystem: fileSystem)
@@ -489,7 +495,7 @@ extension Workspace {
         addedOrUpdatedPackages: [PackageReference],
         observabilityScope: ObservabilityScope
     ) async throws {
-        guard let prebuiltsManager = self.prebuiltsManager else {
+        guard let prebuiltsManager else {
             // Disabled
             return
         }
@@ -510,14 +516,10 @@ extension Workspace {
                 continue
             }
 
-            let hostPlatform = PrebuiltsManifest.Platform.hostPlatform
+            let hostPlatform = prebuiltsManager.hostPlatform
 
             for library in prebuiltManifest.libraries {
-                for artifact in library.artifacts {
-                    guard artifact.platform == hostPlatform else {
-                        continue
-                    }
-
+                for artifact in library.artifacts where artifact.platform == hostPlatform {
                     if let path = try await prebuiltsManager
                         .downloadPrebuilt(
                             package: prebuilt,

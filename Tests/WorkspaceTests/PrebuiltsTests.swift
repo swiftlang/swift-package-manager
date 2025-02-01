@@ -163,9 +163,9 @@ final class PrebuiltsTests: XCTestCase {
             ],
             prebuiltsManager: .init(
                 httpClient: httpClient,
-                archiver: archiver
-            ),
-            customHostTriple: Triple("arm64-apple-macosx15.0")
+                archiver: archiver,
+                hostPlatform: .macos_aarch64
+            )
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
@@ -224,9 +224,9 @@ final class PrebuiltsTests: XCTestCase {
             ],
             prebuiltsManager: .init(
                 httpClient: httpClient,
-                archiver: archiver
-            ),
-            customHostTriple: Triple("arm64-apple-macosx15.0")
+                archiver: archiver,
+                hostPlatform: .macos_aarch64
+            )
         )
 
         try await workspace.checkPackageGraph(roots: [rootPackage.name]) { modulesGraph, diagnostics in
@@ -324,9 +324,9 @@ final class PrebuiltsTests: XCTestCase {
             ],
             prebuiltsManager: .init(
                 httpClient: httpClient,
-                archiver: archiver
-            ),
-            customHostTriple: Triple("arm64-apple-macosx15.0")
+                archiver: archiver,
+                hostPlatform: .macos_aarch64
+            )
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
@@ -385,9 +385,9 @@ final class PrebuiltsTests: XCTestCase {
             ],
             prebuiltsManager: .init(
                 httpClient: httpClient,
-                archiver: archiver
-            ),
-            customHostTriple: Triple("arm64-apple-macosx15.0")
+                archiver: archiver,
+                hostPlatform: .macos_aarch64
+            )
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
@@ -499,9 +499,9 @@ final class PrebuiltsTests: XCTestCase {
             ],
             prebuiltsManager: .init(
                 httpClient: httpClient,
-                archiver: archiver
-            ),
-            customHostTriple: Triple("86_64-unknown-linux-gnu")
+                archiver: archiver,
+                hostPlatform: .ubuntu_noble_x86_64
+            )
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
@@ -604,9 +604,9 @@ final class PrebuiltsTests: XCTestCase {
             ],
             prebuiltsManager: .init(
                 httpClient: httpClient,
-                archiver: archiver
-            ),
-            customHostTriple: Triple("arm64-apple-macosx15.0")
+                archiver: archiver,
+                hostPlatform: .macos_aarch64
+            )
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
@@ -665,9 +665,9 @@ final class PrebuiltsTests: XCTestCase {
             ],
             prebuiltsManager: .init(
                 httpClient: httpClient,
-                archiver: archiver
-            ),
-            customHostTriple: Triple("arm64-apple-macosx15.0")
+                archiver: archiver,
+                hostPlatform: .macos_aarch64
+            )
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
@@ -748,8 +748,7 @@ final class PrebuiltsTests: XCTestCase {
             ],
             packages: [
                 swiftSyntax
-            ],
-            customHostTriple: Triple("arm64-apple-macosx15.0")
+            ]
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
