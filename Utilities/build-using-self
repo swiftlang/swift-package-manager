@@ -78,6 +78,7 @@ swift test -c $CONFIGURATION --parallel ${enable_swift_testing} ${enable_xctest}
 
 # Run the integration tests with just built SwiftPM.
 export SWIFTPM_BIN_DIR=$(swift build -c $CONFIGURATION --show-bin-path)
+echo "SWIFTPM_BIN_DIR is ${SWIFTPM_BIN_DIR}"
 (
     cd ${root_dir}/IntegrationTests
     # Perform package update in order to get the latest commits for the dependencies.
