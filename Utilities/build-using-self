@@ -19,7 +19,43 @@ root_dir="$(cd ${__dir}/.. && pwd)"
 cd "${root_dir}/"
 echo "Current directory is ${PWD}"
 
-CONFIGURATION=debug
+while test $# -gt 0; do
+    case "$1" in
+    "--configuration" )
+        CONFIGURATION="$2"
+        shift
+        ;;
+    "--enable-swift-testing" )
+        enable_swift_testing=" --enable-swift-testing"
+        ;;
+    "--enable-xctest" )
+        enable_xctest=" --enable-xctest"
+        ;;
+    "--xunit-output" )
+        echo "xunit output is incompatible with sequential test execution"
+        exit 1
+        xunit_output=" --xunit-output=$(realpath "$2")"
+        shift
+        ;;
+    "--xunit-output-integration" )
+        echo "xunit output is incompatible with sequential test execution"
+        exit 1
+        xunit_output_integration=" --xunit-output=$(realpath "$2")"
+        shift
+        ;;
+    * )
+        echo "Unrecognized option '$1'"
+	echo "Usage: $0 [--configuration debug|release] [--enable-swift-testing] [--enable-xctest] [--xunit-output <output-file>] [--xunit-output-integration <output-file>]"
+        exit 1
+    esac
+    shift
+done
+
+CONFIGURATION=${CONFIGURATION:-debug}
+enable_swift_testing=${enable_swift_testing:-}
+enable_xctest=${enable_xctest:-}
+xunit_output=${xunit_output:-}
+xunit_output_integration=${xunit_output_integration:-}
 export SWIFTCI_IS_SELF_HOSTED=1
 
 # Ensure SDKROOT is configured
@@ -38,7 +74,7 @@ swift --version
 # Perform package update in order to get the latest commits for the dependencies.
 swift package update
 swift build -c $CONFIGURATION
-swift test -c $CONFIGURATION --parallel
+swift test -c $CONFIGURATION --parallel ${enable_swift_testing} ${enable_xctest} ${xunit_output}
 
 # Run the integration tests with just built SwiftPM.
 export SWIFTPM_BIN_DIR=$(swift build -c $CONFIGURATION --show-bin-path)
@@ -46,7 +82,7 @@ export SWIFTPM_BIN_DIR=$(swift build -c $CONFIGURATION --show-bin-path)
     cd ${root_dir}/IntegrationTests
     # Perform package update in order to get the latest commits for the dependencies.
     swift package update
-    $SWIFTPM_BIN_DIR/swift-test --parallel
+    $SWIFTPM_BIN_DIR/swift-test --parallel ${xunit_output_integration}
 )
 
 if [ "${host}" == "Darwin" ]; then

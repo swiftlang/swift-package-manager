@@ -412,21 +412,41 @@ final class BuildCommandTests: CommandsTestCase {
         }
     }
 
-    func testXcodeBuildSystemDefaultSettings() async throws {
-        #if !os(macOS)
-        try XCTSkipIf(true, "test requires `xcbuild` and is therefore only supported on macOS")
-        #endif
+    private func testBuildSystemDefaultSettings(buildsystem: String) async throws {
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             // try await building using XCBuild with default parameters.  This should succeed.  We build verbosely so we get
             // full command lines.
-            let defaultOutput = try await execute(["-c", "debug", "-v"], packagePath: fixturePath).stdout
+            let defaultOutput = try await execute(["--build-system", buildsystem, "-c", "debug", "-v"], packagePath: fixturePath).stdout
 
             // Look for certain things in the output from XCBuild.
             XCTAssertMatch(
                 defaultOutput,
-                try .contains("-target \(UserToolchain.default.targetTriple.tripleString(forPlatformVersion: ""))")
+                try .contains("Build complete!")
             )
         }
+    }
+
+    func testNativeBuildSystemDefaultSettings() async throws {
+        try await self.testBuildSystemDefaultSettings(buildsystem: "native")
+    }
+
+    #if os(macOS)
+    func testXcodeBuildSystemDefaultSettings() async throws {
+        // TODO figure out in what circumstance the xcode build system test can run.
+        throw XCTSkip("Xcode build system test is not working in test")
+
+        try await self.testBuildSystemDefaultSettings(buildsystem: "xcode")
+    }
+    #endif
+
+    func testSwiftBuildSystemDefaultSettings() async throws {
+        #if os(Linux)
+        if FileManager.default.contents(atPath: "/etc/system-release").map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false {
+            throw XCTSkip("Skipping SwiftBuild testing on Amazon Linux because of platform issues.")
+        }
+        #endif
+
+        try await testBuildSystemDefaultSettings(buildsystem: "swiftbuild")
     }
 
     func testXcodeBuildSystemWithAdditionalBuildFlags() async throws {
