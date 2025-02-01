@@ -84,7 +84,7 @@ extension BinaryModule {
             }
 
             let libraryDir = self.artifactPath.appending(inhabitant.path)
-            let libraryFile = libraryDir.appending(component: "lib\($1.key).so")
+            let libraryFile = libraryDir.appending(component: triple.dynamicLibrary($1.key))
 
             $0.append(.init(libraryPath: libraryFile, headersPaths: [libraryDir]))
         }

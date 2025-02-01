@@ -533,7 +533,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         let productType: PIF.Target.ProductType
         if product.type == .library(.dynamic) {
             if self.parameters.shouldCreateDylibForDynamicProducts {
-                pifTargetProductName = "\(parameters.triple.dynamicLibraryPrefix)\(product.name)\(parameters.triple.dynamicLibraryExtension)"
+                pifTargetProductName = parameters.triple.dynamicLibrary(product.name)
                 productType = .dynamicLibrary
             } else {
                 pifTargetProductName = product.name + ".framework"

@@ -46,7 +46,8 @@ extension BuildPlan {
         // Add flags for binary dependencies.
         var dynamicLibraries: Set<Substring> = []
         for binaryPath in dependencies.sharedLibraryBinaries {
-            if binaryPath.basename.starts(with: "lib"), binaryPath.extension == "so" {
+            if binaryPath.basename.starts(with: "lib"),
+                binaryPath.extension == "so" || binaryPath.extension == "dylib" {
                 buildProduct.additionalFlags += ["-L", binaryPath.parentDirectory.pathString]
                 dynamicLibraries.insert(binaryPath.basenameWithoutExt.dropFirst(3))
             } else {
