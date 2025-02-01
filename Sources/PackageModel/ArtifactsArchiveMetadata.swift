@@ -79,7 +79,7 @@ extension ArtifactsArchiveMetadata {
             )
 
             switch (version.major, version.minor) {
-            case (1, 1), (1, 0):
+            case (1, 2), (1, 1), (1, 0):
                 return decodedMetadata
             default:
                 throw StringError(
