@@ -276,7 +276,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             case .macho:
                 let rpath = self.product.type == .test ? "@loader_path/../../../" : "@loader_path"
                 args += ["-Xlinker", "-rpath", "-Xlinker", rpath]
-            case .coff, .xcoff, .wasm:
+            default:
                 break
             }
         }

@@ -151,7 +151,7 @@ extension BuildParameters {
             args = ["-alias", "_\(target.c99name)_main", "_main"]
         case .elf:
             args = ["--defsym", "main=\(target.c99name)_main"]
-        case .xcoff, .coff, .wasm:
+        default:
             return nil
         }
         return args.asSwiftcLinkerFlags()
