@@ -266,7 +266,10 @@ def parse_build_args(args):
                                   args.build_dir,
                                   get_build_target(args,cross_compile=True))
     else:
-        args.target_dir = os.path.join(args.build_dir, get_build_target(args))
+        if platform.system() == 'FreeBSD':
+            args.target_dir = os.path.join(args.build_dir, get_unversioned_build_target(args))
+        else:
+            args.target_dir = os.path.join(args.build_dir, get_build_target(args))
     args.bootstrap_dir = os.path.join(args.target_dir, "bootstrap")
     args.conf = 'release' if args.release else 'debug'
     args.bin_dir = os.path.join(args.target_dir, args.conf)
@@ -337,6 +340,30 @@ def get_build_target(args, cross_compile=False):
         logging.debug("Command returned: %r", target_info_json)
         args.target_info = json.loads(target_info_json)
         return args.target_info["target"]["unversionedTriple" if platform.system() == 'Darwin' else "triple"]
+    except subprocess.CalledProcessError as cpe:
+        logging.debug("Command failed...")
+        # Temporary fallback for Darwin.
+        if platform.system() == 'Darwin':
+            macOS_default = 'x86_64-apple-macosx'
+            logging.debug("we are on Darwin. defaulting to %r", macOS_default)
+            return macOS_default
+        else:
+            logging.error("get build targets: %s", str(cpe))
+            raise cpe
+
+def get_unversioned_build_target(args, cross_compile=False):
+    """Returns the target-triple of the current machine or for cross-compilation."""
+    try:
+        command = [args.swiftc_path, '-print-target-info']
+        if cross_compile:
+            cross_compile_json = json.load(open(args.cross_compile_config))
+            command += ['-target', cross_compile_json["target"]]
+        logging.debug("Running command >>> %r", command)
+        target_info_json = subprocess.check_output(command,
+                               stderr=subprocess.PIPE, universal_newlines=True, env=os.environ).strip()
+        logging.debug("Command returned: %r", target_info_json)
+        args.target_info = json.loads(target_info_json)
+        return args.target_info["target"]["unversionedTriple"]
     except subprocess.CalledProcessError as cpe:
         logging.debug("Command failed...")
         # Temporary fallback for Darwin.
