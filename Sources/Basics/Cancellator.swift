@@ -19,7 +19,7 @@ import WinSDK
 import Android
 #endif
 
-public typealias CancellationHandler = @Sendable (DispatchTime) throws -> Void
+public typealias CancellationHandler = @Sendable (DispatchTime) async throws -> Void
 
 public final class Cancellator: Cancellable, Sendable {
     public typealias RegistrationKey = String
@@ -120,6 +120,11 @@ public final class Cancellator: Cancellable, Sendable {
     }
 
     @discardableResult
+    public func register(name: String, handler: AsyncCancellable) -> RegistrationKey? {
+        self.register(name: name, handler: handler.cancel(deadline:))
+    }
+
+    @discardableResult
     public func register(name: String, handler: @escaping @Sendable () throws -> Void) -> RegistrationKey? {
         self.register(name: name, handler: { _ in try handler() })
     }
@@ -159,16 +164,20 @@ public final class Cancellator: Cancellable, Sendable {
         let cancelled = ThreadSafeArrayStore<String>()
         let group = DispatchGroup()
         for (_, (name, handler)) in cancellationHandlers {
-            self.cancelationQueue.async(group: group) {
-                do {
-                    self.observabilityScope?.emit(debug: "cancelling '\(name)'")
-                    try handler(handlersDeadline)
-                    cancelled.append(name)
-                } catch {
-                    self.observabilityScope?.emit(
-                        warning: "failed cancelling '\(name)'",
-                        underlyingError: error
-                    )
+            group.enter()
+            self.cancelationQueue.async {
+                Task {
+                    defer { group.leave() }
+                    do {
+                        self.observabilityScope?.emit(debug: "cancelling '\(name)'")
+                        try await handler(handlersDeadline)
+                        cancelled.append(name)
+                    } catch {
+                        self.observabilityScope?.emit(
+                            warning: "failed cancelling '\(name)'",
+                            underlyingError: error
+                        )
+                    }
                 }
             }
         }
@@ -190,6 +199,10 @@ public final class Cancellator: Cancellable, Sendable {
 
 public protocol Cancellable {
     func cancel(deadline: DispatchTime) throws -> Void
+}
+
+public protocol AsyncCancellable {
+    func cancel(deadline: DispatchTime) async throws -> Void
 }
 
 public struct CancellationError: Error, CustomStringConvertible {
