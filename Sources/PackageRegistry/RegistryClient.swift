@@ -30,7 +30,7 @@ public protocol RegistryClientDelegate {
 
 /// Package registry client.
 /// API specification: https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md
-public final class RegistryClient: Cancellable {
+public final class RegistryClient: AsyncCancellable {
     public typealias Delegate = RegistryClientDelegate
 
     private static let apiVersion: APIVersion = .v1
@@ -125,8 +125,8 @@ public final class RegistryClient: Cancellable {
     }
 
     /// Cancel any outstanding requests
-    public func cancel(deadline: DispatchTime) throws {
-
+    public func cancel(deadline: DispatchTime) async throws {
+        await self.httpClient.cancel(deadline: deadline)
     }
 
     public func changeSigningEntityFromVersion(
