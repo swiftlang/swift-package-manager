@@ -1029,9 +1029,9 @@ if ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] == nil {
         .product(name: "SWBBuildService", package: "swift-build"),
     ]
 
-    //if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
+    if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         package.dependencies += [.package(url: "https://github.com/swiftlang/swift-build.git", branch: relatedDependenciesBranch)]
-    //} else {
-    //    package.dependencies += [.package(path: "../swift-build")]
-    //}
+    } else {
+        package.dependencies += [.package(path: "../swift-build")]
+    }
 }
