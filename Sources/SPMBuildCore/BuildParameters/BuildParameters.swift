@@ -286,7 +286,7 @@ public struct BuildParameters: Encodable {
     }
 
     /// Returns the path to the executable of a product for the current build parameters.
-    private func executablePath(for name: String) throws -> RelativePath {
+    package func executablePath(for name: String) throws -> RelativePath {
         try RelativePath(validating: "\(name)\(self.suffix)\(self.triple.executableExtension)")
     }
 

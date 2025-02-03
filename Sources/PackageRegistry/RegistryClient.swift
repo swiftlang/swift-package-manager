@@ -151,17 +151,35 @@ public final class RegistryClient: Cancellable {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
     ) async throws -> PackageMetadata {
-        try await withCheckedThrowingContinuation { continuation in
-            self.getPackageMetadata(
-                package: package,
+        guard let registryIdentity = package.registry else {
+            throw RegistryError.invalidPackageIdentity(package)
+        }
+
+        guard let registry = self.configuration.registry(for: registryIdentity.scope) else {
+            throw RegistryError.registryNotConfigured(scope: registryIdentity.scope)
+        }
+
+        let underlying = {
+            try await self._getPackageMetadata(
+                registry: registry,
+                package: registryIdentity,
                 timeout: timeout,
                 observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: {
-                    continuation.resume(with: $0)
-                }
+                callbackQueue: callbackQueue
             )
         }
+
+        if registry.supportsAvailability {
+            // The only value that will return is .available, otherwise this check throws an error.
+            if case .available = try await self.withAvailabilityCheck(
+                registry: registry,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue
+            ) {
+                return try await underlying()
+            }
+        }
+        return try await underlying()
     }
 
     @available(*, noasync, message: "Use the async alternative")
@@ -173,41 +191,18 @@ public final class RegistryClient: Cancellable {
         completion: @escaping (Result<PackageMetadata, Error>) -> Void
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
-
-        guard let registryIdentity = package.registry else {
-            return completion(.failure(RegistryError.invalidPackageIdentity(package)))
-        }
-
-        guard let registry = self.configuration.registry(for: registryIdentity.scope) else {
-            return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
-        }
-
-        observabilityScope.emit(debug: "registry for \(package): \(registry)")
-
-        let underlying = {
-            self._getPackageMetadata(
-                registry: registry,
-                package: registryIdentity,
-                timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: completion
-            )
-        }
-
-        if registry.supportsAvailability {
-            self.withAvailabilityCheck(
-                registry: registry,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
-            ) { error in
-                if let error {
-                    return completion(.failure(error))
-                }
-                underlying()
+        _ = Task {
+            do {
+                let result = try await self.getPackageMetadata(
+                    package: package,
+                    timeout: timeout,
+                    observabilityScope: observabilityScope,
+                    callbackQueue: callbackQueue
+                )
+                completion(.success(result))
+            } catch {
+                completion(.failure(error))
             }
-        } else {
-            underlying()
         }
     }
 
@@ -217,63 +212,122 @@ public final class RegistryClient: Cancellable {
         package: PackageIdentity.RegistryIdentity,
         timeout: DispatchTimeInterval?,
         observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<PackageMetadata, Error>) -> Void
-    ) {
-        let completion = self.makeAsync(completion, on: callbackQueue)
-
+        callbackQueue: DispatchQueue
+    ) async throws -> PackageMetadata {
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
-            return completion(.failure(RegistryError.invalidURL(registry.url)))
+            throw RegistryError.invalidURL(registry.url)
         }
         components.appendPathComponents("\(package.scope)", "\(package.name)")
         guard let url = components.url else {
-            return completion(.failure(RegistryError.invalidURL(registry.url)))
+            throw RegistryError.invalidURL(registry.url)
         }
 
-        let request = LegacyHTTPClient.Request(
-            method: .get,
+        // If the responses are paginated then iterate until we've exasuasted all the pages and have a full versions list.
+        func iterateResponses(url: URL, existingMetadata: PackageMetadata) async throws -> PackageMetadata {
+            try Task.checkCancellation()
+
+            let metadata = try await self._getIndividualPackageMetadata(
+                url: url,
+                registry: registry,
+                package: package,
+                timeout: timeout,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue
+            )
+
+            let mergedMetadata = PackageMetadata(
+                registry: registry,
+                versions: existingMetadata.versions + metadata.versions,
+                alternateLocations: existingMetadata.alternateLocations.count > 0
+                    ? existingMetadata.alternateLocations
+                    : metadata.alternateLocations,
+                nextPage: metadata.nextPage
+            )
+            if let nextPage = mergedMetadata.nextPage?.url {
+                return try await iterateResponses(
+                    url: nextPage,
+                    existingMetadata: mergedMetadata
+                )
+            } else {
+                return PackageMetadata(
+                    registry: registry,
+                    versions: mergedMetadata.versions.sorted(by: >),
+                    alternateLocations: mergedMetadata.alternateLocations,
+                    nextPage: mergedMetadata.nextPage
+                )
+            }
+        }
+
+        return try await iterateResponses(
             url: url,
-            headers: [
-                "Accept": self.acceptHeader(mediaType: .json),
-            ],
-            options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
+            existingMetadata: PackageMetadata(
+                registry: registry,
+                versions: [],
+                alternateLocations: [],
+                nextPage: nil
+            )
         )
+    }
 
+    private func _getIndividualPackageMetadata(
+        url: URL,
+        registry: Registry,
+        package: PackageIdentity.RegistryIdentity,
+        timeout: DispatchTimeInterval?,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws -> PackageMetadata {
         let start = DispatchTime.now()
-        observabilityScope.emit(info: "retrieving \(package) metadata from \(request.url)")
-        self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
-            completion(
-                result.tryMap { response in
-                    observabilityScope
-                        .emit(
-                            debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-                        )
-                    switch response.statusCode {
-                    case 200:
-                        let packageMetadata = try response.parseJSON(
-                            Serialization.PackageMetadata.self,
-                            decoder: self.jsonDecoder
-                        )
+        observabilityScope.emit(info: "retrieving \(package) metadata from \(url)")
 
-                        let versions = packageMetadata.releases.filter { $0.value.problem == nil }
-                            .compactMap { Version($0.key) }
-                            .sorted(by: >)
+        let response: LegacyHTTPClient.Response
+        do {
+            response = try await self.httpClient.get(
+                url,
+                headers: [
+                    "Accept": self.acceptHeader(mediaType: .json),
+                ],
+                options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue),
+                observabilityScope: observabilityScope
+            )
+        } catch let error where !(error is _Concurrency.CancellationError) {
+            throw RegistryError.failedRetrievingReleases(registry: registry, package: package.underlying, error: error)
+        }
+        observabilityScope
+            .emit(
+                debug: "server response for \(url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+            )
 
-                        let alternateLocations = try response.headers.parseAlternativeLocationLinks()
+        switch response.statusCode {
+        case 200:
+            let packageMetadata = try response.parseJSON(
+                Serialization.PackageMetadata.self,
+                decoder: self.jsonDecoder
+            )
 
-                        return PackageMetadata(
-                            registry: registry,
-                            versions: versions,
-                            alternateLocations: alternateLocations?.map(\.url)
-                        )
-                    case 404:
-                        throw RegistryError.packageNotFound
-                    default:
-                        throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
-                    }
-                }.mapError {
-                    RegistryError.failedRetrievingReleases(registry: registry, package: package.underlying, error: $0)
-                }
+            let versions = packageMetadata.releases.filter { $0.value.problem == nil }
+                .compactMap { Version($0.key) }
+
+            let alternateLocations = response.headers.parseAlternativeLocationLinks()
+            let paginationLinks = response.headers.parsePaginationLinks()
+
+            return PackageMetadata(
+                registry: registry,
+                versions: versions,
+                alternateLocations: alternateLocations.map(\.url),
+                nextPage: paginationLinks.first { $0.kind == .next }?.url
+            )
+        case 404:
+            throw RegistryError.failedRetrievingReleases(
+                registry: registry,
+                package: package.underlying,
+                error: RegistryError.packageNotFound
+            )
+        default:
+            throw RegistryError.failedRetrievingReleases(
+                registry: registry,
+                package: package.underlying,
+                error: self.unexpectedStatusError(response, expectedStatus: [200, 404])
             )
         }
     }
@@ -1770,6 +1824,28 @@ public final class RegistryClient: Cancellable {
     private func withAvailabilityCheck(
         registry: Registry,
         observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws -> AvailabilityStatus {
+        try await withCheckedThrowingContinuation { continuation in
+            self.withAvailabilityCheck(
+                registry: registry,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                next: {
+                    if let error = $0 {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume(returning: .available)
+                    }
+                }
+            )
+        }
+    }
+
+    @available(*, noasync, message: "Use the async alternative")
+    private func withAvailabilityCheck(
+        registry: Registry,
+        observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         next: @escaping (Error?) -> Void
     ) {
@@ -2071,7 +2147,8 @@ extension RegistryClient {
     public struct PackageMetadata {
         public let registry: Registry
         public let versions: [Version]
-        public let alternateLocations: [SourceControlURL]?
+        public let alternateLocations: [SourceControlURL]
+        public let nextPage: SourceControlURL?
     }
 
     public struct PackageVersionMetadata: Sendable {
@@ -2140,6 +2217,17 @@ extension RegistryClient {
         enum Kind: String {
             case canonical
             case alternate
+        }
+    }
+
+    fileprivate struct NextLocationLink {
+        let url: SourceControlURL
+        let kind: Kind
+
+        enum Kind: String {
+            // Currently we only care about `next` for pagination, but there are several other values:
+            // https://github.com/swiftlang/swift-package-manager/blob/0340bb12a56f9696b3966ad82c2aee1594135377/Documentation/PackageRegistry/Registry.md?plain=1#L403-L411
+            case next
         }
     }
 }
@@ -2263,20 +2351,16 @@ extension HTTPClientResponse {
 }
 
 extension HTTPClientHeaders {
-    /*
-     <https://github.com/mona/LinkedList>; rel="canonical",
-     <ssh://git@github.com:mona/LinkedList.git>; rel="alternate",
-      */
-    fileprivate func parseAlternativeLocationLinks() throws -> [RegistryClient.AlternativeLocationLink]? {
-        try self.get("Link").map { header -> [RegistryClient.AlternativeLocationLink] in
+    fileprivate func parseLink<T>(_ factory: (String) throws -> T?) rethrows -> [T] {
+        return try self.get("Link").map { header -> [T] in
             let linkLines = header.split(separator: ",").map(String.init).map { $0.spm_chuzzle() ?? $0 }
             return try linkLines.compactMap { linkLine in
-                try parseAlternativeLocationLine(linkLine)
+                try factory(linkLine)
             }
         }.flatMap { $0 }
     }
 
-    private func parseAlternativeLocationLine(_ value: String) throws -> RegistryClient.AlternativeLocationLink? {
+    fileprivate func parseLocationLine<T>(_ value: String, _ factory: (String, String) -> T?) -> T? {
         let fields = value.split(separator: ";")
             .map(String.init)
             .map { $0.spm_chuzzle() ?? $0 }
@@ -2290,16 +2374,60 @@ extension HTTPClientHeaders {
             return nil
         }
 
-        guard let rel = fields.first(where: { $0.hasPrefix("rel=") }).flatMap({ parseLinkFieldValue($0) }),
-              let kind = RegistryClient.AlternativeLocationLink.Kind(rawValue: rel)
+        guard let rel = fields.first(where: { $0.hasPrefix("rel=") }).flatMap({ parseLinkFieldValue($0) })
         else {
             return nil
         }
 
-        return RegistryClient.AlternativeLocationLink(
-            url: SourceControlURL(link),
-            kind: kind
-        )
+        return factory(link, rel)
+    }
+}
+
+extension HTTPClientHeaders {
+    /*
+    https://github.com/swiftlang/swift-package-manager/blob/0340bb12a56f9696b3966ad82c2aee1594135377/Documentation/PackageRegistry/Registry.md?plain=1#L395C1-L401C39
+    <https://github.com/mona/LinkedList>; rel="canonical",
+    <ssh://git@github.com:mona/LinkedList.git>; rel="alternate",
+    */
+    fileprivate func parseAlternativeLocationLinks() -> [RegistryClient.AlternativeLocationLink] {
+        self.parseLink(self.parseAlternativeLocationLine(_:))
+    }
+
+    private func parseAlternativeLocationLine(_ value: String) -> RegistryClient.AlternativeLocationLink? {
+        return parseLocationLine(value) { link, rel in
+            guard let kind = RegistryClient.AlternativeLocationLink.Kind(rawValue: rel) else {
+                return nil
+            }
+
+            return RegistryClient.AlternativeLocationLink(
+                url: SourceControlURL(link),
+                kind: kind
+            )
+        }
+    }
+}
+
+extension HTTPClientHeaders {
+    /*
+    https://github.com/swiftlang/swift-package-manager/blob/0340bb12a56f9696b3966ad82c2aee1594135377/Documentation/PackageRegistry/Registry.md?plain=1#L403-L411
+    <https://github.com/mona/LinkedList?page=2>; rel="next",
+    <ssh://git@github.com:mona/LinkedList.git?page=40>; rel="last",
+    */
+    fileprivate func parsePaginationLinks() -> [RegistryClient.NextLocationLink] {
+        self.parseLink(self.parsePaginationLine(_:))
+    }
+
+    private func parsePaginationLine(_ value: String) -> RegistryClient.NextLocationLink? {
+        return parseLocationLine(value) { link, rel in
+            guard let kind = RegistryClient.NextLocationLink.Kind(rawValue: rel) else {
+                return nil
+            }
+
+            return RegistryClient.NextLocationLink(
+                url: SourceControlURL(link),
+                kind: kind
+            )
+        }
     }
 }
 
@@ -2308,12 +2436,7 @@ extension HTTPClientHeaders {
      <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0"
      */
     fileprivate func parseManifestLinks() throws -> [RegistryClient.ManifestLink] {
-        try self.get("Link").map { header -> [RegistryClient.ManifestLink] in
-            let linkLines = header.split(separator: ",").map(String.init).map { $0.spm_chuzzle() ?? $0 }
-            return try linkLines.compactMap { linkLine in
-                try parseManifestLinkLine(linkLine)
-            }
-        }.flatMap { $0 }
+        try self.parseLink(self.parseManifestLinkLine(_:))
     }
 
     private func parseManifestLinkLine(_ value: String) throws -> RegistryClient.ManifestLink? {
