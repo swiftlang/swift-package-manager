@@ -290,7 +290,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 triple: self.hostToolchain.targetTriple,
                 flags: buildFlags,
                 architectures: architectures,
-                isXcodeBuildSystemEnabled: buildSystem == .xcode,
+                isXcodeBuildSystemEnabled: buildSystem.useXcodeBuildSystemPath,
                 driverParameters: .init(
                     explicitTargetDependencyImportCheckingMode: explicitTargetDependencyImportCheck == .error ? .error : .none,
                     useIntegratedSwiftDriver: useIntegratedSwiftDriver,
