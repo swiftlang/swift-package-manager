@@ -242,6 +242,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         do {
             try await withSession(service: service, name: buildParameters.pifManifest.pathString) { session, _ in
+                self.outputStream.send("Building for \(self.buildParameters.configuration == .debug ? "debugging" : "production")...\n")
+
                 // Load the workspace, and set the system information to the default
                 do {
                     try await session.loadWorkspace(containerPath: self.buildParameters.pifManifest.pathString)
