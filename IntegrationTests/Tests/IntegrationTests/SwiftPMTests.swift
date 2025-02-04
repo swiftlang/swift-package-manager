@@ -60,8 +60,9 @@ final class SwiftPMTests: XCTestCase {
         try withTemporaryDirectory { tmpDir in
             let packagePath = tmpDir.appending(component: "foo")
             try localFileSystem.createDirectory(packagePath)
-            try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "executable")
+            try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "library")
             try sh(swiftBuild, "--package-path", packagePath, "--build-system", "swiftbuild")
+            try sh(swiftTest, "--package-path", packagePath, "--build-system", "swiftbuild")
         }
     }
 
