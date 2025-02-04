@@ -244,13 +244,16 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         fileSystem: Basics.FileSystem,
         observabilityScope: ObservabilityScope
     ) {
-        /// Checks if stdout stream is tty.
+        /// Checks if stdout stream is tty. If user specifies --no-color-diagnostics flag, then stdout stream is not colorized
         var productsBuildParameters = productsBuildParameters
-        productsBuildParameters.outputParameters.isColorized = outputStream.isTTY
-
+        if productsBuildParameters.outputParameters.isColorized {
+            productsBuildParameters.outputParameters.isColorized = outputStream.isTTY
+        }
         var toolsBuildParameters = toolsBuildParameters
-        toolsBuildParameters.outputParameters.isColorized = outputStream.isTTY
-
+    
+        if toolsBuildParameters.outputParameters.isColorized{
+            toolsBuildParameters.outputParameters.isColorized = outputStream.isTTY
+        }
         self.config = LLBuildSystemConfiguration(
             toolsBuildParameters: toolsBuildParameters,
             destinationBuildParameters: productsBuildParameters,
@@ -261,7 +264,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             outputStream: outputStream,
             observabilityScope: observabilityScope.makeChildScope(description: "Build Operation")
         )
-
+        
         self.cacheBuildManifest = cacheBuildManifest
         self.packageGraphLoader = packageGraphLoader
         self.additionalFileRules = additionalFileRules
@@ -393,14 +396,14 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         guard !self.config.shouldSkipBuilding(for: .target) else {
             return
         }
-
+        
         let buildStartTime = DispatchTime.now()
 
         // Get the build description (either a cached one or newly created).
-
+        
         // Get the build description
         let buildDescription = try await self.getBuildDescription(subset: subset)
-
+        
         // Verify dependency imports on the described targets
         try verifyTargetImports(in: buildDescription)
 
@@ -670,7 +673,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         } else {
             pluginTools = [:]
         }
-
+        
         // Create the build plan based on the modules graph and any information from plugins.
         let plan = try await BuildPlan(
             destinationBuildParameters: self.config.destinationBuildParameters,
@@ -685,7 +688,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             observabilityScope: self.observabilityScope
         )
         self._buildPlan = plan
-
+        
         // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins, once we know what files they handled.
         // rdar://113256834 This fix works for the plugins that do not have PreBuildCommands.
         let targetsToConsider: [ResolvedModule]

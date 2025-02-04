@@ -112,7 +112,7 @@ extension SwiftCommand {
             workspaceDelegateProvider: self.workspaceDelegateProvider,
             workspaceLoaderProvider: self.workspaceLoaderProvider
         )
-
+    
         // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
         swiftCommandState.setNeedsLocking()
 
@@ -156,7 +156,7 @@ extension AsyncSwiftCommand {
 
         // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
         swiftCommandState.setNeedsLocking()
-
+        
         swiftCommandState.buildSystemProvider = try buildSystemProvider(swiftCommandState)
         var toolError: Error? = .none
         do {
@@ -314,7 +314,8 @@ public final class SwiftCommandState {
         self.environment = environment
         // first, bootstrap the observability system
         self.logLevel = options.logging.logLevel
-        self.observabilityHandler = SwiftCommandObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel)
+        self.observabilityHandler = SwiftCommandObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel, noColorDiagnostics: options.logging.noColorDiagnostics)
+        
         let observabilitySystem = ObservabilitySystem(self.observabilityHandler)
         let observabilityScope = observabilitySystem.topScope
         self.observabilityScope = observabilityScope
@@ -825,6 +826,7 @@ public final class SwiftCommandState {
                 shouldDisableLocalRpath: options.linker.shouldDisableLocalRpath
             ),
             outputParameters: .init(
+                isColorized: !self.options.logging.noColorDiagnostics,
                 isVerbose: self.logLevel <= .info
             ),
             testingParameters: .init(
