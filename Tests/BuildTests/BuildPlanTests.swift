@@ -626,26 +626,33 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             fileSystem: localFileSystem
         )
         try await fixture(name: "Miscellaneous/PackageNameFlag") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(
+            let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath.appending("appPkg"),
                 extraArgs: ["--vv"],
                 buildSystem: buildSystemProvider
             )
-            XCTAssertMatch(stdout, .contains("-module-name Foo"))
-            XCTAssertMatch(stdout, .contains("-module-name Zoo"))
-            XCTAssertMatch(stdout, .contains("-module-name Bar"))
-            XCTAssertMatch(stdout, .contains("-module-name Baz"))
-            XCTAssertMatch(stdout, .contains("-module-name App"))
-            XCTAssertMatch(stdout, .contains("-module-name exe"))
-            if isFlagSupportedInDriver {
-                XCTAssertMatch(stdout, .contains("-package-name apppkg"))
-                XCTAssertMatch(stdout, .contains("-package-name foopkg"))
-                // the flag is not supported if tools-version < 5.9
-                XCTAssertNoMatch(stdout, .contains("-package-name barpkg"))
+
+            let out = if buildSystemProvider == .swiftbuild {
+                stderr
             } else {
-                XCTAssertNoMatch(stdout, .contains("-package-name"))
+                stdout
             }
-            XCTAssertMatch(stdout, .contains("Build complete!"))
+
+            XCTAssertMatch(out, .contains("-module-name Foo"))
+            XCTAssertMatch(out, .contains("-module-name Zoo"))
+            XCTAssertMatch(out, .contains("-module-name Bar"))
+            XCTAssertMatch(out, .contains("-module-name Baz"))
+            XCTAssertMatch(out, .contains("-module-name App"))
+            XCTAssertMatch(out, .contains("-module-name exe"))
+            if isFlagSupportedInDriver {
+                XCTAssertMatch(out, .contains("-package-name apppkg"))
+                XCTAssertMatch(out, .contains("-package-name foopkg"))
+                // the flag is not supported if tools-version < 5.9
+                XCTAssertNoMatch(out, .contains("-package-name barpkg"))
+            } else {
+                XCTAssertNoMatch(out, .contains("-package-name"))
+            }
+            XCTAssertMatch(out, .contains("Build complete!"))
         }
     }
 
