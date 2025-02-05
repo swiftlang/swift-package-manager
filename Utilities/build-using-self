@@ -86,14 +86,15 @@ echo "SWIFTPM_BIN_DIR is ${SWIFTPM_BIN_DIR}"
     $SWIFTPM_BIN_DIR/swift-test --parallel ${xunit_output_integration}
 )
 
-if [ "${host}" == "Darwin" ]; then
-    echo "Current working directory is ${PWD}"
-    echo "Bootstrapping with the XCBuild codepath..."
-    ${root_dir}/Utilities/bootstrap \
-      build \
-      --release \
-      --verbose \
-      --cross-compile-hosts macosx-arm64 \
-      --skip-cmake-bootstrap \
-      --swift-build-path "${SWIFTPM_BIN_DIR}/swift-build"
-fi
+# FIXME: This is not currently working in CI due to an outdated Xcode on the builders
+# if [ "${host}" == "Darwin" ]; then
+#     echo "Current working directory is ${PWD}"
+#     echo "Bootstrapping with the XCBuild codepath..."
+#     ${root_dir}/Utilities/bootstrap \
+#       build \
+#       --release \
+#       --verbose \
+#       --cross-compile-hosts macosx-arm64 \
+#       --skip-cmake-bootstrap \
+#       --swift-build-path "${SWIFTPM_BIN_DIR}/swift-build"
+# fi

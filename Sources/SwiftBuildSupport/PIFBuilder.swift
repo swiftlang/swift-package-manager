@@ -1967,7 +1967,7 @@ extension PIFGenerationError: CustomStringConvertible {
             versions: let given,
             supportedVersions: let supported
         ):
-            "Some of the Swift language versions used in target '\(target)' settings are supported. (given: \(given), supported: \(supported))"
+            "None of the Swift language versions used in target '\(target)' settings are supported. (given: \(given), supported: \(supported))"
         }
     }
 }

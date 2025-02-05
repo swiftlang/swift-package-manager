@@ -231,7 +231,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             throw Diagnostics.fatalError
         }
 
-        print("Build complete!")
+        self.observabilityScope.emit(info: "Build complete!")
     }
 
     func createBuildParametersFile() throws -> AbsolutePath {

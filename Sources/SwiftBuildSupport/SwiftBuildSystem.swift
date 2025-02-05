@@ -327,41 +327,22 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         }
                         progressAnimation.update(step: step, total: 100, text: message)
                     case .diagnostic(let info):
-                        let report = if self.logLevel == .error && info.kind == .error {
-                            true
-                        } else if self.logLevel == .warning && (info.kind == .error || info.kind == .warning) {
-                            true
-                        } else if self
-                            .logLevel == .info && (info.kind == .error || info.kind == .warning || info.kind == .note)
-                        {
-                            true
-                        } else if self
-                            .logLevel == .debug &&
-                            (
-                                info.kind == .error || info.kind == .warning || info.kind == .note || info
-                                    .kind == .remark
-                            )
-                        {
-                            true
-                        } else {
-                            false
-                        }
-
-                        if report {
-                            progressAnimation.complete(success: false)
-                            // FIXME: a whole range of pretty printed location, context, and fixups
-                            print("\(info.kind): \(info.location) \(info.message) \(info.fixIts)")
+                        if info.kind == .error {
+                            self.observabilityScope.emit(error: "\(info.location) \(info.message) \(info.fixIts)")
+                        } else if info.kind == .warning {
+                            self.observabilityScope.emit(warning: "\(info.location) \(info.message) \(info.fixIts)")
+                        } else if info.kind == .note {
+                            self.observabilityScope.emit(info: "\(info.location) \(info.message) \(info.fixIts)")
+                        } else if info.kind == .remark {
+                            self.observabilityScope.emit(debug: "\(info.location) \(info.message) \(info.fixIts)")
                         }
                     case .taskOutput(let info):
-                        print("\(info.data)")
+                        self.observabilityScope.emit(info: "\(info.data)")
                     case .taskStarted(let info):
-                        if self.logLevel == .info || self.logLevel == .debug {
-                            // FIXME: pretty print the log level tag
-                            if let commandLineDisplay = info.commandLineDisplayString {
-                                print("info: \(info.executionDescription)\n\(commandLineDisplay)")
-                            } else {
-                                print("info: \(info.executionDescription)")
-                            }
+                        if let commandLineDisplay = info.commandLineDisplayString {
+                            self.observabilityScope.emit(info: "\(info.executionDescription)\n\(commandLineDisplay)")
+                        } else {
+                            self.observabilityScope.emit(info: "\(info.executionDescription)")
                         }
                     default:
                         break
@@ -383,21 +364,21 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 case .succeeded:
                     progressAnimation.update(step: 100, total: 100, text: "")
                     progressAnimation.complete(success: true)
-                    print("Build complete!")
+                    self.observabilityScope.emit(info: "Build complete!")
                 case .failed:
-                    self.observabilityScope.emit(error: "build failed")
+                    self.observabilityScope.emit(error: "Build failed")
                     throw Diagnostics.fatalError
                 case .cancelled:
-                    self.observabilityScope.emit(error: "build was cancelled")
+                    self.observabilityScope.emit(error: "Build was cancelled")
                     throw Diagnostics.fatalError
                 case .requested, .running, .aborted:
-                    self.observabilityScope.emit(error: "unexpected build state")
+                    self.observabilityScope.emit(error: "Unexpected build state")
                     throw Diagnostics.fatalError
                 }
             }
         } catch let sessError as SessionFailedError {
             for diagnostic in sessError.diagnostics {
-                print(diagnostic.message)
+                self.observabilityScope.emit(error: diagnostic.message)
             }
             throw sessError.error
         } catch {
