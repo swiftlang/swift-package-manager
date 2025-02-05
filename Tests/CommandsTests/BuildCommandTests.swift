@@ -412,11 +412,13 @@ final class BuildCommandTests: CommandsTestCase {
         }
     }
 
-    private func testBuildSystemDefaultSettings(buildsystem: String) async throws {
+    private func testBuildSystemDefaultSettings(buildSystem: String) async throws {
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             // try await building using XCBuild with default parameters.  This should succeed.  We build verbosely so we get
             // full command lines.
-            let defaultOutput = try await execute(["--build-system", buildsystem, "-c", "debug", "-v"], packagePath: fixturePath).stdout
+            let output = try await execute(["--build-system", buildSystem, "-c", "debug", "-v"], packagePath: fixturePath)
+
+            let defaultOutput = buildSystem == "swiftbuild" ? output.stderr : output.stdout
 
             // Look for certain things in the output from XCBuild.
             XCTAssertMatch(
@@ -427,7 +429,7 @@ final class BuildCommandTests: CommandsTestCase {
     }
 
     func testNativeBuildSystemDefaultSettings() async throws {
-        try await self.testBuildSystemDefaultSettings(buildsystem: "native")
+        try await self.testBuildSystemDefaultSettings(buildSystem: "native")
     }
 
     #if os(macOS)
@@ -435,7 +437,7 @@ final class BuildCommandTests: CommandsTestCase {
         // TODO figure out in what circumstance the xcode build system test can run.
         throw XCTSkip("Xcode build system test is not working in test")
 
-        try await self.testBuildSystemDefaultSettings(buildsystem: "xcode")
+        try await self.testBuildSystemDefaultSettings(buildSystem: "xcode")
     }
     #endif
 
@@ -446,7 +448,7 @@ final class BuildCommandTests: CommandsTestCase {
         }
         #endif
 
-        try await testBuildSystemDefaultSettings(buildsystem: "swiftbuild")
+        try await testBuildSystemDefaultSettings(buildSystem: "swiftbuild")
     }
 
     func testXcodeBuildSystemWithAdditionalBuildFlags() async throws {
