@@ -628,7 +628,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         try await fixture(name: "Miscellaneous/PackageNameFlag") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath.appending("appPkg"),
-                extraArgs: ["-vv"],
+                extraArgs: ["--vv"],
                 buildSystem: buildSystemProvider
             )
             XCTAssertMatch(stdout, .contains("-module-name Foo"))
@@ -659,8 +659,8 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         try await fixture(name: "Miscellaneous/PackageNameFlag") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath.appending("appPkg"),
-                extraArgs: ["--build-system", "xcode", "-vv"],
-                buildSystem: buildSystemProvider
+                extraArgs: ["--vv"],
+                buildSystem: .xcode
             )
             XCTAssertMatch(stdout, .contains("-module-name Foo"))
             XCTAssertMatch(stdout, .contains("-module-name Zoo"))
