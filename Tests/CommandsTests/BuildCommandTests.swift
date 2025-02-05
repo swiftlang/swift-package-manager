@@ -418,11 +418,9 @@ final class BuildCommandTests: CommandsTestCase {
             // full command lines.
             let output = try await execute(["--build-system", buildSystem, "-c", "debug", "-v"], packagePath: fixturePath)
 
-            let defaultOutput = buildSystem == "swiftbuild" ? output.stderr : output.stdout
-
             // Look for certain things in the output from XCBuild.
             XCTAssertMatch(
-                defaultOutput,
+                output.stdout,
                 try .contains("Build complete!")
             )
         }

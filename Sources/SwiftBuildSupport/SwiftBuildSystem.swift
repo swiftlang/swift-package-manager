@@ -365,6 +365,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     progressAnimation.update(step: 100, total: 100, text: "")
                     progressAnimation.complete(success: true)
                     self.outputStream.send("Build complete!\n")
+                    self.outputStream.flush()
                 case .failed:
                     self.observabilityScope.emit(error: "Build failed")
                     throw Diagnostics.fatalError

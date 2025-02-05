@@ -232,6 +232,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         }
 
         self.outputStream.send("Build complete!\n")
+        self.outputStream.flush()
     }
 
     func createBuildParametersFile() throws -> AbsolutePath {
