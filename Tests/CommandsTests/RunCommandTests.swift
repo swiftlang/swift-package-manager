@@ -19,7 +19,7 @@ import XCTest
 
 import class Basics.AsyncProcess
 
-class RunCommandTestCase: BuildSystemProviderTestCase {
+class RunCommandTestCase: CommandsBuildProviderTestCase {
     override func setUpWithError() throws {
         try XCTSkipIf(type(of: self) == RunCommandTestCase.self, "Pay no attention to the class behind the curtain.")
     }
@@ -291,28 +291,57 @@ class RunCommandSwiftBuildTests: RunCommandTestCase {
         try await super.testUsage()
     }
 
-    override func testMultipleExecutableAndExplicitExecutable() async throws {
-        try XCTSkip("https://github.com/swiftlang/swift-package-manager/issues/8279: Swift run using Swift Build does not output executable content to the terminal")
+    override open var xFailTestCaseNames: [XFailCaseName] {
+        return [
+            XFailCaseName(
+                String(describing: testMultipleExecutableAndExplicitExecutable.self),
+                because: "https://github.com/swiftlang/swift-package-manager/issues/8279: Swift run using Swift Build does not output executable content to the terminal",
+            ),
+            XFailCaseName(
+                String(describing: testUnknownProductAndArgumentPassing.self),
+                because: "https://github.com/swiftlang/swift-package-manager/issues/8279: Swift run using Swift Build does not output executable content to the terminal",
+            ),
+            XFailCaseName(
+                String(describing: testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInDebugConfig.self),
+                because: "Test fixture fails to build",
+            ),
+            XFailCaseName(
+                String(describing: testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInReleaseConfig.self),
+                because: "Test fixture fails to build",
+            ),
+            XFailCaseName(
+                String(describing: testToolsetDebugger.self),
+                because: "Test fixture fails to build",
+            ),
+            XFailCaseName(
+                String(describing: testUnreachableExecutable.self),
+                because: "Need to investigate test failure",
+            ),
+        ]
     }
 
-    override func testUnknownProductAndArgumentPassing() async throws {
-        try XCTSkip("https://github.com/swiftlang/swift-package-manager/issues/8279: Swift run using Swift Build does not output executable content to the terminal")
-    }
+    // override func testMultipleExecutableAndExplicitExecutable() async throws {
+    //     try XCTSkip("https://github.com/swiftlang/swift-package-manager/issues/8279: Swift run using Swift Build does not output executable content to the terminal")
+    // }
 
-    override func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInDebugConfig() async throws {
-        try XCTSkip("Test fixture fails to build")
-    }
+    // override func testUnknownProductAndArgumentPassing() async throws {
+    //     try XCTSkip("https://github.com/swiftlang/swift-package-manager/issues/8279: Swift run using Swift Build does not output executable content to the terminal")
+    // }
 
-    override func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInReleaseConfig() async throws {
-        try XCTSkip("Test fixture fails to build")
-    }
+    // override func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInDebugConfig() async throws {
+    //     try XCTSkip("Test fixture fails to build")
+    // }
 
-    override func testToolsetDebugger() async throws {
-        try XCTSkip("Test fixture fails to build")
-    }
+    // override func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInReleaseConfig() async throws {
+    //     try XCTSkip("Test fixture fails to build")
+    // }
 
-    override func testUnreachableExecutable() async throws {
-        try XCTSkip("Need to investigate test failure")
-    }
+    // override func testToolsetDebugger() async throws {
+    //     try XCTSkip("Test fixture fails to build")
+    // }
+
+    // override func testUnreachableExecutable() async throws {
+    //     try XCTSkip("Need to investigate test failure")
+    // }
 
 }
