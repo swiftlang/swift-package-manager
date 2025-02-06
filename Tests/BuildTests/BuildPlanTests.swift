@@ -652,7 +652,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             } else {
                 XCTAssertNoMatch(out, .contains("-package-name"))
             }
-            XCTAssertMatch(out, .contains("Build complete!"))
+            XCTAssertMatch(stdout, .contains("Build complete!"))
         }
     }
 
