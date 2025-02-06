@@ -49,6 +49,23 @@ final class SwiftPMTests: XCTestCase {
         }
     }
 
+    func testSwiftBuild() throws {
+        #if os(Linux)
+        if FileManager.default.contents(atPath: "/etc/system-release").map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false {
+            throw XCTSkip("Skipping SwiftBuild testing on Amazon Linux because of platform issues.")
+        }
+        #endif
+
+        // Test SwiftBuildSystem
+        try withTemporaryDirectory { tmpDir in
+            let packagePath = tmpDir.appending(component: "foo")
+            try localFileSystem.createDirectory(packagePath)
+            try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "library")
+            try sh(swiftBuild, "--package-path", packagePath, "--build-system", "swiftbuild")
+            try sh(swiftTest, "--package-path", packagePath, "--build-system", "swiftbuild")
+        }
+    }
+
     func testArchCustomization() throws {
         #if !os(macOS)
         try XCTSkip("Test requires macOS")

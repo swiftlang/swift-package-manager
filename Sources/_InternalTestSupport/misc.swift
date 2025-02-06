@@ -24,6 +24,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
+import SPMBuildCore
 import struct SPMBuildCore.BuildParameters
 import TSCTestSupport
 import Workspace
@@ -114,6 +115,10 @@ public func testWithTemporaryDirectory<Result>(
         print("stderr:", stderr)
         throw error
     }
+}
+
+public enum TestError: Error {
+    case platformNotSupported
 }
 
 @discardableResult public func fixture<T>(
@@ -240,61 +245,127 @@ public func initGitRepo(
     }
 }
 
+public func getBuildSystemArgs(for buildSystem: BuildSystemProvider.Kind?) -> [String] {
+    guard let system = buildSystem else { return [] }
+
+    return [
+        "--build-system",
+        "\(system)"
+    ]
+}
+
 @discardableResult
 public func executeSwiftBuild(
-    _ packagePath: AbsolutePath,
+    _ packagePath: AbsolutePath?,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: Environment? = nil
+    env: Environment? = nil,
+    buildSystem: BuildSystemProvider.Kind = .native
 ) async throws -> (stdout: String, stderr: String) {
-    let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
+    let args = swiftArgs(
+        configuration: configuration,
+        extraArgs: extraArgs,
+        Xcc: Xcc,
+        Xld: Xld,
+        Xswiftc: Xswiftc,
+        buildSystem: buildSystem
+    )
+    let buildArgs: [String] = getBuildSystemArgs(for: buildSystem)
     return try await SwiftPM.Build.execute(args, packagePath: packagePath, env: env)
 }
 
 @discardableResult
 public func executeSwiftRun(
-    _ packagePath: AbsolutePath,
-    _ executable: String,
+    _ packagePath: AbsolutePath?,
+    _ executable: String?,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: Environment? = nil
+    env: Environment? = nil,
+    buildSystem: BuildSystemProvider.Kind = .native
 ) async throws -> (stdout: String, stderr: String) {
-    var args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
-    args.append(executable)
+    var args = swiftArgs(
+        configuration: configuration,
+        extraArgs: extraArgs,
+        Xcc: Xcc,
+        Xld: Xld,
+        Xswiftc: Xswiftc,
+        buildSystem: buildSystem
+    )
+    if let executable {
+        args.append(executable)
+    }
     return try await SwiftPM.Run.execute(args, packagePath: packagePath, env: env)
 }
 
 @discardableResult
 public func executeSwiftPackage(
-    _ packagePath: AbsolutePath,
+    _ packagePath: AbsolutePath?,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: Environment? = nil
+    env: Environment? = nil,
+    buildSystem: BuildSystemProvider.Kind = .native
 ) async throws -> (stdout: String, stderr: String) {
-    let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
+    let args = swiftArgs(
+        configuration: configuration,
+        extraArgs: extraArgs,
+        Xcc: Xcc,
+        Xld: Xld,
+        Xswiftc: Xswiftc,
+        buildSystem: buildSystem
+    )
     return try await SwiftPM.Package.execute(args, packagePath: packagePath, env: env)
 }
 
 @discardableResult
-public func executeSwiftTest(
-    _ packagePath: AbsolutePath,
+public func executeSwiftPackageRegistry(
+    _ packagePath: AbsolutePath?,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: Environment? = nil
+    env: Environment? = nil,
+    buildSystem: BuildSystemProvider.Kind = .native
 ) async throws -> (stdout: String, stderr: String) {
-    let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
+    let args = swiftArgs(
+        configuration: configuration,
+        extraArgs: extraArgs,
+        Xcc: Xcc,
+        Xld: Xld,
+        Xswiftc: Xswiftc,
+        buildSystem: buildSystem
+    )
+    return try await SwiftPM.Registry.execute(args, packagePath: packagePath, env: env)
+}
+
+@discardableResult
+public func executeSwiftTest(
+    _ packagePath: AbsolutePath?,
+    configuration: Configuration = .Debug,
+    extraArgs: [String] = [],
+    Xcc: [String] = [],
+    Xld: [String] = [],
+    Xswiftc: [String] = [],
+    env: Environment? = nil,
+    buildSystem: BuildSystemProvider.Kind = .native
+) async throws -> (stdout: String, stderr: String) {
+    let args = swiftArgs(
+        configuration: configuration,
+        extraArgs: extraArgs,
+        Xcc: Xcc,
+        Xld: Xld,
+        Xswiftc: Xswiftc,
+        buildSystem: buildSystem
+    )
     return try await SwiftPM.Test.execute(args, packagePath: packagePath, env: env)
 }
 
@@ -303,7 +374,8 @@ private func swiftArgs(
     extraArgs: [String],
     Xcc: [String],
     Xld: [String],
-    Xswiftc: [String]
+    Xswiftc: [String],
+    buildSystem: BuildSystemProvider.Kind?
 ) -> [String] {
     var args = ["--configuration"]
     switch configuration {
@@ -313,10 +385,11 @@ private func swiftArgs(
         args.append("release")
     }
 
-    args += extraArgs
     args += Xcc.flatMap { ["-Xcc", $0] }
     args += Xld.flatMap { ["-Xlinker", $0] }
     args += Xswiftc.flatMap { ["-Xswiftc", $0] }
+    args += getBuildSystemArgs(for: buildSystem)
+    args += extraArgs
     return args
 }
 

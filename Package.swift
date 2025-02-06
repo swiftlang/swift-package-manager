@@ -449,6 +449,13 @@ let package = Package(
             ]
         ),
         .target(
+            name: "SwiftBuildSupport",
+            dependencies: [
+                "SPMBuildCore",
+                "PackageGraph",
+            ]
+        ),
+        .target(
             /** High level functionality */
             name: "Workspace",
             dependencies: [
@@ -496,6 +503,7 @@ let package = Package(
                 "PackageGraph",
                 "Workspace",
                 "XCBuildSupport",
+                "SwiftBuildSupport",
             ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
@@ -517,6 +525,7 @@ let package = Package(
                 "SourceControl",
                 "Workspace",
                 "XCBuildSupport",
+                "SwiftBuildSupport",
             ] + swiftSyntaxDependencies(["SwiftIDEUtils"]),
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: [
@@ -615,6 +624,7 @@ let package = Package(
                 "PackageLoading",
                 "PackageModel",
                 "XCBuildSupport",
+                "SwiftBuildSupport",
             ],
             exclude: ["CMakeLists.txt"]
         ),
@@ -694,6 +704,7 @@ let package = Package(
                 dependencies: [
                     "Build",
                     "XCBuildSupport",
+                    "SwiftBuildSupport",
                     "_InternalTestSupport"
                 ],
                 swiftSettings: [
@@ -1005,4 +1016,22 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-certificates"),
         .package(path: "../swift-toolchain-sqlite"),
     ]
+}
+
+if ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] == nil {
+    let swiftbuildsupport: Target = package.targets.first(where: { $0.name == "SwiftBuildSupport" } )!
+    swiftbuildsupport.dependencies += [
+        .product(name: "SwiftBuild", package: "swift-build"),
+    ]
+
+    swiftbuildsupport.dependencies += [
+        // This is here to statically link the build service in the same executable as SwiftPM
+        .product(name: "SWBBuildService", package: "swift-build"),
+    ]
+
+    if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
+        package.dependencies += [.package(url: "https://github.com/swiftlang/swift-build.git", branch: relatedDependenciesBranch)]
+    } else {
+        package.dependencies += [.package(path: "../swift-build")]
+    }
 }
