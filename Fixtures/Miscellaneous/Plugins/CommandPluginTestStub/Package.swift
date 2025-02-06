@@ -29,11 +29,27 @@ let package = Package(
                 .target(name: "plugintool")
             ]
         ),
+        .plugin(
+            name: "check-testability",
+            capability: .command(intent: .custom(
+                verb: "check-testability",
+                description: "Check testability of a target"
+            ))
+        ),
         .executableTarget(
             name: "placeholder"
         ),
         .executableTarget(
             name: "plugintool"
+        ),
+        .target(
+            name: "InternalModule"
+        ),
+        .testTarget(
+            name: "InternalModuleTests",
+            dependencies: [
+                .target(name: "InternalModule")
+            ]
         ),
     ]
 )

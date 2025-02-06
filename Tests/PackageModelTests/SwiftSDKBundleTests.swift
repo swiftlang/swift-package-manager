@@ -388,6 +388,7 @@ final class SwiftSDKBundleTests: XCTestCase {
             observabilityScope: system.topScope,
             outputHandler: { _ in }
         )
+        
         for bundle in bundles {
             try await store.install(bundlePathOrURL: bundle.path, archiver)
         }
@@ -402,6 +403,23 @@ final class SwiftSDKBundleTests: XCTestCase {
             )
             // By default, the target SDK is the same as the host SDK.
             XCTAssertEqual(targetSwiftSDK, hostSwiftSDK)
+        }
+
+        do {
+            let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
+                hostSwiftSDK: hostSwiftSDK,
+                hostTriple: hostTriple,
+                customCompileTriple: .arm64Linux,
+                store: store,
+                observabilityScope: system.topScope,
+                fileSystem: fileSystem
+            )
+
+            // With a custom target triple, toolset extra CLI options should be empty
+            XCTAssertEqual(targetSwiftSDK.toolset.rootPaths, hostSwiftSDK.toolset.rootPaths)
+            for tool in targetSwiftSDK.toolset.knownTools.values {
+                XCTAssertEqual(tool.extraCLIOptions, [])
+            }
         }
 
         do {
@@ -430,6 +448,19 @@ final class SwiftSDKBundleTests: XCTestCase {
             )
             // With toolset in the target SDK, it should contain the host toolset roots at the end.
             XCTAssertEqual(targetSwiftSDK.toolset.rootPaths, [toolsetRootPath] + hostSwiftSDK.toolset.rootPaths)
+        }
+
+        do {
+            let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
+                hostSwiftSDK: hostSwiftSDK,
+                hostTriple: hostTriple,
+                swiftSDKSelector: "wasm32-unknown-wasi",
+                store: store,
+                observabilityScope: system.topScope,
+                fileSystem: fileSystem
+            )
+            // Ensure that triples that have a `defaultSwiftSDK` are handled
+            XCTAssertEqual(targetSwiftSDK.targetTriple?.triple, "wasm32-unknown-wasi")
         }
 
         do {

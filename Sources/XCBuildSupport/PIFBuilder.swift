@@ -24,6 +24,8 @@ import func TSCBasic.topologicalSort
 
 /// The parameters required by `PIFBuilder`.
 struct PIFBuilderParameters {
+    let triple: Triple
+
     /// Whether the toolchain supports `-package-name` option.
     let isPackageAccessModifierSupported: Bool
 
@@ -89,6 +91,7 @@ public final class PIFBuilder {
     /// Generates the PIF representation.
     /// - Parameters:
     ///   - prettyPrint: Whether to return a formatted JSON.
+    ///   - preservePIFModelStructure: Whether to preserve model structure.
     /// - Returns: The package graph in the JSON PIF format.
     func generatePIF(
         prettyPrint: Bool = true,
@@ -426,7 +429,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             guid: product.pifTargetGUID,
             name: self.targetName(for: product),
             productType: productType,
-            productName: product.name
+            productName: "\(product.name)\(parameters.triple.executableExtension)"
         )
 
         // We'll be infusing the product's main module target into the one for the product itself.
@@ -444,17 +447,19 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         var settings = PIF.BuildSettings()
         settings[.TARGET_NAME] = product.name
         settings[.PACKAGE_RESOURCE_TARGET_KIND] = "regular"
-        settings[.PRODUCT_NAME] = product.name
+        settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
         settings[.PRODUCT_MODULE_NAME] = mainTarget.c99name
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = product.name
         settings[.CLANG_ENABLE_MODULES] = "YES"
         settings[.DEFINES_MODULE] = "YES"
 
         if product.type == .executable || product.type == .test {
-            settings[.LIBRARY_SEARCH_PATHS] = [
-                "$(inherited)",
-                "\(self.parameters.toolchainLibDir.pathString)/swift/macosx",
-            ]
+            if let darwinPlatform = parameters.triple.darwinPlatform {
+                settings[.LIBRARY_SEARCH_PATHS] = [
+                    "$(inherited)",
+                    "\(self.parameters.toolchainLibDir.pathString)/swift/\(darwinPlatform.platformName)",
+                ]
+            }
         }
 
         // Tests can have a custom deployment target based on the minimum supported by XCTest.
@@ -523,22 +528,19 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
     }
 
     private func addLibraryTarget(for product: ResolvedProduct) {
+        // For the name of the product reference
         let pifTargetProductName: String
-        let executableName: String
         let productType: PIF.Target.ProductType
         if product.type == .library(.dynamic) {
             if self.parameters.shouldCreateDylibForDynamicProducts {
-                pifTargetProductName = "lib\(product.name).dylib"
-                executableName = pifTargetProductName
+                pifTargetProductName = "\(parameters.triple.dynamicLibraryPrefix)\(product.name)\(parameters.triple.dynamicLibraryExtension)"
                 productType = .dynamicLibrary
             } else {
                 pifTargetProductName = product.name + ".framework"
-                executableName = product.name
                 productType = .framework
             }
         } else {
-            pifTargetProductName = "lib\(product.name).a"
-            executableName = pifTargetProductName
+            pifTargetProductName = "lib\(product.name)\(parameters.triple.staticLibraryExtension)"
             productType = .packageProduct
         }
 
@@ -580,17 +582,20 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         // Add other build settings when we're building an actual dylib.
         if product.type == .library(.dynamic) {
             settings[.TARGET_NAME] = product.name
-            settings[.PRODUCT_NAME] = executableName
+            settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
             settings[.PRODUCT_MODULE_NAME] = product.name
             settings[.PRODUCT_BUNDLE_IDENTIFIER] = product.name
+            settings[.EXECUTABLE_PREFIX] = parameters.triple.dynamicLibraryPrefix
             settings[.CLANG_ENABLE_MODULES] = "YES"
             settings[.DEFINES_MODULE] = "YES"
             settings[.SKIP_INSTALL] = "NO"
             settings[.INSTALL_PATH] = "/usr/local/lib"
-            settings[.LIBRARY_SEARCH_PATHS] = [
-                "$(inherited)",
-                "\(self.parameters.toolchainLibDir.pathString)/swift/macosx",
-            ]
+            if let darwinPlatform = parameters.triple.darwinPlatform {
+                settings[.LIBRARY_SEARCH_PATHS] = [
+                    "$(inherited)",
+                    "\(self.parameters.toolchainLibDir.pathString)/swift/\(darwinPlatform.platformName)",
+                ]
+            }
 
             if !self.parameters.shouldCreateDylibForDynamicProducts {
                 settings[.GENERATE_INFOPLIST_FILE] = "YES"
@@ -619,20 +624,15 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             guid: target.pifTargetGUID,
             name: target.name,
             productType: .objectFile,
-            productName: "\(target.name).o"
+            productName: "\(target.name)_Module.o"
         )
 
         var settings = PIF.BuildSettings()
-        settings[.TARGET_NAME] = target.name
+        settings[.TARGET_NAME] = target.name + "_Module"
         settings[.PACKAGE_RESOURCE_TARGET_KIND] = "regular"
-        settings[.PRODUCT_NAME] = "\(target.name).o"
+        settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
         settings[.PRODUCT_MODULE_NAME] = target.c99name
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = target.name
-
-        // EXECUTABLE_NAME is normally EXECUTABLE_PREFIX + PRODUCT_NAME + EXECUTABLE_SUFFIX
-        // So we need to override EXECUTABLE_NAME in this case to avoid doubling up the file extension because it is also part of the product name.
-        settings[.EXECUTABLE_NAME] = "\(target.name).o"
-
         settings[.CLANG_ENABLE_MODULES] = "YES"
         settings[.DEFINES_MODULE] = "YES"
         settings[.MACH_O_TYPE] = "mh_object"
@@ -899,7 +899,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
         var settings = PIF.BuildSettings()
         settings[.TARGET_NAME] = bundleName
-        settings[.PRODUCT_NAME] = bundleName
+        settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
         settings[.PRODUCT_MODULE_NAME] = bundleName
         let bundleIdentifier = "\(package.manifest.displayName).\(target.name).resources"
             .spm_mangledToBundleIdentifier() // TODO: use identity instead?
@@ -929,7 +929,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
         let targetGroup = groupTree.addGroup(path: "/", sourceTree: .group)
         pifTarget.addResourceFile(targetGroup.addFileReference(
-            path: "\(bundleName).bundle",
+            path: "\(bundleName)\(parameters.triple.nsbundleExtension)",
             sourceTree: .builtProductsDir
         ))
 

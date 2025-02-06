@@ -27,6 +27,7 @@ add_library(Commands
   PackageCommands/ResetCommands.swift
   PackageCommands/Resolve.swift
   PackageCommands/ShowDependencies.swift
+  PackageCommands/ShowExecutables.swift
   PackageCommands/SwiftPackageCommand.swift
   PackageCommands/ToolsVersionCommand.swift
   PackageCommands/Update.swift

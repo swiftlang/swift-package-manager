@@ -525,6 +525,25 @@ public struct SwiftSDK: Equatable {
         observabilityScope: ObservabilityScope? = nil,
         fileSystem: any FileSystem = localFileSystem
     ) throws -> SwiftSDK {
+        try self.systemSwiftSDK(
+            binDir,
+            environment: environment,
+            observabilityScope: observabilityScope,
+            fileSystem: fileSystem
+        )
+    }
+
+    /// A default Swift SDK on the host.
+    ///
+    /// Equivalent to `hostSwiftSDK`, except on macOS, where passing a non-nil `darwinPlatformOverride`
+    /// will result in the SDK for the corresponding Darwin platform.
+    private static func systemSwiftSDK(
+        _ binDir: AbsolutePath? = nil,
+        environment: Environment = .current,
+        observabilityScope: ObservabilityScope? = nil,
+        fileSystem: any FileSystem = localFileSystem,
+        darwinPlatformOverride: DarwinPlatform? = nil
+    ) throws -> SwiftSDK {
         // Select the correct binDir.
         if environment["SWIFTPM_CUSTOM_BINDIR"] != nil {
             print("SWIFTPM_CUSTOM_BINDIR was deprecated in favor of SWIFTPM_CUSTOM_BIN_DIR")
@@ -535,13 +554,16 @@ public struct SwiftSDK: Equatable {
 
         let sdkPath: AbsolutePath?
         #if os(macOS)
+        let darwinPlatform = darwinPlatformOverride ?? .macOS
         // Get the SDK.
         if let value = environment["SDKROOT"] {
+            sdkPath = try AbsolutePath(validating: value)
+        } else if let value = environment[EnvironmentKey("SWIFTPM_SDKROOT_\(darwinPlatform.xcrunName)")] {
             sdkPath = try AbsolutePath(validating: value)
         } else {
             // No value in env, so search for it.
             let sdkPathStr = try AsyncProcess.checkNonZeroExit(
-                arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"],
+                arguments: ["/usr/bin/xcrun", "--sdk", darwinPlatform.xcrunName, "--show-sdk-path"],
                 environment: environment
             ).spm_chomp()
             guard !sdkPathStr.isEmpty else {
@@ -559,11 +581,11 @@ public struct SwiftSDK: Equatable {
         var extraSwiftCFlags: [String] = []
         #if os(macOS)
         do {
-            let sdkPaths = try SwiftSDK.sdkPlatformFrameworkPaths(environment: environment)
-            extraCCFlags += ["-F", sdkPaths.fwk.pathString]
-            extraSwiftCFlags += ["-F", sdkPaths.fwk.pathString]
-            extraSwiftCFlags += ["-I", sdkPaths.lib.pathString]
-            extraSwiftCFlags += ["-L", sdkPaths.lib.pathString]
+            let sdkPaths = try SwiftSDK.sdkPlatformPaths(for: darwinPlatform, environment: environment)
+            extraCCFlags.append(contentsOf: sdkPaths.frameworks.flatMap { ["-F", $0.pathString] })
+            extraSwiftCFlags.append(contentsOf: sdkPaths.frameworks.flatMap { ["-F", $0.pathString] })
+            extraSwiftCFlags.append(contentsOf: sdkPaths.libraries.flatMap { ["-I", $0.pathString] })
+            extraSwiftCFlags.append(contentsOf: sdkPaths.libraries.flatMap { ["-L", $0.pathString] })
             xctestSupport = .supported
         } catch {
             xctestSupport = .unsupported(reason: String(describing: error))
@@ -589,15 +611,46 @@ public struct SwiftSDK: Equatable {
         )
     }
 
+    /// Auxiliary platform frameworks and libraries.
+    ///
+    /// The referenced directories may contain, for example, test support utilities.
+    ///
+    /// - SeeAlso: ``sdkPlatformPaths(for:environment:)``
+    public struct PlatformPaths {
+        /// Paths of directories containing auxiliary platform frameworks.
+        public var frameworks: [AbsolutePath]
+
+        /// Paths of directories containing auxiliary platform libraries.
+        public var libraries: [AbsolutePath]
+    }
+
     /// Returns `macosx` sdk platform framework path.
+    @available(*, deprecated, message: "use sdkPlatformPaths(for:) instead")
     public static func sdkPlatformFrameworkPaths(
         environment: Environment = .current
     ) throws -> (fwk: AbsolutePath, lib: AbsolutePath) {
-        if let path = _sdkPlatformFrameworkPath {
+        let paths = try sdkPlatformPaths(for: .macOS, environment: environment)
+        guard let frameworkPath = paths.frameworks.first else {
+            throw StringError("could not determine SDK platform framework path")
+        }
+        guard let libraryPath = paths.libraries.first else {
+            throw StringError("could not determine SDK platform library path")
+        }
+        return (fwk: frameworkPath, lib: libraryPath)
+    }
+
+    /// Returns ``SwiftSDK/PlatformPaths`` for the provided Darwin platform.
+    public static func sdkPlatformPaths(
+        for darwinPlatform: DarwinPlatform,
+        environment: Environment = .current
+    ) throws -> PlatformPaths {
+        if let path = _sdkPlatformFrameworkPath[darwinPlatform] {
             return path
         }
-        let platformPath = try AsyncProcess.checkNonZeroExit(
-            arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-platform-path"],
+        let platformPath = try environment[
+            EnvironmentKey("SWIFTPM_PLATFORM_PATH_\(darwinPlatform.xcrunName)")
+        ] ?? AsyncProcess.checkNonZeroExit(
+            arguments: ["/usr/bin/xcrun", "--sdk", darwinPlatform.xcrunName, "--show-sdk-platform-path"],
             environment: environment
         ).spm_chomp()
 
@@ -605,43 +658,39 @@ public struct SwiftSDK: Equatable {
             throw StringError("could not determine SDK platform path")
         }
 
-        // For XCTest framework.
-        let fwk = try AbsolutePath(validating: platformPath).appending(
+        // For testing frameworks.
+        let frameworksPath = try AbsolutePath(validating: platformPath).appending(
             components: "Developer", "Library", "Frameworks"
         )
+        let privateFrameworksPath = try AbsolutePath(validating: platformPath).appending(
+            components: "Developer", "Library", "PrivateFrameworks"
+        )
 
-        // For XCTest Swift library.
-        let lib = try AbsolutePath(validating: platformPath).appending(
+        // For testing libraries.
+        let librariesPath = try AbsolutePath(validating: platformPath).appending(
             components: "Developer", "usr", "lib"
         )
 
-        let sdkPlatformFrameworkPath = (fwk, lib)
-        _sdkPlatformFrameworkPath = sdkPlatformFrameworkPath
+        let sdkPlatformFrameworkPath = PlatformPaths(frameworks: [frameworksPath, privateFrameworksPath], libraries: [librariesPath])
+        _sdkPlatformFrameworkPath[darwinPlatform] = sdkPlatformFrameworkPath
         return sdkPlatformFrameworkPath
     }
 
-    // FIXME: convert this from a tuple to a proper struct with documented properties
-    /// Cache storage for sdk platform path.
-    private static var _sdkPlatformFrameworkPath: (fwk: AbsolutePath, lib: AbsolutePath)? = nil
+    /// Cache storage for sdk platform paths.
+    private static var _sdkPlatformFrameworkPath: [DarwinPlatform: PlatformPaths] = [:]
 
     /// Returns a default Swift SDK for a given target environment
     @available(*, deprecated, renamed: "defaultSwiftSDK")
     public static func defaultDestination(for triple: Triple, host: SwiftSDK) -> SwiftSDK? {
-        if triple.isWASI() {
-            let wasiSysroot = host.toolset.rootPaths.first?
-                .parentDirectory // usr
-                .appending(components: "share", "wasi-sysroot")
-            return SwiftSDK(
-                targetTriple: triple,
-                toolset: host.toolset,
-                pathsConfiguration: .init(sdkRootPath: wasiSysroot)
-            )
-        }
-        return nil
+        defaultSwiftSDK(for: triple, hostSDK: host)
     }
 
     /// Returns a default Swift SDK of a given target environment.
-    public static func defaultSwiftSDK(for targetTriple: Triple, hostSDK: SwiftSDK) -> SwiftSDK? {
+    public static func defaultSwiftSDK(
+        for targetTriple: Triple,
+        hostSDK: SwiftSDK,
+        environment: Environment = .current
+    ) -> SwiftSDK? {
         if targetTriple.isWASI() {
             let wasiSysroot = hostSDK.toolset.rootPaths.first?
                 .parentDirectory // usr
@@ -652,14 +701,28 @@ public struct SwiftSDK: Equatable {
                 pathsConfiguration: .init(sdkRootPath: wasiSysroot)
             )
         }
+
+        #if os(macOS)
+        if let darwinPlatform = targetTriple.darwinPlatform {
+            // the Darwin SDKs are trivially available on macOS
+            var sdk = try? self.systemSwiftSDK(
+                hostSDK.toolset.rootPaths.first,
+                environment: environment,
+                darwinPlatformOverride: darwinPlatform
+            )
+            sdk?.targetTriple = targetTriple
+            return sdk
+        }
+        #endif
+
         return nil
     }
 
     /// Computes the target Swift SDK for the given options.
-    @_spi(SwiftPMInternal)
     public static func deriveTargetSwiftSDK(
       hostSwiftSDK: SwiftSDK,
       hostTriple: Triple,
+      customToolsets: [AbsolutePath] = [],
       customCompileDestination: AbsolutePath? = nil,
       customCompileTriple: Triple? = nil,
       customCompileToolchain: AbsolutePath? = nil,
@@ -672,6 +735,7 @@ public struct SwiftSDK: Equatable {
     ) throws -> SwiftSDK {
         var swiftSDK: SwiftSDK
         var isBasedOnHostSDK: Bool = false
+
         // Create custom toolchain if present.
         if let customDestination = customCompileDestination {
             let swiftSDKs = try SwiftSDK.decode(
@@ -689,21 +753,48 @@ public struct SwiftSDK: Equatable {
             } else {
                 throw SwiftSDKError.noSwiftSDKDecoded(customDestination)
             }
-        } else if let triple = customCompileTriple,
-                  let targetSwiftSDK = SwiftSDK.defaultSwiftSDK(for: triple, hostSDK: hostSwiftSDK)
+        } else if let targetTriple = customCompileTriple,
+                  let targetSwiftSDK = SwiftSDK.defaultSwiftSDK(for: targetTriple, hostSDK: hostSwiftSDK)
         {
             swiftSDK = targetSwiftSDK
         } else if let swiftSDKSelector {
-            swiftSDK = try store.selectBundle(matching: swiftSDKSelector, hostTriple: hostTriple)
+            do {
+                swiftSDK = try store.selectBundle(matching: swiftSDKSelector, hostTriple: hostTriple)
+            } catch {
+                // If a user-installed bundle for the selector doesn't exist, check if the
+                // selector is recognized as a default SDK.
+                if let targetTriple = try? Triple(swiftSDKSelector),
+                   let defaultSDK = SwiftSDK.defaultSwiftSDK(for: targetTriple, hostSDK: hostSwiftSDK) {
+                    swiftSDK = defaultSDK
+                } else {
+                    throw error
+                }
+            }
         } else {
             // Otherwise use the host toolchain.
             swiftSDK = hostSwiftSDK
             isBasedOnHostSDK = true
         }
+
+        if !customToolsets.isEmpty {
+            for toolsetPath in customToolsets {
+                let toolset = try Toolset(from: toolsetPath, at: fileSystem, observabilityScope)
+                swiftSDK.toolset.merge(with: toolset)
+            }
+        }
+
         // Apply any manual overrides.
         if let triple = customCompileTriple {
             swiftSDK.targetTriple = triple
+
+            if isBasedOnHostSDK && customToolsets.isEmpty {
+                // Don't pick up extraCLIOptions for a custom triple, since those are only valid for the host triple.
+                for tool in swiftSDK.toolset.knownTools.keys {
+                    swiftSDK.toolset.knownTools[tool]?.extraCLIOptions = []
+                }
+            }
         }
+
         if let binDir = customCompileToolchain {
             if !fileSystem.exists(binDir) {
                 observabilityScope.emit(
@@ -727,7 +818,10 @@ public struct SwiftSDK: Equatable {
             // Append the host toolchain's toolset paths at the end for the case the target Swift SDK
             // doesn't have some of the tools (e.g. swift-frontend might be shared between the host and
             // target Swift SDKs).
-            hostSwiftSDK.toolset.rootPaths.forEach { swiftSDK.append(toolsetRootPath: $0) }
+            let rootPaths = Set(swiftSDK.toolset.rootPaths)
+            for rootPath in hostSwiftSDK.toolset.rootPaths where !rootPaths.contains(rootPath) {
+                swiftSDK.append(toolsetRootPath: rootPath)
+            }
         }
 
         return swiftSDK
@@ -967,6 +1061,18 @@ extension SwiftSDK {
                     toolsetPaths: self.pathsConfiguration.toolsetPaths?.map(\.pathString)
                 )
             )
+        }
+    }
+}
+
+extension DarwinPlatform {
+    /// The name xcrun uses to identify this platform.
+    fileprivate var xcrunName: String {
+        switch self {
+        case .iOS(.catalyst):
+            return "macosx"
+        default:
+            return platformName
         }
     }
 }

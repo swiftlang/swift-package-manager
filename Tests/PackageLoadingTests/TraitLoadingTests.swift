@@ -24,7 +24,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
 
     func testTraits() async throws {
         let content =  """
-            @_spi(ExperimentalTraits) import PackageDescription
+            import PackageDescription
             let package = Package(
                 name: "Foo",
                 traits: [
@@ -50,7 +50,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
     func testTraits_whenTooMany() async throws {
         let traits = Array(0...300).map { "\"Trait\($0)\"" }.joined(separator: ",")
         let content =  """
-            @_spi(ExperimentalTraits) import PackageDescription
+            import PackageDescription
             let package = Package(
                 name: "Foo",
                 traits: [\(traits)]
@@ -67,7 +67,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
 
     func testTraits_whenUnknownEnabledTrait() async throws {
         let content =  """
-            @_spi(ExperimentalTraits) import PackageDescription
+            import PackageDescription
             let package = Package(
                 name: "Foo",
                 traits: [
@@ -95,12 +95,11 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
             ".",
             "?",
             ",",
-            "ⒶⒷⒸ",
         ]
 
         for traitName in invalidTraitNames {
             let content =  """
-            @_spi(ExperimentalTraits) import PackageDescription
+            import PackageDescription
             let package = Package(
                 name: "Foo",
                 traits: [
@@ -114,7 +113,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
             XCTAssertNoDiagnostics(observability.diagnostics)
             let firstDiagnostic = try XCTUnwrap(validationDiagnostics.first)
             XCTAssertEqual(firstDiagnostic.severity, .error)
-            XCTAssertEqual(firstDiagnostic.message, "Invalid first character (\(traitName.first!)) in trait \(traitName). The first character must be a Unicode XID start character (most letters), a digit, or _.")
+            XCTAssertEqual(firstDiagnostic.message, "Invalid trait name \(traitName). Trait names must be valid Swift identifiers")
         }
     }
 
@@ -129,12 +128,11 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
             "foo,",
             "foo:bar",
             "foo?",
-            "a¼",
         ]
 
         for traitName in invalidTraitNames {
             let content =  """
-            @_spi(ExperimentalTraits) import PackageDescription
+            import PackageDescription
             let package = Package(
                 name: "Foo",
                 traits: [
@@ -153,7 +151,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
 
     func testDefaultTraits() async throws {
         let content =  """
-            @_spi(ExperimentalTraits) import PackageDescription
+            import PackageDescription
             let package = Package(
                 name: "Foo",
                 traits: [
@@ -180,7 +178,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
 
     func testDependencies() async throws {
         let content =  """
-            @_spi(ExperimentalTraits) import PackageDescription
+            import PackageDescription
             let package = Package(
                 name: "Foo",
                 traits: [

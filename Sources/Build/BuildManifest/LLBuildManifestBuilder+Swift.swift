@@ -376,6 +376,9 @@ extension LLBuildManifestBuilder {
         let cmdName = target.getCommandName()
 
         self.manifest.addWriteSourcesFileListCommand(sources: target.sources, sourcesFileListPath: target.sourcesFileListPath)
+        let outputFileMapPath = target.tempsPath.appending("output-file-map.json")
+        // FIXME: Eliminate side effect.
+        try target.writeOutputFileMap(to: outputFileMapPath)
         self.manifest.addSwiftCmd(
             name: cmdName,
             inputs: inputs + [Node.file(target.sourcesFileListPath)],
@@ -391,8 +394,8 @@ extension LLBuildManifestBuilder {
             sources: target.sources,
             fileList: target.sourcesFileListPath,
             isLibrary: isLibrary,
-            wholeModuleOptimization: target.buildParameters.configuration == .release,
-            outputFileMapPath: try target.writeOutputFileMap(), // FIXME: Eliminate side effect.
+            wholeModuleOptimization: target.useWholeModuleOptimization,
+            outputFileMapPath: outputFileMapPath,
             prepareForIndexing: target.buildParameters.prepareForIndexing != .off
         )
     }

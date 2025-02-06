@@ -155,7 +155,7 @@ final class InitTests: XCTestCase {
     }
 
     func testInitPackageLibraryWithSwiftTestingOnly() async throws {
-        try await testWithTemporaryDirectory { tmpPath in
+        try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
             let name = path.basename
@@ -182,7 +182,7 @@ final class InitTests: XCTestCase {
             XCTAssertMatch(testFileContents, .contains(#"@Test func example() async throws"#))
             XCTAssertNoMatch(testFileContents, .contains("func testExample() throws"))
 
-#if canImport(Testing)
+#if canImport(TestingDisabled)
             // Try building it
             await XCTAssertBuilds(path)
             let triple = try UserToolchain.default.targetTriple
@@ -192,7 +192,7 @@ final class InitTests: XCTestCase {
     }
 
     func testInitPackageLibraryWithBothSwiftTestingAndXCTest() async throws {
-        try await testWithTemporaryDirectory { tmpPath in
+        try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
             let name = path.basename
@@ -219,7 +219,7 @@ final class InitTests: XCTestCase {
             XCTAssertMatch(testFileContents, .contains(#"@Test func example() async throws"#))
             XCTAssertMatch(testFileContents, .contains("func testExample() throws"))
 
-#if canImport(Testing)
+#if canImport(TestingDisabled)
             // Try building it
             await XCTAssertBuilds(path)
             let triple = try UserToolchain.default.targetTriple
@@ -231,7 +231,7 @@ final class InitTests: XCTestCase {
     func testInitPackageLibraryWithNoTests() async throws {
         try UserToolchain.default.skipUnlessAtLeastSwift6()
 
-        try await testWithTemporaryDirectory { tmpPath in
+        try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
             let name = path.basename
@@ -255,7 +255,7 @@ final class InitTests: XCTestCase {
 
             XCTAssertNoSuchPath(path.appending("Tests"))
 
-#if canImport(Testing)
+#if canImport(TestingDisabled)
             // Try building it
             await XCTAssertBuilds(path)
             let triple = try UserToolchain.default.targetTriple

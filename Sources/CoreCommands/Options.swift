@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -124,6 +124,17 @@ public struct LocationOptions: ParsableArguments {
         completion: .directory
     )
     public var swiftSDKsDirectory: AbsolutePath?
+    
+    @Option(
+        name: .customLong("toolset"),
+        help: """
+            Specify a toolset JSON file to use when building for the target platform. \
+            Use the option multiple times to specify more than one toolset. Toolsets will be merged in the order \
+            they're specified into a single final toolset for the current build.
+            """,
+        completion: .file(extensions: [".json"])
+    )
+    public var toolsetPaths: [AbsolutePath] = []
 
     @Option(
         name: .customLong("pkg-config-path"),
@@ -162,7 +173,7 @@ public struct CachingOptions: ParsableArguments {
     /// Disables manifest caching.
     @Option(
         name: .customLong("manifest-cache"),
-        help: "Caching mode of Package.swift manifests (shared: shared cache, local: package's build directory, none: disabled"
+        help: "Caching mode of Package.swift manifests (shared: shared cache, local: package's build directory, none: disabled)"
     )
     public var manifestCachingMode: ManifestCachingMode = .shared
 
@@ -175,6 +186,12 @@ public struct CachingOptions: ParsableArguments {
             self.init(rawValue: argument)
         }
     }
+
+    /// Whether to use macro prebuilts or not
+    @Flag(name: .customLong("experimental-prebuilts"),
+          inversion: .prefixedEnableDisable,
+          help: "Whether to use prebuilt swift-syntax libraries for macros")
+    public var usePrebuilts: Bool = false
 }
 
 public struct LoggingOptions: ParsableArguments {
@@ -470,7 +487,7 @@ public struct BuildOptions: ParsableArguments {
 
     /// A flag that indicates this build should check whether targets only import
     /// their explicitly-declared dependencies
-    @Option()
+    @Option(help: "A flag that indicates this build should check whether targets only import their explicitly-declared dependencies")
     public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
 
     /// Whether to use the explicit module build flow (with the integrated driver)
@@ -482,7 +499,7 @@ public struct BuildOptions: ParsableArguments {
     var _buildSystem: BuildSystemProvider.Kind = .native
 
     /// The Debug Information Format to use.
-    @Option(name: .customLong("debug-info-format", withSingleDash: true))
+    @Option(name: .customLong("debug-info-format", withSingleDash: true), help: "The Debug Information Format to use")
     public var debugInfoFormat: DebugInfoFormat = .dwarf
 
     public var buildSystem: BuildSystemProvider.Kind {
@@ -527,7 +544,7 @@ public struct BuildOptions: ParsableArguments {
         case disableIndexStore
     }
 
-    public enum TargetDependencyImportCheckingMode: String, Codable, ExpressibleByArgument {
+    public enum TargetDependencyImportCheckingMode: String, Codable, ExpressibleByArgument, CaseIterable {
         case none
         case warn
         case error
@@ -542,7 +559,7 @@ public struct BuildOptions: ParsableArguments {
     }
 
     /// See `BuildParameters.DebugInfoFormat` for details.
-    public enum DebugInfoFormat: String, Codable, ExpressibleByArgument {
+    public enum DebugInfoFormat: String, Codable, ExpressibleByArgument, CaseIterable {
         /// See `BuildParameters.DebugInfoFormat.dwarf` for details.
         case dwarf
         /// See `BuildParameters.DebugInfoFormat.codeview` for details.
@@ -636,7 +653,7 @@ package struct TraitOptions: ParsableArguments {
 
     /// The traits to enable for the package.
     @Option(
-        name: .customLong("experimental-traits"),
+        name: .customLong("traits"),
         help: "Enables the passed traits of the package. Multiple traits can be specified by providing a space separated list e.g. `--traits Trait1 Trait2`. When enabling specific traits the defaults traits need to explictily enabled as well by passing `defaults` to this command."
     )
     package var _enabledTraits: String?
@@ -648,14 +665,14 @@ package struct TraitOptions: ParsableArguments {
 
     /// Enables all traits of the package.
     @Flag(
-        name: .customLong("experimental-enable-all-traits"),
+        name: .customLong("enable-all-traits"),
         help: "Enables all traits of the package."
     )
     package var enableAllTraits: Bool = false
 
     /// Disables all default traits of the package.
     @Flag(
-        name: .customLong("experimental-disable-default-traits"),
+        name: .customLong("disable-default-traits"),
         help: "Disables all default traits of the package."
     )
     public var disableDefaultTraits: Bool = false
@@ -747,20 +764,20 @@ extension URL {
 }
 
 #if compiler(<6.0)
-extension BuildConfiguration: ExpressibleByArgument {}
+extension BuildConfiguration: ExpressibleByArgument, CaseIterable {}
 extension AbsolutePath: ExpressibleByArgument {}
 extension WorkspaceConfiguration.CheckingMode: ExpressibleByArgument {}
 extension Sanitizer: ExpressibleByArgument {}
-extension BuildSystemProvider.Kind: ExpressibleByArgument {}
+extension BuildSystemProvider.Kind: ExpressibleByArgument, CaseIterable {}
 extension Version: ExpressibleByArgument {}
 extension PackageIdentity: ExpressibleByArgument {}
 extension URL: ExpressibleByArgument {}
 #else
-extension BuildConfiguration: @retroactive ExpressibleByArgument {}
+extension BuildConfiguration: @retroactive ExpressibleByArgument, CaseIterable {}
 extension AbsolutePath: @retroactive ExpressibleByArgument {}
 extension WorkspaceConfiguration.CheckingMode: @retroactive ExpressibleByArgument {}
 extension Sanitizer: @retroactive ExpressibleByArgument {}
-extension BuildSystemProvider.Kind: @retroactive ExpressibleByArgument {}
+extension BuildSystemProvider.Kind: @retroactive ExpressibleByArgument, CaseIterable {}
 extension Version: @retroactive ExpressibleByArgument {}
 extension PackageIdentity: @retroactive ExpressibleByArgument {}
 extension URL: @retroactive ExpressibleByArgument {}

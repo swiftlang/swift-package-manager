@@ -72,7 +72,7 @@ public extension PluginScriptRunner {
         callbackQueue: DispatchQueue,
         delegate: PluginScriptCompilerDelegate
     ) async throws -> PluginCompilationResult {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.compilePluginScript(
                 sourceFiles: sourceFiles,
                 pluginName: pluginName,
@@ -80,7 +80,9 @@ public extension PluginScriptRunner {
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
                 delegate: delegate,
-                completion: $0.resume(with:)
+                completion: {
+                  continuation.resume(with: $0)
+                }
             )
         }
     }

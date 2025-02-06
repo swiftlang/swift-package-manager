@@ -177,7 +177,8 @@ final class ResourcesTests: XCTestCase {
 
             let (_, stderr) = try await executeSwiftBuild(packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             // Filter some unrelated output that could show up on stderr.
-            let filteredStderr = stderr.components(separatedBy: "\n").filter { !$0.contains("[logging]") }.joined(separator: "\n")
+            let filteredStderr = stderr.components(separatedBy: "\n").filter { !$0.contains("[logging]") }
+                                                                     .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
             XCTAssertEqual(filteredStderr, "", "unexpectedly received error output: \(stderr)")
 
             let builtProductsDir = packageDir.appending(components: [".build", "debug"])

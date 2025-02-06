@@ -116,12 +116,12 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
     @Flag()
     public var useIntegratedSwiftDriver: Bool = false
 
-    /// A flag that indicates this build should check whether targets only import
+    /// An option that indicates this build should check whether targets only import
     /// their explicitly-declared dependencies
-    @Option()
+    @Option(help: "Check that targets only import their explicitly-declared dependencies")
     public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
 
-    enum TargetDependencyImportCheckingMode: String, Codable, ExpressibleByArgument {
+    enum TargetDependencyImportCheckingMode: String, Codable, ExpressibleByArgument, CaseIterable {
         case none
         case error
     }
@@ -217,11 +217,6 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
         let observabilityScope: ObservabilityScope
         let logLevel: Basics.Diagnostic.Severity
 
-        static let additionalSwiftBuildFlags = [
-            "-Xfrontend", "-disable-implicit-concurrency-module-import",
-            "-Xfrontend", "-disable-implicit-string-processing-module-import"
-        ]
-
         init(fileSystem: FileSystem, observabilityScope: ObservabilityScope, logLevel: Basics.Diagnostic.Severity) throws {
             self.identityResolver = DefaultIdentityResolver()
             self.dependencyMapper = DefaultDependencyMapper(identityResolver: self.identityResolver)
@@ -281,7 +276,6 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             logLevel: Basics.Diagnostic.Severity
         ) throws -> BuildSystem {
             var buildFlags = buildFlags
-            buildFlags.swiftCompilerFlags += Self.additionalSwiftBuildFlags
 
             let dataPath = scratchDirectory.appending(
                 component: self.targetToolchain.targetTriple.platformBuildPathComponent(buildSystem: buildSystem)
@@ -320,12 +314,25 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
 
             switch buildSystem {
             case .native:
+                let pluginScriptRunner = DefaultPluginScriptRunner(
+                    fileSystem: self.fileSystem,
+                    cacheDir: scratchDirectory.appending("plugin-cache"),
+                    toolchain: self.hostToolchain,
+                    extraPluginSwiftCFlags: [],
+                    enableSandbox: true,
+                    verboseOutput: self.logLevel <= .info
+                )
                 return BuildOperation(
                     // when building `swift-bootstrap`, host and target build parameters are the same
                     productsBuildParameters: buildParameters,
                     toolsBuildParameters: buildParameters,
                     cacheBuildManifest: false,
                     packageGraphLoader: asyncUnsafePackageGraphLoader,
+                    pluginConfiguration: .init(
+                        scriptRunner: pluginScriptRunner,
+                        workDirectory: scratchDirectory.appending(component: "plugin-working-directory"),
+                        disableSandbox: false
+                    ),
                     scratchDirectory: scratchDirectory,
                     // When bootrapping no special trait build configuration is used
                     traitConfiguration: nil,
@@ -349,7 +356,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
         }
 
         func createManifestLoader(manifestBuildFlags: [String]) -> ManifestLoader {
-            var extraManifestFlags = manifestBuildFlags + Self.additionalSwiftBuildFlags
+            var extraManifestFlags = manifestBuildFlags
             if self.logLevel <= .info {
                 extraManifestFlags.append("-v")
             }
@@ -395,15 +402,9 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                     partial[item.key] = (manifest: item.value, fs: self.fileSystem)
                 },
                 binaryArtifacts: [:],
+                prebuilts: [:],
                 fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                // Plugins can't be used in bootstrap builds, exclude those.
-                productsFilter: {
-                    $0.type != .plugin
-                },
-                modulesFilter: {
-                    $0.type != .plugin
-                }
+                observabilityScope: observabilityScope
             )
         }
 
@@ -479,10 +480,10 @@ extension BuildConfiguration {
 
 #if compiler(<6.0)
 extension AbsolutePath: ExpressibleByArgument {}
-extension BuildConfiguration: ExpressibleByArgument {}
+extension BuildConfiguration: ExpressibleByArgument, CaseIterable {}
 #else
 extension AbsolutePath: @retroactive ExpressibleByArgument {}
-extension BuildConfiguration: @retroactive ExpressibleByArgument {}
+extension BuildConfiguration: @retroactive ExpressibleByArgument, CaseIterable {}
 #endif
 
 public func topologicalSort<T: Hashable>(

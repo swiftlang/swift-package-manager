@@ -549,6 +549,16 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         // FIXME: We need to find out if any product has a target on which it depends
         // both static and dynamically and then issue a suitable diagnostic or auto
         // handle that situation.
+
+        // Ensure modules in Windows DLLs export their symbols
+        for product in productMap.values where product.product.type == .library(.dynamic) && product.buildParameters.triple.isWindows() {
+            for target in product.product.modules {
+                let targetId: ModuleBuildDescription.ID = .init(moduleID: target.id, destination: product.buildParameters.destination)
+                if case let .swift(buildDescription) = targetMap[targetId] {
+                    buildDescription.isWindowsStatic = false
+                }
+            }
+        }
     }
 
     public func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String] {
@@ -583,6 +593,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 if let includeDir = targetDescription.moduleMap?.parentDirectory {
                     arguments += ["-I", includeDir.pathString]
                 }
+                arguments += ["-I", targetDescription.clangTarget.includeDir.pathString]
             }
         }
 
@@ -1074,12 +1085,16 @@ extension BuildPlan {
     package func traverseModules(
         _ onModule: (
             (ResolvedModule, BuildParameters.Destination),
-            _ parent: (ResolvedModule, BuildParameters.Destination)?,
-            _ depth: Int
+            _ parent: (ResolvedModule, BuildParameters.Destination)?
         ) -> Void
     ) {
+        var visited = Set<TraversalNode>()
+
         func successors(for package: ResolvedPackage) -> [TraversalNode] {
-            package.modules.compactMap {
+            guard visited.insert(.package(package)).inserted else {
+                return []
+            }
+            return package.modules.compactMap {
                 if case .test = $0.underlying.type,
                    !self.graph.rootPackages.contains(id: package.id)
                 {
@@ -1093,7 +1108,10 @@ extension BuildPlan {
             for module: ResolvedModule,
             destination: Destination
         ) -> [TraversalNode] {
-            module.dependencies.reduce(into: [TraversalNode]()) { partial, dependency in
+            guard visited.insert(.module(module, destination)).inserted else {
+                return []
+            }
+            return module.dependencies.reduce(into: [TraversalNode]()) { partial, dependency in
                 switch dependency {
                 case .product(let product, conditions: _):
                     let parent = TraversalNode(product: product, context: destination)
@@ -1115,7 +1133,7 @@ extension BuildPlan {
             case .product:
                 []
             }
-        } onNext: { current, parent, depth in
+        } onNext: { current, parent in
             let parentModule: (ResolvedModule, BuildParameters.Destination)? = switch parent {
             case .package, .product, nil:
                 nil
@@ -1128,7 +1146,7 @@ extension BuildPlan {
                 break
 
             case .module(let module, let destination):
-                onModule((module, destination), parentModule, depth)
+                onModule((module, destination), parentModule)
             }
         }
     }
@@ -1177,7 +1195,7 @@ extension BuildPlan {
             case .package:
                 []
             }
-        } onNext: { module, _, _ in
+        } onNext: { module, _ in
             switch module {
             case .package:
                 break

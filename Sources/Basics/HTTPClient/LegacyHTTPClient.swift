@@ -314,8 +314,8 @@ extension LegacyHTTPClient {
         options: Request.Options = .init(),
         observabilityScope: ObservabilityScope? = .none
     ) async throws -> Response {
-        try await withCheckedThrowingContinuation {
-            self.head(url, headers: headers, options: options, completion: $0.resume(with:))
+        try await withCheckedThrowingContinuation { continuation in
+            self.head(url, headers: headers, options: options, completion: { continuation.resume(with: $0) })
         }
     }
     @available(*, noasync, message: "Use the async alternative")
@@ -339,8 +339,8 @@ extension LegacyHTTPClient {
         options: Request.Options = .init(),
         observabilityScope: ObservabilityScope? = .none
     ) async throws -> Response {
-        try await withCheckedThrowingContinuation {
-            self.get(url, headers: headers, options: options, completion: $0.resume(with:))
+        try await withCheckedThrowingContinuation { continuation in
+            self.get(url, headers: headers, options: options, completion: { continuation.resume(with: $0) })
         }
     }
     @available(*, noasync, message: "Use the async alternative")

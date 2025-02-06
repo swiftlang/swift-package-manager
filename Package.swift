@@ -76,7 +76,10 @@ let includeDynamicLibrary: Bool = false
 let systemSQLitePkgConfig: String? = nil
 #else
 let includeDynamicLibrary: Bool = true
-let systemSQLitePkgConfig: String? = "sqlite3"
+var systemSQLitePkgConfig: String? = "sqlite3"
+if ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RPATH_OS"] == "android" {
+    systemSQLitePkgConfig = nil
+}
 #endif
 
 /** An array of products which have two versions listed: one dynamically linked, the other with the
@@ -199,7 +202,7 @@ let package = Package(
             dependencies: [
                 "_AsyncFileSystem",
                 .target(name: "SPMSQLite3", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS, .macCatalyst, .linux])),
-                .product(name: "CSQLite", package: "swift-toolchain-sqlite", condition: .when(platforms: [.windows])),
+                .product(name: "SwiftToolchainCSQLite", package: "swift-toolchain-sqlite", condition: .when(platforms: [.windows, .android])),
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
@@ -281,13 +284,7 @@ let package = Package(
                 "Basics",
                 "PackageLoading",
                 "PackageModel",
-                .product(name: "SwiftBasicFormat", package: "swift-syntax"),
-                .product(name: "SwiftDiagnostics", package: "swift-syntax"),
-                .product(name: "SwiftIDEUtils", package: "swift-syntax"),
-                .product(name: "SwiftParser", package: "swift-syntax"),
-                .product(name: "SwiftSyntax", package: "swift-syntax"),
-                .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
-            ],
+            ] + swiftSyntaxDependencies(["SwiftBasicFormat", "SwiftDiagnostics", "SwiftIDEUtils", "SwiftParser", "SwiftSyntax", "SwiftSyntaxBuilder"]),
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .unsafeFlags(["-static"]),
@@ -317,6 +314,7 @@ let package = Package(
                 "Basics",
                 "PackageLoading",
                 "PackageModel",
+                .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: [
@@ -400,6 +398,7 @@ let package = Package(
             dependencies: [
                 "Basics",
                 "PackageGraph",
+                .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
@@ -416,6 +415,7 @@ let package = Package(
                 "SPMBuildCore",
                 "SPMLLBuild",
                 .product(name: "SwiftDriver", package: "swift-driver"),
+                .product(name: "OrderedCollections", package: "swift-collections"),
                 "DriverSupport",
             ],
             exclude: ["CMakeLists.txt"],
@@ -438,7 +438,11 @@ let package = Package(
         .target(
             /** Support for building using Xcode's build system */
             name: "XCBuildSupport",
-            dependencies: ["DriverSupport", "SPMBuildCore", "PackageGraph"],
+            dependencies: [
+                "SPMBuildCore",
+                "PackageGraph",
+                .product(name: "OrderedCollections", package: "swift-collections"),
+            ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .unsafeFlags(["-static"]),
@@ -456,6 +460,7 @@ let package = Package(
                 "PackageSigning",
                 "SourceControl",
                 "SPMBuildCore",
+                .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
@@ -504,7 +509,6 @@ let package = Package(
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
-                .product(name: "SwiftIDEUtils", package: "swift-syntax"),
                 "Basics",
                 "Build",
                 "CoreCommands",
@@ -513,7 +517,7 @@ let package = Package(
                 "SourceControl",
                 "Workspace",
                 "XCBuildSupport",
-            ],
+            ] + swiftSyntaxDependencies(["SwiftIDEUtils"]),
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: [
                 .unsafeFlags(["-static"]),
@@ -604,6 +608,7 @@ let package = Package(
             name: "swift-bootstrap",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "OrderedCollections", package: "swift-collections"),
                 "Basics",
                 "Build",
                 "PackageGraph",
@@ -659,6 +664,15 @@ let package = Package(
             name: "swift-package-registry",
             dependencies: ["Commands", "PackageRegistryCommand"]
         ),
+        .executableTarget(
+            /** Utility to produce the artifacts for prebuilts */
+            name: "swift-build-prebuilts",
+            dependencies: [
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                "Basics",
+                "Workspace",
+            ]
+        ),
 
         // MARK: Support for Swift macros, should eventually move to a plugin-based solution
 
@@ -674,12 +688,24 @@ let package = Package(
 
         // MARK: Additional Test Dependencies
 
+            .target(
+                /** SwiftPM internal build test suite support library */
+                name: "_InternalBuildTestSupport",
+                dependencies: [
+                    "Build",
+                    "XCBuildSupport",
+                    "_InternalTestSupport"
+                ],
+                swiftSettings: [
+                    .unsafeFlags(["-static"]),
+                ]
+            ),
+
         .target(
             /** SwiftPM internal test suite support library */
             name: "_InternalTestSupport",
             dependencies: [
                 "Basics",
-                "Build",
                 "PackageFingerprint",
                 "PackageGraph",
                 "PackageLoading",
@@ -687,8 +713,8 @@ let package = Package(
                 "PackageSigning",
                 "SourceControl",
                 .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
+                .product(name: "OrderedCollections", package: "swift-collections"),
                 "Workspace",
-                "XCBuildSupport",
             ],
             swiftSettings: [
                 .unsafeFlags(["-static"]),
@@ -740,7 +766,7 @@ let package = Package(
         ),
         .testTarget(
             name: "BuildTests",
-            dependencies: ["Build", "PackageModel", "Commands", "_InternalTestSupport"]
+            dependencies: ["Build", "PackageModel", "Commands", "_InternalTestSupport", "_InternalBuildTestSupport"]
         ),
         .testTarget(
             name: "LLBuildManifestTests",
@@ -772,8 +798,7 @@ let package = Package(
             dependencies: [
                 "PackageModelSyntax",
                 "_InternalTestSupport",
-                .product(name: "SwiftIDEUtils", package: "swift-syntax"),
-            ]
+            ] + swiftSyntaxDependencies(["SwiftIDEUtils"])
         ),
         .testTarget(
             name: "PackageGraphTests",
@@ -828,7 +853,7 @@ let package = Package(
         ),
         .testTarget(
             name: "XCBuildSupportTests",
-            dependencies: ["XCBuildSupport", "_InternalTestSupport"],
+            dependencies: ["XCBuildSupport", "_InternalTestSupport", "_InternalBuildTestSupport"],
             exclude: ["Inputs/Foo.pc"]
         ),
         // Examples (These are built to ensure they stay up to date with the API.)
@@ -849,7 +874,7 @@ package.targets.append(contentsOf: [
 ])
 #endif
 
-// Workaround SPM's attempt to link in executables which does not work on all
+// Workaround SwiftPM's attempt to link in executables which does not work on all
 // platforms.
 #if !os(Windows)
 package.targets.append(contentsOf: [
@@ -881,7 +906,12 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "Basics",
             ]
         ),
-
+        .testTarget(
+            name: "_InternalTestSupportTests",
+            dependencies: [
+                "_InternalTestSupport"
+            ]
+        ),
         .testTarget(
             name: "CommandsTests",
             dependencies: [
@@ -901,6 +931,23 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
     ])
 }
 #endif
+
+/// Whether swift-syntax is being built as a single dynamic library instead of as a separate library per module.
+///
+/// This means that the swift-syntax symbols don't need to be statically linked, which allows us to stay below the
+/// maximum number of exported symbols on Windows, in turn allowing us to build sourcekit-lsp using SwiftPM on Windows
+/// and run its tests.
+var buildDynamicSwiftSyntaxLibrary: Bool {
+  ProcessInfo.processInfo.environment["SWIFTSYNTAX_BUILD_DYNAMIC_LIBRARY"] != nil
+}
+
+func swiftSyntaxDependencies(_ names: [String]) -> [Target.Dependency] {
+  if buildDynamicSwiftSyntaxLibrary {
+    return [.product(name: "_SwiftSyntaxDynamic", package: "swift-syntax")]
+  } else {
+    return names.map { .product(name: $0, package: "swift-syntax") }
+  }
+}
 
 // Add package dependency on llbuild when not bootstrapping.
 //
@@ -941,10 +988,10 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/apple/swift-driver.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),
-        .package(url: "https://github.com/apple/swift-system.git", "1.1.1" ..< "1.4.0"),
+        .package(url: "https://github.com/apple/swift-system.git", from: "1.1.1"),
         .package(url: "https://github.com/apple/swift-collections.git", "1.0.1" ..< "1.2.0"),
         .package(url: "https://github.com/apple/swift-certificates.git", "1.0.1" ..< "1.6.0"),
-        .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", from: "0.1.0"),
+        .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", from: "1.0.0"),
     ]
 } else {
     package.dependencies += [

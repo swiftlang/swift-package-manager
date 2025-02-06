@@ -72,18 +72,18 @@ add_library(Basics
   SQLiteBackedCache.swift
   TestingLibrary.swift
   Triple+Basics.swift
+  URL.swift
   Version+Extensions.swift
   WritableByteStream+Extensions.swift
   Vendor/Triple.swift
   Vendor/Triple+Platforms.swift)
 target_link_libraries(Basics PUBLIC
   _AsyncFileSystem
-  SwiftCollections::DequeModule
   SwiftCollections::OrderedCollections
-  SwiftSystem::SystemPackage
   TSCBasic
   TSCUtility)
 target_link_libraries(Basics PRIVATE
+  SwiftCollections::DequeModule
   SPMSQLite3
   TSCclibc)
 

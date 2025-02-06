@@ -26,7 +26,13 @@ final class SourceKitLSPAPITests: XCTestCase {
     func testBasicSwiftPackage() async throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/exe/README.md",
+            "/Pkg/Sources/exe/exe.docc/GettingStarted.md",
+            "/Pkg/Sources/exe/Resources/some_file.txt",
             "/Pkg/Sources/lib/lib.swift",
+            "/Pkg/Sources/lib/README.md",
+            "/Pkg/Sources/lib/lib.docc/GettingStarted.md",
+            "/Pkg/Sources/lib/Resources/some_file.txt",
             "/Pkg/Plugins/plugin/plugin.swift"
         )
 
@@ -37,9 +43,19 @@ final class SourceKitLSPAPITests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "Pkg",
                     path: "/Pkg",
+                    toolsVersion: .v5_10,
                     targets: [
-                        TargetDescription(name: "exe", dependencies: ["lib"]),
-                        TargetDescription(name: "lib", dependencies: []),
+                        TargetDescription(
+                            name: "exe",
+                            dependencies: ["lib"],
+                            resources: [.init(rule: .copy, path: "Resources/some_file.txt")],
+                            type: .executable
+                        ),
+                        TargetDescription(
+                            name: "lib",
+                            dependencies: [],
+                            resources: [.init(rule: .copy, path: "Resources/some_file.txt")]
+                        ),
                         TargetDescription(name: "plugin", type: .plugin, pluginCapability: .buildTool)
                     ]),
             ],
@@ -67,10 +83,14 @@ final class SourceKitLSPAPITests: XCTestCase {
             graph: graph,
             partialArguments: [
                 "-module-name", "exe",
+                "-package-name", "pkg",
                 "-emit-dependencies",
                 "-emit-module",
-                "-emit-module-path", "/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe.build/exe.swiftmodule"
+                "-emit-module-path", "/path/to/build/\(plan.destinationBuildParameters.triple)/debug/Modules/exe.swiftmodule"
             ],
+            resources: [.init(filePath: "/Pkg/Sources/exe/Resources/some_file.txt")],
+            ignoredFiles: [.init(filePath: "/Pkg/Sources/exe/exe.docc")],
+            otherFiles: [.init(filePath: "/Pkg/Sources/exe/README.md")],
             isPartOfRootPackage: true
         )
         try description.checkArguments(
@@ -78,10 +98,14 @@ final class SourceKitLSPAPITests: XCTestCase {
             graph: graph,
             partialArguments: [
                 "-module-name", "lib",
+                "-package-name", "pkg",
                 "-emit-dependencies",
                 "-emit-module",
                 "-emit-module-path", "/path/to/build/\(plan.destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule"
             ],
+            resources: [.init(filePath: "/Pkg/Sources/lib/Resources/some_file.txt")],
+            ignoredFiles: [.init(filePath: "/Pkg/Sources/lib/lib.docc")],
+            otherFiles: [.init(filePath: "/Pkg/Sources/lib/README.md")],
             isPartOfRootPackage: true
         )
         try description.checkArguments(
@@ -141,24 +165,95 @@ final class SourceKitLSPAPITests: XCTestCase {
         )
         let description = BuildDescription(buildPlan: plan)
 
-        struct Result {
-            let parent: (any BuildTarget)?
-            let module: any BuildTarget
-            let depth: Int
+        struct Result: Equatable {
+            let moduleName: String
+            let moduleDestination: BuildDestination
+            let parentName: String?
+            let parentDestination: BuildDestination?
         }
 
         var results: [Result] = []
-        description.traverseModules { current, parent, depth in
-            results.append(Result(parent: parent, module: current, depth: depth))
+        description.traverseModules { current, parent in
+            results.append(
+                Result(
+                    moduleName: current.name,
+                    moduleDestination: current.destination,
+                    parentName: parent?.name,
+                    parentDestination: parent?.destination
+                )
+            )
         }
 
-        XCTAssertEqual(results.count, 6)
+        XCTAssertEqual(
+            results,
+            [
+                Result(moduleName: "lib", moduleDestination: .target, parentName: nil, parentDestination: nil),
+                Result(moduleName: "plugin", moduleDestination: .host, parentName: nil, parentDestination: nil),
+                Result(moduleName: "exe", moduleDestination: .host, parentName: "plugin", parentDestination: .host),
+                Result(moduleName: "lib", moduleDestination: .host, parentName: "exe", parentDestination: .host),
+                Result(moduleName: "exe", moduleDestination: .target, parentName: nil, parentDestination: nil),
+                Result(moduleName: "lib", moduleDestination: .target, parentName: "exe", parentDestination: .target),
+            ]
+        )
+    }
 
-        // "lib" is the most interesting here because it appears on multiple depths due to
-        // "exe" being a dependency of the "plugin".
-        XCTAssertEqual(results.filter { $0.module.name == "lib" }.reduce(into: Set<Int>()) {
-            $0.insert($1.depth)
-        }.sorted(), [1, 2, 3])
+    func testModuleTraversalRecordsDependencyOfVisitedNode() async throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/lib/lib.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["lib"]),
+                        TargetDescription(name: "lib", dependencies: [])
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let plan = try await BuildPlan(
+            destinationBuildParameters: mockBuildParameters(
+                destination: .target,
+                shouldLinkStaticSwiftStdlib: true
+            ),
+            toolsBuildParameters: mockBuildParameters(
+                destination: .host,
+                shouldLinkStaticSwiftStdlib: true
+            ),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let description = BuildDescription(buildPlan: plan)
+
+        struct Result: Equatable {
+            let moduleName: String
+            let parentName: String?
+        }
+
+        var results: [Result] = []
+        description.traverseModules { current, parent in
+            results.append(Result(moduleName: current.name, parentName: parent?.name))
+        }
+
+        XCTAssertEqual(
+            results,
+            [
+                Result(moduleName: "lib", parentName: nil),
+                Result(moduleName: "exe", parentName: nil),
+                Result(moduleName: "lib", parentName: "exe"),
+            ]
+        )
     }
 }
 
@@ -167,18 +262,25 @@ extension SourceKitLSPAPI.BuildDescription {
         for targetName: String,
         graph: ModulesGraph,
         partialArguments: [String],
+        resources: [URL] = [],
+        ignoredFiles: [URL] = [],
+        otherFiles: [URL] = [],
         isPartOfRootPackage: Bool,
         destination: BuildParameters.Destination = .target
     ) throws -> Bool {
         let target = try XCTUnwrap(graph.module(for: targetName))
         let buildTarget = try XCTUnwrap(self.getBuildTarget(for: target, destination: destination))
 
-        guard let file = buildTarget.sources.first else {
-            XCTFail("build target \(targetName) contains no files")
+        XCTAssertEqual(buildTarget.resources, resources, "build target \(targetName) contains unexpected resource files")
+        XCTAssertEqual(buildTarget.ignored, ignoredFiles, "build target \(targetName) contains unexpected ignored files")
+        XCTAssertEqual(buildTarget.others, otherFiles, "build target \(targetName) contains unexpected other files")
+
+        guard let source = buildTarget.sources.first else {
+            XCTFail("build target \(targetName) contains no source files")
             return false
         }
 
-        let arguments = try buildTarget.compileArguments(for: file)
+        let arguments = try buildTarget.compileArguments(for: source)
         let result = arguments.contains(partialArguments)
 
         XCTAssertTrue(result, "could not match \(partialArguments) to actual arguments \(arguments)")

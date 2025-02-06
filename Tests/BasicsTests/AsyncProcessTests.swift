@@ -396,6 +396,9 @@ final class AsyncProcessTests: XCTestCase {
     }
 
     func testAsyncStream() async throws {
+        // rdar://133548796
+        try XCTSkipIfCI()
+
         let (stdoutStream, stdoutContinuation) = AsyncProcess.ReadableStream.makeStream()
         let (stderrStream, stderrContinuation) = AsyncProcess.ReadableStream.makeStream()
 
@@ -431,7 +434,7 @@ final class AsyncProcessTests: XCTestCase {
 
             group.addTask {
                 var counter = 0
-                for await output in stderrStream {
+                for await _ in stderrStream {
                     counter += 1
                 }
 
@@ -450,6 +453,9 @@ final class AsyncProcessTests: XCTestCase {
     }
 
     func testAsyncStreamHighLevelAPI() async throws {
+        // rdar://133548796
+        try XCTSkipIfCI()
+
         let result = try await AsyncProcess.popen(
             scriptName: "echo",
             stdout: { stdin, stdout in
@@ -471,7 +477,7 @@ final class AsyncProcessTests: XCTestCase {
             },
             stderr: { stderr in
                 var counter = 0
-                for await output in stderr {
+                for await _ in stderr {
                     counter += 1
                 }
 

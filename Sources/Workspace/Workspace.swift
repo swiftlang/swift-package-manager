@@ -102,7 +102,7 @@ public class Workspace {
     package let fileSystem: any FileSystem
 
     /// The host toolchain to use.
-    private let hostToolchain: UserToolchain
+    let hostToolchain: UserToolchain
 
     /// The manifest loader to use.
     let manifestLoader: ManifestLoaderProtocol
@@ -136,6 +136,9 @@ public class Workspace {
 
     /// Binary artifacts manager used for downloading and extracting binary artifacts
     let binaryArtifactsManager: BinaryArtifactsManager
+
+    /// Prebuilts manager used for downloading and extracting package prebuilt libraries
+    let prebuiltsManager: PrebuiltsManager?
 
     /// The package fingerprints storage
     let fingerprints: PackageFingerprintStorage?
@@ -213,6 +216,7 @@ public class Workspace {
             customRepositoryProvider: customRepositoryProvider,
             customRegistryClient: .none,
             customBinaryArtifactsManager: .none,
+            customPrebuiltsManager: .none,
             customIdentityResolver: .none,
             customDependencyMapper: .none,
             customChecksumAlgorithm: .none,
@@ -361,6 +365,7 @@ public class Workspace {
         customRepositoryProvider: RepositoryProvider? = .none,
         customRegistryClient: RegistryClient? = .none,
         customBinaryArtifactsManager: CustomBinaryArtifactsManager? = .none,
+        customPrebuiltsManager: CustomPrebuiltsManager? = .none,
         customIdentityResolver: IdentityResolver? = .none,
         customDependencyMapper: DependencyMapper? = .none,
         customChecksumAlgorithm: HashAlgorithm? = .none,
@@ -389,6 +394,7 @@ public class Workspace {
             customRepositoryProvider: customRepositoryProvider,
             customRegistryClient: customRegistryClient,
             customBinaryArtifactsManager: customBinaryArtifactsManager,
+            customPrebuiltsManager: customPrebuiltsManager,
             customIdentityResolver: customIdentityResolver,
             customDependencyMapper: customDependencyMapper,
             customChecksumAlgorithm: customChecksumAlgorithm,
@@ -420,6 +426,7 @@ public class Workspace {
         customRepositoryProvider: RepositoryProvider?,
         customRegistryClient: RegistryClient?,
         customBinaryArtifactsManager: CustomBinaryArtifactsManager?,
+        customPrebuiltsManager: CustomPrebuiltsManager?,
         customIdentityResolver: IdentityResolver?,
         customDependencyMapper: DependencyMapper?,
         customChecksumAlgorithm: HashAlgorithm?,
@@ -553,6 +560,20 @@ public class Workspace {
         // register the binary artifacts downloader with the cancellation handler
         cancellator?.register(name: "binary artifacts downloads", handler: binaryArtifactsManager)
 
+        let prebuiltsManager: PrebuiltsManager? = configuration.usePrebuilts ? PrebuiltsManager(
+            fileSystem: fileSystem,
+            authorizationProvider: authorizationProvider,
+            scratchPath: location.prebuiltsDirectory,
+            cachePath: customPrebuiltsManager?.useCache == false || !configuration.sharedDependenciesCacheEnabled ? .none : location.sharedPrebuiltsCacheDirectory,
+            customHTTPClient: customPrebuiltsManager?.httpClient,
+            customArchiver: customPrebuiltsManager?.archiver,
+            delegate: delegate.map(WorkspacePrebuiltsManagerDelegate.init(workspaceDelegate:))
+        ) : .none
+        // register the prebuilt packages downloader with the cancellation handler
+        if let prebuiltsManager {
+            cancellator?.register(name: "package prebuilts downloads", handler: prebuiltsManager)
+        }
+
         // initialize
         self.fileSystem = fileSystem
         self.configuration = configuration
@@ -569,6 +590,7 @@ public class Workspace {
         self.registryClient = registryClient
         self.registryDownloadsManager = registryDownloadsManager
         self.binaryArtifactsManager = binaryArtifactsManager
+        self.prebuiltsManager = prebuiltsManager
 
         self.identityResolver = identityResolver
         self.dependencyMapper = dependencyMapper
@@ -597,7 +619,7 @@ extension Workspace {
     /// Puts a dependency in edit mode creating a checkout in editables directory.
     ///
     /// - Parameters:
-    ///     - packageName: The name of the package to edit.
+    ///     - packageIdentity: The identity of the package to edit.
     ///     - path: If provided, creates or uses the checkout at this location.
     ///     - revision: If provided, the revision at which the dependency
     ///       should be checked out to otherwise current revision.
@@ -605,7 +627,7 @@ extension Workspace {
     ///       created from the revision provided.
     ///     - observabilityScope: The observability scope that reports errors, warnings, etc
     public func edit(
-        packageName: String,
+        packageIdentity: String,
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
@@ -613,7 +635,7 @@ extension Workspace {
     ) async {
         do {
             try await self._edit(
-                packageName: packageName,
+                packageIdentity: packageIdentity,
                 path: path,
                 revision: revision,
                 checkoutBranch: checkoutBranch,
@@ -636,13 +658,13 @@ extension Workspace {
     ///     - root: The workspace root. This is used to resolve the dependencies post unediting.
     ///     - observabilityScope: The observability scope that reports errors, warnings, etc
     public func unedit(
-        packageName: String,
+        packageIdentity: String,
         forceRemove: Bool,
         root: PackageGraphRootInput,
         observabilityScope: ObservabilityScope
     ) async throws {
-        guard let dependency = self.state.dependencies[.plain(packageName)] else {
-            observabilityScope.emit(.dependencyNotFound(packageName: packageName))
+        guard let dependency = self.state.dependencies[.plain(packageIdentity)] else {
+            observabilityScope.emit(.dependencyNotFound(packageName: packageIdentity))
             return
         }
 
@@ -939,6 +961,13 @@ extension Workspace {
                 )
             }
 
+        let prebuilts: [PackageIdentity: [String: PrebuiltLibrary]] = self.state.prebuilts.reduce(into: .init()) {
+            let prebuilt = PrebuiltLibrary(packageRef: $1.packageRef, libraryName: $1.libraryName, path: $1.path, products: $1.products, cModules: $1.cModules)
+            for product in $1.products {
+                $0[$1.packageRef.identity, default: [:]][product] = prebuilt
+            }
+        }
+
         // Load the graph.
         let packageGraph = try ModulesGraph.load(
             root: manifests.root,
@@ -948,6 +977,7 @@ extension Workspace {
             requiredDependencies: manifests.requiredPackages,
             unsafeAllowedPackages: manifests.unsafeAllowedPackages,
             binaryArtifacts: binaryArtifacts,
+            prebuilts: prebuilts,
             shouldCreateMultipleTestProducts: self.configuration.shouldCreateMultipleTestProducts,
             createREPLProduct: self.configuration.createREPLProduct,
             traitConfiguration: traitConfiguration,
@@ -1143,6 +1173,7 @@ extension Workspace {
                     path: path,
                     additionalFileRules: [],
                     binaryArtifacts: binaryArtifacts,
+                    prebuilts: [:],
                     fileSystem: self.fileSystem,
                     observabilityScope: observabilityScope,
                     // For now we enable all traits
@@ -1183,14 +1214,16 @@ extension Workspace {
         }
         return importList
     }
-    
+
     public func loadPackage(
         with identity: PackageIdentity,
         packageGraph: ModulesGraph,
         observabilityScope: ObservabilityScope
     ) async throws -> Package {
-        try await withCheckedThrowingContinuation {
-            self.loadPackage(with: identity, packageGraph: packageGraph, observabilityScope: observabilityScope, completion: $0.resume(with:))
+        try await withCheckedThrowingContinuation { continuation in
+            self.loadPackage(with: identity, packageGraph: packageGraph, observabilityScope: observabilityScope, completion: {
+                continuation.resume(with: $0)
+            })
         }
     }
 
@@ -1223,6 +1256,7 @@ extension Workspace {
                     path: previousPackage.path,
                     additionalFileRules: self.configuration.additionalFileRules,
                     binaryArtifacts: packageGraph.binaryArtifacts[identity] ?? [:],
+                    prebuilts: [:],
                     shouldCreateMultipleTestProducts: self.configuration.shouldCreateMultipleTestProducts,
                     createREPLProduct: self.configuration.createREPLProduct,
                     fileSystem: self.fileSystem,
@@ -1234,6 +1268,22 @@ extension Workspace {
             }
             completion(result)
         }
+    }
+
+    public func changeSigningEntityFromVersion(
+        package: PackageIdentity,
+        version: Version,
+        signingEntity: SigningEntity,
+        origin: SigningEntity.Origin,
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.registryClient.changeSigningEntityFromVersion(
+            package: package,
+            version: version,
+            signingEntity: signingEntity,
+            origin: origin,
+            observabilityScope: observabilityScope
+        )
     }
 }
 

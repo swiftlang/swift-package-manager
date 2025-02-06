@@ -13,7 +13,7 @@
 import _AsyncFileSystem
 import Basics
 import Crypto
-@preconcurrency import SystemPackage
+@preconcurrency package import SystemPackage
 
 package func withQueryEngine(
     _ fileSystem: some AsyncFileSystem,
@@ -83,7 +83,7 @@ package actor QueryEngine {
     package subscript(_ query: some Query) -> FileCacheRecord {
         get async throws {
             let hashEncoder = HashEncoder<SHA512>()
-            try query.encode(to: hashEncoder)
+            try hashEncoder.encode(query.cacheKey)
             let key = hashEncoder.finalize()
 
             if let fileRecord = try resultsCache.get(blobKey: key) {

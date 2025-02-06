@@ -28,11 +28,11 @@ import func _InternalTestSupport.embeddedCxxInteropPackageGraph
 import func _InternalTestSupport.macrosPackageGraph
 import func _InternalTestSupport.macrosTestsPackageGraph
 import func _InternalTestSupport.mockBuildParameters
-import func _InternalTestSupport.mockBuildPlan
+import func _InternalBuildTestSupport.mockBuildPlan
 import func _InternalTestSupport.toolsExplicitLibrariesGraph
 import func _InternalTestSupport.trivialPackageGraph
 
-import struct _InternalTestSupport.BuildPlanResult
+import struct _InternalBuildTestSupport.BuildPlanResult
 import func _InternalTestSupport.XCTAssertMatch
 import func _InternalTestSupport.XCTAssertNoDiagnostics
 
@@ -210,7 +210,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
             [
                 result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
                 "-L", buildPath.pathString,
-                "-o", buildPath.appending(components: "PkgPackageTests.wasm").pathString,
+                "-o", buildPath.appending(components: "PkgPackageTests.xctest").pathString,
                 "-module-name", "PkgPackageTests",
                 "-emit-executable",
                 "@\(buildPath.appending(components: "PkgPackageTests.product", "Objects.LinkFileList"))",
@@ -220,7 +220,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         )
 
         let testPathExtension = try testBuildDescription.binaryPath.extension
-        XCTAssertEqual(testPathExtension, "wasm")
+        XCTAssertEqual(testPathExtension, "xctest")
     }
 
     func testMacros() async throws {

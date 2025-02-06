@@ -42,7 +42,7 @@ public final class Target {
     }
 
     /// The different types of a target's dependency on another entity.
-    public enum Dependency {
+    public enum Dependency: Sendable {
         /// A dependency on a target.
         ///
         ///  - Parameters:
@@ -1357,7 +1357,7 @@ extension Target.Dependency {
 }
 
 /// A condition that limits the application of a target's dependency.
-public struct TargetDependencyCondition {
+public struct TargetDependencyCondition: Sendable {
     let platforms: [Platform]?
     let traits: Set<String>?
 
@@ -1393,8 +1393,7 @@ public struct TargetDependencyCondition {
     ///
     /// - Parameter platforms: The applicable platforms for this target dependency condition.
     /// - Parameter traits: The applicable traits for this target dependency condition.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func when(
         platforms: [Platform],
         traits: Set<String>
@@ -1405,8 +1404,7 @@ public struct TargetDependencyCondition {
     /// Creates a target dependency condition.
     ///
     /// - Parameter traits: The applicable traits for this target dependency condition.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func when(
         traits: Set<String>
     ) -> TargetDependencyCondition? {

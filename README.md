@@ -23,7 +23,7 @@ The [SourceKit-LSP](https://github.com/swiftlang/sourcekit-lsp) project leverage
 
 ## Getting Started
 
-Please use [this guide](https://swift.org/getting-started/#using-the-package-manager) for learning package manager basics.
+Please use [this guide](https://www.swift.org/documentation/package-manager/) for learning package manager basics.
 
 ---
 

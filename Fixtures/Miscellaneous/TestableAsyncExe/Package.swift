@@ -3,6 +3,9 @@ import PackageDescription
 
 let package = Package(
     name: "TestableAsyncExe",
+    platforms: [
+        .macOS(.v10_15),
+    ],
     targets: [
         .executableTarget(
             name: "TestableAsyncExe1"

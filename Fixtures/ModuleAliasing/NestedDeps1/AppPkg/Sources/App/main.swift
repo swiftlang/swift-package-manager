@@ -3,7 +3,7 @@ import X
 import AFooUtils
 import CarUtils
 import XFooUtils
-import Utils
+import XUtils
 
 funcInA()
 funcInX()

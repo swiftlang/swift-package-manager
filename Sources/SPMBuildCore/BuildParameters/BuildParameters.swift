@@ -163,7 +163,7 @@ public struct BuildParameters: Encodable {
         driverParameters: Driver = .init(),
         linkingParameters: Linking = .init(),
         outputParameters: Output = .init(),
-        testingParameters: Testing? = nil
+        testingParameters: Testing = .init()
     ) throws {
         let triple = try triple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
         self.debuggingParameters = debuggingParameters ?? .init(
@@ -218,7 +218,7 @@ public struct BuildParameters: Encodable {
         self.driverParameters = driverParameters
         self.linkingParameters = linkingParameters
         self.outputParameters = outputParameters
-        self.testingParameters = testingParameters ?? .init(configuration: configuration, targetTriple: triple)
+        self.testingParameters = testingParameters
     }
 
     /// The path to the build directory (inside the data directory).
@@ -286,7 +286,7 @@ public struct BuildParameters: Encodable {
     }
 
     /// Returns the path to the executable of a product for the current build parameters.
-    private func executablePath(for name: String) throws -> RelativePath {
+    package func executablePath(for name: String) throws -> RelativePath {
         try RelativePath(validating: "\(name)\(self.suffix)\(self.triple.executableExtension)")
     }
 
@@ -302,9 +302,6 @@ public struct BuildParameters: Encodable {
         case .library(.automatic), .plugin:
             fatalError()
         case .test:
-            guard !self.triple.isWasm else {
-                return try RelativePath(validating: "\(product.name).wasm")
-            }
             let base = "\(product.name).xctest"
             if self.triple.isDarwin() {
                 return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
@@ -344,20 +341,6 @@ private struct _Toolchain: Encodable {
         try container.encode(toolchain.extraFlags.cxxCompilerFlags, forKey: .extraCPPFlags)
         try container.encode(toolchain.extraFlags.swiftCompilerFlags, forKey: .extraSwiftCFlags)
         try container.encode(toolchain.swiftCompilerPath, forKey: .swiftCompiler)
-    }
-}
-
-extension BuildParameters {
-    /// Whether to build Swift code with whole module optimization (WMO)
-    /// enabled.
-    public var useWholeModuleOptimization: Bool {
-        switch configuration {
-        case .debug:
-            return false
-
-        case .release:
-            return true
-        }
     }
 }
 

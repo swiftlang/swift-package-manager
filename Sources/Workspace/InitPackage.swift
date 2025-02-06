@@ -433,7 +433,6 @@ public final class InitPackage {
                 """
                 .DS_Store
                 /.build
-                /.index-build
                 /Packages
                 xcuserdata/
                 DerivedData/
@@ -568,7 +567,7 @@ public final class InitPackage {
         guard self.fileSystem.exists(sources) == false else {
             return
         }
-        progressReporter?("Creating \(sources.relative(to: destinationPath))/")
+        progressReporter?("Creating \(sources.relative(to: destinationPath))")
         try makeDirectories(sources)
 
         let moduleDir: AbsolutePath

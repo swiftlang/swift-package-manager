@@ -43,7 +43,21 @@ internal struct PluginContextSerializer {
         
         // Split up the path into a base path and a subpath (currently always with the last path component as the
         // subpath, but this can be optimized where there are sequences of path components with a valence of one).
-        let basePathId = (path.parentDirectory.isRoot ? nil : try serialize(path: path.parentDirectory))
+        let basePathId: Int?
+        if path.parentDirectory.isRoot {
+            // Windows does not have a single root path like UNIX, so capture the root path itself such that we can rejoin it later
+            #if os(Windows)
+            let id = paths.count
+            paths.append(.init(baseURLId: nil, subpath: path.parentDirectory.pathString))
+            pathsToIds[path] = id
+            basePathId = id
+            #else
+            basePathId = nil
+            #endif
+        } else {
+            basePathId = try serialize(path: path.parentDirectory)
+        }
+
         let subpathString = path.basename
         
         // Finally assign the next wire ID to the path, and append a serialized Path record.
@@ -236,11 +250,11 @@ internal struct PluginContextSerializer {
             case .fileSystem(let path):
                 return .local(path: try serialize(path: path))
             case .localSourceControl(let path):
-                return .repository(url: path.asURL.absoluteString, displayVersion: String(describing: package.manifest.version), scmRevision: String(describing: package.manifest.revision))
+                return .repository(url: path.asURL.absoluteString, displayVersion: package.manifest.version?.description ?? "no version", scmRevision: package.manifest.revision ?? "no revision")
             case .remoteSourceControl(let url):
-                return .repository(url: url.absoluteString, displayVersion: String(describing: package.manifest.version), scmRevision: String(describing: package.manifest.revision))
+                return .repository(url: url.absoluteString, displayVersion: package.manifest.version?.description ?? "no version", scmRevision: package.manifest.revision ?? "no revision")
             case .registry(let identity):
-                return .registry(identity: identity.description, displayVersion: String(describing: package.manifest.version))
+                return .registry(identity: identity.description, displayVersion: package.manifest.version?.description ?? "no version")
             }
         }
 

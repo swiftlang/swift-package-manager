@@ -26,6 +26,7 @@ import PackageLoading
 @testable import PackageModel
 
 import SPMBuildCore
+import _InternalBuildTestSupport
 import _InternalTestSupport
 import SwiftDriver
 import Workspace
@@ -2107,6 +2108,101 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
+    func test_wholeModuleOptimization_enabledInRelease() async throws {
+        let Pkg: AbsolutePath = "/Pkg"
+        let fs: FileSystem = InMemoryFileSystem(
+            emptyFiles:
+                Pkg.appending(components: "Sources", "A", "A.swift").pathString
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: .init(validating: Pkg.pathString),
+                    targets: [
+                        TargetDescription(name: "A"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        do {
+            // WMO Should be off in debug
+            let plan = try await mockBuildPlan(
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+
+            let a = try BuildPlanResult(plan: plan)
+                .moduleBuildDescription(for: "A").swift().emitCommandLine()
+            XCTAssertNoMatch(a, ["-whole-module-optimization"])
+            XCTAssertNoMatch(a, ["-wmo"])
+        }
+
+        do {
+            // WMO should be on in release
+            let plan = try await mockBuildPlan(
+                environment: BuildEnvironment(
+                    platform: .linux,
+                    configuration: .release
+                ),
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+
+            let a = try BuildPlanResult(plan: plan)
+                .moduleBuildDescription(for: "A").swift().emitCommandLine()
+            XCTAssertMatch(a, ["-whole-module-optimization"])
+            XCTAssertNoMatch(a, ["-wmo"])
+        }
+    }
+
+    func test_wholeModuleOptimization_enabledInEmbedded() async throws {
+        let Pkg: AbsolutePath = "/Pkg"
+        let fs: FileSystem = InMemoryFileSystem(
+            emptyFiles:
+                Pkg.appending(components: "Sources", "A", "A.swift").pathString
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: .init(validating: Pkg.pathString),
+                    targets: [
+                        TargetDescription(
+                            name: "A",
+                            settings: [.init(tool: .swift, kind: .enableExperimentalFeature("Embedded"))]
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        // WMO should always be on with Embedded
+        let plan = try await mockBuildPlan(
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let a = try BuildPlanResult(plan: plan)
+            .moduleBuildDescription(for: "A").swift().emitCommandLine()
+        XCTAssertMatch(a, ["-whole-module-optimization"])
+        XCTAssertNoMatch(a, ["-wmo"])
+    }
+
     func testREPLArguments() async throws {
         let Dep = AbsolutePath("/Dep")
         let fs = InMemoryFileSystem(
@@ -2242,6 +2338,8 @@ final class BuildPlanTests: XCTestCase {
                 "-enable-batch-mode",
                 "-Onone",
                 "-enable-testing",
+                "-Xfrontend",
+                "-enable-cross-import-overlays",
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
                 "-DDEBUG",
@@ -4566,7 +4664,20 @@ final class BuildPlanTests: XCTestCase {
                 swiftStaticResourcesPath: "/fake/lib/swift_static"
             )
         )
-        let mockToolchain = try UserToolchain(swiftSDK: userSwiftSDK, environment: .mockEnvironment, fileSystem: fs)
+
+        let env = Environment.mockEnvironment
+        let mockToolchain = try UserToolchain(
+            swiftSDK: userSwiftSDK,
+            environment: env,
+            searchStrategy: .custom(
+                searchPaths: getEnvSearchPaths(
+                    pathString: env[.path],
+                    currentWorkingDirectory: fs.currentWorkingDirectory
+                ),
+                useXcrun: true
+            ),
+            fileSystem: fs
+        )
         let commonFlags = BuildFlags(
             cCompilerFlags: ["-clang-command-line-flag"],
             swiftCompilerFlags: ["-swift-command-line-flag"]
@@ -4680,9 +4791,18 @@ final class BuildPlanTests: XCTestCase {
                 swiftStaticResourcesPath: "/fake/lib/swift_static"
             )
         )
+
+        let env = Environment.mockEnvironment
         let mockToolchain = try UserToolchain(
             swiftSDK: userSwiftSDK,
-            environment: .mockEnvironment,
+            environment: env,
+            searchStrategy: .custom(
+                searchPaths: getEnvSearchPaths(
+                    pathString: env[.path],
+                    currentWorkingDirectory: fs.currentWorkingDirectory
+                ),
+                useXcrun: true
+            ),
             fileSystem: fs
         )
 
@@ -4970,7 +5090,20 @@ final class BuildPlanTests: XCTestCase {
                 .swiftCompiler: .init(extraCLIOptions: ["-use-ld=lld"]),
             ])
         )
-        let toolchain = try UserToolchain(swiftSDK: swiftSDK, environment: .mockEnvironment, fileSystem: fileSystem)
+
+        let env = Environment.mockEnvironment
+        let toolchain = try UserToolchain(
+            swiftSDK: swiftSDK,
+            environment: env,
+            searchStrategy: .custom(
+                searchPaths: getEnvSearchPaths(
+                    pathString: env[.path],
+                    currentWorkingDirectory: fileSystem.currentWorkingDirectory
+                ),
+                useXcrun: true
+            ),
+            fileSystem: fileSystem
+        )
         let result = try await BuildPlanResult(plan: mockBuildPlan(
             toolchain: toolchain,
             graph: graph,
@@ -6605,5 +6738,109 @@ final class BuildPlanTests: XCTestCase {
               ]
             )
         }
+    }
+
+    func testProductWithBinaryArtifactDependency() async throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "Test is only supported on macOS")
+        #endif
+
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/testpackage/Sources/SwiftLib/lib.swift",
+            "/testpackage/Sources/CLib/include/lib.h",
+            "/testpackage/Sources/CLib/lib.c"
+        )
+
+        try fs.createDirectory("/testpackagedep/SomeArtifact.xcframework", recursive: true)
+        try fs.writeFileContents(
+            "/testpackagedep/SomeArtifact.xcframework/Info.plist",
+            string: """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+                <key>AvailableLibraries</key>
+                <array>
+                    <dict>
+                        <key>LibraryIdentifier</key>
+                        <string>macos</string>
+                        <key>HeadersPath</key>
+                        <string>Headers</string>
+                        <key>LibraryPath</key>
+                        <string>libSomeArtifact.a</string>
+                        <key>SupportedArchitectures</key>
+                        <array>
+                            <string>arm64</string>
+                            <string>x86_64</string>
+                        </array>
+                        <key>SupportedPlatform</key>
+                        <string>macos</string>
+                    </dict>
+                </array>
+                <key>CFBundlePackageType</key>
+                <string>XFWK</string>
+                <key>XCFrameworkFormatVersion</key>
+                <string>1.0</string>
+            </dict>
+            </plist>
+            """
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "testpackagedep",
+                    path: "/testpackagedep",
+                    products: [
+                        ProductDescription(name: "SomeArtifact", type: .library(.static), targets: ["SomeArtifact"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "SomeArtifact", path: "SomeArtifact.xcframework", type: .binary),
+                    ]
+                ),
+                Manifest.createRootManifest(
+                    displayName: "testpackage",
+                    path: "/testpackage",
+                    dependencies: [
+                        .localSourceControl(path: "/testpackagedep", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "SwiftLib", type: .library(.static), targets: ["SwiftLib"]),
+                        ProductDescription(name: "CLib", type: .library(.static), targets: ["CLib"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "SwiftLib", dependencies: ["SomeArtifact"]),
+                        TargetDescription(name: "CLib", dependencies: ["SomeArtifact"])
+                    ]
+                ),
+            ],
+            binaryArtifacts: [
+                .plain("testpackagedep"): [
+                    "SomeArtifact": .init(kind: .xcframework, originURL: nil, path: "/testpackagedep/SomeArtifact.xcframework"),
+                ],
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let plan = try await mockBuildPlan(
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let llbuild = LLBuildManifestBuilder(
+            plan,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        try llbuild.generateManifest(at: "/manifest.yaml")
+        let contents: String = try fs.readFileContents("/manifest.yaml")
+
+        XCTAssertMatch(contents, .regex(#"args: \[.*"-I","/testpackagedep/SomeArtifact.xcframework/macos/Headers".*,"/testpackage/Sources/CLib/lib.c".*]"#))
+        XCTAssertMatch(contents, .regex(#"args: \[.*"-module-name","SwiftLib",.*"-I","/testpackagedep/SomeArtifact.xcframework/macos/Headers".*]"#))
     }
 }

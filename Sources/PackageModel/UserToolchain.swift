@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -135,6 +135,7 @@ public final class UserToolchain: Toolchain {
             // Take the first match.
             break
         }
+
         guard let toolPath else {
             throw InvalidToolchainDiagnostic("could not find CLI tool `\(name)` at any of these directories: \(binDirectories)")
         }
@@ -629,7 +630,7 @@ public final class UserToolchain: Toolchain {
                 pathString: environment[.path],
                 currentWorkingDirectory: fileSystem.currentWorkingDirectory
             )
-            self.useXcrun = true
+            self.useXcrun = !(fileSystem is InMemoryFileSystem)
         case .custom(let searchPaths, let useXcrun):
             self.envSearchPaths = searchPaths
             self.useXcrun = useXcrun
@@ -672,14 +673,15 @@ public final class UserToolchain: Toolchain {
         var swiftCompilerFlags: [String] = []
         var extraLinkerFlags: [String] = []
 
-        #if os(macOS)
-        let (swiftCFlags, linkerFlags) = Self.deriveMacOSSpecificSwiftTestingFlags(
-            derivedSwiftCompiler: swiftCompilers.compile,
-            fileSystem: fileSystem
-        )
-        swiftCompilerFlags += swiftCFlags
-        extraLinkerFlags += linkerFlags
-        #endif
+        if triple.isMacOSX {
+            let (swiftCFlags, linkerFlags) = Self.deriveMacOSSpecificSwiftTestingFlags(
+                derivedSwiftCompiler: swiftCompilers.compile,
+                fileSystem: fileSystem
+            )
+
+            swiftCompilerFlags += swiftCFlags
+            extraLinkerFlags += linkerFlags
+        }
 
         swiftCompilerFlags += try Self.deriveSwiftCFlags(
             triple: triple,

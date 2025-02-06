@@ -32,6 +32,7 @@ import SPMBuildCore
 import func TSCLibc.exit
 import Workspace
 
+import struct TSCBasic.FileSystemError
 import struct TSCBasic.ByteString
 import enum TSCBasic.JSON
 import class Basics.AsyncProcess
@@ -41,6 +42,8 @@ import class TSCBasic.Thread
 
 #if os(Windows)
 import WinSDK // for ERROR_NOT_FOUND
+#elseif canImport(Android)
+import Android
 #endif
 
 private enum TestError: Swift.Error {
@@ -116,6 +119,11 @@ struct TestEventStreamOptions: ParsableArguments {
     @Option(name: .customLong("event-stream-version"),
             help: .hidden)
     var eventStreamVersion: Int?
+
+  /// Experimental path for writing attachments (Swift Testing only.)
+  @Option(name: .customLong("experimental-attachments-path"),
+          help: .private)
+  var experimentalAttachmentsPath: AbsolutePath?
 }
 
 struct TestCommandOptions: ParsableArguments {
@@ -725,6 +733,23 @@ extension SwiftTestCommand {
         var _deprecated_passthrough: Bool = false
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
+            do {
+                try await self.runCommand(swiftCommandState)
+            } catch let error as FileSystemError {
+                if sharedOptions.shouldSkipBuilding {
+                    throw ErrorWithContext(error, """
+                        Test build artifacts were not found in the build folder.
+                        The `--skip-build` flag was provided; either build the tests first with \
+                        `swift build --build tests` or rerun the `swift test list` command without \
+                        `--skip-build`
+                        """
+                    )
+                }
+                throw error
+            }
+        }
+
+        func runCommand(_ swiftCommandState: SwiftCommandState) async throws {
             let (productsBuildParameters, toolsBuildParameters) = try swiftCommandState.buildParametersForTest(
                 enableCodeCoverage: false,
                 shouldSkipBuilding: sharedOptions.shouldSkipBuilding
@@ -781,6 +806,13 @@ extension SwiftTestCommand {
                     })
                     if result == .failure {
                         swiftCommandState.executionStatus = .failure
+                        // If the runner reports failure do a check to ensure
+                        // all the binaries are present on the file system.
+                        for path in testProducts.map(\.binaryPath) {
+                            if !swiftCommandState.fileSystem.exists(path) {
+                                throw FileSystemError(.noEntry, path)
+                            }
+                        }
                     }
                 } else if let testEntryPointPath {
                     // Cannot run Swift Testing because an entry point file was used and the developer
@@ -916,23 +948,31 @@ final class TestRunner {
     /// Constructs arguments to execute XCTest.
     private func args(forTestAt testPath: AbsolutePath) throws -> [String] {
         var args: [String] = []
+
+        if let runner = self.toolchain.swiftSDK.toolset.knownTools[.testRunner], let runnerPath = runner.path {
+            args.append(runnerPath.pathString)
+            args.append(contentsOf: runner.extraCLIOptions)
+            args.append(testPath.relative(to: localFileSystem.currentWorkingDirectory!).pathString)
+            args.append(contentsOf: self.additionalArguments)
+        } else {
 #if os(macOS)
-        switch library {
-        case .xctest:
-            guard let xctestPath = self.toolchain.xctestPath else {
-                throw TestError.xcodeNotInstalled
+            switch library {
+            case .xctest:
+                guard let xctestPath = self.toolchain.xctestPath else {
+                    throw TestError.xcodeNotInstalled
+                }
+                args += [xctestPath.pathString]
+            case .swiftTesting:
+                let helper = try self.toolchain.getSwiftTestingHelper()
+                args += [helper.pathString, "--test-bundle-path", testPath.pathString]
             }
-            args += [xctestPath.pathString]
-        case .swiftTesting:
-            let helper = try self.toolchain.getSwiftTestingHelper()
-            args += [helper.pathString, "--test-bundle-path", testPath.pathString]
+            args += self.additionalArguments
+            args += [testPath.pathString]
+    #else
+            args += [testPath.pathString]
+            args += self.additionalArguments
+    #endif
         }
-        args += additionalArguments
-        args += [testPath.pathString]
-#else
-        args += [testPath.pathString]
-        args += additionalArguments
-#endif
 
         if library == .swiftTesting {
             // HACK: tell the test bundle/executable that we want to run Swift Testing, not XCTest.
@@ -1459,7 +1499,7 @@ private extension Basics.Diagnostic {
 /// it duplicates the definition of this constant in its own source. Any changes
 /// to this constant in either package must be mirrored in the other.
 private var EXIT_NO_TESTS_FOUND: CInt {
-#if os(macOS) || os(Linux)
+#if os(macOS) || os(Linux) || canImport(Android)
     EX_UNAVAILABLE
 #elseif os(Windows)
     ERROR_NOT_FOUND

@@ -194,6 +194,8 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         if triple.isMacOSX {
             args += ["-Xlinker", "-no_warn_duplicate_libraries"]
         }
+        // We may also need to turn off locally defined symbol imported on Windows
+        // args += ["-Xlinker", "/ignore:4217"]
 
         switch derivedProductType {
         case .macro:
@@ -205,7 +207,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             return []
         case .test:
             // Test products are bundle when using Objective-C, executable when using test entry point.
-            switch self.buildParameters.testingParameters.testProductStyle {
+            switch self.buildParameters.testProductStyle {
             case .loadableBundle:
                 args += ["-Xlinker", "-bundle"]
             case .entryPointExecutable:

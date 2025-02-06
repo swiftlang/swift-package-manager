@@ -23,8 +23,8 @@ public struct Path: Hashable {
         self._string = string
     }
 
-    init(url: URL) {
-        self._string = url.path
+    init(url: URL) throws {
+        self._string = try url.filePath
     }
 
     /// A string representation of the path.
@@ -156,4 +156,29 @@ extension String.StringInterpolation {
     public mutating func appendInterpolation(_ path: Path) {
         self.appendInterpolation(path.string)
     }
+}
+
+extension URL {
+    /// Returns the path of the file URL.
+    ///
+    /// This should always be used whenever the file path equivalent of a URL is needed. DO NOT use ``path`` or ``path(percentEncoded:)``, as these deal in terms of the path portion of the URL representation per RFC8089, which on Windows would include a leading slash.
+    ///
+    /// - throws: ``FileURLError`` if the URL does not represent a file or its path is otherwise not representable.
+    fileprivate var filePath: String {
+        get throws {
+            guard isFileURL else {
+                throw FileURLError.notRepresentable(self)
+            }
+            return try withUnsafeFileSystemRepresentation { cString in
+                guard let cString else {
+                    throw FileURLError.notRepresentable(self)
+                }
+                return String(cString: cString)
+            }
+        }
+    }
+}
+
+fileprivate enum FileURLError: Error {
+    case notRepresentable(URL)
 }

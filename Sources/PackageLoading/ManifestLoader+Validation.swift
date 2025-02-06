@@ -107,18 +107,9 @@ public struct ManifestValidator {
                 continue
             }
 
-            for (index, unicodeScalar) in traitName.unicodeScalars.enumerated() {
-                let properties = unicodeScalar.properties
-
-                if index == 0 {
-                    if !(properties.isIDStart || properties.isASCIIHexDigit || unicodeScalar == "_") {
-                        diagnostics.append(.invalidFirstCharacterInTrait(firstCharater: unicodeScalar, trait: trait.name))
-                    }
-                } else {
-                    if !(properties.isXIDContinue || unicodeScalar == "_" || unicodeScalar == "+") {
-                        diagnostics.append(.invalidCharacterInTrait(character: unicodeScalar, trait: trait.name))
-                    }
-                }
+            guard traitName.isValidIdentifier else {
+                diagnostics.append(.invalidTraitName(trait: traitName))
+                continue
             }
         }
 
@@ -365,12 +356,8 @@ extension Basics.Diagnostic {
         .error("Empty strings are not allowed as trait names")
     }
 
-    static func invalidFirstCharacterInTrait(firstCharater: UnicodeScalar, trait: String) -> Self {
-        .error("Invalid first character (\(firstCharater)) in trait \(trait). The first character must be a Unicode XID start character (most letters), a digit, or _.")
-    }
-
-    static func invalidCharacterInTrait(character: UnicodeScalar, trait: String) -> Self {
-        .error("Invalid character \(character) in trait \(trait). Characters must be a Unicode XID continue character (a digit, _, or most letters), -, or +")
+    static func invalidTraitName(trait: String) -> Self {
+        .error("Invalid trait name \(trait). Trait names must be valid Swift identifiers")
     }
 
     static func invalidEnabledTrait(trait: String, enabledBy enablerTrait: String) -> Self {

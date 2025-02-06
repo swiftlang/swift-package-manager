@@ -38,7 +38,7 @@ class WalkTests: XCTestCase {
         var expected: [AbsolutePath] = [
             "\(root)/usr",
             "\(root)/bin",
-            "\(root)/xbin",
+            "\(root)/etc",
         ]
         #elseif os(Windows)
         let root = ProcessInfo.processInfo.environment["SystemRoot"]!

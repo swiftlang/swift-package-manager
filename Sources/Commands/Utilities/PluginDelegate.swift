@@ -16,6 +16,7 @@ import CoreCommands
 import Foundation
 import PackageModel
 import SPMBuildCore
+import PackageGraph
 
 import protocol TSCBasic.OutputByteStream
 import class TSCBasic.BufferedOutputByteStream
@@ -147,6 +148,10 @@ final class PluginDelegate: PluginInvocationDelegate {
         switch subset {
         case .all(let includingTests):
             buildSubset = includingTests ? .allIncludingTests : .allExcludingTests
+            if includingTests {
+                // Enable testability if we're building tests explicitly.
+                buildParameters.testingParameters.explicitlyEnabledTestability = true
+            }
         case .product(let name):
             buildSubset = .product(name)
             explicitProduct = name
@@ -227,7 +232,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         // which ones they are until we've built them and can examine the binaries.
         let toolchain = try swiftCommandState.getHostToolchain()
         var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
-        toolsBuildParameters.testingParameters.enableTestability = true
+        toolsBuildParameters.testingParameters.explicitlyEnabledTestability = true
         toolsBuildParameters.testingParameters.enableCodeCoverage = parameters.enableCodeCoverage
         let buildSystem = try await swiftCommandState.createBuildSystem(
             traitConfiguration: .init(),
@@ -394,7 +399,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Create a build system for building the target., skipping the the cache because we need the build plan.
         let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitBuildSystem: .native,
-            traitConfiguration: .init(),
+            traitConfiguration: TraitConfiguration(enableAllTraits: true),
             cacheBuildManifest: false
         )
 

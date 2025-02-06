@@ -159,9 +159,10 @@ final class WorkspaceTests: XCTestCase {
 
         try testWithTemporaryDirectory { path in
             let foo = path.appending("foo")
+            let packageManifest = foo.appending("Package.swift")
 
             func createWorkspace(_ content: String) throws -> Workspace {
-                try fs.writeFileContents(foo.appending("Package.swift"), string: content)
+                try fs.writeFileContents(packageManifest, string: content)
 
                 let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default)
 
@@ -185,7 +186,7 @@ final class WorkspaceTests: XCTestCase {
                     """
                 )
 
-                XCTAssertMatch(ws.interpreterFlags(for: foo), [.equal("-swift-version"), .equal("4")])
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("4")])
             }
 
             do {
@@ -199,7 +200,7 @@ final class WorkspaceTests: XCTestCase {
                     """
                 )
 
-                XCTAssertEqual(ws.interpreterFlags(for: foo), [])
+                XCTAssertThrowsError(try ws.interpreterFlags(for: packageManifest))
             }
 
             do {
@@ -213,7 +214,63 @@ final class WorkspaceTests: XCTestCase {
                     """
                 )
 
-                XCTAssertMatch(ws.interpreterFlags(for: foo), [.equal("-swift-version"), .equal("6")])
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("6")])
+            }
+
+            do {
+                let ws = try createWorkspace(
+                    """
+                    // swift-tools-version:5.9.2
+                    import PackageDescription
+                    let package = Package(
+                        name: "foo"
+                    )
+                    """
+                )
+
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("5")])
+            }
+
+            do {
+                // Invalid package manifest should still produce build settings.
+                let ws = try createWorkspace(
+                    """
+                    // swift-tools-version:5.9.2
+                    import PackageDescription
+                    """
+                )
+
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-package-description-version")])
+            }
+
+            do {
+                let ws = try createWorkspace(
+                    """
+                    // swift-tools-version:3.0
+                    import PackageDescription
+                    """
+                )
+                XCTAssertThrowsError(
+                    try ws.interpreterFlags(for: packageManifest),
+                    "error expected"
+                ) { error in
+                    XCTAssertEqual(
+                        error as? StringError,
+                        StringError("invalid tools version")
+                    )
+                }
+            }
+
+            do {
+                // Invalid package manifest should still produce build settings.
+                let ws = try createWorkspace(
+                    """
+                    // swift-tools-version:5.1
+                    import PackageDescription
+                    """
+                )
+
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-package-description-version"), .equal("5.1.0")])
             }
         }
     }
@@ -373,8 +430,8 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Foo", "Bar", "Overridden/bazzz"]) { graph, diagnostics in
             PackageGraphTester(graph) { result in
-                result.check(roots: "Bar", "Foo", "Baz")
-                result.check(packages: "Bar", "Baz", "Foo")
+                result.check(roots: "bar", "Foo", "bazzz")
+                result.check(packages: "bar", "bazzz", "foo")
                 result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
             }
             XCTAssertNoDiagnostics(diagnostics)
@@ -482,8 +539,8 @@ final class WorkspaceTests: XCTestCase {
             ]
         ) { graph, diagnostics in
             PackageGraphTester(graph) { result in
-                result.check(roots: "FooPackage", "BarPackage")
-                result.check(packages: "FooPackage", "BarPackage")
+                result.check(roots: "foo-package", "bar-package")
+                result.check(packages: "foo-package", "bar-package")
                 result.checkTarget("FooTarget") { result in result.check(dependencies: "BarProduct") }
             }
             XCTAssertNoDiagnostics(diagnostics)
@@ -2326,15 +2383,15 @@ final class WorkspaceTests: XCTestCase {
         // Load the graph.
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             PackageGraphTester(graph) { result in
-                result.check(roots: "Root")
-                result.check(packages: "Bar", "Foo", "Root")
+                result.check(roots: .plain("Root"))
+                result.check(packages: .plain("bar"), .plain("foo"), .plain("Root"))
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
 
         // Edit foo.
-        let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending("Foo")
-        await workspace.checkEdit(packageName: "Foo") { diagnostics in
+        let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending("foo")
+        await workspace.checkEdit(packageIdentity: "foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
@@ -2349,7 +2406,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Try re-editing foo.
-        await workspace.checkEdit(packageName: "Foo") { diagnostics in
+        await workspace.checkEdit(packageIdentity: "foo") { diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(diagnostic: .equal("dependency 'foo' already in edit mode"), severity: .error)
             }
@@ -2359,7 +2416,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Try editing bar at bad revision.
-        await workspace.checkEdit(packageName: "Bar", revision: Revision(identifier: "dev")) { diagnostics in
+        await workspace.checkEdit(packageIdentity: "bar", revision: Revision(identifier: "dev")) { diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(diagnostic: .equal("revision 'dev' does not exist"), severity: .error)
             }
@@ -2367,7 +2424,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Edit bar at a custom path and branch (ToT).
         let barPath = AbsolutePath("/tmp/ws/custom/bar")
-        await workspace.checkEdit(packageName: "Bar", path: barPath, checkoutBranch: "dev") { diagnostics in
+        await workspace.checkEdit(packageIdentity: "bar", path: barPath, checkoutBranch: "dev") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
@@ -2377,12 +2434,75 @@ final class WorkspaceTests: XCTestCase {
         XCTAssert(barRepo.revisions.contains("dev"))
 
         // Test unediting.
-        await workspace.checkUnedit(packageName: "Foo", roots: ["Root"]) { diagnostics in
+        await workspace.checkUnedit(packageIdentity: "foo", roots: ["Root"]) { diagnostics in
             XCTAssertFalse(fs.exists(fooPath))
             XCTAssertNoDiagnostics(diagnostics)
         }
-        await workspace.checkUnedit(packageName: "Bar", roots: ["Root"]) { diagnostics in
+        await workspace.checkUnedit(packageIdentity: "bar", roots: ["Root"]) { diagnostics in
             XCTAssert(fs.exists(barPath))
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+    }
+
+    func testUnsafeFlagsInEditedPackage() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "Root",
+                            dependencies: ["Foo"],
+                            settings: [
+                                .init(tool: .swift, kind: .unsafeFlags(["-F","/tmp"]))
+                            ]
+                        ),
+                    ],
+                    products: [],
+                    dependencies: [
+                        // Must be a branch or revision for unsafe flags
+                        .sourceControl(path: "./Foo", requirement: .revision("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(
+                            name: "Foo",
+                            settings: [
+                                .init(tool: .swift, kind: .unsafeFlags(["-F","/tmp"]))
+                            ]
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo"]),
+                    ],
+                    versions: ["1.0.0", nil]
+                ),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            PackageGraphTester(graph) { result in
+                result.check(roots: .plain("Root"))
+                result.check(packages: .plain("root"), .plain("Foo"))
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        let editedFooPath = AbsolutePath("/tmp/ws/Foo")
+        await workspace.checkEdit(packageIdentity: "Foo", path: editedFooPath) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
     }
@@ -2425,7 +2545,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Edit foo.
         let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending("Foo")
-        await workspace.checkEdit(packageName: "Foo") { diagnostics in
+        await workspace.checkEdit(packageIdentity: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
@@ -2484,7 +2604,7 @@ final class WorkspaceTests: XCTestCase {
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
-        await workspace.checkEdit(packageName: "Foo") { diagnostics in
+        await workspace.checkEdit(packageIdentity: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
@@ -2516,7 +2636,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Unedit foo.
-        await workspace.checkUnedit(packageName: "Foo", roots: []) { diagnostics in
+        await workspace.checkUnedit(packageIdentity: "Foo", roots: []) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
@@ -2585,7 +2705,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Edit bar.
-        await workspace.checkEdit(packageName: "Bar") { diagnostics in
+        await workspace.checkEdit(packageIdentity: "Bar") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
@@ -2632,7 +2752,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Unedit should get the Package.resolved entry back.
-        await workspace.checkUnedit(packageName: "bar", roots: ["Root"]) { diagnostics in
+        await workspace.checkUnedit(packageIdentity: "bar", roots: ["Root"]) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
@@ -2867,7 +2987,7 @@ final class WorkspaceTests: XCTestCase {
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
-        await workspace.checkEdit(packageName: "Foo") { diagnostics in
+        await workspace.checkEdit(packageIdentity: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
@@ -3102,7 +3222,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Test that its not possible to edit or resolve this package.
-        await workspace.checkEdit(packageName: "Bar") { diagnostics in
+        await workspace.checkEdit(packageIdentity: "Bar") { diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(diagnostic: .contains("local dependency 'bar' can't be edited"), severity: .error)
             }
@@ -4016,7 +4136,7 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(url: "https://localhost/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(url: "https://localhost/org/bar", requirement: .upToNextMinor(from: "1.1.0"))
                     ],
-                    toolsVersion: .vNext // change to the one after 5.9
+                    toolsVersion: .v5_10
                 ),
             ],
             packages: [
@@ -4530,7 +4650,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
-                result.check(packages: "BarMirror", "BazMirror", "Foo", "Dep")
+                result.check(packages: "bar-mirror", "baz-mirror", "foo", "dep")
                 result.check(modules: "Bar", "Baz", "Foo", "Dep")
             }
             XCTAssertNoDiagnostics(diagnostics)
@@ -4636,7 +4756,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
-                result.check(packages: "BarMirror", "Foo", "Dep")
+                result.check(packages: "bar-mirror", "foo", "dep")
                 result.check(modules: "Bar", "Foo", "Dep")
             }
             XCTAssertNoDiagnostics(diagnostics)
@@ -4707,7 +4827,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
-                result.check(packages: "BarMirror", "Baz", "Foo")
+                result.check(packages: "org.bar-mirror", "baz", "foo")
                 result.check(modules: "Bar", "Baz", "Foo")
             }
             XCTAssertNoDiagnostics(diagnostics)
@@ -4777,7 +4897,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
-                result.check(packages: "BarMirror", "Baz", "Foo")
+                result.check(packages: "bar-mirror", "org.baz", "foo")
                 result.check(modules: "Bar", "Baz", "Foo")
             }
             XCTAssertNoDiagnostics(diagnostics)
@@ -5706,7 +5826,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Edit foo.
         let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending("Foo")
-        await workspace.checkEdit(packageName: "Foo") { diagnostics in
+        await workspace.checkEdit(packageIdentity: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
@@ -6023,31 +6143,27 @@ final class WorkspaceTests: XCTestCase {
         let a5FrameworkName = "A5.xcframework"
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
-                    throw StringError("invalid request \(request.kind)")
-                }
-
-                let contents: [UInt8]
-                switch request.url.lastPathComponent {
-                case "a4.zip":
-                    contents = [0xA4]
-                default:
-                    throw StringError("unexpected url \(request.url)")
-                }
-
-                try fileSystem.writeFileContents(
-                    destination,
-                    bytes: ByteString(contents),
-                    atomically: true
-                )
-
-                completion(.success(.okay()))
-            } catch {
-                completion(.failure(error))
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
             }
-        })
+
+            let contents: [UInt8]
+            switch request.url.lastPathComponent {
+            case "a4.zip":
+                contents = [0xA4]
+            default:
+                throw StringError("unexpected url \(request.url)")
+            }
+
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: ByteString(contents),
+                atomically: true
+            )
+
+            return .okay()
+        }
 
         // create a dummy xcframework directory (with a marker subdirectory) from the request archive
         let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
@@ -6788,36 +6904,32 @@ final class WorkspaceTests: XCTestCase {
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
-                    throw StringError("invalid request \(request.kind)")
-                }
-
-                let contents: [UInt8]
-                switch request.url.lastPathComponent {
-                case "a1.zip":
-                    contents = [0xA1]
-                case "a2.zip":
-                    contents = [0xA2]
-                case "b.zip":
-                    contents = [0xB0]
-                default:
-                    throw StringError("unexpected url \(request.url)")
-                }
-
-                try fileSystem.writeFileContents(
-                    destination,
-                    bytes: ByteString(contents),
-                    atomically: true
-                )
-
-                downloads[request.url] = destination
-                completion(.success(.okay()))
-            } catch {
-                completion(.failure(error))
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
             }
-        })
+
+            let contents: [UInt8]
+            switch request.url.lastPathComponent {
+            case "a1.zip":
+                contents = [0xA1]
+            case "a2.zip":
+                contents = [0xA2]
+            case "b.zip":
+                contents = [0xB0]
+            default:
+                throw StringError("unexpected url \(request.url)")
+            }
+
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: ByteString(contents),
+                atomically: true
+            )
+
+            downloads[request.url] = destination
+            return .okay()
+        }
 
         // create a dummy xcframework directory from the request archive
         let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
@@ -6981,40 +7093,36 @@ final class WorkspaceTests: XCTestCase {
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
-                    throw StringError("invalid request \(request.kind)")
-                }
-
-                let contents: [UInt8]
-                switch request.url.lastPathComponent {
-                case "a1.zip":
-                    contents = [0xA1]
-                case "a2.zip":
-                    contents = [0xA2]
-                case "a3.zip":
-                    contents = [0xA3]
-                case "a7.zip":
-                    contents = [0xA7]
-                case "b.zip":
-                    contents = [0xB0]
-                default:
-                    throw StringError("unexpected url \(request.url)")
-                }
-
-                try fileSystem.writeFileContents(
-                    destination,
-                    bytes: ByteString(contents),
-                    atomically: true
-                )
-
-                downloads[request.url] = destination
-                completion(.success(.okay()))
-            } catch {
-                completion(.failure(error))
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
             }
-        })
+
+            let contents: [UInt8]
+            switch request.url.lastPathComponent {
+            case "a1.zip":
+                contents = [0xA1]
+            case "a2.zip":
+                contents = [0xA2]
+            case "a3.zip":
+                contents = [0xA3]
+            case "a7.zip":
+                contents = [0xA7]
+            case "b.zip":
+                contents = [0xB0]
+            default:
+                throw StringError("unexpected url \(request.url)")
+            }
+
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: ByteString(contents),
+                atomically: true
+            )
+
+            downloads[request.url] = destination
+            return .okay()
+        }
 
         // create a dummy xcframework directory from the request archive
         let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
@@ -7293,32 +7401,28 @@ final class WorkspaceTests: XCTestCase {
         let downloads = ThreadSafeArrayStore<(URL, AbsolutePath)>()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
-                    throw StringError("invalid request \(request.kind)")
-                }
-
-                let contents: [UInt8]
-                switch request.url.lastPathComponent {
-                case "a1.zip":
-                    contents = [0xA1]
-                default:
-                    throw StringError("unexpected url \(request.url)")
-                }
-
-                try fileSystem.writeFileContents(
-                    destination,
-                    bytes: ByteString(contents),
-                    atomically: true
-                )
-
-                downloads.append((request.url, destination))
-                completion(.success(.okay()))
-            } catch {
-                completion(.failure(error))
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
             }
-        })
+
+            let contents: [UInt8]
+            switch request.url.lastPathComponent {
+            case "a1.zip":
+                contents = [0xA1]
+            default:
+                throw StringError("unexpected url \(request.url)")
+            }
+
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: ByteString(contents),
+                atomically: true
+            )
+
+            downloads.append((request.url, destination))
+            return .okay()
+        }
 
         // create a dummy xcframework directory from the request archive
         let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
@@ -7419,24 +7523,20 @@ final class WorkspaceTests: XCTestCase {
         try fs.createDirectory(sandbox, recursive: true)
         let artifactUrl = "https://a.com/a.zip"
 
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
-                    throw StringError("invalid request \(request.kind)")
-                }
-
-                // mimics URLSession behavior which write the file even if sends an error message
-                try fileSystem.writeFileContents(
-                    destination,
-                    bytes: "not found",
-                    atomically: true
-                )
-
-                completion(.success(.notFound()))
-            } catch {
-                completion(.failure(error))
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
             }
-        })
+
+            // mimics URLSession behavior which write the file even if sends an error message
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: "not found",
+                atomically: true
+            )
+
+            return .notFound()
+        }
 
         let workspace = try await MockWorkspace(
             sandbox: sandbox,
@@ -7491,28 +7591,24 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
-                    throw StringError("invalid request \(request.kind)")
-                }
-
-                switch request.url {
-                case "https://a.com/a1.zip":
-                    completion(.success(.serverError()))
-                case "https://a.com/a2.zip":
-                    try fileSystem.writeFileContents(destination, bytes: ByteString([0xA2]))
-                    completion(.success(.okay()))
-                case "https://a.com/a3.zip":
-                    try fileSystem.writeFileContents(destination, bytes: "different contents = different checksum")
-                    completion(.success(.okay()))
-                default:
-                    throw StringError("unexpected url")
-                }
-            } catch {
-                completion(.failure(error))
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
             }
-        })
+
+            switch request.url {
+            case "https://a.com/a1.zip":
+                return .serverError()
+            case "https://a.com/a2.zip":
+                try fileSystem.writeFileContents(destination, bytes: ByteString([0xA2]))
+                return .okay()
+            case "https://a.com/a3.zip":
+                try fileSystem.writeFileContents(destination, bytes: "different contents = different checksum")
+                return .okay()
+            default:
+                throw StringError("unexpected url")
+            }
+        }
 
         let archiver = MockArchiver(handler: { _, _, destinationPath, completion in
             XCTAssertEqual(destinationPath.parentDirectory, AbsolutePath("/tmp/ws/.build/artifacts/extract/root/A2"))
@@ -7582,29 +7678,25 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
-                    throw StringError("invalid request \(request.kind)")
-                }
-
-                switch request.url {
-                case "https://a.com/a1.zip":
-                    try fileSystem.writeFileContents(destination, bytes: ByteString([0xA1]))
-                    completion(.success(.okay()))
-                case "https://a.com/a2.zip":
-                    try fileSystem.writeFileContents(destination, bytes: ByteString([0xA2]))
-                    completion(.success(.okay()))
-                case "https://a.com/a3.zip":
-                    try fileSystem.writeFileContents(destination, bytes: ByteString([0xA3]))
-                    completion(.success(.okay()))
-                default:
-                    throw StringError("unexpected url")
-                }
-            } catch {
-                completion(.failure(error))
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
             }
-        })
+
+            switch request.url {
+            case "https://a.com/a1.zip":
+                try fileSystem.writeFileContents(destination, bytes: ByteString([0xA1]))
+                return .okay()
+            case "https://a.com/a2.zip":
+                try fileSystem.writeFileContents(destination, bytes: ByteString([0xA2]))
+                return .okay()
+            case "https://a.com/a3.zip":
+                try fileSystem.writeFileContents(destination, bytes: ByteString([0xA3]))
+                return .okay()
+            default:
+                throw StringError("unexpected url")
+            }
+        }
 
         let archiver = MockArchiver(
             extractionHandler: { archiver, archivePath, destinationPath, completion in
@@ -7694,23 +7786,19 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
-                    throw StringError("invalid request \(request.kind)")
-                }
-
-                switch request.url {
-                case "https://a.com/a1.zip":
-                    try fileSystem.writeFileContents(destination, bytes: ByteString([0xA1]))
-                    completion(.success(.okay()))
-                default:
-                    throw StringError("unexpected url")
-                }
-            } catch {
-                completion(.failure(error))
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
             }
-        })
+
+            switch request.url {
+            case "https://a.com/a1.zip":
+                try fileSystem.writeFileContents(destination, bytes: ByteString([0xA1]))
+                return .okay()
+            default:
+                throw StringError("unexpected url")
+            }
+        }
 
         let archiver = MockArchiver(
             extractionHandler: { _, archivePath, destinationPath, completion in
@@ -7769,23 +7857,19 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
-                    throw StringError("invalid request \(request.kind)")
-                }
-
-                switch request.url {
-                case "https://a.com/foo.zip":
-                    try fileSystem.writeFileContents(destination, bytes: ByteString([0xA1]))
-                    completion(.success(.okay()))
-                default:
-                    throw StringError("unexpected url")
-                }
-            } catch {
-                completion(.failure(error))
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
             }
-        })
+
+            switch request.url {
+            case "https://a.com/foo.zip":
+                try fileSystem.writeFileContents(destination, bytes: ByteString([0xA1]))
+                return .okay()
+            default:
+                throw StringError("unexpected url")
+            }
+        }
 
         let archiver = MockArchiver(
             extractionHandler: { _, archivePath, destinationPath, completion in
@@ -7919,9 +8003,9 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let httpClient = LegacyHTTPClient(handler: { _, _, _ in
-            XCTFail("should not be called")
-        })
+        let httpClient = HTTPClient { _, _ in
+            throw StringError("should not be called")
+        }
 
         let workspace = try await MockWorkspace(
             sandbox: sandbox,
@@ -7971,33 +8055,29 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
-                    throw StringError("invalid request \(request.kind)")
-                }
-
-                let contents: [UInt8]
-                switch request.url.lastPathComponent {
-                case "a.zip":
-                    contents = [0xA1]
-                case "b.zip":
-                    contents = [0xB1]
-                default:
-                    throw StringError("unexpected url \(request.url)")
-                }
-
-                try fileSystem.writeFileContents(
-                    destination,
-                    bytes: ByteString(contents),
-                    atomically: true
-                )
-
-                completion(.success(.okay()))
-            } catch {
-                completion(.failure(error))
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
             }
-        })
+
+            let contents: [UInt8]
+            switch request.url.lastPathComponent {
+            case "a.zip":
+                contents = [0xA1]
+            case "b.zip":
+                contents = [0xB1]
+            default:
+                throw StringError("unexpected url \(request.url)")
+            }
+
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: ByteString(contents),
+                atomically: true
+            )
+
+            return .okay()
+        }
 
         let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
             do {
@@ -8065,35 +8145,31 @@ final class WorkspaceTests: XCTestCase {
     func testArtifactDownloadAddsAcceptHeader() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        var acceptHeaders: [String] = []
+        let acceptHeaders = ThreadSafeBox([String]())
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
-                    throw StringError("invalid request \(request.kind)")
-                }
-                acceptHeaders.append(request.headers.get("accept").first!)
-
-                let contents: [UInt8]
-                switch request.url.lastPathComponent {
-                case "a1.zip":
-                    contents = [0xA1]
-                default:
-                    throw StringError("unexpected url \(request.url)")
-                }
-
-                try fileSystem.writeFileContents(
-                    destination,
-                    bytes: ByteString(contents),
-                    atomically: true
-                )
-
-                completion(.success(.okay()))
-            } catch {
-                completion(.failure(error))
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
             }
-        })
+            acceptHeaders.mutate { $0?.append(request.headers.get("accept").first!) }
+
+            let contents: [UInt8]
+            switch request.url.lastPathComponent {
+            case "a1.zip":
+                contents = [0xA1]
+            default:
+                throw StringError("unexpected url \(request.url)")
+            }
+
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: ByteString(contents),
+                atomically: true
+            )
+
+            return .okay()
+        }
 
         // create a dummy xcframework directory from the request archive
         let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
@@ -8136,7 +8212,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssertEqual(acceptHeaders, [
+            XCTAssertEqual(acceptHeaders.get(), [
                 "application/octet-stream",
             ])
         }
@@ -8145,35 +8221,31 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadedArtifactNoCache() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        var downloads = 0
+        let downloads = ThreadSafeBox(0)
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
-                    throw StringError("invalid request \(request.kind)")
-                }
-
-                let contents: [UInt8]
-                switch request.url.lastPathComponent {
-                case "a1.zip":
-                    contents = [0xA1]
-                default:
-                    throw StringError("unexpected url \(request.url)")
-                }
-
-                try fileSystem.writeFileContents(
-                    destination,
-                    bytes: ByteString(contents),
-                    atomically: true
-                )
-
-                downloads += 1
-                completion(.success(.okay()))
-            } catch {
-                completion(.failure(error))
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
             }
-        })
+
+            let contents: [UInt8]
+            switch request.url.lastPathComponent {
+            case "a1.zip":
+                contents = [0xA1]
+            default:
+                throw StringError("unexpected url \(request.url)")
+            }
+
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: ByteString(contents),
+                atomically: true
+            )
+
+            downloads.increment()
+            return .okay()
+        }
 
         // create a dummy xcframework directory from the request archive
         let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
@@ -8218,55 +8290,51 @@ final class WorkspaceTests: XCTestCase {
         // should not come from cache
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssertEqual(downloads, 1)
+            XCTAssertEqual(downloads.get(), 1)
         }
 
         // state is there, should not come from local cache
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssertEqual(downloads, 1)
+            XCTAssertEqual(downloads.get(), 1)
         }
 
         // resetting state, should not come from global cache
         try workspace.resetState()
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssertEqual(downloads, 2)
+            XCTAssertEqual(downloads.get(), 2)
         }
     }
 
     func testDownloadedArtifactCache() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        var downloads = 0
+        let downloads = ThreadSafeBox(0)
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
-                    throw StringError("invalid request \(request.kind)")
-                }
-
-                let contents: [UInt8]
-                switch request.url.lastPathComponent {
-                case "a1.zip":
-                    contents = [0xA1]
-                default:
-                    throw StringError("unexpected url \(request.url)")
-                }
-
-                try fileSystem.writeFileContents(
-                    destination,
-                    bytes: ByteString(contents),
-                    atomically: true
-                )
-
-                downloads += 1
-                completion(.success(.okay()))
-            } catch {
-                completion(.failure(error))
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
             }
-        })
+
+            let contents: [UInt8]
+            switch request.url.lastPathComponent {
+            case "a1.zip":
+                contents = [0xA1]
+            default:
+                throw StringError("unexpected url \(request.url)")
+            }
+
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: ByteString(contents),
+                atomically: true
+            )
+
+            downloads.increment()
+            return .okay()
+        }
 
         // create a dummy xcframework directory from the request archive
         let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
@@ -8311,20 +8379,20 @@ final class WorkspaceTests: XCTestCase {
         // should not come from cache
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssertEqual(downloads, 1)
+            XCTAssertEqual(downloads.get(), 1)
         }
 
         // state is there, should not come from local cache
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssertEqual(downloads, 1)
+            XCTAssertEqual(downloads.get(), 1)
         }
 
         // resetting state, should come from global cache
         try workspace.resetState()
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssertEqual(downloads, 1)
+            XCTAssertEqual(downloads.get(), 1)
         }
 
         // delete global cache, should download again
@@ -8332,14 +8400,14 @@ final class WorkspaceTests: XCTestCase {
         try fs.removeFileTree(fs.swiftPMCacheDirectory)
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssertEqual(downloads, 2)
+            XCTAssertEqual(downloads.get(), 2)
         }
 
         // resetting state, should come from global cache again
         try workspace.resetState()
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssertEqual(downloads, 2)
+            XCTAssertEqual(downloads.get(), 2)
         }
     }
 
@@ -8349,35 +8417,31 @@ final class WorkspaceTests: XCTestCase {
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
-                    throw StringError("invalid request \(request.kind)")
-                }
-
-                let contents: [UInt8]
-                switch request.url.lastPathComponent {
-                case "a.zip":
-                    contents = [0xA]
-                default:
-                    throw StringError("unexpected url \(request.url)")
-                }
-
-                try fileSystem.writeFileContents(
-                    destination,
-                    bytes: ByteString(contents),
-                    atomically: true
-                )
-
-                if downloads[request.url] != nil {
-                    throw StringError("\(request.url) already requested")
-                }
-                downloads[request.url] = destination
-                completion(.success(.okay()))
-            } catch {
-                completion(.failure(error))
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
             }
-        })
+
+            let contents: [UInt8]
+            switch request.url.lastPathComponent {
+            case "a.zip":
+                contents = [0xA]
+            default:
+                throw StringError("unexpected url \(request.url)")
+            }
+
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: ByteString(contents),
+                atomically: true
+            )
+
+            if downloads[request.url] != nil {
+                throw StringError("\(request.url) already requested")
+            }
+            downloads[request.url] = destination
+            return .okay()
+        }
 
         // create a dummy xcframework directory from the request archive
         let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
@@ -8530,41 +8594,37 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
-                    throw StringError("invalid request \(request.kind)")
-                }
-
-                // this is to test the test's integrity, as it relied on internal knowledge of the destination path construction
-                guard expectedDownloadDestination == destination else {
-                    throw StringError("expected destination of \(expectedDownloadDestination)")
-                }
-
-                let contents: [UInt8]
-                switch request.url.lastPathComponent {
-                case "binary.zip":
-                    contents = [0x01]
-                default:
-                    throw StringError("unexpected url \(request.url)")
-                }
-
-                // in-memory fs does not check for this!
-                if fileSystem.exists(destination) {
-                    throw StringError("\(destination) already exists")
-                }
-
-                try fileSystem.writeFileContents(
-                    destination,
-                    bytes: ByteString(contents),
-                    atomically: true
-                )
-
-                completion(.success(.okay()))
-            } catch {
-                completion(.failure(error))
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
             }
-        })
+
+            // this is to test the test's integrity, as it relied on internal knowledge of the destination path construction
+            guard expectedDownloadDestination == destination else {
+                throw StringError("expected destination of \(expectedDownloadDestination)")
+            }
+
+            let contents: [UInt8]
+            switch request.url.lastPathComponent {
+            case "binary.zip":
+                contents = [0x01]
+            default:
+                throw StringError("unexpected url \(request.url)")
+            }
+
+            // in-memory fs does not check for this!
+            if fileSystem.exists(destination) {
+                throw StringError("\(destination) already exists")
+            }
+
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: ByteString(contents),
+                atomically: true
+            )
+
+            return .okay()
+        }
 
         // create a dummy xcframework directory from the request archive
         let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
@@ -8637,42 +8697,33 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let maxConcurrentRequests = 2
-        var concurrentRequests = 0
-        let concurrentRequestsLock = NSLock()
+        let concurrentRequests = ThreadSafeBox(0)
 
-        var configuration = LegacyHTTPClient.Configuration()
+        var configuration = HTTPClient.Configuration()
         configuration.maxConcurrentRequests = maxConcurrentRequests
-        let httpClient = LegacyHTTPClient(configuration: configuration, handler: { request, _, completion in
+        let httpClient = HTTPClient(configuration: configuration) { request, _ in
             defer {
-                concurrentRequestsLock.withLock {
-                    concurrentRequests -= 1
-                }
+                concurrentRequests.decrement()
             }
 
-            do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
-                    throw StringError("invalid request \(request.kind)")
-                }
-
-                concurrentRequestsLock.withLock {
-                    concurrentRequests += 1
-                    if concurrentRequests > maxConcurrentRequests {
-                        XCTFail("too many concurrent requests \(concurrentRequests), expected \(maxConcurrentRequests)")
-                    }
-                }
-
-                // returns a dummy zipfile for the requested artifact
-                try fileSystem.writeFileContents(
-                    destination,
-                    bytes: [0x01],
-                    atomically: true
-                )
-
-                completion(.success(.okay()))
-            } catch {
-                completion(.failure(error))
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
             }
-        })
+
+            concurrentRequests.increment()
+            if concurrentRequests.get()! > maxConcurrentRequests {
+                XCTFail("too many concurrent requests \(concurrentRequests), expected \(maxConcurrentRequests)")
+            }
+
+            // returns a dummy zipfile for the requested artifact
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: [0x01],
+                atomically: true
+            )
+
+            return .okay()
+        }
 
         // create a dummy xcframework directory from the request archive
         let archiver = MockArchiver(handler: { _, archivePath, destinationPath, completion in
@@ -8759,36 +8810,32 @@ final class WorkspaceTests: XCTestCase {
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
-                    throw StringError("invalid request \(request.kind)")
-                }
-
-                let contents: [UInt8]
-                switch request.url.lastPathComponent {
-                case "flat.zip":
-                    contents = [0x01]
-                case "nested.zip":
-                    contents = [0x02]
-                case "nested2.zip":
-                    contents = [0x03]
-                default:
-                    throw StringError("unexpected url \(request.url)")
-                }
-
-                try fileSystem.writeFileContents(
-                    destination,
-                    bytes: ByteString(contents),
-                    atomically: true
-                )
-
-                downloads[request.url] = destination
-                completion(.success(.okay()))
-            } catch {
-                completion(.failure(error))
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
             }
-        })
+
+            let contents: [UInt8]
+            switch request.url.lastPathComponent {
+            case "flat.zip":
+                contents = [0x01]
+            case "nested.zip":
+                contents = [0x02]
+            case "nested2.zip":
+                contents = [0x03]
+            default:
+                throw StringError("unexpected url \(request.url)")
+            }
+
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: ByteString(contents),
+                atomically: true
+            )
+
+            downloads[request.url] = destination
+            return .okay()
+        }
 
         // create a dummy xcframework directory from the request archive
         let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
@@ -8923,34 +8970,30 @@ final class WorkspaceTests: XCTestCase {
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
-                    throw StringError("invalid request \(request.kind)")
-                }
-
-                let contents: [UInt8]
-                switch request.url.lastPathComponent {
-                case "a1.xcframework.zip":
-                    contents = [0xA1]
-                case "a2.zip.zip":
-                    contents = [0xA2]
-                default:
-                    throw StringError("unexpected url \(request.url)")
-                }
-
-                try fileSystem.writeFileContents(
-                    destination,
-                    bytes: ByteString(contents),
-                    atomically: true
-                )
-
-                downloads[request.url] = destination
-                completion(.success(.okay()))
-            } catch {
-                completion(.failure(error))
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
             }
-        })
+
+            let contents: [UInt8]
+            switch request.url.lastPathComponent {
+            case "a1.xcframework.zip":
+                contents = [0xA1]
+            case "a2.zip.zip":
+                contents = [0xA2]
+            default:
+                throw StringError("unexpected url \(request.url)")
+            }
+
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: ByteString(contents),
+                atomically: true
+            )
+
+            downloads[request.url] = destination
+            return .okay()
+        }
 
         // create a dummy xcframework directory from the request archive
         let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
@@ -9127,50 +9170,43 @@ final class WorkspaceTests: XCTestCase {
         let ariFilesChecksums = ariFiles.map { checksumAlgorithm.hash($0).hexadecimalRepresentation }
 
         // returns a dummy file for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
+        let httpClient = HTTPClient { request, _ in
             switch request.kind {
             case .generic:
-                do {
-                    let contents: String
-                    switch request.url.lastPathComponent {
-                    case "a1.artifactbundleindex":
-                        contents = ariFiles[0]
-                    case "a2.artifactbundleindex":
-                        contents = ariFiles[1]
-                    default:
-                        throw StringError("unexpected url \(request.url)")
-                    }
-                    completion(.success(.okay(body: contents)))
-                } catch {
-                    completion(.failure(error))
+                let contents: String
+                switch request.url.lastPathComponent {
+                case "a1.artifactbundleindex":
+                    contents = ariFiles[0]
+                case "a2.artifactbundleindex":
+                    contents = ariFiles[1]
+                default:
+                    throw StringError("unexpected url \(request.url)")
                 }
+                return .okay(body: contents)
+
             case .download(let fileSystem, let destination):
-                do {
-                    let contents: [UInt8]
-                    switch request.url.lastPathComponent {
-                    case "a1.zip":
-                        contents = [0xA1]
-                    case "a2.zip":
-                        contents = [0xA2]
-                    case "b.zip":
-                        contents = [0xB0]
-                    default:
-                        throw StringError("unexpected url \(request.url)")
-                    }
-
-                    try fileSystem.writeFileContents(
-                        destination,
-                        bytes: ByteString(contents),
-                        atomically: true
-                    )
-
-                    downloads[request.url] = destination
-                    completion(.success(.okay()))
-                } catch {
-                    completion(.failure(error))
+                let contents: [UInt8]
+                switch request.url.lastPathComponent {
+                case "a1.zip":
+                    contents = [0xA1]
+                case "a2.zip":
+                    contents = [0xA2]
+                case "b.zip":
+                    contents = [0xB0]
+                default:
+                    throw StringError("unexpected url \(request.url)")
                 }
+
+                try fileSystem.writeFileContents(
+                    destination,
+                    bytes: ByteString(contents),
+                    atomically: true
+                )
+
+                downloads[request.url] = destination
+                return .okay()
             }
-        })
+        }
 
         // create a dummy xcframework directory from the request archive
         let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
@@ -9343,9 +9379,9 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         // returns a dummy files for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { _, _, completion in
-            completion(.success(.serverError()))
-        })
+        let httpClient = HTTPClient { _, _ in
+            return .serverError()
+        }
 
         let workspace = try await MockWorkspace(
             sandbox: sandbox,
@@ -9402,20 +9438,16 @@ final class WorkspaceTests: XCTestCase {
         let ariChecksums = checksumAlgorithm.hash(ari).hexadecimalRepresentation
 
         // returns a dummy files for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
-                let contents: String
-                switch request.url.lastPathComponent {
-                case "a.artifactbundleindex":
-                    contents = ari
-                default:
-                    throw StringError("unexpected url \(request.url)")
-                }
-                completion(.success(.okay(body: contents)))
-            } catch {
-                completion(.failure(error))
+        let httpClient = HTTPClient { request, _ in
+            let contents: String
+            switch request.url.lastPathComponent {
+            case "a.artifactbundleindex":
+                contents = ari
+            default:
+                throw StringError("unexpected url \(request.url)")
             }
-        })
+            return .okay(body: contents)
+        }
 
         let workspace = try await MockWorkspace(
             sandbox: sandbox,
@@ -9522,41 +9554,37 @@ final class WorkspaceTests: XCTestCase {
         let ariChecksums = checksumAlgorithm.hash(ari).hexadecimalRepresentation
 
         // returns a dummy files for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
-                switch request.kind {
-                case .generic:
-                    let contents: String
-                    switch request.url.lastPathComponent {
-                    case "a.artifactbundleindex":
-                        contents = ari
-                    default:
-                        throw StringError("unexpected url \(request.url)")
-                    }
-
-                    completion(.success(.okay(body: contents)))
-
-                case .download(let fileSystem, let destination):
-                    let contents: [UInt8]
-                    switch request.url.lastPathComponent {
-                    case "a.zip":
-                        contents = [0x42]
-                    default:
-                        throw StringError("unexpected url \(request.url)")
-                    }
-
-                    try fileSystem.writeFileContents(
-                        destination,
-                        bytes: ByteString(contents),
-                        atomically: true
-                    )
-
-                    completion(.success(.okay()))
+        let httpClient = HTTPClient { request, _ in
+            switch request.kind {
+            case .generic:
+                let contents: String
+                switch request.url.lastPathComponent {
+                case "a.artifactbundleindex":
+                    contents = ari
+                default:
+                    throw StringError("unexpected url \(request.url)")
                 }
-            } catch {
-                completion(.failure(error))
+
+                return .okay(body: contents)
+
+            case .download(let fileSystem, let destination):
+                let contents: [UInt8]
+                switch request.url.lastPathComponent {
+                case "a.zip":
+                    contents = [0x42]
+                default:
+                    throw StringError("unexpected url \(request.url)")
+                }
+
+                try fileSystem.writeFileContents(
+                    destination,
+                    bytes: ByteString(contents),
+                    atomically: true
+                )
+
+                return .okay()
             }
-        })
+        }
 
         // create a dummy xcframework directory from the request archive
         let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
@@ -9633,26 +9661,22 @@ final class WorkspaceTests: XCTestCase {
         let ariChecksums = checksumAlgorithm.hash(ari).hexadecimalRepresentation
 
         // returns a dummy files for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
-                switch request.kind {
-                case .generic:
-                    let contents: String
-                    switch request.url.lastPathComponent {
-                    case "a.artifactbundleindex":
-                        contents = ari
-                    default:
-                        throw StringError("unexpected url \(request.url)")
-                    }
-                    completion(.success(.okay(body: contents)))
-
-                case .download:
-                    completion(.success(.notFound()))
+        let httpClient = HTTPClient { request, _ in
+            switch request.kind {
+            case .generic:
+                let contents: String
+                switch request.url.lastPathComponent {
+                case "a.artifactbundleindex":
+                    contents = ari
+                default:
+                    throw StringError("unexpected url \(request.url)")
                 }
-            } catch {
-                completion(.failure(error))
+                return .okay(body: contents)
+
+            case .download:
+                return .notFound()
             }
-        })
+        }
 
         let workspace = try await MockWorkspace(
             sandbox: sandbox,
@@ -9713,8 +9737,7 @@ final class WorkspaceTests: XCTestCase {
         let ariChecksum = checksumAlgorithm.hash(ari).hexadecimalRepresentation
 
         // returns a dummy files for the requested artifact
-        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            do {
+        let httpClient = HTTPClient { request, _ in
                 let contents: String
                 switch request.url.lastPathComponent {
                 case "a.artifactbundleindex":
@@ -9722,11 +9745,8 @@ final class WorkspaceTests: XCTestCase {
                 default:
                     throw StringError("unexpected url \(request.url)")
                 }
-                completion(.success(.okay(body: contents)))
-            } catch {
-                completion(.failure(error))
-            }
-        })
+                return .okay(body: contents)
+        }
 
         let workspace = try await MockWorkspace(
             sandbox: sandbox,
@@ -11439,7 +11459,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
-                result.check(packages: "BarPackage", "BazPackage", "FooPackage", "Root", "QuxPackage")
+                result.check(packages: "bar", "baz", "foo", "Root", "qux")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "https://github.com/org/foo.git")
 
@@ -11576,7 +11596,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
-                result.check(packages: "BarPackage", "BazPackage", "FooPackage", "Root")
+                result.check(packages: "bar", "baz", "foo", "Root")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
 
@@ -11717,7 +11737,7 @@ final class WorkspaceTests: XCTestCase {
          try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
              XCTAssertNoDiagnostics(diagnostics)
              PackageGraphTester(graph) { result in
-                 result.check(packages: "BarPackage", "FooPackage", "Root")
+                 result.check(packages: "bar", "foo", "Root")
                  let package = result.find(package: "foo")
                  XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
              }
@@ -11736,7 +11756,7 @@ final class WorkspaceTests: XCTestCase {
          try await workspace.checkPackageGraph(roots: ["Root2"]) { graph, diagnostics in
              XCTAssertNoDiagnostics(diagnostics)
              PackageGraphTester(graph) { result in
-                 result.check(packages: "BarPackage", "BazPackage", "FooPackage", "Root2")
+                 result.check(packages: "bar", "baz", "foo", "Root2")
                  let package = result.find(package: "foo")
                  XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
              }
@@ -11828,7 +11848,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
-                result.check(packages: "FooPackage", "Root")
+                result.check(packages: "foo", "Root")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "https://github.com/org/foo.git")
             }
@@ -11847,7 +11867,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Root2"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
-                result.check(packages: "FooPackage", "Root2")
+                result.check(packages: "foo", "Root2")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
 
@@ -11974,7 +11994,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
-                result.check(packages: "BarPackage", "FooPackage", "Root")
+                result.check(packages: "bar", "foo", "Root")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "https://github.com/org/foo.git")
 
@@ -12000,7 +12020,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Root2"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
-                result.check(packages: "BarPackage", "FooPackage", "Root2")
+                result.check(packages: "bar", "foo", "Root2")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
 
@@ -12197,7 +12217,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
                 result.check(roots: "Root")
-                result.check(packages: "BarPackage", "FooPackage", "Root")
+                result.check(packages: "bar", "foo", "Root")
                 result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                 result.checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
             }
@@ -12663,7 +12683,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
                 result.check(roots: "MyPackage")
-                result.check(packages: "Bar", "Foo", "MyPackage")
+                result.check(packages: "org.bar", "org.foo", "mypackage")
                 result.check(modules: "Foo", "Bar", "MyTarget1", "MyTarget2")
                 result.checkTarget("MyTarget1") { result in result.check(dependencies: "Foo") }
                 result.checkTarget("MyTarget2") { result in result.check(dependencies: "Bar") }
@@ -12796,7 +12816,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
                 result.check(roots: "MyPackage")
-                result.check(packages: "Bar", "Baz", "Foo", "MyPackage")
+                result.check(packages: "org.bar", "org.baz", "org.foo", "mypackage")
                 result.check(modules: "Foo", "Bar", "Baz", "MyTarget1", "MyTarget2")
                 result.checkTarget("MyTarget1") { result in result.check(dependencies: "Foo") }
                 result.checkTarget("MyTarget2") { result in result.check(dependencies: "Bar") }
@@ -12848,6 +12868,85 @@ final class WorkspaceTests: XCTestCase {
             workspace.delegate.events,
             ["did load manifest for registry package: org.baz (identity: org.baz)"]
         )
+    }
+    
+    func testTransitiveResolutionFromRegistryWithByNameDependencies() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Bar",
+                    identity: "org.bar",
+                    alternativeURLs: ["https://git/org/Bar"],
+                    targets: [
+                        MockTarget(name: "BarTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", modules: ["BarTarget"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0"]
+                ),
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
+                    targets: [
+                        MockTarget(name: "FooTarget", dependencies: [
+                            "Bar",
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "1.2.0"]
+                ),
+            ]
+        )
+
+        workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+
+        try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "org.bar", "org.foo", "Root")
+                result.check(modules: "FooTarget", "BarTarget", "RootTarget")
+                result.checkTarget("RootTarget") { result in
+                    result.check(dependencies: "FooProduct")
+                }
+                result.checkTarget("FooTarget") { result in
+                    result.check(dependencies: "Bar")
+                }
+            }
+        }
+
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "org.foo", at: .registryDownload("1.2.0"))
+            result.check(dependency: "org.bar", at: .registryDownload("1.1.0"))
+        }
     }
 
     // no dups
@@ -12921,7 +13020,7 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertNoDiagnostics(diagnostics)
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -12944,7 +13043,7 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertNoDiagnostics(diagnostics)
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -12967,7 +13066,7 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertNoDiagnostics(diagnostics)
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -12978,6 +13077,70 @@ final class WorkspaceTests: XCTestCase {
                 result.check(dependency: "org.foo", at: .registryDownload("1.2.0"))
                 result.check(dependency: "org.bar", at: .registryDownload("1.1.0"))
             }
+        }
+    }
+    
+    func testTransitiveResolutionFromRegistryWithDifferentPackageNameCasing() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "Foo"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "1.2.0"]
+                ),
+            ]
+        )
+
+        workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+
+        try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "org.foo", "Root")
+                result.check(modules: "FooTarget", "RootTarget")
+                result.checkTarget("RootTarget") { result in
+                    result.check(dependencies: "FooProduct")
+                }
+                result.checkTarget("FooTarget") { result in
+                    result.check(dependencies: [])
+                }
+            }
+        }
+
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "org.foo", at: .registryDownload("1.2.0"))
         }
     }
 
@@ -13179,7 +13342,7 @@ final class WorkspaceTests: XCTestCase {
 
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -13203,7 +13366,7 @@ final class WorkspaceTests: XCTestCase {
 
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -13226,7 +13389,7 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertNoDiagnostics(diagnostics)
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -13341,7 +13504,7 @@ final class WorkspaceTests: XCTestCase {
                 }
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -13364,7 +13527,7 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertNoDiagnostics(diagnostics)
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -13612,7 +13775,7 @@ final class WorkspaceTests: XCTestCase {
                 }
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -13635,7 +13798,7 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertNoDiagnostics(diagnostics)
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -13899,7 +14062,7 @@ final class WorkspaceTests: XCTestCase {
                 }
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "BazPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "org.baz", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "BazTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -13927,7 +14090,7 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertNoDiagnostics(diagnostics)
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "BazPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "org.baz", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "BazTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -14186,7 +14349,7 @@ final class WorkspaceTests: XCTestCase {
                 }
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
@@ -14216,7 +14379,7 @@ final class WorkspaceTests: XCTestCase {
                 }
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
-                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
                     result
                         .checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }

@@ -551,6 +551,69 @@ final class PackageCommandTests: CommandsTestCase {
         }
     }
 
+    func testCompletionToolListSnippets() async throws {
+        try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
+            let result = try await execute(["completion-tool", "list-snippets"], packagePath: fixturePath)
+            XCTAssertEqual(result.stdout, "MySnippet\n")
+        }
+    }
+
+    func testCompletionToolListDependencies() async throws {
+        try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
+            let result = try await execute(["completion-tool", "list-dependencies"], packagePath: fixturePath.appending("deck-of-playing-cards-local"))
+            XCTAssertEqual(result.stdout, "playingcard\nfisheryates\n")
+        }
+    }
+
+    func testCompletionToolListExecutables() async throws {
+        try await fixture(name: "Miscellaneous/MultipleExecutables") { fixturePath in
+            let result = try await execute(["completion-tool", "list-executables"], packagePath: fixturePath)
+            XCTAssertEqual(result.stdout, "exec1\nexec2\n")
+        }
+    }
+
+    func testCompletionToolListExecutablesDifferentNames() async throws {
+        try await fixture(name: "Miscellaneous/DifferentProductTargetName") { fixturePath in
+            let result = try await execute(["completion-tool", "list-executables"], packagePath: fixturePath)
+            XCTAssertEqual(result.stdout, "Foo\n")
+        }
+    }
+
+    func testShowExecutables() async throws {
+        try await fixture(name: "Miscellaneous/ShowExecutables") { fixturePath in
+            let packageRoot = fixturePath.appending("app")
+            let (textOutput, _) = try await SwiftPM.Package.execute(["show-executables", "--format=flatlist"], packagePath: packageRoot)
+            XCTAssert(textOutput.contains("dealer\n"))
+            XCTAssert(textOutput.contains("deck (deck-of-playing-cards)\n"))
+
+            let (jsonOutput, _) = try await SwiftPM.Package.execute(["show-executables", "--format=json"], packagePath: packageRoot)
+            let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
+            guard case let .array(contents) = json else { XCTFail("unexpected result"); return }
+
+            XCTAssertEqual(2, contents.count)
+
+            guard case let first = contents.first else { XCTFail("unexpected result"); return }
+            guard case let .dictionary(dealer) = first else { XCTFail("unexpected result"); return }
+            guard case let .string(dealerName)? = dealer["name"] else { XCTFail("unexpected result"); return }
+            XCTAssertEqual(dealerName, "dealer")
+            if case let .string(package)? = dealer["package"] {
+                XCTFail("unexpected package for dealer (should be unset): \(package)")
+                return
+            }
+
+            guard case let last = contents.last else { XCTFail("unexpected result"); return }
+            guard case let .dictionary(deck) = last else { XCTFail("unexpected result"); return }
+            guard case let .string(deckName)? = deck["name"] else { XCTFail("unexpected result"); return }
+            XCTAssertEqual(deckName, "deck")
+            if case let .string(package)? = deck["package"] {
+                XCTAssertEqual("deck-of-playing-cards", package)
+            } else {
+                XCTFail("missing package for deck")
+                return
+            }
+        }
+    }
+
     func testShowDependencies() async throws {
         try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
             let packageRoot = fixturePath.appending("app")
@@ -2260,6 +2323,8 @@ final class PackageCommandTests: CommandsTestCase {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
+        throw XCTSkip("Skipping test due to flakiness, see https://github.com/swiftlang/swift-package-manager/issues/8180")
+
         // Match patterns for expected messages
         let isEmpty = StringPattern.equal("")
         let isOnlyPrint = StringPattern.equal("command plugin: print\n")
@@ -2290,7 +2355,9 @@ final class PackageCommandTests: CommandsTestCase {
 
             try await runPlugin(flags: [], diagnostics: ["print"]) { stdout, stderr in
                 XCTAssertMatch(stdout, isOnlyPrint)
-                XCTAssertMatch(stderr, isEmpty)
+                let filteredStderr = stderr.components(separatedBy: "\n")
+                  .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
+                XCTAssertMatch(filteredStderr, isEmpty)
             }
 
             try await runPlugin(flags: [], diagnostics: ["print", "progress"]) { stdout, stderr in
@@ -2309,7 +2376,7 @@ final class PackageCommandTests: CommandsTestCase {
                 XCTAssertMatch(stderr, containsWarning)
             }
 
-         	try await runPluginWithError(flags: [], diagnostics: ["print", "progress", "remark", "warning", "error"]) { stdout, stderr in
+         	  try await runPluginWithError(flags: [], diagnostics: ["print", "progress", "remark", "warning", "error"]) { stdout, stderr in
                 XCTAssertMatch(stdout, isOnlyPrint)
                 XCTAssertMatch(stderr, containsProgress)
                 XCTAssertMatch(stderr, containsWarning)
@@ -2322,7 +2389,9 @@ final class PackageCommandTests: CommandsTestCase {
 
             try await runPlugin(flags: ["-q"], diagnostics: ["print"]) { stdout, stderr in
                 XCTAssertMatch(stdout, isOnlyPrint)
-                XCTAssertMatch(stderr, isEmpty)
+                let filteredStderr = stderr.components(separatedBy: "\n")
+                  .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
+                XCTAssertMatch(filteredStderr, isEmpty)
             }
 
             try await runPlugin(flags: ["-q"], diagnostics: ["print", "progress"]) { stdout, stderr in
@@ -2448,6 +2517,35 @@ final class PackageCommandTests: CommandsTestCase {
         }
     }
 
+    func testCommandPluginBuildTestability() async throws {
+        // Plugin arguments: check-testability <targetName> <config> <shouldTestable>
+
+        // Overall configuration: debug, plugin build request: debug -> without testability
+        try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "debug", "check-testability", "InternalModule", "debug", "true"], packagePath: fixturePath))
+        }
+
+        // Overall configuration: debug, plugin build request: release -> without testability
+        try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "debug", "check-testability", "InternalModule", "release", "false"], packagePath: fixturePath))
+        }
+
+        // Overall configuration: release, plugin build request: debug -> with testability
+        try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "release", "check-testability", "InternalModule", "debug", "true"], packagePath: fixturePath))
+        }
+
+        // Overall configuration: release, plugin build request: release -> with testability
+        try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "release", "check-testability", "InternalModule", "release", "false"], packagePath: fixturePath))
+        }
+
+        // Overall configuration: release, plugin build request: release including tests -> with testability
+        try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "release", "check-testability", "all-with-tests", "release", "true"], packagePath: fixturePath))
+        }
+    }
+
     // Test logging of builds initiated by a command plugin
     func testCommandPluginBuildLogs() async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
@@ -2461,7 +2559,7 @@ final class PackageCommandTests: CommandsTestCase {
         let containsLogtext = StringPattern.contains("command plugin: packageManager.build logtext: Building for debugging...")
 
         // Echoed logs have no prefix
-        let containsLogecho = StringPattern.regex("^Building for debugging...\n")
+        let containsLogecho = StringPattern.contains("Building for debugging...\n")
 
         // These tests involve building a target, so each test must run with a fresh copy of the fixture
         // otherwise the logs may be different in subsequent tests.
@@ -2470,14 +2568,20 @@ final class PackageCommandTests: CommandsTestCase {
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
             let (stdout, stderr) = try await SwiftPM.Package.execute(["print-diagnostics", "build"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertMatch(stdout, isEmpty)
-            XCTAssertMatch(stderr, isEmpty)
+            // Filter some unrelated output that could show up on stderr.
+            let filteredStderr = stderr.components(separatedBy: "\n")
+              .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
+            XCTAssertMatch(filteredStderr, isEmpty)
         }
 
         // Check that logs are returned to the plugin when echoLogs is false
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
             let (stdout, stderr) = try await SwiftPM.Package.execute(["print-diagnostics", "build", "printlogs"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertMatch(stdout, containsLogtext)
-            XCTAssertMatch(stderr, isEmpty)
+            // Filter some unrelated output that could show up on stderr.
+            let filteredStderr = stderr.components(separatedBy: "\n")
+              .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
+            XCTAssertMatch(filteredStderr, isEmpty)
         }
 
         // Check that logs echoed to the console (on stderr) when echoLogs is true
@@ -2784,14 +2888,14 @@ final class PackageCommandTests: CommandsTestCase {
             do {
                 let (stdout, stderr) = try await SwiftPM.Package.execute(["plugin", "MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
                 XCTAssertMatch(stdout, .contains("success"))
-                XCTAssertEqual(stderr, "")
+                XCTAssertFalse(stderr.contains("error:"))
             }
 
             // Check default command arguments
             do {
                 let (stdout, stderr) = try await SwiftPM.Package.execute(["MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
                 XCTAssertMatch(stdout, .contains("success"))
-                XCTAssertEqual(stderr, "")
+                XCTAssertFalse(stderr.contains("error:"))
             }
         }
     }

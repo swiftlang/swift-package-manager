@@ -49,7 +49,7 @@ extension SwiftPackageCommand {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Argument(help: "generate-bash-script | generate-zsh-script |\ngenerate-fish-script | list-dependencies | list-executables")
+        @Argument(help: "Type of completions to list")
         var mode: Mode
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
@@ -76,7 +76,7 @@ extension SwiftPackageCommand {
             case .listExecutables:
                 let graph = try await swiftCommandState.loadPackageGraph()
                 let package = graph.rootPackages[graph.rootPackages.startIndex].underlying
-                let executables = package.modules.filter { $0.type == .executable }
+                let executables = package.products.filter { $0.type == .executable }
                 for executable in executables {
                     print(executable.name)
                 }

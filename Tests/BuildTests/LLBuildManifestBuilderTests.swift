@@ -20,6 +20,7 @@ import PackageGraph
 import PackageModel
 import struct SPMBuildCore.BuildParameters
 
+import _InternalBuildTestSupport
 @_spi(SwiftPMInternal)
 import _InternalTestSupport
 

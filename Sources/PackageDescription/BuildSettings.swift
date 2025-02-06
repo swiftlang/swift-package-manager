@@ -83,8 +83,7 @@ public struct BuildSettingCondition: Sendable {
     ///   - platforms: The applicable platforms for this build setting condition.
     ///   - configuration: The applicable build configuration for this build setting condition.
     ///   - traits: The applicable traits for this build setting condition.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.1)
     public static func when(
         platforms: [Platform]? = nil,
         configuration: BuildConfiguration? = nil,
@@ -387,8 +386,8 @@ public struct SwiftSetting: Sendable {
 
     /// Enable Swift interoperability with a given language.
     ///
-    /// This is useful for enabling interoperability with Swift and C++ for a given
-    /// target.
+    /// This is useful for enabling interoperability between Swift and C++ for
+    /// a given target.
     ///
     /// Enabling C++ interoperability mode might alter the way some existing
     /// C and Objective-C APIs are imported.
@@ -396,7 +395,7 @@ public struct SwiftSetting: Sendable {
     /// - Since: First available in PackageDescription 5.9.
     ///
     /// - Parameters:
-    ///   - mode: The language mode, either C or CXX.
+    ///   - mode: The language mode, either C or Cxx.
     ///   - condition: A condition that restricts the application of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.9)

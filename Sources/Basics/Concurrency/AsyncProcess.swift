@@ -14,6 +14,8 @@ import Foundation
 
 #if os(Windows)
 import TSCLibc
+#elseif canImport(Android)
+import Android
 #endif
 
 #if os(Linux)
@@ -218,7 +220,7 @@ package final class AsyncProcess {
             case let .stream(stdoutClosure, stderrClosure, _):
                 (stdoutClosure: stdoutClosure, stderrClosure: stderrClosure)
 
-            case let .asyncStream(stdoutStream, stdoutContinuation, stderrStream, stderrContinuation):
+            case let .asyncStream(_, stdoutContinuation, _, stderrContinuation):
                 (stdoutClosure: { stdoutContinuation.yield($0) }, stderrClosure: { stderrContinuation.yield($0) })
 
             case .collect, .none:
@@ -501,7 +503,7 @@ package final class AsyncProcess {
 
             group.enter()
             stdoutPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
-                let data = fh.availableData
+                let data = (try? fh.read(upToCount: Int.max)) ?? Data()
                 if data.count == 0 {
                     stdoutPipe.fileHandleForReading.readabilityHandler = nil
                     group.leave()
@@ -516,7 +518,7 @@ package final class AsyncProcess {
 
             group.enter()
             stderrPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
-                let data = fh.availableData
+                let data = (try? fh.read(upToCount: Int.max)) ?? Data()
                 if data.count == 0 {
                     stderrPipe.fileHandleForReading.readabilityHandler = nil
                     group.leave()
@@ -786,7 +788,9 @@ package final class AsyncProcess {
     package func waitUntilExit() async throws -> AsyncProcessResult {
         try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.processConcurrent.async {
-                self.waitUntilExit(continuation.resume(with:))
+                self.waitUntilExit({
+                    continuation.resume(with: $0)
+                })
             }
         }
     }

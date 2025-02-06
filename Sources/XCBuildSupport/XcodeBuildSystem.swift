@@ -369,8 +369,9 @@ extension BuildConfiguration {
 extension PIFBuilderParameters {
     public init(_ buildParameters: BuildParameters, supportedSwiftVersions: [SwiftLanguageVersion]) {
         self.init(
+            triple: buildParameters.triple,
             isPackageAccessModifierSupported: buildParameters.driverParameters.isPackageAccessModifierSupported,
-            enableTestability: buildParameters.testingParameters.enableTestability,
+            enableTestability: buildParameters.enableTestability,
             shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
             toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root,
             pkgConfigDirectories: buildParameters.pkgConfigDirectories,

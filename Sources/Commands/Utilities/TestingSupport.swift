@@ -16,6 +16,7 @@ import PackageModel
 import SPMBuildCore
 import Workspace
 
+import struct TSCBasic.FileSystemError
 import class Basics.AsyncProcess
 import var TSCBasic.stderrStream
 import var TSCBasic.stdoutStream
@@ -123,8 +124,13 @@ enum TestingSupport {
                 sanitizers: sanitizers,
                 library: .xctest
             )
+            try Self.runProcessWithExistenceCheck(
+                path: path,
+                fileSystem: swiftCommandState.fileSystem,
+                args: args,
+                env: env
+            )
 
-            try AsyncProcess.checkNonZeroExit(arguments: args, environment: env)
             // Read the temporary file's content.
             return try swiftCommandState.fileSystem.readFileContents(AbsolutePath(tempFile.path))
         }
@@ -139,10 +145,34 @@ enum TestingSupport {
             library: .xctest
         )
         args = [path.description, "--dump-tests-json"]
-        let data = try AsyncProcess.checkNonZeroExit(arguments: args, environment: env)
+        let data = try Self.runProcessWithExistenceCheck(
+            path: path,
+            fileSystem: swiftCommandState.fileSystem,
+            args: args,
+            env: env
+        )
         #endif
         // Parse json and return TestSuites.
         return try TestSuite.parse(jsonString: data, context: args.joined(separator: " "))
+    }
+
+    /// Run a process and throw a more specific error if the file doesn't exist.
+    @discardableResult
+    private static func runProcessWithExistenceCheck(
+        path: AbsolutePath,
+        fileSystem: FileSystem,
+        args: [String],
+        env: Environment
+    ) throws -> String {
+        do {
+            return try AsyncProcess.checkNonZeroExit(arguments: args, environment: env)
+        } catch {
+            // If the file doesn't exist, throw a more specific error.
+            if !fileSystem.exists(path) {
+                throw FileSystemError(.noEntry, path)
+            }
+            throw error
+        }
     }
 
     /// Creates the environment needed to test related tools.
@@ -186,10 +216,15 @@ enum TestingSupport {
         return env
         #else
         // Add the sdk platform path if we have it.
-        if let sdkPlatformFrameworksPath = try? SwiftSDK.sdkPlatformFrameworkPaths() {
+        // Since XCTestHelper targets macOS, we need the macOS platform paths here.
+        if let sdkPlatformPaths = try? SwiftSDK.sdkPlatformPaths(for: .macOS) {
             // appending since we prefer the user setting (if set) to the one we inject
-            env.appendPath(key: "DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.fwk.pathString)
-            env.appendPath(key: "DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.lib.pathString)
+            for frameworkPath in sdkPlatformPaths.frameworks {
+                env.appendPath(key: "DYLD_FRAMEWORK_PATH", value: frameworkPath.pathString)
+            }
+            for libraryPath in sdkPlatformPaths.libraries {
+                env.appendPath(key: "DYLD_LIBRARY_PATH", value: libraryPath.pathString)
+            }
         }
 
         // We aren't using XCTest's harness logic to run Swift Testing tests.
@@ -250,27 +285,10 @@ extension SwiftCommandState {
         experimentalTestOutput: Bool
     ) -> BuildParameters {
         var parameters = parameters
-
-        var explicitlyEnabledDiscovery = false
-        var explicitlySpecifiedPath: AbsolutePath?
-        if case let .entryPointExecutable(
-            explicitlyEnabledDiscoveryValue,
-            explicitlySpecifiedPathValue
-        ) = parameters.testingParameters.testProductStyle {
-            explicitlyEnabledDiscovery = explicitlyEnabledDiscoveryValue
-            explicitlySpecifiedPath = explicitlySpecifiedPathValue
-        }
-        parameters.testingParameters = .init(
-            configuration: parameters.configuration,
-            targetTriple: parameters.triple,
-            forceTestDiscovery: explicitlyEnabledDiscovery,
-            testEntryPointPath: explicitlySpecifiedPath
-        )
-
         parameters.testingParameters.enableCodeCoverage = enableCodeCoverage
         // for test commands, we normally enable building with testability
         // but we let users override this with a flag
-        parameters.testingParameters.enableTestability = enableTestability ?? true
+        parameters.testingParameters.explicitlyEnabledTestability = enableTestability ?? true
         parameters.shouldSkipBuilding = shouldSkipBuilding
         parameters.testingParameters.experimentalTestOutput = experimentalTestOutput
         return parameters

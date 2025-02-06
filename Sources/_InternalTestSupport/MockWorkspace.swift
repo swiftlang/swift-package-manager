@@ -23,12 +23,22 @@ import XCTest
 import struct TSCUtility.Version
 
 extension UserToolchain {
-    package static func mockHostToolchain(_ fileSystem: InMemoryFileSystem) throws -> UserToolchain {
+    package static func mockHostToolchain(_ fileSystem: InMemoryFileSystem, hostTriple: Triple = hostTriple) throws -> UserToolchain {
         var hostSwiftSDK = try SwiftSDK.hostSwiftSDK(environment: .mockEnvironment, fileSystem: fileSystem)
         hostSwiftSDK.targetTriple = hostTriple
+
+        let env = Environment.mockEnvironment
+
         return try UserToolchain(
             swiftSDK: hostSwiftSDK,
-            environment: .mockEnvironment,
+            environment: env,
+            searchStrategy: .custom(
+                searchPaths: getEnvSearchPaths(
+                    pathString: env[.path],
+                    currentWorkingDirectory: fileSystem.currentWorkingDirectory
+                ),
+                useXcrun: true
+            ),
             fileSystem: fileSystem
         )
     }
@@ -40,7 +50,15 @@ extension Environment {
 
 extension InMemoryFileSystem {
     package func createMockToolchain() throws {
-        let files = ["/fake/path/to/swiftc", "/fake/path/to/ar"]
+        let files = [
+            "/fake/path/to/swiftc",
+            "/fake/path/to/swiftc.exe",
+            "/fake/path/to/ar",
+            "/fake/path/to/ar.exe",
+            "/fake/path/to/libtool",
+            "/fake/path/to/libtool.exe",
+            "/fake/path/to/link.exe"
+        ]
         self.createEmptyFiles(at: AbsolutePath.root, files: files)
         for toolPath in files {
             try self.updatePermissions(.init(toolPath), isExecutable: true)
@@ -61,6 +79,7 @@ public final class MockWorkspace {
     public var registryClient: RegistryClient
     let registry: MockRegistry
     let customBinaryArtifactsManager: Workspace.CustomBinaryArtifactsManager
+    let customPrebuiltsManager: Workspace.CustomPrebuiltsManager?
     public var checksumAlgorithm: MockHashAlgorithm
     public private(set) var manifestLoader: MockManifestLoader
     public let repositoryProvider: InMemoryGitRepositoryProvider
@@ -82,11 +101,13 @@ public final class MockWorkspace {
         mirrors customMirrors: DependencyMirrors? = nil,
         registryClient customRegistryClient: RegistryClient? = .none,
         binaryArtifactsManager customBinaryArtifactsManager: Workspace.CustomBinaryArtifactsManager? = .none,
+        prebuiltsManager customPrebuiltsManager: Workspace.CustomPrebuiltsManager? = .none,
         checksumAlgorithm customChecksumAlgorithm: MockHashAlgorithm? = .none,
         customPackageContainerProvider: MockPackageContainerProvider? = .none,
         skipDependenciesUpdates: Bool = false,
         sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation = .disabled,
-        defaultRegistry: Registry? = .none
+        defaultRegistry: Registry? = .none,
+        customHostTriple: Triple = hostTriple
     ) async throws {
         try fileSystem.createMockToolchain()
 
@@ -118,10 +139,11 @@ public final class MockWorkspace {
         self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
         self.defaultRegistry = defaultRegistry
         self.customBinaryArtifactsManager = customBinaryArtifactsManager ?? .init(
-            httpClient: LegacyHTTPClient.mock(fileSystem: fileSystem),
+            httpClient: HTTPClient.mock(fileSystem: fileSystem),
             archiver: MockArchiver()
         )
-        self.customHostToolchain = try UserToolchain.mockHostToolchain(fileSystem)
+        self.customPrebuiltsManager = customPrebuiltsManager
+        self.customHostToolchain = try UserToolchain.mockHostToolchain(fileSystem, hostTriple: customHostTriple)
         try await self.create()
     }
 
@@ -169,13 +191,15 @@ public final class MockWorkspace {
                 if let containerProvider = customPackageContainerProvider {
                     let observability = ObservabilitySystem.makeForTesting()
                     let packageRef = PackageReference(identity: PackageIdentity(url: url), kind: .remoteSourceControl(url))
-                    let container = try await withCheckedThrowingContinuation {
+                    let container = try await withCheckedThrowingContinuation { continuation in
                         containerProvider.getContainer(
                             for: packageRef,
                             updateStrategy: .never,
                             observabilityScope: observability.topScope,
                             on: .sharedConcurrent,
-                            completion: $0.resume(with:)
+                            completion: {
+                                continuation.resume(with: $0)
+                            }
                         )
                     }
                     guard let customContainer = container as? CustomPackageContainer else {
@@ -229,7 +253,7 @@ public final class MockWorkspace {
             if let specifier = sourceControlSpecifier {
                 let repository = self.repositoryProvider.specifierMap[specifier] ?? .init(path: packagePath, fs: self.fileSystem)
                 try writePackageContent(fileSystem: repository, root: .root, toolsVersion: packageToolsVersion)
-                
+
                 let versions = packageVersions.compactMap{ $0 }
                 if versions.isEmpty {
                     try repository.commit()
@@ -330,7 +354,8 @@ public final class MockWorkspace {
                 skipSignatureValidation: false,
                 sourceControlToRegistryDependencyTransformation: self.sourceControlToRegistryDependencyTransformation,
                 defaultRegistry: self.defaultRegistry,
-                manifestImportRestrictions: .none
+                manifestImportRestrictions: .none,
+                usePrebuilts: customPrebuiltsManager != nil
             ),
             customFingerprints: self.fingerprints,
             customMirrors: self.mirrors,
@@ -341,6 +366,7 @@ public final class MockWorkspace {
             customRepositoryProvider: self.repositoryProvider,
             customRegistryClient: self.registryClient,
             customBinaryArtifactsManager: self.customBinaryArtifactsManager,
+            customPrebuiltsManager: self.customPrebuiltsManager,
             customIdentityResolver: self.identityResolver,
             customChecksumAlgorithm: self.checksumAlgorithm,
             delegate: self.delegate
@@ -370,7 +396,7 @@ public final class MockWorkspace {
     }
 
     public func checkEdit(
-        packageName: String,
+        packageIdentity: String,
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
@@ -380,7 +406,7 @@ public final class MockWorkspace {
         await observability.topScope.trap {
             let ws = try self.getOrCreateWorkspace()
             await ws.edit(
-                packageName: packageName,
+                packageIdentity: packageIdentity,
                 path: path,
                 revision: revision,
                 checkoutBranch: checkoutBranch,
@@ -391,7 +417,7 @@ public final class MockWorkspace {
     }
 
     public func checkUnedit(
-        packageName: String,
+        packageIdentity: String,
         roots: [String],
         forceRemove: Bool = false,
         _ result: ([Basics.Diagnostic]) -> Void
@@ -401,7 +427,7 @@ public final class MockWorkspace {
             let rootInput = PackageGraphRootInput(packages: try rootPaths(for: roots))
             let ws = try self.getOrCreateWorkspace()
             try await ws.unedit(
-                packageName: packageName,
+                packageIdentity: packageIdentity,
                 forceRemove: forceRemove,
                 root: rootInput,
                 observabilityScope: observability.topScope
@@ -953,6 +979,22 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
     }
 
     public func didDownloadAllBinaryArtifacts() {
+        // noop
+    }
+
+    public func willDownloadPrebuilt(from url: String, fromCache: Bool) {
+        self.append("downloading package prebuilt: \(url)")
+    }
+
+    public func didDownloadPrebuilt(from url: String, result: Result<(path: AbsolutePath, fromCache: Bool), Error>, duration: DispatchTimeInterval) {
+        self.append("finished downloading package prebuilt: \(url)")
+    }
+
+    public func downloadingPrebuilt(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+        // noop
+    }
+
+    public func didDownloadAllPrebuilts() {
         // noop
     }
 

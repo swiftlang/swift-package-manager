@@ -12,7 +12,7 @@
 
 import Foundation
 
-public struct LegacyHTTPClientRequest {
+public struct LegacyHTTPClientRequest: Sendable {
     public let kind: Kind
     public let url: URL
     public var headers: HTTPClientHeaders
@@ -73,7 +73,7 @@ public struct LegacyHTTPClientRequest {
     public typealias FileMoveCompletion = @Sendable (Error?)
         -> Void
 
-    public enum Kind {
+    public enum Kind: Sendable {
         case generic(HTTPMethod)
         case download(fileSystem: FileSystem, destination: AbsolutePath)
     }

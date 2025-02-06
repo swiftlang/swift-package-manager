@@ -30,6 +30,12 @@ public final class ThreadSafeBox<Value> {
             self.underlying = value
         }
     }
+    
+    public func mutate(body: (inout Value?) throws -> ()) rethrows {
+        try self.lock.withLock {
+            try body(&self.underlying)
+        }
+    }
 
     @discardableResult
     public func memoize(body: () throws -> Value) rethrows -> Value {

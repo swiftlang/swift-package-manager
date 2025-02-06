@@ -37,7 +37,7 @@ class PrepareForIndexTests: XCTestCase {
         )
 
         let builder = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: scope)
-        let manifest = try builder.generatePrepareManifest(at: "/manifest")
+        let manifest = try builder.generateManifest(at: "/manifest")
 
         // Make sure we're building the swift modules
         let outputs = manifest.commands.flatMap(\.value.tool.outputs).map(\.name)
@@ -84,7 +84,7 @@ class PrepareForIndexTests: XCTestCase {
             observabilityScope: scope
         )
         let builder = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: scope)
-        let manifest = try builder.generatePrepareManifest(at: "/manifest")
+        let manifest = try builder.generateManifest(at: "/manifest")
 
         // Ensure our C module is here.
         let lib = try XCTUnwrap(graph.module(for: "lib"))
@@ -128,7 +128,7 @@ class PrepareForIndexTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         let debugBuilder = LLBuildManifestBuilder(debugPlan, fileSystem: fs, observabilityScope: scope)
-        let debugManifest = try debugBuilder.generatePrepareManifest(at: "/manifest")
+        let debugManifest = try debugBuilder.generateManifest(at: "/manifest")
 
         XCTAssertNil(debugManifest.commands.values.first(where: {
             guard let swiftCommand = $0.tool as? SwiftCompilerTool,
@@ -149,7 +149,7 @@ class PrepareForIndexTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         let releaseBuilder = LLBuildManifestBuilder(releasePlan, fileSystem: fs, observabilityScope: scope)
-        let releaseManifest = try releaseBuilder.generatePrepareManifest(at: "/manifest")
+        let releaseManifest = try releaseBuilder.generateManifest(at: "/manifest")
 
         XCTAssertEqual(releaseManifest.commands.values.filter({
             guard let swiftCommand = $0.tool as? SwiftCompilerTool,
@@ -174,7 +174,7 @@ class PrepareForIndexTests: XCTestCase {
         )
 
         let builder = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: scope)
-        let manifest = try builder.generatePrepareManifest(at: "/manifest")
+        let manifest = try builder.generateManifest(at: "/manifest")
 
         // Ensure swiftmodules built with correct arguments
         let coreCommands = manifest.commands.values.filter {

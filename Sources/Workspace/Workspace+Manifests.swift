@@ -147,9 +147,9 @@ extension Workspace {
                       result.insert(packageRef)
                     }
 
-                case .registryDownload, .edited, .custom:
+                case .registryDownload, .custom:
                     continue
-                case .fileSystem:
+                case .fileSystem, .edited:
                     result.insert(dependency.packageRef)
                 }
             }
@@ -384,33 +384,23 @@ extension Workspace {
     }
 
     /// Returns manifest interpreter flags for a package.
-    // TODO: should this be throwing instead?
-    public func interpreterFlags(for packagePath: AbsolutePath) -> [String] {
-        do {
-            guard let manifestLoader = self.manifestLoader as? ManifestLoader else {
-                throw StringError("unexpected manifest loader kind")
-            }
-
-            let manifestPath = try ManifestLoader.findManifest(
-                packagePath: packagePath,
-                fileSystem: self.fileSystem,
-                currentToolsVersion: self.currentToolsVersion
-            )
-            let manifestToolsVersion = try ToolsVersionParser.parse(
-                manifestPath: manifestPath,
-                fileSystem: self.fileSystem
-            )
-
-            guard self.currentToolsVersion >= manifestToolsVersion || SwiftVersion.current.isDevelopment,
-                  manifestToolsVersion >= ToolsVersion.minimumRequired
-            else {
-                throw StringError("invalid tools version")
-            }
-            return manifestLoader.interpreterFlags(for: manifestToolsVersion)
-        } catch {
-            // We ignore all failures here and return empty array.
-            return []
+    public func interpreterFlags(for manifestPath: AbsolutePath) throws -> [String] {
+        guard let manifestLoader = self.manifestLoader as? ManifestLoader else {
+            throw StringError("unexpected manifest loader kind")
         }
+
+        let manifestToolsVersion = (try? ToolsVersionParser.parse(
+            manifestPath: manifestPath,
+            fileSystem: self.fileSystem
+        )) ?? self.currentToolsVersion
+
+
+        guard self.currentToolsVersion >= manifestToolsVersion || SwiftVersion.current.isDevelopment,
+                manifestToolsVersion >= ToolsVersion.minimumRequired
+        else {
+            throw StringError("invalid tools version")
+        }
+        return manifestLoader.interpreterFlags(for: manifestToolsVersion)
     }
 
     /// Load the manifests for the current dependency tree.
@@ -879,7 +869,9 @@ extension Workspace {
                     updateStrategy: .never,
                     observabilityScope: observabilityScope,
                     on: .sharedConcurrent,
-                    completion: continuation.resume(with:)
+                    completion: {
+                        continuation.resume(with: $0)
+                    }
                 )
             }
             guard let customContainer = container as? CustomPackageContainer else {

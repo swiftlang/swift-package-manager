@@ -27,10 +27,15 @@ Swift 6.0
   `--experimental-swift-sdks-path` options on `swift build` are deprecated with replacements that don't have the
   `experimental` prefix.
 
+* [#7722]
+
+  An additional `--checksum` option  is now required for `swift sdk install` subcommand with remote URLs as arguments. `--checksum` allows users of a Swift SDK to specify a checksum provided by the SDK publisher. A checksum can be produced by running `swift package compute-checksum` command (introduced in [SE-0272]) with the Swift SDK bundle archive as an argument.
+
 * [#7535]
 
   The `swift sdk configuration` subcommand is deprecated with a replacement named `configure` that has options that exactly match
   [SE-0387 proposal text].
+
 
 * [#7202]
 
@@ -377,6 +382,7 @@ Swift 3.0
 [SE-0201]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0201-package-manager-local-dependencies.md
 [SE-0208]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0208-package-manager-system-library-targets.md
 [SE-0209]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0209-package-manager-swift-lang-version-update.md
+[SE-0272]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0272-swiftpm-binary-dependencies.md
 [SE-0292]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0292-package-registry-service.md
 [SE-0303]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0303-swiftpm-extensible-build-tools.md
 [SE-0332]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0332-swiftpm-command-plugins.md
@@ -439,4 +445,6 @@ Swift 3.0
 [#7507]: https://github.com/swiftlang/swift-package-manager/pull/7507
 [#7530]: https://github.com/swiftlang/swift-package-manager/pull/7530
 [#7535]: https://github.com/swiftlang/swift-package-manager/pull/7535
+[#7722]: https://github.com/swiftlang/swift-package-manager/pull/7722
+[#7741]: https://github.com/swiftlang/swift-package-manager/pull/7741
 [#7813]: https://github.com/swiftlang/swift-package-manager/pull/7813

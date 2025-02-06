@@ -252,10 +252,12 @@ public struct PubGrubDependencyResolver {
             }
 
             let products = assignment.term.node.productFilter
-            let container = try await withCheckedThrowingContinuation {
+            let container = try await withCheckedThrowingContinuation { continuation in
                 self.provider.getContainer(
                     for: assignment.term.node.package,
-                    completion: $0.resume(with:)
+                    completion: {
+                        continuation.resume(with: $0)
+                    }
                 )
             }
             let updatePackage = try await container.underlying.loadPackageReference(at: boundVersion)
@@ -278,8 +280,10 @@ public struct PubGrubDependencyResolver {
 
         // Add overridden packages to the result.
         for (package, override) in state.overriddenPackages {
-            let container = try await withCheckedThrowingContinuation {
-                self.provider.getContainer(for: package, completion: $0.resume(with:))
+            let container = try await withCheckedThrowingContinuation { continuation in
+                self.provider.getContainer(for: package, completion: {
+                    continuation.resume(with: $0)
+                })
             }
             let updatePackage = try await container.underlying.loadPackageReference(at: override.version)
             finalAssignments.append(.init(
@@ -340,10 +344,12 @@ public struct PubGrubDependencyResolver {
                 // We collect all version-based dependencies in a separate structure so they can
                 // be process at the end. This allows us to override them when there is a non-version
                 // based (unversioned/branch-based) constraint present in the graph.
-                let container = try await withCheckedThrowingContinuation {
+                let container = try await withCheckedThrowingContinuation { continuation in
                     self.provider.getContainer(
                         for: node.package,
-                        completion: $0.resume(with:)
+                        completion: {
+                            continuation.resume(with: $0)
+                        }
                     )
                 }
                 for dependency in try await container.underlying
@@ -394,8 +400,10 @@ public struct PubGrubDependencyResolver {
 
             // Process dependencies of this package, similar to the first phase but branch-based dependencies
             // are not allowed to contain local/unversioned packages.
-            let container = try await withCheckedThrowingContinuation {
-                self.provider.getContainer(for: package, completion: $0.resume(with:))
+            let container = try await withCheckedThrowingContinuation { continuation in
+                self.provider.getContainer(for: package, completion: {
+                    continuation.resume(with: $0)
+                })
             }
 
             // If there is a pin for this revision-based dependency, get
@@ -676,7 +684,9 @@ public struct PubGrubDependencyResolver {
             for term in terms {
                 group.addTask {
                     let container = try await withCheckedThrowingContinuation { continuation in
-                        self.provider.getContainer(for: term.node.package, completion: continuation.resume(with:))
+                        self.provider.getContainer(for: term.node.package, completion: {
+                            continuation.resume(with: $0)
+                        })
                     }
                     return try await (term, container.versionCount(term.requirement))
                 }

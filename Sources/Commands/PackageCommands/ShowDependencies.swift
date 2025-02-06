@@ -28,7 +28,7 @@ extension SwiftPackageCommand {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Option(help: "text | dot | json | flatlist")
+        @Option(help: "Set the output format")
         var format: ShowDependenciesMode = .text
 
         @Option(name: [.long, .customShort("o") ],
@@ -69,7 +69,7 @@ extension SwiftPackageCommand {
             stream.flush()
         }
 
-        enum ShowDependenciesMode: String, RawRepresentable, CustomStringConvertible, ExpressibleByArgument {
+        enum ShowDependenciesMode: String, RawRepresentable, CustomStringConvertible, ExpressibleByArgument, CaseIterable {
             case text, dot, json, flatlist
 
             public init?(rawValue: String) {

@@ -12,11 +12,11 @@
 
 import Foundation
 
-#if SWIFT_PACKAGE && os(Windows)
+#if SWIFT_PACKAGE && (os(Windows) || os(Android))
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import CSQLite
+@_implementationOnly import SwiftToolchainCSQLite
 #else
-import CSQLite
+import SwiftToolchainCSQLite
 #endif
 #else
 #if USE_IMPL_ONLY_IMPORTS

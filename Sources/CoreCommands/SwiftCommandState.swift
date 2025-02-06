@@ -80,6 +80,7 @@ public typealias WorkspaceDelegateProvider = (
     _ progressHandler: @escaping (Int64, Int64, String?) -> Void,
     _ inputHandler: @escaping (String, (String?) -> Void) -> Void
 ) -> WorkspaceDelegate
+
 public typealias WorkspaceLoaderProvider = (_ fileSystem: FileSystem, _ observabilityScope: ObservabilityScope)
     -> WorkspaceLoader
 
@@ -238,9 +239,9 @@ public final class SwiftCommandState {
 
     /// Holds the currently active workspace.
     ///
-    /// It is not initialized in init() because for some of the commands like package init , usage etc,
-    /// workspace is not needed, in-fact it would be an error to ask for the workspace object
-    /// for package init because the Manifest file should *not* present.
+    /// It is not initialized in init() because for some of the commands like `package init`, usage etc,
+    /// a workspace is not needed. In fact it would be an error to ask for the workspace object
+    /// for `package init` because the manifest file should *not* be present.
     private var _workspace: Workspace?
     private var _workspaceDelegate: WorkspaceDelegate?
 
@@ -470,7 +471,8 @@ public final class SwiftCommandState {
                     // TODO: should supportsAvailability be a flag as well?
                     .init(url: $0, supportsAvailability: true)
                 },
-                manifestImportRestrictions: .none
+                manifestImportRestrictions: .none,
+                usePrebuilts: options.caching.usePrebuilts
             ),
             cancellator: self.cancellator,
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
@@ -826,8 +828,6 @@ public final class SwiftCommandState {
                 isVerbose: self.logLevel <= .info
             ),
             testingParameters: .init(
-                configuration: options.build.configuration ?? self.preferredBuildConfiguration,
-                targetTriple: triple,
                 forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
                 testEntryPointPath: options.build.testEntryPointPath
             )
@@ -882,6 +882,7 @@ public final class SwiftCommandState {
             swiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostToolchain.targetTriple,
+                customToolsets: options.locations.toolsetPaths,
                 customCompileDestination: options.locations.customCompileDestination,
                 customCompileTriple: options.build.customCompileTriple,
                 customCompileToolchain: options.build.customCompileToolchain,

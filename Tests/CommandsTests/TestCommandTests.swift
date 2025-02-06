@@ -36,6 +36,24 @@ final class TestCommandTests: CommandsTestCase {
         XCTAssert(stdout.contains("Swift Package Manager"), "got stdout:\n" + stdout)
     }
 
+    // `echo.sh` script from the toolset won't work on Windows
+    #if !os(Windows)
+        func testToolsetRunner() async throws {
+            try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
+                let (stdout, stderr) = try await SwiftPM.Test.execute(
+                    ["--toolset", "\(fixturePath)/toolset.json"], packagePath: fixturePath)
+
+                // We only expect tool's output on the stdout stream.
+                XCTAssertMatch(stdout, .contains("sentinel"))
+                XCTAssertMatch(stdout, .contains("\(fixturePath)"))
+
+                // swift-build-tool output should go to stderr.
+                XCTAssertMatch(stderr, .regex("Compiling"))
+                XCTAssertMatch(stderr, .contains("Linking"))
+            }
+        }
+    #endif
+
     func testNumWorkersParallelRequirement() async throws {
         #if !os(macOS)
         // Running swift-test fixtures on linux is not yet possible.
@@ -80,6 +98,15 @@ final class TestCommandTests: CommandsTestCase {
         try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
             do {
                 let result = try await execute(["--enable-testable-imports", "--vv"], packagePath: fixturePath)
+                XCTAssertMatch(result.stderr, .contains("-enable-testing"))
+            }
+        }
+    }
+
+    func testWithReleaseConfiguration() async throws {
+        try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
+            do {
+                let result = try await execute(["-c", "release", "--vv"], packagePath: fixturePath)
                 XCTAssertMatch(result.stderr, .contains("-enable-testing"))
             }
         }
@@ -139,7 +166,7 @@ final class TestCommandTests: CommandsTestCase {
         try await fixture(name: "Miscellaneous/EmptyTestsPkg") { fixturePath in
             let xUnitOutput = fixturePath.appending("result.xml")
             // Run tests in parallel with verbose output.
-            let stdout = try await SwiftPM.Test.execute(["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString], packagePath: fixturePath).stdout
+            _ = try await SwiftPM.Test.execute(["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString], packagePath: fixturePath).stdout
 
             // Check the xUnit output.
             XCTAssertFileExists(xUnitOutput)
@@ -275,8 +302,18 @@ final class TestCommandTests: CommandsTestCase {
         }
     }
 
+    func testListWithSkipBuildAndNoBuildArtifacts() async throws {
+        try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+            await XCTAssertThrowsCommandExecutionError(
+                try await SwiftPM.Test.execute(["list", "--skip-build"], packagePath: fixturePath)
+            ) { error in
+                XCTAssertMatch(error.stderr, .contains("Test build artifacts were not found in the build folder"))
+            }
+        }
+    }
+
     func testBasicSwiftTestingIntegration() async throws {
-#if !canImport(Testing)
+#if !canImport(TestingDisabled)
         try XCTSkipUnless(
             nil != Environment.current["SWIFT_PM_SWIFT_TESTING_TESTS_ENABLED"],
             "Skipping \(#function) because swift-testing tests are not explicitly enabled"
@@ -292,7 +329,7 @@ final class TestCommandTests: CommandsTestCase {
     }
 
     func testBasicSwiftTestingIntegration_ExperimentalFlag() async throws {
-#if !canImport(Testing)
+#if !canImport(TestingDisabled)
         try XCTSkipUnless(
             nil != Environment.current["SWIFT_PM_SWIFT_TESTING_TESTS_ENABLED"],
             "Skipping \(#function) because swift-testing tests are not explicitly enabled"
@@ -327,11 +364,14 @@ final class TestCommandTests: CommandsTestCase {
     }
 #endif
 
+#if os(macOS)
+    // "SWIFT_TESTING_ENABLED" is set only on macOS, skip the check on other platforms.
     func testLibraryEnvironmentVariable() async throws {
         try await fixture(name: "Miscellaneous/CheckTestLibraryEnvironmentVariable") { fixturePath in
             await XCTAssertAsyncNoThrow(try await SwiftPM.Test.execute(packagePath: fixturePath))
         }
     }
+#endif
 
     func testXCTestOnlyDoesNotLogAboutNoMatchingTests() async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
@@ -339,4 +379,41 @@ final class TestCommandTests: CommandsTestCase {
             XCTAssertNoMatch(stderr, .contains("No matching test cases were run"))
         }
     }
+
+    func testFatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation() async throws {
+        // Test for GitHub Issue #6605
+        // GIVEN we have a Swift Package that has a fatalError building the tests
+        #if compiler(>=6)
+        let expected = 1
+        #else
+        let expected = 2
+        #endif
+        try await fixture(name: "Miscellaneous/Errors/FatalErrorInSingleXCTest/TypeLibrary") { fixturePath in
+            // WHEN swift-test is executed
+            await XCTAssertAsyncThrowsError(try await self.execute([], packagePath: fixturePath)) { error in
+                // THEN I expect a failure
+                guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = error else {
+                    XCTFail("Building the package was expected to fail, but it was successful")
+                    return
+                }
+
+                let matchString = "error: fatalError"
+                let stdoutMatches = getNumberOfMatches(of: matchString, in: stdout)
+                let stderrMatches = getNumberOfMatches(of: matchString, in: stderr)
+                let actualNumMatches = stdoutMatches + stderrMatches
+
+                // AND a fatal error message is printed \(expected) times
+                XCTAssertEqual(
+                    actualNumMatches,
+                    expected,
+                    [
+                        "Actual (\(actualNumMatches)) is not as expected (\(expected))",
+                        "stdout: \(stdout.debugDescription)",
+                        "stderr: \(stderr.debugDescription)"
+                    ].joined(separator: "\n")
+                )
+            }
+        }
+    }
+
 }

@@ -15,6 +15,8 @@ import Basics
 import Foundation
 import PackageGraph
 import PackageLoading
+
+@_spi(SwiftPMInternal)
 import PackageModel
 
 @_spi(SwiftPMInternal)
@@ -104,6 +106,16 @@ public final class SwiftModuleBuildDescription {
     /// The list of all resource files in the target, including the derived ones.
     public var resources: [Resource] {
         self.target.underlying.resources + self.pluginDerivedResources
+    }
+
+    /// The list of files in the target that were marked as ignored.
+    public var ignored: [AbsolutePath] {
+        self.target.underlying.ignored
+    }
+
+    /// The list of other kinds of files in the target.
+    public var others: [AbsolutePath] {
+        self.target.underlying.others
     }
 
     /// The objects in this target, containing either machine code or bitcode
@@ -262,6 +274,9 @@ public final class SwiftModuleBuildDescription {
     /// Whether to disable sandboxing (e.g. for macros).
     private let shouldDisableSandbox: Bool
 
+    /// Whether to add -static on Windows to reduce symbol exports
+    public var isWindowsStatic: Bool
+
     /// Create a new target description with target and build parameters.
     init(
         package: ResolvedPackage,
@@ -316,6 +331,9 @@ public final class SwiftModuleBuildDescription {
             prebuildCommandResults: prebuildCommandResults,
             observabilityScope: observabilityScope
         )
+
+        // default to -static on Windows
+        self.isWindowsStatic = buildParameters.triple.isWindows()
 
         if self.shouldEmitObjCCompatibilityHeader {
             self.moduleMap = try self.generateModuleMap()
@@ -471,14 +489,9 @@ public final class SwiftModuleBuildDescription {
             args += ["-v"]
         }
 
-        // Enable batch mode in debug mode.
-        //
-        // Technically, it should be enabled whenever WMO is off but we
-        // don't currently make that distinction in SwiftPM
-        switch self.buildParameters.configuration {
-        case .debug:
+        // Enable batch mode whenever WMO is off.
+        if !self.useWholeModuleOptimization {
             args += ["-enable-batch-mode"]
-        case .release: break
         }
 
         args += self.buildParameters.indexStoreArguments(for: self.target)
@@ -520,6 +533,11 @@ public final class SwiftModuleBuildDescription {
         // If the target needs to be parsed without any special semantics involving "main.swift", do so now.
         if self.needsToBeParsedAsLibrary {
             args += ["-parse-as-library"]
+        }
+
+        // Add -static to reduce symbol export count
+        if self.isWindowsStatic {
+            args += ["-static"]
         }
 
         // Only add the build path to the framework search path if there are binary frameworks to link against.
@@ -722,9 +740,14 @@ public final class SwiftModuleBuildDescription {
         return []
     }
 
-    /// When `scanInvocation` argument is set to `true`, omit the side-effect producing arguments
-    /// such as emitting a module or supplementary outputs.
-    public func emitCommandLine(scanInvocation: Bool = false) throws -> [String] {
+    /// - Parameters:
+    ///   - scanInvocation: When `true`, omit the side-effect producing arguments such as emitting a module or
+    ///     supplementary outputs.
+    ///   - writeOutputFileMap: When `false`, we assume that an output file map for this command line already exists at
+    ///     the expected location on disk. This is intended for SourceKit-LSP to get build settings for a file without
+    ///     writing out an output file map as a side effect. We expect that preparation of the module has already
+    ///     created the output file map.
+    public func emitCommandLine(scanInvocation: Bool = false, writeOutputFileMap: Bool = true) throws -> [String] {
         var result: [String] = []
         result.append(self.buildParameters.toolchain.swiftCompilerPath.pathString)
 
@@ -745,11 +768,15 @@ public final class SwiftModuleBuildDescription {
             result.append(self.moduleOutputPath.pathString)
 
             result.append("-output-file-map")
-            // FIXME: Eliminate side effect.
-            result.append(try self.writeOutputFileMap().pathString)
+            let outputFileMapPath = self.tempsPath.appending("output-file-map.json")
+            if writeOutputFileMap {
+                // FIXME: Eliminate side effect.
+                try self.writeOutputFileMap(to: outputFileMapPath)
+            }
+            result.append(outputFileMapPath.pathString)
         }
 
-        if self.buildParameters.useWholeModuleOptimization {
+        if self.useWholeModuleOptimization {
             result.append("-whole-module-optimization")
             result.append("-num-threads")
             result.append(String(ProcessInfo.processInfo.activeProcessorCount))
@@ -772,8 +799,7 @@ public final class SwiftModuleBuildDescription {
         self.buildParameters.triple.isDarwin() && self.target.type == .library
     }
 
-    func writeOutputFileMap() throws -> AbsolutePath {
-        let path = self.tempsPath.appending("output-file-map.json")
+    func writeOutputFileMap(to path: AbsolutePath) throws {
         let masterDepsPath = self.tempsPath.appending("master.swiftdeps")
 
         var content =
@@ -783,7 +809,7 @@ public final class SwiftModuleBuildDescription {
 
             """#
 
-        if self.buildParameters.useWholeModuleOptimization {
+        if self.useWholeModuleOptimization {
             let moduleName = self.target.c99name
             content +=
                 #"""
@@ -831,7 +857,7 @@ public final class SwiftModuleBuildDescription {
 
                 """#
 
-            if !self.buildParameters.useWholeModuleOptimization {
+            if !self.useWholeModuleOptimization {
                 let depsPath = self.tempsPath.appending(component: sourceFileName + ".d")
                 content +=
                     #"""
@@ -855,7 +881,6 @@ public final class SwiftModuleBuildDescription {
 
         try fileSystem.createDirectory(path.parentDirectory, recursive: true)
         try self.fileSystem.writeFileContents(path, bytes: .init(encodingAsUTF8: content), atomically: true)
-        return path
     }
 
     /// Generates the module map for the Swift target and returns its path.
@@ -957,8 +982,16 @@ public final class SwiftModuleBuildDescription {
         if self.isTestTarget {
             // test targets must be built with -enable-testing
             // since its required for test discovery (the non objective-c reflection kind)
-            return ["-enable-testing"]
-        } else if self.buildParameters.testingParameters.enableTestability {
+            var result = ["-enable-testing"]
+
+            // Test targets need to enable cross-import overlays because Swift
+            // Testing cannot directly link to most other modules and needs to
+            // provide API that works with e.g. Foundation. (Developers can
+            // override this flag by passing -disable-cross-import-overlays.)
+            result += ["-Xfrontend", "-enable-cross-import-overlays"]
+
+            return result
+        } else if self.buildParameters.enableTestability {
             return ["-enable-testing"]
         } else {
             return []
@@ -986,6 +1019,19 @@ public final class SwiftModuleBuildDescription {
         }
 
         return arguments
+    }
+
+    /// Whether to build Swift code with whole module optimization (WMO)
+    /// enabled.
+    package var useWholeModuleOptimization: Bool {
+        if self.target.underlying.isEmbeddedSwiftTarget { return true }
+
+        switch self.buildParameters.configuration {
+        case .debug:
+            return false
+        case .release:
+            return true
+        }
     }
 }
 

@@ -34,10 +34,10 @@ public enum PluginAction {
 }
 
 public struct PluginTool {
-    let path: AbsolutePath
-    let triples: [String]?
+    public let path: AbsolutePath
+    public let triples: [String]?
 
-    init(path: AbsolutePath, triples: [String]? = nil) {
+    public init(path: AbsolutePath, triples: [String]? = nil) {
         self.path = path
         self.triples = triples
     }
@@ -63,7 +63,7 @@ extension PluginModule {
         callbackQueue: DispatchQueue,
         delegate: PluginInvocationDelegate
     ) async throws -> Bool {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.invoke(
                 action: action,
                 buildEnvironment: buildEnvironment,
@@ -82,7 +82,9 @@ extension PluginModule {
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
                 delegate: delegate,
-                completion: $0.resume(with:)
+                completion: {
+                    continuation.resume(with: $0)
+                }
             )
         }
     }
@@ -157,7 +159,7 @@ extension PluginModule {
             }
             let actionMessage: HostToPluginMessage
             switch action {
-                
+
             case .createBuildToolCommands(let package, let target, let pluginGeneratedSources, let pluginGeneratedResources):
                 let rootPackageId = try serializer.serialize(package: package)
                 guard let targetId = try serializer.serialize(target: target) else {
@@ -200,38 +202,38 @@ extension PluginModule {
         catch {
             return callbackQueue.async { completion(.failure(PluginEvaluationError.couldNotSerializePluginInput(underlyingError: error))) }
         }
-        
+
         // Handle messages and output from the plugin.
         class ScriptRunnerDelegate: PluginScriptCompilerDelegate, PluginScriptRunnerDelegate {
             /// Delegate that should be told about events involving the plugin.
             let invocationDelegate: PluginInvocationDelegate
-            
+
             /// Observability scope for the invoking of the plugin. Diagnostics from the plugin itself are sent through the delegate.
             let observabilityScope: ObservabilityScope
-            
+
             /// Whether at least one error has been reported; this is used to make sure there is at least one error if the plugin fails.
             var hasReportedError = false
 
             /// If this is true, we exited early with an error.
             var exitEarly = false
-            
+
             init(invocationDelegate: PluginInvocationDelegate, observabilityScope: ObservabilityScope) {
                 self.invocationDelegate = invocationDelegate
                 self.observabilityScope = observabilityScope
             }
-            
+
             func willCompilePlugin(commandLine: [String], environment: [String: String]) {
                 invocationDelegate.pluginCompilationStarted(commandLine: commandLine, environment: environment)
             }
-            
+
             func didCompilePlugin(result: PluginCompilationResult) {
                 invocationDelegate.pluginCompilationEnded(result: result)
             }
-            
+
             func skippedCompilingPlugin(cachedResult: PluginCompilationResult) {
                 invocationDelegate.pluginCompilationWasSkipped(cachedResult: cachedResult)
             }
-            
+
             /// Invoked when the plugin emits arbitrary data on its stdout/stderr. There is no guarantee that the data is split on UTF-8 character encoding boundaries etc.  The script runner delegate just passes it on to the invocation delegate.
             func handleOutput(data: Data) {
                 invocationDelegate.pluginEmittedOutput(data)
@@ -241,7 +243,7 @@ extension PluginModule {
             func handleMessage(data: Data, responder: @escaping (Data) -> Void) throws {
                 let message = try PluginToHostMessage(data)
                 switch message {
-                    
+
                 case .emitDiagnostic(let severity, let message, let file, let line):
                     let metadata: ObservabilityMetadata? = file.map {
                         var metadata = ObservabilityMetadata()
@@ -270,12 +272,12 @@ extension PluginModule {
                     }
                     self.invocationDelegate.pluginDefinedBuildCommand(
                         displayName: config.displayName,
-                        executable: try AbsolutePath(validating: config.executable.path),
+                        executable: try config.executable.filePath,
                         arguments: config.arguments,
                         environment: config.environment,
-                        workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0.path) },
-                        inputFiles: try inputFiles.map{ try AbsolutePath(validating: $0.path) },
-                        outputFiles: try outputFiles.map{ try AbsolutePath(validating: $0.path) })
+                        workingDirectory: try config.workingDirectory.map{ try $0.filePath },
+                        inputFiles: try inputFiles.map{ try $0.filePath },
+                        outputFiles: try outputFiles.map{ try $0.filePath })
 
                 case .definePrebuildCommand(let config, let outputFilesDir):
                     if config.version != 2 {
@@ -283,11 +285,11 @@ extension PluginModule {
                     }
                     let success = self.invocationDelegate.pluginDefinedPrebuildCommand(
                         displayName: config.displayName,
-                        executable: try AbsolutePath(validating: config.executable.path),
+                        executable: try config.executable.filePath,
                         arguments: config.arguments,
                         environment: config.environment,
-                        workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0.path) },
-                        outputFilesDirectory: try AbsolutePath(validating: outputFilesDir.path))
+                        workingDirectory: try config.workingDirectory.map{ try $0.filePath },
+                        outputFilesDirectory: try outputFilesDir.filePath)
 
                     if !success {
                         exitEarly = true
@@ -343,7 +345,7 @@ extension PluginModule {
             }
         }
         let runnerDelegate = ScriptRunnerDelegate(invocationDelegate: delegate, observabilityScope: observabilityScope)
-        
+
         // Call the plugin script runner to actually invoke the plugin.
         scriptRunner.runPluginScript(
             sourceFiles: sources.paths,
@@ -391,7 +393,7 @@ extension PluginModule {
         modulesGraph: ModulesGraph,
         observabilityScope: ObservabilityScope
     ) async throws -> BuildToolPluginInvocationResult {
-        try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation { continuation in
             self.invoke(
                 module: module,
                 action: action,
@@ -409,7 +411,9 @@ extension PluginModule {
                 fileSystem: fileSystem,
                 modulesGraph: modulesGraph,
                 observabilityScope: observabilityScope,
-                completion: $0.resume(with:)
+                completion: {
+                    continuation.resume(with: $0)
+                }
             )
         }
     }
@@ -749,13 +753,13 @@ public protocol PluginInvocationDelegate {
 
     /// Called after a plugin is compiled. This call always follows a `pluginCompilationStarted()`, but is mutually exclusive with `pluginCompilationWasSkipped()` (which is called if the plugin didn't need to be recompiled).
     func pluginCompilationEnded(result: PluginCompilationResult)
-    
+
     /// Called if a plugin didn't need to be recompiled. This call is always mutually exclusive with `pluginCompilationStarted()` and `pluginCompilationEnded()`.
     func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult)
-    
+
     /// Called for each piece of textual output data emitted by the plugin. Note that there is no guarantee that the data begins and ends on a UTF-8 byte sequence boundary (much less on a line boundary) so the delegate should buffer partial data as appropriate.
     func pluginEmittedOutput(_: Data)
-    
+
     /// Called when a plugin emits a diagnostic through the PackagePlugin APIs.
     func pluginEmittedDiagnostic(_: Basics.Diagnostic)
 
