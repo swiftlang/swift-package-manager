@@ -116,6 +116,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         }
     }
 
+    /// Describes the traits that are enabled for this package, and overrides this dependency's manifest's
+    /// default traits.
     package var traits: Set<Trait>? {
         switch self {
         case .fileSystem(let settings):

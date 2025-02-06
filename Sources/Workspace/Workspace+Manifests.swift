@@ -103,7 +103,8 @@ extension Workspace {
             self._constraints = LoadableResult {
                 try Self.computeConstraints(
                     dependencies: dependencies,
-                    workspace: workspace
+                    workspace: workspace,
+                    traitConfiguration: traitConfiguration
                 )
             }
         }
@@ -113,7 +114,7 @@ extension Workspace {
             PackageIdentity,
             (manifest: Manifest, fs: FileSystem)
         > {
-            self.dependencies.reduce(into: OrderedCollections.OrderedDictionary<
+            return self.dependencies.reduce(into: OrderedCollections.OrderedDictionary<
                 PackageIdentity,
                 (manifest: Manifest, fs: FileSystem)
             >()) { partial, item in
@@ -124,20 +125,20 @@ extension Workspace {
         /// Computes the identities which are declared in the manifests but aren't present in dependencies.
         public var missingPackages: [PackageReference] {
             get throws {
-                try self._dependencies.load().missing.elements
+                return try self._dependencies.load().missing.elements
             }
         }
 
         /// Computes the identities which are declared in the manifests but aren't present in dependencies.
         public var requiredPackages: [PackageReference] {
             get throws {
-                try self._dependencies.load().required.elements
+                return try self._dependencies.load().required.elements
             }
         }
 
         public var unusedPackages: [PackageReference] {
             get throws {
-                try self._dependencies.load().unused.elements
+                return try self._dependencies.load().unused.elements
             }
         }
 
@@ -182,7 +183,7 @@ extension Workspace {
             )],
             workspace: Workspace,
             observabilityScope: ObservabilityScope,
-            traitConfiguration: TraitConfiguration?
+            traitConfiguration: TraitConfiguration? // represents the root enabled traits
         ) throws
             -> (
                 required: OrderedCollections.OrderedSet<PackageReference>,
@@ -198,59 +199,99 @@ extension Workspace {
                     }
             )
 
+            let rootEnabledTraitsMap: [PackageIdentity: Set<String>] = root.manifests.reduce(into: [PackageIdentity: Set<String>]()) { traitMap, manifest in
+                traitMap[manifest.key] = traitConfiguration?.enabledTraits ?? []
+            }
+
+            let rootDependenciesEnabledTraitsMap = root.dependencies.reduce(into: [PackageIdentity: Set<String>]()) { traitMap, dependency in
+                let explicitlyEnabledTraits = dependency.traits?.filter {
+                    guard let conditionTraits = $0.condition?.traits else {
+                        return true
+                    }
+                    return !conditionTraits.intersection(traitConfiguration?.enabledTraits ?? []).isEmpty
+                }.map(\.name) ?? []
+
+                traitMap[dependency.identity] = Set(explicitlyEnabledTraits)
+            }
+
             var unusedIdentities: OrderedCollections.OrderedSet<PackageReference> = []
             var inputIdentities: OrderedCollections.OrderedSet<PackageReference> = []
+
+            // TODO: rename above variable, support trait configuration for root manifests as well. just reference
+            // TODO: the trait config map afterwards.
+//            let enabledTraits = Set(root.manifests.values.compactMap({ $0.enabledTraits(.init(traitConfiguration)) }).flatMap(\.self))
             let inputNodes: [GraphLoadingNode] = try root.packages.map { identity, package in
                 inputIdentities.append(package.reference)
-                let traits = package.manifest.enabledTraits(.init(traitConfiguration))
+                var traits: Set<String>? = []
+                if let enabledTraits = rootEnabledTraitsMap[package.reference.identity] {
+                    traits = package.manifest.enabledTraits(using: enabledTraits)
+                }
                 let node = try GraphLoadingNode(
                     identity: identity,
                     manifest: package.manifest,
                     productFilter: .everything,
-                    enabledTraits: traits
+                    enabledTraits: traits ?? [] // TODO: jj is this correct
                 )
                 return node
             } + root.dependencies.compactMap { dependency in
                 let package = dependency.packageRef
                 inputIdentities.append(package)
                 return try manifestsMap[dependency.identity].map { manifest in
-                    let traits = manifest.enabledTraits(.init(traitConfiguration))
+                    var traits: Set<String>? = []
 
+                    if let enabledTraits = rootDependenciesEnabledTraitsMap[dependency.identity] {
+                        // Recursively calculate the enabled traits of this package.
+                        traits = manifest.enabledTraits(using: enabledTraits)
+                    }
                     return try GraphLoadingNode(
                         identity: dependency.identity,
                         manifest: manifest,
                         productFilter: dependency.productFilter,
-                        enabledTraits: traits
+                        enabledTraits: traits ?? [] // TODO: jj is this correct
                     )
                 }
             }
 
-            let traitGuardedRootDependencies = root.manifests.values.reduce(into: [String: Set<String>]()) { depMap, manifest in
-                let manifestDepMap = manifest.traitGuardedDependencies()
-                for (packageIdentity, traitsToEnable) in manifestDepMap {
-                    depMap[packageIdentity.lowercased(), default: []].formUnion(traitsToEnable)
-                }
+            // To fill in.
+            // Begin with all packages having everything as an unused dependency.
+            var unusedDepsPerPackage: [PackageIdentity: [PackageReference]] = manifestsMap.reduce(into: [PackageIdentity: [PackageReference]]()) { depsMap, manifestMap in
+                depsMap[manifestMap.key] = manifestsMap.compactMap({ (identity, manifest) in
+                    guard !root.manifests.contains(where: { identity == $0.key }) else { return nil }
+                    let kind = manifest.packageKind
+                    let ref = PackageReference(identity: identity, kind: kind)
+                    return ref
+                })
             }
-            let enabledTraits = Set(root.manifests.values.compactMap({ $0.enabledTraits(.init(traitConfiguration)) }).flatMap(\.self))
 
             let topLevelDependencies = root.packages.flatMap { $1.manifest.dependencies.map(\.packageRef) }
 
             var requiredIdentities: OrderedCollections.OrderedSet<PackageReference> = []
             _ = try transitiveClosure(inputNodes) { node in
-                try node.manifest.dependenciesRequired(for: node.productFilter).compactMap { dependency in
+
+                // TODO: jj check if node is a root manifest, if so then pass along trait config (since this config is for the root anyways)
+
+                var traitConfiguration = traitConfiguration
+                if root.manifests[node.identity] == nil {
+                    // TODO: jj
+                    traitConfiguration = nil
+                } else {
+                    let explicitlyEnabledTraits = node.manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
+                    traitConfiguration = .init(enabledTraits: explicitlyEnabledTraits)
+                }
+
+                return try node.manifest.dependenciesRequired(for: node.productFilter, traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false).compactMap { dependency in
                     let package = dependency.packageRef
 
                     // Check if traits are guarding the dependency from being enabled
-                    if let traitsToEnableDep = traitGuardedRootDependencies[dependency.identity.description],
-                       !traitsToEnableDep.isEmpty,
-                       enabledTraits.intersection(traitsToEnableDep).isEmpty {
-                        unusedIdentities.append(package)
-                        observabilityScope.emit(debug: """
-                    '\(package.identity)' from '\(package.locationString)' was omitted \
-                    from required dependencies because it is being guarded by the following traits:' \
-                    \(traitsToEnableDep.joined(separator: ", "))
-                    """)
+                    let isDepUsed = node.manifest.isDependencyUsed(dependency.identity.description, enabledTraits: node.enabledTraits)
+                    if !isDepUsed { // placeholder check, to fix
+//                        observabilityScope.emit(debug: """
+//                                            '\(package.identity)' from '\(package.locationString)' was omitted \
+//                                            from required dependencies because it is being guarded by the following traits:' \
+//                                            \(traitsToEnableDep.joined(separator: ", "))
+//                                            """)
                     } else {
+                        unusedDepsPerPackage[node.identity, default: []] = unusedDepsPerPackage[node.identity, default: []].filter({ $0.identity != dependency.identity})
                         let (inserted, index) = requiredIdentities.append(package)
                         if !inserted {
                             let existing = requiredIdentities.elements[index]
@@ -292,18 +333,36 @@ extension Workspace {
                         }
                     }
 
+                    // should calculate enabled traits here.
+                    let explicitlyEnabledTraits = dependency.traits?.filter {
+                        guard let conditionTraits = $0.condition?.traits else {
+                            return true
+                        }
+                        return !conditionTraits.intersection(node.enabledTraits).isEmpty
+                    }.map(\.name)
+
                     return try manifestsMap[dependency.identity].map { manifest in
-                        let traits = manifest.enabledTraits(.init(traitConfiguration))
+                        // Calculate all transitively enabled traits for this manifest.
+
+//                        let allEnabledTraits = manifest.enabledTraits(.init(enabledTraits: explicitlyEnabledTraits == nil ? nil : Set(explicitlyEnabledTraits ?? [])))
+                        let allEnabledTraits = manifest.enabledTraits(using: explicitlyEnabledTraits.flatMap { Set($0) })
                         return try GraphLoadingNode(
                             identity: dependency.identity,
                             manifest: manifest,
                             productFilter: dependency.productFilter,
-                            enabledTraits: traits
+                            enabledTraits: allEnabledTraits ?? []
                         )
                     }
                 }
             }
             requiredIdentities = inputIdentities.union(requiredIdentities)
+
+            // Calculate all unused identities:
+            let unusedAcrossAllPackages = unusedDepsPerPackage.values.map({ Set($0) }).reduce(Set(unusedDepsPerPackage.values.first ?? [])) { unused, deps in
+                unused.intersection(deps)
+            }
+
+            unusedIdentities = unusedIdentities.union(unusedAcrossAllPackages)
             requiredIdentities = requiredIdentities.subtracting(unusedIdentities)
 
             var availableIdentities: Set<PackageReference> = try Set(manifestsMap.map {
@@ -318,14 +377,16 @@ extension Workspace {
                         )
                     }
                 }
+                // TODO: ensure this package isn't guarded
                 return PackageReference(identity: $0.key, kind: $0.1.packageKind)
             })
             // FIXME: is this the correct method to handle unused identities?
             availableIdentities = availableIdentities.subtracting(unusedIdentities)
+
             // We should never have loaded a manifest we don't need.
             assert(
                 availableIdentities.isSubset(of: requiredIdentities),
-                "\(availableIdentities) | \(requiredIdentities)"
+                "\(availableIdentities.map{ $0.identity }) | \(requiredIdentities.map { $0.identity })"
             )
             // These are the missing package identities.
             let missingIdentities = requiredIdentities.subtracting(availableIdentities)
@@ -347,7 +408,8 @@ extension Workspace {
                 productFilter: ProductFilter,
                 fileSystem: FileSystem
             )],
-            workspace: Workspace
+            workspace: Workspace,
+            traitConfiguration: TraitConfiguration?
         ) throws -> [PackageContainerConstraint] {
             var allConstraints = [PackageContainerConstraint]()
 
@@ -365,14 +427,14 @@ extension Workspace {
                     let constraint = PackageContainerConstraint(
                         package: ref,
                         requirement: .unversioned,
-                        products: productFilter,
-                        traitConfiguration: nil // TODO: to add configuration
+                        products: productFilter
                     )
                     allConstraints.append(constraint)
                 case .sourceControlCheckout, .registryDownload, .fileSystem, .custom:
                     break
                 }
-                allConstraints += try externalManifest.dependencyConstraints(productFilter: productFilter)
+                // TODO: is this the right trait configuration?
+                allConstraints += try externalManifest.dependencyConstraints(productFilter: productFilter, /*.init(traitConfiguration)*/nil)
             }
             return allConstraints
         }
@@ -396,8 +458,7 @@ extension Workspace {
                 let constraint = PackageContainerConstraint(
                     package: ref,
                     requirement: .unversioned,
-                    products: productFilter,
-                    traitConfiguration: nil // TODO: to add configuration
+                    products: productFilter
                 )
                 constraints.append(constraint)
             }
@@ -449,7 +510,7 @@ extension Workspace {
     /// Load the manifests for the current dependency tree.
     ///
     /// This will load the manifests for the root package as well as all the
-    /// current dependencies from the working checkouts.l
+    /// current dependencies from the working checkouts.
     public func loadDependencyManifests(
         root: PackageGraphRoot,
         automaticallyAddManagedDependencies: Bool = false,
@@ -476,10 +537,11 @@ extension Workspace {
         }
 
         // Utility Just because a raw tuple cannot be hashable.
-        struct Key: Hashable {
-            let identity: PackageIdentity
-            let productFilter: ProductFilter
-        }
+//        struct Key: Hashable {
+//            let identity: PackageIdentity
+//            let productFilter: ProductFilter
+//            let traits: Set<String>
+//        }
 
         // Make a copy of dependencies as we might mutate them in the for loop.
         let dependenciesToCheck = Array(self.state.dependencies)
@@ -495,7 +557,7 @@ extension Workspace {
             }
         }
 
-        // FIXME: Remove any dependencies that aren't being used; see if this is correct
+        // FIXME: jj Remove any dependencies that aren't being used; see if this is correct
 //        for dependency in dependenciesToCheck {
 //            if !usedDependencies.contains(where: {
 //                $0.caseInsensitiveCompare(dependency.packageRef.identity.description) == .orderedSame
@@ -504,7 +566,6 @@ extension Workspace {
 //                    description: "removing managed dependencies",
 //                    metadata: dependency.packageRef.diagnosticsMetadata
 //                ).trap {
-//                    print("removing \(dependency.packageRef)")
 //                    try self.remove(package: dependency.packageRef)
 //                }
 //            }
@@ -539,8 +600,27 @@ extension Workspace {
             lhs // prefer roots!
         })
 
+        // TODO: jj must filter these dependencies based on what is actually being used, since it is the deps of the roots.
+        // TODO: jj to be considered used, it must be a dep on a target of this root + not guarded by traits
         // optimization: preload first level dependencies manifest (in parallel)
-        let firstLevelDependencies = topLevelManifests.values.map { $0.dependencies.map(\.packageRef) }.flatMap { $0 }
+        let firstLevelDependencies = topLevelManifests.values.map({ manifest in
+            return manifest.dependencies.filter({ dep in
+                var config = traitConfiguration
+                if manifest.packageKind.isRoot {
+                    let manifestEnabledTraits = manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
+                    config = .init(enabledTraits: manifestEnabledTraits)
+                } else {
+                    let rootManifests = root.manifests.values.filter({ $0.packageKind.isRoot })
+                    var manifestEnabledTraits: Set<String>? = Set(rootManifests.compactMap({ $0.dependencies.first(where: { $0.identity.description == manifest.displayName.lowercased() }) }).map({ $0.traits?.map(\.name) ?? ["default"] }).flatMap({ $0 }))
+
+                    manifestEnabledTraits = manifest.enabledTraits(using: manifestEnabledTraits)
+                    config = .init(enabledTraits: manifestEnabledTraits)
+                }
+                let isDepUsed = manifest.isDependencyUsed(dep.identity.description, enabledTraits: config?.enabledTraits)
+                return isDepUsed
+            }).map(\.packageRef)
+        }).flatMap(\.self)
+
         let firstLevelManifests = await self.loadManagedManifests(
             for: firstLevelDependencies,
             observabilityScope: observabilityScope
@@ -549,9 +629,19 @@ extension Workspace {
         // Continue to load the rest of the manifest for this graph
         // Creates a map of loaded manifests. We do this to avoid reloading the shared nodes.
         var loadedManifests = firstLevelManifests
-        let successorManifests: (KeyedPair<Manifest, Key>) async throws -> [KeyedPair<Manifest, Key>] = { pair in
+        let successorNodes: (KeyedPair<GraphLoadingNode, PackageIdentity>) async throws -> [KeyedPair<GraphLoadingNode, PackageIdentity>] = { node in
             // optimization: preload manifest we know about in parallel
-            let dependenciesRequired = pair.item.dependenciesRequired(for: pair.key.productFilter)
+            // TODO: jj how can we pass in the appropriate trait configuration for successors without it affecting the duplication detection?
+
+            var enabledTraits: Set<String>?
+            if !node.item.manifest.packageKind.isRoot {
+                enabledTraits = nil // TODO: jj must obtain the trait config from the parent package.
+            } else {
+                enabledTraits = node.item.manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
+            }
+
+            let dependenciesRequired = node.item.manifest.dependenciesRequired(for: node.item.productFilter, enabledTraits)
+            let dependenciesGuarded = node.item.manifest.dependenciesGuarded(by: enabledTraits)
             let dependenciesToLoad = dependenciesRequired.map(\.packageRef)
                 .filter { !loadedManifests.keys.contains($0.identity) }
             try prepopulateManagedDependencies(dependenciesToLoad)
@@ -560,74 +650,93 @@ extension Workspace {
                 observabilityScope: observabilityScope
             )
             dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
-            return dependenciesRequired.compactMap { dependency in
-                loadedManifests[dependency.identity].flatMap {
+            return try (dependenciesRequired + dependenciesGuarded).compactMap { dependency in
+                return try loadedManifests[dependency.identity].flatMap {
                     // we also compare the location as this function may attempt to load
                     // dependencies that have the same identity but from a different location
                     // which is an error case we diagnose an report about in the GraphLoading part which
                     // is prepared to handle the case where not all manifest are available
-                    $0.canonicalPackageLocation == dependency.packageRef.canonicalLocation ?
-                        KeyedPair(
-                            $0,
-                            key: Key(identity: dependency.identity, productFilter: dependency.productFilter)
+                    let explicitlyEnabledTraits = dependency.traits?.filter {
+                        guard let conditionTraits = $0.condition?.traits else {
+                            return true
+                        }
+                        return !conditionTraits.intersection(node.item.enabledTraits).isEmpty
+                    }.map(\.name)
+
+                    let allEnabledTraits = $0.enabledTraits(using: explicitlyEnabledTraits.flatMap { Set($0) })
+
+                    return $0.canonicalPackageLocation == dependency.packageRef.canonicalLocation ?
+                        try KeyedPair(
+                            GraphLoadingNode(
+                                identity: dependency.identity,
+                                manifest: $0,
+                                productFilter: dependency.productFilter,
+                                enabledTraits: allEnabledTraits
+                            ),
+                            key: dependency.identity
                         ) :
                         nil
                 }
             }
         }
 
-        var allManifests = [(identity: PackageIdentity, manifest: Manifest, productFilter: ProductFilter)]()
+        var allNodes = OrderedDictionary<PackageIdentity, GraphLoadingNode>()
+
         do {
-            let manifestGraphRoots = topLevelManifests.map { identity, manifest in
-                KeyedPair(
-                    manifest,
-                    key: Key(identity: identity, productFilter: .everything)
+            let manifestGraphRoots = try topLevelManifests.map { identity, manifest in
+                // Since these represent the root manifests, can pass in the enabled traits from the trait configuration here, as that is what it represents.
+                let isRoot = manifest.packageKind.isRoot
+                let enabledTraits = isRoot ? manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false) : [] // TODO: jj what about config for dependency packages?
+                return try KeyedPair(
+                    GraphLoadingNode(
+                        identity: identity,
+                        manifest: manifest,
+                        productFilter: .everything,
+                        enabledTraits: enabledTraits
+                    ),
+                    key: identity
                 )
             }
 
-            var deduplication = [PackageIdentity: Int]()
             try await depthFirstSearch(
                 manifestGraphRoots,
-                successors: successorManifests
-            ) { pair in
-                deduplication[pair.key.identity] = allManifests.count
-                allManifests.append((pair.key.identity, pair.item, pair.key.productFilter))
+                successors: successorNodes
+            ) {
+                allNodes[$0.key] = $0.item
             } onDuplicate: { old, new in
-                let index = deduplication[old.key.identity]!
-                let productFilter = allManifests[index].productFilter.merge(new.key.productFilter)
-                allManifests[index] = (new.key.identity, new.item, productFilter)
+                allNodes[old.key]?.enabledTraits.formUnion(new.item.enabledTraits)
             }
         }
 
-        let dependencyManifests = allManifests.filter { !root.manifests.values.contains($0.manifest) }
+        let dependencyManifests = allNodes.filter { !$0.value.manifest.packageKind.isRoot }
 
         // TODO: this check should go away when introducing explicit overrides
         // check for overrides attempts with same name but different path
         let rootManifestsByName = Array(root.manifests.values).spm_createDictionary { ($0.displayName, $0) }
-        dependencyManifests.forEach { _, manifest, _ in
-            if let override = rootManifestsByName[manifest.displayName],
-               override.packageLocation != manifest.packageLocation
+        dependencyManifests.forEach { _, node in
+            if let override = rootManifestsByName[node.manifest.displayName],
+               override.packageLocation != node.manifest.packageLocation
             {
                 observabilityScope
                     .emit(
-                        error: "unable to override package '\(manifest.displayName)' because its identity '\(PackageIdentity(urlString: manifest.packageLocation))' doesn't match override's identity (directory name) '\(PackageIdentity(urlString: override.packageLocation))'"
+                        error: "unable to override package '\(node.manifest.displayName)' because its identity '\(PackageIdentity(urlString: node.manifest.packageLocation))' doesn't match override's identity (directory name) '\(PackageIdentity(urlString: override.packageLocation))'"
                     )
             }
         }
 
         var dependencies: [(Manifest, ManagedDependency, ProductFilter, FileSystem)] = []
-        for (identity, manifest, productFilter) in dependencyManifests {
+        for (identity, node) in dependencyManifests {
             guard let dependency = self.state.dependencies[identity] else {
-                throw InternalError("dependency not found for \(identity) at \(manifest.packageLocation)")
+                throw InternalError("dependency not found for \(identity) at \(node.manifest.packageLocation)")
             }
 
-            let packageRef = PackageReference(identity: identity, kind: manifest.packageKind)
+            let packageRef = PackageReference(identity: identity, kind: node.manifest.packageKind)
             let fileSystem = try await self.getFileSystem(
                 package: packageRef,
                 state: dependency.state,
                 observabilityScope: observabilityScope
             )
-            dependencies.append((manifest, dependency, productFilter, fileSystem ?? self.fileSystem))
+            dependencies.append((node.manifest, dependency, node.productFilter, fileSystem ?? self.fileSystem))
         }
 
         return DependencyManifests(

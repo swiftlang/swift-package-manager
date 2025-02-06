@@ -2368,7 +2368,7 @@ final class ModulesGraphTests: XCTestCase {
                 ),
             ])
         // Make sure aliases are found properly and do not fall back to pre‐5.2 behavior, leaking across onto other dependencies.
-        let required = manifest.dependenciesRequired(for: .everything)
+        let required = manifest.dependenciesRequired(for: .everything, nil)
         let unrelated = try XCTUnwrap(required.first(where: { $0.nameForModuleDependencyResolutionOnly == "Unrelated" }))
         let requestedProducts = unrelated.productFilter
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION

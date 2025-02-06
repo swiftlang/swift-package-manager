@@ -679,18 +679,22 @@ public final class PackageBuilder {
             // No reference of this target in manifest, i.e. it has no dependencies.
             guard let target = self.manifest.targetMap[$0.name] else { return [] }
             // Collect the successors from declared dependencies.
-            var successors: [PotentialModule] = target.dependencies/*.filter({ self.manifest.isTargetDependencyEnabled($0, traitConfiguration: traitConfiguration) })*/.compactMap {
-                switch $0 {
+            // TODO: this is just grabbing the static list of target dependencies, need to modify?
+            var successors: [PotentialModule] = target.dependencies.compactMap { dep in
+                guard self.manifest.isTargetDependencyEnabled(dep, enabledTraits: self.enabledTraits) else {
+                    return nil
+                }
+                switch dep {
                 case .target(let name, _):
                     // Since we already checked above that all referenced targets
                     // has to present, we always expect this target to be present in
                     // potentialModules dictionary.
-                    potentialModuleMap[name]!
+                    return potentialModuleMap[name]!
                 case .product:
-                    nil
+                    return nil
                 case .byName(let name, _):
                     // By name dependency may or may not be a target dependency.
-                    potentialModuleMap[name]
+                    return potentialModuleMap[name]
                 }
             }
             // If there are plugin usages, consider them to be dependencies too.
@@ -737,6 +741,10 @@ public final class PackageBuilder {
             // Get the dependencies of this target.
             let dependencies: [Module.Dependency] = try manifestTarget.map {
                 try $0.dependencies/*.filter({ manifest.isTargetDependencyEnabled($0) })*/.compactMap { dependency -> Module.Dependency? in
+                    // We don't create an object for target dependencies that aren't enabled.
+                    guard self.manifest.isTargetDependencyEnabled(dependency, enabledTraits: self.enabledTraits) else {
+                        return nil
+                    }
                     switch dependency {
                     case .target(let name, let condition):
                         // We don't create an object for targets which have no sources.

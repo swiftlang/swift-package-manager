@@ -741,8 +741,7 @@ extension Workspace {
         let constraint = PackageContainerConstraint(
             package: dependency.packageRef,
             requirement: requirement,
-            products: .nothing,
-            traitConfiguration: nil // TODO: to add configuration
+            products: .nothing
         )
 
         // Run the resolution.
@@ -751,7 +750,7 @@ extension Workspace {
             forceResolution: false,
             constraints: [constraint],
             observabilityScope: observabilityScope,
-            traitConfiguration: nil // TODO
+            traitConfiguration: nil // TODO: jj add config
         )
     }
 

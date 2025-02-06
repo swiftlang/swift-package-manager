@@ -154,7 +154,8 @@ final class PubGrubPackageContainer {
         at version: Version,
         node: DependencyResolutionNode,
         overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)],
-        root: DependencyResolutionNode
+        root: DependencyResolutionNode,
+        traitConfiguration: TraitConfiguration? = nil
     ) async throws -> [Incompatibility] {
         // FIXME: It would be nice to compute bounds for this as well.
         if await !self.underlying.isToolsVersionCompatible(at: version) {
@@ -169,7 +170,8 @@ final class PubGrubPackageContainer {
 
         var unprocessedDependencies = try await self.underlying.getDependencies(
             at: version,
-            productFilter: node.productFilter
+            productFilter: node.productFilter,
+            traitConfiguration // TODO: jj is this the right config
         )
         if let sharedVersion = node.versionLock(version: version) {
             unprocessedDependencies.append(sharedVersion)
@@ -195,8 +197,7 @@ final class PubGrubPackageContainer {
                     PackageContainerConstraint(
                         package: node.package,
                         requirement: dep.requirement,
-                        products: node.productFilter,
-                        traitConfiguration: nil // TODO: to add configuration
+                        products: node.productFilter
                     )
                 )
             }

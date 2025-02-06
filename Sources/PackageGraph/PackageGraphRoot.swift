@@ -83,7 +83,8 @@ public struct PackageGraphRoot {
         manifests: [AbsolutePath: Manifest],
         explicitProduct: String? = nil,
         dependencyMapper: DependencyMapper? = nil,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        traitConfiguration: TraitConfiguration?
     ) {
         self.packages = input.packages.reduce(into: .init(), { partial, inputPath in
             if let manifest = manifests[inputPath]  {
@@ -100,10 +101,15 @@ public struct PackageGraphRoot {
         // Such pin switching can currently be worked around by declaring the executable product as a dependency of a dummy target.
         // But in the future it might be worth providing a way of declaring them in the manifest without a dummy target,
         // at which time the current special casing can be deprecated.
-        var adjustedDependencies = input.dependencies
-        if let explicitProduct {
+        let explicitlyEnabledTraits: Set<String>? = Set(manifests.values.compactMap({ $0.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false )}).flatMap({ $0 }))
+        var adjustedDependencies = input.dependencies.filter({ dep in
+            return manifests.values.reduce(false) {
+                return $0 || $1.isDependencyUsed(dep.identity.description, enabledTraits: explicitlyEnabledTraits)
+            }
+        })
+        if let explicitProduct { // TODO: jj this is where test target entrypoint args differ - explicitProduct is nil for swift test command.
             // FIXME: `dependenciesRequired` modifies manifests and prevents conversion of `Manifest` to a value type
-            for dependency in manifests.values.lazy.map({ $0.dependenciesRequired(for: .everything) }).joined() {
+            for dependency in manifests.values.lazy.map({ $0.dependenciesRequired(for: .everything, explicitlyEnabledTraits) }).joined() {
                 adjustedDependencies.append(dependency.filtered(by: .specific([explicitProduct])))
             }
         }
@@ -114,15 +120,18 @@ public struct PackageGraphRoot {
     }
 
     /// Returns the constraints imposed by root manifests + dependencies.
-    public func constraints(_ usedDependencies: Set<TargetDescription.Dependency>? = nil) throws -> [PackageContainerConstraint] {
-        // TODO: to passs in traint configuration + properly compute enabled traits
+    public func constraints(_ usedDependencies: Set<TargetDescription.Dependency>? = nil, _ traitConfiguration: TraitConfiguration?) throws -> [PackageContainerConstraint] {
+        // TODO: to passs in trait configuration + properly compute enabled traits
         let constraints = self.packages.map { (identity, package) in
-            PackageContainerConstraint(package: package.reference, requirement: .unversioned, products: .everything, traitConfiguration: TraitConfiguration(enabledTraits: Set(package.manifest.enabledTraits())))
+//            var config = traitConfiguration != nil ? TraitConfiguration.init(enabledTraits: traitConfiguration?.enabledTraits) : nil
+//            let enabledTraits = self.manifests[identity]?.enabledTraits(.init(config))
+//            config?.enabledTraits = enabledTraits
+            return PackageContainerConstraint(package: package.reference, requirement: .unversioned, products: .everything)/*TraitConfiguration(enabledTraits: Set(package.manifest.enabledTraits()))*/
         }
         
         // Filter out dependencies that aren't used; don't include these in the constraint calculation
-        // TODO: may not be necessary to filter at this stage, since constraints are also processed in
-        // TODO: the pub grub solver
+        // TODO: jj may not be necessary to filter at this stage, since constraints are also processed in
+        // TODO: jj the pub grub solver
         let depend = try dependencies
 //            .filter { dep in
 //                guard let usedDependencies else { return true }
@@ -133,13 +142,12 @@ public struct PackageGraphRoot {
 //                })
 //            }
             .map {
-                let traits = $0.traits?.compactMap(\.name) ?? []
-                let traitConfiguration = TraitConfiguration(enabledTraits: Set(traits))
+//                let traits = $0.traits?.compactMap(\.name) ?? []
+//                let traitConfiguration = TraitConfiguration(enabledTraits: Set(traits))
                 return PackageContainerConstraint(
                     package: $0.packageRef,
                     requirement: try $0.toConstraintRequirement(),
-                    products: $0.productFilter,
-                    traitConfiguration: traitConfiguration
+                    products: $0.productFilter
                 )
         }
 

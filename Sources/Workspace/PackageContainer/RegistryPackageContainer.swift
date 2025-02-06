@@ -113,16 +113,16 @@ public class RegistryPackageContainer: PackageContainer {
         return results
     }
 
-    public func getDependencies(at version: Version, productFilter: ProductFilter) async throws -> [PackageContainerConstraint] {
+    public func getDependencies(at version: Version, productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) async throws -> [PackageContainerConstraint] {
         let manifest = try await self.loadManifest(version: version)
-        return try manifest.dependencyConstraints(productFilter: productFilter)
+        return try manifest.dependencyConstraints(productFilter: productFilter, traitConfiguration?.enabledTraits, traitConfiguration?.enableAllTraits ?? false)
     }
 
-    public func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+    public func getDependencies(at revision: String, productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) throws -> [PackageContainerConstraint] {
         throw InternalError("getDependencies for revision not supported by RegistryPackageContainer")
     }
 
-    public func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+    public func getUnversionedDependencies(productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) throws -> [PackageContainerConstraint] {
         throw InternalError("getUnversionedDependencies not supported by RegistryPackageContainer")
     }
 
@@ -255,7 +255,7 @@ public class RegistryPackageContainer: PackageContainer {
     }
 
     public func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
-        // TODO: complete
+        // TODO: jj complete
         return []
     }
 }

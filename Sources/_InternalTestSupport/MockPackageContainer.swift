@@ -46,12 +46,12 @@ public class MockPackageContainer: CustomPackageContainer {
         return _versions
     }
 
-    public func getDependencies(at version: Version, productFilter: ProductFilter) -> [MockPackageContainer.Constraint] {
+    public func getDependencies(at version: Version, productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) -> [MockPackageContainer.Constraint] {
         requestedVersions.insert(version)
-        return getDependencies(at: version.description, productFilter: productFilter)
+        return getDependencies(at: version.description, productFilter: productFilter, traitConfiguration)
     }
 
-    public func getDependencies(at revision: String, productFilter: ProductFilter) -> [MockPackageContainer.Constraint] {
+    public func getDependencies(at revision: String, productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) -> [MockPackageContainer.Constraint] {
         let dependencies: [Dependency]
         if filteredMode {
             dependencies = filteredDependencies[productFilter]!
@@ -60,11 +60,11 @@ public class MockPackageContainer: CustomPackageContainer {
         }
         return dependencies.map { value in
             let (package, requirement) = value
-            return MockPackageContainer.Constraint(package: package, requirement: requirement, products: productFilter, traitConfiguration: nil /*TODO: to add configuration*/)
+            return MockPackageContainer.Constraint(package: package, requirement: requirement, products: productFilter)
         }
     }
 
-    public func getUnversionedDependencies(productFilter: ProductFilter) -> [MockPackageContainer.Constraint] {
+    public func getUnversionedDependencies(productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) -> [MockPackageContainer.Constraint] {
         return unversionedDeps
     }
 
@@ -73,7 +73,7 @@ public class MockPackageContainer: CustomPackageContainer {
     }
 
     public func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
-        // TODO: complete
+        // TODO: jj complete
         return []
     }
 

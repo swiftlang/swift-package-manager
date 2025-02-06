@@ -46,7 +46,11 @@ public struct GraphLoadingNode: Equatable, Hashable {
 
     /// Returns the dependencies required by this node.
     internal var requiredDependencies: [PackageDependency] {
-        return self.manifest.dependenciesRequired(for: self.productFilter)
+        return self.manifest.dependenciesRequired(for: self.productFilter, enabledTraits)
+    }
+
+    internal var traitGuardedDependencies: [PackageDependency] {
+        return self.manifest.dependenciesGuarded(by: enabledTraits)
     }
 }
 

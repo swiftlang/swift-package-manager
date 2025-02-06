@@ -573,7 +573,7 @@ public final class MockWorkspace {
             packages: rootInput.packages,
             observabilityScope: observability.topScope
         )
-        let root = PackageGraphRoot(input: rootInput, manifests: rootManifests, observabilityScope: observability.topScope)
+        let root = PackageGraphRoot(input: rootInput, manifests: rootManifests, observabilityScope: observability.topScope, traitConfiguration: nil)
 
         let dependencyManifests = try await workspace.loadDependencyManifests(
             root: root,
@@ -586,7 +586,8 @@ public final class MockWorkspace {
             dependencyManifests: dependencyManifests,
             resolvedPackagesStore: resolvedPackagesStore,
             constraints: [],
-            observabilityScope: observability.topScope
+            observabilityScope: observability.topScope,
+            traitConfiguration: nil
         )
 
         return ResolutionPrecomputationResult(result: result, diagnostics: observability.diagnostics)
@@ -793,7 +794,7 @@ public final class MockWorkspace {
             packages: try rootPaths(for: roots), dependencies: dependencies
         )
         let rootManifests = try await workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope)
-        let graphRoot = PackageGraphRoot(input: rootInput, manifests: rootManifests, observabilityScope: observability.topScope)
+        let graphRoot = PackageGraphRoot(input: rootInput, manifests: rootManifests, observabilityScope: observability.topScope, traitConfiguration: nil)
         let manifests = try await workspace.loadDependencyManifests(root: graphRoot, observabilityScope: observability.topScope, traitConfiguration: nil)
         result(manifests, observability.diagnostics)
     }
