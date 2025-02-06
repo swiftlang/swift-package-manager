@@ -864,7 +864,7 @@ def get_swiftpm_flags(args):
             import platform
             if platform.processor() == 'i386':
                 build_flags += ["--build-system=xcode", "--arch=arm64"]
-            else
+            else:
                 build_flags += ["--build-system=xcode", "--arch=x86_64"]
         elif cross_compile_hosts.startswith('android-'):
             build_flags.extend(["--destination", args.cross_compile_config])

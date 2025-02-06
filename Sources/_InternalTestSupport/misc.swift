@@ -269,7 +269,6 @@ public func executeSwiftBuild(
         Xswiftc: Xswiftc,
         buildSystem: buildSystem
     )
-    let buildArgs = getBuildSystemArgs(for: buildSystem)
     return try await SwiftPM.Build.execute(args, packagePath: packagePath, env: env)
 }
 

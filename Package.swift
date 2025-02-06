@@ -86,6 +86,12 @@ if ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RPATH_OS"] == "android" 
  automatic linking type with `-auto` suffix appended to product's name.
  */
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
+let swiftDriverDep: [Target.Dependency]
+if ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] == nil {
+    swiftDriverDep = [.product(name: "SwiftDriver", package: "swift-driver")]
+} else {
+    swiftDriverDep = []
+}
 
 let package = Package(
     name: "SwiftPM",
@@ -414,10 +420,9 @@ let package = Package(
                 "PackageGraph",
                 "SPMBuildCore",
                 "SPMLLBuild",
-                .product(name: "SwiftDriver", package: "swift-driver"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 "DriverSupport",
-            ],
+            ] + swiftDriverDep,
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .unsafeFlags(["-static"]),
@@ -428,8 +433,7 @@ let package = Package(
             dependencies: [
                 "Basics",
                 "PackageModel",
-                .product(name: "SwiftDriver", package: "swift-driver"),
-            ],
+            ] + swiftDriverDep,
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .unsafeFlags(["-static"]),
@@ -996,7 +1000,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // used by 'swift-driver' and 'sourcekit-lsp'. Please coordinate
         // dependency version changes here with those projects.
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.4.0")),
-        .package(url: "https://github.com/apple/swift-driver.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-system.git", from: "1.1.1"),
@@ -1008,7 +1011,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
         .package(path: "../swift-tools-support-core"),
         .package(path: "../swift-argument-parser"),
-        .package(path: "../swift-driver"),
         .package(path: "../swift-crypto"),
         .package(path: "../swift-syntax"),
         .package(path: "../swift-system"),
@@ -1030,8 +1032,14 @@ if ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] == nil {
     ]
 
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
-        package.dependencies += [.package(url: "https://github.com/swiftlang/swift-build.git", branch: relatedDependenciesBranch)]
+        package.dependencies += [
+            .package(url: "https://github.com/swiftlang/swift-build.git", branch: relatedDependenciesBranch),
+            .package(url: "https://github.com/apple/swift-driver.git", branch: relatedDependenciesBranch),
+        ]
     } else {
-        package.dependencies += [.package(path: "../swift-build")]
+        package.dependencies += [
+            .package(path: "../swift-build"),
+            .package(path: "../swift-driver"),
+        ]
     }
 }
