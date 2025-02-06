@@ -257,7 +257,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             let container = try await provider.getContainer(for: ref) as! SourceControlPackageContainer
             let revision = try container.getRevision(forTag: "1.0.0")
             do {
-                _ = try await container.getDependencies(at: revision.identifier, productFilter: .nothing)
+                _ = try await container.getDependencies(at: revision.identifier, productFilter: .nothing, nil)
             } catch let error as SourceControlPackageContainer.GetDependenciesError {
                 let error = error.underlyingError as! UnsupportedToolsVersion
                 XCTAssertMatch(error.description, .and(.prefix("package '\(PackageIdentity(path: repoPath))' @"), .suffix("is using Swift tools version 3.1.0 which is no longer supported; consider using '// swift-tools-version:4.0' to specify the current tools version")))
@@ -394,8 +394,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             PackageContainerConstraint(
                 package: $0.packageRef,
                 requirement: try $0.toConstraintRequirement(),
-                products: v5ProductMapping[$0.identity.description]!,
-                traitConfiguration: nil // TODO: to add configuration
+                products: v5ProductMapping[$0.identity.description]!
             )
         }
         let v5_2ProductMapping: [String: ProductFilter] = [
@@ -407,8 +406,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             PackageContainerConstraint(
                 package: $0.packageRef,
                 requirement: try $0.toConstraintRequirement(),
-                products: v5_2ProductMapping[$0.identity.description]!,
-                traitConfiguration: nil // TODO: to add configuration
+                products: v5_2ProductMapping[$0.identity.description]!
             )
         }
 
@@ -424,7 +422,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
             XCTAssertEqual(
                 try manifest
-                    .dependencyConstraints(productFilter: .everything)
+                    .dependencyConstraints(productFilter: .everything, nil)
                     .sorted(by: { $0.package.identity < $1.package.identity }),
                 [
                     v5Constraints[0],
@@ -446,7 +444,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
             XCTAssertEqual(
                 try manifest
-                    .dependencyConstraints(productFilter: .everything)
+                    .dependencyConstraints(productFilter: .everything, nil)
                     .sorted(by: { $0.package.identity < $1.package.identity }),
                 [
                     v5Constraints[0],
@@ -468,7 +466,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
             XCTAssertEqual(
                 try manifest
-                    .dependencyConstraints(productFilter: .everything)
+                    .dependencyConstraints(productFilter: .everything, nil)
                     .sorted(by: { $0.package.identity < $1.package.identity }),
                 [
                     v5_2Constraints[0],
@@ -490,7 +488,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
             XCTAssertEqual(
                 try manifest
-                    .dependencyConstraints(productFilter: .specific(Set(products.map { $0.name })))
+                    .dependencyConstraints(productFilter: .specific(Set(products.map { $0.name })), nil)
                     .sorted(by: { $0.package.identity < $1.package.identity }),
                 [
                     v5_2Constraints[0],
@@ -550,7 +548,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             let container = try await containerProvider.getContainer(for: packageRef) as! SourceControlPackageContainer
 
             // Simulate accessing a fictitious dependency on the `master` branch, and check that we get back the expected error.
-            do { _ = try await container.getDependencies(at: "master", productFilter: .everything) }
+            do { _ = try await container.getDependencies(at: "master", productFilter: .everything, nil) }
             catch let error as SourceControlPackageContainer.GetDependenciesError {
                 // We expect to get an error message that mentions main.
                 XCTAssertMatch(error.description, .and(.prefix("could not find a branch named ‘master’"), .suffix("(did you mean ‘main’?)")))
@@ -559,7 +557,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             }
 
             // Simulate accessing a fictitious dependency on some random commit that doesn't exist, and check that we get back the expected error.
-            do { _ = try await container.getDependencies(at: "535f4cb5b4a0872fa691473e82d7b27b9894df00", productFilter: .everything) }
+            do { _ = try await container.getDependencies(at: "535f4cb5b4a0872fa691473e82d7b27b9894df00", productFilter: .everything, nil) }
             catch let error as SourceControlPackageContainer.GetDependenciesError {
                 // We expect to get an error message about the specific commit.
                 XCTAssertMatch(error.description, .prefix("could not find the commit 535f4cb5b4a0872fa691473e82d7b27b9894df00"))
@@ -715,8 +713,8 @@ final class SourceControlPackageContainerTests: XCTestCase {
             let packageReference = PackageReference.localSourceControl(identity: PackageIdentity(path: packageDirectory), path: packageDirectory)
             let container = try await containerProvider.getContainer(for: packageReference)
 
-            let forNothing = try await container.getDependencies(at: version, productFilter: .specific([]))
-            let forProduct = try await container.getDependencies(at: version, productFilter: .specific(["Product"]))
+            let forNothing = try await container.getDependencies(at: version, productFilter: .specific([]), nil)
+            let forProduct = try await container.getDependencies(at: version, productFilter: .specific(["Product"]), nil)
             #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
             // If the cache overlaps (incorrectly), these will be the same.
             XCTAssertNotEqual(forNothing, forProduct)

@@ -90,7 +90,8 @@ final class PackageGraphPerfTests: XCTestCasePerf {
                 root: PackageGraphRoot(
                     input: PackageGraphRootInput(packages: [rootManifest.path]),
                     manifests: [rootManifest.path: rootManifest],
-                    observabilityScope: observability.topScope
+                    observabilityScope: observability.topScope,
+                    traitConfiguration: nil
                 ),
                 identityResolver: identityResolver,
                 externalManifests: externalManifests,

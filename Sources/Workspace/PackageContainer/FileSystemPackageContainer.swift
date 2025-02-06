@@ -101,9 +101,9 @@ public struct FileSystemPackageContainer: PackageContainer {
         }
     }
 
-    public func getUnversionedDependencies(productFilter: ProductFilter) async throws -> [PackageContainerConstraint] {
+    public func getUnversionedDependencies(productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) async throws -> [PackageContainerConstraint] {
         let manifest = try await self.loadManifest()
-        return try manifest.dependencyConstraints(productFilter: productFilter)
+        return try manifest.dependencyConstraints(productFilter: productFilter, traitConfiguration?.enabledTraits, traitConfiguration?.enableAllTraits ?? false)
     }
 
     public func loadPackageReference(at boundVersion: BoundVersion) async throws -> PackageReference {
@@ -128,17 +128,18 @@ public struct FileSystemPackageContainer: PackageContainer {
         fatalError("This should never be called")
     }
 
-    public func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+    public func getDependencies(at version: Version, productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) throws -> [PackageContainerConstraint] {
         fatalError("This should never be called")
     }
 
-    public func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+    public func getDependencies(at revision: String, productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) throws -> [PackageContainerConstraint] {
         fatalError("This should never be called")
     }
 
     public func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
         let manifest = try await loadManifest()
-        return manifest.enabledTraits(.init(traitConfiguration))
+        let enabledTraits = manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
+        return enabledTraits
     }
 }
 

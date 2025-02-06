@@ -99,8 +99,7 @@ public enum DependencyResolutionNode {
         return PackageContainerConstraint(
             package: self.package,
             versionRequirement: .exact(version),
-            products: .specific([]),
-            traitConfiguration: nil // TODO: to add configuration
+            products: .specific([])
         )
     }
 
@@ -113,8 +112,7 @@ public enum DependencyResolutionNode {
         return PackageContainerConstraint(
             package: self.package,
             requirement: .revision(revision),
-            products: .specific([]),
-            traitConfiguration: nil // TODO: to add configuration
+            products: .specific([])
         )
     }
 }

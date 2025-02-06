@@ -154,7 +154,7 @@ private extension MockPackageContainer.Constraint {
         guard let requirement = dict["requirement"] else { fatalError() }
         let products: ProductFilter = try! JSON(dict).get("products")
         let ref = PackageReference.localSourceControl(identity: .plain(identifier), path: .root)
-        self.init(package: ref, versionRequirement: VersionSetSpecifier(requirement), products: products, traitConfiguration: nil)
+        self.init(package: ref, versionRequirement: VersionSetSpecifier(requirement), products: products)
     }
 }
 

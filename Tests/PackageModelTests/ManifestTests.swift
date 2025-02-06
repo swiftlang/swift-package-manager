@@ -92,7 +92,7 @@ class ManifestTests: XCTestCase {
                 targets: targets
             )
 
-            XCTAssertEqual(manifest.dependenciesRequired(for: .everything).map({ $0.identity.description }).sorted(), [
+            XCTAssertEqual(manifest.dependenciesRequired(for: .everything, nil).map({ $0.identity.description }).sorted(), [
                 "bar1",
                 "bar2",
                 "bar3",
@@ -109,7 +109,7 @@ class ManifestTests: XCTestCase {
                 targets: targets
             )
 
-            XCTAssertEqual(manifest.dependenciesRequired(for: .specific(["Foo"])).map({ $0.identity.description }).sorted(), [
+            XCTAssertEqual(manifest.dependenciesRequired(for: .specific(["Foo"]), nil).map({ $0.identity.description }).sorted(), [
                 "bar1", // Foo → Foo1 → Bar1
                 "bar2", // Foo → Foo1 → Foo2 → Bar2
                 "bar3", // Foo → Foo1 → Bar1 → could be from any package due to pre‐5.2 tools version.
@@ -126,7 +126,7 @@ class ManifestTests: XCTestCase {
                 targets: targets
             )
 
-            XCTAssertEqual(manifest.dependenciesRequired(for: .everything).map({ $0.identity.description }).sorted(), [
+            XCTAssertEqual(manifest.dependenciesRequired(for: .everything, nil).map({ $0.identity.description }).sorted(), [
                 "bar1",
                 "bar2",
                 "bar3",
@@ -144,7 +144,7 @@ class ManifestTests: XCTestCase {
             )
 
             #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-            XCTAssertEqual(manifest.dependenciesRequired(for: .specific(["Foo"])).map({ $0.identity.description }).sorted(), [
+            XCTAssertEqual(manifest.dependenciesRequired(for: .specific(["Foo"]), nil).map({ $0.identity.description }).sorted(), [
                 "bar1", // Foo → Foo1 → Bar1
                 "bar2", // Foo → Foo1 → Foo2 → Bar2
                 // (Bar3 is unreachable.)

@@ -87,7 +87,8 @@ extension Workspace {
             input: root,
             manifests: rootManifests,
             dependencyMapper: self.dependencyMapper,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: traitConfiguration
         )
         let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,
@@ -107,7 +108,7 @@ extension Workspace {
         var updateConstraints = currentManifests.editedPackagesConstraints
 
         // Create constraints based on root manifest and `Package.resolved` for the update resolution.
-        updateConstraints += try graphRoot.constraints()
+        updateConstraints += try graphRoot.constraints(nil, traitConfiguration)
 
         let resolvedPackages: ResolvedPackagesStore.ResolvedPackages
         if packages.isEmpty {
@@ -130,7 +131,8 @@ extension Workspace {
         let updateResults = await self.resolveDependencies(
             resolver: resolver,
             constraints: updateConstraints,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: traitConfiguration
         )
 
         // Reset the active resolver.
@@ -286,7 +288,7 @@ extension Workspace {
                 forceResolution: forceResolution,
                 constraints: [],
                 observabilityScope: observabilityScope,
-                traitConfiguration: nil // TODO
+                traitConfiguration: traitConfiguration
             )
         }
     }
@@ -365,7 +367,8 @@ extension Workspace {
             manifests: rootManifests,
             explicitProduct: explicitProduct,
             dependencyMapper: self.dependencyMapper,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: traitConfiguration
         )
 
         // Load the `Package.resolved` store or abort now.
@@ -490,7 +493,8 @@ extension Workspace {
             dependencyManifests: currentManifests,
             resolvedPackagesStore: resolvedPackagesStore,
             constraints: [],
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: traitConfiguration
         )
 
         return (currentManifests, precomputationResult)
@@ -529,11 +533,13 @@ extension Workspace {
             manifests: rootManifests,
             explicitProduct: explicitProduct,
             dependencyMapper: self.dependencyMapper,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: traitConfiguration
         )
 
         let enabledAndUsedTargetDependencies = try graphRoot.manifests.values.compactMap { manifest in
-            try manifest.usedTargetDependencies(traitConfiguration: .init(traitConfiguration))
+            let usedTargetDeps = try manifest.usedTargetDependencies(withTraits: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
+            return usedTargetDeps
         }
             .reduce(into: [String: Set<TargetDescription.Dependency>]()) { flattenedMap, element in
                 flattenedMap.merge(element, uniquingKeysWith: { lhs, rhs in
@@ -578,7 +584,8 @@ extension Workspace {
                 dependencyManifests: currentManifests,
                 resolvedPackagesStore: resolvedPackagesStore,
                 constraints: constraints,
-                observabilityScope: observabilityScope
+                observabilityScope: observabilityScope,
+                traitConfiguration: traitConfiguration
             )
 
             switch result {
@@ -614,7 +621,7 @@ extension Workspace {
         // Create the constraints; filter unused dependencies.
         var computedConstraints = [PackageContainerConstraint]()
         computedConstraints += currentManifests.editedPackagesConstraints
-        computedConstraints += try graphRoot.constraints(usedDependencies) + constraints
+        computedConstraints += try graphRoot.constraints(usedDependencies, traitConfiguration) + constraints
 
         // Perform dependency resolution.
         let resolver = try self.createResolver(resolvedPackages: resolvedPackagesStore.resolvedPackages, observabilityScope: observabilityScope)
@@ -623,7 +630,8 @@ extension Workspace {
         let result = await self.resolveDependencies(
             resolver: resolver,
             constraints: computedConstraints,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: traitConfiguration
         )
 
         // Reset the active resolver.
@@ -858,14 +866,16 @@ extension Workspace {
         dependencyManifests: DependencyManifests,
         pinsStore: ResolvedPackagesStore,
         constraints: [PackageContainerConstraint],
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        traitConfiguration: TraitConfiguration?
     ) async throws -> ResolutionPrecomputationResult {
         try await self.precomputeResolution(
             root: root,
             dependencyManifests: dependencyManifests,
             resolvedPackagesStore: pinsStore,
             constraints: constraints,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: traitConfiguration
         )
     }
 
@@ -878,12 +888,13 @@ extension Workspace {
         dependencyManifests: DependencyManifests,
         resolvedPackagesStore: ResolvedPackagesStore,
         constraints: [PackageContainerConstraint],
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        traitConfiguration: TraitConfiguration?
     ) async throws -> ResolutionPrecomputationResult {
         let computedConstraints =
-            try root.constraints() +
+        try root.constraints(nil, traitConfiguration) +
             // Include constraints from the manifests in the graph root.
-            root.manifests.values.flatMap { try $0.dependencyConstraints(productFilter: .everything) } +
+        root.manifests.values.flatMap { try $0.dependencyConstraints(productFilter: .everything, /*.init(traitConfiguration)*/nil) } +
             dependencyManifests.dependencyConstraints +
             constraints
 
@@ -896,7 +907,7 @@ extension Workspace {
             resolvedPackages: resolvedPackagesStore.resolvedPackages,
             observabilityScope: observabilityScope
         )
-        let result = await resolver.solve(constraints: computedConstraints)
+        let result = await resolver.solve(constraints: computedConstraints, traitConfiguration: traitConfiguration)
 
         guard !observabilityScope.errorsReported else {
             return .required(reason: .errorsPreviouslyReported)
@@ -1192,10 +1203,11 @@ extension Workspace {
     fileprivate func resolveDependencies(
         resolver: PubGrubDependencyResolver,
         constraints: [PackageContainerConstraint],
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        traitConfiguration: TraitConfiguration?
     ) async -> [DependencyResolverBinding] {
         os_signpost(.begin, name: SignpostName.pubgrub)
-        let result = await resolver.solve(constraints: constraints)
+        let result = await resolver.solve(constraints: constraints, traitConfiguration: traitConfiguration)
         os_signpost(.end, name: SignpostName.pubgrub)
 
         // Take an action based on the result.
@@ -1293,16 +1305,5 @@ extension Workspace.ManagedDependencies {
                 return false
             }
         })
-    }
-}
-
-extension Manifest.TraitConfiguration {
-    public init(_ traitConfiguration: TraitConfiguration) {
-        self.init(enabledTraits: traitConfiguration.enabledTraits, enableAllTraits: traitConfiguration.enableAllTraits)
-    }
-
-    public init?(_ traitConfiguration: TraitConfiguration?) {
-        guard let traitConfiguration else { return nil }
-        self.init(traitConfiguration)
     }
 }

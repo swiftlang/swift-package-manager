@@ -165,7 +165,7 @@ public struct PubGrubDependencyResolver {
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
-    public func solve(constraints: [Constraint]) async -> Result<[DependencyResolverBinding], Error> {
+    public func solve(constraints: [Constraint], traitConfiguration: TraitConfiguration? = nil) async -> Result<[DependencyResolverBinding], Error> {
         // the graph resolution root
         let root: DependencyResolutionNode
         if constraints.count == 1, let constraint = constraints.first, constraint.package.kind.isRoot {
@@ -181,7 +181,7 @@ public struct PubGrubDependencyResolver {
 
         do {
             // strips state
-            let bindings = try await self.solve(root: root, constraints: constraints).bindings
+            let bindings = try await self.solve(root: root, constraints: constraints, traitConfiguration: traitConfiguration).bindings
             return .success(bindings)
         } catch {
             // If version solving failing, build the user-facing diagnostic.
@@ -206,9 +206,9 @@ public struct PubGrubDependencyResolver {
     /// Find a set of dependencies that fit the given constraints. If dependency
     /// resolution is unable to provide a result, an error is thrown.
     /// - Warning: It is expected that the root package reference has been set  before this is called.
-    internal func solve(root: DependencyResolutionNode, constraints: [Constraint]) async throws -> (bindings: [DependencyResolverBinding], state: State) {
+    internal func solve(root: DependencyResolutionNode, constraints: [Constraint], traitConfiguration: TraitConfiguration? = nil) async throws -> (bindings: [DependencyResolverBinding], state: State) {
         // first process inputs
-        let inputs = try await self.processInputs(root: root, with: constraints)
+        let inputs = try await self.processInputs(root: root, with: constraints, traitConfiguration: traitConfiguration)
 
         // Prefetch the containers if prefetching is enabled.
         if self.prefetchBasedOnResolvedFile {
@@ -234,7 +234,7 @@ public struct PubGrubDependencyResolver {
             state.addIncompatibility(incompatibility, at: .topLevel)
         }
 
-        try await self.run(state: state)
+        try await self.run(state: state, traitConfiguration: traitConfiguration)
 
         let decisions = state.solution.assignments.filter(\.isDecision)
         var flattenedAssignments: [PackageReference: (binding: BoundVersion, products: ProductFilter)] = [:]
@@ -301,7 +301,7 @@ public struct PubGrubDependencyResolver {
     private func processInputs(
         root: DependencyResolutionNode,
         with constraints: [Constraint],
-        traitConfiguration: TraitConfiguration? = nil
+        traitConfiguration: TraitConfiguration?
     ) async throws -> (
         overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)],
         rootIncompatibilities: [Incompatibility]
@@ -322,19 +322,22 @@ public struct PubGrubDependencyResolver {
         var versionBasedDependencies = OrderedCollections.OrderedDictionary<DependencyResolutionNode, [VersionBasedConstraint]>()
 
         // TODO: provide more details
-        // Process trait-guarded constraints.
-        for constraint in constraints.filter({ $0.traitConfiguration != nil }) {
-            let container = try await withCheckedThrowingContinuation { continuation in
-                self.provider.getContainer(for: constraint.package, completion: {
-                    continuation.resume(with: $0)
-                })
-            }
-
-            let traits = try await container.underlying.getEnabledTraits(traitConfiguration: traitConfiguration)
-            if traits.intersection(constraint.traitConfiguration?.enabledTraits ?? []).isEmpty {
-                constraints.remove(constraint)
-            }
-        }
+        // Process trait-guarded constraints; this will be dependent on which root-level
+        // traits are enabled. (?)
+        // - what to do when encountering constraint relating to root?
+        // - what to do when constraint is dep of root? check roottraits
+//        for constraint in constraints.filter({ $0.traitConfiguration != nil }) {
+//            let container = try await withCheckedThrowingContinuation { continuation in
+//                self.provider.getContainer(for: constraint.package, completion: {
+//                    continuation.resume(with: $0)
+//                })
+//            }
+//
+//            let traits = try await container.underlying.getEnabledTraits(traitConfiguration: traitConfiguration)
+//            if traits.intersection(constraint.traitConfiguration?.enabledTraits ?? []).isEmpty {
+//                constraints.remove(constraint)
+//            }
+//        }
 
         // TODO: filter based on used dependencies
 //        constraints = constraints.filter({ usedDependencies.contains($0.package.identity.description) })
@@ -371,8 +374,16 @@ public struct PubGrubDependencyResolver {
                         }
                     )
                 }
+                var enabledTraits: Set<String> = []
+                if constraint.package.kind.isRoot {
+                    // trait config setup here
+                    enabledTraits = try await container.underlying.getEnabledTraits(traitConfiguration: traitConfiguration)
+                } else {
+                    // TODO: jj get config for deps of deps
+                    print("MUST GET CONFIG FOR DEP OF ROOT \(constraint.package.identity.description) + \(container.package.identity.description)")
+                }
                 for dependency in try await container.underlying
-                    .getUnversionedDependencies(productFilter: node.productFilter)
+                    .getUnversionedDependencies(productFilter: node.productFilter, .init(enabledTraits: enabledTraits)) // TODO: jj fix config being passed here
                 {
                     if let versionedBasedConstraints = VersionBasedConstraint.constraints(dependency) {
                         for constraint in versionedBasedConstraints {
@@ -445,7 +456,8 @@ public struct PubGrubDependencyResolver {
             for node in constraint.nodes() {
                 var unprocessedDependencies = try await container.underlying.getDependencies(
                     at: revisionForDependencies,
-                    productFilter: constraint.products
+                    productFilter: constraint.products,
+                    traitConfiguration // TODO: jj right config?
                 )
                 if let sharedRevision = node.revisionLock(revision: revision) {
                     unprocessedDependencies.append(sharedRevision)
@@ -506,7 +518,7 @@ public struct PubGrubDependencyResolver {
     /// decisions if nothing else is left to be done.
     /// After this method returns `solution` is either populated with a list of
     /// final version assignments or an error is thrown.
-    private func run(state: State) async throws {
+    private func run(state: State, traitConfiguration: TraitConfiguration?) async throws {
         var next: DependencyResolutionNode? = state.root
 
         while let nxt = next {
@@ -517,7 +529,7 @@ public struct PubGrubDependencyResolver {
 
             // If decision making determines that no more decisions are to be
             // made, it returns nil to signal that version solving is done.
-            next = try await self.makeDecision(state: state)
+            next = try await self.makeDecision(state: state, traitConfiguration: traitConfiguration)
         }
     }
 
@@ -718,7 +730,8 @@ public struct PubGrubDependencyResolver {
     }
 
     internal func makeDecision(
-        state: State
+        state: State,
+        traitConfiguration: TraitConfiguration? = nil
     ) async throws -> DependencyResolutionNode? {
         // If there are no more undecided terms, version solving is complete.
         let undecided = state.solution.undecided
@@ -757,7 +770,8 @@ public struct PubGrubDependencyResolver {
             at: version,
             node: pkgTerm.node,
             overriddenPackages: state.overriddenPackages,
-            root: state.root
+            root: state.root,
+            traitConfiguration: traitConfiguration
         )
 
         var haveConflict = false

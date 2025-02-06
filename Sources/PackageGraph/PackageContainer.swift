@@ -75,7 +75,7 @@ public protocol PackageContainer {
     /// - Precondition: `versions.contains(version)`
     /// - Throws: If the version could not be resolved; this will abort
     ///   dependency resolution completely.
-    func getDependencies(at version: Version, productFilter: ProductFilter) async throws -> [PackageContainerConstraint]
+    func getDependencies(at version: Version, productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) async throws -> [PackageContainerConstraint]
 
     /// Fetch the declared dependencies for a particular revision.
     ///
@@ -84,12 +84,12 @@ public protocol PackageContainer {
     ///
     /// - Throws: If the revision could not be resolved; this will abort
     ///   dependency resolution completely.
-    func getDependencies(at revision: String, productFilter: ProductFilter) async throws -> [PackageContainerConstraint]
+    func getDependencies(at revision: String, productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) async throws -> [PackageContainerConstraint]
 
     /// Fetch the dependencies of an unversioned package container.
     ///
     /// NOTE: This method should not be called on a versioned container.
-    func getUnversionedDependencies(productFilter: ProductFilter) async throws -> [PackageContainerConstraint]
+    func getUnversionedDependencies(productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) async throws -> [PackageContainerConstraint]
 
     /// Get the updated identifier at a bound version.
     ///
@@ -100,7 +100,8 @@ public protocol PackageContainer {
 
 
     /// Fetch the enabled traits of a package container.
-    /// TODO: finish fn description
+    /// TODO: jj finish fn description
+//    func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String>?
     func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String>
 }
 
@@ -151,27 +152,27 @@ public struct PackageContainerConstraint: Equatable, Hashable {
     public let products: ProductFilter
 
     // FIXME: to fully implement
-    public let traitConfiguration: TraitConfiguration?
+//    public let traitConfiguration: TraitConfiguration?
 
     /// Create a constraint requiring the given `container` satisfying the
     /// `requirement`.
-    public init(package: PackageReference, requirement: PackageRequirement, products: ProductFilter, traitConfiguration: TraitConfiguration?) {
+    public init(package: PackageReference, requirement: PackageRequirement, products: ProductFilter) {
         self.package = package
         self.requirement = requirement
         self.products = products
-        self.traitConfiguration = traitConfiguration
+//        self.traitConfiguration = traitConfiguration
     }
 
     /// Create a constraint requiring the given `container` satisfying the
     /// `versionRequirement`.
-    public init(package: PackageReference, versionRequirement: VersionSetSpecifier, products: ProductFilter, traitConfiguration: TraitConfiguration?) {
-        self.init(package: package, requirement: .versionSet(versionRequirement), products: products, traitConfiguration: traitConfiguration)
+    public init(package: PackageReference, versionRequirement: VersionSetSpecifier, products: ProductFilter) {
+        self.init(package: package, requirement: .versionSet(versionRequirement), products: products)
     }
 }
 
 extension PackageContainerConstraint: CustomStringConvertible {
     public var description: String {
-        return "Constraint(\(self.package), \(requirement), \(products), \(traitConfiguration?.enabledTraits ?? [])"
+        return "Constraint(\(self.package), \(requirement), \(products))"
     }
 }
 

@@ -139,13 +139,7 @@ extension ModulesGraph {
         var allNodes = OrderedDictionary<PackageIdentity, GraphLoadingNode>()
 
         let nodeSuccessorProvider = { (node: KeyedPair<GraphLoadingNode, PackageIdentity>) in
-//            print("node successor for package node: \(node.key.description)")
-            return try node.item.requiredDependencies.compactMap { dependency -> KeyedPair<GraphLoadingNode, PackageIdentity>? in
-//                print("required dependency \(dependency.identity.description)")
-//                guard try node.item.manifest.isDependencyUsed(dependency.identity.description, traitConfiguration: .init(traitConfiguration)) else {
-//                    print("dep \(dependency.identity.description) unused")
-//                    return nil
-//                }
+            return try (node.item.requiredDependencies + node.item.traitGuardedDependencies).compactMap { dependency -> KeyedPair<GraphLoadingNode, PackageIdentity>? in
                 return try manifestMap[dependency.identity].map { manifest, _ in
                     // We are going to check the conditionally enabled traits here and enable them if
                     // required. This checks the current node and then enables the conditional
@@ -267,7 +261,8 @@ extension ModulesGraph {
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             productsFilter: productsFilter,
-            modulesFilter: modulesFilter
+            modulesFilter: modulesFilter,
+            traitConfiguration: traitConfiguration
         )
 
         let rootPackages = resolvedPackages.filter { root.manifests.values.contains($0.manifest) }
@@ -399,7 +394,8 @@ private func createResolvedPackages(
     fileSystem: FileSystem,
     observabilityScope: ObservabilityScope,
     productsFilter: ((Product) -> Bool)?,
-    modulesFilter: ((Module) -> Bool)?
+    modulesFilter: ((Module) -> Bool)?,
+    traitConfiguration: TraitConfiguration?
 ) throws -> IdentifiableSet<ResolvedPackage> {
 
     // Create package builder objects from the input manifests.
@@ -446,8 +442,14 @@ private func createResolvedPackages(
         var dependenciesByNameForModuleDependencyResolution = [String: ResolvedPackageBuilder]()
         var dependencyNamesForModuleDependencyResolutionOnly = [PackageIdentity: String]()
 
+        let isRoot = package.manifest.packageKind.isRoot
+        let enableAllTraits = isRoot ? traitConfiguration?.enableAllTraits ?? false : false
+        let enabledTraits = isRoot ? traitConfiguration?.enabledTraits : nil
+
         package.manifest.dependenciesRequired(
-            for: packageBuilder.productFilter
+            for: packageBuilder.productFilter,
+            enabledTraits,
+            enableAllTraits: enableAllTraits
         ).forEach { dependency in
             let dependencyPackageRef = dependency.packageRef
 
@@ -644,12 +646,6 @@ private func createResolvedPackages(
                 return dependency.products.filter({ lookupByProductIDs ? explicitIdsOrNames.contains($0.product.identity) : explicitIdsOrNames.contains($0.product.name) })
             })
 
-//        print("product dependencies for \(packageBuilder.package.identity.description):")
-//        productDependencies.forEach({ print("- \($0.product.name)")})
-//
-//        print("package builder dependencies:")
-//        packageBuilder.dependencies.forEach({ print($0.package.identity.description) })
-
         let productDependencyMap: [String: ResolvedProductBuilder]
         if lookupByProductIDs {
             productDependencyMap = try Dictionary(uniqueKeysWithValues: productDependencies.map {
@@ -681,7 +677,7 @@ private func createResolvedPackages(
 
             // Establish product dependencies.
             for case .product(let productRef, let conditions) in moduleBuilder.module.dependencies {
-                // TODO: comment out for now, test traits in resolution functionality
+                // TODO: jj comment out for now, test traits in resolution functionality
 //                if let traitCondition = conditions.compactMap({ $0.traitCondition }).first {
 //                    if packageBuilder.enabledTraits.intersection(traitCondition.traits).isEmpty {
 //                        ///  If we land here non of the traits required to enable this dependency has been enabled.
@@ -726,9 +722,6 @@ private func createResolvedPackages(
                                 break
                             }
                         }
-                        print("============error product \(package.identity.description) dep not found=============")
-                        print("======= module \(moduleBuilder.module.name)")
-                        print("======= product name \(productRef.name) with package \(productRef.package ?? "none")")
                         let error = PackageGraphError.productDependencyNotFound(
                             package: package.identity.description,
                             moduleName: moduleBuilder.module.name,
@@ -1324,16 +1317,5 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
             registryMetadata: self.registryMetadata,
             platformVersionProvider: self.platformVersionProvider
         )
-    }
-}
-
-extension Manifest.TraitConfiguration {
-    public init(_ traitConfiguration: TraitConfiguration) {
-        self.init(enabledTraits: traitConfiguration.enabledTraits, enableAllTraits: traitConfiguration.enableAllTraits)
-    }
-
-    public init?(_ traitConfiguration: TraitConfiguration?) {
-        guard let traitConfiguration else { return nil }
-        self.init(traitConfiguration)
     }
 }
