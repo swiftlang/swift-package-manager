@@ -42,25 +42,25 @@ import struct Workspace.WorkspaceConfiguration
 public struct GlobalOptions: ParsableArguments {
     public init() {}
 
-    @OptionGroup()
+    @OptionGroup(title: "Paths & Locations")
     public var locations: LocationOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Caching")
     public var caching: CachingOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Logging")
     public var logging: LoggingOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Security")
     public var security: SecurityOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Resolution")
     public var resolver: ResolverOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Compiler Flags")
     public var build: BuildOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Linker Settings")
     public var linker: LinkerOptions
 }
 
