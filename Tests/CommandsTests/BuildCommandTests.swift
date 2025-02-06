@@ -418,8 +418,8 @@ final class BuildCommandTests: CommandsTestCase {
             // full command lines.
             let output = try await execute(["--build-system", buildSystem, "-c", "debug", "-v"], packagePath: fixturePath)
 
-            // In the case of XCBuild (ie. xcode build system) check for the cross-compile target
-            if buildSystem == "xcode" {
+            // In the case of the native build system check for the cross-compile target
+            if buildSystem == "native" {
                  XCTAssertMatch(
                      output.stdout,
                      try .contains("-target \(UserToolchain.default.targetTriple.tripleString(forPlatformVersion: ""))")
