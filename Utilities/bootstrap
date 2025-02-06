@@ -400,11 +400,6 @@ def test(args):
     build(args)
 
     logging.info("Testing")
-
-    # Ensure cross compilation is disabled so we only exeucte the tests against the
-    # host architecture
-    args.cross_compile_hosts = False
-
     parse_test_args(args)
     cmd = [
         os.path.join(args.bin_dir, "swift-test")
