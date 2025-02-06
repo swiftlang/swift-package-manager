@@ -114,23 +114,36 @@ extension Workspace {
         }
     }
 
+    public struct SignedPrebuiltsManifest: Codable {
+        public var manifest: PrebuiltsManifest
+        public var signature: ManifestSignature
+
+        public init(manifest: PrebuiltsManifest, signature: ManifestSignature) {
+            self.manifest = manifest
+            self.signature = signature
+        }
+    }
+
     /// For simplified init in tests
     public struct CustomPrebuiltsManager {
         let httpClient: HTTPClient?
         let archiver: Archiver?
         let useCache: Bool?
         let hostPlatform: PrebuiltsManifest.Platform?
+        let rootCertPath: AbsolutePath?
 
         public init(
             httpClient: HTTPClient? = .none,
             archiver: Archiver? = .none,
             useCache: Bool? = .none,
-            hostPlatform: PrebuiltsManifest.Platform? = nil
+            hostPlatform: PrebuiltsManifest.Platform? = nil,
+            rootCertPath: AbsolutePath? = nil
         ) {
             self.httpClient = httpClient
             self.archiver = archiver
             self.useCache = useCache
             self.hostPlatform = hostPlatform
+            self.rootCertPath = rootCertPath
         }
     }
 
@@ -147,6 +160,7 @@ extension Workspace {
         private let delegate: Delegate?
         private let hashAlgorithm: HashAlgorithm = SHA256()
         private let prebuiltsDownloadURL: URL
+        private let rootCertPath: AbsolutePath?
         let hostPlatform: PrebuiltsManifest.Platform
 
         init(
@@ -158,7 +172,8 @@ extension Workspace {
             customHTTPClient: HTTPClient?,
             customArchiver: Archiver?,
             delegate: Delegate?,
-            prebuiltsDownloadURL: String?
+            prebuiltsDownloadURL: String?,
+            rootCertPath: AbsolutePath?
         ) {
             self.fileSystem = fileSystem
             self.hostPlatform = hostPlatform
@@ -173,6 +188,7 @@ extension Workspace {
             } else {
                 self.prebuiltsDownloadURL = URL(string: "https://download.swift.org/prebuilts")!
             }
+            self.rootCertPath = rootCertPath
 
             self.prebuiltPackages = [
                 // TODO: we should have this in a manifest somewhere, not hardcoded like this
@@ -246,13 +262,37 @@ extension Workspace {
             let destination = scratchPath.appending(manifestPath)
             let cacheDest = cachePath?.appending(manifestPath)
 
-            func loadManifest() throws -> PrebuiltsManifest? {
+            func loadManifest() async throws -> PrebuiltsManifest? {
                 do {
-                    return try JSONDecoder().decode(
+                    let signedManifest = try JSONDecoder().decode(
                         path: destination,
                         fileSystem: fileSystem,
-                        as: PrebuiltsManifest.self
+                        as: SignedPrebuiltsManifest.self
                     )
+
+                    // Check the signature
+                    // Ignore errors coming from the certificate loading, that will shutdown the build
+                    // instead of letting it continue with build from source.
+                    if let rootCertPath {
+                        try await withTemporaryDirectory(fileSystem: fileSystem) { tmpDir in
+                            try fileSystem.copy(from: rootCertPath, to: tmpDir.appending(rootCertPath.basename))
+                            let validator = ManifestSigning(trustedRootCertsDir: tmpDir, observabilityScope: ObservabilitySystem.NOOP)
+                            try await validator.validate(
+                                manifest: signedManifest.manifest,
+                                signature: signedManifest.signature,
+                                fileSystem: fileSystem
+                            )
+                        }.value
+                    } else {
+                        let validator = ManifestSigning(observabilityScope: ObservabilitySystem.NOOP)
+                        try await validator.validate(
+                            manifest: signedManifest.manifest,
+                            signature: signedManifest.signature,
+                            fileSystem: fileSystem
+                        )
+                    }
+
+                    return signedManifest.manifest
                 } catch {
                     // redownload it
                     observabilityScope.emit(
@@ -264,16 +304,20 @@ extension Workspace {
                 }
             }
 
-            if fileSystem.exists(destination), let manifest = try? loadManifest() {
+            if fileSystem.exists(destination), let manifest = try? await loadManifest() {
                 return manifest
             } else if let cacheDest, fileSystem.exists(cacheDest) {
                 // Pull it out of the cache
                 try fileSystem.createDirectory(destination.parentDirectory, recursive: true)
                 try fileSystem.copy(from: cacheDest, to: destination)
 
-                if let manifest = try? loadManifest() {
+                if let manifest = try? await loadManifest() {
                     return manifest
                 }
+            } else if fileSystem.exists(destination.parentDirectory) {
+                // We tried previously and were not able to find the manifest.
+                // Don't try again to avoid excessive server traffic
+                return nil
             }
 
             try fileSystem.createDirectory(destination.parentDirectory, recursive: true)
@@ -287,14 +331,6 @@ extension Workspace {
                 if fileSystem.exists(sourcePath) {
                     // simply copy it over
                     try fileSystem.copy(from: sourcePath, to: destination)
-                    // and cache it
-                    if let cacheDest {
-                        if fileSystem.exists(cacheDest) {
-                            try fileSystem.removeFileTree(cacheDest)
-                        }
-                        try fileSystem.createDirectory(cacheDest.parentDirectory, recursive: true)
-                        try fileSystem.copy(from: destination, to: cacheDest)
-                    }
                 } else {
                     return nil
                 }
@@ -331,7 +367,7 @@ extension Workspace {
                 }
             }
 
-            if let manifest = try loadManifest() {
+            if let manifest = try await loadManifest() {
                 // Cache the manifest
                 if let cacheDest {
                     if fileSystem.exists(cacheDest) {
@@ -340,6 +376,7 @@ extension Workspace {
                     try fileSystem.createDirectory(cacheDest.parentDirectory, recursive: true)
                     try fileSystem.copy(from: destination, to: cacheDest)
                 }
+
                 return manifest
             } else {
                 return nil
@@ -359,112 +396,116 @@ extension Workspace {
             artifact: PrebuiltsManifest.Library.Artifact,
             observabilityScope: ObservabilityScope
         ) async throws -> AbsolutePath? {
-            let artifactName =
-                "\(swiftVersion)-\(library.name)-\(artifact.platform.rawValue)"
-            let scratchDir = scratchPath.appending(
-                package.identity.description
-            )
+            let artifactName = "\(swiftVersion)-\(library.name)-\(artifact.platform.rawValue)"
+            let scratchDir = scratchPath.appending(components: package.identity.description, version.description)
+
             let artifactDir = scratchDir.appending(artifactName)
             guard !fileSystem.exists(artifactDir) else {
                 return artifactDir
             }
 
             let artifactFile = artifactName + ".zip"
-            let prebuiltsDir = cachePath ?? scratchPath
-            let destination = prebuiltsDir.appending(components:
-                package.identity.description,
-                version.description,
-                artifactFile
-            )
+            let destination = scratchDir.appending(artifactFile)
+            let cacheFile = cachePath?.appending(components: package.identity.description, version.description, artifactFile)
 
             let zipExists = fileSystem.exists(destination)
             if try (!zipExists || !check(path: destination, checksum: artifact.checksum)) {
-                if zipExists {
-                    observabilityScope.emit(info: "Prebuilt artifact \(artifactFile) checksum mismatch, redownloading.")
-                    try fileSystem.removeFileTree(destination)
-                }
+                try fileSystem.createDirectory(destination.parentDirectory, recursive: true)
 
-                try fileSystem.createDirectory(
-                    destination.parentDirectory,
-                    recursive: true
-                )
-
-                // Download
-                let artifactURL = self.prebuiltsDownloadURL.appending(
-                    components: package.identity.description, version.description, artifactFile
-                )
-
-                let fetchStart = DispatchTime.now()
-                if artifactURL.scheme == "file" {
-                    let artifactPath = try AbsolutePath(validating: artifactURL.path)
-                    if fileSystem.exists(artifactPath) {
-                        try fileSystem.copy(from: artifactPath, to: destination)
-                    } else {
-                        return nil
-                    }
+                if let cacheFile, fileSystem.exists(cacheFile), try check(path: cacheFile, checksum: artifact.checksum) {
+                    // Copy over the cached file
+                    observabilityScope.emit(info: "Using cached \(artifactFile)")
+                    try fileSystem.copy(from: cacheFile, to: destination)
                 } else {
-                    var headers = HTTPClientHeaders()
-                    headers.add(name: "Accept", value: "application/octet-stream")
-                    var request = HTTPClient.Request.download(
-                        url: artifactURL,
-                        headers: headers,
-                        fileSystem: self.fileSystem,
-                        destination: destination
-                    )
-                    request.options.authorizationProvider =
-                    self.authorizationProvider?.httpAuthorizationHeader(for:)
-                    request.options.retryStrategy = .exponentialBackoff(
-                        maxAttempts: 3,
-                        baseDelay: .milliseconds(50)
-                    )
-                    request.options.validResponseCodes = [200]
+                    if zipExists {
+                        // Exists but failed checksum
+                        observabilityScope.emit(info: "Prebuilt artifact \(artifactFile) checksum mismatch, redownloading.")
+                        try fileSystem.removeFileTree(destination)
+                    }
 
-                    self.delegate?.willDownloadPrebuilt(
-                        from: artifactURL.absoluteString,
-                        fromCache: false
+                    // Download
+                    let artifactURL = self.prebuiltsDownloadURL.appending(
+                        components: package.identity.description, version.description, artifactFile
                     )
-                    do {
-                        _ = try await self.httpClient.execute(request) {
-                            bytesDownloaded,
-                            totalBytesToDownload in
-                            self.delegate?.downloadingPrebuilt(
-                                from: artifactURL.absoluteString,
-                                bytesDownloaded: bytesDownloaded,
-                                totalBytesToDownload: totalBytesToDownload
-                            )
+
+                    let fetchStart = DispatchTime.now()
+                    if artifactURL.scheme == "file" {
+                        let artifactPath = try AbsolutePath(validating: artifactURL.path)
+                        if fileSystem.exists(artifactPath) {
+                            try fileSystem.copy(from: artifactPath, to: destination)
+                        } else {
+                            return nil
                         }
-                    } catch {
-                        observabilityScope.emit(
-                            info: "Prebuilt artifact \(artifactFile)",
-                            underlyingError: error
+                    } else {
+                        var headers = HTTPClientHeaders()
+                        headers.add(name: "Accept", value: "application/octet-stream")
+                        var request = HTTPClient.Request.download(
+                            url: artifactURL,
+                            headers: headers,
+                            fileSystem: self.fileSystem,
+                            destination: destination
                         )
+                        request.options.authorizationProvider =
+                        self.authorizationProvider?.httpAuthorizationHeader(for:)
+                        request.options.retryStrategy = .exponentialBackoff(
+                            maxAttempts: 3,
+                            baseDelay: .milliseconds(50)
+                        )
+                        request.options.validResponseCodes = [200]
+
+                        self.delegate?.willDownloadPrebuilt(
+                            from: artifactURL.absoluteString,
+                            fromCache: false
+                        )
+                        do {
+                            _ = try await self.httpClient.execute(request) {
+                                bytesDownloaded,
+                                totalBytesToDownload in
+                                self.delegate?.downloadingPrebuilt(
+                                    from: artifactURL.absoluteString,
+                                    bytesDownloaded: bytesDownloaded,
+                                    totalBytesToDownload: totalBytesToDownload
+                                )
+                            }
+                        } catch {
+                            observabilityScope.emit(
+                                info: "Prebuilt artifact \(artifactFile)",
+                                underlyingError: error
+                            )
+                            self.delegate?.didDownloadPrebuilt(
+                                from: artifactURL.absoluteString,
+                                result: .failure(error),
+                                duration: fetchStart.distance(to: .now())
+                            )
+                            return nil
+                        }
+
+                        // Check the checksum
+                        if try !check(path: destination, checksum: artifact.checksum) {
+                            let errorString =
+                                "Prebuilt artifact \(artifactFile) checksum mismatch"
+                            observabilityScope.emit(info: errorString)
+                            self.delegate?.didDownloadPrebuilt(
+                                from: artifactURL.absoluteString,
+                                result: .failure(StringError(errorString)),
+                                duration: fetchStart.distance(to: .now())
+                            )
+                            return nil
+                        }
+
                         self.delegate?.didDownloadPrebuilt(
                             from: artifactURL.absoluteString,
-                            result: .failure(error),
+                            result: .success((destination, false)),
                             duration: fetchStart.distance(to: .now())
                         )
-                        return nil
+                    }
+
+                    if let cacheFile {
+                        // Cache the zip file
+                        try fileSystem.createDirectory(cacheFile.parentDirectory, recursive: true)
+                        try fileSystem.copy(from: destination, to: cacheFile)
                     }
                 }
-
-                // Check the checksum
-                if try !check(path: destination, checksum: artifact.checksum) {
-                    let errorString =
-                        "Prebuilt artifact \(artifactFile) checksum mismatch"
-                    observabilityScope.emit(info: errorString)
-                    self.delegate?.didDownloadPrebuilt(
-                        from: artifactURL.absoluteString,
-                        result: .failure(StringError(errorString)),
-                        duration: fetchStart.distance(to: .now())
-                    )
-                    return nil
-                }
-
-                self.delegate?.didDownloadPrebuilt(
-                    from: artifactURL.absoluteString,
-                    result: .success((destination, false)),
-                    duration: fetchStart.distance(to: .now())
-                )
             }
 
             // Extract
@@ -599,6 +640,8 @@ extension Workspace.PrebuiltsManifest.Platform {
         arch = .aarch64
 #elseif arch(x86_64)
         arch = .x86_64
+#else
+        arch = nil
 #endif
         guard let arch else {
             return nil

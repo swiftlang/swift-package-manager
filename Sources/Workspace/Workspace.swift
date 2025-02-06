@@ -561,6 +561,13 @@ public class Workspace {
         cancellator?.register(name: "binary artifacts downloads", handler: binaryArtifactsManager)
 
         if configuration.usePrebuilts, let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsManifest.Platform.hostPlatform {
+            let rootCertPath: AbsolutePath?
+            if let path = configuration.prebuiltsRootCertPath {
+                rootCertPath = try AbsolutePath(validating: path)
+            } else {
+                rootCertPath = nil
+            }
+
             let prebuiltsManager = PrebuiltsManager(
                 fileSystem: fileSystem,
                 hostPlatform: hostPlatform,
@@ -570,7 +577,8 @@ public class Workspace {
                 customHTTPClient: customPrebuiltsManager?.httpClient,
                 customArchiver: customPrebuiltsManager?.archiver,
                 delegate: delegate.map(WorkspacePrebuiltsManagerDelegate.init(workspaceDelegate:)),
-                prebuiltsDownloadURL: configuration.prebuiltsDownloadURL
+                prebuiltsDownloadURL: configuration.prebuiltsDownloadURL,
+                rootCertPath: customPrebuiltsManager?.rootCertPath ?? rootCertPath
             )
             cancellator?.register(name: "package prebuilts downloads", handler: prebuiltsManager)
             self.prebuiltsManager = prebuiltsManager

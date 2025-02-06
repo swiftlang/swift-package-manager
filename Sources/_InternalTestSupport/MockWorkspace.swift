@@ -355,7 +355,8 @@ public final class MockWorkspace {
                 defaultRegistry: self.defaultRegistry,
                 manifestImportRestrictions: .none,
                 usePrebuilts: customPrebuiltsManager != nil,
-                prebuiltsDownloadURL: nil
+                prebuiltsDownloadURL: nil,
+                prebuiltsRootCertPath: nil
             ),
             customFingerprints: self.fingerprints,
             customMirrors: self.mirrors,
