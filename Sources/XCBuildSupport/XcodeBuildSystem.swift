@@ -371,7 +371,6 @@ extension PIFBuilderParameters {
         self.init(
             triple: buildParameters.triple,
             isPackageAccessModifierSupported: buildParameters.driverParameters.isPackageAccessModifierSupported,
-            enableTestability: buildParameters.enableTestability,
             shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
             toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root,
             pkgConfigDirectories: buildParameters.pkgConfigDirectories,
