@@ -188,6 +188,15 @@ struct TestCommandOptions: ParsableArguments {
             help: "Path where the xUnit xml file should be generated.")
     var xUnitOutput: AbsolutePath?
 
+    @Flag(
+        name: .customLong("experimental-xunit-message-failure"),
+        help: ArgumentHelp(
+            "When set, include the content of stdout/stderr in failure messages (XCTest only, experimental).",
+            visibility: .hidden
+        )
+    )
+    var shouldShowDetailedFailureMessage: Bool = false
+
     /// Generate LinuxMain entries and exit.
     @Flag(name: .customLong("testable-imports"), inversion: .prefixedEnableDisable, help: "Enable or disable testable imports. Enabled by default.")
     var enableTestableImports: Bool = true
@@ -416,7 +425,10 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             fileSystem: swiftCommandState.fileSystem,
             results: testResults
         )
-        try generator.generate(at: xUnitOutput)
+        try generator.generate(
+            at: xUnitOutput,
+            detailedFailureMessage: self.options.shouldShowDetailedFailureMessage
+        )
     }
 
     // MARK: - Common implementation
@@ -1379,7 +1391,7 @@ final class XUnitGenerator {
     }
 
     /// Generate the file at the given path.
-    func generate(at path: AbsolutePath) throws {
+    func generate(at path: AbsolutePath, detailedFailureMessage: Bool) throws {
         var content =
             """
             <?xml version="1.0" encoding="UTF-8"?>
@@ -1412,7 +1424,8 @@ final class XUnitGenerator {
                 """
 
             if !result.success {
-                content += "<failure message=\"failed\"></failure>\n"
+                let failureMessage = detailedFailureMessage ? result.output.map(_escapeForXML).joined() : "failure"
+                content += "<failure message=\"\(failureMessage)\"></failure>\n"
             }
 
             content += "</testcase>\n"
@@ -1426,6 +1439,32 @@ final class XUnitGenerator {
             """
 
         try self.fileSystem.writeFileContents(path, string: content)
+    }
+}
+
+/// Escape a single Unicode character for use in an XML-encoded string.
+///
+/// - Parameters:
+///   - character: The character to escape.
+///
+/// - Returns: `character`, or a string containing its escaped form.
+private func _escapeForXML(_ character: Character) -> String {
+    switch character {
+    case "\"":
+        "&quot;"
+    case "<":
+        "&lt;"
+    case ">":
+        "&gt;"
+    case "&":
+        "&amp;"
+    case _ where !character.isASCII || character.isNewline:
+    character.unicodeScalars.lazy
+        .map(\.value)
+        .map { "&#\($0);" }
+        .joined()
+    default:
+    String(character)
     }
 }
 
