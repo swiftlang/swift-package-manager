@@ -473,7 +473,8 @@ public final class SwiftCommandState {
                 },
                 manifestImportRestrictions: .none,
                 usePrebuilts: options.caching.usePrebuilts,
-                prebuiltsDownloadURL: options.caching.prebuiltsDownloadURL
+                prebuiltsDownloadURL: options.caching.prebuiltsDownloadURL,
+                prebuiltsRootCertPath: options.caching.prebuiltsRootCertPath
             ),
             cancellator: self.cancellator,
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },

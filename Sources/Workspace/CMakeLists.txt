@@ -14,6 +14,13 @@ add_library(Workspace
   ManagedArtifact.swift
   ManagedDependency.swift
   ManagedPrebuilt.swift
+  ManifestSigning/Base64URL.swift
+  ManifestSigning/CertificatePolicy.swift
+  ManifestSigning/embedded_resources.swift
+  ManifestSigning/ManifestSigning.swift
+  ManifestSigning/Signature.swift
+  ManifestSigning/Utilities.swift
+  ManifestSigning/X509Extensions.swift
   PackageContainer/FileSystemPackageContainer.swift
   PackageContainer/RegistryPackageContainer.swift
   PackageContainer/SourceControlPackageContainer.swift
