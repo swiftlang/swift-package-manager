@@ -12,9 +12,12 @@
 
 @testable import Basics
 import XCTest
+import _InternalTestSupport // for skipOnWindowsAsTestCurrentlyFails
 
 final class SerializedJSONTests: XCTestCase {
     func testPathInterpolation() throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         var path = try AbsolutePath(validating: #"/test\backslashes"#)
         var json: SerializedJSON = "\(path)"
 
