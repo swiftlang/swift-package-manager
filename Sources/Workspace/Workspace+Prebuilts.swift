@@ -502,7 +502,11 @@ extension Workspace {
 
                     if let cacheFile {
                         // Cache the zip file
-                        try fileSystem.createDirectory(cacheFile.parentDirectory, recursive: true)
+                        if fileSystem.exists(cacheFile) {
+                            try fileSystem.removeFileTree(cacheFile)
+                        } else {
+                            try fileSystem.createDirectory(cacheFile.parentDirectory, recursive: true)
+                        }
                         try fileSystem.copy(from: destination, to: cacheFile)
                     }
                 }
