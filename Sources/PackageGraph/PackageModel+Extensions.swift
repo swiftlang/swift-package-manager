@@ -40,7 +40,9 @@ extension Manifest {
             return PackageContainerConstraint(
                 package: $0.packageRef,
                 requirement: try $0.toConstraintRequirement(),
-                products: $0.productFilter)
+                products: $0.productFilter,
+                traitConfiguration: nil // TODO: to add configuration
+            )
         })
     }
 }

@@ -394,7 +394,8 @@ final class SourceControlPackageContainerTests: XCTestCase {
             PackageContainerConstraint(
                 package: $0.packageRef,
                 requirement: try $0.toConstraintRequirement(),
-                products: v5ProductMapping[$0.identity.description]!
+                products: v5ProductMapping[$0.identity.description]!,
+                traitConfiguration: nil // TODO: to add configuration
             )
         }
         let v5_2ProductMapping: [String: ProductFilter] = [
@@ -406,7 +407,8 @@ final class SourceControlPackageContainerTests: XCTestCase {
             PackageContainerConstraint(
                 package: $0.packageRef,
                 requirement: try $0.toConstraintRequirement(),
-                products: v5_2ProductMapping[$0.identity.description]!
+                products: v5_2ProductMapping[$0.identity.description]!,
+                traitConfiguration: nil // TODO: to add configuration
             )
         }
 

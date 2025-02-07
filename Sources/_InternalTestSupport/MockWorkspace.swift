@@ -591,7 +591,8 @@ public final class MockWorkspace {
 
         let dependencyManifests = try await workspace.loadDependencyManifests(
             root: root,
-            observabilityScope: observability.topScope
+            observabilityScope: observability.topScope,
+            traitConfiguration: nil
         )
 
         let result = try await workspace.precomputeResolution(
@@ -807,7 +808,7 @@ public final class MockWorkspace {
         )
         let rootManifests = try await workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope)
         let graphRoot = PackageGraphRoot(input: rootInput, manifests: rootManifests, observabilityScope: observability.topScope)
-        let manifests = try await workspace.loadDependencyManifests(root: graphRoot, observabilityScope: observability.topScope)
+        let manifests = try await workspace.loadDependencyManifests(root: graphRoot, observabilityScope: observability.topScope, traitConfiguration: nil)
         result(manifests, observability.diagnostics)
     }
 

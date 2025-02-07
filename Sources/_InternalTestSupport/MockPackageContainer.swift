@@ -60,7 +60,7 @@ public class MockPackageContainer: CustomPackageContainer {
         }
         return dependencies.map { value in
             let (package, requirement) = value
-            return MockPackageContainer.Constraint(package: package, requirement: requirement, products: productFilter)
+            return MockPackageContainer.Constraint(package: package, requirement: requirement, products: productFilter, traitConfiguration: nil /*TODO: to add configuration*/)
         }
     }
 
@@ -70,6 +70,11 @@ public class MockPackageContainer: CustomPackageContainer {
 
     public func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {
         return self.package
+    }
+
+    public func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
+        // TODO: complete
+        return []
     }
 
     public func isToolsVersionCompatible(at version: Version) -> Bool {

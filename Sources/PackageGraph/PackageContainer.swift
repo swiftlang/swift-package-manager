@@ -97,6 +97,11 @@ public protocol PackageContainer {
     /// after the container is available. The updated identifier is returned in result of the
     /// dependency resolution.
     func loadPackageReference(at boundVersion: BoundVersion) async throws -> PackageReference
+
+
+    /// Fetch the enabled traits of a package container.
+    /// TODO: finish fn description
+    func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String>
 }
 
 extension PackageContainer {
@@ -145,24 +150,28 @@ public struct PackageContainerConstraint: Equatable, Hashable {
     /// The required products.
     public let products: ProductFilter
 
+    // FIXME: to fully implement
+    public let traitConfiguration: TraitConfiguration?
+
     /// Create a constraint requiring the given `container` satisfying the
     /// `requirement`.
-    public init(package: PackageReference, requirement: PackageRequirement, products: ProductFilter) {
+    public init(package: PackageReference, requirement: PackageRequirement, products: ProductFilter, traitConfiguration: TraitConfiguration?) {
         self.package = package
         self.requirement = requirement
         self.products = products
+        self.traitConfiguration = traitConfiguration
     }
 
     /// Create a constraint requiring the given `container` satisfying the
     /// `versionRequirement`.
-    public init(package: PackageReference, versionRequirement: VersionSetSpecifier, products: ProductFilter) {
-        self.init(package: package, requirement: .versionSet(versionRequirement), products: products)
+    public init(package: PackageReference, versionRequirement: VersionSetSpecifier, products: ProductFilter, traitConfiguration: TraitConfiguration?) {
+        self.init(package: package, requirement: .versionSet(versionRequirement), products: products, traitConfiguration: traitConfiguration)
     }
 }
 
 extension PackageContainerConstraint: CustomStringConvertible {
     public var description: String {
-        return "Constraint(\(self.package), \(requirement), \(products)"
+        return "Constraint(\(self.package), \(requirement), \(products), \(traitConfiguration?.enabledTraits ?? [])"
     }
 }
 
