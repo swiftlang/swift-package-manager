@@ -35,22 +35,22 @@ def mkdir_p(path):
         if e.errno != errno.EEXIST:
             raise
 
-def call(cmd, cwd=None, verbose=False):
+def call(cmd, cwd=None):
     """Calls a subprocess."""
-    logging.info("executing command >>> %s", ' '.join(cmd))
+    logging.info("executing command >>> %r", ' '.join(cmd))
     try:
         subprocess.check_call(cmd, cwd=cwd)
     except subprocess.CalledProcessError as cpe:
-        logging.debug("executing command >>> %s", ' '.join(cmd))
+        logging.debug("command failed >>> %r", ' '.join(cmd))
         logging.error("Process failure: %s", str(cpe))
         raise cpe
 
-def call_output(cmd, cwd=None, stderr=False, verbose=False):
+def call_output(cmd, cwd=None, stderr=False, *, env=None):
     """Calls a subprocess for its return data."""
-    logging.info(' '.join(cmd))
+    logging.info("executing command >>> %r", ' '.join(cmd))
     try:
-        return subprocess.check_output(cmd, cwd=cwd, stderr=stderr, universal_newlines=True).strip()
+        return subprocess.check_output(cmd, cwd=cwd, stderr=stderr, universal_newlines=True, env=env).strip()
     except subprocess.CalledProcessError as cpe:
-        logging.debug(' '.join(cmd))
-        logging.error(str(cpe))
+        logging.debug("command failed >>> %r", ' '.join(cmd))
+        logging.error("Process failure: %s", str(cpe))
         raise cpe

@@ -28,6 +28,7 @@ import sys
 from helpers import symlink_force, mkdir_p, call, call_output
 
 
+
 logging.basicConfig(
     stream=sys.stdout,
     format=" | ".join([
@@ -42,6 +43,8 @@ logging.basicConfig(
     ]),
     level=logging.INFO,
 )
+
+
 g_macos_deployment_target = '12.0'
 
 g_shared_lib_prefix = "lib"
@@ -50,10 +53,11 @@ if platform.system() == 'Darwin':
 else:
     g_shared_lib_suffix = ".so"
 
+
 class BinaryNotFound(BaseException):
 
     def __init__(self, *, tool: str, path: pathlib.Path):
-        super().__init__("Unable to find {tool} source directory at {path}")
+        super().__init__(f"Unable to find {tool} source directory at {path}")
 
 
 def main():
@@ -84,7 +88,7 @@ def main():
     parser_install.set_defaults(func=install)
     add_build_args(parser_install)
 
-    logging.info("sys.argv: %r", sys.argv)
+    logging.debug("sys.argv: %r", sys.argv)
     args = parser.parse_args()
     # update the root logger level based on the verbose flag
     logging.getLogger().setLevel(logging.DEBUG if args.verbose else logging.INFO)
@@ -232,7 +236,7 @@ def parse_global_args(args):
     args.source_root                          = os.path.join(args.project_root, "Sources")
 
     if platform.system() == 'Darwin':
-        args.sysroot = call_output(["xcrun", "--sdk", "macosx", "--show-sdk-path"], verbose=args.verbose)
+        args.sysroot = call_output(["xcrun", "--sdk", "macosx", "--show-sdk-path"])
     else:
         args.sysroot = None
 
@@ -279,39 +283,29 @@ def parse_test_args(args):
 
 def get_swiftc_path(args):
     """Returns the path to the Swift compiler."""
-    logging.debug("Getting path to swiftc...")
     if args.swiftc_path:
         swiftc_path = os.path.abspath(args.swiftc_path)
-        logging.debug("path provided via command line argument. swiftc_path is %r", swiftc_path)
     elif os.getenv("SWIFT_EXEC"):
-        swiftc_path = os.getenv("SWIFT_EXEC")
-        logging.debug("SWIFT_EXEC env set. swiftc_path set to %r", swiftc_path)
+        swiftc_path = os.path.realpath(os.getenv("SWIFT_EXEC"))
     elif platform.system() == 'Darwin':
-        logging.debug("we are on darwin, so calling `xcrun --find swiftc`")
         swiftc_path = call_output(
             ["xcrun", "--find", "swiftc"],
             stderr=subprocess.PIPE,
-            verbose=args.verbose,
         )
-        logging.debug("swiftc_path is set to %r", swiftc_path)
     else:
-        swiftc_path = call_output(["which", "swiftc"], verbose=args.verbose)
-        logging.debug("calling 'which swiftc'.  path is  %r", swiftc_path)
+        swiftc_path = call_output(["which", "swiftc"])
 
     if os.path.basename(swiftc_path) == 'swift':
         swiftc_path = swiftc_path + 'c'
-        logging.debug("appending to path, it is now %r", swiftc_path)
 
-    logging.debug("swiftc_path set to %r", swiftc_path)
     if os.path.exists(swiftc_path):
-        logging.debug("swiftc_path exists.. returning...")
         return swiftc_path
     logging.error("unable to find swiftc at %s", swiftc_path)
     raise BinaryNotFound(tool="swiftc", path=swiftc_path)
 
+
 def get_tool_path(args, tool):
     """Returns the path to the specified tool."""
-    logging.debug("Searching for %s tool", tool)
     path = getattr(args, tool + "_path", None)
     if path is not None:
         return os.path.abspath(path)
@@ -319,10 +313,9 @@ def get_tool_path(args, tool):
         return call_output(
             ["xcrun", "--find", tool],
             stderr=subprocess.PIPE,
-            verbose=args.verbose,
         )
     else:
-        return call_output(["which", tool], verbose=args.verbose)
+        return call_output(["which", tool])
 
 def get_build_target(args, cross_compile=False):
     """Returns the target-triple of the current machine or for cross-compilation."""
@@ -331,14 +324,10 @@ def get_build_target(args, cross_compile=False):
         if cross_compile:
             cross_compile_json = json.load(open(args.cross_compile_config))
             command += ['-target', cross_compile_json["target"]]
-        logging.debug("Running command >>> %r", command)
-        target_info_json = subprocess.check_output(command,
-                               stderr=subprocess.PIPE, universal_newlines=True, env=os.environ).strip()
-        logging.debug("Command returned: %r", target_info_json)
+        target_info_json = call_output(cmd=command, env=os.environ, stderr=subprocess.PIPE).strip()
         args.target_info = json.loads(target_info_json)
         return args.target_info["target"]["unversionedTriple" if platform.system() == 'Darwin' else "triple"]
     except subprocess.CalledProcessError as cpe:
-        logging.debug("Command failed...")
         # Temporary fallback for Darwin.
         if platform.system() == 'Darwin':
             macOS_default = 'x86_64-apple-macosx'
@@ -357,7 +346,7 @@ def clean(args):
     logging.info("Cleaning")
     parse_global_args(args)
 
-    call(["rm", "-rf", args.build_dir], verbose=args.verbose)
+    call(["rm", "-rf", args.build_dir])
 
 def build(args):
     """Builds SwiftPM using a two-step process: first using CMake, then with itself."""
@@ -564,7 +553,7 @@ def build_with_cmake(args, cmake_args, ninja_args, source_path, build_dir, cmake
         logging.debug(' '.join(cmd))
 
         mkdir_p(build_dir)
-        call(cmd, cwd=build_dir, verbose=True)
+        call(cmd, cwd=build_dir)
 
     # Build.
     ninja_cmd = [args.ninja_path]
@@ -575,7 +564,7 @@ def build_with_cmake(args, cmake_args, ninja_args, source_path, build_dir, cmake
     if platform.system() == 'Darwin':
         call(["sed", "-i", "", "s/macosx10.10/macosx%s/" % (g_macos_deployment_target), "build.ninja"], cwd=build_dir)
 
-    call(ninja_cmd + ninja_args, cwd=build_dir, verbose=args.verbose)
+    call(ninja_cmd + ninja_args, cwd=build_dir)
 
 def build_llbuild(args):
     """Builds LLBuild using CMake."""
@@ -586,7 +575,7 @@ def build_llbuild(args):
 
     api_dir = os.path.join(args.build_dirs["llbuild"], ".cmake/api/v1/query")
     mkdir_p(api_dir)
-    call(["touch", "codemodel-v2"], cwd=api_dir, verbose=args.verbose)
+    call(["touch", "codemodel-v2"], cwd=api_dir)
 
     flags = [
         "-DCMAKE_C_COMPILER:=%s" % (args.clang_path),
@@ -719,7 +708,7 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
 
 def call_swiftpm(args, cmd, cwd=None):
     """Calls a SwiftPM binary with the necessary environment variables and flags."""
-    logging.info("function args: %r, cmd: %r, cwd: %r", args, cmd, cwd)
+    logging.debug("function %s args: %r, cmd: %r, cwd: %r", call_swiftpm.__qualname__, args, cmd, cwd)
     args.build_target = get_build_target(args, cross_compile=(True if args.cross_compile_config else False))
 
     logging.debug("build target: %r", args.build_target)
@@ -739,7 +728,7 @@ def call_swiftpm(args, cmd, cwd=None):
     full_cmd = get_swiftpm_env_cmd(args) + cmd + get_swiftpm_flags(args)
     if cwd is None:
         cwd = args.project_root
-    call_output(full_cmd, cwd=cwd, stderr=True, verbose=True)
+    call(full_cmd, cwd=cwd)
 
 # -----------------------------------------------------------
 # Build-related helper functions
