@@ -792,6 +792,9 @@ public struct WorkspaceConfiguration {
     /// Whether or not to use prebuilt swift-syntax for macros
     public var usePrebuilts: Bool
 
+    /// String URL to allow override of the prebuilts download location
+    public var prebuiltsDownloadURL: String?
+
     public init(
         skipDependenciesUpdates: Bool,
         prefetchBasedOnResolvedFile: Bool,
@@ -805,7 +808,8 @@ public struct WorkspaceConfiguration {
         sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation,
         defaultRegistry: Registry?,
         manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?,
-        usePrebuilts: Bool
+        usePrebuilts: Bool,
+        prebuiltsDownloadURL: String?
     ) {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
@@ -820,6 +824,7 @@ public struct WorkspaceConfiguration {
         self.defaultRegistry = defaultRegistry
         self.manifestImportRestrictions = manifestImportRestrictions
         self.usePrebuilts = usePrebuilts
+        self.prebuiltsDownloadURL = prebuiltsDownloadURL
     }
 
     /// Default instance of WorkspaceConfiguration
@@ -837,7 +842,8 @@ public struct WorkspaceConfiguration {
             sourceControlToRegistryDependencyTransformation: .disabled,
             defaultRegistry: .none,
             manifestImportRestrictions: .none,
-            usePrebuilts: false
+            usePrebuilts: false,
+            prebuiltsDownloadURL: nil
         )
     }
 
