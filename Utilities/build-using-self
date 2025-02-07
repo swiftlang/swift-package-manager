@@ -19,7 +19,7 @@ root_dir="$(cd ${__dir}/.. && pwd)"
 cd "${root_dir}/"
 echo "Current directory is ${PWD}"
 
-CONFIGURATION=debug
+CONFIGURATION=${CONFIGURATION:-debug}
 export SWIFTCI_IS_SELF_HOSTED=1
 
 # Ensure SDKROOT is configured
@@ -39,15 +39,6 @@ swift --version
 swift package update
 swift build -c $CONFIGURATION
 swift test -c $CONFIGURATION --parallel
-
-# Run the integration tests with just built SwiftPM.
-export SWIFTPM_BIN_DIR=$(swift build -c $CONFIGURATION --show-bin-path)
-(
-    cd ${root_dir}/IntegrationTests
-    # Perform package update in order to get the latest commits for the dependencies.
-    swift package update
-    $SWIFTPM_BIN_DIR/swift-test --parallel
-)
 
 if [ "${host}" == "Darwin" ]; then
     echo "Current working directory is ${PWD}"

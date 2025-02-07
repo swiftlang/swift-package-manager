@@ -104,7 +104,7 @@ def test(args):
         else:
             cmd += ['%s=%s' % (key,value)]
 
-    integration_test_dir = os.path.join(args.project_root, "IntegrationTests")
+    integration_test_dir = os.path.join(args.project_root)
     cmd += [
         args.swift_test_path,
         "--package-path", integration_test_dir,

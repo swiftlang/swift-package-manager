@@ -36,6 +36,12 @@ final class XCBuildTests: XCTestCase {
             XCTAssertFileExists(releasePath.appending(component: "bar"))
             XCTAssertNoSuchPath(releasePath.appending(component: "cbar"))
         }
+    }
+
+    func testExecutableProducts2() throws {
+        #if !os(macOS)
+        try XCTSkip("Test requires macOS")
+        #endif
 
         fixture(name: "XCBuild/ExecutableProducts") { path in
             let fooPath = path.appending(component: "Foo")
@@ -55,6 +61,12 @@ final class XCBuildTests: XCTestCase {
             XCTAssertFileExists(releasePath.appending(component: "bar"))
             XCTAssertNoSuchPath(releasePath.appending(component: "cbar"))
         }
+    }
+
+    func testExecutableProducts3() throws {
+        #if !os(macOS)
+        try XCTSkip("Test requires macOS")
+        #endif
 
         fixture(name: "XCBuild/ExecutableProducts") { path in
             let fooPath = path.appending(component: "Foo")
@@ -74,6 +86,12 @@ final class XCBuildTests: XCTestCase {
             XCTAssertNoSuchPath(releasePath.appending(component: "bar"))
             XCTAssertNoSuchPath(releasePath.appending(component: "cbar"))
         }
+    }
+
+    func testExecutableProducts4() throws {
+        #if !os(macOS)
+        try XCTSkip("Test requires macOS")
+        #endif
 
         fixture(name: "XCBuild/ExecutableProducts") { path in
             let fooPath = path.appending(component: "Foo")
@@ -93,6 +111,12 @@ final class XCBuildTests: XCTestCase {
             XCTAssertFileExists(releasePath.appending(component: "bar"))
             XCTAssertNoSuchPath(releasePath.appending(component: "cbar"))
         }
+    }
+
+    func testExecutableProducts5() throws {
+        #if !os(macOS)
+        try XCTSkip("Test requires macOS")
+        #endif
 
         fixture(name: "XCBuild/ExecutableProducts") { path in
             let fooPath = path.appending(component: "Foo")
