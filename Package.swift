@@ -169,7 +169,11 @@ let package = Package(
         .target(
             name: "SourceKitLSPAPI",
             dependencies: [
+                "Basics",
                 "Build",
+                "PackageGraph",
+                "PackageLoading",
+                "PackageModel",
                 "SPMBuildCore",
             ],
             exclude: ["CMakeLists.txt"],
