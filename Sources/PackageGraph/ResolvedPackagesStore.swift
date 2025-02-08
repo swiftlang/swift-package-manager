@@ -564,7 +564,7 @@ extension ResolvedPackagesStore.ResolvedPackage {
             if !location.hasPrefix("https://") {
                 packageRef = try .localSourceControl(identity: identity, path: AbsolutePath(validating: location))
             } else {
-                packageRef = .remoteSourceControl(identity: identity, url: SourceControlURL(loation))
+                packageRef = .remoteSourceControl(identity: identity, url: SourceControlURL(location))
             }
         case .remoteSourceControl:
             packageRef = .remoteSourceControl(identity: identity, url: SourceControlURL(location))
