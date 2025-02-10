@@ -26,6 +26,7 @@ import PackageLoading
 import PackageModel
 import SPMBuildCore
 import XCBuildSupport
+import SwiftBuildSupport
 
 import struct TSCBasic.KeyedPair
 import func TSCBasic.topologicalSort
@@ -345,6 +346,15 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 )
             case .xcode:
                 return try XcodeBuildSystem(
+                    buildParameters: buildParameters,
+                    packageGraphLoader: asyncUnsafePackageGraphLoader,
+                    outputStream: TSCBasic.stdoutStream,
+                    logLevel: logLevel,
+                    fileSystem: self.fileSystem,
+                    observabilityScope: self.observabilityScope
+                )
+            case .swiftbuild:
+                return try SwiftBuildSystem(
                     buildParameters: buildParameters,
                     packageGraphLoader: asyncUnsafePackageGraphLoader,
                     outputStream: TSCBasic.stdoutStream,

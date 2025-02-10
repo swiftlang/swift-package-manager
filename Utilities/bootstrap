@@ -386,8 +386,9 @@ def build(args):
         ]
         build_dependency(args, "swift-driver", swift_driver_cmake_flags)
         build_dependency(args, "swift-collections")
-        build_dependency(args, "swift-crypto")
         build_dependency(args, "swift-asn1")
+        build_dependency(args, "swift-crypto",
+            ["-DSwiftASN1_DIR=" + os.path.join(args.build_dirs["swift-asn1"], "cmake/modules")])
         build_dependency(args, "swift-certificates",
             ["-DSwiftASN1_DIR=" + os.path.join(args.build_dirs["swift-asn1"], "cmake/modules"),
              "-DSwiftCrypto_DIR=" + os.path.join(args.build_dirs["swift-crypto"], "cmake/modules")])
@@ -781,6 +782,7 @@ def get_swiftpm_env_cmd(args):
 
     if args.llbuild_link_framework:
         env_cmd.append("SWIFTPM_LLBUILD_FWK=1")
+        env_cmd.append("SWIFTPM_SWBUILD_FRAMEWORK=1")
     env_cmd.append("SWIFTCI_USE_LOCAL_DEPS=1")
     env_cmd.append("SWIFTPM_MACOS_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
 
@@ -860,7 +862,11 @@ def get_swiftpm_flags(args):
     cross_compile_hosts = args.cross_compile_hosts
     if cross_compile_hosts:
         if '-apple-macosx' in args.build_target and cross_compile_hosts.startswith('macosx-'):
-            build_flags += ["--arch", "x86_64", "--arch", "arm64"]
+            import platform
+            if platform.processor() == 'i386':
+                build_flags += ["--build-system=xcode", "--arch=arm64"]
+            else:
+                build_flags += ["--build-system=xcode", "--arch=x86_64"]
         elif cross_compile_hosts.startswith('android-'):
             build_flags.extend(["--destination", args.cross_compile_config])
         else:
