@@ -34,9 +34,9 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
     ///   - outputStream: an instance of a stream used for output.
     ///   - logLevel: the lowest severity of diagnostics that this handler will forward to `outputStream`. Diagnostics
     ///   emitted below this level will be ignored.
-    public init(outputStream: OutputByteStream, logLevel: Basics.Diagnostic.Severity) {
+    public init(outputStream: OutputByteStream, logLevel: Basics.Diagnostic.Severity, noColorDiagnostics: Bool = false) {
         let threadSafeOutputByteStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
-        self.outputHandler = OutputHandler(logLevel: logLevel, outputStream: threadSafeOutputByteStream)
+        self.outputHandler = OutputHandler(logLevel: logLevel, outputStream: threadSafeOutputByteStream, noColorDiagnostics: noColorDiagnostics)
     }
 
     // for raw output reporting
@@ -68,11 +68,11 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
         internal let outputStream: ThreadSafeOutputByteStream
         private let writer: InteractiveWriter
         private let progressAnimation: ProgressAnimationProtocol
-
+        private let noColorDiagnostics: Bool
         private let queue = DispatchQueue(label: "org.swift.swiftpm.tools-output")
         private let sync = DispatchGroup()
 
-        init(logLevel: Diagnostic.Severity, outputStream: ThreadSafeOutputByteStream) {
+        init(logLevel: Diagnostic.Severity, outputStream: ThreadSafeOutputByteStream, noColorDiagnostics: Bool) {
             self.logLevel = logLevel
             self.outputStream = outputStream
             self.writer = InteractiveWriter(stream: outputStream)
@@ -80,6 +80,7 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
                 stream: self.outputStream,
                 verbose: self.logLevel.isVerbose
             )
+            self.noColorDiagnostics = noColorDiagnostics
         }
 
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
@@ -87,30 +88,35 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
                 guard diagnostic.severity >= self.logLevel else {
                     return
                 }
-
                 // TODO: do something useful with scope
                 var output: String
-                switch diagnostic.severity {
-                case .error:
-                    output = self.writer.format("error: ", inColor: .red, bold: true)
-                case .warning:
-                    output = self.writer.format("warning: ", inColor: .yellow, bold: true)
-                case .info:
-                    output = self.writer.format("info: ", inColor: .white, bold: true)
-                case .debug:
-                    output = self.writer.format("debug: ", inColor: .white, bold: true)
-                }
+                let (prefix, color, bold): (String, TerminalController.Color, Bool) = formatDiagnostic(for: diagnostic)
+                
+                output = self.writer.format(prefix, inColor: color, bold: bold)
 
                 if let diagnosticPrefix = diagnostic.metadata?.diagnosticPrefix {
-                    output += diagnosticPrefix
-                    output += ": "
+                    output += "\(diagnosticPrefix): "
                 }
 
                 output += diagnostic.message
                 self.write(output)
             }
         }
+        // to format diagnostics based on user flag
+        func formatDiagnostic(for diagnostic: Basics.Diagnostic) -> (type: String, color: TerminalController.Color, bold: Bool) {
+            
+            switch diagnostic.severity {
+                case .error:
+                    return ("error: ", self.noColorDiagnostics ? .noColor : .red, self.noColorDiagnostics ? false : true)
+                case .warning:
+                    return ("warning: ", self.noColorDiagnostics ? .noColor : .yellow, self.noColorDiagnostics ? false : true)
+                case .info:
+                    return ("info: ", self.noColorDiagnostics ? .noColor : .white, self.noColorDiagnostics ? false : true)
+                case .debug:
+                    return ("debug: ", self.noColorDiagnostics ? .noColor : .white, self.noColorDiagnostics ? false : true)
+            }
 
+        }
         // for raw output reporting
         func print(_ output: String, verbose: Bool) {
             self.queue.async(group: self.sync) {
