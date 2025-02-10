@@ -57,10 +57,10 @@ public struct GlobalOptions: ParsableArguments {
     @OptionGroup(title: "Resolution")
     public var resolver: ResolverOptions
 
-    @OptionGroup(title: "Compiler Flags")
+    @OptionGroup(title: "Build Options")
     public var build: BuildOptions
 
-    @OptionGroup(title: "Linker Settings")
+    @OptionGroup(title: "Build Options")
     public var linker: LinkerOptions
 }
 
