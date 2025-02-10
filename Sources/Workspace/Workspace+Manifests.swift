@@ -412,21 +412,21 @@ extension Workspace {
         automaticallyAddManagedDependencies: Bool = false,
         observabilityScope: ObservabilityScope
     ) async throws -> DependencyManifests {
-        let prepopulateManagedDependencies: ([PackageReference]) throws -> Void = { refs in
+        let prepopulateManagedDependencies: ([PackageReference]) async throws -> Void = { refs in
             // pre-populate managed dependencies if we are asked to do so (this happens when resolving to a resolved
             // file)
             if automaticallyAddManagedDependencies {
-                try refs.forEach { ref in
+                for ref in refs {
                     // Since we are creating managed dependencies based on the resolved file in this mode, but local
                     // packages aren't part of that file, they will be missing from it. So we're eagerly adding them
                     // here, but explicitly don't add any that are overridden by a root with the same identity since
                     // that would lead to loading the given package twice, once as a root and once as a dependency
                     // which violates various assumptions.
                     if case .fileSystem = ref.kind, !root.manifests.keys.contains(ref.identity) {
-                        try self.state.dependencies.add(.fileSystem(packageRef: ref))
+                        try await self.state.add(dependency: .fileSystem(packageRef: ref))
                     }
                 }
-                observabilityScope.trap { try self.state.save() }
+                await observabilityScope.trap { try await self.state.save() }
             }
         }
 
@@ -437,15 +437,15 @@ extension Workspace {
         }
 
         // Make a copy of dependencies as we might mutate them in the for loop.
-        let dependenciesToCheck = Array(self.state.dependencies)
+        let dependenciesToCheck = await Array(self.state.dependencies)
         // Remove any managed dependency which has become a root.
         for dependency in dependenciesToCheck {
             if root.packages.keys.contains(dependency.packageRef.identity) {
-                observabilityScope.makeChildScope(
+                await observabilityScope.makeChildScope(
                     description: "removing managed dependencies",
                     metadata: dependency.packageRef.diagnosticsMetadata
                 ).trap {
-                    try self.remove(package: dependency.packageRef)
+                    try await self.remove(package: dependency.packageRef)
                 }
             }
         }
@@ -466,7 +466,7 @@ extension Workspace {
 
         // Load root dependencies manifests (in parallel)
         let rootDependencies = root.dependencies.map(\.packageRef)
-        try prepopulateManagedDependencies(rootDependencies)
+        try await prepopulateManagedDependencies(rootDependencies)
         let rootDependenciesManifests = await self.loadManagedManifests(
             for: rootDependencies,
             observabilityScope: observabilityScope
@@ -491,7 +491,7 @@ extension Workspace {
             let dependenciesRequired = pair.item.dependenciesRequired(for: pair.key.productFilter)
             let dependenciesToLoad = dependenciesRequired.map(\.packageRef)
                 .filter { !loadedManifests.keys.contains($0.identity) }
-            try prepopulateManagedDependencies(dependenciesToLoad)
+            try await prepopulateManagedDependencies(dependenciesToLoad)
             let dependenciesManifests = await self.loadManagedManifests(
                 for: dependenciesToLoad,
                 observabilityScope: observabilityScope
@@ -554,7 +554,7 @@ extension Workspace {
 
         var dependencies: [(Manifest, ManagedDependency, ProductFilter, FileSystem)] = []
         for (identity, manifest, productFilter) in dependencyManifests {
-            guard let dependency = self.state.dependencies[identity] else {
+            guard let dependency = await self.state.dependencies[identity] else {
                 throw InternalError("dependency not found for \(identity) at \(manifest.packageLocation)")
             }
 
@@ -609,7 +609,7 @@ extension Workspace {
         // dependencies that have the same identity but from a different location
         // which is an error case we diagnose an report about in the GraphLoading part which
         // is prepared to handle the case where not all manifest are available
-        guard let managedDependency = self.state.dependencies[comparingLocation: package] else {
+        guard let managedDependency = await self.state.dependencies[comparingLocation: package] else {
             return nil
         }
 
@@ -767,12 +767,12 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async {
         // Reset managed dependencies if the state file was removed during the lifetime of the Workspace object.
-        if !self.state.dependencies.isEmpty && !self.state.stateFileExists() {
-            try? self.state.reset()
+        if await !self.state.dependencies.isEmpty, await !self.state.stateFileExists() {
+            try? await self.state.reset()
         }
 
         // Make a copy of dependencies as we might mutate them in the for loop.
-        let allDependencies = Array(self.state.dependencies)
+        let allDependencies = await Array(self.state.dependencies)
         for dependency in allDependencies {
             await observabilityScope.makeChildScope(
                 description: "copying managed dependencies",
@@ -841,8 +841,8 @@ extension Workspace {
                         .emit(.editedDependencyMissing(packageName: dependency.packageRef.identity.description))
 
                 case .fileSystem:
-                    self.state.dependencies.remove(dependency.packageRef.identity)
-                    try self.state.save()
+                    await self.state.remove(identity: dependency.packageRef.identity)
+                    try await self.state.save()
                 }
             }
         }

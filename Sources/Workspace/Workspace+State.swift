@@ -19,7 +19,7 @@ import SourceControl
 import struct TSCUtility.Version
 
 /// Represents the workspace internal state persisted on disk.
-public final class WorkspaceState {
+public actor WorkspaceState {
     /// The dependencies managed by the Workspace.
     public private(set) var dependencies: Workspace.ManagedDependencies
 
@@ -87,6 +87,14 @@ public final class WorkspaceState {
         self.dependencies = storedState.dependencies
         self.artifacts = storedState.artifacts
         self.prebuilts = storedState.prebuilts
+    }
+    
+    public func add(dependency: Workspace.ManagedDependency) {
+        dependencies = dependencies.add(dependency)
+    }
+
+    public func remove(identity: PackageIdentity) {
+        dependencies = dependencies.remove(identity)
     }
 }
 

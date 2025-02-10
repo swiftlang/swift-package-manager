@@ -69,14 +69,14 @@ extension Workspace {
             debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies",
             metadata: package.diagnosticsMetadata
         )
-        try self.state.dependencies.add(
-            .sourceControlCheckout(
+        try await self.state.add(
+            dependency: .sourceControlCheckout(
                 packageRef: package,
                 state: checkoutState,
                 subpath: checkoutPath.relative(to: self.location.repositoriesCheckoutsDirectory)
             )
         )
-        try self.state.save()
+        try await self.state.save()
 
         // Inform the delegate that we're done.
         let duration = start.distance(to: .now())
@@ -138,7 +138,7 @@ extension Workspace {
 
         // If we already have it, fetch to update the repo from its remote.
         // also compare the location as it may have changed
-        if let dependency = self.state.dependencies[comparingLocation: package] {
+        if let dependency = await self.state.dependencies[comparingLocation: package] {
             let checkoutPath = self.location.repositoriesCheckoutSubdirectory(for: dependency)
 
             // Make sure the directory is not missing (we will have to clone again if not).
