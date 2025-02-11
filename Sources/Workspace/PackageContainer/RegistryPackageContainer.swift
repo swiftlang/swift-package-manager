@@ -253,6 +253,11 @@ public class RegistryPackageContainer: PackageContainer {
             })
         }
     }
+
+    public func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
+        // TODO: complete
+        return []
+    }
 }
 
 // MARK: - CustomStringConvertible

@@ -300,7 +300,8 @@ public struct PubGrubDependencyResolver {
 
     private func processInputs(
         root: DependencyResolutionNode,
-        with constraints: [Constraint]
+        with constraints: [Constraint],
+        traitConfiguration: TraitConfiguration? = nil
     ) async throws -> (
         overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)],
         rootIncompatibilities: [Incompatibility]
@@ -319,6 +320,24 @@ public struct PubGrubDependencyResolver {
         // These are added as top-level incompatibilities since they always need to be satisfied.
         // Some of these might be overridden as we discover local and branch-based references.
         var versionBasedDependencies = OrderedCollections.OrderedDictionary<DependencyResolutionNode, [VersionBasedConstraint]>()
+
+        // TODO: provide more details
+        // Process trait-guarded constraints.
+        for constraint in constraints.filter({ $0.traitConfiguration != nil }) {
+            let container = try await withCheckedThrowingContinuation { continuation in
+                self.provider.getContainer(for: constraint.package, completion: {
+                    continuation.resume(with: $0)
+                })
+            }
+
+            let traits = try await container.underlying.getEnabledTraits(traitConfiguration: traitConfiguration)
+            if traits.intersection(constraint.traitConfiguration?.enabledTraits ?? []).isEmpty {
+                constraints.remove(constraint)
+            }
+        }
+
+        // TODO: filter based on used dependencies
+//        constraints = constraints.filter({ usedDependencies.contains($0.package.identity.description) })
 
         // Process unversioned constraints in first phase. We go through all of the unversioned packages
         // and collect them and their dependencies. This gives us the complete list of unversioned

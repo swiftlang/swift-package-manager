@@ -135,6 +135,11 @@ public struct FileSystemPackageContainer: PackageContainer {
     public func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         fatalError("This should never be called")
     }
+
+    public func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
+        let manifest = try await loadManifest()
+        return manifest.enabledTraits(.init(traitConfiguration))
+    }
 }
 
 extension FileSystemPackageContainer: CustomStringConvertible  {

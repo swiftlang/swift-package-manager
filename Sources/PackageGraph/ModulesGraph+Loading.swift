@@ -107,18 +107,20 @@ extension ModulesGraph {
                 enabledTraits = Set(package.manifest.traits.map { $0.name })
             }
 
+            let calculatedTraits = try calculateEnabledTraits(
+                identity: identity,
+                manifest: package.manifest,
+                explictlyEnabledTraits: enabledTraits
+            )
+
             return try GraphLoadingNode(
                 identity: identity,
                 manifest: package.manifest,
                 productFilter: .everything,
-                enabledTraits: calculateEnabledTraits(
-                    identity: identity,
-                    manifest: package.manifest,
-                    explictlyEnabledTraits: enabledTraits
-                )
+                enabledTraits: calculatedTraits
             )
         }
-        let rootDependencyNodes = try root.dependencies.lazy.compactMap { dependency in
+        let rootDependencyNodes = try root.dependencies.lazy.filter({ requiredDependencies.contains($0.packageRef) }).compactMap { dependency in
             try manifestMap[dependency.identity].map {
                 try GraphLoadingNode(
                     identity: dependency.identity,
@@ -128,6 +130,7 @@ extension ModulesGraph {
                 )
             }
         }
+
         let inputManifests = (rootManifestNodes + rootDependencyNodes).map {
             KeyedPair($0, key: $0.identity)
         }
@@ -136,7 +139,13 @@ extension ModulesGraph {
         var allNodes = OrderedDictionary<PackageIdentity, GraphLoadingNode>()
 
         let nodeSuccessorProvider = { (node: KeyedPair<GraphLoadingNode, PackageIdentity>) in
-            return try node.item.requiredDependencies.compactMap { dependency in
+//            print("node successor for package node: \(node.key.description)")
+            return try node.item.requiredDependencies.compactMap { dependency -> KeyedPair<GraphLoadingNode, PackageIdentity>? in
+//                print("required dependency \(dependency.identity.description)")
+//                guard try node.item.manifest.isDependencyUsed(dependency.identity.description, traitConfiguration: .init(traitConfiguration)) else {
+//                    print("dep \(dependency.identity.description) unused")
+//                    return nil
+//                }
                 return try manifestMap[dependency.identity].map { manifest, _ in
                     // We are going to check the conditionally enabled traits here and enable them if
                     // required. This checks the current node and then enables the conditional
@@ -148,16 +157,18 @@ extension ModulesGraph {
                         return !conditionTraits.intersection(node.item.enabledTraits).isEmpty
                     }.map { $0.name }
 
+                    let calculatedTraits = try calculateEnabledTraits(
+                        identity: dependency.identity,
+                        manifest: manifest,
+                        explictlyEnabledTraits: explictlyEnabledTraits.flatMap { Set($0) }
+                    )
+
                     return try KeyedPair(
                             GraphLoadingNode(
                                 identity: dependency.identity,
                                 manifest: manifest,
                                 productFilter: dependency.productFilter,
-                                enabledTraits: calculateEnabledTraits(
-                                    identity: dependency.identity,
-                                    manifest: manifest,
-                                    explictlyEnabledTraits: explictlyEnabledTraits.flatMap { Set($0) }
-                                )
+                                enabledTraits: calculatedTraits
                             ),
                             key: dependency.identity
                         )
@@ -633,6 +644,12 @@ private func createResolvedPackages(
                 return dependency.products.filter({ lookupByProductIDs ? explicitIdsOrNames.contains($0.product.identity) : explicitIdsOrNames.contains($0.product.name) })
             })
 
+//        print("product dependencies for \(packageBuilder.package.identity.description):")
+//        productDependencies.forEach({ print("- \($0.product.name)")})
+//
+//        print("package builder dependencies:")
+//        packageBuilder.dependencies.forEach({ print($0.package.identity.description) })
+
         let productDependencyMap: [String: ResolvedProductBuilder]
         if lookupByProductIDs {
             productDependencyMap = try Dictionary(uniqueKeysWithValues: productDependencies.map {
@@ -664,11 +681,18 @@ private func createResolvedPackages(
 
             // Establish product dependencies.
             for case .product(let productRef, let conditions) in moduleBuilder.module.dependencies {
+                // TODO: comment out for now, test traits in resolution functionality
+//                if let traitCondition = conditions.compactMap({ $0.traitCondition }).first {
+//                    if packageBuilder.enabledTraits.intersection(traitCondition.traits).isEmpty {
+//                        ///  If we land here non of the traits required to enable this dependency has been enabled.
+//                        continue
+//                    }
+//                }
+
                 if let traitCondition = conditions.compactMap({ $0.traitCondition }).first {
-                    if packageBuilder.enabledTraits.intersection(traitCondition.traits).isEmpty {
-                        ///  If we land here non of the traits required to enable this depenendcy has been enabled.
-                        continue
-                    }
+//                    print("product: \(productRef.identity)")
+//                    print("enabled traits: \(packageBuilder.enabledTraits)")
+//                    print("trait condition traits: \(traitCondition.traits)")
                 }
 
                 if let package = productRef.package, prebuilts[.plain(package)]?[productRef.name] != nil {
@@ -702,6 +726,9 @@ private func createResolvedPackages(
                                 break
                             }
                         }
+                        print("============error product \(package.identity.description) dep not found=============")
+                        print("======= module \(moduleBuilder.module.name)")
+                        print("======= product name \(productRef.name) with package \(productRef.package ?? "none")")
                         let error = PackageGraphError.productDependencyNotFound(
                             package: package.identity.description,
                             moduleName: moduleBuilder.module.name,
@@ -741,6 +768,9 @@ private func createResolvedPackages(
                 moduleBuilder.dependencies.append(.product(product, conditions: conditions))
             }
         }
+
+        // dummy error to view print messages in tests
+//         throw PackageGraphError.duplicateProduct(product: "asdf", packages: [])
     }
 
     // If a module with similar name was encountered before, we emit a diagnostic.
@@ -1294,5 +1324,16 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
             registryMetadata: self.registryMetadata,
             platformVersionProvider: self.platformVersionProvider
         )
+    }
+}
+
+extension Manifest.TraitConfiguration {
+    public init(_ traitConfiguration: TraitConfiguration) {
+        self.init(enabledTraits: traitConfiguration.enabledTraits, enableAllTraits: traitConfiguration.enableAllTraits)
+    }
+
+    public init?(_ traitConfiguration: TraitConfiguration?) {
+        guard let traitConfiguration else { return nil }
+        self.init(traitConfiguration)
     }
 }
