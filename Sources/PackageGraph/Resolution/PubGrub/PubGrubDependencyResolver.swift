@@ -379,11 +379,10 @@ public struct PubGrubDependencyResolver {
                     // trait config setup here
                     enabledTraits = try await container.underlying.getEnabledTraits(traitConfiguration: traitConfiguration)
                 } else {
-                    // TODO: jj get config for deps of deps
-                    print("MUST GET CONFIG FOR DEP OF ROOT \(constraint.package.identity.description) + \(container.package.identity.description)")
+                    // TODO: bp get config for deps of deps
                 }
                 for dependency in try await container.underlying
-                    .getUnversionedDependencies(productFilter: node.productFilter, .init(enabledTraits: enabledTraits)) // TODO: jj fix config being passed here
+                    .getUnversionedDependencies(productFilter: node.productFilter, .init(enabledTraits: enabledTraits))
                 {
                     if let versionedBasedConstraints = VersionBasedConstraint.constraints(dependency) {
                         for constraint in versionedBasedConstraints {
@@ -457,7 +456,7 @@ public struct PubGrubDependencyResolver {
                 var unprocessedDependencies = try await container.underlying.getDependencies(
                     at: revisionForDependencies,
                     productFilter: constraint.products,
-                    traitConfiguration // TODO: jj right config?
+                    traitConfiguration
                 )
                 if let sharedRevision = node.revisionLock(revision: revision) {
                     unprocessedDependencies.append(sharedRevision)

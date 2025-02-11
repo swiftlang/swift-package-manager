@@ -230,7 +230,7 @@ extension Workspace {
                     identity: identity,
                     manifest: package.manifest,
                     productFilter: .everything,
-                    enabledTraits: traits ?? [] // TODO: jj is this correct
+                    enabledTraits: traits ?? []
                 )
                 return node
             } + root.dependencies.compactMap { dependency in
@@ -247,7 +247,7 @@ extension Workspace {
                         identity: dependency.identity,
                         manifest: manifest,
                         productFilter: dependency.productFilter,
-                        enabledTraits: traits ?? [] // TODO: jj is this correct
+                        enabledTraits: traits ?? []
                     )
                 }
             }
@@ -268,11 +268,9 @@ extension Workspace {
             var requiredIdentities: OrderedCollections.OrderedSet<PackageReference> = []
             _ = try transitiveClosure(inputNodes) { node in
 
-                // TODO: jj check if node is a root manifest, if so then pass along trait config (since this config is for the root anyways)
-
                 var traitConfiguration = traitConfiguration
                 if root.manifests[node.identity] == nil {
-                    // TODO: jj
+                    // TODO: bp
                     traitConfiguration = nil
                 } else {
                     let explicitlyEnabledTraits = node.manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
@@ -284,12 +282,12 @@ extension Workspace {
 
                     // Check if traits are guarding the dependency from being enabled
                     let isDepUsed = node.manifest.isDependencyUsed(dependency.identity.description, enabledTraits: node.enabledTraits)
-                    if !isDepUsed { // placeholder check, to fix
-//                        observabilityScope.emit(debug: """
-//                                            '\(package.identity)' from '\(package.locationString)' was omitted \
-//                                            from required dependencies because it is being guarded by the following traits:' \
-//                                            \(traitsToEnableDep.joined(separator: ", "))
-//                                            """)
+                    if !isDepUsed {
+                        observabilityScope.emit(debug: """
+                                            '\(package.identity)' from '\(package.locationString)' was omitted \
+                                            from required dependencies because it is being guarded by the following traits:' \
+                                            \(node.enabledTraits.joined(separator: ", "))
+                                            """)
                     } else {
                         unusedDepsPerPackage[node.identity, default: []] = unusedDepsPerPackage[node.identity, default: []].filter({ $0.identity != dependency.identity})
                         let (inserted, index) = requiredIdentities.append(package)
@@ -600,8 +598,6 @@ extension Workspace {
             lhs // prefer roots!
         })
 
-        // TODO: jj must filter these dependencies based on what is actually being used, since it is the deps of the roots.
-        // TODO: jj to be considered used, it must be a dep on a target of this root + not guarded by traits
         // optimization: preload first level dependencies manifest (in parallel)
         let firstLevelDependencies = topLevelManifests.values.map({ manifest in
             return manifest.dependencies.filter({ dep in
@@ -631,11 +627,10 @@ extension Workspace {
         var loadedManifests = firstLevelManifests
         let successorNodes: (KeyedPair<GraphLoadingNode, PackageIdentity>) async throws -> [KeyedPair<GraphLoadingNode, PackageIdentity>] = { node in
             // optimization: preload manifest we know about in parallel
-            // TODO: jj how can we pass in the appropriate trait configuration for successors without it affecting the duplication detection?
 
             var enabledTraits: Set<String>?
             if !node.item.manifest.packageKind.isRoot {
-                enabledTraits = nil // TODO: jj must obtain the trait config from the parent package.
+                enabledTraits = nil // TODO: bp must obtain the trait config from the parent package.
             } else {
                 enabledTraits = node.item.manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
             }
@@ -671,7 +666,7 @@ extension Workspace {
                                 identity: dependency.identity,
                                 manifest: $0,
                                 productFilter: dependency.productFilter,
-                                enabledTraits: allEnabledTraits
+                                enabledTraits: allEnabledTraits ?? []
                             ),
                             key: dependency.identity
                         ) :
@@ -686,13 +681,13 @@ extension Workspace {
             let manifestGraphRoots = try topLevelManifests.map { identity, manifest in
                 // Since these represent the root manifests, can pass in the enabled traits from the trait configuration here, as that is what it represents.
                 let isRoot = manifest.packageKind.isRoot
-                let enabledTraits = isRoot ? manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false) : [] // TODO: jj what about config for dependency packages?
+                let enabledTraits = isRoot ? manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false) : []
                 return try KeyedPair(
                     GraphLoadingNode(
                         identity: identity,
                         manifest: manifest,
                         productFilter: .everything,
-                        enabledTraits: enabledTraits
+                        enabledTraits: enabledTraits ?? []
                     ),
                     key: identity
                 )

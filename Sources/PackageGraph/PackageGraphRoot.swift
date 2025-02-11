@@ -101,15 +101,14 @@ public struct PackageGraphRoot {
         // Such pin switching can currently be worked around by declaring the executable product as a dependency of a dummy target.
         // But in the future it might be worth providing a way of declaring them in the manifest without a dummy target,
         // at which time the current special casing can be deprecated.
-        let explicitlyEnabledTraits: Set<String>? = Set(manifests.values.compactMap({ $0.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false )}).flatMap({ $0 }))
         var adjustedDependencies = input.dependencies.filter({ dep in
             return manifests.values.reduce(false) {
-                return $0 || $1.isDependencyUsed(dep.identity.description, enabledTraits: explicitlyEnabledTraits)
+                return $0 || $1.isDependencyUsed(dep.identity.description, enabledTraits: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
             }
         })
-        if let explicitProduct { // TODO: jj this is where test target entrypoint args differ - explicitProduct is nil for swift test command.
+        if let explicitProduct {
             // FIXME: `dependenciesRequired` modifies manifests and prevents conversion of `Manifest` to a value type
-            for dependency in manifests.values.lazy.map({ $0.dependenciesRequired(for: .everything, explicitlyEnabledTraits) }).joined() {
+            for dependency in manifests.values.lazy.map({ $0.dependenciesRequired(for: .everything, traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false) }).joined() {
                 adjustedDependencies.append(dependency.filtered(by: .specific([explicitProduct])))
             }
         }
@@ -121,29 +120,12 @@ public struct PackageGraphRoot {
 
     /// Returns the constraints imposed by root manifests + dependencies.
     public func constraints(_ usedDependencies: Set<TargetDescription.Dependency>? = nil, _ traitConfiguration: TraitConfiguration?) throws -> [PackageContainerConstraint] {
-        // TODO: to passs in trait configuration + properly compute enabled traits
         let constraints = self.packages.map { (identity, package) in
-//            var config = traitConfiguration != nil ? TraitConfiguration.init(enabledTraits: traitConfiguration?.enabledTraits) : nil
-//            let enabledTraits = self.manifests[identity]?.enabledTraits(.init(config))
-//            config?.enabledTraits = enabledTraits
-            return PackageContainerConstraint(package: package.reference, requirement: .unversioned, products: .everything)/*TraitConfiguration(enabledTraits: Set(package.manifest.enabledTraits()))*/
+            return PackageContainerConstraint(package: package.reference, requirement: .unversioned, products: .everything)
         }
         
-        // Filter out dependencies that aren't used; don't include these in the constraint calculation
-        // TODO: jj may not be necessary to filter at this stage, since constraints are also processed in
-        // TODO: jj the pub grub solver
         let depend = try dependencies
-//            .filter { dep in
-//                guard let usedDependencies else { return true }
-//
-//                // Case insensitive identity comparison
-//                return usedDependencies.contains(where: {
-//                    $0.package?.caseInsensitiveCompare(dep.identity.description) == .orderedSame
-//                })
-//            }
             .map {
-//                let traits = $0.traits?.compactMap(\.name) ?? []
-//                let traitConfiguration = TraitConfiguration(enabledTraits: Set(traits))
                 return PackageContainerConstraint(
                     package: $0.packageRef,
                     requirement: try $0.toConstraintRequirement(),

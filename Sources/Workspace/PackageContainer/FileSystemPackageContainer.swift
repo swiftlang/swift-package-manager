@@ -139,7 +139,7 @@ public struct FileSystemPackageContainer: PackageContainer {
     public func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
         let manifest = try await loadManifest()
         let enabledTraits = manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
-        return enabledTraits
+        return enabledTraits ?? []
     }
 }
 

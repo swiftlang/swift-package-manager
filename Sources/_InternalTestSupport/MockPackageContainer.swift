@@ -73,7 +73,7 @@ public class MockPackageContainer: CustomPackageContainer {
     }
 
     public func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
-        // TODO: jj complete
+        // TODO: bp complete
         return []
     }
 

@@ -3180,7 +3180,7 @@ public class MockContainer: PackageContainer {
         }
         return filteredDependencies.map({ value in
             let (package, requirement, filter) = value
-            return PackageContainerConstraint(package: package, requirement: requirement, products: filter) // TODO: jj add config
+            return PackageContainerConstraint(package: package, requirement: requirement, products: filter)
         })
     }
 

@@ -255,7 +255,7 @@ public class RegistryPackageContainer: PackageContainer {
     }
 
     public func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
-        // TODO: jj complete
+        // TODO: bp complete
         return []
     }
 }

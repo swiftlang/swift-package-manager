@@ -671,14 +671,6 @@ private func createResolvedPackages(
 
             // Establish product dependencies.
             for case .product(let productRef, let conditions) in moduleBuilder.module.dependencies {
-                // TODO: jj comment out for now, test traits in resolution functionality
-//                if let traitCondition = conditions.compactMap({ $0.traitCondition }).first {
-//                    if packageBuilder.enabledTraits.intersection(traitCondition.traits).isEmpty {
-//                        ///  If we land here non of the traits required to enable this dependency has been enabled.
-//                        continue
-//                    }
-//                }
-
                 // Find the product in this package's dependency products.
                 // Look it up by ID if module aliasing is used, otherwise by name.
                 let product = lookupByProductIDs ? productDependencyMap[productRef.identity] : productDependencyMap[productRef.name]
