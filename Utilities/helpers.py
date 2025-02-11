@@ -69,7 +69,7 @@ def call(cmd, cwd=None, verbose=False):
     try:
         subprocess.check_call(cmd, cwd=cwd)
     except subprocess.CalledProcessError as cpe:
-        logging.debug("executing command >>> %r with cwd %s",  " ".join([str(c) for c in cmd]), cwd)
+        logging.debug("executing command >>> %r with cwd %s", " ".join([str(c) for c in cmd]), cwd)
         logging.error(
             "Process failure: %s\n[---- START OUTPUT ----]\n%s\n[---- END OUTPUT ----]",
             str(cpe),
