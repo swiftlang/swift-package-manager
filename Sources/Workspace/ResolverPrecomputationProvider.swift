@@ -178,6 +178,6 @@ private struct LocalPackageContainer: PackageContainer {
     }
 
     func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
-        return manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
+        return manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false) ?? []
     }
 }

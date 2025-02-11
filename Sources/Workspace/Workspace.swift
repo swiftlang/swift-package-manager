@@ -772,7 +772,7 @@ extension Workspace {
             forceResolution: false,
             constraints: [constraint],
             observabilityScope: observabilityScope,
-            traitConfiguration: nil // TODO: jj add config
+            traitConfiguration: nil // TODO: bp add config
         )
     }
 

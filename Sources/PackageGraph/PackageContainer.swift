@@ -100,8 +100,7 @@ public protocol PackageContainer {
 
 
     /// Fetch the enabled traits of a package container.
-    /// TODO: jj finish fn description
-//    func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String>?
+    /// TODO: bp finish fn description
     func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String>
 }
 
