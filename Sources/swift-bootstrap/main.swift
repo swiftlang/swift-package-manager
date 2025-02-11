@@ -496,9 +496,11 @@ extension BuildConfiguration {
 #if compiler(<6.0)
 extension AbsolutePath: ExpressibleByArgument {}
 extension BuildConfiguration: ExpressibleByArgument, CaseIterable {}
+extension BuildSystemProvider.Kind: ExpressibleByArgument, CaseIterable {}
 #else
 extension AbsolutePath: @retroactive ExpressibleByArgument {}
 extension BuildConfiguration: @retroactive ExpressibleByArgument, CaseIterable {}
+extension BuildSystemProvider.Kind: @retroactive ExpressibleByArgument, CaseIterable {}
 #endif
 
 public func topologicalSort<T: Hashable>(
