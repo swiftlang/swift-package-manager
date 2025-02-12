@@ -42,15 +42,24 @@ def call(cmd, cwd=None, verbose=False):
         subprocess.check_call(cmd, cwd=cwd)
     except subprocess.CalledProcessError as cpe:
         logging.debug("executing command >>> %s", ' '.join(cmd))
-        logging.error("Process failure: %s", str(cpe))
+        logging.error(
+            "Process failure: %s\n[---- START OUTPUT ----]\n%s\n[---- END OUTPUT ----]",
+            str(cpe),
+            cpe.output,
+        )
         raise cpe
 
 def call_output(cmd, cwd=None, stderr=False, verbose=False):
     """Calls a subprocess for its return data."""
+    stderr = subprocess.STDOUT if stderr else False
     logging.info(' '.join(cmd))
     try:
         return subprocess.check_output(cmd, cwd=cwd, stderr=stderr, universal_newlines=True).strip()
     except subprocess.CalledProcessError as cpe:
         logging.debug(' '.join(cmd))
-        logging.error(str(cpe))
+        logging.error(
+            "%s\n[---- START OUTPUT ----]\n%s\n[---- END OUTPUT ----]",
+            str(cpe),
+            cpe.output,
+        )
         raise cpe
