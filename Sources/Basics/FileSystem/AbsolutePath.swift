@@ -53,10 +53,6 @@ public struct AbsolutePath: Hashable, Sendable {
     /// The input string will be normalized if needed, as described in the
     /// documentation for AbsolutePath.
     public init(validating pathString: String) throws {
-        // FIXME: remove once the error has been traced
-        if pathString == "https://github.com/apple/swift-asn1.git" {
-            fatalError("ERROR1")
-        }
         self.underlying = try .init(validating: pathString)
     }
 
@@ -287,14 +283,7 @@ extension AbsolutePath: Codable {
     }
 
     public init(from decoder: Decoder) throws {
-        do {
-            try self = .init(TSCAbsolutePath(from: decoder))
-        } catch {
-            if "\(error)".contains("https://github.com/apple/swift-asn1.git") {
-                fatalError("ERROR2")
-            }
-            throw error
-        }
+        try self = .init(TSCAbsolutePath(from: decoder))
     }
 }
 

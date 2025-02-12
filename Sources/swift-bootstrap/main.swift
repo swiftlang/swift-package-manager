@@ -443,7 +443,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             manifestLoader: ManifestLoader,
             package: PackageReference
         ) async throws -> Manifest {
-            let packagePath = try AbsolutePath(validating: package.locationString) // FIXME
+            let packagePath = try Result { try AbsolutePath(validating: package.locationString) }.mapError({ StringError("Package path \(package.locationString) is not an absolute path. This can be caused by a dependency declared somewhere in the package graph that is using a URL instead of a local path. Original error: \($0)") }).get()
             let manifestPath = packagePath.appending(component: Manifest.filename)
             let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
             return try await manifestLoader.load(
