@@ -29,7 +29,17 @@ import struct TSCUtility.Version
 
 final class WorkspaceTests: XCTestCase {
     override func setUpWithError() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        let windowsPassingTests = [
+            #selector(self.testBinaryArtifactsInvalidPath),
+            #selector(self.testManifestLoaderDiagnostics),
+            #selector(self.testInterpreterFlags),
+            #selector(self.testManifestParseError),
+            #selector(self.testSimpleAPI)
+        ]
+        let matches = windowsPassingTests.filter { $0 == self.invocation?.selector}
+        if matches.count == 0 {
+            try skipOnWindowsAsTestCurrentlyFails()
+        }
     }
 
     func testBasics() async throws {
