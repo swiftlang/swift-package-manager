@@ -410,7 +410,12 @@ extension Workspace {
                 return artifactDir
             }
 
+#if os(Linux)
+            let artifactFile = artifactName + ".tar.gz"
+#else
             let artifactFile = artifactName + ".zip"
+#endif
+
             let destination = scratchDir.appending(artifactFile)
             let cacheFile = cachePath?.appending(components: package.identity.description, version.description, artifactFile)
 
