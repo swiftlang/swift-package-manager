@@ -179,7 +179,13 @@ extension Workspace {
             self.hostPlatform = hostPlatform
             self.authorizationProvider = authorizationProvider
             self.httpClient = customHTTPClient ?? HTTPClient()
+
+#if os(Linux)
+            self.archiver = customArchiver ?? TarArchiver(fileSystem: fileSystem)
+#else
             self.archiver = customArchiver ?? ZipArchiver(fileSystem: fileSystem)
+#endif
+
             self.scratchPath = scratchPath
             self.cachePath = cachePath
             self.delegate = delegate
