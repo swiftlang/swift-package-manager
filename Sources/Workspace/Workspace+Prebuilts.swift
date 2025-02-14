@@ -439,6 +439,11 @@ extension Workspace {
                         let artifactPath = try AbsolutePath(validating: artifactURL.path)
                         if fileSystem.exists(artifactPath) {
                             try fileSystem.copy(from: artifactPath, to: destination)
+                            self.delegate?.didDownloadPrebuilt(
+                                from: artifactURL.absoluteString,
+                                result: .success((destination, false)),
+                                duration: fetchStart.distance(to: .now())
+                            )
                         } else {
                             return nil
                         }

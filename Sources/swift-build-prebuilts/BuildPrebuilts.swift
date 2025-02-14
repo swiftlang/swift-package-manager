@@ -93,7 +93,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
     @Option(help: "The command to use for docker")
     var dockerCommand: String = "docker"
 
-    @Flag(help: "Building the prebuilts")
+    @Flag(help: "Whether to build the prebuilt artifacts")
     var build = false
 
     @Flag(help: "Whether to sign the manifest")
@@ -117,6 +117,10 @@ struct BuildPrebuilts: AsyncParsableCommand {
             guard !certChainPathStrs.isEmpty else {
                 throw ValidationError("No certificates provided")
             }
+        }
+
+        if !build && !sign && !testSigning {
+            throw ValidationError("Requires one of --build or --sign or both")
         }
     }
 
@@ -213,15 +217,17 @@ struct BuildPrebuilts: AsyncParsableCommand {
                             try fileSystem.copy(from: srcModulesDir.appending(file), to: modulesDir.appending(file))
                         }
 
-                        // Copy the C module headers
+                        // Do a deep copy of the C module headers
                         for cModule in library.cModules {
                             let cModuleDir = version.cModulePaths[cModule] ?? ["Sources", cModule]
                             let srcIncludeDir = repoDir.appending(components: cModuleDir).appending("include")
                             let destIncludeDir = includesDir.appending(cModule)
+
                             try fileSystem.createDirectory(destIncludeDir, recursive: true)
-                            // TODO: should enumerate the directory to pick up deep headers
-                            for file in try fileSystem.getDirectoryContents(srcIncludeDir) {
-                                try fileSystem.copy(from: srcIncludeDir.appending(file), to: destIncludeDir.appending(file))
+                            try fileSystem.enumerate(directory: srcIncludeDir) { srcPath in
+                                let destPath = destIncludeDir.appending(srcPath.relative(to: srcIncludeDir))
+                                try fileSystem.createDirectory(destPath.parentDirectory)
+                                try fileSystem.copy(from: srcPath, to: destPath)
                             }
                         }
 
@@ -272,7 +278,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
             }
         }
 
-        _ = FileManager.default.changeCurrentDirectoryPath(stageDir.pathString)
+        try fileSystem.changeCurrentWorkingDirectory(to: stageDir)
         try fileSystem.removeFileTree(srcDir)
     }
 
