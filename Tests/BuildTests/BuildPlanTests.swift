@@ -4815,10 +4815,7 @@ final class BuildPlanTests: XCTestCase {
                 "-sdk", "/fake/sdk",
             ]
         )
-        XCTAssertEqual(
-            mockToolchain.extraFlags.linkerFlags,
-            ["-rpath", "/fake/path/lib/swift/macosx/testing"]
-        )
+        XCTAssertNoMatch(mockToolchain.extraFlags.linkerFlags, ["-rpath"])
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadModulesGraph(
@@ -4853,31 +4850,23 @@ final class BuildPlanTests: XCTestCase {
 
         let testProductLinkArgs = try result.buildProduct(for: "Lib").linkArguments()
         XCTAssertMatch(testProductLinkArgs, [
-            .anySequence,
             "-I", "/fake/path/lib/swift/macosx/testing",
             "-L", "/fake/path/lib/swift/macosx/testing",
-            .anySequence,
-            "-Xlinker", "-rpath",
-            "-Xlinker", "/fake/path/lib/swift/macosx/testing",
         ])
 
         let libModuleArgs = try result.moduleBuildDescription(for: "Lib").swift().compileArguments()
         XCTAssertMatch(libModuleArgs, [
-            .anySequence,
             "-I", "/fake/path/lib/swift/macosx/testing",
             "-L", "/fake/path/lib/swift/macosx/testing",
             "-plugin-path", "/fake/path/lib/swift/host/plugins/testing",
-            .anySequence,
         ])
         XCTAssertNoMatch(libModuleArgs, ["-Xlinker"])
 
         let testModuleArgs = try result.moduleBuildDescription(for: "LibTest").swift().compileArguments()
         XCTAssertMatch(testModuleArgs, [
-            .anySequence,
             "-I", "/fake/path/lib/swift/macosx/testing",
             "-L", "/fake/path/lib/swift/macosx/testing",
             "-plugin-path", "/fake/path/lib/swift/host/plugins/testing",
-            .anySequence,
         ])
         XCTAssertNoMatch(testModuleArgs, ["-Xlinker"])
     }
