@@ -26,11 +26,6 @@ public final class Cancellator: Cancellable, Sendable {
 
     private let observabilityScope: ObservabilityScope?
     private let registry = ThreadSafeKeyValueStore<String, (name: String, handler: CancellationHandler)>()
-    private let cancelationQueue = DispatchQueue(
-        label: "org.swift.swiftpm.cancellator",
-        qos: .userInteractive,
-        attributes: .concurrent
-    )
     private let cancelling = ThreadSafeBox<Bool>(false)
 
     private static let signalHandlerLock = NSLock()
@@ -165,19 +160,17 @@ public final class Cancellator: Cancellable, Sendable {
         let group = DispatchGroup()
         for (_, (name, handler)) in cancellationHandlers {
             group.enter()
-            self.cancelationQueue.async {
-                Task {
-                    defer { group.leave() }
-                    do {
-                        self.observabilityScope?.emit(debug: "cancelling '\(name)'")
-                        try await handler(handlersDeadline)
-                        cancelled.append(name)
-                    } catch {
-                        self.observabilityScope?.emit(
-                            warning: "failed cancelling '\(name)'",
-                            underlyingError: error
-                        )
-                    }
+            Task {
+                defer { group.leave() }
+                do {
+                    self.observabilityScope?.emit(debug: "cancelling '\(name)'")
+                    try await handler(handlersDeadline)
+                    cancelled.append(name)
+                } catch {
+                    self.observabilityScope?.emit(
+                        warning: "failed cancelling '\(name)'",
+                        underlyingError: error
+                    )
                 }
             }
         }
