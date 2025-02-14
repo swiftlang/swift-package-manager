@@ -201,6 +201,12 @@ public struct CachingOptions: ParsableArguments {
         help: .hidden
     )
     public var prebuiltsDownloadURL: String?
+
+    @Option(
+        name: .customLong("experimental-prebuilts-root-cert"),
+        help: .hidden
+    )
+    public var prebuiltsRootCertPath: String?
 }
 
 public struct LoggingOptions: ParsableArguments {

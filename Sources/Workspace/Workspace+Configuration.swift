@@ -795,6 +795,9 @@ public struct WorkspaceConfiguration {
     /// String URL to allow override of the prebuilts download location
     public var prebuiltsDownloadURL: String?
 
+    /// Path to root certificate used when validating the manifest signing during testing
+    public var prebuiltsRootCertPath: String?
+
     public init(
         skipDependenciesUpdates: Bool,
         prefetchBasedOnResolvedFile: Bool,
@@ -809,7 +812,8 @@ public struct WorkspaceConfiguration {
         defaultRegistry: Registry?,
         manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?,
         usePrebuilts: Bool,
-        prebuiltsDownloadURL: String?
+        prebuiltsDownloadURL: String?,
+        prebuiltsRootCertPath: String?
     ) {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
@@ -825,6 +829,7 @@ public struct WorkspaceConfiguration {
         self.manifestImportRestrictions = manifestImportRestrictions
         self.usePrebuilts = usePrebuilts
         self.prebuiltsDownloadURL = prebuiltsDownloadURL
+        self.prebuiltsRootCertPath = prebuiltsRootCertPath
     }
 
     /// Default instance of WorkspaceConfiguration
@@ -843,7 +848,8 @@ public struct WorkspaceConfiguration {
             defaultRegistry: .none,
             manifestImportRestrictions: .none,
             usePrebuilts: false,
-            prebuiltsDownloadURL: nil
+            prebuiltsDownloadURL: nil,
+            prebuiltsRootCertPath: nil
         )
     }
 
