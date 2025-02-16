@@ -13141,7 +13141,7 @@ final class WorkspaceTests: XCTestCase {
             }
         }
 
-        workspace.checkManagedDependencies { result in
+        await workspace.checkManagedDependencies { result in
             result.check(dependency: "org.foo", at: .registryDownload("1.2.0"))
         }
     }
