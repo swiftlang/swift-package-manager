@@ -832,7 +832,7 @@ def get_swiftpm_flags(args):
         build_flags.append("--disable-local-rpath")
 
     if args.verbose:
-        build_flags.append("--verbose")
+        build_flags.append("--very-verbose")
 
     if args.llbuild_link_framework:
         build_flags.extend([
