@@ -118,6 +118,7 @@ final class ZipArchiverTests: XCTestCase {
              try localFileSystem.createDirectory(dir2)
              try localFileSystem.writeFileContents(dir2.appending("file3.txt"), string: "Hello World 3!")
              try localFileSystem.writeFileContents(dir2.appending("file4.txt"), string: "Hello World 4!")
+             try localFileSystem.createSymbolicLink(dir2.appending("file5.txt"), pointingAt: dir1.appending("file2.txt"), relative: true)
 
              let archivePath = tmpdir.appending(component: UUID().uuidString + ".zip")
              try await archiver.compress(directory: rootDir, to: archivePath)
@@ -153,6 +154,12 @@ final class ZipArchiverTests: XCTestCase {
              XCTAssertEqual(
                  try? localFileSystem.readFileContents(extractedDir2.appending("file4.txt")),
                  "Hello World 4!"
+             )
+            
+             XCTAssertTrue(localFileSystem.isSymlink(extractedDir2.appending("file5.txt")))
+             XCTAssertEqual(
+                 try? localFileSystem.readFileContents(extractedDir2.appending("file5.txt")),
+                 try? localFileSystem.readFileContents(extractedDir1.appending("file2.txt"))
              )
          }
      }

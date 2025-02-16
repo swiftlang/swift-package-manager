@@ -1,0 +1,6 @@
+{
+  "debugger": { "path": "echo.sh" },
+  "testRunner": { "path": "echo.sh" },
+  "schemaVersion" : "1.0",
+  "rootPath" : "."
+}

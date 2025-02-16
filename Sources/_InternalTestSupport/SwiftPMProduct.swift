@@ -76,13 +76,15 @@ extension SwiftPM {
     ///         - args: The arguments to pass.
     ///         - env: Additional environment variables to pass. The values here are merged with default env.
     ///         - packagePath: Adds argument `--package-path <path>` if not nil.
+    ///         - throwIfCommandFails: If set, will throw an error if the command does not have a 0 return code.
     ///
     /// - Returns: The output of the process.
     @discardableResult
     public func execute(
         _ args: [String] = [],
         packagePath: AbsolutePath? = nil,
-        env: Environment? = nil
+        env: Environment? = nil,
+        throwIfCommandFails: Bool = true
     ) async throws -> (stdout: String, stderr: String) {
         let result = try await executeProcess(
             args,
@@ -93,8 +95,11 @@ extension SwiftPM {
         let stdout = try result.utf8Output()
         let stderr = try result.utf8stderrOutput()
         
+        let returnValue = (stdout: stdout, stderr: stderr)
+        if (!throwIfCommandFails) { return returnValue }
+
         if result.exitStatus == .terminated(code: 0) {
-            return (stdout: stdout, stderr: stderr)
+            return returnValue
         }
         throw SwiftPMError.executionFailure(
             underlying: AsyncProcessResult.Error.nonZeroExit(result),

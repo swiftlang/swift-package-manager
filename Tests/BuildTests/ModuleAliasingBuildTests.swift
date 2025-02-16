@@ -19,6 +19,7 @@ import Basics
 import PackageLoading
 @testable import PackageModel
 import SPMBuildCore
+import _InternalBuildTestSupport
 import _InternalTestSupport
 import SwiftDriver
 import Workspace

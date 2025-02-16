@@ -39,6 +39,7 @@ target_link_libraries(Workspace PUBLIC
   TSCUtility
   Basics
   SPMBuildCore
+  SwiftCollections::OrderedCollections
   PackageFingerprint
   PackageGraph
   PackageLoading

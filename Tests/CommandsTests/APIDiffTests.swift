@@ -263,6 +263,16 @@ final class APIDiffTests: CommandsTestCase {
         }
     }
 
+    func testAPIDiffOfVendoredCDependency() async throws {
+        try skipIfApiDigesterUnsupportedOrUnset()
+        try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+            let packageRoot = fixturePath.appending("CIncludePath")
+            let (output, _) = try await execute(["diagnose-api-breaking-changes", "main"], packagePath: packageRoot)
+
+            XCTAssertMatch(output, .contains("No breaking changes detected in Sample"))
+        }
+    }
+
     func testNoBreakingChanges() async throws {
         try skipIfApiDigesterUnsupportedOrUnset()
         try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in

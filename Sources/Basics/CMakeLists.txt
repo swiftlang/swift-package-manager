@@ -79,12 +79,11 @@ add_library(Basics
   Vendor/Triple+Platforms.swift)
 target_link_libraries(Basics PUBLIC
   _AsyncFileSystem
-  SwiftCollections::DequeModule
   SwiftCollections::OrderedCollections
-  SwiftSystem::SystemPackage
   TSCBasic
   TSCUtility)
 target_link_libraries(Basics PRIVATE
+  SwiftCollections::DequeModule
   SPMSQLite3
   TSCclibc)
 

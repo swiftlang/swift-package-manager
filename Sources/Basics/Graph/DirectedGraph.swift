@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct DequeModule.Deque
+private import DequeModule
 
 /// Directed graph that stores edges in [adjacency lists](https://en.wikipedia.org/wiki/Adjacency_list).
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)

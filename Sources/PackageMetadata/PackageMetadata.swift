@@ -352,7 +352,7 @@ public struct PackageSearchClient {
         ) { result in
             do {
                 let metadata = try result.get()
-                let alternateLocations = metadata.alternateLocations ?? []
+                let alternateLocations = metadata.alternateLocations
                 return completion(.success(Set(alternateLocations)))
             } catch {
                 return completion(.failure(error))
