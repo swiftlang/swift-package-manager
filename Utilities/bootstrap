@@ -386,8 +386,9 @@ def build(args):
         ]
         build_dependency(args, "swift-driver", swift_driver_cmake_flags)
         build_dependency(args, "swift-collections")
-        build_dependency(args, "swift-crypto")
         build_dependency(args, "swift-asn1")
+        build_dependency(args, "swift-crypto",
+            ["-DSwiftASN1_DIR=" + os.path.join(args.build_dirs["swift-asn1"], "cmake/modules")])
         build_dependency(args, "swift-certificates",
             ["-DSwiftASN1_DIR=" + os.path.join(args.build_dirs["swift-asn1"], "cmake/modules"),
              "-DSwiftCrypto_DIR=" + os.path.join(args.build_dirs["swift-crypto"], "cmake/modules")])
