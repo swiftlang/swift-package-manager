@@ -331,7 +331,7 @@ enum PluginToHostMessage: Codable {
         struct SymbolGraphOptions: Codable {
             var minimumAccessLevel: AccessLevel
             enum AccessLevel: String, Codable {
-                case `private`, `fileprivate`, `internal`, `public`, `open`
+                case `private`, `fileprivate`, `internal`, `package`, `public`, `open`
             }
             var includeSynthesized: Bool
             var includeSPI: Bool
