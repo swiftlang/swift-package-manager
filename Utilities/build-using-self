@@ -19,6 +19,18 @@ root_dir="$(cd ${__dir}/.. && pwd)"
 cd "${root_dir}/"
 echo "Current directory is ${PWD}"
 
+# Check python typing
+python_bin=$(command -v python3)
+VENV_PATH=$(mktemp -d)
+$python_bin -m venv "${VENV_PATH}"
+source "${VENV_PATH}"/bin/activate
+pip3 install --requirement "${__dir}"/python/requirement.txt
+
+mypy --strict Utilities/repeat_command
+black  --check Utilities/repeat_command
+flake8 --max-line-length 120 Utilities/repeat_command
+
+# Actual pipeline
 CONFIGURATION=debug
 export SWIFTCI_IS_SELF_HOSTED=1
 
