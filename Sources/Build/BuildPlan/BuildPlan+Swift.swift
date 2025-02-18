@@ -46,6 +46,12 @@ extension BuildPlan {
                         library.headersPaths.forEach {
                             swiftTarget.additionalFlags += ["-I", $0.pathString]
                         }
+                        // This is not strictly necessary to build the target, but it tells the
+                        // build system to copy the library to the build directory, which
+                        // makes executables that depend on it runnable by default instead of
+                        // requiring the user to configure LD_LIBRARY_PATH (as they would in
+                        // production)
+                        swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
                     }
 
                 case .xcframework:
