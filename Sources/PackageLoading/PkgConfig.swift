@@ -12,9 +12,8 @@
 
 import Basics
 import Foundation
-import OrderedCollections
 
-import class Basics.AsyncProcess
+private import OrderedCollections
 
 /// Information on an individual `pkg-config` supported package.
 public struct PkgConfig {
