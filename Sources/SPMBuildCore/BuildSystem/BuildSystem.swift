@@ -168,6 +168,14 @@ public struct BuildSystemProvider {
     }
 }
 
+extension BuildSystemProvider.Kind {
+    public var useXcodeBuildEngine: Bool {
+        switch self {
+            case .native: return false
+            case .xcode: return true
+        }
+    }
+}
 private enum Errors: Swift.Error {
     case buildSystemProviderNotRegistered(kind: BuildSystemProvider.Kind)
 }
