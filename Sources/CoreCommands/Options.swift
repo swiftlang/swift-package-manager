@@ -208,8 +208,11 @@ public struct LoggingOptions: ParsableArguments {
     /// Whether logging output should be limited to `.error`.
     @Flag(name: .shortAndLong, help: "Decrease verbosity to only include error output.")
     public var quiet: Bool = false
+    
+    @Flag(name: .customLong("no-color-diagnostics"), help: "Disable colored diagnostics")
+    public var noColorDiagnostics: Bool = false
 }
-
+  
 public struct SecurityOptions: ParsableArguments {
     public init() {}
 
@@ -534,7 +537,7 @@ public struct BuildOptions: ParsableArguments {
     // this can be removed once the backtracer uses DWARF instead of frame pointers
     @Flag(inversion: .prefixedNo,  help: .hidden)
     public var omitFramePointers: Bool? = nil
-
+    
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed
     // nil should not be the goto. Instead create an enum
