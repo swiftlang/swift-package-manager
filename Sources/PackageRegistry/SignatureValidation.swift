@@ -581,37 +581,14 @@ struct SignatureValidation {
         signatureFormat: SignatureFormat,
         configuration: RegistryConfiguration.Security.Signing,
         fileSystem: FileSystem
-    ) async throws ->  SigningEntity? {
-        try await withCheckedThrowingContinuation { continuation in
-            SignatureValidation.extractSigningEntity(
-                signature: signature,
-                signatureFormat: signatureFormat,
-                configuration: configuration,
-                fileSystem: fileSystem,
-                completion: { continuation.resume(with: $0) }
-            )
-        }
-    }
-    static func extractSigningEntity(
-        signature: [UInt8],
-        signatureFormat: SignatureFormat,
-        configuration: RegistryConfiguration.Security.Signing,
-        fileSystem: FileSystem,
-        completion: @escaping @Sendable (Result<SigningEntity?, Error>) -> Void
-    ) {
-        Task {
-            do {
-                let verifierConfiguration = try VerifierConfiguration.from(configuration, fileSystem: fileSystem)
-                let signingEntity = try await SignatureProvider.extractSigningEntity(
-                    signature: signature,
-                    format: signatureFormat,
-                    verifierConfiguration: verifierConfiguration
-                )
-                completion(.success(signingEntity))
-            } catch {
-                completion(.failure(error))
-            }
-        }
+    ) async throws -> SigningEntity? {
+        let verifierConfiguration = try VerifierConfiguration.from(configuration, fileSystem: fileSystem)
+        let signingEntity = try await SignatureProvider.extractSigningEntity(
+            signature: signature,
+            format: signatureFormat,
+            verifierConfiguration: verifierConfiguration
+        )
+        return signingEntity
     }
 }
 
