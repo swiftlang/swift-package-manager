@@ -31,6 +31,7 @@ extension SwiftPackageCommand {
             case executable
             case test
             case macro
+            case binary
         }
 
         package static let configuration = CommandConfiguration(
@@ -95,6 +96,7 @@ extension SwiftPackageCommand {
                 case .executable: .executable
                 case .test: .test
                 case .macro: .macro
+                case .binary: .binary
             }
 
             // Map dependencies
