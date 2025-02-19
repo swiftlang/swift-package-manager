@@ -534,6 +534,12 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
+        case .defaultIsolation(let isolation):
+            params.append(SourceCodeFragment(isolation))
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
         }
     }
 }
@@ -688,6 +694,8 @@ extension TargetBuildSettingDescription.Kind {
             return "enableExperimentalFeature"
         case .swiftLanguageMode:
             return "swiftLanguageMode"
+        case .defaultIsolation:
+            return "defaultIsolation"
         }
     }
 }
