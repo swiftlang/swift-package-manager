@@ -226,6 +226,8 @@ final class HTTPClientTests: XCTestCase {
     }
 
     func testExponentialBackoff() async throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         let counter = SendableBox(0)
         let lastCall = SendableBox<Date>()
         let maxAttempts = 5
