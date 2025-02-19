@@ -24,13 +24,13 @@ extension Workspace {
         originHash: String,
         rootManifestsMinimumToolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope
-    ) throws {
+    ) async throws {
         var dependenciesToSaveAsResolved = [ManagedDependency]()
         let requiredDependencies = try dependencyManifests.requiredPackages.filter(\.kind.isResolvable)
         for dependency in requiredDependencies {
-            if let managedDependency = self.state.dependencies[comparingLocation: dependency] {
+            if let managedDependency = await self.state.dependencies[comparingLocation: dependency] {
                 dependenciesToSaveAsResolved.append(managedDependency)
-            } else if let managedDependency = self.state.dependencies[dependency.identity] {
+            } else if let managedDependency = await self.state.dependencies[dependency.identity] {
                 observabilityScope
                     .emit(
                         info: "required dependency '\(dependency.identity)' from '\(dependency.locationString)' was not found in managed dependencies, using alternative location '\(managedDependency.packageRef.locationString)' instead"

@@ -508,8 +508,8 @@ extension Workspace {
                             products: library.products,
                             cModules: library.cModules
                         )
-                        self.state.prebuilts.add(managedPrebuilt)
-                        try self.state.save()
+                        await self.state.prebuilts.add(managedPrebuilt)
+                        try await self.state.save()
                     }
                 }
             }
