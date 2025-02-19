@@ -2868,11 +2868,11 @@ final class ModulesGraphTests: XCTestCase {
                     targets: [
                         TargetDescription(
                             name: "aaa",
-                            dependencies: ["zzy"],
+                            dependencies: ["mmm"],
                             type: .executable
                         )
                     ]),
-                Manifest.createRootManifest(
+                Manifest.createFileSystemManifest(
                     displayName: "zzz",
                     path: "/zzz",
                     products: [
@@ -2893,7 +2893,7 @@ final class ModulesGraphTests: XCTestCase {
 
         testDiagnostics(observability.diagnostics) { result in
             result.check(
-                diagnostic: "product 'zzy' required by package 'aaa' target 'aaa' not found. Did you mean 'zzz'?",
+                diagnostic: "product 'mmm' required by package 'aaa' target 'aaa' not found.",
                 severity: .error
             )
         }
