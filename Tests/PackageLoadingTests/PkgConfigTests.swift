@@ -71,6 +71,8 @@ class PkgConfigTests: XCTestCase {
                     XCTAssertEqual(names, ["libFoo-devel"])
                 case .nuget(let names)?:
                     XCTAssertEqual(names, ["Foo"])
+                case .pkg(let names)?:
+                    XCTAssertEqual(names, ["Foo"])
                 case nil:
                     XCTFail("Expected a provider here")
                 }

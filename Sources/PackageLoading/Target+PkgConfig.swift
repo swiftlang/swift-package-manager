@@ -154,6 +154,8 @@ extension SystemPackageProviderDescription {
             return "    yum install \(packages.joined(separator: " "))\n"
         case .nuget(let packages):
             return "    nuget install \(packages.joined(separator: " "))\n"
+        case .pkg(let packages):
+            return "    pkg install \(packages.joined(separator: " "))\n"
         }
     }
 
@@ -180,8 +182,12 @@ extension SystemPackageProviderDescription {
             switch platform {
             case .darwin, .windows, .linux:
                 return true
-            case .android:
+            case .android, .freebsd:
                 return false
+            }
+        case .pkg:
+            if case .freebsd = platform {
+                return true
             }
         }
         return false
@@ -214,6 +220,8 @@ extension SystemPackageProviderDescription {
         case .yum:
             return []
         case .nuget:
+            return []
+        case .pkg:
             return []
         }
     }
