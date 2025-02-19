@@ -749,6 +749,11 @@ extension TargetBuildSettingDescription.Kind {
             }
 
             return .swiftLanguageMode(version)
+        case "defaultIsolation":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            return .defaultIsolation(value)
         default:
             throw InternalError("invalid build setting \(name)")
         }

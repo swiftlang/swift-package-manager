@@ -1252,6 +1252,22 @@ public final class PackageBuilder {
                 }
 
                 values = [version.rawValue]
+
+            case .defaultIsolation(let isolation):
+                switch setting.tool {
+                case .c, .cxx, .linker:
+                    throw InternalError("only Swift supports default isolation")
+
+                case .swift:
+                    decl = .OTHER_SWIFT_FLAGS
+                }
+                
+                // Strip off the '.self' in 'MainActor.self'
+                guard let argument = isolation.components(separatedBy: ".").first else {
+                    throw InternalError("incorrect isolation argument")
+                }
+
+                values = ["-default-isolation", argument]
             }
 
             // Create an assignment for this setting.

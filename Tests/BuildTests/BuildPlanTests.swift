@@ -4308,6 +4308,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                             condition: .init(platformNames: ["macos"], config: "debug")
                         ),
                         .init(tool: .swift, kind: .strictMemorySafety),
+                        .init(tool: .swift, kind: .defaultIsolation("MainActor.self")),
                     ]
                 ),
                 TargetDescription(
@@ -4433,6 +4434,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature", "BestFeature",
                     "-strict-memory-safety",
+                    "-default-isolation", "MainActor",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4498,6 +4500,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                     "-enable-upcoming-feature",
                     "BestFeature",
                     "-strict-memory-safety",
+                    "-default-isolation", "MainActor",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fomit-frame-pointer",
@@ -4554,6 +4557,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                     "-enable-upcoming-feature",
                     "BestFeature",
                     "-strict-memory-safety",
+                    "-default-isolation", "MainActor",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4599,6 +4603,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                     "-enable-upcoming-feature", "BestFeature",
                     "-enable-upcoming-feature", "WorstFeature",
                     "-strict-memory-safety",
+                    "-default-isolation", "MainActor",
                     "-g",
                     "-Xcc", "-g",
                     .end,
