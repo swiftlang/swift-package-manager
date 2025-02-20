@@ -957,10 +957,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testProductDependencyWithSimilarName() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
-            "/Bar/Sources/Bar/bar.swift"
+    func testByNameDependencyWithSimilarTargetName() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/railroad/Sources/Rail/Rail.swift",
+            "/railroad/Sources/Spike/Spike.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -968,29 +969,66 @@ final class ModulesGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    displayName: "Foo",
-                    path: "/Foo",
+                    displayName: "railroad",
+                    path: "/railroad",
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: ["Barx"]),
-                    ]),
-                Manifest.createRootManifest(
-                    displayName: "Bar",
-                    path: "/Bar",
-                    targets: [
-                        TargetDescription(name: "Bar")
-                    ]),
+                        TargetDescription(name: "Rail", dependencies: ["Spoke"]),
+                        TargetDescription(name: "Spike"),
+                    ]
+                ),
             ],
             observabilityScope: observability.topScope
         )
 
         testDiagnostics(observability.diagnostics) { result in
             result.check(
-                diagnostic: "product 'Barx' required by package 'foo' target 'Foo' not found. Did you mean 'Bar'?",
+                diagnostic: "product 'Spoke' required by package 'railroad' target 'Rail' not found. Did you mean 'Spike'?",
                 severity: .error
             )
         }
     }
-    
+
+    func testByNameDependencyWithSimilarProductName() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/weather/Sources/Rain/Rain.swift",
+            "/forecast/Sources/Forecast/Forecast.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        _ = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "weather",
+                    path: "/weather",
+                    products: [
+                        ProductDescription(name: "Rain", type: .library(.automatic), targets: ["Rain"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Rain"),
+                    ]
+                ),
+                Manifest.createRootManifest(
+                    displayName: "forecast",
+                    path: "/forecast",
+                    dependencies: [.fileSystem(path: "/weather")],
+                    targets: [
+                        TargetDescription(name: "Forecast", dependencies: ["Rail"]),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(
+                diagnostic: "product 'Rail' required by package 'forecast' target 'Forecast' not found. Did you mean 'Rain'?",
+                severity: .error
+            )
+        }
+    }
+
     func testProductDependencyWithNonSimilarName() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/foo.swift",
