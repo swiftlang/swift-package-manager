@@ -565,14 +565,15 @@ final class TestCommandTests: CommandsTestCase {
     }
 #endif
 
-#if os(macOS)
-    // "SWIFT_TESTING_ENABLED" is set only on macOS, skip the check on other platforms.
     func testLibraryEnvironmentVariable() async throws {
         try await fixture(name: "Miscellaneous/CheckTestLibraryEnvironmentVariable") { fixturePath in
-            await XCTAssertAsyncNoThrow(try await SwiftPM.Test.execute(packagePath: fixturePath))
+            var extraEnv = Environment()
+            if try UserToolchain.default.swiftTestingPath != nil {
+              extraEnv["CONTAINS_SWIFT_TESTING"] = "1"
+            }
+            await XCTAssertAsyncNoThrow(try await SwiftPM.Test.execute(packagePath: fixturePath, env: extraEnv))
         }
     }
-#endif
 
     func testXCTestOnlyDoesNotLogAboutNoMatchingTests() async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in

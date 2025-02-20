@@ -881,7 +881,7 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
 public struct PluginInvocationSymbolGraphOptions {
     public var minimumAccessLevel: AccessLevel
     public enum AccessLevel: String {
-        case `private`, `fileprivate`, `internal`, `public`, `open`
+        case `private`, `fileprivate`, `internal`, `package`, `public`, `open`
     }
     public var includeSynthesized: Bool
     public var includeSPI: Bool
@@ -1163,6 +1163,8 @@ fileprivate extension PluginInvocationSymbolGraphOptions.AccessLevel {
             self = .fileprivate
         case .internal:
             self = .internal
+        case .package:
+            self = .package
         case .public:
             self = .public
         case .open:
