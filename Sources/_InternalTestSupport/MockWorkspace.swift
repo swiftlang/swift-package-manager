@@ -57,7 +57,8 @@ extension InMemoryFileSystem {
             "/fake/path/to/ar.exe",
             "/fake/path/to/libtool",
             "/fake/path/to/libtool.exe",
-            "/fake/path/to/link.exe"
+            "/fake/path/to/link.exe",
+            "/fake/path/to/lld-link.exe"
         ]
         self.createEmptyFiles(at: AbsolutePath.root, files: files)
         for toolPath in files {
