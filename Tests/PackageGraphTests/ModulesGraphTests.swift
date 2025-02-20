@@ -1003,7 +1003,7 @@ final class ModulesGraphTests: XCTestCase {
                     displayName: "weather",
                     path: "/weather",
                     products: [
-                        ProductDescription(name: "Rain", type: .library(.automatic), targets: ["Rain"])
+                        ProductDescription(name: "Rain", type: .library(.automatic), targets: ["Rain"]),
                     ],
                     targets: [
                         TargetDescription(name: "Rain"),
@@ -1023,7 +1023,152 @@ final class ModulesGraphTests: XCTestCase {
 
         testDiagnostics(observability.diagnostics) { result in
             result.check(
-                diagnostic: "product 'Rail' required by package 'forecast' target 'Forecast' not found. Did you mean 'Rain'?",
+                diagnostic: "product 'Rail' required by package 'forecast' target 'Forecast' not found. Did you mean '.product(name: \"Rain\", package: \"weather\")'?",
+                severity: .error
+            )
+        }
+    }
+
+    func testProductDependencyWithSimilarNamesFromMultiplePackages() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/flavors/Sources/Bitter/Bitter.swift",
+            "/farm/Sources/Butter/Butter.swift",
+            "/grocery/Sources/Grocery/Grocery.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        _ = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "flavors",
+                    path: "/flavors",
+                    products: [ProductDescription(name: "Bitter", type: .library(.automatic), targets: ["Bitter"])],
+                    targets: [
+                        TargetDescription(name: "Bitter"),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "farm",
+                    path: "/farm",
+                    products: [ProductDescription(name: "Butter", type: .library(.automatic), targets: ["Butter"])],
+                    targets: [
+                        TargetDescription(name: "Butter"),
+                    ]
+                ),
+                Manifest.createRootManifest(
+                    displayName: "grocery",
+                    path: "/grocery",
+                    dependencies: [.fileSystem(path: "/farm"), .fileSystem(path: "/flavors")],
+                    targets: [
+                        TargetDescription(name: "Grocery", dependencies: [
+                            .product(name: "Biter", package: "farm"),
+                            .product(name: "Bitter", package: "flavors"),
+                        ]),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        // We should expect matching to work only within the package we want even
+        // though there are lexically closer candidates in other packages.
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(
+                diagnostic: "product 'Biter' required by package 'grocery' target 'Grocery' not found in package 'farm'. Did you mean '.product(name: \"Butter\", package: \"farm\")'?",
+                severity: .error
+            )
+        }
+    }
+
+    func testProductDependencyWithSimilarNamesFromProductTargetsNotProducts() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/lunch/Sources/Lunch/Lunch.swift",
+            "/sandwich/Sources/Sandwich/Sandwich.swift",
+            "/sandwich/Sources/Bread/Bread.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        _ = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "sandwich",
+                    path: "/sandwich",
+                    products: [ProductDescription(
+                        name: "Sandwich",
+                        type: .library(.automatic),
+                        targets: ["Sandwich"]
+                    )],
+                    targets: [
+                        TargetDescription(name: "Sandwich", dependencies: ["Bread"]),
+                        TargetDescription(name: "Bread"),
+                    ]
+                ),
+                Manifest.createRootManifest(
+                    displayName: "lunch",
+                    path: "/lunch",
+                    // Depends on a product which isn't actually declared in sandwich,
+                    // but there's a target with the same name.
+                    dependencies: [.fileSystem(path: "/sandwich")],
+                    targets: [
+                        TargetDescription(name: "Lunch", dependencies: [.product(name: "Bread", package: "sandwich")]),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(
+                diagnostic: "product 'Bread' required by package 'lunch' target 'Lunch' not found in package 'sandwich'.",
+                severity: .error
+            )
+        }
+    }
+
+    func testProductDependencyWithSimilarNamesFromLocalTargetsNotPackageProducts() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/gauges/Sources/Chart/Chart.swift",
+            "/gauges/Sources/Value/Value.swift",
+            "/controls/Sources/Valve/Valve.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        _ = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "controls",
+                    path: "/controls",
+                    products: [ProductDescription(name: "Valve", type: .library(.automatic), targets: ["Valve"])],
+                    targets: [
+                        TargetDescription(name: "Valve"),
+                    ]
+                ),
+                Manifest.createRootManifest(
+                    displayName: "gauges",
+                    path: "/gauges",
+                    // Target dependency should show the local target dependency, even though
+                    // there's a lexically-close product name in a different package.
+                    dependencies: [.fileSystem(path: "/controls")],
+                    targets: [
+                        TargetDescription(name: "Chart", dependencies: [
+                            "Valv",
+                            .product(name: "Valve", package: "controls")]),
+                        TargetDescription(name: "Value"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(
+                diagnostic: "product 'Valv' required by package 'gauges' target 'Chart' not found. Did you mean 'Value'?",
                 severity: .error
             )
         }

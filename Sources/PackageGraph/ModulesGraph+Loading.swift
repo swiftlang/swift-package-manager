@@ -589,6 +589,13 @@ private func createResolvedPackages(
 
     // The set of all module names.
     var allModuleNames = Set<String>()
+    // The set of all product names across all packages in the dependency tree.
+    var allProductNames = Set<String>()
+    // The set of product names for each package in the dependency tree.
+    var productNamesForPackage: [String: Set<String>] = [:]
+    // Reverse lookup: package name or identity for each product.
+    var packageIdForProduct: [String: String] = [:]
+
 
     // Track if multiple modules are found with the same name.
     var foundDuplicateModule = false
@@ -630,6 +637,13 @@ private func createResolvedPackages(
                 let manifestProducts = dependency.package.manifest.products.lazy.map { $0.name }
                 let explicitProducts = dependency.package.products.filter { manifestProducts.contains($0.name) }
                 let explicitIdsOrNames = Set(explicitProducts.lazy.map({ lookupByProductIDs ? $0.identity : $0.name }))
+                let explicitNames = Set(explicitProducts.map { $0.name })
+                allProductNames.formUnion(explicitNames)
+                productNamesForPackage[dependency.package.identity.description] = explicitNames
+                packageIdForProduct.merge(
+                    explicitNames.map { ($0, dependency.package.identity.description) },
+                    uniquingKeysWith: { _, new in new }
+                )
                 return dependency.products.filter({ lookupByProductIDs ? explicitIdsOrNames.contains($0.product.identity) : explicitIdsOrNames.contains($0.product.name) })
             })
 
@@ -692,14 +706,44 @@ private func createResolvedPackages(
                             t.name != productRef.name
                         }
 
-                        // Find a product name from the available product dependencies that is most similar to the required product name.
-                        let bestMatchedProductName = bestMatch(for: productRef.name, from: Array(allModuleNames))
+                        // Find a product name from the available dependencies. Depending on how
+                        // the productRef is defined, "available dependencies" might be:
+                        // - modules within the current package
+                        // - products across all packages in the graph
+                        // - products from a given package
                         var packageContainingBestMatchedProduct: String?
-                        if let bestMatchedProductName, productRef.name == bestMatchedProductName {
-                            let dependentPackages = packageBuilder.dependencies.map(\.package)
-                            for p in dependentPackages where p.modules.contains(where: { $0.name == bestMatchedProductName }) {
-                                packageContainingBestMatchedProduct = p.identity.description
-                                break
+                        var bestMatchedProductName: String?
+                        if productRef.package == nil {
+                            // First assume that it's a dependency on modules
+                            // within the same package.
+                            let localModules = Array(
+                                packageBuilder.modules.map(\.module.name)
+                                    .filter { $0 != moduleBuilder.module.name }
+                            )
+                            bestMatchedProductName = bestMatch(
+                                for: productRef.name,
+                                from: localModules
+                            )
+                            if bestMatchedProductName == nil {
+                                // Search again across all the products, since there's no match
+                                // within the local modules.
+                                bestMatchedProductName = bestMatch(
+                                    for: productRef.name,
+                                    from: Array(allProductNames)
+                                )
+                                if bestMatchedProductName != nil {
+                                    packageContainingBestMatchedProduct = packageIdForProduct[bestMatchedProductName!]
+                                }
+                            }
+                        } else {
+                            // productRef has a package reference, we shall
+                            // only look for matches within that package.
+                            bestMatchedProductName = bestMatch(
+                                for: productRef.name,
+                                from: Array(productNamesForPackage[productRef.package!] ?? [])
+                            )
+                            if bestMatchedProductName != nil {
+                                packageContainingBestMatchedProduct = productRef.package
                             }
                         }
                         let error = PackageGraphError.productDependencyNotFound(
