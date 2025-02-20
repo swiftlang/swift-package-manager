@@ -20,7 +20,6 @@ import shlex
 import sys
 import typing as t
 
-
 from helpers import (
     Configuration,
     change_directory,
@@ -164,4 +163,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
->>>>>>> 71ab073b5eb328c64e2551e6da1be738417c0165
