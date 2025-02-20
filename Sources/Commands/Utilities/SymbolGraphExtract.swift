@@ -40,8 +40,8 @@ package struct SymbolGraphExtract {
 
     /// Access control levels.
     public enum AccessLevel: String, RawRepresentable, CaseIterable, ExpressibleByArgument {
-        // The cases reflect those found in `include/swift/AST/AttrKind.h` of the swift compiler (at commit 03f55d7bb4204ca54841218eb7cc175ae798e3bd)
-        case `private`, `fileprivate`, `internal`, `public`, `open`
+        // The cases reflect those found in `include/swift/AST/AttrKind.h` of the swift compiler (at commit ca96a2b)
+        case `private`, `fileprivate`, `internal`, `package`, `public`, `open`
     }
 
     /// Output format of the generated symbol graph.

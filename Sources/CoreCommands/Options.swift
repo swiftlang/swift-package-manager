@@ -42,25 +42,25 @@ import struct Workspace.WorkspaceConfiguration
 public struct GlobalOptions: ParsableArguments {
     public init() {}
 
-    @OptionGroup()
+    @OptionGroup(title: "Paths & Locations")
     public var locations: LocationOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Caching")
     public var caching: CachingOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Logging")
     public var logging: LoggingOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Security")
     public var security: SecurityOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Resolution")
     public var resolver: ResolverOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Build Options")
     public var build: BuildOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Build Options")
     public var linker: LinkerOptions
 }
 
@@ -654,7 +654,7 @@ package struct TraitOptions: ParsableArguments {
     /// The traits to enable for the package.
     @Option(
         name: .customLong("traits"),
-        help: "Enables the passed traits of the package. Multiple traits can be specified by providing a space separated list e.g. `--traits Trait1 Trait2`. When enabling specific traits the defaults traits need to explictily enabled as well by passing `defaults` to this command."
+        help: "Enables the passed traits of the package. Multiple traits can be specified by providing a comma separated list e.g. `--traits Trait1,Trait2`. When enabling specific traits the defaults traits need to explictily enabled as well by passing `defaults` to this command."
     )
     package var _enabledTraits: String?
 

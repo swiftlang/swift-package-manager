@@ -10,15 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-private import Basics
+import Foundation
 
-import struct Foundation.URL
-
-import struct PackageGraph.ResolvedModule
-
-private import class PackageLoading.ManifestLoader
-internal import struct PackageModel.ToolsVersion
-internal import protocol PackageModel.Toolchain
+import Basics
+import PackageGraph
+internal import PackageLoading
+internal import PackageModel
 
 struct PluginTargetBuildDescription: BuildTarget {
     private let target: ResolvedModule

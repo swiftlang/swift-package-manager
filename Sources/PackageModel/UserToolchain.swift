@@ -404,53 +404,6 @@ public final class UserToolchain: Toolchain {
     }
 #endif
 
-    /// On MacOS toolchain can shadow SDK content. This method is intended
-    /// to locate and include swift-testing library from a toolchain before
-    /// sdk content which to sure that builds that use a custom toolchain
-    /// always get a custom swift-testing library as well.
-    static func deriveMacOSSpecificSwiftTestingFlags(
-        derivedSwiftCompiler: AbsolutePath,
-        fileSystem: any FileSystem
-    ) -> (swiftCFlags: [String], linkerFlags: [String]) {
-        // If this is CommandLineTools all we need to add is a frameworks path.
-        if let frameworksPath = try? AbsolutePath(
-            validating: "../../Library/Developer/Frameworks",
-            relativeTo: resolveSymlinks(derivedSwiftCompiler).parentDirectory
-        ), fileSystem.exists(frameworksPath.appending("Testing.framework")) {
-            return (swiftCFlags: [
-                "-F", frameworksPath.pathString
-            ], linkerFlags: [
-                "-rpath", frameworksPath.pathString
-            ])
-        }
-
-        guard let toolchainLibDir = try? toolchainLibDir(
-            swiftCompilerPath: derivedSwiftCompiler
-        ) else {
-            return (swiftCFlags: [], linkerFlags: [])
-        }
-
-        let testingLibDir = toolchainLibDir.appending(
-            components: ["swift", "macosx", "testing"]
-        )
-
-        let testingPluginsDir = toolchainLibDir.appending(
-            components: ["swift", "host", "plugins", "testing"]
-        )
-
-        guard fileSystem.exists(testingLibDir), fileSystem.exists(testingPluginsDir) else {
-            return (swiftCFlags: [], linkerFlags: [])
-        }
-
-        return (swiftCFlags: [
-            "-I", testingLibDir.pathString,
-            "-L", testingLibDir.pathString,
-            "-plugin-path", testingPluginsDir.pathString
-        ], linkerFlags: [
-            "-rpath", testingLibDir.pathString
-        ])
-    }
-
     internal static func deriveSwiftCFlags(
         triple: Triple,
         swiftSDK: SwiftSDK,
@@ -673,14 +626,33 @@ public final class UserToolchain: Toolchain {
         var swiftCompilerFlags: [String] = []
         var extraLinkerFlags: [String] = []
 
-        if triple.isMacOSX {
-            let (swiftCFlags, linkerFlags) = Self.deriveMacOSSpecificSwiftTestingFlags(
-                derivedSwiftCompiler: swiftCompilers.compile,
-                fileSystem: fileSystem
-            )
+        let swiftTestingPath: AbsolutePath? = try Self.deriveSwiftTestingPath(
+            derivedSwiftCompiler: swiftCompilers.compile,
+            swiftSDK: self.swiftSDK,
+            triple: triple,
+            environment: environment,
+            fileSystem: fileSystem
+        )
 
-            swiftCompilerFlags += swiftCFlags
-            extraLinkerFlags += linkerFlags
+        if triple.isMacOSX, let swiftTestingPath {
+            // swift-testing in CommandLineTools, needs extra frameworks search path
+            if swiftTestingPath.extension == "framework" {
+                swiftCompilerFlags += ["-F", swiftTestingPath.pathString]
+            }
+
+            // Otherwise we must have a custom toolchain, add overrides to find its swift-testing ahead of any in the
+            // SDK. We expect the library to be in `lib/swift/macosx/testing` and the plugin in
+            // `lib/swift/host/plugins/testing`
+            if let pluginsPath = try? AbsolutePath(
+                validating: "../../host/plugins/testing",
+                relativeTo: swiftTestingPath
+            ) {
+                swiftCompilerFlags += [
+                    "-I", swiftTestingPath.pathString,
+                    "-L", swiftTestingPath.pathString,
+                    "-plugin-path", pluginsPath.pathString,
+                ]
+            }
         }
 
         swiftCompilerFlags += try Self.deriveSwiftCFlags(
@@ -773,19 +745,6 @@ public final class UserToolchain: Toolchain {
                 fileSystem: fileSystem
             )
         }
-
-        let swiftTestingPath: AbsolutePath?
-        if case .custom(_, let useXcrun) = searchStrategy, !useXcrun {
-            swiftTestingPath = nil
-        } else {
-            swiftTestingPath = try Self.deriveSwiftTestingPath(
-                swiftSDK: self.swiftSDK,
-                triple: triple,
-                environment: environment,
-                fileSystem: fileSystem
-            )
-        }
-
 
         self.configuration = .init(
             librarianPath: librarianPath,
@@ -1006,58 +965,75 @@ public final class UserToolchain: Toolchain {
                     .appending("bin")
             }
         }
-        return .none
+        return nil
     }
 
+    /// Find the swift-testing path if it is within a path that will need extra search paths.
     private static func deriveSwiftTestingPath(
+        derivedSwiftCompiler: AbsolutePath,
         swiftSDK: SwiftSDK,
         triple: Triple,
         environment: Environment,
         fileSystem: any FileSystem
     ) throws -> AbsolutePath? {
-        guard triple.isWindows() else {
-            return nil
+        if triple.isDarwin() {
+            // If this is CommandLineTools all we need to add is a frameworks path.
+            if let frameworksPath = try? AbsolutePath(
+                validating: "../../Library/Developer/Frameworks",
+                relativeTo: resolveSymlinks(derivedSwiftCompiler).parentDirectory
+            ), fileSystem.exists(frameworksPath.appending("Testing.framework")) {
+                return frameworksPath
+            }
+
+            guard let toolchainLibDir = try? toolchainLibDir(swiftCompilerPath: derivedSwiftCompiler) else {
+                return nil
+            }
+
+            let testingLibDir = toolchainLibDir.appending(components: ["swift", "macosx", "testing"])
+            if fileSystem.exists(testingLibDir) {
+                return testingLibDir
+            }
+        } else if triple.isWindows() {
+            guard let (platform, info) = getWindowsPlatformInfo(
+                swiftSDK: swiftSDK,
+                environment: environment,
+                fileSystem: fileSystem
+            ) else {
+                return nil
+            }
+
+            guard let swiftTestingVersion = info.defaults.swiftTestingVersion else {
+                return nil
+            }
+
+            let swiftTesting: AbsolutePath =
+                platform.appending("Developer")
+                    .appending("Library")
+                    .appending("Testing-\(swiftTestingVersion)")
+
+            let binPath: AbsolutePath? = switch triple.arch {
+            case .x86_64: // amd64 x86_64 x86_64h
+                swiftTesting.appending("usr")
+                    .appending("bin64")
+            case .x86: // i386 i486 i586 i686 i786 i886 i986
+                swiftTesting.appending("usr")
+                    .appending("bin32")
+            case .arm: // armv7 and many more
+                swiftTesting.appending("usr")
+                    .appending("bin32a")
+            case .aarch64: // aarch6 arm64
+                swiftTesting.appending("usr")
+                    .appending("bin64a")
+            default:
+                nil
+            }
+
+            if let path = binPath, fileSystem.exists(path) {
+                return path
+            }
         }
 
-        guard let (platform, info) = getWindowsPlatformInfo(
-            swiftSDK: swiftSDK,
-            environment: environment,
-            fileSystem: fileSystem
-        ) else {
-            return nil
-        }
-
-        guard let swiftTestingVersion = info.defaults.swiftTestingVersion else {
-            return nil
-        }
-
-        let swiftTesting: AbsolutePath =
-            platform.appending("Developer")
-                .appending("Library")
-                .appending("Testing-\(swiftTestingVersion)")
-
-        let binPath: AbsolutePath? = switch triple.arch {
-        case .x86_64: // amd64 x86_64 x86_64h
-            swiftTesting.appending("usr")
-                .appending("bin64")
-        case .x86: // i386 i486 i586 i686 i786 i886 i986
-            swiftTesting.appending("usr")
-                .appending("bin32")
-        case .arm: // armv7 and many more
-            swiftTesting.appending("usr")
-                .appending("bin32a")
-        case .aarch64: // aarch6 arm64
-            swiftTesting.appending("usr")
-                .appending("bin64a")
-        default:
-            nil
-        }
-
-        guard let path = binPath, fileSystem.exists(path) else {
-            return nil
-        }
-
-        return path
+        return nil
     }
 
     public var sdkRootPath: AbsolutePath? {
@@ -1084,7 +1060,7 @@ public final class UserToolchain: Toolchain {
         configuration.xctestPath
     }
 
-    public var swiftTestingPathOnWindows: AbsolutePath? {
+    public var swiftTestingPath: AbsolutePath? {
         configuration.swiftTestingPath
     }
 

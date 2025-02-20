@@ -18,7 +18,7 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 
 /// Add a package dependency to a manifest's source code.
-public struct AddPackageDependency {
+public enum AddPackageDependency {
     /// The set of argument labels that can occur after the "dependencies"
     /// argument in the Package initializers.
     ///
@@ -28,13 +28,13 @@ public struct AddPackageDependency {
         "targets",
         "swiftLanguageVersions",
         "cLanguageStandard",
-        "cxxLanguageStandard"
+        "cxxLanguageStandard",
     ]
 
     /// Produce the set of source edits needed to add the given package
     /// dependency to the given manifest file.
     public static func addPackageDependency(
-        _ dependency: PackageDependency,
+        _ dependency: MappablePackageDependency.Kind,
         to manifest: SourceFileSyntax
     ) throws -> PackageEditResult {
         // Make sure we have a suitable tools version in the manifest.
@@ -50,19 +50,19 @@ public struct AddPackageDependency {
 
         return PackageEditResult(
             manifestEdits: [
-                .replace(packageCall, with: newPackageCall.description)
+                .replace(packageCall, with: newPackageCall.description),
             ]
         )
     }
 
     /// Implementation of adding a package dependency to an existing call.
     static func addPackageDependencyLocal(
-        _ dependency: PackageDependency,
+        _ dependency: MappablePackageDependency.Kind,
         to packageCall: FunctionCallExprSyntax
     ) throws -> FunctionCallExprSyntax {
         try packageCall.appendingToArrayArgument(
             label: "dependencies",
-            trailingLabels: Self.argumentLabelsAfterDependencies,
+            trailingLabels: self.argumentLabelsAfterDependencies,
             newElement: dependency.asSyntax()
         )
     }

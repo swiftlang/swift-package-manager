@@ -18,7 +18,7 @@ public struct TraitConfiguration: Codable, Hashable {
     /// Enables all traits of the package.
     package var enableAllTraits: Bool
 
-    package init(
+    public init(
         enabledTraits: Set<String>? = nil,
         enableAllTraits: Bool = false
     ) {

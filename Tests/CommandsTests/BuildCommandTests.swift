@@ -89,9 +89,15 @@ final class BuildCommandTests: CommandsTestCase {
         XCTAssertMatch(stdout, .contains("SEE ALSO: swift run, swift package, swift test"))
     }
 
+    func testCommandDoesNotEmitDuplicateSymbols() async throws {
+        let (stdout, stderr) = try await execute(["--help"])
+        XCTAssertNoMatch(stdout, duplicateSymbolRegex)
+        XCTAssertNoMatch(stderr, duplicateSymbolRegex)
+    }
+
     func testVersion() async throws {
         let stdout = try await execute(["--version"]).stdout
-        XCTAssertMatch(stdout, .contains("Swift Package Manager"))
+        XCTAssertMatch(stdout, .regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#))
     }
 
     func testCreatingSanitizers() throws {

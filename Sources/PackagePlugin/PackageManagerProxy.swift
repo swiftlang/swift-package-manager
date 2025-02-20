@@ -245,7 +245,7 @@ public struct PackageManager {
 
         /// Represents a Swift access level.
         public enum AccessLevel: String, CaseIterable {
-            case `private`, `fileprivate`, `internal`, `public`, open
+            case `private`, `fileprivate`, `internal`, `package`, `public`, open
         }
 
         /// Whether to include synthesized members.
@@ -472,6 +472,8 @@ extension PluginToHostMessage.SymbolGraphOptions.AccessLevel {
             self = .internal
         case .public:
             self = .public
+        case .package:
+            self = .package
         case .open:
             self = .open
         }

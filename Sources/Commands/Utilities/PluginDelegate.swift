@@ -442,6 +442,8 @@ final class PluginDelegate: PluginInvocationDelegate {
             symbolGraphExtractor.minimumAccessLevel = .fileprivate
         case .internal:
             symbolGraphExtractor.minimumAccessLevel = .internal
+        case .package:
+            symbolGraphExtractor.minimumAccessLevel = .package
         case .public:
             symbolGraphExtractor.minimumAccessLevel = .public
         case .open:

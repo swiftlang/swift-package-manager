@@ -10,8 +10,13 @@ add_library(SourceKitLSPAPI STATIC
   BuildDescription.swift
   PluginTargetBuildDescription.swift)
 target_link_libraries(SourceKitLSPAPI PUBLIC
+  Basics
   Build
+  PackageGraph
   SPMBuildCore)
+target_link_libraries(SourceKitLSPAPI PRIVATE
+  PackageLoading
+  PackageModel)
 
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(SourceKitLSPAPI PROPERTIES
