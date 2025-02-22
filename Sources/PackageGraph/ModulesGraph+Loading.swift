@@ -589,13 +589,6 @@ private func createResolvedPackages(
 
     // The set of all module names.
     var allModuleNames = Set<String>()
-    // The set of all product names across all packages in the dependency tree.
-    var allProductNames = Set<String>()
-    // The set of product names for each package in the dependency tree.
-    var productNamesForPackage: [String: Set<String>] = [:]
-    // Reverse lookup: package name or identity for each product.
-    var packageIdForProduct: [String: String] = [:]
-
 
     // Track if multiple modules are found with the same name.
     var foundDuplicateModule = false
@@ -637,13 +630,6 @@ private func createResolvedPackages(
                 let manifestProducts = dependency.package.manifest.products.lazy.map { $0.name }
                 let explicitProducts = dependency.package.products.filter { manifestProducts.contains($0.name) }
                 let explicitIdsOrNames = Set(explicitProducts.lazy.map({ lookupByProductIDs ? $0.identity : $0.name }))
-                let explicitNames = Set(explicitProducts.map { $0.name })
-                allProductNames.formUnion(explicitNames)
-                productNamesForPackage[dependency.package.identity.description] = explicitNames
-                packageIdForProduct.merge(
-                    explicitNames.map { ($0, dependency.package.identity.description) },
-                    uniquingKeysWith: { _, new in new }
-                )
                 return dependency.products.filter({ lookupByProductIDs ? explicitIdsOrNames.contains($0.product.identity) : explicitIdsOrNames.contains($0.product.name) })
             })
 
@@ -699,61 +685,11 @@ private func createResolvedPackages(
                     // found errors when there are more important errors to
                     // resolve (like authentication issues).
                     if !observabilityScope.errorsReportedInAnyScope {
-                        // Emit error if a product (not module) declared in the package is also a productRef (dependency)
-                        let declProductsAsDependency = package.products.filter { product in
-                            lookupByProductIDs ? product.identity == productRef.identity : product.name == productRef.name
-                        }.map {$0.modules}.flatMap{$0}.filter { t in
-                            t.name != productRef.name
-                        }
-
-                        // Find a product name from the available dependencies. Depending on how
-                        // the productRef is defined, "available dependencies" might be:
-                        // - modules within the current package
-                        // - products across all packages in the graph
-                        // - products from a given package
-                        var packageContainingBestMatchedProduct: String?
-                        var bestMatchedProductName: String?
-                        if productRef.package == nil {
-                            // First assume that it's a dependency on modules
-                            // within the same package.
-                            let localModules = Array(
-                                packageBuilder.modules.map(\.module.name)
-                                    .filter { $0 != moduleBuilder.module.name }
-                            )
-                            bestMatchedProductName = bestMatch(
-                                for: productRef.name,
-                                from: localModules
-                            )
-                            if bestMatchedProductName == nil {
-                                // Search again across all the products, since there's no match
-                                // within the local modules.
-                                bestMatchedProductName = bestMatch(
-                                    for: productRef.name,
-                                    from: Array(allProductNames)
-                                )
-                                if bestMatchedProductName != nil {
-                                    packageContainingBestMatchedProduct = packageIdForProduct[bestMatchedProductName!]
-                                }
-                            }
-                        } else {
-                            // productRef has a package reference, we shall
-                            // only look for matches within that package.
-                            bestMatchedProductName = bestMatch(
-                                for: productRef.name,
-                                from: Array(productNamesForPackage[productRef.package!] ?? [])
-                            )
-                            if bestMatchedProductName != nil {
-                                packageContainingBestMatchedProduct = productRef.package
-                            }
-                        }
-                        let error = PackageGraphError.productDependencyNotFound(
-                            package: package.identity.description,
-                            moduleName: moduleBuilder.module.name,
-                            dependencyProductName: productRef.name,
-                            dependencyPackageName: productRef.package,
-                            dependencyProductInDecl: !declProductsAsDependency.isEmpty,
-                            similarProductName: bestMatchedProductName, 
-                            packageContainingSimilarProduct: packageContainingBestMatchedProduct
+                        let error = prepareProductDependencyNotFoundError(
+                            packageBuilder: packageBuilder,
+                            moduleBuilder: moduleBuilder,
+                            dependency: productRef,
+                            lookupByProductIDs: lookupByProductIDs
                         )
                         packageObservabilityScope.emit(error)
                     }
@@ -880,6 +816,110 @@ private func createResolvedPackages(
     }
 
     return IdentifiableSet(try packageBuilders.map { try $0.construct() })
+}
+
+private func prepareProductDependencyNotFoundError(
+    packageBuilder: ResolvedPackageBuilder,
+    moduleBuilder: ResolvedModuleBuilder,
+    dependency: Module.ProductReference,
+    lookupByProductIDs: Bool
+) -> PackageGraphError {
+    let packageName = packageBuilder.package.identity.description
+    // Module's dependency is either a local module or a product from another package.
+    // If dependency is a product from the current package, that's an incorrect
+    // declaration of the dependency and we should show relevant error. Let's see
+    // if indeed the dependency matches any of the products.
+    let declProductsAsDependency = packageBuilder.package.products.filter { product in
+        lookupByProductIDs ? product.identity == dependency.identity : product.name == dependency.name
+    }.map(\.modules).flatMap { $0 }.filter { t in
+        t.name != dependency.name
+    }
+    if !declProductsAsDependency.isEmpty {
+        return PackageGraphError.productDependencyNotFound(
+            package: packageName,
+            moduleName: moduleBuilder.module.name,
+            dependencyProductName: dependency.name,
+            dependencyPackageName: dependency.package,
+            dependencyProductInDecl: true,
+            similarProductName: nil,
+            packageContainingSimilarProduct: nil
+        )
+    }
+
+    // If dependency name is a typo, find best possible match from the available destinations.
+    // Depending on how the dependency is declared, "available destinations" might be:
+    // - modules within the current package
+    // - products across all packages in the graph
+    // - products from a specific package
+    var packageContainingBestMatchedProduct: String?
+    var bestMatchedProductName: String?
+    if dependency.package == nil {
+        // First assume it's a dependency on modules within the same package.
+        let localModules = Array(packageBuilder.modules.map(\.module.name).filter { $0 != moduleBuilder.module.name })
+        bestMatchedProductName = bestMatch(for: dependency.name, from: localModules)
+        if bestMatchedProductName != nil {
+            return PackageGraphError.productDependencyNotFound(
+                package: packageName,
+                moduleName: moduleBuilder.module.name,
+                dependencyProductName: dependency.name,
+                dependencyPackageName: nil,
+                dependencyProductInDecl: false,
+                similarProductName: bestMatchedProductName,
+                packageContainingSimilarProduct: nil
+            )
+        }
+        // Since there's no package name in the dependency declaration, and no match across
+        // the local modules, we assume the user actually meant to use product dependency,
+        // but didn't specify package to use the product from. Since products are globally
+        // unique, we should be able to find a good match across the graph, if the package
+        // is already a part of the dependency tree.
+        let availableProducts = Dictionary(
+            uniqueKeysWithValues: packageBuilder.dependencies
+                .flatMap { (packageDep: ResolvedPackageBuilder) -> [(
+                    String,
+                    String
+                )] in
+                    let manifestProducts = packageDep.package.manifest.products.map(\.name)
+                    let explicitProducts = packageDep.package.products.filter { manifestProducts.contains($0.name) }
+                    let explicitIdsOrNames = Set(explicitProducts.map { lookupByProductIDs ? $0.identity : $0.name })
+                    return explicitIdsOrNames.map { ($0, packageDep.package.identity.description) }
+                }
+        )
+        bestMatchedProductName = bestMatch(for: dependency.name, from: Array(availableProducts.keys))
+        if bestMatchedProductName != nil {
+            packageContainingBestMatchedProduct = availableProducts[bestMatchedProductName!]
+        }
+        return PackageGraphError.productDependencyNotFound(
+            package: packageName,
+            moduleName: moduleBuilder.module.name,
+            dependencyProductName: dependency.name,
+            dependencyPackageName: nil,
+            dependencyProductInDecl: false,
+            similarProductName: bestMatchedProductName,
+            packageContainingSimilarProduct: packageContainingBestMatchedProduct
+        )
+    } else {
+        // Package is explicitly listed in the product dependency, we shall search
+        // within the products from that package.
+        let availableProducts = packageBuilder.dependencies
+            .filter { $0.package.identity.description == dependency.package }
+            .flatMap { (packageDep: ResolvedPackageBuilder) -> [String] in
+                let manifestProducts = packageDep.package.manifest.products.map(\.name)
+                let explicitProducts = packageDep.package.products.filter { manifestProducts.contains($0.name) }
+                let explicitIdsOrNames = Set(explicitProducts.map { lookupByProductIDs ? $0.identity : $0.name })
+                return Array(explicitIdsOrNames)
+            }
+        bestMatchedProductName = bestMatch(for: dependency.name, from: availableProducts)
+        return PackageGraphError.productDependencyNotFound(
+            package: packageName,
+            moduleName: moduleBuilder.module.name,
+            dependencyProductName: dependency.name,
+            dependencyPackageName: dependency.package,
+            dependencyProductInDecl: false,
+            similarProductName: bestMatchedProductName,
+            packageContainingSimilarProduct: dependency.package
+        )
+    }
 }
 
 private func emitDuplicateProductDiagnostic(
