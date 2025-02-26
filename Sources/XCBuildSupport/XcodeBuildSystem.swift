@@ -100,10 +100,19 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         } else {
             let xcodeSelectOutput = try AsyncProcess.popen(args: "xcode-select", "-p").utf8Output().spm_chomp()
             let xcodeDirectory = try AbsolutePath(validating: xcodeSelectOutput)
-            xcbuildPath = try AbsolutePath(
-                validating: "../SharedFrameworks/XCBuild.framework/Versions/A/Support/xcbuild",
-                relativeTo: xcodeDirectory
-            )
+            xcbuildPath = try {
+                let newPath = try AbsolutePath(
+                    validating: "../SharedFrameworks/SwiftBuild.framework/Versions/A/Support/swbuild",
+                    relativeTo: xcodeDirectory
+                )
+                if fileSystem.exists(newPath) {
+                    return newPath
+                }
+                return try AbsolutePath(
+                    validating: "../SharedFrameworks/XCBuild.framework/Versions/A/Support/xcbuild",
+                    relativeTo: xcodeDirectory
+                )
+            }()
         }
 
         guard fileSystem.exists(xcbuildPath) else {
