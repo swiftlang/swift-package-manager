@@ -524,7 +524,7 @@ class ManifestEditTests: XCTestCase {
             let package = Package(
                 name: "packages",
                 dependencies: [
-                    .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0-latest"),
+                    .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "601.0.0-latest"),
                 ],
                 targets: [
                     .macro(
