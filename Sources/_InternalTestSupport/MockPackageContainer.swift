@@ -73,7 +73,7 @@ public class MockPackageContainer: CustomPackageContainer {
     }
 
     public func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
-        // TODO: bp complete
+        // This mock does not currently need support for traits.
         return []
     }
 

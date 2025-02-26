@@ -208,7 +208,7 @@ public struct PubGrubDependencyResolver {
     /// - Warning: It is expected that the root package reference has been set  before this is called.
     internal func solve(root: DependencyResolutionNode, constraints: [Constraint], traitConfiguration: TraitConfiguration? = nil) async throws -> (bindings: [DependencyResolverBinding], state: State) {
         // first process inputs
-        let inputs = try await self.processInputs(root: root, with: constraints, traitConfiguration: traitConfiguration)
+        let inputs = try await self.processInputs(root: root, with: constraints)
 
         // Prefetch the containers if prefetching is enabled.
         if self.prefetchBasedOnResolvedFile {
@@ -300,8 +300,8 @@ public struct PubGrubDependencyResolver {
 
     private func processInputs(
         root: DependencyResolutionNode,
-        with constraints: [Constraint],
-        traitConfiguration: TraitConfiguration?
+        with constraints: [Constraint]
+//        traitConfiguration: TraitConfiguration?
     ) async throws -> (
         overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)],
         rootIncompatibilities: [Incompatibility]
@@ -320,27 +320,6 @@ public struct PubGrubDependencyResolver {
         // These are added as top-level incompatibilities since they always need to be satisfied.
         // Some of these might be overridden as we discover local and branch-based references.
         var versionBasedDependencies = OrderedCollections.OrderedDictionary<DependencyResolutionNode, [VersionBasedConstraint]>()
-
-        // TODO: provide more details
-        // Process trait-guarded constraints; this will be dependent on which root-level
-        // traits are enabled. (?)
-        // - what to do when encountering constraint relating to root?
-        // - what to do when constraint is dep of root? check roottraits
-//        for constraint in constraints.filter({ $0.traitConfiguration != nil }) {
-//            let container = try await withCheckedThrowingContinuation { continuation in
-//                self.provider.getContainer(for: constraint.package, completion: {
-//                    continuation.resume(with: $0)
-//                })
-//            }
-//
-//            let traits = try await container.underlying.getEnabledTraits(traitConfiguration: traitConfiguration)
-//            if traits.intersection(constraint.traitConfiguration?.enabledTraits ?? []).isEmpty {
-//                constraints.remove(constraint)
-//            }
-//        }
-
-        // TODO: filter based on used dependencies
-//        constraints = constraints.filter({ usedDependencies.contains($0.package.identity.description) })
 
         // Process unversioned constraints in first phase. We go through all of the unversioned packages
         // and collect them and their dependencies. This gives us the complete list of unversioned
@@ -374,15 +353,17 @@ public struct PubGrubDependencyResolver {
                         }
                     )
                 }
-                var enabledTraits: Set<String> = []
-                if constraint.package.kind.isRoot {
-                    // trait config setup here
-                    enabledTraits = try await container.underlying.getEnabledTraits(traitConfiguration: traitConfiguration)
-                } else {
-                    // TODO: bp get config for deps of deps
-                }
+//                var enabledTraits: Set<String> = []
+//                print("package: \(constraint.package.identity.description)")
+//                print("constraint enabled traits: \(constraint.enabledTraits?.joined(separator: ", ") ?? "<none>")")
+//                if constraint.package.kind.isRoot {
+//                    enabledTraits = try await container.underlying.getEnabledTraits(traitConfiguration: traitConfiguration)
+//                    print("enabled traits calculation if applicable: \(enabledTraits.joined(separator: ", "))")
+//                } else {
+//
+//                }
                 for dependency in try await container.underlying
-                    .getUnversionedDependencies(productFilter: node.productFilter, .init(enabledTraits: enabledTraits))
+                    .getUnversionedDependencies(productFilter: node.productFilter, .init(enabledTraits: constraint.enabledTraits))
                 {
                     if let versionedBasedConstraints = VersionBasedConstraint.constraints(dependency) {
                         for constraint in versionedBasedConstraints {
@@ -453,10 +434,17 @@ public struct PubGrubDependencyResolver {
             }
 
             for node in constraint.nodes() {
+                // TODO: bp check whether traitconfig is correct here; root package only?
+//                var traitConfig: TraitConfiguration? = nil
+//                if node.package.kind.isRoot {
+//                    traitConfig = traitConfiguration
+//                } else {
+//                    // how to find appropriate config for dep?
+//                }
                 var unprocessedDependencies = try await container.underlying.getDependencies(
                     at: revisionForDependencies,
                     productFilter: constraint.products,
-                    traitConfiguration
+                    .init(enabledTraits: constraint.enabledTraits) // TODO: bp change method signature to only accept enabled traits here; constraint enabled traits will have already calculated all the enabled + transitively enabled traits.
                 )
                 if let sharedRevision = node.revisionLock(revision: revision) {
                     unprocessedDependencies.append(sharedRevision)

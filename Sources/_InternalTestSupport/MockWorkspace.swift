@@ -342,7 +342,8 @@ public final class MockWorkspace {
                 skipSignatureValidation: false,
                 sourceControlToRegistryDependencyTransformation: self.sourceControlToRegistryDependencyTransformation,
                 defaultRegistry: self.defaultRegistry,
-                manifestImportRestrictions: .none
+                manifestImportRestrictions: .none,
+                pruneDependencies: false
             ),
             customFingerprints: self.fingerprints,
             customMirrors: self.mirrors,
@@ -427,7 +428,7 @@ public final class MockWorkspace {
         await observability.topScope.trap {
             let rootInput = PackageGraphRootInput(packages: try rootPaths(for: roots))
             let workspace = try self.getOrCreateWorkspace()
-            try await workspace.resolve(packageName: pkg, root: rootInput, version: version, branch: nil, revision: nil, observabilityScope: observability.topScope)
+            try await workspace.resolve(packageName: pkg, root: rootInput, version: version, branch: nil, revision: nil, observabilityScope: observability.topScope, traitConfiguration: nil)
         }
         result(observability.diagnostics)
     }

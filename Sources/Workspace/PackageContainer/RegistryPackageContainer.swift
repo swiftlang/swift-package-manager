@@ -254,9 +254,17 @@ public class RegistryPackageContainer: PackageContainer {
         }
     }
 
-    public func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
-        // TODO: bp complete
-        return []
+    public func getEnabledTraits(traitConfiguration: TraitConfiguration?, at version: Version?) async throws -> Set<String> {
+        // How can I get the appropriate version?
+        guard let version else {
+            throw InternalError("Version needed to compute enabled traits for registry package \(self.package.identity.description)")
+        }
+        let manifest = try await loadManifest(version: version)
+        guard manifest.packageKind.isRoot else {
+            return []
+        }
+        let enabledTraits = manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
+        return enabledTraits ?? []
     }
 }
 

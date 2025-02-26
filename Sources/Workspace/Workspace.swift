@@ -670,7 +670,8 @@ extension Workspace {
         explicitProduct: String? = .none,
         forceResolution: Bool = false,
         forceResolvedVersions: Bool = false,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        traitConfiguration: TraitConfiguration?
     ) async throws {
         try await self._resolve(
             root: root,
@@ -678,7 +679,7 @@ extension Workspace {
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : forceResolution ? .update(forceResolution: true) :
                 .bestEffort,
             observabilityScope: observabilityScope,
-            traitConfiguration: nil // TODO?
+            traitConfiguration: traitConfiguration
         )
     }
 
@@ -701,7 +702,8 @@ extension Workspace {
         version: Version? = nil,
         branch: String? = nil,
         revision: String? = nil,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        traitConfiguration: TraitConfiguration?
     ) async throws {
         // Look up the dependency and check if we can pin it.
         guard let dependency = self.state.dependencies[.plain(packageName)] else {
@@ -737,11 +739,17 @@ extension Workspace {
             requirement = defaultRequirement
         }
 
+        var dependencyEnabledTraits: Set<String>?
+        if let traits = root.dependencies.first(where: { $0.nameForModuleDependencyResolutionOnly == packageName })?.traits {
+            dependencyEnabledTraits = Set(traits.map(\.name))
+        }
+
         // If any products are required, the rest of the package graph will supply those constraints.
         let constraint = PackageContainerConstraint(
             package: dependency.packageRef,
             requirement: requirement,
-            products: .nothing
+            products: .nothing,
+            enabledTraits: dependencyEnabledTraits
         )
 
         // Run the resolution.
@@ -750,7 +758,7 @@ extension Workspace {
             forceResolution: false,
             constraints: [constraint],
             observabilityScope: observabilityScope,
-            traitConfiguration: nil // TODO: bp add config
+            traitConfiguration: traitConfiguration
         )
     }
 
@@ -929,7 +937,6 @@ extension Workspace {
         try self.state.reload()
 
         // Perform dependency resolution, if required.
-        // TODO: pass in trait configuration, if applicable
         let manifests = try await self._resolve(
             root: root,
             explicitProduct: explicitProduct,

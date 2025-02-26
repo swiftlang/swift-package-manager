@@ -177,7 +177,25 @@ private struct LocalPackageContainer: PackageContainer {
         }
     }
 
-    func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
-        return manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false) ?? []
+    func getEnabledTraits(traitConfiguration: TraitConfiguration?, at version: Version? = nil) async throws -> Set<String> {
+        guard manifest.packageKind.isRoot else {
+            return []
+        }
+
+        let configurationEnabledTraits = traitConfiguration?.enabledTraits
+        let enableAllTraits = traitConfiguration?.enableAllTraits ?? false
+
+        if let version {
+            switch dependency?.state {
+            case .sourceControlCheckout(.version(version, revision: _)):
+                return manifest.enabledTraits(using: configurationEnabledTraits, enableAllTraits: enableAllTraits) ?? []
+            case .registryDownload(version: version):
+                return manifest.enabledTraits(using: configurationEnabledTraits, enableAllTraits: enableAllTraits) ?? []
+            default:
+                throw InternalError("expected version based state, but state was \(String(describing: dependency?.state))")
+            }
+        } else {
+            return manifest.enabledTraits(using: configurationEnabledTraits, enableAllTraits: enableAllTraits) ?? []
+        }
     }
 }

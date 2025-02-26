@@ -136,8 +136,14 @@ public struct FileSystemPackageContainer: PackageContainer {
         fatalError("This should never be called")
     }
 
-    public func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
+    public func getEnabledTraits(traitConfiguration: TraitConfiguration?, at version: Version? = nil) async throws -> Set<String> {
+        guard version == nil else {
+            throw InternalError("File system package container does not support versioning.")
+        }
         let manifest = try await loadManifest()
+        guard manifest.packageKind.isRoot else {
+            return []
+        }
         let enabledTraits = manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
         return enabledTraits ?? []
     }

@@ -99,7 +99,8 @@ public enum DependencyResolutionNode {
         return PackageContainerConstraint(
             package: self.package,
             versionRequirement: .exact(version),
-            products: .specific([])
+            products: .specific([]),
+            enabledTraits: [] // TODO: bp add enabled traits to dependency res node
         )
     }
 
@@ -112,7 +113,8 @@ public enum DependencyResolutionNode {
         return PackageContainerConstraint(
             package: self.package,
             requirement: .revision(revision),
-            products: .specific([])
+            products: .specific([]),
+            enabledTraits: [] // TODO: bp add enabled traits to dependency res node
         )
     }
 }

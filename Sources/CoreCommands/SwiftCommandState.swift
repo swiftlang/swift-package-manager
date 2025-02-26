@@ -255,6 +255,9 @@ public final class SwiftCommandState {
     // should use sandbox on external subcommands
     public var shouldDisableSandbox: Bool
 
+    /// Flag that determines whether a manifest's dependencies should be pruned if unused.
+//    public var shouldPruneDependencies: Bool = false
+
     /// The file system in use
     public let fileSystem: FileSystem
 
@@ -470,7 +473,8 @@ public final class SwiftCommandState {
                     // TODO: should supportsAvailability be a flag as well?
                     .init(url: $0, supportsAvailability: true)
                 },
-                manifestImportRestrictions: .none
+                manifestImportRestrictions: .none,
+                pruneDependencies: options.resolver.pruneDependencies
             ),
             cancellator: self.cancellator,
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
@@ -588,7 +592,7 @@ public final class SwiftCommandState {
     }
 
     /// Resolve the dependencies.
-    public func resolve() async throws {
+    public func resolve(_ traitConfiguration: TraitConfiguration?) async throws {
         let workspace = try getActiveWorkspace()
         let root = try getWorkspaceRoot()
 
@@ -596,7 +600,8 @@ public final class SwiftCommandState {
             root: root,
             forceResolution: false,
             forceResolvedVersions: options.resolver.forceResolvedVersions,
-            observabilityScope: self.observabilityScope
+            observabilityScope: self.observabilityScope,
+            traitConfiguration: traitConfiguration
         )
 
         // Throw if there were errors when loading the graph.

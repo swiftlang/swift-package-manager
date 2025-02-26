@@ -679,7 +679,6 @@ public final class PackageBuilder {
             // No reference of this target in manifest, i.e. it has no dependencies.
             guard let target = self.manifest.targetMap[$0.name] else { return [] }
             // Collect the successors from declared dependencies.
-            // TODO: this is just grabbing the static list of target dependencies, need to modify?
             var successors: [PotentialModule] = target.dependencies.compactMap { dep in
                 guard self.manifest.isTargetDependencyEnabled(dep, enabledTraits: self.enabledTraits) else {
                     return nil
@@ -740,7 +739,7 @@ public final class PackageBuilder {
 
             // Get the dependencies of this target.
             let dependencies: [Module.Dependency] = try manifestTarget.map {
-                try $0.dependencies/*.filter({ manifest.isTargetDependencyEnabled($0) })*/.compactMap { dependency -> Module.Dependency? in
+                try $0.dependencies.compactMap { dependency -> Module.Dependency? in
                     // We don't create an object for target dependencies that aren't enabled.
                     guard self.manifest.isTargetDependencyEnabled(dependency, enabledTraits: self.enabledTraits) else {
                         return nil
