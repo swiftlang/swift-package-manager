@@ -191,6 +191,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 observabilityScope: observabilityScope,
                 logLevel: self.logLevel
             )
+
             try await builder.build(
                 packagePath: packagePath,
                 scratchDirectory: scratchDirectory,
@@ -334,7 +335,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                         disableSandbox: false
                     ),
                     scratchDirectory: scratchDirectory,
-                    // When bootrapping no special trait build configuration is used
+                    // When bootstrapping no special trait build configuration is used
                     traitConfiguration: nil,
                     additionalFileRules: [],
                     pkgConfigDirectories: [],
@@ -378,7 +379,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             // Compute the transitive closure of available dependencies.
             let input = loadedManifests.map { identity, manifest in KeyedPair(manifest, key: identity) }
             _ = try await topologicalSort(input) { pair in
-                // TODO: bp pass in proper trait config
+                // When bootstrapping no special trait build configuration is used
                 let dependenciesRequired = pair.item.dependenciesRequired(for: .everything, nil)
                 let dependenciesToLoad = dependenciesRequired.map{ $0.packageRef }.filter { !loadedManifests.keys.contains($0.identity) }
                 let dependenciesManifests = try await self.loadManifests(manifestLoader: manifestLoader, packages: dependenciesToLoad)
@@ -394,7 +395,8 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 input: .init(packages: [packagePath]),
                 manifests: [packagePath: rootPackageManifest],
                 observabilityScope: observabilityScope,
-                traitConfiguration: nil // TODO: bp pass in proper trait config
+                traitConfiguration: nil // When bootstrapping no special trait build configuration is used
+
             )
 
             return try ModulesGraph.load(

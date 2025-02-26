@@ -108,7 +108,7 @@ extension Workspace {
         var updateConstraints = currentManifests.editedPackagesConstraints
 
         // Create constraints based on root manifest and `Package.resolved` for the update resolution.
-        updateConstraints += try graphRoot.constraints(nil, traitConfiguration)
+        updateConstraints += try graphRoot.constraints(traitConfiguration)
 
         let resolvedPackages: ResolvedPackagesStore.ResolvedPackages
         if packages.isEmpty {
@@ -537,22 +537,22 @@ extension Workspace {
             traitConfiguration: traitConfiguration
         )
 
-        let enabledAndUsedTargetDependencies = try graphRoot.manifests.values.compactMap { manifest in
-            let usedTargetDeps = try manifest.usedTargetDependencies(withTraits: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
-            return usedTargetDeps
-        }
-            .reduce(into: [String: Set<TargetDescription.Dependency>]()) { flattenedMap, element in
-                flattenedMap.merge(element, uniquingKeysWith: { lhs, rhs in
-                    return lhs
-                })
-            }
+//        let enabledAndUsedTargetDependencies = try graphRoot.manifests.values.compactMap { manifest in
+//            let usedTargetDeps = try manifest.usedTargetDependencies(withTraits: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
+//            return usedTargetDeps
+//        }
+//            .reduce(into: [String: Set<TargetDescription.Dependency>]()) { flattenedMap, element in
+//                flattenedMap.merge(element, uniquingKeysWith: { lhs, rhs in
+//                    return lhs
+//                })
+//            }
 
         // Of the enabled dependencies of targets, only consider these for dependency resolution
-        let usedDependencies = Set(enabledAndUsedTargetDependencies.values.flatMap { $0 })
+//        let usedDependencies = Set(enabledAndUsedTargetDependencies.values.flatMap { $0 })
         let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,
             observabilityScope: observabilityScope,
-            usedDependencies: Set(usedDependencies.compactMap(\.package)),
+//            usedDependencies: Set(usedDependencies.compactMap(\.package)),
             traitConfiguration: traitConfiguration
         )
         guard !observabilityScope.errorsReported else {
@@ -621,7 +621,7 @@ extension Workspace {
         // Create the constraints; filter unused dependencies.
         var computedConstraints = [PackageContainerConstraint]()
         computedConstraints += currentManifests.editedPackagesConstraints
-        computedConstraints += try graphRoot.constraints(usedDependencies, traitConfiguration) + constraints
+        computedConstraints += try graphRoot.constraints(traitConfiguration) + constraints
 
         // Perform dependency resolution.
         let resolver = try self.createResolver(resolvedPackages: resolvedPackagesStore.resolvedPackages, observabilityScope: observabilityScope)
@@ -655,7 +655,7 @@ extension Workspace {
         let updatedDependencyManifests = try await self.loadDependencyManifests(
             root: graphRoot,
             observabilityScope: observabilityScope,
-            usedDependencies: Set(usedDependencies.compactMap(\.package)),
+//            usedDependencies: Set(usedDependencies.compactMap(\.package)),
             traitConfiguration: traitConfiguration
         )
 
@@ -892,7 +892,7 @@ extension Workspace {
         traitConfiguration: TraitConfiguration?
     ) async throws -> ResolutionPrecomputationResult {
         let computedConstraints =
-        try root.constraints(nil, traitConfiguration) +
+        try root.constraints(traitConfiguration) +
             // Include constraints from the manifests in the graph root.
         root.manifests.values.flatMap { try $0.dependencyConstraints(productFilter: .everything, /*.init(traitConfiguration)*/nil) } +
             dependencyManifests.dependencyConstraints +

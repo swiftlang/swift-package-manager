@@ -265,6 +265,8 @@ extension ModulesGraph {
             traitConfiguration: traitConfiguration
         )
 
+//        throw PackageGraphError.duplicateProduct(product: "asdf", packages: [])
+
         let rootPackages = resolvedPackages.filter { root.manifests.values.contains($0.manifest) }
         checkAllDependenciesAreUsed(packages: resolvedPackages, rootPackages, observabilityScope: observabilityScope)
 
@@ -761,9 +763,6 @@ private func createResolvedPackages(
                 moduleBuilder.dependencies.append(.product(product, conditions: conditions))
             }
         }
-
-        // dummy error to view print messages in tests
-//         throw PackageGraphError.duplicateProduct(product: "asdf", packages: [])
     }
 
     // If a module with similar name was encountered before, we emit a diagnostic.

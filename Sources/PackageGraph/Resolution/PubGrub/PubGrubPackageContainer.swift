@@ -197,7 +197,8 @@ final class PubGrubPackageContainer {
                     PackageContainerConstraint(
                         package: node.package,
                         requirement: dep.requirement,
-                        products: node.productFilter
+                        products: node.productFilter,
+                        enabledTraits: dep.enabledTraits
                     )
                 )
             }

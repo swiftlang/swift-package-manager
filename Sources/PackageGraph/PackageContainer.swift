@@ -100,8 +100,9 @@ public protocol PackageContainer {
 
 
     /// Fetch the enabled traits of a package container.
-    /// TODO: bp finish fn description
-    func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String>
+    ///
+    /// NOTE: This method should only be called on root packages.
+    func getEnabledTraits(traitConfiguration: TraitConfiguration?, at version: Version?) async throws -> Set<String>
 }
 
 extension PackageContainer {
@@ -115,6 +116,10 @@ extension PackageContainer {
 
     public var shouldInvalidatePinnedVersions: Bool {
         return true
+    }
+
+    public func getEnabledTraits(traitConfiguration: TraitConfiguration?, at version: Version? = nil) async throws -> Set<String> {
+        return []
     }
 }
 
@@ -150,22 +155,22 @@ public struct PackageContainerConstraint: Equatable, Hashable {
     /// The required products.
     public let products: ProductFilter
 
-    // FIXME: to fully implement
-//    public let traitConfiguration: TraitConfiguration?
+    /// The traits that have been enabled for the package.
+    public let enabledTraits: Set<String>?
 
     /// Create a constraint requiring the given `container` satisfying the
     /// `requirement`.
-    public init(package: PackageReference, requirement: PackageRequirement, products: ProductFilter) {
+    public init(package: PackageReference, requirement: PackageRequirement, products: ProductFilter, enabledTraits: Set<String>? = nil) {
         self.package = package
         self.requirement = requirement
         self.products = products
-//        self.traitConfiguration = traitConfiguration
+        self.enabledTraits = enabledTraits
     }
 
     /// Create a constraint requiring the given `container` satisfying the
     /// `versionRequirement`.
-    public init(package: PackageReference, versionRequirement: VersionSetSpecifier, products: ProductFilter) {
-        self.init(package: package, requirement: .versionSet(versionRequirement), products: products)
+    public init(package: PackageReference, versionRequirement: VersionSetSpecifier, products: ProductFilter, enabledTraits: Set<String>? = nil) {
+        self.init(package: package, requirement: .versionSet(versionRequirement), products: products, enabledTraits: enabledTraits)
     }
 }
 

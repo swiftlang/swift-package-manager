@@ -15,6 +15,75 @@ import PackageModel
 import _InternalTestSupport
 
 class ManifestTests: XCTestCase {
+
+    // TODO: bp add to separate file?
+//    func testEnabledTraits_WhenNoTraits() throws {
+//        let products = [
+//            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+//            try ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
+//        ]
+//
+//        let targets = [
+//            try TargetDescription(name: "Foo", dependencies: ["Bar"]),
+//            try TargetDescription(name: "Bar", dependencies: ["Baz"]),
+//            try TargetDescription(name: "Baz", dependencies: ["MyPlugin"]),
+//            try TargetDescription(name: "FooBar", dependencies: []),
+//            try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .buildTool)
+//        ]
+//
+//        let traits = [
+//            TraitDescription(name: "default", enabledTraits: ["Trait3"]),
+//            TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
+//            TraitDescription(name: "Trait2")
+//        ]
+//
+//        do {
+//            let manifest = Manifest.createRootManifest(
+//                displayName: "Foo",
+//                path: "/Foo",
+//                toolsVersion: .v5_2,
+//                products: products,
+//                targets: targets
+//            )
+//
+//            XCTAssertEqual(manifest.targetsRequired(for: .everything).map({ $0.name }).sorted(), [
+//                "Bar",
+//                "Baz",
+//                "Foo",
+//                "FooBar",
+//                "MyPlugin"
+//            ])
+//        }
+//    }
+//
+//    func testEnabledTraits_WhenDefaultAndNoConfig() throws {
+//
+//    }
+//
+//    func testEnabledTraits_WhenAllTraitsEnabled() throws {
+//
+//    }
+//
+//    func testEnabledTraits_WhenAllTraitsDisabled() throws {
+//
+//    }
+//
+//    func testDefaultTraits_WhenNoTraitsExist() throws {
+//
+//    }
+//
+//    func testDefaultTraits_WhenAllTraitsDisabled() throws {
+//
+//    }
+//
+//    func testTraitEnabled_WhenTraitIsDefault() throws {
+//
+//    }
+//
+//    func testTraitEnabled_WhenTraitConditionallyEnabled() throws {
+//
+//    }
+
     func testRequiredTargets() throws {
         let products = [
             try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),

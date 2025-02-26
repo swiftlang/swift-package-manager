@@ -57,7 +57,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         public var package: String? {
             switch self {
             case .product(_, let name?, _, _),
-                    .byName(let name, _):
+                  .byName(let name, _): // byName can either refer to a product or target dep...
                 return name
             default:
                 return nil

@@ -104,6 +104,8 @@ public final class Manifest: Sendable {
     /// Dependencies required for building particular product filters.
     private let _requiredDependencies = ThreadSafeKeyValueStore<ProductFilter, [PackageDependency]>()
 
+    public let pruneDependencies: Bool
+
     public init(
         displayName: String,
         path: AbsolutePath,
@@ -122,7 +124,8 @@ public final class Manifest: Sendable {
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
-        traits: Set<TraitDescription>
+        traits: Set<TraitDescription>,
+        pruneDependencies: Bool = false
     ) {
         self.displayName = displayName
         self.path = path
@@ -143,6 +146,7 @@ public final class Manifest: Sendable {
         self.targets = targets
         self.targetMap = Dictionary(targets.lazy.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
         self.traits = traits
+        self.pruneDependencies = pruneDependencies
     }
 
     /// Returns the targets required for a particular product filter.
@@ -228,11 +232,12 @@ public final class Manifest: Sendable {
                 }
 
                 // TODO: bp to fully implement this
-//                target.pluginUsages?.forEach {
-//                    if let dependency = self.packageDependency(referencedBy: $0) {
+                target.pluginUsages?.forEach {
+                // TODO: bp dependency.traits -> to check if enabled?
+                    if let dependency = self.packageDependency(referencedBy: $0) {
 //                        guardedDependencies.insert(dependency.identity)
-//                    }
-//                }
+                    }
+                }
             }
 
             let dependencies = self.dependencies.filter { guardedDependencies.contains($0.identity) }
@@ -256,19 +261,32 @@ public final class Manifest: Sendable {
         let explicitlyEnabledTraits: Set<String>? = self.enabledTraits(using: enabledTraits, enableAllTraits: enableAllTraits)
 
         guard self.toolsVersion >= .v5_2 && !self.packageKind.isRoot else {
-            return self.dependencies.filter({
-                return self.isDependencyUsed($0.identity.description, enabledTraits: explicitlyEnabledTraits)
-            })
+//            return self.dependencies.filter({
+//                return self.isPackageDependencyUsed($0, enabledTraits: explicitlyEnabledTraits)
+//            })
+            var dependencies = self.dependencies
+            if pruneDependencies {
+                dependencies = dependencies.filter({
+                    return self.isPackageDependencyUsed($0, enabledTraits: explicitlyEnabledTraits)
+                })
+            }
+            return dependencies
         }
 
         // calculate explicitly enabled traits through config:
 
         // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
-        if let dependencies = self._requiredDependencies[.nothing] {
-            let deps = dependencies.filter({
-                return self.isDependencyUsed($0.identity.description, enabledTraits: explicitlyEnabledTraits)
-            })
-            return deps
+        if var dependencies = self._requiredDependencies[.nothing] {
+//            let deps = dependencies.filter({
+//                return self.isPackageDependencyUsed($0, enabledTraits: explicitlyEnabledTraits)
+//            })
+//            return deps
+            if pruneDependencies {
+                dependencies = dependencies.filter({
+                    return self.isPackageDependencyUsed($0, enabledTraits: explicitlyEnabledTraits)
+                })
+            }
+            return dependencies //dependenciesFiltered(by: explicitlyEnabledTraits)
         } else {
             var requiredDependencies: Set<PackageIdentity> = []
             for target in self.targetsRequired(for: self.products) {
@@ -422,7 +440,6 @@ public final class Manifest: Sendable {
     private func packageDependency(
         referencedBy packageName: String
     ) -> PackageDependency? {
-        // TODO: assure that the dependency is activated by the set of traits that are enabled
         self.dependencies.first(where: {
             // rdar://80594761 make sure validation is case insensitive
             $0.nameForModuleDependencyResolutionOnly.lowercased() == packageName.lowercased()
@@ -656,17 +673,6 @@ extension Manifest {
         }
     }
 
-    // TODO: default method called whenever dealing with trait config
-//    private func processTraitSettings(_ enabledTraits: Set<String>?, enableAllTraits: Bool = false) -> Set<String> {
-//        var enabledTraits = enabledTraits ?? Set(defaultTraits.map(\.name))
-//
-//        if enableAllTraits {
-//            enabledTraits = Set(traits.map(\.name))
-//        }
-//
-//        return enabledTraits
-//    }
-
     public func enabledTraits(using explicitTraits: Set<String>?, enableAllTraits: Bool = false) -> Set<String>? {
         guard supportsTraits else {
             if let explicitTraits, !explicitTraits.isEmpty {
@@ -749,7 +755,6 @@ extension Manifest {
         return enabledTraits
     }
 
-    // TODO: consider traits flag to modify calculation
     public func usedTargetDependencies(withTraits enabledTraits: Set<String>?, enableAllTraits: Bool = false) throws -> [String: Set<TargetDescription.Dependency>] {
         return try self.targets.reduce(into: [String: Set<TargetDescription.Dependency>]()) { depMap, target in
             let nonTraitDeps = target.dependencies.filter {
@@ -759,7 +764,8 @@ extension Manifest {
             let traitGuardedDeps = try target.dependencies.filter { dep in
                 let traits = dep.condition?.traits ?? []
 
-                // TODO: bp real config here pls
+                // For each trait that is a condition on this target dependency, assure that
+                // each one is enabled in the manifest.
                 return try traits.allSatisfy({ try isTraitEnabled(.init(stringLiteral: $0), enabledTraits, enableAllTraits) })
             }
 
@@ -768,11 +774,30 @@ extension Manifest {
         }
     }
 
-    public func usedDependencies(withTraits enabledTraits: Set<String>?, enableAllTraits: Bool = false) throws -> Set<String> {
-        guard let deps = try? self.usedTargetDependencies(withTraits: enabledTraits, enableAllTraits: enableAllTraits).values.flatMap({ $0 }).compactMap(\.package) else {
-            return []
+    public func usedDependencies(withTraits enabledTraits: Set<String>?, enableAllTraits: Bool = false) throws -> (knownPackage: Set<String>, unknownPackage: Set<String>) {
+        guard let deps = try? self.usedTargetDependencies(
+            withTraits: enabledTraits,
+            enableAllTraits: enableAllTraits)
+            .values
+            .flatMap({ $0 })
+            .compactMap(\.package)
+        else {
+            return (knownPackage: [], unknownPackage: [])
         }
-        return Set(deps)
+
+        var known: Set<String> = []
+        var unknown: Set<String> = []
+
+        deps.forEach({
+            if let dep = self.packageDependency(referencedBy: $0) {
+                known.insert(dep.identity.description)
+            } else if self.targetMap[$0] == nil {
+                // Marking this dependency as tentatively used, given that we cannot find the package ref at this stage.
+                unknown.insert($0)
+            }
+        })
+
+        return (knownPackage: known, unknownPackage: unknown)
     }
 
     /// Returns the set of dependencies that are guarded by traits. This does not calculate enabled and disabled dependencies
@@ -801,6 +826,7 @@ extension Manifest {
     }
 
     public func isTargetDependencyEnabled(_ dependency: TargetDescription.Dependency, enabledTraits: Set<String>?, enableAllTraits: Bool = false) -> Bool {
+        guard supportsTraits else { return true } // If there is no trait config, the target dep is automatically enabled
         guard let package = dependency.package else { return false }
         guard !enableAllTraits else { return true }
         let traitsThatEnableDependency = traitGuardedDependencies()[package] ?? []
@@ -815,12 +841,15 @@ extension Manifest {
         }
     }
 
-    public func isDependencyUsed(_ dependency: String, enabledTraits: Set<String>?, enableAllTraits: Bool = false) -> Bool {
+    public func isPackageDependencyUsed(_ dependency: PackageDependency, enabledTraits: Set<String>?, enableAllTraits: Bool = false) -> Bool {
         do {
             let usedDependencies = try self.usedDependencies(withTraits: enabledTraits, enableAllTraits: enableAllTraits)
-            return usedDependencies.contains(where: {
-                $0.caseInsensitiveCompare(dependency) == .orderedSame
+            let foundKnownPackage = usedDependencies.knownPackage.contains(where: {
+                $0.caseInsensitiveCompare(dependency.identity.description) == .orderedSame
             })
+
+            // if there is a target dependency referenced by name and the package it originates from is unknown, default to tentatively marking the package dependency as used. to be resolved later on.
+            return foundKnownPackage || (!foundKnownPackage && !usedDependencies.unknownPackage.isEmpty)
         } catch {
             // TODO: bp handle error
             return false

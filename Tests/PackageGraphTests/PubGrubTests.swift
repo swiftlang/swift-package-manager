@@ -3200,7 +3200,7 @@ public class MockContainer: PackageContainer {
     }
 
     public func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
-        // TODO: complete
+        // FIXME: This mock does not currently support traits.
         return []
     }
 

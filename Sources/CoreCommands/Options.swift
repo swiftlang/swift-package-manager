@@ -294,6 +294,13 @@ public struct ResolverOptions: ParsableArguments {
     public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation =
         .disabled
 
+    /// Enables pruning unused dependencies to omit redundant calculations during resolution, and each phase thereafter.
+    @Flag(
+        name: .customLong("prune-unused-dependencies"),
+        help: "Enables the ability to prune unused dependencies of the package."
+    )
+    public var pruneDependencies: Bool = false
+
     @Option(help: "Default registry URL to use, instead of the registries.json configuration file")
     public var defaultRegistryURL: URL?
 
