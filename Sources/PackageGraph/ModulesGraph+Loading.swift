@@ -831,7 +831,7 @@ private func prepareProductDependencyNotFoundError(
     // if indeed the dependency matches any of the products.
     let declProductsAsDependency = packageBuilder.package.products.filter { product in
         lookupByProductIDs ? product.identity == dependency.identity : product.name == dependency.name
-    }.map(\.modules).flatMap { $0 }.filter { t in
+    }.flatMap(\.modules).filter { t in
         t.name != dependency.name
     }
     if !declProductsAsDependency.isEmpty {
