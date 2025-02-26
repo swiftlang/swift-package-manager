@@ -440,6 +440,22 @@ public struct SwiftSetting: Sendable {
         return SwiftSetting(
             name: "swiftLanguageMode", value: [.init(describing: mode)], condition: condition)
     }
+
+    /// Whether `@testable` is enabled by passing the `-enable-testing` to the Swift compiler.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - enable: Whether to enable `@testable`.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func enableTestableImport(
+        _ enable: Bool,
+        _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "enableTestableImport", value: [.init(describing: enable)], condition: condition)
+    }
 }
 
 /// A linker build setting.
