@@ -170,18 +170,21 @@ public struct PubGrubDependencyResolver {
         let root: DependencyResolutionNode
         if constraints.count == 1, let constraint = constraints.first, constraint.package.kind.isRoot {
             // root level package, use it as our resolution root
-            root = .root(package: constraint.package)
+            root = .root(package: constraint.package, traitConfiguration: traitConfiguration)
         } else {
             // more complex setup requires a synthesized root
-            root = .root(package: .root(
-                identity: .plain("<synthesized-root>"),
-                path: .root
-            ))
+            root = .root(
+                package: .root(
+                    identity: .plain("<synthesized-root>"),
+                    path: .root
+                ),
+                traitConfiguration: traitConfiguration
+            )
         }
 
         do {
             // strips state
-            let bindings = try await self.solve(root: root, constraints: constraints, traitConfiguration: traitConfiguration).bindings
+            let bindings = try await self.solve(root: root, constraints: constraints).bindings
             return .success(bindings)
         } catch {
             // If version solving failing, build the user-facing diagnostic.
@@ -206,7 +209,7 @@ public struct PubGrubDependencyResolver {
     /// Find a set of dependencies that fit the given constraints. If dependency
     /// resolution is unable to provide a result, an error is thrown.
     /// - Warning: It is expected that the root package reference has been set  before this is called.
-    internal func solve(root: DependencyResolutionNode, constraints: [Constraint], traitConfiguration: TraitConfiguration? = nil) async throws -> (bindings: [DependencyResolverBinding], state: State) {
+    internal func solve(root: DependencyResolutionNode, constraints: [Constraint]) async throws -> (bindings: [DependencyResolverBinding], state: State) {
         // first process inputs
         let inputs = try await self.processInputs(root: root, with: constraints)
 
@@ -234,7 +237,7 @@ public struct PubGrubDependencyResolver {
             state.addIncompatibility(incompatibility, at: .topLevel)
         }
 
-        try await self.run(state: state, traitConfiguration: traitConfiguration)
+        try await self.run(state: state)
 
         let decisions = state.solution.assignments.filter(\.isDecision)
         var flattenedAssignments: [PackageReference: (binding: BoundVersion, products: ProductFilter)] = [:]
@@ -363,7 +366,7 @@ public struct PubGrubDependencyResolver {
 //
 //                }
                 for dependency in try await container.underlying
-                    .getUnversionedDependencies(productFilter: node.productFilter, .init(enabledTraits: constraint.enabledTraits))
+                    .getUnversionedDependencies(productFilter: node.productFilter, constraint.enabledTraits)
                 {
                     if let versionedBasedConstraints = VersionBasedConstraint.constraints(dependency) {
                         for constraint in versionedBasedConstraints {
@@ -434,17 +437,10 @@ public struct PubGrubDependencyResolver {
             }
 
             for node in constraint.nodes() {
-                // TODO: bp check whether traitconfig is correct here; root package only?
-//                var traitConfig: TraitConfiguration? = nil
-//                if node.package.kind.isRoot {
-//                    traitConfig = traitConfiguration
-//                } else {
-//                    // how to find appropriate config for dep?
-//                }
                 var unprocessedDependencies = try await container.underlying.getDependencies(
                     at: revisionForDependencies,
                     productFilter: constraint.products,
-                    .init(enabledTraits: constraint.enabledTraits) // TODO: bp change method signature to only accept enabled traits here; constraint enabled traits will have already calculated all the enabled + transitively enabled traits.
+                    constraint.enabledTraits
                 )
                 if let sharedRevision = node.revisionLock(revision: revision) {
                     unprocessedDependencies.append(sharedRevision)
@@ -505,7 +501,7 @@ public struct PubGrubDependencyResolver {
     /// decisions if nothing else is left to be done.
     /// After this method returns `solution` is either populated with a list of
     /// final version assignments or an error is thrown.
-    private func run(state: State, traitConfiguration: TraitConfiguration?) async throws {
+    private func run(state: State/*, traitConfiguration: TraitConfiguration?*/) async throws {
         var next: DependencyResolutionNode? = state.root
 
         while let nxt = next {
@@ -516,7 +512,7 @@ public struct PubGrubDependencyResolver {
 
             // If decision making determines that no more decisions are to be
             // made, it returns nil to signal that version solving is done.
-            next = try await self.makeDecision(state: state, traitConfiguration: traitConfiguration)
+            next = try await self.makeDecision(state: state/*, traitConfiguration: traitConfiguration*/)
         }
     }
 
@@ -717,8 +713,7 @@ public struct PubGrubDependencyResolver {
     }
 
     internal func makeDecision(
-        state: State,
-        traitConfiguration: TraitConfiguration? = nil
+        state: State
     ) async throws -> DependencyResolutionNode? {
         // If there are no more undecided terms, version solving is complete.
         let undecided = state.solution.undecided
@@ -757,8 +752,7 @@ public struct PubGrubDependencyResolver {
             at: version,
             node: pkgTerm.node,
             overriddenPackages: state.overriddenPackages,
-            root: state.root,
-            traitConfiguration: traitConfiguration
+            root: state.root
         )
 
         var haveConflict = false

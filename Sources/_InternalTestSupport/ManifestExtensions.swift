@@ -32,7 +32,8 @@ extension Manifest {
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
-        traits: Set<TraitDescription> = []
+        traits: Set<TraitDescription> = [],
+        pruneDependencies: Bool = false
     ) -> Manifest {
         Self.createManifest(
             displayName: displayName,
@@ -51,7 +52,8 @@ extension Manifest {
             dependencies: dependencies,
             products: products,
             targets: targets,
-            traits: traits
+            traits: traits,
+            pruneDependencies: pruneDependencies
         )
     }
 
@@ -70,7 +72,8 @@ extension Manifest {
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
-        traits: Set<TraitDescription> = []
+        traits: Set<TraitDescription> = [],
+        pruneDependencies: Bool = false
     ) -> Manifest {
         Self.createManifest(
             displayName: displayName,
@@ -89,7 +92,8 @@ extension Manifest {
             dependencies: dependencies,
             products: products,
             targets: targets,
-            traits: traits
+            traits: traits,
+            pruneDependencies: pruneDependencies
         )
     }
 
@@ -107,7 +111,8 @@ extension Manifest {
         swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
-        targets: [TargetDescription] = []
+        targets: [TargetDescription] = [],
+        pruneDependencies: Bool = false
     ) -> Manifest {
         Self.createManifest(
             displayName: displayName,
@@ -125,7 +130,8 @@ extension Manifest {
             swiftLanguageVersions: swiftLanguageVersions,
             dependencies: dependencies,
             products: products,
-            targets: targets
+            targets: targets,
+            pruneDependencies: pruneDependencies
         )
     }
 
@@ -144,7 +150,8 @@ extension Manifest {
         swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
-        targets: [TargetDescription] = []
+        targets: [TargetDescription] = [],
+        pruneDependencies: Bool = false
     ) -> Manifest {
         Self.createManifest(
             displayName: displayName,
@@ -162,7 +169,8 @@ extension Manifest {
             swiftLanguageVersions: swiftLanguageVersions,
             dependencies: dependencies,
             products: products,
-            targets: targets
+            targets: targets,
+            pruneDependencies: pruneDependencies
         )
     }
 
@@ -181,7 +189,8 @@ extension Manifest {
         swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
-        targets: [TargetDescription] = []
+        targets: [TargetDescription] = [],
+        pruneDependencies: Bool = false
     ) -> Manifest {
         Self.createManifest(
             displayName: displayName,
@@ -199,7 +208,8 @@ extension Manifest {
             swiftLanguageVersions: swiftLanguageVersions,
             dependencies: dependencies,
             products: products,
-            targets: targets
+            targets: targets,
+            pruneDependencies: pruneDependencies
         )
     }
 
@@ -220,7 +230,8 @@ extension Manifest {
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
-        traits: Set<TraitDescription> = []
+        traits: Set<TraitDescription> = [],
+        pruneDependencies: Bool = false
     ) -> Manifest {
         return Manifest(
             displayName: displayName,
@@ -240,7 +251,8 @@ extension Manifest {
             dependencies: dependencies,
             products: products,
             targets: targets,
-            traits: traits
+            traits: traits,
+            pruneDependencies: pruneDependencies
         )
     }
 
@@ -263,7 +275,8 @@ extension Manifest {
             dependencies: self.dependencies,
             products: self.products,
             targets: self.targets,
-            traits: self.traits
+            traits: self.traits,
+            pruneDependencies: false
         )
     }
 }

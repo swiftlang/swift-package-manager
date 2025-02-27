@@ -344,7 +344,7 @@ final class PubGrubTests: XCTestCase {
         let state1 = PubGrubDependencyResolver.State(root: rootNode)
 
         // No decision can be made if no unsatisfied terms are available.
-        let decisionNil = try await solver1.makeDecision(state: state1, traitConfiguration: nil)
+        let decisionNil = try await solver1.makeDecision(state: state1)
         XCTAssertNil(decisionNil)
 
         let a = MockContainer(package: aRef, dependenciesByVersion: [
@@ -361,7 +361,7 @@ final class PubGrubTests: XCTestCase {
 
         XCTAssertEqual(state2.incompatibilities.count, 0)
 
-        let decision = try await solver2.makeDecision(state: state2, traitConfiguration: nil)
+        let decision = try await solver2.makeDecision(state: state2)
         XCTAssertEqual(decision, .product("a", package: "a"))
 
         XCTAssertEqual(state2.incompatibilities.count, 3)
@@ -1416,7 +1416,7 @@ final class PubGrubTests: XCTestCase {
         ])
 
         let resolver = builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
-        let result = try await resolver.solve(root: rootNode, constraints: dependencies, traitConfiguration: nil) // TODO: config
+        let result = try await resolver.solve(root: rootNode, constraints: dependencies)
 
         // Since a was pinned, we shouldn't have computed bounds for its incompatibilities.
         let aIncompat = result.state.positiveIncompatibilities(for: .product("a", package: try builder.reference(for: "a")))![0]
@@ -3166,11 +3166,11 @@ public class MockContainer: PackageContainer {
         return version
     }
 
-    public func getDependencies(at version: Version, productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) throws -> [PackageContainerConstraint] {
-        return try getDependencies(at: version.description, productFilter: productFilter, traitConfiguration)
+    public func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: Set<String>?) throws -> [PackageContainerConstraint] {
+        return try getDependencies(at: version.description, productFilter: productFilter, enabledTraits)
     }
 
-    public func getDependencies(at revision: String, productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) throws -> [PackageContainerConstraint] {
+    public func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String>?) throws -> [PackageContainerConstraint] {
         guard let revisionDependencies = dependencies[revision] else {
             throw _MockLoadingError.unknownRevision
         }
@@ -3184,12 +3184,12 @@ public class MockContainer: PackageContainer {
         })
     }
 
-    public func getUnversionedDependencies(productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) throws -> [PackageContainerConstraint] {
+    public func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: Set<String>?) throws -> [PackageContainerConstraint] {
         // FIXME: This is messy, remove unversionedDeps property.
         if !unversionedDeps.isEmpty {
             return unversionedDeps
         }
-        return try getDependencies(at: PackageRequirement.unversioned.description, productFilter: productFilter, traitConfiguration)
+        return try getDependencies(at: PackageRequirement.unversioned.description, productFilter: productFilter, enabledTraits)
     }
 
     public func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {

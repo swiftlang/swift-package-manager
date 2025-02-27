@@ -241,13 +241,13 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public func getDependencies(at version: Version, productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) async throws -> [Constraint] {
+    public func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: Set<String>?) async throws -> [Constraint] {
         do {
             return try await self.getCachedDependencies(forIdentifier: version.description, productFilter: productFilter) {
                 guard let tag = try self.knownVersions()[version] else {
                     throw StringError("unknown tag \(version)")
                 }
-                return try await self.loadDependencies(tag: tag, version: version, productFilter: productFilter, traitConfiguration: traitConfiguration)
+                return try await self.loadDependencies(tag: tag, version: version, productFilter: productFilter, enabledTraits: enabledTraits)
             }.1
         } catch {
             throw GetDependenciesError(
@@ -259,12 +259,12 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public func getDependencies(at revision: String, productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) async throws -> [Constraint] {
+    public func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String>?) async throws -> [Constraint] {
         do {
             return try await self.getCachedDependencies(forIdentifier: revision, productFilter: productFilter) {
                 // resolve the revision identifier and return its dependencies.
                 let revision = try repository.resolveRevision(identifier: revision)
-                return try await self.loadDependencies(at: revision, productFilter: productFilter, traitConfiguration: traitConfiguration)
+                return try await self.loadDependencies(at: revision, productFilter: productFilter, enabledTraits: enabledTraits)
             }.1
         } catch {
             // Examine the error to see if we can come up with a more informative and actionable error message.  We know that the revision is expected to be a branch name or a hash (tags are handled through a different code path).
@@ -323,10 +323,10 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         tag: String,
         version: Version? = nil,
         productFilter: ProductFilter,
-        traitConfiguration: TraitConfiguration?
+        enabledTraits: Set<String>?
     ) async throws -> (Manifest, [Constraint]) {
         let manifest = try await self.loadManifest(tag: tag, version: version)
-        return (manifest, try manifest.dependencyConstraints(productFilter: productFilter, traitConfiguration?.enabledTraits, traitConfiguration?.enableAllTraits ?? false))
+        return (manifest, try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits))
     }
 
     /// Returns dependencies of a container at the given revision.
@@ -334,13 +334,13 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         at revision: Revision,
         version: Version? = nil,
         productFilter: ProductFilter,
-        traitConfiguration: TraitConfiguration?
+        enabledTraits: Set<String>?
     ) async throws -> (Manifest, [Constraint]) {
         let manifest = try await self.loadManifest(at: revision, version: version)
-        return (manifest, try manifest.dependencyConstraints(productFilter: productFilter, traitConfiguration?.enabledTraits, traitConfiguration?.enableAllTraits ?? false))
+        return (manifest, try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits))
     }
 
-    public func getUnversionedDependencies(productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) throws -> [Constraint] {
+    public func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: Set<String>?) throws -> [Constraint] {
         // We just return an empty array if requested for unversioned dependencies.
         return []
     }
@@ -419,8 +419,8 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
-        // TODO: complete
+    public func getEnabledTraits(traitConfiguration: TraitConfiguration?, at version: Version?) async throws -> Set<String> {
+        // TODO: bp complete
         return []
     }
 

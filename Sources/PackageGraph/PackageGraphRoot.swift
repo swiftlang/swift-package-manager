@@ -103,14 +103,21 @@ public struct PackageGraphRoot {
         // at which time the current special casing can be deprecated.
         var adjustedDependencies = input.dependencies.filter({ dep in
             guard !manifests.isEmpty else { return true }
+            // Check that the dependency is used in at least one of the manifests.
+            // If not, then we can omit this dependency if pruning unused dependencies
+            // is enabled.
             return manifests.values.reduce(false) {
                 guard $1.pruneDependencies else { return $0 || true }
-                return $0 || $1.isPackageDependencyUsed(dep, enabledTraits: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
+                if let isUsed = try? $1.isPackageDependencyUsed(dep, enabledTraits: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false) {
+                    return $0 || isUsed
+                }
+                return true
             }
         })
         if let explicitProduct {
             // FIXME: `dependenciesRequired` modifies manifests and prevents conversion of `Manifest` to a value type
-            for dependency in manifests.values.lazy.map({ $0.dependenciesRequired(for: .everything, traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false) }).joined() {
+            let deps = try? manifests.values.lazy.map({ try $0.dependenciesRequired(for: .everything, traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false) }).flatMap({ $0 })
+            for dependency in deps ?? [] {
                 adjustedDependencies.append(dependency.filtered(by: .specific([explicitProduct])))
             }
         }
@@ -132,7 +139,12 @@ public struct PackageGraphRoot {
                     result.formUnion(enabledTraits)
                 }
             }
-            return PackageContainerConstraint(package: package.reference, requirement: .unversioned, products: .everything, enabledTraits: explicitlyEnabledTraits)
+            return PackageContainerConstraint(
+                package: package.reference,
+                requirement: .unversioned,
+                products: .everything,
+                enabledTraits: explicitlyEnabledTraits
+            )
         }
         
         let depend = try dependencies

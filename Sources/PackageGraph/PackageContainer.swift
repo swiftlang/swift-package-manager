@@ -75,7 +75,7 @@ public protocol PackageContainer {
     /// - Precondition: `versions.contains(version)`
     /// - Throws: If the version could not be resolved; this will abort
     ///   dependency resolution completely.
-    func getDependencies(at version: Version, productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) async throws -> [PackageContainerConstraint]
+    func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: Set<String>?) async throws -> [PackageContainerConstraint]
 
     /// Fetch the declared dependencies for a particular revision.
     ///
@@ -84,12 +84,12 @@ public protocol PackageContainer {
     ///
     /// - Throws: If the revision could not be resolved; this will abort
     ///   dependency resolution completely.
-    func getDependencies(at revision: String, productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) async throws -> [PackageContainerConstraint]
+    func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String>?) async throws -> [PackageContainerConstraint]
 
     /// Fetch the dependencies of an unversioned package container.
     ///
     /// NOTE: This method should not be called on a versioned container.
-    func getUnversionedDependencies(productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) async throws -> [PackageContainerConstraint]
+    func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: Set<String>?) async throws -> [PackageContainerConstraint]
 
     /// Get the updated identifier at a bound version.
     ///

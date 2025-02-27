@@ -444,14 +444,15 @@ private func createResolvedPackages(
         var dependenciesByNameForModuleDependencyResolution = [String: ResolvedPackageBuilder]()
         var dependencyNamesForModuleDependencyResolutionOnly = [PackageIdentity: String]()
 
-        let isRoot = package.manifest.packageKind.isRoot
-        let enableAllTraits = isRoot ? traitConfiguration?.enableAllTraits ?? false : false
-        let enabledTraits = isRoot ? traitConfiguration?.enabledTraits : nil
+//        let isRoot = package.manifest.packageKind.isRoot
+//        let enableAllTraits = isRoot ? traitConfiguration?.enableAllTraits ?? false : false
+//        let enabledTraits = isRoot ? traitConfiguration?.enabledTraits : nil
 
-        package.manifest.dependenciesRequired(
+        try package.manifest.dependenciesRequired(
             for: packageBuilder.productFilter,
-            enabledTraits,
-            enableAllTraits: enableAllTraits
+            nil
+//            enabledTraits
+//            enableAllTraits: enableAllTraits
         ).forEach { dependency in
             let dependencyPackageRef = dependency.packageRef
 

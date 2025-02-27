@@ -101,9 +101,9 @@ public struct FileSystemPackageContainer: PackageContainer {
         }
     }
 
-    public func getUnversionedDependencies(productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) async throws -> [PackageContainerConstraint] {
+    public func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: Set<String>?) async throws -> [PackageContainerConstraint] {
         let manifest = try await self.loadManifest()
-        return try manifest.dependencyConstraints(productFilter: productFilter, traitConfiguration?.enabledTraits, traitConfiguration?.enableAllTraits ?? false)
+        return try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits)
     }
 
     public func loadPackageReference(at boundVersion: BoundVersion) async throws -> PackageReference {
@@ -128,11 +128,11 @@ public struct FileSystemPackageContainer: PackageContainer {
         fatalError("This should never be called")
     }
 
-    public func getDependencies(at version: Version, productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) throws -> [PackageContainerConstraint] {
+    public func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: Set<String>?) throws -> [PackageContainerConstraint] {
         fatalError("This should never be called")
     }
 
-    public func getDependencies(at revision: String, productFilter: ProductFilter, _ traitConfiguration: TraitConfiguration?) throws -> [PackageContainerConstraint] {
+    public func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String>?) throws -> [PackageContainerConstraint] {
         fatalError("This should never be called")
     }
 

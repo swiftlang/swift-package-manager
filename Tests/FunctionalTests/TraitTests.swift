@@ -23,7 +23,7 @@ final class TraitTests: XCTestCase {
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             // When fixed, GitHub issue #8131 should re-enable the below assert.
             // XCTAssertFalse(stderr.contains("warning:"))
-            let expectedOut = """
+            XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
             Package3Library1 trait3 enabled
@@ -32,18 +32,7 @@ final class TraitTests: XCTestCase {
             DEFINE2 disabled
             DEFINE3 disabled
 
-            """
-            XCTAssertTrue(stdout.contains(expectedOut))
-//            XCTAssertEqual(stdout, """
-//            Package1Library1 trait1 enabled
-//            Package2Library1 trait2 enabled
-//            Package3Library1 trait3 enabled
-//            Package4Library1 trait1 disabled
-//            DEFINE1 enabled
-//            DEFINE2 disabled
-//            DEFINE3 disabled
-//
-//            """)
+            """)
         }
     }
 
@@ -53,7 +42,7 @@ final class TraitTests: XCTestCase {
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             // When fixed, GitHub issue #8131 should re-enable the below assert.
             // XCTAssertFalse(stderr.contains("warning:"))
-            let expectedOut = """
+            XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
             Package3Library1 trait3 enabled
@@ -66,22 +55,7 @@ final class TraitTests: XCTestCase {
             DEFINE2 disabled
             DEFINE3 disabled
 
-            """
-            XCTAssertTrue(stdout.contains(expectedOut))
-//            XCTAssertEqual(stdout, """
-//            Package1Library1 trait1 enabled
-//            Package2Library1 trait2 enabled
-//            Package3Library1 trait3 enabled
-//            Package4Library1 trait1 disabled
-//            Package10Library1 trait1 enabled
-//            Package10Library1 trait2 enabled
-//            Package10Library1 trait1 enabled
-//            Package10Library1 trait2 enabled
-//            DEFINE1 enabled
-//            DEFINE2 disabled
-//            DEFINE3 disabled
-//
-//            """)
+            """)
         }
     }
 
@@ -91,7 +65,7 @@ final class TraitTests: XCTestCase {
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             // When fixed, GitHub issue #8131 should re-enable the below assert.
             // XCTAssertFalse(stderr.contains("warning:"))
-            let expectedOutput = """
+            XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
             Package3Library1 trait3 enabled
@@ -102,23 +76,7 @@ final class TraitTests: XCTestCase {
             DEFINE2 disabled
             DEFINE3 disabled
 
-            """
-
-            // TODO: Package10Library1 trait2 enabled not present -- see unification methods,
-            // TODO: since this trait is enabled in the root package dependencies
-            XCTAssertTrue(stdout.contains(expectedOutput))
-//            XCTAssertEqual(stdout, """
-//            Package1Library1 trait1 enabled
-//            Package2Library1 trait2 enabled
-//            Package3Library1 trait3 enabled
-//            Package4Library1 trait1 disabled
-//            Package10Library1 trait1 enabled
-//            Package10Library1 trait2 enabled
-//            DEFINE1 enabled
-//            DEFINE2 disabled
-//            DEFINE3 disabled
-//
-//            """)
+            """)
         }
     }
 
@@ -128,34 +86,19 @@ final class TraitTests: XCTestCase {
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             // When fixed, GitHub issue #8131 should re-enable the below assert.
             // XCTAssertFalse(stderr.contains("warning:"))
-            let expectedOutput = """
-            Package1Library1 trait1 enabled
-            Package2Library1 trait2 enabled
-            Package3Library1 trait3 enabled
-            Package4Library1 trait1 disabled
-            Package5Library1 trait1 enabled
-            Package6Library1 trait1 enabled
-            Package7Library1 trait1 disabled
-            DEFINE1 enabled
-            DEFINE2 disabled
-            DEFINE3 enabled
-            
-            """
-
-            //            XCTAssertEqual(stdout, """
-            //            Package1Library1 trait1 enabled
-            //            Package2Library1 trait2 enabled
-            //            Package3Library1 trait3 enabled
-            //            Package4Library1 trait1 disabled
-            //            Package5Library1 trait1 enabled
-            //            Package6Library1 trait1 enabled
-            //            Package7Library1 trait1 disabled
-            //            DEFINE1 enabled
-            //            DEFINE2 disabled
-            //            DEFINE3 enabled
-            //
-            //            """)
-            XCTAssertTrue(stdout.contains(expectedOutput))
+            XCTAssertEqual(stdout, """
+                        Package1Library1 trait1 enabled
+                        Package2Library1 trait2 enabled
+                        Package3Library1 trait3 enabled
+                        Package4Library1 trait1 disabled
+                        Package5Library1 trait1 enabled
+                        Package6Library1 trait1 enabled
+                        Package7Library1 trait1 disabled
+                        DEFINE1 enabled
+                        DEFINE2 disabled
+                        DEFINE3 enabled
+                        
+                        """)
         }
     }
 
@@ -165,19 +108,12 @@ final class TraitTests: XCTestCase {
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             // When fixed, GitHub issue #8131 should re-enable the below assert.
             // XCTAssertFalse(stderr.contains("warning:"))
-            let expectedOutput = """
+            XCTAssertEqual(stdout, """
             DEFINE1 disabled
             DEFINE2 disabled
             DEFINE3 disabled
 
-            """
-            XCTAssertTrue(stdout.contains(expectedOutput))
-//            XCTAssertEqual(stdout, """
-//            DEFINE1 disabled
-//            DEFINE2 disabled
-//            DEFINE3 disabled
-//
-//            """)
+            """)
         }
     }
 
@@ -187,7 +123,7 @@ final class TraitTests: XCTestCase {
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             // When fixed, GitHub issue #8131 should re-enable the below assert.
             // XCTAssertFalse(stderr.contains("warning:"))
-            let expectedOutput = """
+            XCTAssertEqual(stdout, """
             Package5Library1 trait1 enabled
             Package6Library1 trait1 enabled
             Package7Library1 trait1 disabled
@@ -195,17 +131,7 @@ final class TraitTests: XCTestCase {
             DEFINE2 disabled
             DEFINE3 disabled
 
-            """
-            XCTAssertTrue(stdout.contains(expectedOutput))
-//            XCTAssertEqual(stdout, """
-//            Package5Library1 trait1 enabled
-//            Package6Library1 trait1 enabled
-//            Package7Library1 trait1 disabled
-//            DEFINE1 disabled
-//            DEFINE2 disabled
-//            DEFINE3 disabled
-//
-//            """)
+            """)
         }
     }
 
@@ -215,7 +141,7 @@ final class TraitTests: XCTestCase {
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             // GitHub issue #8131
             // XCTAssertFalse(stderr.contains("warning:"))
-            let expectedOutput = """
+            XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
             Package3Library1 trait3 enabled
@@ -231,25 +157,7 @@ final class TraitTests: XCTestCase {
             DEFINE2 enabled
             DEFINE3 enabled
 
-            """
-            XCTAssertTrue(stdout.contains(expectedOutput))
-//            XCTAssertEqual(stdout, """
-//            Package1Library1 trait1 enabled
-//            Package2Library1 trait2 enabled
-//            Package3Library1 trait3 enabled
-//            Package4Library1 trait1 disabled
-//            Package5Library1 trait1 enabled
-//            Package6Library1 trait1 enabled
-//            Package7Library1 trait1 disabled
-//            Package10Library1 trait1 enabled
-//            Package10Library1 trait2 enabled
-//            Package10Library1 trait1 enabled
-//            Package10Library1 trait2 enabled
-//            DEFINE1 enabled
-//            DEFINE2 enabled
-//            DEFINE3 enabled
-//
-//            """)
+            """)
         }
     }
 
@@ -259,7 +167,7 @@ final class TraitTests: XCTestCase {
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             // GitHub issue #8131
             // XCTAssertFalse(stderr.contains("warning:"))
-            let expectedOutput = """
+            XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
             Package3Library1 trait3 enabled
@@ -275,25 +183,7 @@ final class TraitTests: XCTestCase {
             DEFINE2 enabled
             DEFINE3 enabled
 
-            """
-            XCTAssertTrue(stdout.contains(expectedOutput))
-//            XCTAssertEqual(stdout, """
-//            Package1Library1 trait1 enabled
-//            Package2Library1 trait2 enabled
-//            Package3Library1 trait3 enabled
-//            Package4Library1 trait1 disabled
-//            Package5Library1 trait1 enabled
-//            Package6Library1 trait1 enabled
-//            Package7Library1 trait1 disabled
-//            Package10Library1 trait1 enabled
-//            Package10Library1 trait2 enabled
-//            Package10Library1 trait1 enabled
-//            Package10Library1 trait2 enabled
-//            DEFINE1 enabled
-//            DEFINE2 enabled
-//            DEFINE3 enabled
-//
-//            """)
+            """)
         }
     }
 
