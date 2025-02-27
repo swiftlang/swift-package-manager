@@ -472,7 +472,8 @@ public final class SwiftCommandState {
                     .init(url: $0, supportsAvailability: true)
                 },
                 manifestImportRestrictions: .none,
-                usePrebuilts: options.caching.usePrebuilts
+                usePrebuilts: options.caching.usePrebuilts,
+                prebuiltsDownloadURL: options.caching.prebuiltsDownloadURL
             ),
             cancellator: self.cancellator,
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
