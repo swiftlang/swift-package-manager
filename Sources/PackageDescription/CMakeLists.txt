@@ -23,7 +23,8 @@ add_library(PackageDescription
   Target.swift
   Trait.swift
   Version.swift
-  Version+StringLiteralConvertible.swift)
+  Version+StringLiteralConvertible.swift
+  WarningLevel.swift)
 
 target_compile_options(PackageDescription PUBLIC
   $<$<COMPILE_LANGUAGE:Swift>:-package-description-version$<SEMICOLON>999.0>)
