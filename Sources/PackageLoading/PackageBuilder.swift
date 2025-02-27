@@ -675,12 +675,12 @@ public final class PackageBuilder {
         }
 
         let potentialModuleMap = Dictionary(potentialModules.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
-        let successors: (PotentialModule) -> [PotentialModule] = {
+        let successors: (PotentialModule) throws -> [PotentialModule] = {
             // No reference of this target in manifest, i.e. it has no dependencies.
             guard let target = self.manifest.targetMap[$0.name] else { return [] }
             // Collect the successors from declared dependencies.
-            var successors: [PotentialModule] = target.dependencies.compactMap { dep in
-                guard self.manifest.isTargetDependencyEnabled(dep, enabledTraits: self.enabledTraits) else {
+            var successors: [PotentialModule] = try target.dependencies.compactMap { dep in
+                guard try self.manifest.isTargetDependencyEnabled(dep, enabledTraits: self.enabledTraits) else {
                     return nil
                 }
                 switch dep {
@@ -718,7 +718,7 @@ public final class PackageBuilder {
             return successors
         }
         // Look for any cycle in the dependencies.
-        if let cycle = findCycle(potentialModules.sorted(by: { $0.name < $1.name }), successors: successors) {
+        if let cycle = try findCycle(potentialModules.sorted(by: { $0.name < $1.name }), successors: successors) {
             throw ModuleError.cycleDetected((cycle.path.map(\.name), cycle.cycle.map(\.name)))
         }
         // There was no cycle so we sort the targets topologically.
@@ -741,7 +741,7 @@ public final class PackageBuilder {
             let dependencies: [Module.Dependency] = try manifestTarget.map {
                 try $0.dependencies.compactMap { dependency -> Module.Dependency? in
                     // We don't create an object for target dependencies that aren't enabled.
-                    guard self.manifest.isTargetDependencyEnabled(dependency, enabledTraits: self.enabledTraits) else {
+                    guard try self.manifest.isTargetDependencyEnabled(dependency, enabledTraits: self.enabledTraits) else {
                         return nil
                     }
                     switch dependency {

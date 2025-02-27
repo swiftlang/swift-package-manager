@@ -171,7 +171,7 @@ final class PubGrubPackageContainer {
         var unprocessedDependencies = try await self.underlying.getDependencies(
             at: version,
             productFilter: node.productFilter,
-            traitConfiguration
+            node.traits
         )
         if let sharedVersion = node.versionLock(version: version) {
             unprocessedDependencies.append(sharedVersion)
