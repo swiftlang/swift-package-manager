@@ -4248,6 +4248,8 @@ final class BuildPlanTests: XCTestCase {
                             condition: .init(platformNames: ["macos"], config: "debug")
                         ),
                         .init(tool: .swift, kind: .strictMemorySafety),
+                        .init(tool: .swift, kind: .treatAllWarnings(.error)),
+                        .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .warning)),
                     ]
                 ),
                 TargetDescription(
@@ -4274,6 +4276,8 @@ final class BuildPlanTests: XCTestCase {
                             kind: .swiftLanguageMode(.v5),
                             condition: .init(platformNames: ["linux"])
                         ),
+                        .init(tool: .swift, kind: .treatAllWarnings(.warning)),
+                        .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .error)),
                         .init(tool: .linker, kind: .linkedLibrary("sqlite3")),
                         .init(
                             tool: .linker,
@@ -4373,6 +4377,8 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature", "BestFeature",
                     "-strict-memory-safety",
+                    "-warnings-as-errors",
+                    "-Wwarning", "DeprecatedDeclaration",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4381,7 +4387,20 @@ final class BuildPlanTests: XCTestCase {
             )
 
             let exe = try result.moduleBuildDescription(for: "exe").swift().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-swift-version", "5", "-DFOO", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
+            XCTAssertMatch(
+                exe,
+                [
+                    .anySequence,
+                    "-swift-version", "5",
+                    "-DFOO",
+                    "-no-warnings-as-errors",
+                    "-Werror", "DeprecatedDeclaration",
+                    "-g",
+                    "-Xcc", "-g",
+                    "-Xcc", "-fno-omit-frame-pointer",
+                    .end
+                ]
+            )
 
             let linkExe = try result.buildProduct(for: "exe").linkArguments()
             XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-Ilfoo", "-L", "lbar", "-g", .end])
@@ -4438,6 +4457,8 @@ final class BuildPlanTests: XCTestCase {
                     "-enable-upcoming-feature",
                     "BestFeature",
                     "-strict-memory-safety",
+                    "-warnings-as-errors",
+                    "-Wwarning", "DeprecatedDeclaration",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fomit-frame-pointer",
@@ -4446,7 +4467,20 @@ final class BuildPlanTests: XCTestCase {
             )
 
             let exe = try result.moduleBuildDescription(for: "exe").swift().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-swift-version", "5", "-DFOO", "-g", "-Xcc", "-g", "-Xcc", "-fomit-frame-pointer", .end])
+            XCTAssertMatch(
+                exe,
+                [
+                    .anySequence,
+                    "-swift-version", "5",
+                    "-DFOO",
+                    "-no-warnings-as-errors",
+                    "-Werror", "DeprecatedDeclaration",
+                    "-g",
+                    "-Xcc", "-g",
+                    "-Xcc", "-fomit-frame-pointer",
+                    .end
+                ]
+            )
         }
 
         // omit frame pointers explicitly set to false
@@ -4494,6 +4528,8 @@ final class BuildPlanTests: XCTestCase {
                     "-enable-upcoming-feature",
                     "BestFeature",
                     "-strict-memory-safety",
+                    "-warnings-as-errors",
+                    "-Wwarning", "DeprecatedDeclaration",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4502,7 +4538,20 @@ final class BuildPlanTests: XCTestCase {
             )
 
             let exe = try result.moduleBuildDescription(for: "exe").swift().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-swift-version", "5", "-DFOO", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
+            XCTAssertMatch(
+                exe,
+                [
+                    .anySequence,
+                    "-swift-version", "5",
+                    "-DFOO",
+                    "-no-warnings-as-errors",
+                    "-Werror", "DeprecatedDeclaration",
+                    "-g",
+                    "-Xcc", "-g",
+                    "-Xcc", "-fno-omit-frame-pointer",
+                    .end
+                ]
+            )
         }
 
         do {
@@ -4539,6 +4588,8 @@ final class BuildPlanTests: XCTestCase {
                     "-enable-upcoming-feature", "BestFeature",
                     "-enable-upcoming-feature", "WorstFeature",
                     "-strict-memory-safety",
+                    "-warnings-as-errors",
+                    "-Wwarning", "DeprecatedDeclaration",
                     "-g",
                     "-Xcc", "-g",
                     .end,
@@ -4554,6 +4605,8 @@ final class BuildPlanTests: XCTestCase {
                     "-DFOO",
                     "-cxx-interoperability-mode=default",
                     "-Xcc", "-std=c++17",
+                    "-no-warnings-as-errors",
+                    "-Werror", "DeprecatedDeclaration",
                     "-g",
                     "-Xcc", "-g",
                     .end,

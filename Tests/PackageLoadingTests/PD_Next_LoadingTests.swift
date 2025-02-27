@@ -39,4 +39,38 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             }
         }
     }
+
+    func testSwiftWarningTreatingRules() async throws {
+        let content = """
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                products: [],
+                targets: [
+                    .target(
+                        name: "Foo",
+                        swiftSettings: [
+                            .treatAllWarnings(as: .error),
+                            .treatWarning(name: "DeprecatedDeclaration", as: .warning),
+            
+                        ]
+                    ),
+                    .target(
+                        name: "Bar",
+                        swiftSettings: [
+                            .treatAllWarnings(as: .warning),
+                            .treatWarning(name: "DeprecatedDeclaration", as: .error),
+                        ]
+                    )
+                ]
+            )
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(validationDiagnostics)
+        testDiagnostics(observability.diagnostics) { result in
+            result.checkIsEmpty()
+        }
+    }
 }

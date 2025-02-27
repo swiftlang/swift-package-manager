@@ -273,6 +273,11 @@ public struct CXXSetting: Sendable {
     }
 }
 
+public enum WarningTreatLevel: String {
+    case warning, error
+    // TODO: case ignore? (for clang)
+}
+
 /// A Swift language build setting.
 public struct SwiftSetting: Sendable {
     /// The data store for the Swift build setting.
@@ -461,6 +466,25 @@ public struct SwiftSetting: Sendable {
     ) -> SwiftSetting {
         return SwiftSetting(
             name: "swiftLanguageMode", value: [.init(describing: mode)], condition: condition)
+    }
+
+    @available(_PackageDescription, introduced: 6.0)
+    public static func treatAllWarnings(
+      as level: WarningTreatLevel,
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "treatAllWarnings", value: [level.rawValue], condition: condition)
+    }
+
+    @available(_PackageDescription, introduced: 6.0)
+    public static func treatWarning(
+      name: String,
+      as level: WarningTreatLevel,
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "treatWarning", value: [name, level.rawValue], condition: condition)
     }
 }
 
