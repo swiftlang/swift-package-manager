@@ -19,6 +19,7 @@ import protocol TSCBasic.DiagnosticLocation
 import class TSCBasic.UnknownLocation
 import protocol TSCUtility.DiagnosticDataConvertible
 import enum TSCUtility.Diagnostics
+import class TSCBasic.TerminalController
 
 // this could become a struct when we remove the "errorsReported" pattern
 
@@ -160,6 +161,14 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, Sendable, Cus
 public protocol DiagnosticsHandler: Sendable {
     func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic)
 }
+
+//helper protocol to configurate the style of diagnostics
+protocol SeverityConfig {
+    var prefix: String { get }
+    var color: TerminalController.Color { get }
+    var isBold: Bool { get }
+}
+
 
 // helper protocol to share default behavior
 public protocol DiagnosticsEmitterProtocol {
@@ -387,7 +396,7 @@ public struct Diagnostic: Sendable, CustomStringConvertible {
         Self(severity: .debug, message: message.description, metadata: metadata)
     }
 
-    public enum Severity: Comparable, Sendable {
+    public enum Severity: Comparable, Sendable, SeverityConfig {
         case error
         case warning
         case info
@@ -408,6 +417,36 @@ public struct Diagnostic: Sendable, CustomStringConvertible {
 
         public static func < (lhs: Self, rhs: Self) -> Bool {
             lhs.naturalIntegralValue < rhs.naturalIntegralValue
+        }
+        
+        public var prefix: String {
+            switch self{
+            case .debug:
+                return "debug: "
+            case .info:
+                return "info: "
+            case .warning:
+                return "warning: "
+            case .error:
+                return "error: "
+            
+            }
+        }
+        
+        public var color: TerminalController.Color {
+            switch self {
+            case .debug:
+                return .white
+            case .info:
+                return .white
+            case .error:
+                return .red
+            case .warning:
+                return .yellow
+            }
+        }
+        public var isBold: Bool {
+            return true
         }
     }
 }

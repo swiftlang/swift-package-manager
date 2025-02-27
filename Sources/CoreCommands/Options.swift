@@ -38,6 +38,7 @@ import struct TSCUtility.Version
 
 import class Workspace.Workspace
 import struct Workspace.WorkspaceConfiguration
+import Foundation
 
 public struct GlobalOptions: ParsableArguments {
     public init() {}
@@ -208,6 +209,9 @@ public struct LoggingOptions: ParsableArguments {
     /// Whether logging output should be limited to `.error`.
     @Flag(name: .shortAndLong, help: "Decrease verbosity to only include error output.")
     public var quiet: Bool = false
+
+    @Flag(name: .customLong("color-diagnostics"), inversion: .prefixedNo, help: "Enables or disables color diagnostics when printing to a TTY. The default behavior if this flag is omitted is to use colors if connected to a TTY, and to not use colors otherwise.")
+    public var colorDiagnostics: Bool = ProcessInfo.processInfo.environment["NO_COLOR"] == nil
 }
 
 public struct SecurityOptions: ParsableArguments {

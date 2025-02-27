@@ -21,7 +21,8 @@ import class TSCBasic.ThreadSafeOutputByteStream
 import class TSCUtility.MultiLineNinjaProgressAnimation
 import class TSCUtility.NinjaProgressAnimation
 import protocol TSCUtility.ProgressAnimationProtocol
-
+import class TSCBasic.LocalFileOutputByteStream
+import class TSCBasic.BufferedOutputByteStream
 public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
     private let outputHandler: OutputHandler
 
@@ -34,9 +35,15 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
     ///   - outputStream: an instance of a stream used for output.
     ///   - logLevel: the lowest severity of diagnostics that this handler will forward to `outputStream`. Diagnostics
     ///   emitted below this level will be ignored.
+<<<<<<< HEAD
     public init(outputStream: OutputByteStream, logLevel: Basics.Diagnostic.Severity) {
         let threadSafeOutputByteStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
         self.outputHandler = OutputHandler(logLevel: logLevel, outputStream: threadSafeOutputByteStream)
+=======
+    public init(outputStream: OutputByteStream, logLevel: Basics.Diagnostic.Severity, colorDiagnostics: Bool = true, manualWriterParams: [String: Bool] = ["use": false]) {
+        let threadSafeOutputByteStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
+        self.outputHandler = OutputHandler(logLevel: logLevel, outputStream: threadSafeOutputByteStream, colorDiagnostics: colorDiagnostics, manualWriterParams: manualWriterParams)
+>>>>>>> 15e3b6455 (fixed color output diagnostics, along with tests)
     }
 
     // for raw output reporting
@@ -66,20 +73,36 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
     struct OutputHandler {
         private let logLevel: Diagnostic.Severity
         internal let outputStream: ThreadSafeOutputByteStream
-        private let writer: InteractiveWriter
+        private let writer: Writable
         private let progressAnimation: ProgressAnimationProtocol
+<<<<<<< HEAD
 
         private let queue = DispatchQueue(label: "org.swift.swiftpm.tools-output")
         private let sync = DispatchGroup()
 
         init(logLevel: Diagnostic.Severity, outputStream: ThreadSafeOutputByteStream) {
+=======
+        private let colorDiagnostics: Bool
+        private let queue = DispatchQueue(label: "org.swift.swiftpm.tools-output")
+        private let sync = DispatchGroup()
+
+        init(logLevel: Diagnostic.Severity, outputStream: ThreadSafeOutputByteStream, colorDiagnostics: Bool, manualWriterParams: [String: Bool]) {
+>>>>>>> 15e3b6455 (fixed color output diagnostics, along with tests)
             self.logLevel = logLevel
             self.outputStream = outputStream
-            self.writer = InteractiveWriter(stream: outputStream)
+            if manualWriterParams["manual"] ?? false {
+                self.writer = ManualWriter(isTTY: manualWriterParams["isTTY"] ?? false, stream: outputStream)
+            } else {
+                self.writer = InteractiveWriter(stream: outputStream)
+            }
             self.progressAnimation = ProgressAnimation.ninja(
                 stream: self.outputStream,
                 verbose: self.logLevel.isVerbose
             )
+<<<<<<< HEAD
+=======
+            self.colorDiagnostics = colorDiagnostics
+>>>>>>> 15e3b6455 (fixed color output diagnostics, along with tests)
         }
 
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
@@ -90,6 +113,7 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
 
                 // TODO: do something useful with scope
                 var output: String
+<<<<<<< HEAD
                 switch diagnostic.severity {
                 case .error:
                     output = self.writer.format("error: ", inColor: .red, bold: true)
@@ -100,6 +124,14 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
                 case .debug:
                     output = self.writer.format("debug: ", inColor: .white, bold: true)
                 }
+=======
+                
+                let prefix = diagnostic.severity.prefix
+                let color = self.colorDiagnostics ? diagnostic.severity.color : .noColor
+                let bold = self.colorDiagnostics ? diagnostic.severity.isBold : false
+
+                output = self.writer.format(prefix, inColor: color, bold: bold)
+>>>>>>> 15e3b6455 (fixed color output diagnostics, along with tests)
 
                 if let diagnosticPrefix = diagnostic.metadata?.diagnosticPrefix {
                     output += diagnosticPrefix
@@ -110,7 +142,10 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
                 self.write(output)
             }
         }
+<<<<<<< HEAD
 
+=======
+>>>>>>> 15e3b6455 (fixed color output diagnostics, along with tests)
         // for raw output reporting
         func print(_ output: String, verbose: Bool) {
             self.queue.async(group: self.sync) {
@@ -173,23 +208,21 @@ extension SwiftCommandObservabilityHandler.OutputHandler: DiagnosticsHandler {}
 ///
 /// If underlying stream is a not tty, the string will be written in without any
 /// formatting.
-private struct InteractiveWriter {
-    /// The terminal controller, if present.
-    let term: TerminalController?
-
-    /// The output byte stream reference.
+///
+///
+private class Writable {
+    var isTTY: Bool
     let stream: OutputByteStream
 
-    /// Create an instance with the given stream.
-    init(stream: OutputByteStream) {
-        self.term = TerminalController(stream: stream)
+    init(isTTY: Bool = true, stream: OutputByteStream) {
+        self.isTTY = isTTY
         self.stream = stream
     }
 
-    /// Write the string to the contained terminal or stream.
     func write(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) {
-        if let term {
-            term.write(string, inColor: color, bold: bold)
+        if isTTY {
+            let stringColor = getColorString(color: color)
+            stream.send(stringColor).send(bold ? "\u{001B}[1m" : "").send(string).send("\u{001B}[0m")
         } else {
             string.write(to: stream)
             stream.flush()
@@ -197,13 +230,67 @@ private struct InteractiveWriter {
     }
 
     func format(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) -> String {
-        if let term {
+        if isTTY {
+            let stringColor = getColorString(color: color)
+            guard !string.isEmpty && color != .noColor else {
+                return string
+            }
+            return "\(stringColor)\(bold ? "\u{001B}[1m" : "")\(string)\u{001B}[0m"
+        } else {
+            return string
+        }
+    }
+
+    private func getColorString(color: TerminalController.Color) -> String {
+        switch color {
+            case .noColor: return ""
+            case .red: return "\u{001B}[31m"
+            case .green: return "\u{001B}[32m"
+            case .yellow: return "\u{001B}[33m"
+            case .cyan: return "\u{001B}[36m"
+            case .white: return "\u{001B}[37m"
+            case .black: return "\u{001B}[30m"
+            case .gray: return "\u{001B}[30;1m"
+        }
+    }
+}
+
+private class ManualWriter: Writable {
+    override init(isTTY: Bool = true, stream: OutputByteStream) {
+        super.init(isTTY: isTTY, stream: stream)
+    }
+
+    public func setTTYMode(_ mode: Bool) {
+        self.isTTY = mode
+    }
+}
+
+private class InteractiveWriter: Writable {
+    let term: TerminalController?
+
+    init(stream: OutputByteStream) {
+        self.term = TerminalController(stream: stream)
+        super.init(stream: stream)
+    }
+
+    override func write(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) {
+        if let term = term {
+            term.write(string, inColor: color, bold: bold)
+        } else {
+            string.write(to: stream)
+            stream.flush()
+        }
+    }
+
+    override func format(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) -> String {
+        if let term = term {
             return term.wrap(string, inColor: color, bold: bold)
         } else {
             return string
         }
     }
 }
+
 
 // FIXME: this is for backwards compatibility with existing diagnostics printing format
 // we should remove this as we make use of the new scope and metadata to provide better contextual information
