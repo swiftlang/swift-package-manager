@@ -105,7 +105,7 @@ public protocol SwiftCommand: ParsableCommand, _SwiftCommand {
 extension SwiftCommand {
     public static var _errorLabel: String { "error" }
 
-    public func run() async throws {
+    public func run() throws {
         let swiftCommandState = try SwiftCommandState(
             options: globalOptions,
             toolWorkspaceConfiguration: self.toolWorkspaceConfiguration,
