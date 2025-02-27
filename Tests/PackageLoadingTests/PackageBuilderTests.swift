@@ -3182,6 +3182,68 @@ final class PackageBuilderTests: XCTestCase {
             }
         }
     }
+
+    func testSwiftWarningTreatingRules() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/foo/foo.swift",
+            "/Sources/bar/bar.swift"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .v5,
+            targets: [
+                try TargetDescription(
+                    name: "foo",
+                    settings: [
+                        .init(tool: .swift, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                        .init(tool: .swift, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                        .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .warning), condition: .init(config: "release")),
+                    ]
+                ),
+                try TargetDescription(
+                    name: "bar",
+                    settings: [
+                        .init(tool: .swift, kind: .treatAllWarnings(.warning)),
+                        .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .error)),
+                    ]
+                ),
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertEqual(
+                    macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS),
+                    ["-no-warnings-as-errors"]
+                )
+
+                let macosReleaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                XCTAssertEqual(
+                    macosReleaseScope.evaluate(.OTHER_SWIFT_FLAGS),
+                    ["-warnings-as-errors", "-Wwarning", "DeprecatedDeclaration"]
+                )
+            }
+
+            package.checkModule("bar") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertEqual(
+                    macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS),
+                    ["-no-warnings-as-errors", "-Werror", "DeprecatedDeclaration"]
+                )
+            }
+        }
+    }
 }
 
 final class PackageBuilderTester {

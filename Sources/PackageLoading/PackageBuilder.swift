@@ -1236,6 +1236,46 @@ public final class PackageBuilder {
                 }
 
                 values = [version.rawValue]
+
+            case .treatAllWarnings(let level):
+                switch setting.tool {
+                case .c, .cxx, .linker:
+                    // TODO
+                    throw InternalError(
+                        "only Swift supports treatAllWarnings"
+                    )
+
+                case .swift:
+                    // TODO: this should be SWIFT_TREAT_WARNINGS_AS_ERRORS
+                    // but it probably will break the order of the warning control
+                    // flags (which is important)
+                    decl = .OTHER_SWIFT_FLAGS
+                }
+
+                let flag = switch level {
+                case .error: "-warnings-as-errors"
+                case .warning: "-no-warnings-as-errors"
+                }
+                values = [flag]
+
+            case .treatWarning(let name, let level):
+                switch setting.tool {
+                case .c, .cxx, .linker:
+                    // TODO
+                    throw InternalError(
+                        "only Swift supports treatWarning"
+                    )
+
+                case .swift:
+                    decl = .OTHER_SWIFT_FLAGS
+                }
+
+                let flag = switch level {
+                case .error: "-Werror"
+                case .warning: "-Wwarning"
+                }
+                values = [flag, name]
+
             }
 
             // Create an assignment for this setting.
