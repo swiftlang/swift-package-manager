@@ -1118,7 +1118,8 @@ final class ParallelTestRunner {
             self.progressAnimation = ProgressAnimation.percent(
                 stream: TSCBasic.stdoutStream,
                 verbose: false,
-                header: "Testing:"
+                header: "Testing:",
+                isColorized: productsBuildParameters.outputParameters.isColorized
             )
         } else {
             self.progressAnimation = ProgressAnimation.ninja(
