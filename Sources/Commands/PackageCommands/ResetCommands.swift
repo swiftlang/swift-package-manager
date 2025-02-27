@@ -38,7 +38,7 @@ extension SwiftPackageCommand {
         }
     }
 
-    struct Reset: SwiftCommand {
+    struct Reset: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Reset the complete cache/build directory")
 

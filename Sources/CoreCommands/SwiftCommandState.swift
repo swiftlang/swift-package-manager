@@ -99,7 +99,7 @@ extension _SwiftCommand {
 }
 
 public protocol SwiftCommand: AsyncParsableCommand, _SwiftCommand {
-    func run(_ swiftCommandState: SwiftCommandState) async throws
+    func run(_ swiftCommandState: SwiftCommandState) throws
 }
 
 extension SwiftCommand {
@@ -119,7 +119,7 @@ extension SwiftCommand {
         swiftCommandState.buildSystemProvider = try buildSystemProvider(swiftCommandState)
         var toolError: Error? = .none
         do {
-            try await self.run(swiftCommandState)
+            try self.run(swiftCommandState)
             if swiftCommandState.observabilityScope.errorsReported || swiftCommandState.executionStatus == .failure {
                 throw ExitCode.failure
             }
