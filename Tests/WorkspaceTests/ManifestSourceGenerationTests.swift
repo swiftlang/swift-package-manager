@@ -615,6 +615,26 @@ final class ManifestSourceGenerationTests: XCTestCase {
         try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_8)
     }
 
+    func testStrictMemorySafety() async throws {
+        let manifestContents = """
+            // swift-tools-version:6.2
+            import PackageDescription
+
+            let package = Package(
+                name: "UpcomingAndExperimentalFeatures",
+                targets: [
+                    .target(
+                        name: "MyTool",
+                        swiftSettings: [
+                            .strictMemorySafety(),
+                        ]
+                    ),
+                ]
+            )
+            """
+        try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v6_2)
+    }
+
     func testPluginNetworkingPermissionGeneration() async throws {
         let manifest = Manifest.createRootManifest(
             displayName: "thisPkg",

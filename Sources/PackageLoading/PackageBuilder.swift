@@ -1213,6 +1213,19 @@ public final class PackageBuilder {
 
                 values = ["-enable-experimental-feature", value]
 
+            case .strictMemorySafety:
+                switch setting.tool {
+                case .c, .cxx, .linker:
+                    throw InternalError(
+                        "only Swift supports strict memory safety"
+                    )
+
+                case .swift:
+                    decl = .OTHER_SWIFT_FLAGS
+                }
+
+                values = ["-strict-memory-safety"]
+
             case .swiftLanguageMode(let version):
                 switch setting.tool {
                 case .c, .cxx, .linker:

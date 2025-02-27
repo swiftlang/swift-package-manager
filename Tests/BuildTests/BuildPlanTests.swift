@@ -4247,6 +4247,7 @@ final class BuildPlanTests: XCTestCase {
                             kind: .enableUpcomingFeature("WorstFeature"),
                             condition: .init(platformNames: ["macos"], config: "debug")
                         ),
+                        .init(tool: .swift, kind: .strictMemorySafety),
                     ]
                 ),
                 TargetDescription(
@@ -4371,6 +4372,7 @@ final class BuildPlanTests: XCTestCase {
                     "-cxx-interoperability-mode=default",
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature", "BestFeature",
+                    "-strict-memory-safety",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4435,6 +4437,7 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature",
                     "BestFeature",
+                    "-strict-memory-safety",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fomit-frame-pointer",
@@ -4490,6 +4493,7 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature",
                     "BestFeature",
+                    "-strict-memory-safety",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4534,6 +4538,7 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature", "BestFeature",
                     "-enable-upcoming-feature", "WorstFeature",
+                    "-strict-memory-safety",
                     "-g",
                     "-Xcc", "-g",
                     .end,

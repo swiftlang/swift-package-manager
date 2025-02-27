@@ -508,6 +508,8 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
+        case .strictMemorySafety:
+          self.init(enum: setting.kind.name, subnodes: [])
         case .define(let value):
             let parts = value.split(separator: "=", maxSplits: 1)
             assert(parts.count == 1 || parts.count == 2)
@@ -686,6 +688,8 @@ extension TargetBuildSettingDescription.Kind {
             return "enableUpcomingFeature"
         case .enableExperimentalFeature:
             return "enableExperimentalFeature"
+        case .strictMemorySafety:
+            return "strictMemorySafety"
         case .swiftLanguageMode:
             return "swiftLanguageMode"
         }
