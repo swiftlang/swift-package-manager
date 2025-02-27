@@ -188,14 +188,14 @@ private struct LocalPackageContainer: PackageContainer {
         if let version {
             switch dependency?.state {
             case .sourceControlCheckout(.version(version, revision: _)):
-                return manifest.enabledTraits(using: configurationEnabledTraits, enableAllTraits: enableAllTraits) ?? []
+                return try manifest.enabledTraits(using: configurationEnabledTraits, enableAllTraits: enableAllTraits) ?? []
             case .registryDownload(version: version):
-                return manifest.enabledTraits(using: configurationEnabledTraits, enableAllTraits: enableAllTraits) ?? []
+                return try manifest.enabledTraits(using: configurationEnabledTraits, enableAllTraits: enableAllTraits) ?? []
             default:
                 throw InternalError("expected version based state, but state was \(String(describing: dependency?.state))")
             }
         } else {
-            return manifest.enabledTraits(using: configurationEnabledTraits, enableAllTraits: enableAllTraits) ?? []
+            return try manifest.enabledTraits(using: configurationEnabledTraits, enableAllTraits: enableAllTraits) ?? []
         }
     }
 }
