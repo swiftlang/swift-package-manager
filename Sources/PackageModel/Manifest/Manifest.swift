@@ -666,6 +666,8 @@ extension Manifest {
         }
     }
 
+    /// Calculates the set of all transitive traits that are enabled for this manifest using the passed set of explicitly enabled traits and a flag that
+    /// determines whether all traits are enabled.
     public func enabledTraits(using explicitTraits: Set<String>?, enableAllTraits: Bool = false) throws -> Set<String>? {
         guard supportsTraits else {
             if var explicitTraits {
@@ -772,6 +774,7 @@ extension Manifest {
         return enabledTraits
     }
 
+    /// Computes the dependencies that are in use per target in this manifest.
     public func usedTargetDependencies(withTraits enabledTraits: Set<String>?, enableAllTraits: Bool = false) throws -> [String: Set<TargetDescription.Dependency>] {
         return try self.targets.reduce(into: [String: Set<TargetDescription.Dependency>]()) { depMap, target in
             let nonTraitDeps = target.dependencies.filter {
@@ -791,6 +794,7 @@ extension Manifest {
         }
     }
 
+    /// Computes the set of package dependencies that are used by targets of this manifest.
     public func usedDependencies(withTraits enabledTraits: Set<String>?, enableAllTraits: Bool = false) throws -> (knownPackage: Set<String>, unknownPackage: Set<String>) {
         let deps = try self.usedTargetDependencies(
             withTraits: enabledTraits,
@@ -839,6 +843,7 @@ extension Manifest {
         return Set(traits)
     }
 
+    /// Determines whether a target dependency is enabled given a set of enabled traits for this manifest.
     public func isTargetDependencyEnabled(_ dependency: TargetDescription.Dependency, enabledTraits: Set<String>?, enableAllTraits: Bool = false) throws -> Bool {
         guard supportsTraits else { return true } // If there is no trait config, the target dep is automatically enabled
         guard let package = dependency.package else { return false }
@@ -850,6 +855,7 @@ extension Manifest {
         return traitsThatEnableDependency.isEmpty || isEnabled
     }
 
+    /// Determines whether a given package dependency is used by this manifest given a set of enabled traits.
     public func isPackageDependencyUsed(_ dependency: PackageDependency, enabledTraits: Set<String>?, enableAllTraits: Bool = false) throws -> Bool {
         let usedDependencies = try self.usedDependencies(withTraits: enabledTraits, enableAllTraits: enableAllTraits)
         let foundKnownPackage = usedDependencies.knownPackage.contains(where: {
