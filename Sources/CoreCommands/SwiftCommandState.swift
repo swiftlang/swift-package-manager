@@ -315,12 +315,7 @@ public final class SwiftCommandState {
         self.environment = environment
         // first, bootstrap the observability system
         self.logLevel = options.logging.logLevel
-<<<<<<< HEAD
-        self.observabilityHandler = SwiftCommandObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel)
-=======
         self.observabilityHandler = SwiftCommandObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel, colorDiagnostics: options.logging.colorDiagnostics, manualWriterParams: manualWriterParams)
-        
->>>>>>> 15e3b6455 (fixed color output diagnostics, along with tests)
         let observabilitySystem = ObservabilitySystem(self.observabilityHandler)
         let observabilityScope = observabilitySystem.topScope
         self.observabilityScope = observabilityScope
@@ -831,10 +826,7 @@ public final class SwiftCommandState {
                 shouldDisableLocalRpath: options.linker.shouldDisableLocalRpath
             ),
             outputParameters: .init(
-<<<<<<< HEAD
-=======
                 isColorized: self.options.logging.colorDiagnostics,
->>>>>>> 15e3b6455 (fixed color output diagnostics, along with tests)
                 isVerbose: self.logLevel <= .info
             ),
             testingParameters: .init(
