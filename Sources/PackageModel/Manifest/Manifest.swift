@@ -188,7 +188,7 @@ public final class Manifest: Sendable {
         }
 
         let traitGuardedDeps = self.traitGuardedDependencies(lowercasedKeys: true)
-        let explicitlyEnabledTraits = self.enabledTraits(using: enabledTraits, enableAllTraits: enableAllTraits)
+        let explicitlyEnabledTraits = try? self.enabledTraits(using: enabledTraits, enableAllTraits: enableAllTraits)
         guard self.toolsVersion >= .v5_2 && !self.packageKind.isRoot else {
             let deps = self.dependencies.filter({
                 if let guardTraits = traitGuardedDeps[$0.identity.description], !guardTraits.isEmpty, let explicitlyEnabledTraits
@@ -256,7 +256,7 @@ public final class Manifest: Sendable {
             return dependencies
         }
         #else
-        let explicitlyEnabledTraits: Set<String>? = self.enabledTraits(using: enabledTraits, enableAllTraits: enableAllTraits)
+        let explicitlyEnabledTraits: Set<String>? = try self.enabledTraits(using: enabledTraits, enableAllTraits: enableAllTraits)
 
         guard self.toolsVersion >= .v5_2 && !self.packageKind.isRoot else {
             var dependencies = self.dependencies
@@ -666,10 +666,16 @@ extension Manifest {
         }
     }
 
-    public func enabledTraits(using explicitTraits: Set<String>?, enableAllTraits: Bool = false) -> Set<String>? {
+    public func enabledTraits(using explicitTraits: Set<String>?, enableAllTraits: Bool = false) throws -> Set<String>? {
         guard supportsTraits else {
-            if let explicitTraits, !explicitTraits.isEmpty {
-//                TODO: bp throw error here
+            if var explicitTraits {
+                explicitTraits.remove("default")
+                if !explicitTraits.isEmpty {
+                    throw TraitError.traitsNotSupported(
+                        package: displayName,
+                        explicitlyEnabledTraits: traits.map(\.name)
+                    )
+                }
             }
 
             return nil
@@ -691,13 +697,17 @@ extension Manifest {
     /// Given a trait, determine if the trait is enabled given the current set of enabled traits.
     public func isTraitEnabled(_ trait: TraitDescription, _ explicitTraits: Set<String>?, _ enableAllTraits: Bool = false) throws -> Bool {
         guard supportsTraits else {
-            if let explicitTraits, !explicitTraits.isEmpty {
-                throw TraitError.invalidTrait(
-                    package: displayName,
-                    trait: trait.name,
-                    availableTraits: traits.map(\.name)
-                )
+            if var explicitTraits {
+                explicitTraits.remove("default")
+                if !explicitTraits.isEmpty {
+                    throw TraitError.invalidTrait(
+                        package: displayName,
+                        trait: trait.name,
+                        availableTraits: traits.map(\.name)
+                    )
+                }
             }
+
             return false
         }
         guard !trait.isDefault else {
@@ -711,7 +721,7 @@ extension Manifest {
             )
         }
 
-        let allEnabledTraits = enabledTraits(using: explicitTraits, enableAllTraits: enableAllTraits) ?? []
+        let allEnabledTraits = try enabledTraits(using: explicitTraits, enableAllTraits: enableAllTraits) ?? []
 
         return allEnabledTraits.contains(trait.name)
     }
@@ -859,6 +869,12 @@ public indirect enum TraitError: Swift.Error {
         trait: String,
         availableTraits: [String] = []
     )
+
+    /// Indicates that the manifest does not support traits, yet a method was called with a configuration of enabled traits.
+    case traitsNotSupported(
+        package: String,
+        explicitlyEnabledTraits: [String]
+    )
 }
 
 extension TraitError: CustomStringConvertible {
@@ -874,6 +890,10 @@ extension TraitError: CustomStringConvertible {
                 errorMsg += " The available traits defined for this package are: \(availableTraits.joined(separator: ", "))."
             }
             return errorMsg
+        case .traitsNotSupported(let package, let explicitlyEnabledTraits):
+            return """
+            Package \(package) does not have any available traits defined, yet an explicit configuration of enabled traits were provided: \(explicitlyEnabledTraits.joined(separator: ", ")).
+            """
         }
     }
 }

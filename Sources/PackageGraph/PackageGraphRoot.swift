@@ -129,12 +129,12 @@ public struct PackageGraphRoot {
 
     /// Returns the constraints imposed by root manifests + dependencies.
     public func constraints(_ traitConfiguration: TraitConfiguration?) throws -> [PackageContainerConstraint] {
-        let constraints = self.packages.map { (identity, package) in
+        let constraints = try self.packages.map { (identity, package) in
             // Since these are root packages, can apply trait configuration as this is a root package concept.
             var explicitlyEnabledTraits: Set<String>?
             if let traitConfiguration {
-                explicitlyEnabledTraits = self.manifests.values.compactMap({
-                    $0.enabledTraits(using: traitConfiguration.enabledTraits, enableAllTraits: traitConfiguration.enableAllTraits)
+                explicitlyEnabledTraits = try self.manifests.values.compactMap({
+                    try $0.enabledTraits(using: traitConfiguration.enabledTraits, enableAllTraits: traitConfiguration.enableAllTraits)
                 }).reduce(into: Set<String>()) { result, enabledTraits in
                     result.formUnion(enabledTraits)
                 }

@@ -144,7 +144,7 @@ public struct FileSystemPackageContainer: PackageContainer {
         guard manifest.packageKind.isRoot else {
             return []
         }
-        let enabledTraits = manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
+        let enabledTraits = try manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
         return enabledTraits ?? []
     }
 }

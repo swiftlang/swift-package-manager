@@ -220,7 +220,7 @@ extension Workspace {
                 inputIdentities.append(package.reference)
                 var traits: Set<String>? = []
                 if let enabledTraits = rootEnabledTraitsMap[package.reference.identity] {
-                    traits = package.manifest.enabledTraits(using: enabledTraits)
+                    traits = try package.manifest.enabledTraits(using: enabledTraits)
                 }
                 let node = try GraphLoadingNode(
                     identity: identity,
@@ -237,7 +237,7 @@ extension Workspace {
 
                     if let enabledTraits = rootDependenciesEnabledTraitsMap[dependency.identity] {
                         // Recursively calculate the enabled traits of this package.
-                        traits = manifest.enabledTraits(using: enabledTraits)
+                        traits = try manifest.enabledTraits(using: enabledTraits)
                     }
                     return try GraphLoadingNode(
                         identity: dependency.identity,
@@ -330,12 +330,17 @@ extension Workspace {
                     return try manifestsMap[dependency.identity].map { manifest in
                         // Calculate all transitively enabled traits for this manifest.
 
-                        let allEnabledTraits = manifest.enabledTraits(using: explicitlyEnabledTraits.flatMap { Set($0) })
+                        var allEnabledTraits: Set<String> = []
+                        if let explicitlyEnabledTraits,
+                            let calculatedTraits = try manifest.enabledTraits(using: Set(explicitlyEnabledTraits)) {
+                            allEnabledTraits = calculatedTraits
+                        }
+
                         return try GraphLoadingNode(
                             identity: dependency.identity,
                             manifest: manifest,
                             productFilter: dependency.productFilter,
-                            enabledTraits: allEnabledTraits ?? []
+                            enabledTraits: allEnabledTraits
                         )
                     }
                 }
@@ -564,7 +569,7 @@ extension Workspace {
         let rootManifests = try root.manifests.mapValues({ manifest in
             let deps = try manifest.dependencies.filter({ dep in
                 guard configuration.pruneDependencies else { return true }
-                let explicitlyEnabledTraits = manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
+                let explicitlyEnabledTraits = try manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
                 let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: explicitlyEnabledTraits)
                 return isDepUsed
             })
@@ -602,13 +607,30 @@ extension Workspace {
                 guard configuration.pruneDependencies else { return true }
                 var config = traitConfiguration
                 if manifest.packageKind.isRoot {
-                    let manifestEnabledTraits = manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
+                    let manifestEnabledTraits = try manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
                     config = .init(enabledTraits: manifestEnabledTraits)
                 } else {
                     let rootManifests = root.manifests.values.filter({ $0.packageKind.isRoot })
-                    var manifestEnabledTraits: Set<String>? = Set(rootManifests.compactMap({ $0.dependencies.first(where: { $0.identity.description == manifest.displayName.lowercased() }) }).map({ $0.traits?.map(\.name) ?? ["default"] }).flatMap({ $0 }))
 
-                    manifestEnabledTraits = manifest.enabledTraits(using: manifestEnabledTraits)
+                    // find the package dependency in each of the root manifests
+                    let packageDependencyInRoots = rootManifests.compactMap({ $0.dependencies.first(where: { $0.identity.description == manifest.displayName.lowercased() })})
+
+                    // pluck out the enabled traits defined by the package dependency struct
+                    let enabledTraitsPerPackageDep = packageDependencyInRoots.map({ $0.traits })
+
+                    // create a union of the sets; if all are nil, then there is no config
+                    var manifestEnabledTraits: Set<String>?
+                    enabledTraitsPerPackageDep.forEach { enabledTraits in
+                        if let enabledTraits = enabledTraits?.map(\.name) {
+                            if let resultSet = manifestEnabledTraits {
+                                manifestEnabledTraits = resultSet.union(Set(enabledTraits))
+                            } else {
+                                manifestEnabledTraits = Set(enabledTraits)
+                            }
+                        }
+                    }
+
+                    manifestEnabledTraits = try manifest.enabledTraits(using: manifestEnabledTraits)
                     config = .init(enabledTraits: manifestEnabledTraits)
                 }
                 let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: config?.enabledTraits)
@@ -649,7 +671,10 @@ extension Workspace {
                         return !conditionTraits.intersection(node.item.enabledTraits).isEmpty
                     }.map(\.name)
 
-                    let allEnabledTraits = $0.enabledTraits(using: explicitlyEnabledTraits.flatMap { Set($0) })
+                    var allEnabledTraits: Set<String> = []
+                    if let explicitlyEnabledTraits, let calculatedTraits = try $0.enabledTraits(using: Set(explicitlyEnabledTraits)) {
+                        allEnabledTraits = calculatedTraits
+                    }
 
                     return $0.canonicalPackageLocation == dependency.packageRef.canonicalLocation ?
                         try KeyedPair(
@@ -657,7 +682,7 @@ extension Workspace {
                                 identity: dependency.identity,
                                 manifest: $0,
                                 productFilter: dependency.productFilter,
-                                enabledTraits: allEnabledTraits ?? []
+                                enabledTraits: allEnabledTraits
                             ),
                             key: dependency.identity
                         ) :
@@ -672,7 +697,7 @@ extension Workspace {
             let manifestGraphRoots = try topLevelManifests.map { identity, manifest in
                 // Since these represent the root manifests, can pass in the enabled traits from the trait configuration here, as that is what it represents.
                 let isRoot = manifest.packageKind.isRoot
-                let enabledTraits = isRoot ? manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false) : []
+                let enabledTraits = isRoot ? try manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false) : []
                 return try KeyedPair(
                     GraphLoadingNode(
                         identity: identity,
