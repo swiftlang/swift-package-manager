@@ -122,7 +122,8 @@ package func macrosPackageGraph() throws -> MockPackageGraph {
                 ]
             ),
         ],
-        observabilityScope: observability.topScope
+        observabilityScope: observability.topScope,
+        traitConfiguration: nil
     )
 
     XCTAssertNoDiagnostics(observability.diagnostics)
@@ -277,7 +278,8 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
                 ]
             ),
         ],
-        observabilityScope: observability.topScope
+        observabilityScope: observability.topScope,
+        traitConfiguration: nil
     )
 
     XCTAssertNoDiagnostics(observability.diagnostics)
@@ -308,7 +310,8 @@ package func trivialPackageGraph() throws -> MockPackageGraph {
                 ]
             ),
         ],
-        observabilityScope: observability.topScope
+        observabilityScope: observability.topScope,
+        traitConfiguration: nil
     )
     XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -350,7 +353,8 @@ package func embeddedCxxInteropPackageGraph() throws -> MockPackageGraph {
                 ]
             ),
         ],
-        observabilityScope: observability.topScope
+        observabilityScope: observability.topScope,
+        traitConfiguration: nil
     )
     XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -412,7 +416,8 @@ package func toolsExplicitLibrariesGraph(linkage: ProductType.LibraryType) throw
                 ]
             ),
         ],
-        observabilityScope: observability.topScope
+        observabilityScope: observability.topScope,
+        traitConfiguration: nil
     )
 
     XCTAssertNoDiagnostics(observability.diagnostics)

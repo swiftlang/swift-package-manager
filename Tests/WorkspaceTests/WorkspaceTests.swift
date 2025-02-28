@@ -3009,7 +3009,47 @@ final class WorkspaceTests: XCTestCase {
         let deps: [MockDependency] = [
             .sourceControl(path: "./Bar", requirement: .exact("1.1.0"), products: .specific(["Bar"])),
         ]
-        try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
+
+        // Replicate earlier workspace, include Bar dependency in target so that dependency resolution can include it.
+        let badWorkspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo"]),
+                    ],
+                    versions: ["1.0.0", nil]
+                ),
+                MockPackage(
+                    name: "Bar",
+                    targets: [
+                        MockTarget(name: "Bar"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", modules: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", nil]
+                ),
+            ]
+        )
+        try await badWorkspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(diagnostic: .contains("'bar' 1.1.0"), severity: .error)
             }
@@ -12258,7 +12298,7 @@ final class WorkspaceTests: XCTestCase {
                 delegate: MockWorkspaceDelegate()
             )
 
-            try await workspace.resolve(root: .init(packages: [foo]), observabilityScope: observability.topScope)
+            try await workspace.resolve(root: .init(packages: [foo]), observabilityScope: observability.topScope, traitConfiguration: nil)
             testDiagnostics(observability.diagnostics) { result in
                 result.check(
                     diagnostic: "invalid local path '/best.xcframework' for binary target 'best', path expected to be relative to package root.",

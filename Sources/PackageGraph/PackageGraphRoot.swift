@@ -83,7 +83,8 @@ public struct PackageGraphRoot {
         manifests: [AbsolutePath: Manifest],
         explicitProduct: String? = nil,
         dependencyMapper: DependencyMapper? = nil,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        traitConfiguration: TraitConfiguration?
     ) {
         self.packages = input.packages.reduce(into: .init(), { partial, inputPath in
             if let manifest = manifests[inputPath]  {
@@ -100,10 +101,23 @@ public struct PackageGraphRoot {
         // Such pin switching can currently be worked around by declaring the executable product as a dependency of a dummy target.
         // But in the future it might be worth providing a way of declaring them in the manifest without a dummy target,
         // at which time the current special casing can be deprecated.
-        var adjustedDependencies = input.dependencies
+        var adjustedDependencies = input.dependencies.filter({ dep in
+            guard !manifests.isEmpty else { return true }
+            // Check that the dependency is used in at least one of the manifests.
+            // If not, then we can omit this dependency if pruning unused dependencies
+            // is enabled.
+            return manifests.values.reduce(false) {
+                guard $1.pruneDependencies else { return $0 || true }
+                if let isUsed = try? $1.isPackageDependencyUsed(dep, enabledTraits: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false) {
+                    return $0 || isUsed
+                }
+                return true
+            }
+        })
         if let explicitProduct {
             // FIXME: `dependenciesRequired` modifies manifests and prevents conversion of `Manifest` to a value type
-            for dependency in manifests.values.lazy.map({ $0.dependenciesRequired(for: .everything) }).joined() {
+            let deps = try? manifests.values.lazy.map({ try $0.dependenciesRequired(for: .everything, traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false) }).flatMap({ $0 })
+            for dependency in deps ?? [] {
                 adjustedDependencies.append(dependency.filtered(by: .specific([explicitProduct])))
             }
         }
@@ -114,18 +128,40 @@ public struct PackageGraphRoot {
     }
 
     /// Returns the constraints imposed by root manifests + dependencies.
-    public func constraints() throws -> [PackageContainerConstraint] {
-        let constraints = self.packageReferences.map {
-            PackageContainerConstraint(package: $0, requirement: .unversioned, products: .everything)
-        }
-        
-        let depend = try dependencies.map{
-            PackageContainerConstraint(
-                package: $0.packageRef,
-                requirement: try $0.toConstraintRequirement(),
-                products: $0.productFilter
+    public func constraints(_ traitConfiguration: TraitConfiguration?) throws -> [PackageContainerConstraint] {
+        let constraints = try self.packages.map { (identity, package) in
+            // Since these are root packages, can apply trait configuration as this is a root package concept.
+            var explicitlyEnabledTraits: Set<String>?
+            if let traitConfiguration {
+                explicitlyEnabledTraits = try self.manifests.values.compactMap({
+                    try $0.enabledTraits(using: traitConfiguration.enabledTraits, enableAllTraits: traitConfiguration.enableAllTraits)
+                }).reduce(into: Set<String>()) { result, enabledTraits in
+                    result.formUnion(enabledTraits)
+                }
+            }
+            return PackageContainerConstraint(
+                package: package.reference,
+                requirement: .unversioned,
+                products: .everything,
+                enabledTraits: explicitlyEnabledTraits
             )
         }
+        
+        let depend = try dependencies
+            .map { dep in
+                var enabledTraits: Set<String>?
+                if let traits = dep.traits {
+                    enabledTraits = Set(traits.map(\.name))
+                }
+
+                return PackageContainerConstraint(
+                    package: dep.packageRef,
+                    requirement: try dep.toConstraintRequirement(),
+                    products: dep.productFilter,
+                    enabledTraits: enabledTraits
+                )
+        }
+
         return constraints + depend
     }
 }

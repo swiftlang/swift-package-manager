@@ -82,7 +82,8 @@ private struct XcodeBuildSystemFactory: BuildSystemFactory {
             buildParameters: productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
             packageGraphLoader: packageGraphLoader ?? {
                 try await self.swiftCommandState.loadPackageGraph(
-                    explicitProduct: explicitProduct
+                    explicitProduct: explicitProduct,
+                    traitConfiguration: traitConfiguration
                 )
             },
             outputStream: outputStream ?? self.swiftCommandState.outputStream,

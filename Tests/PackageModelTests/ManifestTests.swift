@@ -92,7 +92,7 @@ class ManifestTests: XCTestCase {
                 targets: targets
             )
 
-            XCTAssertEqual(manifest.dependenciesRequired(for: .everything).map({ $0.identity.description }).sorted(), [
+            XCTAssertEqual(try manifest.dependenciesRequired(for: .everything, nil).map({ $0.identity.description }).sorted(), [
                 "bar1",
                 "bar2",
                 "bar3",
@@ -109,7 +109,7 @@ class ManifestTests: XCTestCase {
                 targets: targets
             )
 
-            XCTAssertEqual(manifest.dependenciesRequired(for: .specific(["Foo"])).map({ $0.identity.description }).sorted(), [
+            XCTAssertEqual(try manifest.dependenciesRequired(for: .specific(["Foo"]), nil).map({ $0.identity.description }).sorted(), [
                 "bar1", // Foo → Foo1 → Bar1
                 "bar2", // Foo → Foo1 → Foo2 → Bar2
                 "bar3", // Foo → Foo1 → Bar1 → could be from any package due to pre‐5.2 tools version.
@@ -126,7 +126,7 @@ class ManifestTests: XCTestCase {
                 targets: targets
             )
 
-            XCTAssertEqual(manifest.dependenciesRequired(for: .everything).map({ $0.identity.description }).sorted(), [
+            XCTAssertEqual(try manifest.dependenciesRequired(for: .everything, nil).map({ $0.identity.description }).sorted(), [
                 "bar1",
                 "bar2",
                 "bar3",
@@ -144,12 +144,154 @@ class ManifestTests: XCTestCase {
             )
 
             #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-            XCTAssertEqual(manifest.dependenciesRequired(for: .specific(["Foo"])).map({ $0.identity.description }).sorted(), [
+            XCTAssertEqual(manifest.dependenciesRequired(for: .specific(["Foo"]), nil).map({ $0.identity.description }).sorted(), [
                 "bar1", // Foo → Foo1 → Bar1
                 "bar2", // Foo → Foo1 → Foo2 → Bar2
                 // (Bar3 is unreachable.)
             ])
             #endif
+        }
+    }
+
+    func testEnabledTraits_WhenNoTraitsInManifest() throws {
+        let products = [
+            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+            try ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
+        ]
+
+        let targets = [
+            try TargetDescription(name: "Foo", dependencies: ["Bar"]),
+            try TargetDescription(name: "Bar", dependencies: ["Baz"]),
+            try TargetDescription(name: "Baz", dependencies: ["MyPlugin"]),
+            try TargetDescription(name: "FooBar", dependencies: []),
+            try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .buildTool)
+        ]
+
+        let traits: Set<TraitDescription> = [
+            TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
+            TraitDescription(name: "Trait2")
+        ]
+
+        do {
+            let manifest = Manifest.createRootManifest(
+                displayName: "Foo",
+                path: "/Foo",
+                toolsVersion: .v5_2,
+                products: products,
+                targets: targets
+            )
+
+            for trait in traits.sorted(by: { $0.name < $1.name }) {
+                XCTAssertThrowsError(try manifest.isTraitEnabled(trait, Set(traits.map(\.name)))) { error in
+                    XCTAssertEqual("\(error)", """
+Trait '"\(trait.name)"' is not declared by package 'Foo'. There are no available traits defined by this package.
+""")
+                }
+            }
+        }
+    }
+
+    func testEnabledTraits_WhenNoDefaultTraitsAndNoConfig() throws {
+        let dependencies: [PackageDependency] = [
+            .localSourceControl(path: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: "/Buzz", requirement: .upToNextMajor(from: "1.0.0")),
+        ]
+
+        let products = [
+            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+            try ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar", "Boo"])
+        ]
+
+        let targets = [
+            try TargetDescription(name: "Foo", dependencies: ["Bar"]),
+            try TargetDescription(name: "Bar", dependencies: [.product(name: "Baz", package: "Baz", condition: .init(traits: ["Trait2"]))]),
+            try TargetDescription(name: "Boo", dependencies: [.product(name: "Buzz", package: "Buzz")])
+        ]
+
+        let traits: Set<TraitDescription> = [
+            TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
+            TraitDescription(name: "Trait2")
+        ]
+
+        do {
+            let manifest = Manifest.createRootManifest(
+                displayName: "Foo",
+                path: "/Foo",
+                toolsVersion: .v5_2,
+                dependencies: dependencies,
+                products: products,
+                targets: targets,
+                traits: traits
+            )
+
+            // Assure that the guarded dependencies aren't pruned, since we haven't enabled it for this manifest.
+            XCTAssertEqual(try manifest.dependenciesRequired(for: .everything, nil).map({ $0.identity.description }).sorted(), [
+                "baz",
+                "buzz",
+            ])
+
+            // Assure that each trait is not enabled.
+            for trait in traits {
+                XCTAssertEqual(try manifest.isTraitEnabled(trait, nil), false)
+            }
+
+            let manifestPrunedDeps = Manifest.createRootManifest(
+                displayName: "Foo",
+                path: "/Foo",
+                toolsVersion: .v5_2,
+                dependencies: dependencies,
+                products: products,
+                targets: targets,
+                traits: traits,
+                pruneDependencies: true
+            )
+
+            // Since we've enabled pruned dependencies for this manifest, we should only see "buzz"
+            XCTAssertEqual(try manifestPrunedDeps.dependenciesRequired(for: .everything, nil).map({ $0.identity.description }).sorted(), [
+                "buzz",
+            ])
+
+            // Assure that each trait is not enabled.
+            for trait in traits {
+                XCTAssertEqual(try manifestPrunedDeps.isTraitEnabled(trait, nil), false)
+            }
+        }
+
+    }
+
+    func testEnabledTraits_WhenDefaultTraitsAndNoTraitConfig() throws {
+        let products = [
+            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+            try ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
+        ]
+
+        let targets = [
+            try TargetDescription(name: "Foo", dependencies: ["Bar"]),
+            try TargetDescription(name: "Bar", dependencies: ["Baz"]),
+            try TargetDescription(name: "Baz", dependencies: ["MyPlugin"]),
+            try TargetDescription(name: "FooBar", dependencies: []),
+            try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .buildTool)
+        ]
+
+        let traits: Set<TraitDescription> = [
+            TraitDescription(name: "default", enabledTraits: ["Trait1"]),
+            TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
+            TraitDescription(name: "Trait2")
+        ]
+
+        do {
+            let manifest = Manifest.createRootManifest(
+                displayName: "Foo",
+                path: "/Foo",
+                toolsVersion: .v5_2,
+                products: products,
+                targets: targets,
+                traits: traits
+            )
+
+            for trait in traits.sorted(by: { $0.name < $1.name }) {
+                XCTAssertTrue(try manifest.isTraitEnabled(trait, Set(traits.map(\.name))))
+            }
         }
     }
 }
