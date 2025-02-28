@@ -561,14 +561,6 @@ extension ResolvedPackagesStore.ResolvedPackage {
         switch pin.kind {
         case .localSourceControl:
             packageRef = try .localSourceControl(identity: identity, path: AbsolutePath(validating: location))
-
-            // FIXME remove this if it isn't needed
-            //
-            // if !location.hasPrefix("https://") {
-            //     packageRef = try .localSourceControl(identity: identity, path: AbsolutePath(validating: location))
-            // } else {
-            //     packageRef = .remoteSourceControl(identity: identity, url: SourceControlURL(location))
-            // }
         case .remoteSourceControl:
             packageRef = .remoteSourceControl(identity: identity, url: SourceControlURL(location))
         case .registry:
