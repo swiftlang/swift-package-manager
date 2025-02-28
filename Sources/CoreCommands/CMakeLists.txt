@@ -19,7 +19,8 @@ target_link_libraries(CoreCommands PUBLIC
   TSCBasic
   TSCUtility
   Workspace
-  XCBuildSupport)
+  XCBuildSupport
+  SwiftBuildSupport)
 target_link_libraries(CoreCommands PRIVATE
   DriverSupport
   $<$<NOT:$<PLATFORM_ID:Darwin>>:FoundationXML>)

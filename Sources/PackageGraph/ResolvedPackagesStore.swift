@@ -560,7 +560,12 @@ extension ResolvedPackagesStore.ResolvedPackage {
         let location = mirrors.effective(for: pin.location)
         switch pin.kind {
         case .localSourceControl:
-            packageRef = try .localSourceControl(identity: identity, path: AbsolutePath(validating: location))
+            // FIXME investigate why local source control packages resolve to a non-local URL location
+            if !location.hasPrefix("https://") {
+                packageRef = try .localSourceControl(identity: identity, path: AbsolutePath(validating: location))
+            } else {
+                packageRef = .remoteSourceControl(identity: identity, url: SourceControlURL(location))
+            }
         case .remoteSourceControl:
             packageRef = .remoteSourceControl(identity: identity, url: SourceControlURL(location))
         case .registry:
