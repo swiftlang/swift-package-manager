@@ -728,7 +728,7 @@ public final class SwiftCommandState {
         toolsBuildParameters: BuildParameters? = .none,
         packageGraphLoader: (() async throws -> ModulesGraph)? = .none,
         outputStream: OutputByteStream? = .none,
-        logLevel: Basics.Diagnostic.Severity? = .none,
+        logLevel: Basics.Diagnostic.Severity? = nil,
         observabilityScope: ObservabilityScope? = .none
     ) async throws -> BuildSystem {
         guard let buildSystemProvider else {
@@ -747,7 +747,7 @@ public final class SwiftCommandState {
             toolsBuildParameters: toolsBuildParameters,
             packageGraphLoader: packageGraphLoader,
             outputStream: outputStream,
-            logLevel: logLevel,
+            logLevel: logLevel ?? self.logLevel,
             observabilityScope: observabilityScope
         )
 

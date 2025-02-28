@@ -14,6 +14,7 @@ import Basics
 #if os(macOS)
 import class Foundation.Bundle
 #endif
+import SPMBuildCore
 import TSCTestSupport
 import XCTest
 
@@ -87,7 +88,8 @@ public func XCTAssertBuilds(
     Xswiftc: [String] = [],
     env: Environment? = nil,
     file: StaticString = #file,
-    line: UInt = #line
+    line: UInt = #line,
+    buildSystem: BuildSystemProvider.Kind = .native
 ) async {
     for conf in configurations {
         await XCTAssertAsyncNoThrow(
@@ -98,7 +100,8 @@ public func XCTAssertBuilds(
                 Xcc: Xcc,
                 Xld: Xld,
                 Xswiftc: Xswiftc,
-                env: env
+                env: env,
+                buildSystem: buildSystem
             ),
             file: file,
             line: line
@@ -115,7 +118,8 @@ public func XCTAssertSwiftTest(
     Xswiftc: [String] = [],
     env: Environment? = nil,
     file: StaticString = #file,
-    line: UInt = #line
+    line: UInt = #line,
+    buildSystem: BuildSystemProvider.Kind = .native
 ) async {
     await XCTAssertAsyncNoThrow(
         try await executeSwiftTest(
@@ -125,7 +129,8 @@ public func XCTAssertSwiftTest(
             Xcc: Xcc,
             Xld: Xld,
             Xswiftc: Xswiftc,
-            env: env
+            env: env,
+            buildSystem: buildSystem
         ),
         file: file,
         line: line
@@ -140,10 +145,21 @@ public func XCTAssertBuildFails(
     Xswiftc: [String] = [],
     env: Environment? = nil,
     file: StaticString = #file,
-    line: UInt = #line
+    line: UInt = #line,
+    buildSystem: BuildSystemProvider.Kind = .native
 ) async -> CommandExecutionError? {
     var failure: CommandExecutionError? = nil
-    await XCTAssertThrowsCommandExecutionError(try await executeSwiftBuild(path, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc), file: file, line: line) { error in
+    await XCTAssertThrowsCommandExecutionError(
+        try await executeSwiftBuild(
+            path,
+            Xcc: Xcc,
+            Xld: Xld,
+            Xswiftc: Xswiftc,
+            buildSystem: buildSystem
+        ),
+        file: file,
+        line: line
+    ) { error in
         failure = error
     }
     return failure
