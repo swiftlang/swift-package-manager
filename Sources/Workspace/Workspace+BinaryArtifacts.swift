@@ -811,7 +811,7 @@ extension Workspace {
         var artifactsToDownload: [BinaryArtifactsManager.RemoteArtifact] = []
         var artifactsToExtract: [ManagedArtifact] = []
 
-        for artifact in state.artifacts {
+        for artifact in await state.artifacts {
             if !manifestArtifacts.local
                 .contains(where: { $0.packageRef == artifact.packageRef && $0.targetName == artifact.targetName }) &&
                 !manifestArtifacts.remote
@@ -822,7 +822,7 @@ extension Workspace {
         }
 
         for artifact in manifestArtifacts.local {
-            let existingArtifact = self.state.artifacts[
+            let existingArtifact = await self.state.artifacts[
                 packageIdentity: artifact.packageRef.identity,
                 targetName: artifact.targetName
             ]
@@ -859,7 +859,7 @@ extension Workspace {
         }
 
         for artifact in manifestArtifacts.remote {
-            let existingArtifact = self.state.artifacts[
+            let existingArtifact = await self.state.artifacts[
                 packageIdentity: artifact.packageRef.identity,
                 targetName: artifact.targetName
             ]
@@ -891,9 +891,9 @@ extension Workspace {
         }
 
         // Remove the artifacts and directories which are not needed anymore.
-        observabilityScope.trap {
+        await observabilityScope.trap {
             for artifact in artifactsToRemove {
-                state.artifacts.remove(packageIdentity: artifact.packageRef.identity, targetName: artifact.targetName)
+                await state.artifacts.remove(packageIdentity: artifact.packageRef.identity, targetName: artifact.targetName)
 
                 if isAtArtifactsDirectory(artifact) {
                     try fileSystem.removeFileTree(artifact.path)
@@ -930,15 +930,15 @@ extension Workspace {
 
         // Add the new artifacts
         for artifact in artifactsToAdd {
-            self.state.artifacts.add(artifact)
+            await self.state.artifacts.add(artifact)
         }
 
         guard !observabilityScope.errorsReported else {
             throw Diagnostics.fatalError
         }
 
-        observabilityScope.trap {
-            try self.state.save()
+        await observabilityScope.trap {
+            try await self.state.save()
         }
 
         func isAtArtifactsDirectory(_ artifact: ManagedArtifact) -> Bool {
