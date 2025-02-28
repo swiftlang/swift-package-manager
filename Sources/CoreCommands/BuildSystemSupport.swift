@@ -37,10 +37,15 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
     ) async throws -> any BuildSystem {
         _ = try await swiftCommandState.getRootPackageInformation()
         let testEntryPointPath = productsBuildParameters?.testProductStyle.explicitlySpecifiedEntryPointPath
+        let cacheBuildManifest = if cacheBuildManifest {
+            try await self.swiftCommandState.canUseCachedBuildManifest()
+        } else {
+            false
+        }
         return try BuildOperation(
             productsBuildParameters: try productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
             toolsBuildParameters: try toolsBuildParameters ?? self.swiftCommandState.toolsBuildParameters,
-            cacheBuildManifest: await self.swiftCommandState.canUseCachedBuildManifest() && cacheBuildManifest,
+            cacheBuildManifest: cacheBuildManifest,
             packageGraphLoader: packageGraphLoader ?? {
                 try await self.swiftCommandState.loadPackageGraph(
                     explicitProduct: explicitProduct,
