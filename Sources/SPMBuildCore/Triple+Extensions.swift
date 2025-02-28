@@ -27,6 +27,6 @@ extension Triple {
         // Use "apple" as the subdirectory because in theory Xcode build system
         // can be used to build for any Apple platform and it has its own
         // conventions for build subpaths based on platforms.
-        buildSystem == .xcode ? "apple" : self.platformBuildPathComponent
+        buildSystem.usesXcodeBuildEngine ? "apple" : self.platformBuildPathComponent
     }
 }

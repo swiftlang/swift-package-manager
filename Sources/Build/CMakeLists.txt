@@ -33,6 +33,7 @@ add_library(Build
 target_link_libraries(Build PUBLIC
   TSCBasic
   Basics
+  SwiftCollections::OrderedCollections
   PackageGraph
   SPMBuildCore)
 target_link_libraries(Build PRIVATE

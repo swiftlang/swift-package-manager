@@ -34,6 +34,7 @@ target_link_libraries(SPMBuildCore PUBLIC
   TSCBasic
   TSCUtility
   Basics
+  SwiftCollections::OrderedCollections
   PackageGraph)
 
 

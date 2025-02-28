@@ -36,6 +36,7 @@ public enum TargetBuildSettingDescription {
 
         case enableUpcomingFeature(String)
         case enableExperimentalFeature(String)
+        case strictMemorySafety
 
         case unsafeFlags([String])
 
@@ -47,7 +48,7 @@ public enum TargetBuildSettingDescription {
                 // If `.unsafeFlags` is used, but doesn't specify any flags, we treat it the same way as not specifying it.
                 return !flags.isEmpty
             case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode,
-                 .enableUpcomingFeature, .enableExperimentalFeature, .swiftLanguageMode:
+                .enableUpcomingFeature, .enableExperimentalFeature, .strictMemorySafety, .swiftLanguageMode:
                 return false
             }
         }

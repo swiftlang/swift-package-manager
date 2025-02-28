@@ -169,7 +169,11 @@ let package = Package(
         .target(
             name: "SourceKitLSPAPI",
             dependencies: [
+                "Basics",
                 "Build",
+                "PackageGraph",
+                "PackageLoading",
+                "PackageModel",
                 "SPMBuildCore",
             ],
             exclude: ["CMakeLists.txt"],
@@ -314,6 +318,7 @@ let package = Package(
                 "Basics",
                 "PackageLoading",
                 "PackageModel",
+                .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: [
@@ -397,6 +402,7 @@ let package = Package(
             dependencies: [
                 "Basics",
                 "PackageGraph",
+                .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
@@ -413,6 +419,7 @@ let package = Package(
                 "SPMBuildCore",
                 "SPMLLBuild",
                 .product(name: "SwiftDriver", package: "swift-driver"),
+                .product(name: "OrderedCollections", package: "swift-collections"),
                 "DriverSupport",
             ],
             exclude: ["CMakeLists.txt"],
@@ -435,7 +442,11 @@ let package = Package(
         .target(
             /** Support for building using Xcode's build system */
             name: "XCBuildSupport",
-            dependencies: ["DriverSupport", "SPMBuildCore", "PackageGraph"],
+            dependencies: [
+                "SPMBuildCore",
+                "PackageGraph",
+                .product(name: "OrderedCollections", package: "swift-collections"),
+            ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .unsafeFlags(["-static"]),
@@ -453,6 +464,7 @@ let package = Package(
                 "PackageSigning",
                 "SourceControl",
                 "SPMBuildCore",
+                .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
@@ -600,6 +612,7 @@ let package = Package(
             name: "swift-bootstrap",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "OrderedCollections", package: "swift-collections"),
                 "Basics",
                 "Build",
                 "PackageGraph",
@@ -655,6 +668,15 @@ let package = Package(
             name: "swift-package-registry",
             dependencies: ["Commands", "PackageRegistryCommand"]
         ),
+        .executableTarget(
+            /** Utility to produce the artifacts for prebuilts */
+            name: "swift-build-prebuilts",
+            dependencies: [
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                "Basics",
+                "Workspace",
+            ]
+        ),
 
         // MARK: Support for Swift macros, should eventually move to a plugin-based solution
 
@@ -670,12 +692,24 @@ let package = Package(
 
         // MARK: Additional Test Dependencies
 
+            .target(
+                /** SwiftPM internal build test suite support library */
+                name: "_InternalBuildTestSupport",
+                dependencies: [
+                    "Build",
+                    "XCBuildSupport",
+                    "_InternalTestSupport"
+                ],
+                swiftSettings: [
+                    .unsafeFlags(["-static"]),
+                ]
+            ),
+
         .target(
             /** SwiftPM internal test suite support library */
             name: "_InternalTestSupport",
             dependencies: [
                 "Basics",
-                "Build",
                 "PackageFingerprint",
                 "PackageGraph",
                 "PackageLoading",
@@ -683,8 +717,8 @@ let package = Package(
                 "PackageSigning",
                 "SourceControl",
                 .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
+                .product(name: "OrderedCollections", package: "swift-collections"),
                 "Workspace",
-                "XCBuildSupport",
             ],
             swiftSettings: [
                 .unsafeFlags(["-static"]),
@@ -736,7 +770,7 @@ let package = Package(
         ),
         .testTarget(
             name: "BuildTests",
-            dependencies: ["Build", "PackageModel", "Commands", "_InternalTestSupport"]
+            dependencies: ["Build", "PackageModel", "Commands", "_InternalTestSupport", "_InternalBuildTestSupport"]
         ),
         .testTarget(
             name: "LLBuildManifestTests",
@@ -823,7 +857,7 @@ let package = Package(
         ),
         .testTarget(
             name: "XCBuildSupportTests",
-            dependencies: ["XCBuildSupport", "_InternalTestSupport"],
+            dependencies: ["XCBuildSupport", "_InternalTestSupport", "_InternalBuildTestSupport"],
             exclude: ["Inputs/Foo.pc"]
         ),
         // Examples (These are built to ensure they stay up to date with the API.)

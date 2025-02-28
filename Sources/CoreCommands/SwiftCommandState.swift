@@ -80,6 +80,7 @@ public typealias WorkspaceDelegateProvider = (
     _ progressHandler: @escaping (Int64, Int64, String?) -> Void,
     _ inputHandler: @escaping (String, (String?) -> Void) -> Void
 ) -> WorkspaceDelegate
+
 public typealias WorkspaceLoaderProvider = (_ fileSystem: FileSystem, _ observabilityScope: ObservabilityScope)
     -> WorkspaceLoader
 
@@ -443,7 +444,7 @@ public final class SwiftCommandState {
             self.observabilityHandler.progress,
             self.observabilityHandler.prompt
         )
-        let isXcodeBuildSystemEnabled = self.options.build.buildSystem == .xcode
+        let isXcodeBuildSystemEnabled = self.options.build.buildSystem.usesXcodeBuildEngine
         let workspace = try Workspace(
             fileSystem: self.fileSystem,
             location: .init(
@@ -461,7 +462,7 @@ public final class SwiftCommandState {
             configuration: .init(
                 skipDependenciesUpdates: options.resolver.skipDependencyUpdate,
                 prefetchBasedOnResolvedFile: options.resolver.shouldEnableResolverPrefetching,
-                shouldCreateMultipleTestProducts: toolWorkspaceConfiguration.wantsMultipleTestProducts || options.build.buildSystem == .xcode,
+                shouldCreateMultipleTestProducts: toolWorkspaceConfiguration.wantsMultipleTestProducts || options.build.buildSystem.usesXcodeBuildEngine,
                 createREPLProduct: toolWorkspaceConfiguration.wantsREPLProduct,
                 additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
                 sharedDependenciesCacheEnabled: self.options.caching.useDependenciesCache,
@@ -474,6 +475,7 @@ public final class SwiftCommandState {
                     .init(url: $0, supportsAvailability: true)
                 },
                 manifestImportRestrictions: .none,
+                usePrebuilts: options.caching.usePrebuilts,
                 pruneDependencies: options.resolver.pruneDependencies
             ),
             cancellator: self.cancellator,
@@ -798,7 +800,7 @@ public final class SwiftCommandState {
             workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
-            isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
+            isXcodeBuildSystemEnabled: options.build.buildSystem.usesXcodeBuildEngine,
             prepareForIndexing: prepareForIndexingMode,
             debuggingParameters: .init(
                 debugInfoFormat: options.build.debugInfoFormat.buildParameter,

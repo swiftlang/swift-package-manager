@@ -15,7 +15,7 @@ add_library(_AsyncFileSystem
   ReadableFileStream.swift
   WritableStream.swift
 )
-target_link_libraries(_AsyncFileSystem PUBLIC
+target_link_libraries(_AsyncFileSystem PRIVATE
   SwiftSystem::SystemPackage)
 
 # NOTE(compnerd) workaround for CMake not setting up include flags yet

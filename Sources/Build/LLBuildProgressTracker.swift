@@ -180,8 +180,10 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
         } ?? [:]
         self.swiftParsers = swiftParsers
 
-        self.taskTracker.onTaskProgressUpdateText = { progressText, _ in
-            self.queue.async {
+        self.taskTracker.onTaskProgressUpdateText = { [weak self] progressText, _ in
+            guard let self else { return }
+            self.queue.async { [weak self] in
+                guard let self else { return }
                 self.delegate?.buildSystem(self.buildSystem, didUpdateTaskProgress: progressText)
             }
         }

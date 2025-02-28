@@ -35,10 +35,34 @@ final class RunCommandTests: CommandsTestCase {
         XCTAssert(stdout.contains("SEE ALSO: swift build, swift package, swift test"), "got stdout:\n" + stdout)
     }
 
+    func testCommandDoesNotEmitDuplicateSymbols() async throws {
+        let (stdout, stderr) = try await execute(["--help"])
+        XCTAssertNoMatch(stdout, duplicateSymbolRegex)
+        XCTAssertNoMatch(stderr, duplicateSymbolRegex)
+    }
+
     func testVersion() async throws {
         let stdout = try await execute(["--version"]).stdout
-        XCTAssert(stdout.contains("Swift Package Manager"), "got stdout:\n" + stdout)
+        XCTAssertMatch(stdout, .regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#))
     }
+
+// echo.sh script from the toolset won't work on Windows
+#if !os(Windows)
+    func testToolsetDebugger() async throws {
+        try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
+            let (stdout, stderr) = try await SwiftPM.Run.execute(
+                ["--toolset", "\(fixturePath)/toolset.json"], packagePath: fixturePath)
+
+            // We only expect tool's output on the stdout stream.
+            XCTAssertMatch(stdout, .contains("\(fixturePath)/.build"))
+            XCTAssertMatch(stdout, .contains("sentinel"))
+
+            // swift-build-tool output should go to stderr.
+            XCTAssertMatch(stderr, .regex("Compiling"))
+            XCTAssertMatch(stderr, .contains("Linking"))
+        }
+    }
+#endif
 
     func testUnknownProductAndArgumentPassing() async throws {
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in

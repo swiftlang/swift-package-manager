@@ -290,7 +290,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 triple: self.hostToolchain.targetTriple,
                 flags: buildFlags,
                 architectures: architectures,
-                isXcodeBuildSystemEnabled: buildSystem == .xcode,
+                isXcodeBuildSystemEnabled: buildSystem.usesXcodeBuildEngine,
                 driverParameters: .init(
                     explicitTargetDependencyImportCheckingMode: explicitTargetDependencyImportCheck == .error ? .error : .none,
                     useIntegratedSwiftDriver: useIntegratedSwiftDriver,
@@ -406,6 +406,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                     partial[item.key] = (manifest: item.value, fs: self.fileSystem)
                 },
                 binaryArtifacts: [:],
+                prebuilts: [:],
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope
             )

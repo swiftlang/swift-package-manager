@@ -18,7 +18,7 @@ import PackageGraph
 
 import PackageModel
 @testable import SourceKitLSPAPI
-import struct SPMBuildCore.BuildParameters
+import SPMBuildCore
 import _InternalTestSupport
 import XCTest
 
@@ -257,6 +257,70 @@ final class SourceKitLSPAPITests: XCTestCase {
                 Result(moduleName: "lib", parentName: "exe"),
             ]
         )
+    }
+
+    func testLoadPackage() async throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/lib/lib.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    toolsVersion: .v5_10,
+                    targets: [
+                        TargetDescription(
+                            name: "lib",
+                            dependencies: []
+                        )
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let destinationBuildParameters = mockBuildParameters(destination: .target)
+        try await withTemporaryDirectory { tmpDir in
+            let pluginConfiguration = PluginConfiguration(
+                scriptRunner: DefaultPluginScriptRunner(
+                    fileSystem: fs,
+                    cacheDir: tmpDir.appending("cache"),
+                    toolchain: try UserToolchain.default
+                ),
+                workDirectory: tmpDir.appending("work"),
+                disableSandbox: false
+            )
+            let scratchDirectory = tmpDir.appending(".build")
+
+            let loaded = try await BuildDescription.load(
+                destinationBuildParameters: destinationBuildParameters,
+                toolsBuildParameters: mockBuildParameters(destination: .host),
+                packageGraph: graph,
+                pluginConfiguration: pluginConfiguration,
+                traitConfiguration: TraitConfiguration(),
+                disableSandbox: false,
+                scratchDirectory: scratchDirectory.asURL,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+
+            try loaded.description.checkArguments(
+                for: "lib",
+                graph: graph,
+                partialArguments: [
+                    "-module-name", "lib",
+                    "-package-name", "pkg",
+                    "-emit-dependencies",
+                    "-emit-module",
+                    "-emit-module-path", "/path/to/build/\(destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule"
+                ],
+                isPartOfRootPackage: true
+            )
+        }
     }
 }
 

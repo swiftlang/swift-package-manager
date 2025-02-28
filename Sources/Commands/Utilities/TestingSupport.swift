@@ -209,12 +209,21 @@ enum TestingSupport {
         if let xctestLocation = toolchain.xctestPath {
             env.prependPath(key: .path, value: xctestLocation.pathString)
         }
-        if let swiftTestingLocation = toolchain.swiftTestingPathOnWindows {
+        if let swiftTestingLocation = toolchain.swiftTestingPath {
             env.prependPath(key: .path, value: swiftTestingLocation.pathString)
         }
         #endif
         return env
         #else
+        // Add path to swift-testing override if there is one
+        if let swiftTestingPath = toolchain.swiftTestingPath {
+            if swiftTestingPath.extension == "framework" {
+                env.appendPath(key: "DYLD_FRAMEWORK_PATH", value: swiftTestingPath.pathString)
+            } else {
+                env.appendPath(key: "DYLD_LIBRARY_PATH", value: swiftTestingPath.pathString)
+            }
+        }
+
         // Add the sdk platform path if we have it.
         // Since XCTestHelper targets macOS, we need the macOS platform paths here.
         if let sdkPlatformPaths = try? SwiftSDK.sdkPlatformPaths(for: .macOS) {

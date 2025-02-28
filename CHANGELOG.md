@@ -3,6 +3,13 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 Swift Next
 -----------
 
+Swift 6.2
+---------
+
+* [#8314]
+
+  Starting from tools-version 6.2, `SwiftSetting` provides a `strictMemorySafety` setting to enable the strict memory safety checking introduced in [SE-0458].
+
 Swift 6.0
 -----------
 
@@ -393,7 +400,7 @@ Swift 3.0
 [SE-0387]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0387-cross-compilation-destinations.md
 [SE-0391]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md
 [SE-0387 proposal text]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0387-cross-compilation-destinations.md#swift-sdk-installation-and-configuration
-
+[SE-0458]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0458-strict-memory-safety.md
 [SR-5918]: https://bugs.swift.org/browse/SR-5918
 [SR-6978]: https://bugs.swift.org/browse/SR-6978
 [SR-13566]: https://bugs.swift.org/browse/SR-13566

@@ -154,7 +154,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
                 return settings.nameForTargetDependencyResolutionOnly ?? PackageIdentityParser.computeDefaultName(fromURL: url)
             }
         case .registry:
-            return self.identity.description
+            return self.identity.description.lowercased()
         }
     }
 

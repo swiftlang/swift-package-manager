@@ -593,6 +593,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 if let includeDir = targetDescription.moduleMap?.parentDirectory {
                     arguments += ["-I", includeDir.pathString]
                 }
+                arguments += ["-I", targetDescription.clangTarget.includeDir.pathString]
             }
         }
 
