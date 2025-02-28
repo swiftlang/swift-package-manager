@@ -1,0 +1,10 @@
+{
+    "schemaVersion": "1.2",
+    "artifacts": {
+        "KrabbyPatty": {
+            "type": "library",
+            "version": "3.0.0",
+            "variants": [{ "path": "KrabbyPatty" }]
+        }
+    }
+}

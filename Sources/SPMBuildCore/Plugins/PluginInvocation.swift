@@ -621,7 +621,7 @@ fileprivate func collectAccessibleTools(
         // For a binary target we create a `vendedTool`.
         if let module = executableOrBinaryModule as? BinaryModule {
             // TODO: Memoize this result for the host triple
-            let execInfos = try module.parseArtifactArchives(for: hostTriple, fileSystem: fileSystem)
+            let execInfos = try module.parseExecutables(for: hostTriple, fileSystem: fileSystem)
             return try execInfos.map{ .vendedTool(name: $0.name, path: $0.executablePath, supportedTriples: try $0.supportedTriples.map{ try $0.withoutVersion().tripleString }) }
         }
         // For an executable target we create a `builtTool`.
