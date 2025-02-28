@@ -256,6 +256,9 @@ public final class SwiftCommandState {
     // should use sandbox on external subcommands
     public var shouldDisableSandbox: Bool
 
+    /// Flag that determines whether a manifest's dependencies should be pruned if unused.
+//    public var shouldPruneDependencies: Bool = false
+
     /// The file system in use
     public let fileSystem: FileSystem
 

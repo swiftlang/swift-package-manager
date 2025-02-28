@@ -982,7 +982,6 @@ extension Workspace {
                 $0[$1.packageRef.identity, default: [:]][product] = prebuilt
             }
         }
-
         // Load the graph.
         let packageGraph = try ModulesGraph.load(
             root: manifests.root,
