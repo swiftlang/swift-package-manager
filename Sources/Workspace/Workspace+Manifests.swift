@@ -100,6 +100,7 @@ extension Workspace {
             }
             self._constraints = LoadableResult {
                 try Self.computeConstraints(
+                    root: root,
                     dependencies: dependencies,
                     workspace: workspace,
                     traitConfiguration: traitConfiguration
@@ -248,7 +249,6 @@ extension Workspace {
                 }
             }
 
-            // To fill in.
             // Begin with all packages having everything as an unused dependency.
             var unusedDepsPerPackage: [PackageIdentity: [PackageReference]] = manifestsMap.reduce(into: [PackageIdentity: [PackageReference]]()) { depsMap, manifestMap in
                 depsMap[manifestMap.key] = manifestsMap.compactMap({ (identity, manifest) in
@@ -396,6 +396,7 @@ extension Workspace {
         }
 
         private static func computeConstraints(
+            root: PackageGraphRoot,
             dependencies: [(
                 manifest: Manifest,
                 dependency: ManagedDependency,
@@ -406,6 +407,17 @@ extension Workspace {
             traitConfiguration: TraitConfiguration?
         ) throws -> [PackageContainerConstraint] {
             var allConstraints = [PackageContainerConstraint]()
+
+            let rootDependenciesEnabledTraitsMap = root.dependencies.reduce(into: [PackageIdentity: Set<String>]()) { traitMap, dependency in
+                let explicitlyEnabledTraits = dependency.traits?.filter {
+                    guard let conditionTraits = $0.condition?.traits else {
+                        return true
+                    }
+                    return !conditionTraits.intersection(traitConfiguration?.enabledTraits ?? []).isEmpty
+                }.map(\.name) ?? []
+
+                traitMap[dependency.identity] = Set(explicitlyEnabledTraits)
+            }
 
             for (externalManifest, managedDependency, productFilter, _) in dependencies {
                 // For edited packages, add a constraint with unversioned requirement so the
@@ -427,8 +439,8 @@ extension Workspace {
                 case .sourceControlCheckout, .registryDownload, .fileSystem, .custom:
                     break
                 }
-                // TODO: is this the right trait configuration?
-                allConstraints += try externalManifest.dependencyConstraints(productFilter: productFilter, /*.init(traitConfiguration)*/nil)
+                let enabledTraits = rootDependenciesEnabledTraitsMap[managedDependency.packageRef.identity]
+                allConstraints += try externalManifest.dependencyConstraints(productFilter: productFilter, enabledTraits)
             }
             return allConstraints
         }

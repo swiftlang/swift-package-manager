@@ -356,15 +356,7 @@ public struct PubGrubDependencyResolver {
                         }
                     )
                 }
-//                var enabledTraits: Set<String> = []
-//                print("package: \(constraint.package.identity.description)")
-//                print("constraint enabled traits: \(constraint.enabledTraits?.joined(separator: ", ") ?? "<none>")")
-//                if constraint.package.kind.isRoot {
-//                    enabledTraits = try await container.underlying.getEnabledTraits(traitConfiguration: traitConfiguration)
-//                    print("enabled traits calculation if applicable: \(enabledTraits.joined(separator: ", "))")
-//                } else {
-//
-//                }
+
                 for dependency in try await container.underlying
                     .getUnversionedDependencies(productFilter: node.productFilter, constraint.enabledTraits)
                 {

@@ -537,22 +537,10 @@ extension Workspace {
             traitConfiguration: traitConfiguration
         )
 
-//        let enabledAndUsedTargetDependencies = try graphRoot.manifests.values.compactMap { manifest in
-//            let usedTargetDeps = try manifest.usedTargetDependencies(withTraits: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
-//            return usedTargetDeps
-//        }
-//            .reduce(into: [String: Set<TargetDescription.Dependency>]()) { flattenedMap, element in
-//                flattenedMap.merge(element, uniquingKeysWith: { lhs, rhs in
-//                    return lhs
-//                })
-//            }
-
         // Of the enabled dependencies of targets, only consider these for dependency resolution
-//        let usedDependencies = Set(enabledAndUsedTargetDependencies.values.flatMap { $0 })
         let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,
             observabilityScope: observabilityScope,
-//            usedDependencies: Set(usedDependencies.compactMap(\.package)),
             traitConfiguration: traitConfiguration
         )
         guard !observabilityScope.errorsReported else {

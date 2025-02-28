@@ -19,7 +19,7 @@ import XCTest
 final class TraitTests: XCTestCase {
     func testTraits_whenNoFlagPassed() async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--prune-unused-dependencies"])
+            let (stdout, _) = try await executeSwiftRun(fixturePath.appending("Example"), "Example", extraArgs: ["--prune-unused-dependencies"])
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             // When fixed, GitHub issue #8131 should re-enable the below assert.
             // XCTAssertFalse(stderr.contains("warning:"))
