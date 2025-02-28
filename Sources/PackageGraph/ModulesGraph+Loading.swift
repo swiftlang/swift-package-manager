@@ -265,8 +265,6 @@ extension ModulesGraph {
             traitConfiguration: traitConfiguration
         )
 
-//        throw PackageGraphError.duplicateProduct(product: "asdf", packages: [])
-
         let rootPackages = resolvedPackages.filter { root.manifests.values.contains($0.manifest) }
         checkAllDependenciesAreUsed(packages: resolvedPackages, rootPackages, observabilityScope: observabilityScope)
 
@@ -444,15 +442,9 @@ private func createResolvedPackages(
         var dependenciesByNameForModuleDependencyResolution = [String: ResolvedPackageBuilder]()
         var dependencyNamesForModuleDependencyResolutionOnly = [PackageIdentity: String]()
 
-//        let isRoot = package.manifest.packageKind.isRoot
-//        let enableAllTraits = isRoot ? traitConfiguration?.enableAllTraits ?? false : false
-//        let enabledTraits = isRoot ? traitConfiguration?.enabledTraits : nil
-
         try package.manifest.dependenciesRequired(
             for: packageBuilder.productFilter,
-            nil
-//            enabledTraits
-//            enableAllTraits: enableAllTraits
+            nil // traits unneeded at this stage
         ).forEach { dependency in
             let dependencyPackageRef = dependency.packageRef
 

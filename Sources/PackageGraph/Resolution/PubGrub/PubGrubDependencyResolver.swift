@@ -501,7 +501,7 @@ public struct PubGrubDependencyResolver {
     /// decisions if nothing else is left to be done.
     /// After this method returns `solution` is either populated with a list of
     /// final version assignments or an error is thrown.
-    private func run(state: State/*, traitConfiguration: TraitConfiguration?*/) async throws {
+    private func run(state: State) async throws {
         var next: DependencyResolutionNode? = state.root
 
         while let nxt = next {
@@ -512,7 +512,7 @@ public struct PubGrubDependencyResolver {
 
             // If decision making determines that no more decisions are to be
             // made, it returns nil to signal that version solving is done.
-            next = try await self.makeDecision(state: state/*, traitConfiguration: traitConfiguration*/)
+            next = try await self.makeDecision(state: state)
         }
     }
 
