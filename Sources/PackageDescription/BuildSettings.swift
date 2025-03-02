@@ -273,11 +273,6 @@ public struct CXXSetting: Sendable {
     }
 }
 
-public enum WarningTreatLevel: String {
-    case warning, error
-    // TODO: case ignore? (for clang)
-}
-
 /// A Swift language build setting.
 public struct SwiftSetting: Sendable {
     /// The data store for the Swift build setting.
@@ -468,7 +463,21 @@ public struct SwiftSetting: Sendable {
             name: "swiftLanguageMode", value: [.init(describing: mode)], condition: condition)
     }
 
-    @available(_PackageDescription, introduced: 6.0)
+    /// Controls how all Swift compiler warnings are treated during compilation.
+    ///
+    /// Use this setting to specify whether all warnings should be treated as warnings (default behavior)
+    /// or as errors. This is equivalent to passing `-warnings-as-errors` or `-no-warnings-as-errors`
+    /// to the Swift compiler.
+    ///
+    /// This setting applies to all warnings emitted by the Swift compiler. To control specific
+    /// warnings individually, use `treatWarning(name:as:_:)` instead.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - level: The treatment level for all warnings (`.warning` or `.error`).
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
     public static func treatAllWarnings(
       as level: WarningTreatLevel,
       _ condition: BuildSettingCondition? = nil
@@ -477,7 +486,22 @@ public struct SwiftSetting: Sendable {
             name: "treatAllWarnings", value: [level.rawValue], condition: condition)
     }
 
-    @available(_PackageDescription, introduced: 6.0)
+    /// Controls how a specific Swift compiler warning is treated during compilation.
+    ///
+    /// Use this setting to specify whether a particular warning should be treated as a warning
+    /// (default behavior) or as an error. This is equivalent to passing `-Werror` or `-Wwarning`
+    /// followed by the warning name to the Swift compiler.
+    ///
+    /// This setting allows for fine-grained control over individual warnings. To control all
+    /// warnings at once, use `treatAllWarnings(as:_:)` instead.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the specific warning to control.
+    ///   - level: The treatment level for the warning (`.warning` or `.error`).
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
     public static func treatWarning(
       name: String,
       as level: WarningTreatLevel,

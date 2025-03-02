@@ -1240,10 +1240,7 @@ public final class PackageBuilder {
             case .treatAllWarnings(let level):
                 switch setting.tool {
                 case .c, .cxx, .linker:
-                    // TODO
-                    throw InternalError(
-                        "only Swift supports treatAllWarnings"
-                    )
+                    throw InternalError("only Swift supports treatAllWarnings")
 
                 case .swift:
                     // TODO: this should be SWIFT_TREAT_WARNINGS_AS_ERRORS
@@ -1261,10 +1258,7 @@ public final class PackageBuilder {
             case .treatWarning(let name, let level):
                 switch setting.tool {
                 case .c, .cxx, .linker:
-                    // TODO
-                    throw InternalError(
-                        "only Swift supports treatWarning"
-                    )
+                    throw InternalError("only Swift supports treatWarning")
 
                 case .swift:
                     decl = .OTHER_SWIFT_FLAGS

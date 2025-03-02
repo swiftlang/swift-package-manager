@@ -687,7 +687,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
             path: "/pkg",
-            toolsVersion: .vNext,
+            toolsVersion: .v6_2,
             dependencies: [],
             targets: [
                 try TargetDescription(
@@ -707,6 +707,6 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 ),
             ])
         let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
-        try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .vNext)
+        try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v6_2)
     }
 }

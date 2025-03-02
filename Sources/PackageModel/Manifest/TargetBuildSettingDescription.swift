@@ -25,6 +25,7 @@ public enum TargetBuildSettingDescription {
         case Cxx
     }
 
+    /// The level at which a compiler warning should be treated.
     public enum WarningTreatLevel: String, Codable, Hashable, Sendable {
         case warning
         case error
