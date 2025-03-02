@@ -188,10 +188,19 @@ public struct CachingOptions: ParsableArguments {
     }
 
     /// Whether to use macro prebuilts or not
-    @Flag(name: .customLong("experimental-prebuilts"),
-          inversion: .prefixedEnableDisable,
-          help: "Whether to use prebuilt swift-syntax libraries for macros")
+    @Flag(
+        name: .customLong("experimental-prebuilts"),
+        inversion: .prefixedEnableDisable,
+        help: "Whether to use prebuilt swift-syntax libraries for macros"
+    )
     public var usePrebuilts: Bool = false
+
+    /// Hidden option to override the prebuilts download location for testing
+    @Option(
+        name: .customLong("experimental-prebuilts-download-url"),
+        help: .hidden
+    )
+    public var prebuiltsDownloadURL: String?
 }
 
 public struct LoggingOptions: ParsableArguments {
