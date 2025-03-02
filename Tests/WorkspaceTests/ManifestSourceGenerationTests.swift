@@ -691,18 +691,30 @@ final class ManifestSourceGenerationTests: XCTestCase {
             dependencies: [],
             targets: [
                 try TargetDescription(
-                    name: "foo",
+                    name: "swiftTarget",
                     settings: [
                         .init(tool: .swift, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
                         .init(tool: .swift, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
                         .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .warning), condition: .init(config: "release")),
+                        .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .error), condition: .init(config: "debug")),
                     ]
                 ),
                 try TargetDescription(
-                    name: "bar",
+                    name: "cTarget",
                     settings: [
-                        .init(tool: .swift, kind: .treatAllWarnings(.warning)),
-                        .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .error)),
+                        .init(tool: .c, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                        .init(tool: .c, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                        .init(tool: .c, kind: .treatWarning("implicit-function-declaration", .error), condition: .init(config: "release")),
+                        .init(tool: .c, kind: .treatWarning("implicit-function-declaration", .warning), condition: .init(config: "debug")),
+                    ]
+                ),
+                try TargetDescription(
+                    name: "cxxTarget",
+                    settings: [
+                        .init(tool: .cxx, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                        .init(tool: .cxx, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                        .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .error), condition: .init(config: "release")),
+                        .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .warning), condition: .init(config: "debug")),
                     ]
                 ),
             ])

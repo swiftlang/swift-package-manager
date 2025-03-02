@@ -4248,8 +4248,6 @@ final class BuildPlanTests: XCTestCase {
                             condition: .init(platformNames: ["macos"], config: "debug")
                         ),
                         .init(tool: .swift, kind: .strictMemorySafety),
-                        .init(tool: .swift, kind: .treatAllWarnings(.error)),
-                        .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .warning)),
                     ]
                 ),
                 TargetDescription(
@@ -4276,8 +4274,6 @@ final class BuildPlanTests: XCTestCase {
                             kind: .swiftLanguageMode(.v5),
                             condition: .init(platformNames: ["linux"])
                         ),
-                        .init(tool: .swift, kind: .treatAllWarnings(.warning)),
-                        .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .error)),
                         .init(tool: .linker, kind: .linkedLibrary("sqlite3")),
                         .init(
                             tool: .linker,
@@ -4377,8 +4373,6 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature", "BestFeature",
                     "-strict-memory-safety",
-                    "-warnings-as-errors",
-                    "-Wwarning", "DeprecatedDeclaration",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4393,8 +4387,6 @@ final class BuildPlanTests: XCTestCase {
                     .anySequence,
                     "-swift-version", "5",
                     "-DFOO",
-                    "-no-warnings-as-errors",
-                    "-Werror", "DeprecatedDeclaration",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4457,8 +4449,6 @@ final class BuildPlanTests: XCTestCase {
                     "-enable-upcoming-feature",
                     "BestFeature",
                     "-strict-memory-safety",
-                    "-warnings-as-errors",
-                    "-Wwarning", "DeprecatedDeclaration",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fomit-frame-pointer",
@@ -4473,8 +4463,6 @@ final class BuildPlanTests: XCTestCase {
                     .anySequence,
                     "-swift-version", "5",
                     "-DFOO",
-                    "-no-warnings-as-errors",
-                    "-Werror", "DeprecatedDeclaration",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fomit-frame-pointer",
@@ -4528,8 +4516,6 @@ final class BuildPlanTests: XCTestCase {
                     "-enable-upcoming-feature",
                     "BestFeature",
                     "-strict-memory-safety",
-                    "-warnings-as-errors",
-                    "-Wwarning", "DeprecatedDeclaration",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4544,8 +4530,6 @@ final class BuildPlanTests: XCTestCase {
                     .anySequence,
                     "-swift-version", "5",
                     "-DFOO",
-                    "-no-warnings-as-errors",
-                    "-Werror", "DeprecatedDeclaration",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4588,8 +4572,6 @@ final class BuildPlanTests: XCTestCase {
                     "-enable-upcoming-feature", "BestFeature",
                     "-enable-upcoming-feature", "WorstFeature",
                     "-strict-memory-safety",
-                    "-warnings-as-errors",
-                    "-Wwarning", "DeprecatedDeclaration",
                     "-g",
                     "-Xcc", "-g",
                     .end,
@@ -4605,8 +4587,6 @@ final class BuildPlanTests: XCTestCase {
                     "-DFOO",
                     "-cxx-interoperability-mode=default",
                     "-Xcc", "-std=c++17",
-                    "-no-warnings-as-errors",
-                    "-Werror", "DeprecatedDeclaration",
                     "-g",
                     "-Xcc", "-g",
                     .end,
@@ -4627,6 +4607,109 @@ final class BuildPlanTests: XCTestCase {
                     .anySequence,
                 ]
             )
+        }
+    }
+
+    func testWarningTreatLevelSettings() async throws {
+        let Pkg: AbsolutePath = "/Pkg"
+
+        let fs: FileSystem = InMemoryFileSystem(
+            emptyFiles:
+            Pkg.appending(components: "Sources", "swiftLib", "lib.swift").pathString,
+            Pkg.appending(components: "Sources", "cLib", "lib.c").pathString,
+            Pkg.appending(components: "Sources", "cLib", "include", "lib.h").pathString,
+            Pkg.appending(components: "Sources", "cxxLib", "lib.cpp").pathString,
+            Pkg.appending(components: "Sources", "cxxLib", "include", "lib.h").pathString
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: .init(validating: Pkg.pathString),
+                    toolsVersion: .v6_2,
+                    targets: [
+                        TargetDescription(
+                            name: "swiftLib",
+                            dependencies: [],
+                            settings: [
+                                .init(tool: .swift, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                                .init(tool: .swift, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                                .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .warning), condition: .init(config: "debug")),
+                                .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .error), condition: .init(config: "release")),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "cLib",
+                            dependencies: [],
+                            settings: [
+                                .init(tool: .c, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                                .init(tool: .c, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                                .init(tool: .c, kind: .treatWarning("deprecated-declarations", .warning), condition: .init(config: "debug")),
+                                .init(tool: .c, kind: .treatWarning("deprecated-declarations", .error), condition: .init(config: "release")),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "cxxLib",
+                            dependencies: [],
+                            settings: [
+                                .init(tool: .cxx, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                                .init(tool: .cxx, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                                .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .warning), condition: .init(config: "debug")),
+                                .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .error), condition: .init(config: "release")),
+                            ]
+                        )
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        // Test debug configuration
+        do {
+            let result = try await BuildPlanResult(plan: mockBuildPlan(
+                environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            ))
+
+            // Check Swift warning treatment flags
+            let swiftLib = try result.moduleBuildDescription(for: "swiftLib").swift().compileArguments()
+            XCTAssertMatch(swiftLib, [.anySequence, "-no-warnings-as-errors", "-Wwarning", "DeprecatedDeclaration", .anySequence])
+
+            // Check C warning treatment flags
+            let cLib = try result.moduleBuildDescription(for: "cLib").clang().basicArguments(isCXX: false)
+            XCTAssertMatch(cLib, [.anySequence, "-Wno-error", "-Wno-error=deprecated-declarations", .anySequence])
+
+            // Check C++ warning treatment flags
+            let cxxLib = try result.moduleBuildDescription(for: "cxxLib").clang().basicArguments(isCXX: true)
+            XCTAssertMatch(cxxLib, [.anySequence, "-Wno-error", "-Wno-error=deprecated-declarations", .anySequence])
+        }
+
+        // Test release configuration
+        do {
+            let result = try await BuildPlanResult(plan: mockBuildPlan(
+                environment: BuildEnvironment(platform: .macOS, configuration: .release),
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            ))
+
+            // Check Swift warning treatment flags
+            let swiftLib = try result.moduleBuildDescription(for: "swiftLib").swift().compileArguments()
+            XCTAssertMatch(swiftLib, [.anySequence, "-warnings-as-errors", "-Werror", "DeprecatedDeclaration", .anySequence])
+
+            // Check C warning treatment flags
+            let cLib = try result.moduleBuildDescription(for: "cLib").clang().basicArguments(isCXX: false)
+            XCTAssertMatch(cLib, [.anySequence, "-Werror", "-Werror=deprecated-declarations", .anySequence])
+
+            // Check C++ warning treatment flags
+            let cxxLib = try result.moduleBuildDescription(for: "cxxLib").clang().basicArguments(isCXX: true)
+            XCTAssertMatch(cxxLib, [.anySequence, "-Werror", "-Werror=deprecated-declarations", .anySequence])
         }
     }
 

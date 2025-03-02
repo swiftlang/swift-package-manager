@@ -1239,36 +1239,66 @@ public final class PackageBuilder {
 
             case .treatAllWarnings(let level):
                 switch setting.tool {
-                case .c, .cxx, .linker:
-                    throw InternalError("only Swift supports treatAllWarnings")
+                case .c:
+                    decl = .OTHER_CFLAGS
+                    let flag = switch level {
+                    case .error: "-Werror"
+                    case .warning: "-Wno-error"
+                    }
+                    values = [flag]
+                    
+                case .cxx:
+                    decl = .OTHER_CPLUSPLUSFLAGS
+                    let flag = switch level {
+                    case .error: "-Werror"
+                    case .warning: "-Wno-error"
+                    }
+                    values = [flag]
+                    
+                case .linker:
+                    throw InternalError("linker does not support treatAllWarnings")
 
                 case .swift:
                     // TODO: this should be SWIFT_TREAT_WARNINGS_AS_ERRORS
                     // but it probably will break the order of the warning control
                     // flags (which is important)
                     decl = .OTHER_SWIFT_FLAGS
+                    let flag = switch level {
+                    case .error: "-warnings-as-errors"
+                    case .warning: "-no-warnings-as-errors"
+                    }
+                    values = [flag]
                 }
-
-                let flag = switch level {
-                case .error: "-warnings-as-errors"
-                case .warning: "-no-warnings-as-errors"
-                }
-                values = [flag]
 
             case .treatWarning(let name, let level):
                 switch setting.tool {
-                case .c, .cxx, .linker:
-                    throw InternalError("only Swift supports treatWarning")
+                case .c:
+                    decl = .OTHER_CFLAGS
+                    let flag = switch level {
+                    case .error: "-Werror=\(name)"
+                    case .warning: "-Wno-error=\(name)"
+                    }
+                    values = [flag]
+                    
+                case .cxx:
+                    decl = .OTHER_CPLUSPLUSFLAGS
+                    let flag = switch level {
+                    case .error: "-Werror=\(name)"
+                    case .warning: "-Wno-error=\(name)"
+                    }
+                    values = [flag]
+                    
+                case .linker:
+                    throw InternalError("linker does not support treatWarning")
 
                 case .swift:
                     decl = .OTHER_SWIFT_FLAGS
+                    let flag = switch level {
+                    case .error: "-Werror"
+                    case .warning: "-Wwarning"
+                    }
+                    values = [flag, name]
                 }
-
-                let flag = switch level {
-                case .error: "-Werror"
-                case .warning: "-Wwarning"
-                }
-                values = [flag, name]
 
             }
 

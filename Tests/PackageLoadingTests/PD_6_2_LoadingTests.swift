@@ -21,7 +21,7 @@ final class PackageDescription6_2LoadingTests: PackageDescriptionLoadingTests {
         .v6_2
     }
 
-    func testSwiftWarningTreatingRules() async throws {
+    func testWarningTreatingRules() async throws {
         let content = """
             import PackageDescription
             let package = Package(
@@ -30,14 +30,29 @@ final class PackageDescription6_2LoadingTests: PackageDescriptionLoadingTests {
                 targets: [
                     .target(
                         name: "Foo",
+                        cSettings: [
+                            .treatAllWarnings(as: .error),
+                            .treatWarning(name: "deprecated-declarations", as: .warning),
+                        ],
+                        cxxSettings: [
+                            .treatAllWarnings(as: .warning),
+                            .treatWarning(name: "deprecated-declarations", as: .error),
+                        ],
                         swiftSettings: [
                             .treatAllWarnings(as: .error),
                             .treatWarning(name: "DeprecatedDeclaration", as: .warning),
-            
                         ]
                     ),
                     .target(
                         name: "Bar",
+                        cSettings: [
+                            .treatAllWarnings(as: .warning),
+                            .treatWarning(name: "deprecated-declarations", as: .error),
+                        ],
+                        cxxSettings: [
+                            .treatAllWarnings(as: .error),
+                            .treatWarning(name: "deprecated-declarations", as: .warning),
+                        ],
                         swiftSettings: [
                             .treatAllWarnings(as: .warning),
                             .treatWarning(name: "DeprecatedDeclaration", as: .error),
