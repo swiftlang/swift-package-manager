@@ -536,6 +536,19 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
+        case .treatAllWarnings(let level):
+            params.append(SourceCodeFragment(key: "as", enum: level.rawValue))
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
+        case .treatWarning(let name, let level):
+            params.append(SourceCodeFragment(key: "name", string: level.rawValue))
+            params.append(SourceCodeFragment(key: "as", enum: level.rawValue))
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
         }
     }
 }
@@ -692,6 +705,10 @@ extension TargetBuildSettingDescription.Kind {
             return "strictMemorySafety"
         case .swiftLanguageMode:
             return "swiftLanguageMode"
+        case .treatAllWarnings:
+            return "treatAllWarnings"
+        case .treatWarning:
+            return "treatWarning"
         }
     }
 }
