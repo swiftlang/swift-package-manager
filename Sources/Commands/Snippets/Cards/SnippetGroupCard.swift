@@ -49,15 +49,24 @@ struct SnippetGroupCard: Card {
     }
 
     func render() -> String {
+        let isColorized = swiftCommandState.options.logging.colorDiagnostics
         precondition(!snippetGroup.snippets.isEmpty)
 
-        var rendered = brightYellow {
+        var rendered = isColorized ? brightYellow {
+            """
+            # \(snippetGroup.name)
+
+            
+            """
+        }.terminalString() :
+        plain {
             """
             # \(snippetGroup.name)
 
             
             """
         }.terminalString()
+        
 
         if !snippetGroup.explanation.isEmpty {
             rendered += snippetGroup.explanation
@@ -68,7 +77,13 @@ struct SnippetGroupCard: Card {
             .enumerated()
             .map { pair -> String in
                 let (number, snippet) = pair
-                return brightCyan {
+                return isColorized ? brightCyan {
+                    "\(number). \(snippet.name)\n"
+                    plain {
+                      snippet.explanation.spm_multilineIndent(count: 3)
+                    }
+                }.terminalString() :
+                brightCyan {
                     "\(number). \(snippet.name)\n"
                     plain {
                       snippet.explanation.spm_multilineIndent(count: 3)

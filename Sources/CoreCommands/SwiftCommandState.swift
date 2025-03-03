@@ -307,14 +307,15 @@ public final class SwiftCommandState {
         workspaceLoaderProvider: @escaping WorkspaceLoaderProvider,
         hostTriple: Basics.Triple? = nil,
         fileSystem: any FileSystem = localFileSystem,
-        environment: Environment = .current
+        environment: Environment = .current,
+        manualWriterParams: [String : Bool] = ["use": false]
     ) throws {
         self.hostTriple = hostTriple
         self.fileSystem = fileSystem
         self.environment = environment
         // first, bootstrap the observability system
         self.logLevel = options.logging.logLevel
-        self.observabilityHandler = SwiftCommandObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel)
+        self.observabilityHandler = SwiftCommandObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel, colorDiagnostics: options.logging.colorDiagnostics, manualWriterParams: manualWriterParams)
         let observabilitySystem = ObservabilitySystem(self.observabilityHandler)
         let observabilityScope = observabilitySystem.topScope
         self.observabilityScope = observabilityScope
@@ -825,6 +826,7 @@ public final class SwiftCommandState {
                 shouldDisableLocalRpath: options.linker.shouldDisableLocalRpath
             ),
             outputParameters: .init(
+                isColorized: self.options.logging.colorDiagnostics,
                 isVerbose: self.logLevel <= .info
             ),
             testingParameters: .init(
