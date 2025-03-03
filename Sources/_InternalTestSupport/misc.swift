@@ -59,10 +59,10 @@ public func testWithTemporaryDirectory<Result>(
     body: (AbsolutePath) async throws -> Result
 ) async throws -> Result {
     let cleanedFunction = function.description
-        .replacingOccurrences(of: "(", with: "")
-        .replacingOccurrences(of: ")", with: "")
-        .replacingOccurrences(of: ".", with: "")
-        .replacingOccurrences(of: ":", with: "_")
+        .replacing("(", with: "")
+        .replacing(")", with: "")
+        .replacing(".", with: "")
+        .replacing(":", with: "_")
     return try await withTemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
         defer {
             // Unblock and remove the tmp dir on deinit.

@@ -135,7 +135,7 @@ public struct NetrcParser {
             let matchedString = nsString.substring(with: $0.range)
             if !matchedString.starts(with: "\"") {
                 trimmedCommentsText = trimmedCommentsText
-                    .replacingOccurrences(of: matchedString, with: "")
+                    .replacing(matchedString, with: "")
             }
         }
         return trimmedCommentsText
