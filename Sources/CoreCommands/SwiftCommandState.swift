@@ -689,7 +689,7 @@ public final class SwiftCommandState {
         try _manifestLoader.get()
     }
 
-    public func canUseCachedBuildManifest() throws -> Bool {
+    public func canUseCachedBuildManifest() async throws -> Bool {
         if !self.options.caching.cacheBuildManifest {
             return false
         }
@@ -706,7 +706,7 @@ public final class SwiftCommandState {
         // Perform steps for build manifest caching if we can enabled it.
         //
         // FIXME: We don't add edited packages in the package structure command yet (SR-11254).
-        let hasEditedPackages = try self.getActiveWorkspace().state.dependencies.contains(where: \.isEdited)
+        let hasEditedPackages = try await self.getActiveWorkspace().state.dependencies.contains(where: \.isEdited)
         if hasEditedPackages {
             return false
         }
