@@ -6880,34 +6880,17 @@ class BuildPlanSwiftBuildTests: BuildPlanTestCase {
         return .swiftbuild
     }
 
-    override open var xFailTestCaseNames: [XFailCaseName] {
-        return [
-            XFailCaseName(
-                String(describing: testDuplicateProductNamesWithNonDefaultLibsThrowError.self),
-                because: "This test is not expected to fail.. it should pass.",
-            ),
-            XFailCaseName(
-                String(describing: testTargetsWithPackageAccess.self),
-                because: "Skip until swift build system can support this case",
-            ),
-            // XFailCaseName(
-            //     String(describing: testTestModule.self),
-            //     because: "Skip until swift build system can support this case."
-            // )
-        ]
-    }
-
     override func testDuplicateProductNamesWithNonDefaultLibsThrowError() async throws {
         try await super.testDuplicateProductNamesWithNonDefaultLibsThrowError()
     }
 
-    // override func testTargetsWithPackageAccess() async throws {
-    //     throw XCTSkip("Skip until swift build system can support this case.")
-    // }
+    override func testTargetsWithPackageAccess() async throws {
+        throw XCTSkip("Skip until swift build system can support this case.")
+    }
 
-    // override func testTestModule() async throws {
-    //     throw XCTSkip("Skip until swift build system can support this case.")
-    // }
+    override func testTestModule() async throws {
+        throw XCTSkip("Skip until swift build system can support this case.")
+    }
 
     override func testPackageNameFlag() async throws {
 #if os(Windows)
