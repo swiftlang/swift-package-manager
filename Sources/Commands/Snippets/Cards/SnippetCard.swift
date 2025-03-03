@@ -39,8 +39,17 @@ struct SnippetCard: Card {
     var swiftCommandState: SwiftCommandState
 
     func render() -> String {
-        var rendered = colorized {
+        let isColorized: Bool = swiftCommandState.options.logging.colorDiagnostics
+        var rendered = isColorized ? colorized {
             brightYellow {
+                "# "
+                snippet.name
+            }
+            "\n\n"
+        }.terminalString()
+        :
+        plain {
+            plain {
                 "# "
                 snippet.name
             }

@@ -60,10 +60,17 @@ struct CardStack {
     }
 
     func askForLineInput(prompt: String?) -> String? {
+        let isColorized: Bool = swiftCommandState.options.logging.colorDiagnostics
+        
         if let prompt {
-            print(brightBlack { prompt }.terminalString())
+            isColorized ?
+            print(brightBlack { prompt }.terminalString()) :
+            print(plain { prompt }.terminalString())
         }
-        terminal.write(">>> ", inColor: .green, bold: true)
+        isColorized ?
+            terminal.write(">>> ", inColor: .green, bold: true)
+        :   terminal.write(">>> ", inColor: .noColor, bold: false)
+
         return readLine(strippingNewline: true)
     }
 
