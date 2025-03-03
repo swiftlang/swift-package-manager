@@ -14,7 +14,7 @@
 /// package.
 public enum CLanguageStandard: String {
 
-    /// The identifier for the ISO C 1990 language standard.
+    /// The identifier for the ISO C 1989 language standard.
     case c89
 
     /// The identifier for the ISO C 1990 language standard.
