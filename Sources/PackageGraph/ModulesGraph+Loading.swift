@@ -107,18 +107,20 @@ extension ModulesGraph {
                 enabledTraits = Set(package.manifest.traits.map { $0.name })
             }
 
+            let calculatedTraits = try calculateEnabledTraits(
+                identity: identity,
+                manifest: package.manifest,
+                explictlyEnabledTraits: enabledTraits
+            )
+
             return try GraphLoadingNode(
                 identity: identity,
                 manifest: package.manifest,
                 productFilter: .everything,
-                enabledTraits: calculateEnabledTraits(
-                    identity: identity,
-                    manifest: package.manifest,
-                    explictlyEnabledTraits: enabledTraits
-                )
+                enabledTraits: calculatedTraits
             )
         }
-        let rootDependencyNodes = try root.dependencies.lazy.compactMap { dependency in
+        let rootDependencyNodes = try root.dependencies.lazy.filter({ requiredDependencies.contains($0.packageRef) }).compactMap { dependency in
             try manifestMap[dependency.identity].map {
                 try GraphLoadingNode(
                     identity: dependency.identity,
@@ -128,6 +130,7 @@ extension ModulesGraph {
                 )
             }
         }
+
         let inputManifests = (rootManifestNodes + rootDependencyNodes).map {
             KeyedPair($0, key: $0.identity)
         }
@@ -136,7 +139,7 @@ extension ModulesGraph {
         var allNodes = OrderedDictionary<PackageIdentity, GraphLoadingNode>()
 
         let nodeSuccessorProvider = { (node: KeyedPair<GraphLoadingNode, PackageIdentity>) in
-            return try node.item.requiredDependencies.compactMap { dependency in
+            return try (node.item.requiredDependencies + node.item.traitGuardedDependencies).compactMap { dependency -> KeyedPair<GraphLoadingNode, PackageIdentity>? in
                 return try manifestMap[dependency.identity].map { manifest, _ in
                     // We are going to check the conditionally enabled traits here and enable them if
                     // required. This checks the current node and then enables the conditional
@@ -148,16 +151,18 @@ extension ModulesGraph {
                         return !conditionTraits.intersection(node.item.enabledTraits).isEmpty
                     }.map { $0.name }
 
+                    let calculatedTraits = try calculateEnabledTraits(
+                        identity: dependency.identity,
+                        manifest: manifest,
+                        explictlyEnabledTraits: explictlyEnabledTraits.flatMap { Set($0) }
+                    )
+
                     return try KeyedPair(
                             GraphLoadingNode(
                                 identity: dependency.identity,
                                 manifest: manifest,
                                 productFilter: dependency.productFilter,
-                                enabledTraits: calculateEnabledTraits(
-                                    identity: dependency.identity,
-                                    manifest: manifest,
-                                    explictlyEnabledTraits: explictlyEnabledTraits.flatMap { Set($0) }
-                                )
+                                enabledTraits: calculatedTraits
                             ),
                             key: dependency.identity
                         )
@@ -256,7 +261,8 @@ extension ModulesGraph {
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             productsFilter: productsFilter,
-            modulesFilter: modulesFilter
+            modulesFilter: modulesFilter,
+            traitConfiguration: traitConfiguration
         )
 
         let rootPackages = resolvedPackages.filter { root.manifests.values.contains($0.manifest) }
@@ -388,7 +394,8 @@ private func createResolvedPackages(
     fileSystem: FileSystem,
     observabilityScope: ObservabilityScope,
     productsFilter: ((Product) -> Bool)?,
-    modulesFilter: ((Module) -> Bool)?
+    modulesFilter: ((Module) -> Bool)?,
+    traitConfiguration: TraitConfiguration?
 ) throws -> IdentifiableSet<ResolvedPackage> {
 
     // Create package builder objects from the input manifests.
@@ -435,8 +442,9 @@ private func createResolvedPackages(
         var dependenciesByNameForModuleDependencyResolution = [String: ResolvedPackageBuilder]()
         var dependencyNamesForModuleDependencyResolutionOnly = [PackageIdentity: String]()
 
-        package.manifest.dependenciesRequired(
-            for: packageBuilder.productFilter
+        try package.manifest.dependenciesRequired(
+            for: packageBuilder.productFilter,
+            nil // traits unneeded at this stage
         ).forEach { dependency in
             let dependencyPackageRef = dependency.packageRef
 
@@ -664,18 +672,6 @@ private func createResolvedPackages(
 
             // Establish product dependencies.
             for case .product(let productRef, let conditions) in moduleBuilder.module.dependencies {
-                if let traitCondition = conditions.compactMap({ $0.traitCondition }).first {
-                    if packageBuilder.enabledTraits.intersection(traitCondition.traits).isEmpty {
-                        ///  If we land here non of the traits required to enable this depenendcy has been enabled.
-                        continue
-                    }
-                }
-
-                if let package = productRef.package, prebuilts[.plain(package)]?[productRef.name] != nil {
-                    // using a prebuilt instead.
-                    continue
-                }
-
                 // Find the product in this package's dependency products.
                 // Look it up by ID if module aliasing is used, otherwise by name.
                 let product = lookupByProductIDs ? productDependencyMap[productRef.identity] : productDependencyMap[productRef.name]

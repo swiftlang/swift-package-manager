@@ -14,6 +14,8 @@ import ArgumentParser
 import CoreCommands
 import TSCUtility
 
+import struct PackageGraph.TraitConfiguration
+
 extension SwiftPackageCommand {
     struct ResolveOptions: ParsableArguments {
         @Option(help: "The version to resolve at", transform: { Version($0) })
@@ -27,6 +29,10 @@ extension SwiftPackageCommand {
 
         @Argument(help: "The name of the package to resolve")
         var packageName: String?
+
+        /// Specifies the traits to build.
+        @OptionGroup(visibility: .hidden)
+        package var traits: TraitOptions
     }
 
     struct Resolve: AsyncSwiftCommand {
@@ -49,14 +55,15 @@ extension SwiftPackageCommand {
                     version: resolveOptions.version,
                     branch: resolveOptions.branch,
                     revision: resolveOptions.revision,
-                    observabilityScope: swiftCommandState.observabilityScope
+                    observabilityScope: swiftCommandState.observabilityScope,
+                    traitConfiguration: .init(traitOptions: resolveOptions.traits)
                 )
                 if swiftCommandState.observabilityScope.errorsReported {
                     throw ExitCode.failure
                 }
             } else {
                 // Otherwise, run a normal resolve.
-                try await swiftCommandState.resolve()
+                try await swiftCommandState.resolve(.init(traitOptions: resolveOptions.traits))
             }
         }
     }

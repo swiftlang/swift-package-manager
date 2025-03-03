@@ -692,14 +692,16 @@ extension Workspace {
         explicitProduct: String? = .none,
         forceResolution: Bool = false,
         forceResolvedVersions: Bool = false,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        traitConfiguration: TraitConfiguration?
     ) async throws {
         try await self._resolve(
             root: root,
             explicitProduct: explicitProduct,
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : forceResolution ? .update(forceResolution: true) :
                 .bestEffort,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: traitConfiguration
         )
     }
 
@@ -722,7 +724,8 @@ extension Workspace {
         version: Version? = nil,
         branch: String? = nil,
         revision: String? = nil,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        traitConfiguration: TraitConfiguration?
     ) async throws {
         // Look up the dependency and check if we can pin it.
         guard let dependency = self.state.dependencies[.plain(packageName)] else {
@@ -758,11 +761,17 @@ extension Workspace {
             requirement = defaultRequirement
         }
 
+        var dependencyEnabledTraits: Set<String>?
+        if let traits = root.dependencies.first(where: { $0.nameForModuleDependencyResolutionOnly == packageName })?.traits {
+            dependencyEnabledTraits = Set(traits.map(\.name))
+        }
+
         // If any products are required, the rest of the package graph will supply those constraints.
         let constraint = PackageContainerConstraint(
             package: dependency.packageRef,
             requirement: requirement,
-            products: .nothing
+            products: .nothing,
+            enabledTraits: dependencyEnabledTraits
         )
 
         // Run the resolution.
@@ -770,7 +779,8 @@ extension Workspace {
             root: root,
             forceResolution: false,
             constraints: [constraint],
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: traitConfiguration
         )
     }
 
@@ -780,12 +790,14 @@ extension Workspace {
     /// according to the information in the resolved file.
     public func resolveBasedOnResolvedVersionsFile(
         root: PackageGraphRootInput,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        traitConfiguration: TraitConfiguration?
     ) async throws {
         try await self._resolveBasedOnResolvedVersionsFile(
             root: root,
             explicitProduct: .none,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: traitConfiguration
         )
     }
 
@@ -895,7 +907,8 @@ extension Workspace {
             root: root,
             packages: packages,
             dryRun: dryRun,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: nil
         )
     }
 
@@ -907,12 +920,13 @@ extension Workspace {
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        traitConfiguration: TraitConfiguration?
     ) async throws -> ModulesGraph {
         try await self.loadPackageGraph(
             rootInput: root,
             explicitProduct: explicitProduct,
-            traitConfiguration: nil,
+            traitConfiguration: traitConfiguration,
             forceResolvedVersions: forceResolvedVersions,
             customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
             testEntryPointPath: testEntryPointPath,
@@ -949,7 +963,8 @@ extension Workspace {
             root: root,
             explicitProduct: explicitProduct,
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : .bestEffort,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            traitConfiguration: traitConfiguration
         )
 
         let binaryArtifacts = self.state.artifacts
@@ -967,7 +982,6 @@ extension Workspace {
                 $0[$1.packageRef.identity, default: [:]][product] = prebuilt
             }
         }
-
         // Load the graph.
         let packageGraph = try ModulesGraph.load(
             root: manifests.root,
