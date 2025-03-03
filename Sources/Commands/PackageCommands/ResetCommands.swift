@@ -38,15 +38,15 @@ extension SwiftPackageCommand {
         }
     }
 
-    struct Reset: SwiftCommand {
+    struct Reset: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Reset the complete cache/build directory")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
-            try swiftCommandState.getActiveWorkspace().reset(observabilityScope: swiftCommandState.observabilityScope)
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
+            try await swiftCommandState.getActiveWorkspace().reset(observabilityScope: swiftCommandState.observabilityScope)
         }
     }
 }

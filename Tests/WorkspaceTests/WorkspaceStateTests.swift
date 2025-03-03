@@ -15,7 +15,7 @@ import Basics
 import XCTest
 
 final class WorkspaceStateTests: XCTestCase {
-    func testV4Format() throws {
+    func testV4Format() async throws {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
@@ -82,13 +82,13 @@ final class WorkspaceStateTests: XCTestCase {
             """
         )
 
-        let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
-        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
-        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-tools-support-core") }))
-        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
+        let dependencies = await WorkspaceState(fileSystem: fs, storageDirectory: buildDir).dependencies
+        XCTAssertTrue(dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
+        XCTAssertTrue(dependencies.contains(where: { $0.packageRef.identity == .plain("swift-tools-support-core") }))
+        XCTAssertTrue(dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
     }
 
-    func testV4FormatWithPath() throws {
+    func testV4FormatWithPath() async throws {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
@@ -155,13 +155,13 @@ final class WorkspaceStateTests: XCTestCase {
             """
         )
 
-        let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
-        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
-        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-tools-support-core") }))
-        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
+        let dependencies = await WorkspaceState(fileSystem: fs, storageDirectory: buildDir).dependencies
+        XCTAssertTrue(dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
+        XCTAssertTrue(dependencies.contains(where: { $0.packageRef.identity == .plain("swift-tools-support-core") }))
+        XCTAssertTrue(dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
     }
 
-    func testV5Format() throws {
+    func testV5Format() async throws {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
@@ -228,13 +228,13 @@ final class WorkspaceStateTests: XCTestCase {
             """
         )
 
-        let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
-        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
-        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-tools-support-core") }))
-        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
+        let dependencies = await WorkspaceState(fileSystem: fs, storageDirectory: buildDir).dependencies
+        XCTAssertTrue(dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
+        XCTAssertTrue(dependencies.contains(where: { $0.packageRef.identity == .plain("swift-tools-support-core") }))
+        XCTAssertTrue(dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
     }
 
-    func testSavedDependenciesAreSorted() throws {
+    func testSavedDependenciesAreSorted() async throws {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
@@ -288,7 +288,7 @@ final class WorkspaceStateTests: XCTestCase {
         )
 
         let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
-        try state.save()
+        try await state.save()
 
         let serialized: String = try fs.readFileContents(statePath)
 
@@ -298,7 +298,7 @@ final class WorkspaceStateTests: XCTestCase {
         XCTAssertTrue(argpRange.lowerBound < yamsRange.lowerBound)
     }
 
-    func testArtifacts() throws {
+    func testArtifacts() async throws {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
@@ -362,14 +362,14 @@ final class WorkspaceStateTests: XCTestCase {
             """
         )
 
-        let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
-        XCTAssertTrue(state.artifacts.contains(where: { $0.packageRef.identity == .plain("foo") && $0.targetName == "foo" }))
-        XCTAssertTrue(state.artifacts.contains(where: { $0.packageRef.identity == .plain("foo") && $0.targetName == "bar" }))
-        XCTAssertTrue(state.artifacts.contains(where: { $0.packageRef.identity == .plain("bar") && $0.targetName == "bar" }))
+        let artifacts = await WorkspaceState(fileSystem: fs, storageDirectory: buildDir).artifacts
+        XCTAssertTrue(artifacts.contains(where: { $0.packageRef.identity == .plain("foo") && $0.targetName == "foo" }))
+        XCTAssertTrue(artifacts.contains(where: { $0.packageRef.identity == .plain("foo") && $0.targetName == "bar" }))
+        XCTAssertTrue(artifacts.contains(where: { $0.packageRef.identity == .plain("bar") && $0.targetName == "bar" }))
     }
 
     // rdar://86857825
-    func testDuplicateDependenciesDoNotCrash() throws {
+    func testDuplicateDependenciesDoNotCrash() async throws {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
@@ -422,14 +422,14 @@ final class WorkspaceStateTests: XCTestCase {
             """
         )
 
-        let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
+        let dependencies = await WorkspaceState(fileSystem: fs, storageDirectory: buildDir).dependencies
         // empty since we have dups so we warn and fail the loading
         // TODO: test for diagnostics when we can get them from the WorkspaceState initializer
-        XCTAssertTrue(state.dependencies.isEmpty)
+        XCTAssertTrue(dependencies.isEmpty)
     }
 
     // rdar://86857825
-    func testDuplicateArtifactsDoNotCrash() throws {
+    func testDuplicateArtifactsDoNotCrash() async throws {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
@@ -478,10 +478,10 @@ final class WorkspaceStateTests: XCTestCase {
             """
         )
 
-        let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
+        let artifacts = await WorkspaceState(fileSystem: fs, storageDirectory: buildDir).artifacts
         // empty since we have dups so we warn and fail the loading
         // TODO: test for diagnostics when we can get them from the WorkspaceState initializer
-        XCTAssertTrue(state.artifacts.isEmpty)
+        XCTAssertTrue(artifacts.isEmpty)
     }
 }
 
