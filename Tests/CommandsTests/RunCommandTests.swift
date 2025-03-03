@@ -19,7 +19,7 @@ import XCTest
 
 import class Basics.AsyncProcess
 
-class RunCommandTestCase: BuildSystemProviderTestCase {
+class RunCommandTestCase: CommandsBuildProviderTestCase {
     override func setUpWithError() throws {
         try XCTSkipIf(type(of: self) == RunCommandTestCase.self, "Pay no attention to the class behind the curtain.")
     }
