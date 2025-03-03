@@ -139,6 +139,9 @@ def main() -> None:
         )
 
         call(
+            shlex.split("swift package reset"),
+        )
+        call(
             shlex.split("swift package update"),
         )
         call(
