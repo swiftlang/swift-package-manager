@@ -19,7 +19,7 @@ import PackageModel
 
 import struct TSCUtility.Version
 
-public class RegistryDownloadsManager: Cancellable {
+public class RegistryDownloadsManager: AsyncCancellable {
     public typealias Delegate = RegistryDownloadsManagerDelegate
 
     private let fileSystem: FileSystem
@@ -153,8 +153,8 @@ public class RegistryDownloadsManager: Cancellable {
     }
 
     /// Cancel any outstanding requests
-    public func cancel(deadline: DispatchTime) throws {
-        try self.registryClient.cancel(deadline: deadline)
+    public func cancel(deadline: DispatchTime) async throws {
+        try await self.registryClient.cancel(deadline: deadline)
     }
 
     private func downloadAndPopulateCache(
