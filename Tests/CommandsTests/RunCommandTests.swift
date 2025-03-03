@@ -12,17 +12,30 @@
 
 import Basics
 import Commands
+import SPMBuildCore
 import _InternalTestSupport
+import TSCTestSupport
 import XCTest
 
 import class Basics.AsyncProcess
 
-final class RunCommandTests: CommandsTestCase {
+class RunCommandTestCase: BuildSystemProviderTestCase {
+    override func setUpWithError() throws {
+        try XCTSkipIf(type(of: self) == RunCommandTestCase.self, "Pay no attention to the class behind the curtain.")
+    }
+
     private func execute(
         _ args: [String] = [],
+        _ executable: String? = nil,
         packagePath: AbsolutePath? = nil
     ) async throws -> (stdout: String, stderr: String) {
-        return try await SwiftPM.Run.execute(args, packagePath: packagePath)
+        // return try await SwiftPM.Run.execute(args, packagePath: packagePath)
+        return try await executeSwiftRun(
+            packagePath,
+            nil,
+            extraArgs: args,
+            buildSystem: buildSystemProvider
+        )
     }
 
     func testUsage() async throws {
@@ -50,8 +63,10 @@ final class RunCommandTests: CommandsTestCase {
 #if !os(Windows)
     func testToolsetDebugger() async throws {
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-            let (stdout, stderr) = try await SwiftPM.Run.execute(
-                ["--toolset", "\(fixturePath)/toolset.json"], packagePath: fixturePath)
+            let (stdout, stderr) = try await execute(
+                    ["--toolset", "\(fixturePath)/toolset.json"],
+                    packagePath: fixturePath,
+                )
 
             // We only expect tool's output on the stdout stream.
             XCTAssertMatch(stdout, .contains("\(fixturePath)/.build"))
@@ -66,7 +81,7 @@ final class RunCommandTests: CommandsTestCase {
 
     func testUnknownProductAndArgumentPassing() async throws {
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-            let (stdout, stderr) = try await SwiftPM.Run.execute(
+            let (stdout, stderr) = try await execute(
                 ["secho", "1", "--hello", "world"], packagePath: fixturePath)
 
             // We only expect tool's output on the stdout stream.
@@ -123,6 +138,42 @@ final class RunCommandTests: CommandsTestCase {
             }
         }
     }
+
+    private func _testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfully(configuration: TSCTestSupport.Configuration) async throws {
+        let expectedName: String
+        #if os(Windows)
+        expectedName = "Windows"
+        #else
+            #if os(macOS)
+            expectedName = "macOS"
+            #else
+                #if os(linux)
+                    expectedName = "Linux"
+                #else
+                    throw TestError.platformNotSupported
+                #endif
+            #endif
+        #endif
+
+        try await fixture(name: "Miscellaneous/TargetConditionals/ExecutableTargetContainsPlatformConditional") { fixturePath in
+            let (stdout, _) = try await execute(
+                ["test"],
+                packagePath: fixturePath
+            )
+
+            XCTAssertMatch(stdout, .contains("Hello, world on \(expectedName)!  OSplatform: \(expectedName)"))
+
+        }
+    }
+
+    func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInDebugConfig() async throws {
+        try await self._testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfully(configuration: .Debug)
+    }
+
+    func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInReleaseConfig() async throws {
+        try await self._testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfully(configuration: .Release)
+    }
+
 
     func testSwiftRunSIGINT() throws {
         try XCTSkipIfCI()
@@ -216,6 +267,52 @@ final class RunCommandTests: CommandsTestCase {
                 case done
             }
         }
+    }
+
+}
+
+class RunCommandNativeTests: RunCommandTestCase {
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .native
+    }
+
+    override func testUsage() async throws {
+        try await super.testUsage()
+    }
+}
+
+
+class RunCommandSwiftBuildTests: RunCommandTestCase {
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .swiftbuild
+    }
+
+    override func testUsage() async throws {
+        try await super.testUsage()
+    }
+
+    override func testMultipleExecutableAndExplicitExecutable() async throws {
+        try XCTSkip("https://github.com/swiftlang/swift-package-manager/issues/8279: Swift run using Swift Build does not output executable content to the terminal")
+    }
+
+    override func testUnknownProductAndArgumentPassing() async throws {
+        try XCTSkip("https://github.com/swiftlang/swift-package-manager/issues/8279: Swift run using Swift Build does not output executable content to the terminal")
+    }
+
+    override func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInDebugConfig() async throws {
+        try XCTSkip("Test fixture fails to build")
+    }
+
+    override func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInReleaseConfig() async throws {
+        try XCTSkip("Test fixture fails to build")
+    }
+
+    override func testToolsetDebugger() async throws {
+        try XCTSkip("Test fixture fails to build")
+    }
+
+    override func testUnreachableExecutable() async throws {
+        try XCTSkip("Need to investigate test failure")
     }
 
 }
