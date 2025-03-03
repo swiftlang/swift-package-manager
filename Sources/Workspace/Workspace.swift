@@ -663,7 +663,7 @@ extension Workspace {
         root: PackageGraphRootInput,
         observabilityScope: ObservabilityScope
     ) async throws {
-        guard let dependency = self.state.dependencies[.plain(packageIdentity)] else {
+        guard let dependency = await self.state.dependencies[.plain(packageIdentity)] else {
             observabilityScope.emit(.dependencyNotFound(packageName: packageIdentity))
             return
         }
@@ -725,7 +725,7 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async throws {
         // Look up the dependency and check if we can pin it.
-        guard let dependency = self.state.dependencies[.plain(packageName)] else {
+        guard let dependency = await self.state.dependencies[.plain(packageName)] else {
             throw StringError("dependency '\(packageName)' was not found")
         }
 
@@ -841,15 +841,15 @@ extension Workspace {
     ///
     /// - Parameters:
     ///     - observabilityScope: The observability scope that reports errors, warnings, etc
-    public func reset(observabilityScope: ObservabilityScope) {
-        let removed = observabilityScope.trap { () -> Bool in
+    public func reset(observabilityScope: ObservabilityScope) async {
+        let removed = await observabilityScope.trap { () -> Bool in
             try self.fileSystem.chmod(
                 .userWritable,
                 path: self.location.repositoriesCheckoutsDirectory,
                 options: [.recursive, .onlyFiles]
             )
             // Reset state.
-            try self.resetState()
+            try await self.resetState()
             return true
         }
 
@@ -871,8 +871,8 @@ extension Workspace {
     }
 
     // FIXME: @testable internal
-    public func resetState() throws {
-        try self.state.reset()
+    public func resetState() async throws {
+        try await self.state.reset()
     }
 
     /// Cancel the active dependency resolution operation.
@@ -942,7 +942,7 @@ extension Workspace {
         // long running host processes (ie IDEs) need this in case other SwiftPM processes (ie CLI) made changes to the
         // state
         // such hosts processes call loadPackageGraph to make sure the workspace state is correct
-        try self.state.reload()
+        try await self.state.reload()
 
         // Perform dependency resolution, if required.
         let manifests = try await self._resolve(
@@ -952,7 +952,7 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
-        let binaryArtifacts = self.state.artifacts
+        let binaryArtifacts = await self.state.artifacts
             .reduce(into: [PackageIdentity: [String: BinaryArtifact]]()) { partial, artifact in
                 partial[artifact.packageRef.identity, default: [:]][artifact.targetName] = BinaryArtifact(
                     kind: artifact.kind,
@@ -961,7 +961,7 @@ extension Workspace {
                 )
             }
 
-        let prebuilts: [PackageIdentity: [String: PrebuiltLibrary]] = self.state.prebuilts.reduce(into: .init()) {
+        let prebuilts: [PackageIdentity: [String: PrebuiltLibrary]] = await self.state.prebuilts.reduce(into: .init()) {
             let prebuilt = PrebuiltLibrary(packageRef: $1.packageRef, libraryName: $1.libraryName, path: $1.path, products: $1.products, cModules: $1.cModules)
             for product in $1.products {
                 $0[$1.packageRef.identity, default: [:]][product] = prebuilt
@@ -1292,8 +1292,8 @@ extension Workspace {
     ///
     /// - Parameters:
     ///   - package: The package to remove
-    func remove(package: PackageReference) throws {
-        guard let dependency = self.state.dependencies[package.identity] else {
+    func remove(package: PackageReference) async throws {
+        guard let dependency = await self.state.dependencies[package.identity] else {
             throw InternalError("trying to remove \(package.identity) which isn't in workspace")
         }
 
@@ -1302,8 +1302,8 @@ extension Workspace {
         //
         // Note that we don't actually remove a local package from disk.
         if case .fileSystem = dependency.state {
-            self.state.dependencies.remove(package.identity)
-            try self.state.save()
+            await self.state.remove(identity: package.identity)
+            try await self.state.save()
             return
         }
 
@@ -1323,10 +1323,10 @@ extension Workspace {
                 basedOn: .none,
                 unmanagedPath: unmanagedPath
             )
-            self.state.dependencies.add(updatedDependency)
+            await self.state.add(dependency: updatedDependency)
         } else {
             dependencyToRemove = dependency
-            self.state.dependencies.remove(dependencyToRemove.packageRef.identity)
+            await self.state.remove(identity: dependencyToRemove.packageRef.identity)
         }
 
         switch package.kind {
@@ -1341,7 +1341,7 @@ extension Workspace {
         }
 
         // Save the state.
-        try self.state.save()
+        try await self.state.save()
     }
 }
 

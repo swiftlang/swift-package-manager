@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -44,7 +44,7 @@ struct PIFBuilderParameters {
     /// The toolchain's SDK root path.
     let sdkRootPath: AbsolutePath?
 
-    /// The Swift language versions supported by the XCBuild being used for the buid.
+    /// The Swift language versions supported by the SwiftBuild being used for the build.
     let supportedSwiftVersions: [SwiftLanguageVersion]
 }
 
@@ -100,12 +100,12 @@ public final class PIFBuilder {
         let encoder = prettyPrint ? JSONEncoder.makeWithDefaults() : JSONEncoder()
 
         if !preservePIFModelStructure {
-            encoder.userInfo[.encodeForXCBuild] = true
+            encoder.userInfo[.encodeForSwiftBuild] = true
         }
 
         let topLevelObject = try self.construct()
 
-        // Sign the pif objects before encoding it for XCBuild.
+        // Sign the pif objects before encoding it for SwiftBuild.
         try PIF.sign(topLevelObject.workspace)
 
         let pifData = try encoder.encode(topLevelObject)
@@ -305,7 +305,12 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.USE_HEADERMAP] = "NO"
         settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS] = ["$(inherited)", "SWIFT_PACKAGE"]
         settings[.GCC_PREPROCESSOR_DEFINITIONS] = ["$(inherited)", "SWIFT_PACKAGE"]
+
+#if os(macOS)
+        // Objective-C support only for macOS
         settings[.CLANG_ENABLE_OBJC_ARC] = "YES"
+#endif
+
         settings[.KEEP_PRIVATE_EXTERNS] = "NO"
         // We currently deliberately do not support Swift ObjC interface headers.
         settings[.SWIFT_INSTALL_OBJC_HEADER] = "NO"
@@ -410,7 +415,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             // Package plugin modules.
             return
         case .macro:
-            // Macros are not supported when using XCBuild, similar to package plugins.
+            // Macros are not supported when using SwiftBuild, similar to package plugins.
             return
         }
     }
@@ -533,7 +538,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         let productType: PIF.Target.ProductType
         if product.type == .library(.dynamic) {
             if self.parameters.shouldCreateDylibForDynamicProducts {
-                pifTargetProductName = parameters.triple.dynamicLibrary(product.name)
+                pifTargetProductName = "\(parameters.triple.dynamicLibraryPrefix)\(product.name)\(parameters.triple.dynamicLibraryExtension)"
                 productType = .dynamicLibrary
             } else {
                 pifTargetProductName = product.name + ".framework"
@@ -545,7 +550,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         }
 
         // Create a special kind of .packageProduct PIF target that just "groups" a set of targets for clients to
-        // depend on. XCBuild will not produce a separate artifact for a package product, but will instead consider any
+        // depend on. SwiftBuild will not produce a separate artifact for a package product, but will instead consider any
         // dependency on the package product to be a dependency on the whole set of targets on which the package product
         // depends.
         let pifTarget = self.addTarget(
@@ -713,8 +718,10 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             impartedSettings[.OTHER_LDFLAGS, default: ["$(inherited)"]].append("-lc++")
         }
 
-        // radar://112671586 supress unnecessary warnings
+#if os(macOS)
+        // radar://112671586 supress unnecessary warnings, only for macOS where the linker supports this flag
         impartedSettings[.OTHER_LDFLAGS, default: ["$(inherited)"]].append("-Wl,-no_warn_duplicate_libraries")
+#endif
 
         self.addSources(target.sources, to: pifTarget)
 
@@ -910,7 +917,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         resourcesTarget.addBuildConfiguration(name: "Debug", settings: settings)
         resourcesTarget.addBuildConfiguration(name: "Release", settings: settings)
 
-        let coreDataFileTypes = [XCBuildFileType.xcdatamodeld, .xcdatamodel].flatMap(\.fileTypes)
+        let coreDataFileTypes = [SwiftBuildFileType.xcdatamodeld, .xcdatamodel].flatMap(\.fileTypes)
         for resource in target.underlying.resources {
             // FIXME: Handle rules here.
             let resourceFile = groupTree.addFileReference(
@@ -1508,6 +1515,29 @@ final class PIFBuildConfigurationBuilder {
     }
 }
 
+struct XCBBuildParameters: Encodable {
+    struct RunDestination: Encodable {
+        var platform: String
+        var sdk: String
+        var sdkVariant: String?
+        var targetArchitecture: String
+        var supportedArchitectures: [String]
+        var disableOnlyActiveArch: Bool
+    }
+
+    struct XCBSettingsTable: Encodable {
+        var table: [String: String]
+    }
+
+    struct SettingsOverride: Encodable {
+        var synthesized: XCBSettingsTable? = nil
+    }
+
+    var configurationName: String
+    var overrides: SettingsOverride
+    var activeRunDestination: RunDestination
+}
+
 // Helper functions to consistently generate a PIF target identifier string for a product/target/resource bundle in a
 // package. This format helps make sure that there is no collision with any other PIF targets, and in particular that a
 // PIF target and a PIF product can have the same name (as they often do).
@@ -1819,6 +1849,7 @@ extension PIF.BuildSettings {
 
         func computeEffectiveSwiftVersions(for versions: [SwiftLanguageVersion]) -> [String] {
             versions
+                .filter { target.declaredSwiftVersions.contains($0) }
                 .filter { isSupportedVersion($0) }.map(\.description)
         }
 
@@ -1867,7 +1898,7 @@ extension PIF.BuildSettings {
 
             // Otherwise pick the newest supported tools version based value.
 
-            // We have to normalize to two component strings to match the results from XCBuild w.r.t. to hashing of
+            // We have to normalize to two component strings to match the results from SwiftBuild w.r.t. to hashing of
             // `SwiftLanguageVersion` instances.
             let normalizedDeclaredVersions = Set(target.declaredSwiftVersions.compactMap {
                 SwiftLanguageVersion(string: "\($0.major).\($0.minor)")
@@ -1936,7 +1967,7 @@ extension PIFGenerationError: CustomStringConvertible {
             versions: let given,
             supportedVersions: let supported
         ):
-            "Some of the Swift language versions used in target '\(target)' settings are unsupported. (given: \(given), supported: \(supported))"
+            "None of the Swift language versions used in target '\(target)' settings are supported. (given: \(given), supported: \(supported))"
         }
     }
 }

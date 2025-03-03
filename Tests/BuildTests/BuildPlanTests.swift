@@ -45,7 +45,11 @@ extension Build.BuildPlan {
     }
 }
 
-final class BuildPlanTests: XCTestCase {
+class BuildPlanTestCase: BuildSystemProviderTestCase {
+    override func setUpWithError() throws {
+        try XCTSkipIf(type(of: self) == BuildPlanTestCase.self, "Pay no attention to the class behind the curtain.")
+    }
+
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
 
     /// The j argument.
@@ -622,20 +626,31 @@ final class BuildPlanTests: XCTestCase {
             fileSystem: localFileSystem
         )
         try await fixture(name: "Miscellaneous/PackageNameFlag") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("appPkg"), extraArgs: ["-vv"])
-            XCTAssertMatch(stdout, .contains("-module-name Foo"))
-            XCTAssertMatch(stdout, .contains("-module-name Zoo"))
-            XCTAssertMatch(stdout, .contains("-module-name Bar"))
-            XCTAssertMatch(stdout, .contains("-module-name Baz"))
-            XCTAssertMatch(stdout, .contains("-module-name App"))
-            XCTAssertMatch(stdout, .contains("-module-name exe"))
-            if isFlagSupportedInDriver {
-                XCTAssertMatch(stdout, .contains("-package-name apppkg"))
-                XCTAssertMatch(stdout, .contains("-package-name foopkg"))
-                // the flag is not supported if tools-version < 5.9
-                XCTAssertNoMatch(stdout, .contains("-package-name barpkg"))
+            let (stdout, stderr) = try await executeSwiftBuild(
+                fixturePath.appending("appPkg"),
+                extraArgs: ["--vv"],
+                buildSystem: buildSystemProvider
+            )
+
+            let out = if buildSystemProvider == .swiftbuild {
+                stderr
             } else {
-                XCTAssertNoMatch(stdout, .contains("-package-name"))
+                stdout
+            }
+
+            XCTAssertMatch(out, .contains("-module-name Foo"))
+            XCTAssertMatch(out, .contains("-module-name Zoo"))
+            XCTAssertMatch(out, .contains("-module-name Bar"))
+            XCTAssertMatch(out, .contains("-module-name Baz"))
+            XCTAssertMatch(out, .contains("-module-name App"))
+            XCTAssertMatch(out, .contains("-module-name exe"))
+            if isFlagSupportedInDriver {
+                XCTAssertMatch(out, .contains("-package-name apppkg"))
+                XCTAssertMatch(out, .contains("-package-name foopkg"))
+                // the flag is not supported if tools-version < 5.9
+                XCTAssertNoMatch(out, .contains("-package-name barpkg"))
+            } else {
+                XCTAssertNoMatch(out, .contains("-package-name"))
             }
             XCTAssertMatch(stdout, .contains("Build complete!"))
         }
@@ -651,7 +666,8 @@ final class BuildPlanTests: XCTestCase {
         try await fixture(name: "Miscellaneous/PackageNameFlag") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath.appending("appPkg"),
-                extraArgs: ["--build-system", "xcode", "-vv"]
+                extraArgs: ["--vv"],
+                buildSystem: .xcode
             )
             XCTAssertMatch(stdout, .contains("-module-name Foo"))
             XCTAssertMatch(stdout, .contains("-module-name Zoo"))
@@ -679,7 +695,11 @@ final class BuildPlanTests: XCTestCase {
             fileSystem: localFileSystem
         )
         try await fixture(name: "Miscellaneous/TargetPackageAccess") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("libPkg"), extraArgs: ["-v"])
+            let (stdout, _) = try await executeSwiftBuild(
+                fixturePath.appending("libPkg"),
+                extraArgs: ["-v"],
+                buildSystem: buildSystemProvider
+            )
             if isFlagSupportedInDriver {
                 let moduleFlag1 = stdout.range(of: "-module-name DataModel")
                 XCTAssertNotNil(moduleFlag1)
@@ -2000,6 +2020,9 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func test_symbolGraphExtract_arguments() async throws {
+#if os(Windows)
+        throw XCTSkip("This test is not equipped to run with Windows due to path separators")
+#endif
         // ModuleGraph:
         // .
         // ├── A (Swift)
@@ -4247,6 +4270,7 @@ final class BuildPlanTests: XCTestCase {
                             kind: .enableUpcomingFeature("WorstFeature"),
                             condition: .init(platformNames: ["macos"], config: "debug")
                         ),
+                        .init(tool: .swift, kind: .strictMemorySafety),
                     ]
                 ),
                 TargetDescription(
@@ -4371,6 +4395,7 @@ final class BuildPlanTests: XCTestCase {
                     "-cxx-interoperability-mode=default",
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature", "BestFeature",
+                    "-strict-memory-safety",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4435,6 +4460,7 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature",
                     "BestFeature",
+                    "-strict-memory-safety",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fomit-frame-pointer",
@@ -4490,6 +4516,7 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature",
                     "BestFeature",
+                    "-strict-memory-safety",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4534,6 +4561,7 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature", "BestFeature",
                     "-enable-upcoming-feature", "WorstFeature",
+                    "-strict-memory-safety",
                     "-g",
                     "-Xcc", "-g",
                     .end,
@@ -4872,6 +4900,9 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testUserToolchainWithToolsetCompileFlags() async throws {
+#if os(Windows)
+        throw XCTSkip("This test is not yet equipped to test on Windows platform due to path delimiters")
+#endif
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -6832,4 +6863,47 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(contents, .regex(#"args: \[.*"-I","/testpackagedep/SomeArtifact.xcframework/macos/Headers".*,"/testpackage/Sources/CLib/lib.c".*]"#))
         XCTAssertMatch(contents, .regex(#"args: \[.*"-module-name","SwiftLib",.*"-I","/testpackagedep/SomeArtifact.xcframework/macos/Headers".*]"#))
     }
+}
+
+class BuildPlanNativeTests: BuildPlanTestCase {
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .native
+    }
+
+    override func testDuplicateProductNamesWithNonDefaultLibsThrowError() async throws {
+        try await super.testDuplicateProductNamesWithNonDefaultLibsThrowError()
+    }
+}
+
+class BuildPlanSwiftBuildTests: BuildPlanTestCase {
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .swiftbuild
+    }
+
+    override func testDuplicateProductNamesWithNonDefaultLibsThrowError() async throws {
+        try await super.testDuplicateProductNamesWithNonDefaultLibsThrowError()
+    }
+
+    override func testTargetsWithPackageAccess() async throws {
+        throw XCTSkip("Skip until swift build system can support this case.")
+    }
+
+    override func testTestModule() async throws {
+        throw XCTSkip("Skip until swift build system can support this case.")
+    }
+
+    override func testPackageNameFlag() async throws {
+#if os(Windows)
+        throw XCTSkip("Skip until there is a resolution to the partial linking with Windows that results in a 'subsystem must be defined' error.")
+#endif
+
+#if os(Linux)
+        if FileManager.default.contents(atPath: "/etc/system-release").map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false {
+            throw XCTSkip("Skipping SwiftBuild testing on Amazon Linux because of platform issues.")
+        }
+#endif
+
+        try await super.testPackageNameFlag()
+    }
+
 }

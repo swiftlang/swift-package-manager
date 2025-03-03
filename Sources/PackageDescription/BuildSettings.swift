@@ -379,6 +379,28 @@ public struct SwiftSetting: Sendable {
             name: "enableExperimentalFeature", value: [name], condition: condition)
     }
 
+    /// Enable strict memory safety checking.
+    ///
+    /// Strict memory safety checking is an opt-in compiler feature that
+    /// identifies any uses of language constructs or APIs that break
+    /// memory safety. Issues are reported as warnings and can generally
+    /// be suppressed by adding annotations (such as `@unsafe` and `unsafe`)
+    /// that acknowledge the presence of unsafe code, making it easier to
+    /// review and audit at a later time.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - condition: A condition that restricts the application of the build
+    /// setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func strictMemorySafety(
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "strictMemorySafety", value: ["ON"], condition: condition)
+    }
+
     public enum InteroperabilityMode: String {
         case C
         case Cxx

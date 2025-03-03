@@ -441,7 +441,7 @@ public final class SwiftCommandState {
             self.observabilityHandler.progress,
             self.observabilityHandler.prompt
         )
-        let isXcodeBuildSystemEnabled = self.options.build.buildSystem == .xcode
+        let isXcodeBuildSystemEnabled = self.options.build.buildSystem.usesXcodeBuildEngine
         let workspace = try Workspace(
             fileSystem: self.fileSystem,
             location: .init(
@@ -459,7 +459,7 @@ public final class SwiftCommandState {
             configuration: .init(
                 skipDependenciesUpdates: options.resolver.skipDependencyUpdate,
                 prefetchBasedOnResolvedFile: options.resolver.shouldEnableResolverPrefetching,
-                shouldCreateMultipleTestProducts: toolWorkspaceConfiguration.wantsMultipleTestProducts || options.build.buildSystem == .xcode,
+                shouldCreateMultipleTestProducts: toolWorkspaceConfiguration.wantsMultipleTestProducts || options.build.buildSystem.usesXcodeBuildEngine,
                 createREPLProduct: toolWorkspaceConfiguration.wantsREPLProduct,
                 additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
                 sharedDependenciesCacheEnabled: self.options.caching.useDependenciesCache,
@@ -689,7 +689,7 @@ public final class SwiftCommandState {
         try _manifestLoader.get()
     }
 
-    public func canUseCachedBuildManifest() throws -> Bool {
+    public func canUseCachedBuildManifest() async throws -> Bool {
         if !self.options.caching.cacheBuildManifest {
             return false
         }
@@ -706,7 +706,7 @@ public final class SwiftCommandState {
         // Perform steps for build manifest caching if we can enabled it.
         //
         // FIXME: We don't add edited packages in the package structure command yet (SR-11254).
-        let hasEditedPackages = try self.getActiveWorkspace().state.dependencies.contains(where: \.isEdited)
+        let hasEditedPackages = try await self.getActiveWorkspace().state.dependencies.contains(where: \.isEdited)
         if hasEditedPackages {
             return false
         }
@@ -728,7 +728,7 @@ public final class SwiftCommandState {
         toolsBuildParameters: BuildParameters? = .none,
         packageGraphLoader: (() async throws -> ModulesGraph)? = .none,
         outputStream: OutputByteStream? = .none,
-        logLevel: Basics.Diagnostic.Severity? = .none,
+        logLevel: Basics.Diagnostic.Severity? = nil,
         observabilityScope: ObservabilityScope? = .none
     ) async throws -> BuildSystem {
         guard let buildSystemProvider else {
@@ -747,7 +747,7 @@ public final class SwiftCommandState {
             toolsBuildParameters: toolsBuildParameters,
             packageGraphLoader: packageGraphLoader,
             outputStream: outputStream,
-            logLevel: logLevel,
+            logLevel: logLevel ?? self.logLevel,
             observabilityScope: observabilityScope
         )
 
@@ -795,7 +795,7 @@ public final class SwiftCommandState {
             workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
-            isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
+            isXcodeBuildSystemEnabled: options.build.buildSystem.usesXcodeBuildEngine,
             prepareForIndexing: prepareForIndexingMode,
             debuggingParameters: .init(
                 debugInfoFormat: options.build.debugInfoFormat.buildParameter,

@@ -172,11 +172,17 @@ extension Workspace.ManagedDependency: CustomStringConvertible {
 
 extension Workspace {
     /// A collection of managed dependencies.
-    final public class ManagedDependencies {
+    public struct ManagedDependencies {
         private var dependencies: [PackageIdentity: ManagedDependency]
 
         init() {
             self.dependencies = [:]
+        }
+        
+        private init(
+            _ dependencies: [PackageIdentity: ManagedDependency]
+        ) {
+            self.dependencies = dependencies
         }
 
         init(_ dependencies: [ManagedDependency]) throws {
@@ -204,12 +210,16 @@ extension Workspace {
             return .none
         }
 
-        public func add(_ dependency: ManagedDependency) {
-            self.dependencies[dependency.packageRef.identity] = dependency
+        public func add(_ dependency: ManagedDependency) -> Self {
+            var dependencies = dependencies
+            dependencies[dependency.packageRef.identity] = dependency
+            return ManagedDependencies(dependencies)
         }
 
-        public func remove(_ identity: PackageIdentity) {
-            self.dependencies[identity] = nil
+        public func remove(_ identity: PackageIdentity) -> Self {
+            var dependencies = dependencies
+            dependencies[identity] = nil
+            return ManagedDependencies(dependencies)
         }
     }
 }
