@@ -27,6 +27,11 @@ public enum BuildDestination {
     case target
 }
 
+public enum BuildTargetCompiler {
+    case swift
+    case clang
+}
+
 public protocol BuildTarget {
     /// Source files in the target
     var sources: [URL] { get }
@@ -46,12 +51,17 @@ public protocol BuildTarget {
     /// The name of the target. It should be possible to build a target by passing this name to `swift build --target`
     var name: String { get }
 
+    /// The compiler that is responsible for building this target.
+    var compiler: BuildTargetCompiler { get }
+
     var destination: BuildDestination { get }
 
     /// Whether the target is part of the root package that the user opened or if it's part of a package dependency.
     var isPartOfRootPackage: Bool { get }
 
     var isTestTarget: Bool { get }
+
+    var outputPaths: [URL] { get throws }
 
     func compileArguments(for fileURL: URL) throws -> [String]
 }
@@ -100,8 +110,17 @@ private struct WrappedClangTargetBuildDescription: BuildTarget {
         return description.clangTarget.name
     }
 
+    var compiler: BuildTargetCompiler { .clang }
+
+
     public var destination: BuildDestination {
         return description.destination == .host ? .host : .target
+    }
+
+    var outputPaths: [URL] {
+       get throws {
+           return try description.compilePaths().map(\.object.asURL)
+       }
     }
 
     public func compileArguments(for fileURL: URL) throws -> [String] {
@@ -126,6 +145,8 @@ private struct WrappedSwiftTargetBuildDescription: BuildTarget {
     public var name: String {
         return description.target.name
     }
+
+    var compiler: BuildTargetCompiler { .swift }
 
     public var destination: BuildDestination {
         return description.destination == .host ? .host : .target
@@ -153,6 +174,15 @@ private struct WrappedSwiftTargetBuildDescription: BuildTarget {
             }
         }
         return others.map(\.asURL)
+    }
+
+    var outputPaths: [URL] {
+        get throws {
+            struct NotSupportedError: Error, CustomStringConvertible {
+                var description: String { "Getting output paths for a Swift target is not supported" }
+            }
+            throw NotSupportedError()
+        }
     }
 
     func compileArguments(for fileURL: URL) throws -> [String] {

@@ -319,6 +319,51 @@ final class SourceKitLSPAPITests: XCTestCase {
             )
         }
     }
+
+    func testClangOutputPaths() async throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/lib/include/lib.h",
+            "/Pkg/Sources/lib/lib.cpp",
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    toolsVersion: .v5_10,
+                    targets: [
+                        TargetDescription(
+                            name: "lib",
+                            dependencies: []
+                        )
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        let plan = try await BuildPlan(
+            destinationBuildParameters: mockBuildParameters(
+                destination: .target,
+                shouldLinkStaticSwiftStdlib: true
+            ),
+            toolsBuildParameters: mockBuildParameters(
+                destination: .host,
+                shouldLinkStaticSwiftStdlib: true
+            ),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let description = BuildDescription(buildPlan: plan)
+
+        let target = try XCTUnwrap(description.getBuildTarget(for: XCTUnwrap(graph.module(for: "lib")), destination: .target))
+        XCTAssertEqual(target.compiler, .clang)
+        XCTAssertEqual(try target.outputPaths.count, 1)
+        XCTAssertEqual(try target.outputPaths.last?.lastPathComponent, "lib.cpp.o")
+    }
 }
 
 extension SourceKitLSPAPI.BuildDescription {
