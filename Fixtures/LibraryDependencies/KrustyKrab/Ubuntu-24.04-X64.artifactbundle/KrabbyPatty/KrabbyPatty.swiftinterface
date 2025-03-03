@@ -1,0 +1,22 @@
+// swift-interface-format-version: 1.0
+// swift-compiler-version: Swift version 6.0.3 (swift-6.0.3-RELEASE)
+// swift-module-flags: -target x86_64-unknown-linux-gnu -disable-objc-interop -enable-library-evolution -swift-version 6 -O -enable-experimental-feature StrictConcurrency -enable-upcoming-feature ExistentialAny -module-name KrabbyPatty -package-name package
+import Swift
+import _Concurrency
+import _StringProcessing
+import _SwiftConcurrencyShims
+public enum KrabbyPattyFormula {
+  case v1
+  case v2
+  case v3
+  public static var latest: KrabbyPatty.KrabbyPattyFormula {
+    get
+  }
+  public static func == (a: KrabbyPatty.KrabbyPattyFormula, b: KrabbyPatty.KrabbyPattyFormula) -> Swift.Bool
+  public func hash(into hasher: inout Swift.Hasher)
+  public var hashValue: Swift.Int {
+    get
+  }
+}
+extension KrabbyPatty.KrabbyPattyFormula : Swift.Equatable {}
+extension KrabbyPatty.KrabbyPattyFormula : Swift.Hashable {}
