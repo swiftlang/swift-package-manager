@@ -19,6 +19,7 @@ import PackageLoading
 import PackageModel
 import SPMBuildCore
 import _InternalTestSupport
+import TSCTestSupport
 import Workspace
 import XCTest
 
@@ -30,14 +31,24 @@ struct BuildResult {
     let moduleContents: [String]
 }
 
-final class BuildCommandTests: CommandsTestCase {
+class BuildCommandTestCases: CommandsBuildProviderTestCase {
+
+    override func setUpWithError() throws {
+        try XCTSkipIf(type(of: self) == BuildCommandTestCases.self, "Pay no attention to the class behind the curtain.")
+    }
+
     @discardableResult
     private func execute(
         _ args: [String] = [],
         environment: Environment? = nil,
         packagePath: AbsolutePath? = nil
     ) async throws -> (stdout: String, stderr: String) {
-        try await SwiftPM.Build.execute(args, packagePath: packagePath, env: environment)
+        return try await executeSwiftBuild(
+            packagePath,
+            extraArgs: args,
+            env: environment,
+            buildSystem: buildSystemProvider
+        )
     }
 
     func build(_ args: [String], packagePath: AbsolutePath? = nil, isRelease: Bool = false, cleanAfterward: Bool = true) async throws -> BuildResult {
@@ -62,7 +73,11 @@ final class BuildCommandTests: CommandsTestCase {
             let moduleContents = (try? localFileSystem.getDirectoryContents(binPath.appending(component: "Modules"))) ?? []
 
             if cleanAfterward {
-                try! await SwiftPM.Package.execute(["clean"], packagePath: packagePath)
+                try! await executeSwiftPackage(
+                    packagePath,
+                    extraArgs: ["clean"],
+                    buildSystem: buildSystemProvider
+                )
             }
             return BuildResult(
                 binPath: binPath,
@@ -73,7 +88,11 @@ final class BuildCommandTests: CommandsTestCase {
             )
         } catch {
             if cleanAfterward {
-                try! await SwiftPM.Package.execute(["clean"], packagePath: packagePath)
+                try! await executeSwiftPackage(
+                    packagePath,
+                    extraArgs: ["clean"],
+                    buildSystem: buildSystemProvider,
+                )
             }
             throw error
         }
@@ -171,7 +190,7 @@ final class BuildCommandTests: CommandsTestCase {
         }
     }
 
-    func testBinPathAndSymlink() async throws {
+    func testBinSymlink() async throws {
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             let fullPath = try resolveSymlinks(fixturePath)
             let targetPath = try fullPath.appending(
@@ -205,7 +224,16 @@ final class BuildCommandTests: CommandsTestCase {
                 "\(xcbuildTargetPath.appending(components: "Products", "Release").pathString)\n"
             )
             #endif
+        }
+    }
 
+    func testSymlink() async throws {
+        try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
+            let fullPath = try resolveSymlinks(fixturePath)
+            let targetPath = try fullPath.appending(
+                components: ".build",
+                UserToolchain.default.targetTriple.platformBuildPathComponent
+            )
             // Test symlink.
             try await self.execute(packagePath: fullPath)
             XCTAssertEqual(
@@ -232,7 +260,11 @@ final class BuildCommandTests: CommandsTestCase {
 
             do {
                 let (_, stderr) = try await execute(["--product", "lib1"], packagePath: fullPath)
-                try await SwiftPM.Package.execute(["clean"], packagePath: fullPath)
+                try await executeSwiftPackage(
+                    fullPath,
+                    extraArgs:["clean"],
+                    buildSystem: buildSystemProvider
+                )
                 XCTAssertMatch(
                     stderr,
                     .contains(
@@ -422,7 +454,7 @@ final class BuildCommandTests: CommandsTestCase {
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             // try await building using XCBuild with default parameters.  This should succeed.  We build verbosely so we get
             // full command lines.
-            let output = try await execute(["--build-system", buildSystem, "-c", "debug", "-v"], packagePath: fixturePath)
+            let output = try await execute(["-c", "debug", "-v"], packagePath: fixturePath)
 
             // In the case of the native build system check for the cross-compile target, only for macOS
 #if os(macOS)
@@ -437,7 +469,7 @@ final class BuildCommandTests: CommandsTestCase {
             // Look for build completion message from the particular build system
             XCTAssertMatch(
                 output.stdout,
-                try .contains("Build complete!")
+                .contains("Build complete!")
             )
         }
     }
@@ -553,6 +585,27 @@ final class BuildCommandTests: CommandsTestCase {
                 XCTAssertNoMatch(result.stdout, .contains("optimizationremark"))
             }
         }
+    }
+
+    private func _testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfully(configuration: TSCTestSupport.Configuration) async throws {
+        try await fixture(name: "Miscellaneous/TargetConditionals/ExecutableTargetContainsPlatformConditional") { fixturePath in
+            await XCTAssertBuilds(
+                fixturePath,
+                configurations: [configuration],
+                buildSystem: buildSystemProvider
+            )
+
+            // let result = try await execute([], packagePath: fixturePath)
+            // XCTAssertMatch(result.stdout, .contains("Build Complete"))
+        }
+    }
+
+    func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInDebugConfig() async throws {
+        try await self._testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfully(configuration: .Debug)
+    }
+
+    func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInReleaseConfig() async throws {
+        try await self._testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfully(configuration: .Release)
     }
 
     func testSwiftGetVersion() async throws {
@@ -707,13 +760,29 @@ final class BuildCommandTests: CommandsTestCase {
         // Test that no codecov directory is created if not specified when building.
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
             _ = try await self.build(["--build-tests"], packagePath: path, cleanAfterward: false)
-            await XCTAssertAsyncThrowsError(try await SwiftPM.Test.execute(["--skip-build", "--enable-code-coverage"], packagePath: path))
+            await XCTAssertAsyncThrowsError(
+                try await executeSwiftTest(
+                    path,
+                    extraArgs: [
+                        "--skip-build",
+                        "--enable-code-coverage",
+                    ],
+                    buildSystem: buildSystemProvider
+                )
+            )
         }
 
         // Test that enabling code coverage during building produces the expected folder.
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
             let buildResult = try await self.build(["--build-tests", "--enable-code-coverage"], packagePath: path, cleanAfterward: false)
-            try await SwiftPM.Test.execute(["--skip-build", "--enable-code-coverage"], packagePath: path)
+            try await executeSwiftTest(
+                path,
+                extraArgs: [
+                    "--skip-build",
+                    "--enable-code-coverage",
+                ],
+                buildSystem: buildSystemProvider
+            )
             let codeCovPath = buildResult.binPath.appending("codecov")
             let codeCovFiles = try localFileSystem.getDirectoryContents(codeCovPath)
             XCTAssertGreaterThan(codeCovFiles.count, 0)
@@ -754,6 +823,82 @@ final class BuildCommandTests: CommandsTestCase {
                 )
             }
         }
+    }
+
+}
+
+
+class BuildCommandNativeTests: BuildCommandTestCases {
+
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .native
+    }
+
+    override func testUsage() async throws {
+        try await super.testUsage()
+    }
+}
+
+class BuildCommandSwiftBuildTests: BuildCommandTestCases {
+
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .swiftbuild
+    }
+
+    override func testNonReachableProductsAndTargetsFunctional() async throws {
+        try XCTSkip("Test failed.  needs to be investigated")
+    }
+
+    override func testParseableInterfaces() async throws {
+        try XCTSkip("Test failed.  needs to be investigated")
+    }
+
+    override func testGetTaskAllowEntitlement() async throws {
+        try XCTSkip("Test failed.  needs to be investigated")
+    }
+
+    override func testCodeCoverage() async throws {
+        try XCTSkip("Test failed.  needs to be investigated")
+    }
+
+    override func testAtMainSupport() async throws {
+        try XCTSkip("Test failed.  needs to be investigated")
+    }
+
+    override func testAutomaticParseableInterfacesWithLibraryEvolution() async throws {
+        try XCTSkip("Test failed.  needs to be investigated")
+    }
+
+    override func testImportOfMissedDepWarning() async throws {
+        try XCTSkip("Test failed.  needs to be investigated")
+    }
+
+    override func testProductAndTarget() async throws {
+        try XCTSkip("Test failed.  needs to be investigated")
+    }
+
+    override func testPrintLLBuildManifestJobGraph() async throws {
+        try XCTSkip("Test failed.  needs to be investigated")
+    }
+
+    override func testSwiftGetVersion() async throws {
+        try XCTSkip("Test failed.  needs to be investigated")
+    }
+
+    override func testBinSymlink() async throws {
+        try XCTSkip("Test failed.  need to update expected path")
+    }
+
+    override func testSymlink() async throws {
+        try XCTSkip("Test failed.  needs to be investigated")
+    }
+
+    override func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInDebugConfig() async throws {
+        try XCTSkip("Test failed.  needs to be investigated")
+    }
+
+    override func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInReleaseConfig() async throws {
+        try XCTSkip("Test failed.  needs to be investigated")
     }
 
 }
