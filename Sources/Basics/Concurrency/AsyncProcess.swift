@@ -1316,7 +1316,8 @@ extension AsyncProcessResult.Error: CustomStringConvertible {
                 let indentation = "    "
                 str.append(contentsOf: " output:\n")
                 str.append(contentsOf: indentation)
-                str.append(contentsOf: output.replacingOccurrences(of: "\n", with: "\n" + indentation))
+                str.append(contentsOf: output.split(whereSeparator: { $0.isNewline })
+                                             .joined(separator: "\n\(indentation)"))
                 if !output.hasSuffix("\n") {
                     str.append(contentsOf: "\n")
                 }
