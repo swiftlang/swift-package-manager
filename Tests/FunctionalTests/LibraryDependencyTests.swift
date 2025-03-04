@@ -16,16 +16,66 @@ import XCTest
 
 final class LibraryDependencyTests: XCTestCase {
     func testClientPackage() async throws {
-        // The test package is set up to support Ubuntu 24.04 (x86_64) for ease of development,
-        // but due to the environment-dependent nature of the test, we can only guarantee that
-        // it works on macOS.
-        #if !os(macOS)
-        try XCTSkipIf(true, "test is only supported on macOS")
-        #endif
+        try await fixture(name: "LibraryDependencies/KrabbyPatty") { fixturePath in
 
-        try await fixture(name: "LibraryDependencies/KrustyKrab") { fixturePath in
-            let (output, _) = try await executeSwiftRun(fixturePath, "KrustyKrab")
-            XCTAssertTrue(output.contains("Latest Krabby Patty formula version: v3"), output)
+            let scratchPath = fixturePath.appending(component: ".build.tests")
+            try await executeSwiftBuild(fixturePath,
+                configuration: .Debug,
+                extraArgs: ["--scratch-path", scratchPath.pathString]
+            )
+
+            let artifactbundlePath = scratchPath.appending(component: "main.artifactbundle")
+            let artifactsPath = artifactbundlePath.appending(component: "KrabbyPatty")
+
+            #if os(macOS)
+            let libraryExtension = "dylib"
+            #else
+            let libraryExtension = "so"
+            #endif
+
+            let libraryName = "libKrabbyPatty.\(libraryExtension)"
+
+            try localFileSystem.createDirectory(artifactsPath, recursive: true)
+            try localFileSystem.move(
+                from: scratchPath.appending(
+                    components: "debug", "Modules", "KrabbyPatty.swiftinterface"
+                ),
+                to: artifactsPath.appending(component: "KrabbyPatty.swiftinterface")
+            )
+            try localFileSystem.move(
+                from: scratchPath.appending(components: "debug", libraryName),
+                to: artifactsPath.appending(component: libraryName)
+            )
+
+            try localFileSystem.writeFileContents(
+                artifactbundlePath.appending(component: "info.json"),
+                string: """
+                {
+                    "schemaVersion": "1.2",
+                    "artifacts": {
+                        "KrabbyPatty": {
+                            "type": "library",
+                            "version": "0.0.0",
+                            "variants": [{ "path": "KrabbyPatty" }]
+                        }
+                    }
+                }
+                """
+            )
+
+            try await fixture(name: "LibraryDependencies/KrustyKrab") { fixturePath in
+
+                try localFileSystem.copy(
+                    from: artifactbundlePath,
+                    to: fixturePath.appending(component: "main.artifactbundle")
+                )
+
+                let (output, _) = try await executeSwiftRun(fixturePath, "KrustyKrab")
+                XCTAssertTrue(
+                    output.contains("Latest Krabby Patty formula version: v2"),
+                    output
+                )
+            }
         }
     }
 }
