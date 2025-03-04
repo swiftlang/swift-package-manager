@@ -16,7 +16,6 @@ import struct Foundation.URL
 #if os(macOS)
 import class Foundation.Bundle
 #endif
-import OrderedCollections
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import PackageGraph
