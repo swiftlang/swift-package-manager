@@ -16,6 +16,11 @@ import XCTest
 
 final class LibraryDependencyTests: XCTestCase {
     func testClientPackage() async throws {
+        #if os(macOS) || os(Linux)
+        #else
+        try XCTSkipIf(true, "This test requires macOS or Linux")
+        #endif
+
         try await fixture(name: "LibraryDependencies/KrabbyPatty") { fixturePath in
 
             let scratchPath = fixturePath.appending(component: ".build.tests")
