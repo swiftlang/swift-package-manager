@@ -270,11 +270,14 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // Set rpath such that dynamic libraries are looked up
         // adjacent to the product, unless overridden.
         if !self.buildParameters.linkingParameters.shouldDisableLocalRpath {
-            if triple.isLinux() {
+            switch triple.objectFormat {
+            case .elf:
                 args += ["-Xlinker", "-rpath=$ORIGIN"]
-            } else if triple.isDarwin() {
+            case .macho:
                 let rpath = self.product.type == .test ? "@loader_path/../../../" : "@loader_path"
                 args += ["-Xlinker", "-rpath", "-Xlinker", rpath]
+            default:
+                break
             }
         }
         args += ["@\(self.linkFileListPath.pathString)"]
