@@ -543,7 +543,7 @@ fileprivate extension SourceCodeFragment {
             }
             self.init(enum: setting.kind.name, subnodes: params)
         case .treatWarning(let name, let level):
-            params.append(SourceCodeFragment(key: "name", string: level.rawValue))
+            params.append(SourceCodeFragment(key: "name", string: name))
             params.append(SourceCodeFragment(key: "as", enum: level.rawValue))
             if let condition = setting.condition {
                 params.append(SourceCodeFragment(from: condition))
