@@ -161,6 +161,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
                 let cachedPackagePath = cachePath.appending(relativePath)
 
                 try self.initializeCacheIfNeeded(cachePath: cachePath)
+
                 return try await self.fileSystem.withLock(on: cachedPackagePath, type: .exclusive) {
                     // download the package into the cache unless already exists
                     if try self.fileSystem.validPackageDirectory(cachedPackagePath) {
@@ -173,29 +174,37 @@ public class RegistryDownloadsManager: AsyncCancellable {
                         try self.fileSystem.copy(from: cachedPackagePath, to: packagePath)
                         return FetchDetails(fromCache: true, updatedCache: false)
                     } else {
-                        // it is possible that we already created the directory before from failed attempts, so clear leftover data if present.
-                        try? self.fileSystem.removeFileTree(cachedPackagePath)
-                        // download the package from the registry
-                        let _ = try await self.registryClient.downloadSourceArchive(
-                            package: package,
-                            version: version,
-                            destinationPath: cachedPackagePath,
-                            progressHandler: updateDownloadProgress,
-                            fileSystem: self.fileSystem,
-                            observabilityScope: observabilityScope,
-                            callbackQueue: callbackQueue
-                        )
+                        do {
+                            // it is possible that we already created the directory before from failed attempts, so clear leftover data if present.
+                            try? self.fileSystem.removeFileTree(cachedPackagePath)
+                            // download the package from the registry
+                            let _ = try await self.registryClient.downloadSourceArchive(
+                                package: package,
+                                version: version,
+                                destinationPath: cachedPackagePath,
+                                progressHandler: updateDownloadProgress,
+                                fileSystem: self.fileSystem,
+                                observabilityScope: observabilityScope,
+                                callbackQueue: callbackQueue
+                            )
 
-                        // extra validation to defend from racy edge cases
-                        if self.fileSystem.exists(packagePath) {
-                            throw StringError("\(packagePath) already exists unexpectedly")
+                            // extra validation to defend from racy edge cases
+                            if self.fileSystem.exists(packagePath) {
+                                throw StringError("\(packagePath) already exists unexpectedly")
+                            }
+                            // copy the package from the cache into the package path.
+                            try self.fileSystem.createDirectory(packagePath.parentDirectory, recursive: true)
+                            try self.fileSystem.copy(from: cachedPackagePath, to: packagePath)
+                            return FetchDetails(fromCache: true, updatedCache: true)
+                        } catch {
+                            // Wrap this error to do a straight rethrow instead of handling it as if
+                            // the download should be made without populating the cache.
+                            throw DownloadError.passthrough(error)
                         }
-                        // copy the package from the cache into the package path.
-                        try self.fileSystem.createDirectory(packagePath.parentDirectory, recursive: true)
-                        try self.fileSystem.copy(from: cachedPackagePath, to: packagePath)
-                        return FetchDetails(fromCache: true, updatedCache: true)
                     }
                 }
+            } catch DownloadError.passthrough(let underlyingError) {
+                throw underlyingError
             } catch {
                 // download without populating the cache in the case of an error.
                 observabilityScope.emit(
@@ -243,6 +252,10 @@ public class RegistryDownloadsManager: AsyncCancellable {
                     totalBytesToDownload: total
                 )
             }
+        }
+
+        enum DownloadError: Error {
+            case passthrough(Error)
         }
     }
 
