@@ -3656,6 +3656,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                             pkgConfig: "BTarget",
                             providers: [
                                 .brew(["BTarget"]),
+                                .macPorts(["BTarget"]),
                                 .apt(["BTarget"]),
                                 .yum(["BTarget"]),
                             ]
