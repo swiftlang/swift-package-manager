@@ -520,7 +520,6 @@ def install_swiftpm(prefix, args):
 
 # Helper function that installs a dynamic library and a set of modules to a particular directory.
 @log_entry_exit
-@log_entry_exit
 def install_dylib(args, library_name, install_dir, module_names):
     # Install the dynamic library itself.
     install_binary(args, g_shared_lib_prefix + library_name + g_shared_lib_suffix, install_dir)

@@ -86,7 +86,7 @@ def call(cmd, cwd=None, verbose=False):
             cpe.returncode,
             str(cpe),
             cpe.stdout,
-            cpe.stdout,
+            cpe.stderr,
             cpe.output,
         )
         raise cpe
@@ -122,7 +122,7 @@ def call_output(cmd, cwd=None, stderr=False, verbose=False):
             cpe.returncode,
             str(cpe),
             cpe.stdout,
-            cpe.stdout,
+            cpe.stderr,
             cpe.output,
         )
         raise cpe
