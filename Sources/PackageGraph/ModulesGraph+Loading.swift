@@ -21,48 +21,6 @@ import func TSCBasic.findCycle
 
 extension ModulesGraph {
     /// Load the package graph for the given package path.
-    public static func load(
-        root: PackageGraphRoot,
-        identityResolver: IdentityResolver,
-        additionalFileRules: [FileRuleDescription] = [],
-        externalManifests: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>,
-        requiredDependencies: [PackageReference] = [],
-        unsafeAllowedPackages: Set<PackageReference> = [],
-        binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]],
-        prebuilts: [PackageIdentity: [String: PrebuiltLibrary]],
-        shouldCreateMultipleTestProducts: Bool = false,
-        createREPLProduct: Bool = false,
-        customPlatformsRegistry: PlatformRegistry? = .none,
-        customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
-        testEntryPointPath: AbsolutePath? = nil,
-        fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        productsFilter: ((Product) -> Bool)? = nil,
-        modulesFilter: ((Module) -> Bool)? = nil
-    ) throws -> ModulesGraph {
-        try Self.load(
-            root: root,
-            identityResolver: identityResolver,
-            additionalFileRules: additionalFileRules,
-            externalManifests: externalManifests,
-            requiredDependencies: requiredDependencies,
-            unsafeAllowedPackages: unsafeAllowedPackages,
-            binaryArtifacts: binaryArtifacts,
-            prebuilts: prebuilts,
-            shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
-            createREPLProduct: createREPLProduct,
-            traitConfiguration: nil,
-            customPlatformsRegistry: customPlatformsRegistry,
-            customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
-            testEntryPointPath: testEntryPointPath,
-            fileSystem: fileSystem,
-            observabilityScope: observabilityScope,
-            productsFilter: productsFilter,
-            modulesFilter: modulesFilter
-        )
-    }
-
-    /// Load the package graph for the given package path.
     package static func load(
         root: PackageGraphRoot,
         identityResolver: IdentityResolver,
@@ -74,7 +32,6 @@ extension ModulesGraph {
         prebuilts: [PackageIdentity: [String: PrebuiltLibrary]], // Product name to library mapping
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
-        traitConfiguration: TraitConfiguration? = nil,
         customPlatformsRegistry: PlatformRegistry? = .none,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
@@ -100,24 +57,12 @@ extension ModulesGraph {
         let rootManifestNodes = try root.packages.map { identity, package in
             // If we have enabled traits passed then we start with those. If there are no enabled
             // traits passed then the default traits will be used.
-            var enabledTraits = traitConfiguration?.enabledTraits
-
-            // If all traits should be enabled we just get the set of all traits of the package
-            if traitConfiguration?.enableAllTraits ?? false {
-                enabledTraits = Set(package.manifest.traits.map { $0.name })
-            }
-
-            let calculatedTraits = try calculateEnabledTraits(
-                identity: identity,
-                manifest: package.manifest,
-                explictlyEnabledTraits: enabledTraits
-            )
-
+            let enabledTraits = root.enabledTraits[identity]
             return try GraphLoadingNode(
                 identity: identity,
                 manifest: package.manifest,
                 productFilter: .everything,
-                enabledTraits: calculatedTraits
+                enabledTraits: enabledTraits ?? []
             )
         }
         let rootDependencyNodes = try root.dependencies.lazy.filter({ requiredDependencies.contains($0.packageRef) }).compactMap { dependency in
@@ -261,8 +206,7 @@ extension ModulesGraph {
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             productsFilter: productsFilter,
-            modulesFilter: modulesFilter,
-            traitConfiguration: traitConfiguration
+            modulesFilter: modulesFilter
         )
 
         let rootPackages = resolvedPackages.filter { root.manifests.values.contains($0.manifest) }
@@ -394,8 +338,7 @@ private func createResolvedPackages(
     fileSystem: FileSystem,
     observabilityScope: ObservabilityScope,
     productsFilter: ((Product) -> Bool)?,
-    modulesFilter: ((Module) -> Bool)?,
-    traitConfiguration: TraitConfiguration?
+    modulesFilter: ((Module) -> Bool)?
 ) throws -> IdentifiableSet<ResolvedPackage> {
 
     // Create package builder objects from the input manifests.

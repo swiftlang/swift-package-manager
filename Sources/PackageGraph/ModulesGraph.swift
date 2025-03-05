@@ -438,13 +438,12 @@ public func loadModulesGraph(
         }
 
     let packages = Array(rootManifests.keys)
-    let input = PackageGraphRootInput(packages: packages)
+    let input = PackageGraphRootInput(packages: packages, traitConfiguration: traitConfiguration)
     let graphRoot = PackageGraphRoot(
         input: input,
         manifests: rootManifests,
         explicitProduct: explicitProduct,
-        observabilityScope: observabilityScope,
-        traitConfiguration: traitConfiguration
+        observabilityScope: observabilityScope
     )
 
     return try ModulesGraph.load(

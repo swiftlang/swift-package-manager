@@ -61,8 +61,7 @@ extension Workspace {
         root: PackageGraphRootInput,
         packages: [String] = [],
         dryRun: Bool = false,
-        observabilityScope: ObservabilityScope,
-        traitConfiguration: TraitConfiguration?
+        observabilityScope: ObservabilityScope
     ) async throws -> [(PackageReference, Workspace.PackageStateChange)]? {
         let start = DispatchTime.now()
         self.delegate?.willUpdateDependencies()
@@ -87,13 +86,11 @@ extension Workspace {
             input: root,
             manifests: rootManifests,
             dependencyMapper: self.dependencyMapper,
-            observabilityScope: observabilityScope,
-            traitConfiguration: traitConfiguration
+            observabilityScope: observabilityScope
         )
         let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,
-            observabilityScope: observabilityScope,
-            traitConfiguration: traitConfiguration
+            observabilityScope: observabilityScope
         )
 
         // Abort if we're unable to load the `Package.resolved` store or have any diagnostics.
@@ -108,7 +105,7 @@ extension Workspace {
         var updateConstraints = currentManifests.editedPackagesConstraints
 
         // Create constraints based on root manifest and `Package.resolved` for the update resolution.
-        updateConstraints += try graphRoot.constraints(traitConfiguration)
+        updateConstraints += try graphRoot.constraints()
 
         let resolvedPackages: ResolvedPackagesStore.ResolvedPackages
         if packages.isEmpty {
@@ -131,8 +128,7 @@ extension Workspace {
         let updateResults = await self.resolveDependencies(
             resolver: resolver,
             constraints: updateConstraints,
-            observabilityScope: observabilityScope,
-            traitConfiguration: traitConfiguration
+            observabilityScope: observabilityScope
         )
 
         // Reset the active resolver.
@@ -167,8 +163,7 @@ extension Workspace {
         // Load the updated manifests.
         let updatedDependencyManifests = try await self.loadDependencyManifests(
             root: graphRoot,
-            observabilityScope: observabilityScope,
-            traitConfiguration: traitConfiguration
+            observabilityScope: observabilityScope
         )
         // If we have missing packages, something is fundamentally wrong with the resolution of the graph
         let stillMissingPackages = try updatedDependencyManifests.missingPackages
@@ -209,8 +204,7 @@ extension Workspace {
         root: PackageGraphRootInput,
         explicitProduct: String?,
         resolvedFileStrategy: ResolvedFileStrategy,
-        observabilityScope: ObservabilityScope,
-        traitConfiguration: TraitConfiguration?
+        observabilityScope: ObservabilityScope
     ) async throws -> DependencyManifests {
         let start = DispatchTime.now()
         self.delegate?.willResolveDependencies()
@@ -224,8 +218,7 @@ extension Workspace {
             return try await self._resolveBasedOnResolvedVersionsFile(
                 root: root,
                 explicitProduct: explicitProduct,
-                observabilityScope: observabilityScope,
-                traitConfiguration: traitConfiguration
+                observabilityScope: observabilityScope
             )
         case .update(let forceResolution):
             return try await resolveAndUpdateResolvedFile(forceResolution: forceResolution)
@@ -261,8 +254,7 @@ extension Workspace {
             let (manifests, precomputationResult) = try await self.tryResolveBasedOnResolvedVersionsFile(
                 root: root,
                 explicitProduct: explicitProduct,
-                observabilityScope: observabilityScope,
-                traitConfiguration: traitConfiguration
+                observabilityScope: observabilityScope
             )
             switch precomputationResult {
             case .notRequired:
@@ -287,8 +279,7 @@ extension Workspace {
                 explicitProduct: explicitProduct,
                 forceResolution: forceResolution,
                 constraints: [],
-                observabilityScope: observabilityScope,
-                traitConfiguration: traitConfiguration
+                observabilityScope: observabilityScope
             )
         }
     }
@@ -312,14 +303,12 @@ extension Workspace {
     func _resolveBasedOnResolvedVersionsFile(
         root: PackageGraphRootInput,
         explicitProduct: String?,
-        observabilityScope: ObservabilityScope,
-        traitConfiguration: TraitConfiguration?
+        observabilityScope: ObservabilityScope
     ) async throws -> DependencyManifests {
         let (manifests, precomputationResult) = try await self.tryResolveBasedOnResolvedVersionsFile(
             root: root,
             explicitProduct: explicitProduct,
-            observabilityScope: observabilityScope,
-            traitConfiguration: traitConfiguration
+            observabilityScope: observabilityScope
         )
         switch precomputationResult {
         case .notRequired:
@@ -351,8 +340,7 @@ extension Workspace {
     fileprivate func tryResolveBasedOnResolvedVersionsFile(
         root: PackageGraphRootInput,
         explicitProduct: String?,
-        observabilityScope: ObservabilityScope,
-        traitConfiguration: TraitConfiguration?
+        observabilityScope: ObservabilityScope
     ) async throws -> (DependencyManifests, ResolutionPrecomputationResult) {
         // Ensure the cache path exists.
         self.createCacheDirectories(observabilityScope: observabilityScope)
@@ -367,8 +355,7 @@ extension Workspace {
             manifests: rootManifests,
             explicitProduct: explicitProduct,
             dependencyMapper: self.dependencyMapper,
-            observabilityScope: observabilityScope,
-            traitConfiguration: traitConfiguration
+            observabilityScope: observabilityScope
         )
 
         // Load the `Package.resolved` store or abort now.
@@ -378,8 +365,7 @@ extension Workspace {
             return try await (
                 self.loadDependencyManifests(
                     root: graphRoot,
-                    observabilityScope: observabilityScope,
-                    traitConfiguration: traitConfiguration
+                    observabilityScope: observabilityScope
                 ),
                 .notRequired
             )
@@ -471,8 +457,7 @@ extension Workspace {
         let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,
             automaticallyAddManagedDependencies: true,
-            observabilityScope: observabilityScope,
-            traitConfiguration: traitConfiguration
+            observabilityScope: observabilityScope
         )
 
         try await self.updateBinaryArtifacts(
@@ -493,8 +478,7 @@ extension Workspace {
             dependencyManifests: currentManifests,
             resolvedPackagesStore: resolvedPackagesStore,
             constraints: [],
-            observabilityScope: observabilityScope,
-            traitConfiguration: traitConfiguration
+            observabilityScope: observabilityScope
         )
 
         return (currentManifests, precomputationResult)
@@ -512,8 +496,7 @@ extension Workspace {
         explicitProduct: String? = nil,
         forceResolution: Bool,
         constraints: [PackageContainerConstraint],
-        observabilityScope: ObservabilityScope,
-        traitConfiguration: TraitConfiguration?
+        observabilityScope: ObservabilityScope
     ) async throws -> DependencyManifests {
         // Ensure the cache path exists and validate that edited dependencies.
         self.createCacheDirectories(observabilityScope: observabilityScope)
@@ -533,15 +516,13 @@ extension Workspace {
             manifests: rootManifests,
             explicitProduct: explicitProduct,
             dependencyMapper: self.dependencyMapper,
-            observabilityScope: observabilityScope,
-            traitConfiguration: traitConfiguration
+            observabilityScope: observabilityScope
         )
 
         // Of the enabled dependencies of targets, only consider these for dependency resolution
         let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,
-            observabilityScope: observabilityScope,
-            traitConfiguration: traitConfiguration
+            observabilityScope: observabilityScope
         )
         guard !observabilityScope.errorsReported else {
             return currentManifests
@@ -572,8 +553,7 @@ extension Workspace {
                 dependencyManifests: currentManifests,
                 resolvedPackagesStore: resolvedPackagesStore,
                 constraints: constraints,
-                observabilityScope: observabilityScope,
-                traitConfiguration: traitConfiguration
+                observabilityScope: observabilityScope
             )
 
             switch result {
@@ -609,7 +589,7 @@ extension Workspace {
         // Create the constraints; filter unused dependencies.
         var computedConstraints = [PackageContainerConstraint]()
         computedConstraints += currentManifests.editedPackagesConstraints
-        computedConstraints += try graphRoot.constraints(traitConfiguration) + constraints
+        computedConstraints += try graphRoot.constraints() + constraints
 
         // Perform dependency resolution.
         let resolver = try self.createResolver(resolvedPackages: resolvedPackagesStore.resolvedPackages, observabilityScope: observabilityScope)
@@ -618,8 +598,7 @@ extension Workspace {
         let result = await self.resolveDependencies(
             resolver: resolver,
             constraints: computedConstraints,
-            observabilityScope: observabilityScope,
-            traitConfiguration: traitConfiguration
+            observabilityScope: observabilityScope
         )
 
         // Reset the active resolver.
@@ -642,9 +621,7 @@ extension Workspace {
         // Update the `Package.resolved` store.
         let updatedDependencyManifests = try await self.loadDependencyManifests(
             root: graphRoot,
-            observabilityScope: observabilityScope,
-//            usedDependencies: Set(usedDependencies.compactMap(\.package)),
-            traitConfiguration: traitConfiguration
+            observabilityScope: observabilityScope
         )
 
         // If we still have missing packages, something is fundamentally wrong with the resolution of the graph
@@ -854,16 +831,14 @@ extension Workspace {
         dependencyManifests: DependencyManifests,
         pinsStore: ResolvedPackagesStore,
         constraints: [PackageContainerConstraint],
-        observabilityScope: ObservabilityScope,
-        traitConfiguration: TraitConfiguration?
+        observabilityScope: ObservabilityScope
     ) async throws -> ResolutionPrecomputationResult {
         try await self.precomputeResolution(
             root: root,
             dependencyManifests: dependencyManifests,
             resolvedPackagesStore: pinsStore,
             constraints: constraints,
-            observabilityScope: observabilityScope,
-            traitConfiguration: traitConfiguration
+            observabilityScope: observabilityScope
         )
     }
 
@@ -876,13 +851,12 @@ extension Workspace {
         dependencyManifests: DependencyManifests,
         resolvedPackagesStore: ResolvedPackagesStore,
         constraints: [PackageContainerConstraint],
-        observabilityScope: ObservabilityScope,
-        traitConfiguration: TraitConfiguration?
+        observabilityScope: ObservabilityScope
     ) async throws -> ResolutionPrecomputationResult {
         let computedConstraints =
-        try root.constraints(traitConfiguration) +
+        try root.constraints() +
             // Include constraints from the manifests in the graph root.
-        root.manifests.values.flatMap { try $0.dependencyConstraints(productFilter: .everything, /*.init(traitConfiguration)*/nil) } +
+        root.manifests.values.flatMap { try $0.dependencyConstraints(productFilter: .everything, nil) } +
             dependencyManifests.dependencyConstraints +
             constraints
 
@@ -895,7 +869,7 @@ extension Workspace {
             resolvedPackages: resolvedPackagesStore.resolvedPackages,
             observabilityScope: observabilityScope
         )
-        let result = await resolver.solve(constraints: computedConstraints, traitConfiguration: traitConfiguration)
+        let result = await resolver.solve(constraints: computedConstraints)
 
         guard !observabilityScope.errorsReported else {
             return .required(reason: .errorsPreviouslyReported)
@@ -1191,11 +1165,10 @@ extension Workspace {
     fileprivate func resolveDependencies(
         resolver: PubGrubDependencyResolver,
         constraints: [PackageContainerConstraint],
-        observabilityScope: ObservabilityScope,
-        traitConfiguration: TraitConfiguration?
+        observabilityScope: ObservabilityScope
     ) async -> [DependencyResolverBinding] {
         os_signpost(.begin, name: SignpostName.pubgrub)
-        let result = await resolver.solve(constraints: constraints, traitConfiguration: traitConfiguration)
+        let result = await resolver.solve(constraints: constraints, traitConfiguration: configuration.traitConfiguration)
         os_signpost(.end, name: SignpostName.pubgrub)
 
         // Take an action based on the result.

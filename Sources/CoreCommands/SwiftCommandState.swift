@@ -203,7 +203,7 @@ public final class SwiftCommandState {
     }
 
     /// Get the current workspace root object.
-    public func getWorkspaceRoot() throws -> PackageGraphRootInput {
+    public func getWorkspaceRoot(traitConfiguration: TraitConfiguration? = nil) throws -> PackageGraphRootInput {
         let packages: [AbsolutePath]
 
         if let workspace = options.locations.multirootPackageDataFile {
@@ -213,7 +213,7 @@ public final class SwiftCommandState {
             packages = [try getPackageRoot()]
         }
 
-        return PackageGraphRootInput(packages: packages)
+        return PackageGraphRootInput(packages: packages, traitConfiguration: traitConfiguration)
     }
 
     /// Scratch space (.build) directory.
@@ -255,9 +255,6 @@ public final class SwiftCommandState {
 
     // should use sandbox on external subcommands
     public var shouldDisableSandbox: Bool
-
-    /// Flag that determines whether a manifest's dependencies should be pruned if unused.
-//    public var shouldPruneDependencies: Bool = false
 
     /// The file system in use
     public let fileSystem: FileSystem
@@ -426,7 +423,7 @@ public final class SwiftCommandState {
     }
 
     /// Returns the currently active workspace.
-    public func getActiveWorkspace(emitDeprecatedConfigurationWarning: Bool = false) throws -> Workspace {
+    public func getActiveWorkspace(emitDeprecatedConfigurationWarning: Bool = false, traitConfiguration: TraitConfiguration? = nil) throws -> Workspace {
         if let workspace = _workspace {
             return workspace
         }
@@ -476,7 +473,8 @@ public final class SwiftCommandState {
                 },
                 manifestImportRestrictions: .none,
                 usePrebuilts: options.caching.usePrebuilts,
-                pruneDependencies: options.resolver.pruneDependencies
+                pruneDependencies: options.resolver.pruneDependencies,
+                traitConfiguration: traitConfiguration
             ),
             cancellator: self.cancellator,
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
@@ -489,9 +487,9 @@ public final class SwiftCommandState {
         return workspace
     }
 
-    public func getRootPackageInformation() async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
-        let workspace = try self.getActiveWorkspace()
-        let root = try self.getWorkspaceRoot()
+    public func getRootPackageInformation(traitConfiguration: TraitConfiguration? = nil) async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
+        let workspace = try self.getActiveWorkspace(traitConfiguration: traitConfiguration)
+        let root = try self.getWorkspaceRoot(traitConfiguration: traitConfiguration)
         let rootManifests = try await workspace.loadRootManifests(
             packages: root.packages,
             observabilityScope: self.observabilityScope
@@ -595,15 +593,15 @@ public final class SwiftCommandState {
 
     /// Resolve the dependencies.
     public func resolve(_ traitConfiguration: TraitConfiguration?) async throws {
-        let workspace = try getActiveWorkspace()
-        let root = try getWorkspaceRoot()
+        let workspace = try getActiveWorkspace(traitConfiguration: traitConfiguration)
+        let root = try getWorkspaceRoot(traitConfiguration: traitConfiguration)
 
         try await workspace.resolve(
             root: root,
             forceResolution: false,
             forceResolvedVersions: options.resolver.forceResolvedVersions,
-            observabilityScope: self.observabilityScope,
-            traitConfiguration: traitConfiguration
+            observabilityScope: self.observabilityScope
+//            traitConfiguration: traitConfiguration
         )
 
         // Throw if there were errors when loading the graph.
@@ -642,13 +640,12 @@ public final class SwiftCommandState {
         testEntryPointPath: AbsolutePath? = nil
     ) async throws -> ModulesGraph {
         do {
-            let workspace = try getActiveWorkspace()
+            let workspace = try getActiveWorkspace(traitConfiguration: traitConfiguration)
 
             // Fetch and load the package graph.
             let graph = try await workspace.loadPackageGraph(
-                rootInput: getWorkspaceRoot(),
+                rootInput: getWorkspaceRoot(traitConfiguration: traitConfiguration),
                 explicitProduct: explicitProduct,
-                traitConfiguration: traitConfiguration,
                 forceResolvedVersions: options.resolver.forceResolvedVersions,
                 testEntryPointPath: testEntryPointPath,
                 observabilityScope: self.observabilityScope

@@ -12298,7 +12298,7 @@ final class WorkspaceTests: XCTestCase {
                 delegate: MockWorkspaceDelegate()
             )
 
-            try await workspace.resolve(root: .init(packages: [foo]), observabilityScope: observability.topScope, traitConfiguration: nil)
+            try await workspace.resolve(root: .init(packages: [foo]), observabilityScope: observability.topScope)
             testDiagnostics(observability.diagnostics) { result in
                 result.check(
                     diagnostic: "invalid local path '/best.xcframework' for binary target 'best', path expected to be relative to package root.",
@@ -15411,6 +15411,171 @@ final class WorkspaceTests: XCTestCase {
             XCTFail("unexpected error: \(error)")
         }
     }
+
+    func testTraitConfigurationExists_NoDefaultTraits() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(
+                                    name: "Baz",
+                                    package: "Baz",
+                                    condition: .init(traits: ["Trait1"])
+                                ),
+                                .product(
+                                    name: "Boo",
+                                    package: "Boo",
+                                    condition: .init(traits: ["Trait2"])
+                                )
+                            ]
+                        ),
+                        MockTarget(name: "Bar", dependencies: ["Baz"])
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo", "Bar"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Boo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    traits: ["Trait1", "Trait2"]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", modules: ["Baz"]),
+                    ],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+                MockPackage(
+                    name: "Boo",
+                    targets: [
+                        MockTarget(name: "Boo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Boo", modules: ["Boo"]),
+                    ],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+            ],
+            traitConfiguration: .init(enabledTraits: ["Trait1"], enableAllTraits: false)
+        )
+
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
+        ]
+        try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "Baz", "Foo", "Boo")
+                result.check(modules: "Bar", "Baz", "Boo", "Foo")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
+                result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
+            }
+            testDiagnostics(diagnostics) { result in
+                result.check(diagnostic: .contains("dependency 'boo' is not used by any target"), severity: .warning)
+            }
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    func testNoTraitConfiguration_WithDefaultTraits() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(
+                                    name: "Baz",
+                                    package: "Baz",
+                                    condition: .init(traits: ["Trait1"]) // Baz dependency guarded by traits.
+                                ),
+                                .product(
+                                    name: "Boo",
+                                    package: "Boo",
+                                    condition: .init(traits: ["Trait2"])
+                                )
+                            ]
+                        ),
+                        MockTarget(name: "Bar", dependencies: ["Baz"]) // Baz dependency not guarded by traits.
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo", "Bar"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Boo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    traits: [.init(name: "default", enabledTraits: ["Trait2"]), "Trait1", "Trait2"]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", modules: ["Baz"]),
+                    ],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+                MockPackage(
+                    name: "Boo",
+                    targets: [
+                        MockTarget(name: "Boo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Boo", modules: ["Boo"]),
+                    ],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+            ]
+        )
+
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
+            .sourceControl(path: "./Boo", requirement: .exact("1.0.0"), products: .specific(["Boo"])),
+        ]
+        try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "Baz", "Boo", "Foo")
+                result.check(modules: "Bar", "Baz", "Boo", "Foo")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Boo") }
+                result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
+        }
+    }
+
 
     func makeRegistryClient(
         packageIdentity: PackageIdentity,

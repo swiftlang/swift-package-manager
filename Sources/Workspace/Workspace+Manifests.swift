@@ -82,8 +82,7 @@ extension Workspace {
                 fileSystem: FileSystem
             )],
             workspace: Workspace,
-            observabilityScope: ObservabilityScope,
-            traitConfiguration: TraitConfiguration?
+            observabilityScope: ObservabilityScope
         ) {
             self.root = root
             self.dependencies = dependencies
@@ -94,16 +93,14 @@ extension Workspace {
                     root: root,
                     dependencies: dependencies,
                     workspace: workspace,
-                    observabilityScope: observabilityScope,
-                    traitConfiguration: traitConfiguration
+                    observabilityScope: observabilityScope
                 )
             }
             self._constraints = LoadableResult {
                 try Self.computeConstraints(
                     root: root,
                     dependencies: dependencies,
-                    workspace: workspace,
-                    traitConfiguration: traitConfiguration
+                    workspace: workspace
                 )
             }
         }
@@ -182,8 +179,7 @@ extension Workspace {
                 fileSystem: FileSystem
             )],
             workspace: Workspace,
-            observabilityScope: ObservabilityScope,
-            traitConfiguration: TraitConfiguration?
+            observabilityScope: ObservabilityScope
         ) throws
             -> (
                 required: OrderedCollections.OrderedSet<PackageReference>,
@@ -200,15 +196,17 @@ extension Workspace {
             )
 
             let rootEnabledTraitsMap: [PackageIdentity: Set<String>] = root.manifests.reduce(into: [PackageIdentity: Set<String>]()) { traitMap, manifest in
-                traitMap[manifest.key] = traitConfiguration?.enabledTraits ?? []
+                traitMap[manifest.key] = root.enabledTraits[manifest.key]
             }
+
+            let allRootEnabledTraits = rootEnabledTraitsMap.values.flatMap({ $0 })
 
             let rootDependenciesEnabledTraitsMap = root.dependencies.reduce(into: [PackageIdentity: Set<String>]()) { traitMap, dependency in
                 let explicitlyEnabledTraits = dependency.traits?.filter {
                     guard let conditionTraits = $0.condition?.traits else {
                         return true
                     }
-                    return !conditionTraits.intersection(traitConfiguration?.enabledTraits ?? []).isEmpty
+                    return !conditionTraits.intersection(allRootEnabledTraits).isEmpty
                 }.map(\.name) ?? []
 
                 traitMap[dependency.identity] = Set(explicitlyEnabledTraits)
@@ -403,8 +401,7 @@ extension Workspace {
                 productFilter: ProductFilter,
                 fileSystem: FileSystem
             )],
-            workspace: Workspace,
-            traitConfiguration: TraitConfiguration?
+            workspace: Workspace
         ) throws -> [PackageContainerConstraint] {
             var allConstraints = [PackageContainerConstraint]()
 
@@ -413,7 +410,7 @@ extension Workspace {
                     guard let conditionTraits = $0.condition?.traits else {
                         return true
                     }
-                    return !conditionTraits.intersection(traitConfiguration?.enabledTraits ?? []).isEmpty
+                    return !conditionTraits.intersection(workspace.configuration.traitConfiguration?.enabledTraits ?? []).isEmpty
                 }.map(\.name) ?? []
 
                 traitMap[dependency.identity] = Set(explicitlyEnabledTraits)
@@ -520,8 +517,7 @@ extension Workspace {
     public func loadDependencyManifests(
         root: PackageGraphRoot,
         automaticallyAddManagedDependencies: Bool = false,
-        observabilityScope: ObservabilityScope,
-        traitConfiguration: TraitConfiguration?
+        observabilityScope: ObservabilityScope
     ) async throws -> DependencyManifests {
         let prepopulateManagedDependencies: ([PackageReference]) throws -> Void = { refs in
             // pre-populate managed dependencies if we are asked to do so (this happens when resolving to a resolved
@@ -565,8 +561,7 @@ extension Workspace {
                 root: root,
                 dependencies: [],
                 workspace: self,
-                observabilityScope: observabilityScope,
-                traitConfiguration: traitConfiguration
+                observabilityScope: observabilityScope
             )
         }
 
@@ -581,7 +576,7 @@ extension Workspace {
         let rootManifests = try root.manifests.mapValues({ manifest in
             let deps = try manifest.dependencies.filter({ dep in
                 guard configuration.pruneDependencies else { return true }
-                let explicitlyEnabledTraits = try manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
+                let explicitlyEnabledTraits = try manifest.enabledTraits(using: configuration.traitConfiguration?.enabledTraits, enableAllTraits: configuration.traitConfiguration?.enableAllTraits ?? false)
                 let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: explicitlyEnabledTraits)
                 return isDepUsed
             })
@@ -617,9 +612,9 @@ extension Workspace {
         let firstLevelDependencies = try topLevelManifests.values.map({ manifest in
             return try manifest.dependencies.filter({ dep in
                 guard configuration.pruneDependencies else { return true }
-                var config = traitConfiguration
+                var config = configuration.traitConfiguration
                 if manifest.packageKind.isRoot {
-                    let manifestEnabledTraits = try manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
+                    let manifestEnabledTraits = try manifest.enabledTraits(using: configuration.traitConfiguration?.enabledTraits, enableAllTraits: configuration.traitConfiguration?.enableAllTraits ?? false)
                     config = .init(enabledTraits: manifestEnabledTraits)
                 } else {
                     let rootManifests = root.manifests.values.filter({ $0.packageKind.isRoot })
@@ -709,7 +704,7 @@ extension Workspace {
             let manifestGraphRoots = try topLevelManifests.map { identity, manifest in
                 // Since these represent the root manifests, can pass in the enabled traits from the trait configuration here, as that is what it represents.
                 let isRoot = manifest.packageKind.isRoot
-                let enabledTraits = isRoot ? try manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false) : []
+                let enabledTraits = isRoot ? try manifest.enabledTraits(using: configuration.traitConfiguration?.enabledTraits, enableAllTraits: configuration.traitConfiguration?.enableAllTraits ?? false) : []
                 return try KeyedPair(
                     GraphLoadingNode(
                         identity: identity,
@@ -766,8 +761,7 @@ extension Workspace {
             root: root,
             dependencies: dependencies,
             workspace: self,
-            observabilityScope: observabilityScope,
-            traitConfiguration: traitConfiguration
+            observabilityScope: observabilityScope
         )
     }
 

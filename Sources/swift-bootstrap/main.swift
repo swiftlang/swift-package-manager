@@ -394,9 +394,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             let packageGraphRoot = PackageGraphRoot(
                 input: .init(packages: [packagePath]),
                 manifests: [packagePath: rootPackageManifest],
-                observabilityScope: observabilityScope,
-                traitConfiguration: nil // When bootstrapping no special trait build configuration is used
-
+                observabilityScope: observabilityScope
             )
 
             return try ModulesGraph.load(

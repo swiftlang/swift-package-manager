@@ -294,4 +294,170 @@ Trait '"\(trait.name)"' is not declared by package 'Foo'. There are no available
             }
         }
     }
+
+    func testCalculateAllEnabledTraits_WithOnlyDefaultTraitsEnabled() throws {
+        let products = [
+            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+        ]
+
+        let targets = [
+            try TargetDescription(name: "Foo", dependencies: ["Bar"]),
+            try TargetDescription(name: "Bar")
+        ]
+
+        let traits: Set<TraitDescription> = [
+            TraitDescription(name: "default", enabledTraits: ["Trait1"]),
+            TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
+            TraitDescription(name: "Trait2"),
+            TraitDescription(name: "Trait3")
+        ]
+
+        do {
+            let manifest = Manifest.createRootManifest(
+                displayName: "Foo",
+                path: "/Foo",
+                toolsVersion: .v5_2,
+                products: products,
+                targets: targets,
+                traits: traits
+            )
+
+            // Calculate the enabled traits without an explicitly declared set of enabled traits.
+            // This should default to fetching the default traits, if they exist (which in this test case
+            // they do), and then will calculate the transitive set of traits that are enabled.
+            let allEnabledTraits = try manifest.enabledTraits(using: nil)?.sorted()
+            XCTAssertEqual(allEnabledTraits, ["Trait1", "Trait2"])
+        }
+    }
+
+    func testCalculateAllEnabledTraits_WithExplicitTraitsEnabled() throws {
+        let products = [
+            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+        ]
+
+        let targets = [
+            try TargetDescription(name: "Foo", dependencies: ["Bar"]),
+            try TargetDescription(name: "Bar")
+        ]
+
+        let traits: Set<TraitDescription> = [
+            TraitDescription(name: "default", enabledTraits: ["Trait1"]),
+            TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
+            TraitDescription(name: "Trait2"),
+            TraitDescription(name: "Trait3")
+        ]
+
+        do {
+            let manifest = Manifest.createRootManifest(
+                displayName: "Foo",
+                path: "/Foo",
+                toolsVersion: .v5_2,
+                products: products,
+                targets: targets,
+                traits: traits
+            )
+
+            // Calculate the enabled traits with an explicitly declared set of enabled traits.
+            // This should override the default traits (since it isn't explicitly passed in here).
+            let allEnabledTraitsWithoutDefaults = try manifest.enabledTraits(using: ["Trait3"])?.sorted()
+            XCTAssertEqual(allEnabledTraitsWithoutDefaults, ["Trait3"])
+
+            // Calculate the enabled traits with an explicitly declared set of enabled traits,
+            // including the default traits. Since default traits are explicitly enabled in the
+            // passed set of traits, this will be factored into the calculation.
+            let allEnabledTraitsWithDefaults = try manifest.enabledTraits(using: ["default", "Trait3"])?.sorted()
+            XCTAssertEqual(allEnabledTraitsWithDefaults, ["Trait1", "Trait2", "Trait3"])
+
+        }
+    }
+
+    func testCalculateAllEnabledTraits_WithAllTraitsEnabled() throws {
+        let products = [
+            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+        ]
+
+        let targets = [
+            try TargetDescription(name: "Foo", dependencies: ["Bar"]),
+            try TargetDescription(name: "Bar")
+        ]
+
+        let traits: Set<TraitDescription> = [
+            TraitDescription(name: "default", enabledTraits: ["Trait1"]),
+            TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
+            TraitDescription(name: "Trait2"),
+            TraitDescription(name: "Trait3")
+        ]
+
+        do {
+            let manifest = Manifest.createRootManifest(
+                displayName: "Foo",
+                path: "/Foo",
+                toolsVersion: .v5_2,
+                products: products,
+                targets: targets,
+                traits: traits
+            )
+
+            // Calculate the enabled traits with all traits enabled flag.
+            let allEnabledTraits = try manifest.enabledTraits(using: [], enableAllTraits: true)?.sorted()
+            XCTAssertEqual(allEnabledTraits, ["Trait1", "Trait2", "Trait3"])
+        }
+    }
+
+    func testTraitGuardedDependencies() throws {
+        let dependencies: [PackageDependency] = [
+            .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
+
+        ]
+
+        let products = [
+            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+        ]
+
+        let targets = [
+            try TargetDescription(
+                name: "Foo",
+                dependencies: [
+                    .product(
+                        name: "Bar",
+                        package: "Bar",
+                        condition: .init(traits: ["Trait2"])
+                    ),
+                    .product(
+                        name: "Baz",
+                        package: "Baz"
+                    )
+                ]
+            ),
+
+        ]
+
+        let traits: Set<TraitDescription> = [
+            TraitDescription(name: "default", enabledTraits: ["Trait1"]),
+            TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
+            TraitDescription(name: "Trait2"),
+            TraitDescription(name: "Trait3")
+        ]
+
+        do {
+            let manifest = Manifest.createRootManifest(
+                displayName: "Foo",
+                path: "/Foo",
+                toolsVersion: .v5_2,
+                dependencies: dependencies,
+                products: products,
+                targets: targets,
+                traits: traits
+            )
+
+            let traitGuardedDependencies = manifest.traitGuardedDependencies()
+            XCTAssertEqual(
+                traitGuardedDependencies,
+                [
+                    "Bar": ["Foo": ["Trait2"]]
+                ]
+            )
+        }
+    }
 }

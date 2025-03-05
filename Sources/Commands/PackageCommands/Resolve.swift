@@ -48,15 +48,14 @@ extension SwiftPackageCommand {
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             // If a package is provided, use that to resolve the dependencies.
             if let packageName = resolveOptions.packageName {
-                let workspace = try swiftCommandState.getActiveWorkspace()
+                let workspace = try swiftCommandState.getActiveWorkspace(traitConfiguration: .init(traitOptions: resolveOptions.traits))
                 try await workspace.resolve(
                     packageName: packageName,
-                    root: swiftCommandState.getWorkspaceRoot(),
+                    root: swiftCommandState.getWorkspaceRoot(traitConfiguration: .init(traitOptions: resolveOptions.traits)),
                     version: resolveOptions.version,
                     branch: resolveOptions.branch,
                     revision: resolveOptions.revision,
-                    observabilityScope: swiftCommandState.observabilityScope,
-                    traitConfiguration: .init(traitOptions: resolveOptions.traits)
+                    observabilityScope: swiftCommandState.observabilityScope
                 )
                 if swiftCommandState.observabilityScope.errorsReported {
                     throw ExitCode.failure

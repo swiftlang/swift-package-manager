@@ -711,7 +711,7 @@ public final class PackageBuilder {
             guard let target = self.manifest.targetMap[$0.name] else { return [] }
             // Collect the successors from declared dependencies.
             var successors: [PotentialModule] = try target.dependencies.compactMap { dep in
-                guard try self.manifest.isTargetDependencyEnabled(dep, enabledTraits: self.enabledTraits) else {
+                guard try self.manifest.isTargetDependencyEnabled(target: target.name, dep, enabledTraits: self.enabledTraits) else {
                     return nil
                 }
                 switch dep {
@@ -769,10 +769,10 @@ public final class PackageBuilder {
             let manifestTarget = manifest.targetMap[potentialModule.name]
 
             // Get the dependencies of this target.
-            let dependencies: [Module.Dependency] = try manifestTarget.map {
-                try $0.dependencies.compactMap { dependency -> Module.Dependency? in
+            let dependencies: [Module.Dependency] = try manifestTarget.map { target in
+                try target.dependencies.compactMap { dependency -> Module.Dependency? in
                     // We don't create an object for target dependencies that aren't enabled.
-                    guard try self.manifest.isTargetDependencyEnabled(dependency, enabledTraits: self.enabledTraits) else {
+                    guard try self.manifest.isTargetDependencyEnabled(target: target.name, dependency, enabledTraits: self.enabledTraits) else {
                         return nil
                     }
                     switch dependency {

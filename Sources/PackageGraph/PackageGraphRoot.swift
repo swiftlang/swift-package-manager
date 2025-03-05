@@ -23,10 +23,18 @@ public struct PackageGraphRootInput {
     /// Top level dependencies to the graph.
     public let dependencies: [PackageDependency]
 
+    /// The trait configuration for the root packages.
+    public let traitConfiguration: TraitConfiguration?
+
     /// Create a package graph root.
-    public init(packages: [AbsolutePath], dependencies: [PackageDependency] = []) {
+    public init(
+        packages: [AbsolutePath],
+        dependencies: [PackageDependency] = [],
+        traitConfiguration: TraitConfiguration? = nil
+    ) {
         self.packages = packages
         self.dependencies = dependencies
+        self.traitConfiguration = traitConfiguration
     }
 }
 
@@ -40,6 +48,8 @@ public struct PackageGraphRoot {
     public var manifests: [PackageIdentity: Manifest] {
         return self.packages.compactMapValues { $0.manifest }
     }
+
+    public var enabledTraits: [PackageIdentity: Set<String>]
 
     /// The root package references.
     public var packageReferences: [PackageReference] {
@@ -83,8 +93,7 @@ public struct PackageGraphRoot {
         manifests: [AbsolutePath: Manifest],
         explicitProduct: String? = nil,
         dependencyMapper: DependencyMapper? = nil,
-        observabilityScope: ObservabilityScope,
-        traitConfiguration: TraitConfiguration?
+        observabilityScope: ObservabilityScope
     ) {
         self.packages = input.packages.reduce(into: .init(), { partial, inputPath in
             if let manifest = manifests[inputPath]  {
@@ -93,6 +102,20 @@ public struct PackageGraphRoot {
                 partial[identity] = (.root(identity: identity, path: packagePath), manifest)
             }
         })
+
+        do {
+            // Calculate the enabled traits for root.
+            self.enabledTraits = try packages.reduce(into: [PackageIdentity: Set<String>]()) { traitsMap, package in
+                let manifest = package.value.manifest
+                let traitConfiguration = input.traitConfiguration
+
+                let enabledTraits = try manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
+
+                traitsMap[package.key] = enabledTraits
+            }
+        } catch {
+            self.enabledTraits = [:]
+        }
 
         // FIXME: Deprecate special casing once the manifest supports declaring used executable products.
         // Special casing explicit products like this is necessary to pass the test suite and satisfy backwards compatibility.
@@ -108,15 +131,16 @@ public struct PackageGraphRoot {
             // is enabled.
             return manifests.values.reduce(false) {
                 guard $1.pruneDependencies else { return $0 || true }
-                if let isUsed = try? $1.isPackageDependencyUsed(dep, enabledTraits: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false) {
+                if let isUsed = try? $1.isPackageDependencyUsed(dep, enabledTraits: input.traitConfiguration?.enabledTraits, enableAllTraits: input.traitConfiguration?.enableAllTraits ?? false) {
                     return $0 || isUsed
                 }
                 return true
             }
         })
+
         if let explicitProduct {
             // FIXME: `dependenciesRequired` modifies manifests and prevents conversion of `Manifest` to a value type
-            let deps = try? manifests.values.lazy.map({ try $0.dependenciesRequired(for: .everything, traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false) }).flatMap({ $0 })
+            let deps = try? manifests.values.lazy.map({ try $0.dependenciesRequired(for: .everything, input.traitConfiguration?.enabledTraits, enableAllTraits: input.traitConfiguration?.enableAllTraits ?? false) }).flatMap({ $0 })
             for dependency in deps ?? [] {
                 adjustedDependencies.append(dependency.filtered(by: .specific([explicitProduct])))
             }
@@ -128,22 +152,15 @@ public struct PackageGraphRoot {
     }
 
     /// Returns the constraints imposed by root manifests + dependencies.
-    public func constraints(_ traitConfiguration: TraitConfiguration?) throws -> [PackageContainerConstraint] {
-        let constraints = try self.packages.map { (identity, package) in
+    public func constraints() throws -> [PackageContainerConstraint] {
+        let constraints = self.packages.map { (identity, package) in
             // Since these are root packages, can apply trait configuration as this is a root package concept.
-            var explicitlyEnabledTraits: Set<String>?
-            if let traitConfiguration {
-                explicitlyEnabledTraits = try self.manifests.values.compactMap({
-                    try $0.enabledTraits(using: traitConfiguration.enabledTraits, enableAllTraits: traitConfiguration.enableAllTraits)
-                }).reduce(into: Set<String>()) { result, enabledTraits in
-                    result.formUnion(enabledTraits)
-                }
-            }
+            let enabledTraits = self.enabledTraits[identity]
             return PackageContainerConstraint(
                 package: package.reference,
                 requirement: .unversioned,
                 products: .everything,
-                enabledTraits: explicitlyEnabledTraits
+                enabledTraits: enabledTraits
             )
         }
         
