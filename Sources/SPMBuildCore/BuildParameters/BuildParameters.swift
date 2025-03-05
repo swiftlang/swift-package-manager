@@ -122,8 +122,7 @@ public struct BuildParameters: Encodable {
         }
     }
 
-    /// Whether the Xcode build system is used.
-    public var isXcodeBuildSystemEnabled: Bool
+    public var buildSystemKind: BuildSystemProvider.Kind
 
     public var shouldSkipBuilding: Bool
 
@@ -152,13 +151,13 @@ public struct BuildParameters: Encodable {
         toolchain: Toolchain,
         triple: Triple? = nil,
         flags: BuildFlags,
+        buildSystemKind: BuildSystemProvider.Kind,
         pkgConfigDirectories: [AbsolutePath] = [],
         architectures: [String]? = nil,
         workers: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldCreateDylibForDynamicProducts: Bool = true,
         sanitizers: EnabledSanitizers = EnabledSanitizers(),
         indexStoreMode: IndexStoreMode = .auto,
-        isXcodeBuildSystemEnabled: Bool = false,
         shouldSkipBuilding: Bool = false,
         prepareForIndexing: PrepareForIndexingMode = .off,
         debuggingParameters: Debugging? = nil,
@@ -179,6 +178,7 @@ public struct BuildParameters: Encodable {
         self.configuration = configuration
         self._toolchain = _Toolchain(toolchain: toolchain)
         self.triple = triple
+        self.buildSystemKind = buildSystemKind
         switch self.debuggingParameters.debugInfoFormat {
         case .dwarf:
             var flags = flags
@@ -214,7 +214,6 @@ public struct BuildParameters: Encodable {
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
         self.sanitizers = sanitizers
         self.indexStoreMode = indexStoreMode
-        self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
         self.shouldSkipBuilding = shouldSkipBuilding
         self.prepareForIndexing = prepareForIndexing
         self.driverParameters = driverParameters
@@ -225,9 +224,10 @@ public struct BuildParameters: Encodable {
 
     /// The path to the build directory (inside the data directory).
     public var buildPath: AbsolutePath {
-        if isXcodeBuildSystemEnabled {
+        switch buildSystemKind {
+        case .xcode, .swiftbuild:
             return dataPath.appending(components: "Products", configuration.dirname.capitalized)
-        } else {
+        case .native:
             return dataPath.appending(component: configuration.dirname)
         }
     }

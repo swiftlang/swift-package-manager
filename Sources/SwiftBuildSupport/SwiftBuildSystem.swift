@@ -385,6 +385,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         } catch {
             throw error
         }
+
+        await service.close()
     }
 
     func makeBuildParameters() throws -> SwiftBuild.SWBBuildParameters {
