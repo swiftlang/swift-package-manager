@@ -174,26 +174,19 @@ Clone the following repositories beside the SwiftPM directory:
    $> git clone https://github.com/apple/swift-tools-support-core
    ```
 
-4. [Yams] and checkout tag with the [latest version](https://github.com/jpsim/Yams.git/tags) before 5.0.0.
-
-   For example, if the latest tag is 4.0.6:
-   ```sh
-   $> git clone https://github.com/jpsim/yams --branch 4.0.6
-   ```
-
-5. [swift-driver]
+4. [swift-driver]
    ```sh
    $> git clone https://github.com/apple/swift-driver
    ```
 
-6. [swift-system] and check out tag with the [latest version](https://github.com/apple/swift-system/tags).
+5. [swift-system] and check out tag with the [latest version](https://github.com/apple/swift-system/tags).
 
     For example, if the latest tag is 1.0.0:
     ```sh
     $> git clone https://github.com/apple/swift-system --branch 1.0.0
     ```
 
-7. [swift-collections] and check out tag with the [latest version](https://github.com/apple/swift-collections/tags).
+6. [swift-collections] and check out tag with the [latest version](https://github.com/apple/swift-collections/tags).
 
     For example, if the latest tag is 1.0.1:
     ```sh
@@ -217,6 +210,16 @@ Clone the following repositories beside the SwiftPM directory:
    $> git clone https://github.com/apple/swift-certificates
    ```
 
+10. [swift-syntax]
+   ```sh
+   $> git clone https://github.com/swiftlang/swift-syntax
+   ```
+
+11. [swift-toolchain-sqlite]
+   ```sh
+   $> git clone https://github.com/swiftlang/swift-toolchain-sqlite
+   ```
+
 [swift-argument-parser]: https://github.com/apple/swift-argument-parser
 [swift-collections]: https://github.com/apple/swift-collections
 [swift-driver]: https://github.com/apple/swift-driver
@@ -226,7 +229,8 @@ Clone the following repositories beside the SwiftPM directory:
 [swift-crypto]: https://github.com/apple/swift-crypto
 [swift-asn1]: https://github.com/apple/swift-asn1
 [swift-certificates]: https://github.com/apple/swift-certificates
-[Yams]: https://github.com/jpsim/yams
+[swift-toolchain-sqlite]: https://github.com/swiftlang/swift-toolchain-sqlite
+[swift-syntax]: https://github.com/swiftlang/swift-syntax
 
 
 #### Building
