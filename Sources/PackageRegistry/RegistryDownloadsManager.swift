@@ -153,7 +153,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
         packagePath: AbsolutePath,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
-        callbackQueue: DispatchQueue,
+        callbackQueue: DispatchQueue
     ) async throws -> FetchDetails {
         if let cachePath {
             do {
