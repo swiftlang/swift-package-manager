@@ -844,10 +844,11 @@ extension Manifest {
 
     /// Determines whether a target dependency is enabled given a set of enabled traits for this manifest.
     public func isTargetDependencyEnabled(target: String, _ dependency: TargetDescription.Dependency, enabledTraits: Set<String>?, enableAllTraits: Bool = false) throws -> Bool {
-        guard supportsTraits else { return true } // If there is no trait config, the target dep is automatically enabled
-        guard let package = dependency.package else { return false }
-        guard !enableAllTraits else { return true }
-        guard let target = self.targetMap[target] else { return false }
+        guard supportsTraits, !enableAllTraits else { return true }
+        guard let package = dependency.package, let target = self.targetMap[target] else { return false }
+        guard target.dependencies.contains(where: { $0 == dependency }) else {
+            throw InternalError("target dependency \(dependency.name) not found for target \(target.name) in package \(self.displayName)")
+        }
         let traitsThatEnableDependency = traitGuardedDependencies()[package]?[target.name] ?? []
 
         let isEnabled = try traitsThatEnableDependency.allSatisfy({ try isTraitEnabled(.init(stringLiteral: $0), enabledTraits, enableAllTraits) })

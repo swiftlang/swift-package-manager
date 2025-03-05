@@ -601,7 +601,6 @@ public final class SwiftCommandState {
             forceResolution: false,
             forceResolvedVersions: options.resolver.forceResolvedVersions,
             observabilityScope: self.observabilityScope
-//            traitConfiguration: traitConfiguration
         )
 
         // Throw if there were errors when loading the graph.

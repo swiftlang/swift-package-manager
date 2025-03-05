@@ -460,4 +460,247 @@ Trait '"\(trait.name)"' is not declared by package 'Foo'. There are no available
             )
         }
     }
+
+    func testIsTargetDependencyEnabled() throws {
+        let dependencies: [PackageDependency] = [
+            .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
+        ]
+
+        let products = [
+            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+        ]
+
+        let unguardedTargetDependency: TargetDescription.Dependency = .product(name: "Bar", package: "Blah")
+        let trait3GuardedTargetDependency: TargetDescription.Dependency = .product(
+            name: "Baz",
+            package: "Buzz",
+            condition: .init(traits: ["Trait3"])
+        )
+        let defaultTraitGuardedTargetDependency: TargetDescription.Dependency = .product(
+            name: "Bam",
+            package: "Boom",
+            condition: .init(traits: ["Trait2"])
+        )
+
+        let target = try TargetDescription(
+            name: "Foo",
+            dependencies: [
+                unguardedTargetDependency,
+                trait3GuardedTargetDependency,
+                defaultTraitGuardedTargetDependency
+            ]
+        )
+
+        let traits: Set<TraitDescription> = [
+            TraitDescription(name: "default", enabledTraits: ["Trait1"]),
+            TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
+            TraitDescription(name: "Trait2"),
+            TraitDescription(name: "Trait3")
+        ]
+
+        do {
+            let manifest = Manifest.createRootManifest(
+                displayName: "Foo",
+                path: "/Foo",
+                toolsVersion: .v5_2,
+                dependencies: dependencies,
+                products: products,
+                targets: [target],
+                traits: traits
+            )
+
+            // Test if an unguarded target dependency is enabled; should be true.
+            XCTAssertTrue(try manifest.isTargetDependencyEnabled(target: "Foo", unguardedTargetDependency, enabledTraits: nil))
+
+            // Test if a trait-guarded dependency is enabled when passed a set of enabled traits that
+            // unblock this target dependency; should be true.
+            XCTAssertTrue(try manifest.isTargetDependencyEnabled(target: "Foo", trait3GuardedTargetDependency, enabledTraits: ["Trait3"]))
+
+            // Test if a trait-guarded dependency is enabled when passed a flag that enables all traits;
+            // should be true.
+            XCTAssertTrue(try manifest.isTargetDependencyEnabled(target: "Foo", trait3GuardedTargetDependency, enabledTraits: nil, enableAllTraits: true))
+
+            // Test if a trait-guarded dependency is enabled when there are no enabled traits passsed.
+            XCTAssertFalse(try manifest.isTargetDependencyEnabled(target: "Foo", trait3GuardedTargetDependency, enabledTraits: nil))
+
+            // Test if a target dependency guarded by default traits is enabled when passed no explicitly
+            // enabled traits; should be true.
+            XCTAssertTrue(try manifest.isTargetDependencyEnabled(target: "Foo", defaultTraitGuardedTargetDependency, enabledTraits: nil))
+
+            // Test if a target dependency guarded by default traits is enabled when passed an empty set
+            // of enabled traits, overriding the default traits; should be false.
+            XCTAssertFalse(try manifest.isTargetDependencyEnabled(target: "Foo", defaultTraitGuardedTargetDependency, enabledTraits: []))
+        }
+    }
+
+    func testIsPackageDependencyUsed() throws {
+        let bar: PackageDependency = .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
+        let baz: PackageDependency = .localSourceControl(path: "/Baz", requirement: .upToNextMajor(from: "1.0.0"))
+        let bam: PackageDependency = .localSourceControl(path: "/Bam", requirement: .upToNextMajor(from: "1.0.0"))
+
+        let dependencies: [PackageDependency] = [
+            bar,
+            baz,
+            bam
+        ]
+
+        let products = [
+            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+        ]
+
+        let unguardedTargetDependency: TargetDescription.Dependency = .product(name: "Bar", package: "Bar")
+        let trait3GuardedTargetDependency: TargetDescription.Dependency = .product(
+            name: "Baz",
+            package: "Baz",
+            condition: .init(traits: ["Trait3"])
+        )
+        let defaultTraitGuardedTargetDependency: TargetDescription.Dependency = .product(
+            name: "Bam",
+            package: "Bam",
+            condition: .init(traits: ["Trait2"])
+        )
+
+        let target = try TargetDescription(
+            name: "Foo",
+            dependencies: [
+                unguardedTargetDependency,
+                trait3GuardedTargetDependency,
+                defaultTraitGuardedTargetDependency
+            ]
+        )
+
+        let traits: Set<TraitDescription> = [
+            TraitDescription(name: "default", enabledTraits: ["Trait1"]),
+            TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
+            TraitDescription(name: "Trait2"),
+            TraitDescription(name: "Trait3")
+        ]
+
+        do {
+            let manifest = Manifest.createRootManifest(
+                displayName: "Foo",
+                path: "/Foo",
+                toolsVersion: .v5_2,
+                dependencies: dependencies,
+                products: products,
+                targets: [target],
+                traits: traits
+            )
+
+            XCTAssertTrue(try manifest.isPackageDependencyUsed(bar, enabledTraits: nil))
+            XCTAssertTrue(try manifest.isPackageDependencyUsed(bar, enabledTraits: []))
+            XCTAssertFalse(try manifest.isPackageDependencyUsed(baz, enabledTraits: nil))
+            XCTAssertTrue(try manifest.isPackageDependencyUsed(baz, enabledTraits: ["Trait3"]))
+            XCTAssertTrue(try manifest.isPackageDependencyUsed(bam, enabledTraits: nil))
+            XCTAssertFalse(try manifest.isPackageDependencyUsed(bam, enabledTraits: []))
+            XCTAssertFalse(try manifest.isPackageDependencyUsed(bam, enabledTraits: ["Trait3"]))
+        }
+    }
+
+    func testTargetDescriptionDependencyName_ForProduct() throws {
+        let products = [
+            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+        ]
+
+        let targets = [
+            try TargetDescription(
+                name: "Foo",
+                dependencies: [
+                    .product(
+                        name: "Bar",
+                        package: "Blah"
+                    ),
+                ]
+            ),
+        ]
+
+        do {
+            let manifest = Manifest.createRootManifest(
+                displayName: "Foo",
+                path: "/Foo",
+                toolsVersion: .v5_2,
+                products: products,
+                targets: targets
+            )
+
+            XCTAssertTrue(manifest.targets.count == 1)
+            let target = try XCTUnwrap(manifest.targets.first)
+            XCTAssertEqual(target.name, "Foo")
+
+            for dependency in target.dependencies {
+                XCTAssertEqual(dependency.name, "Bar")
+            }
+        }
+    }
+
+    func testTargetDescriptionDependencyName_ForTarget() throws {
+        let products = [
+            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+        ]
+
+        let targets = [
+            try TargetDescription(
+                name: "Foo",
+                dependencies: [
+                    .target(
+                        name: "Baz"
+                    ),
+                ]
+            ),
+
+        ]
+
+        do {
+            let manifest = Manifest.createRootManifest(
+                displayName: "Foo",
+                path: "/Foo",
+                toolsVersion: .v5_2,
+                products: products,
+                targets: targets
+            )
+
+            XCTAssertTrue(manifest.targets.count == 1)
+            let target = try XCTUnwrap(manifest.targets.first)
+            XCTAssertEqual(target.name, "Foo")
+
+            for dependency in target.dependencies {
+                XCTAssertEqual(dependency.name, "Baz")
+            }
+        }
+    }
+
+    func testTargetDescriptionDependencyName_ForByName() throws {
+        let products = [
+            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+        ]
+
+        let targets = [
+            try TargetDescription(
+                name: "Foo",
+                dependencies: [
+                    "Boo"
+                ]
+            ),
+
+        ]
+
+        do {
+            let manifest = Manifest.createRootManifest(
+                displayName: "Foo",
+                path: "/Foo",
+                toolsVersion: .v5_2,
+                products: products,
+                targets: targets
+            )
+
+            XCTAssertTrue(manifest.targets.count == 1)
+            let target = try XCTUnwrap(manifest.targets.first)
+            XCTAssertEqual(target.name, "Foo")
+
+            for dependency in target.dependencies {
+                XCTAssertEqual(dependency.name, "Boo")
+            }
+        }
+    }
 }
