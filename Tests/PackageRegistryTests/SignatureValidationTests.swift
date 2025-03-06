@@ -1958,8 +1958,7 @@ extension SignatureValidation {
             configuration: configuration,
             timeout: nil,
             fileSystem: localFileSystem,
-            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP
         )
     }
 
@@ -1981,8 +1980,7 @@ extension SignatureValidation {
             configuration: configuration,
             timeout: nil,
             fileSystem: localFileSystem,
-            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP
         )
     }
 }
