@@ -141,7 +141,7 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
             #if os(macOS)
             expectedName = "macOS"
             #else
-                #if os(linux)
+                #if os(Linux)
                     expectedName = "Linux"
                 #else
                     throw TestError.platformNotSupported

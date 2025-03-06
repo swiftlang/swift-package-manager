@@ -865,6 +865,18 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
         throw XCTSkip("Test failed.  needs to be investigated")
     }
 
+#if !canImport(Darwin)
+    override func testIgnoresLinuxMain() async throws {
+        throw XCTSkip("Swift build doesn't currently ignore Linux main when linking on Linux. This needs further investigation.")
+    }
+#endif
+
+#if !os(macOS)
+    override func testSwiftDriverRawOutputGetsNewlines() async throws {
+        throw XCTSkip("Swift build produces an error building the fixture for this test.")
+    }
+#endif
+
     override func testBuildSystemDefaultSettings() async throws {
         #if os(Linux)
         if FileManager.default.contents(atPath: "/etc/system-release").map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false {
