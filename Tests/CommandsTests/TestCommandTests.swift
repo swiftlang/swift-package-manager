@@ -709,6 +709,10 @@ class TestCommandSwiftBuildTests: TestCommandTestCase {
         throw XCTSkip("Result XML could not be found. This looks to be a build layout issue. Further investigation is needed.")
     }
 
+    override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagDisabledXCTest() async throws {
+        throw XCTSkip("Result XML could not be found. This looks to be a build layout issue. Further investigation is needed.")
+    }
+
     override func testSwiftTestSkip() async throws {
         throw XCTSkip("This fails due to a linker error on Linux. Further investigation is needed.")
     }

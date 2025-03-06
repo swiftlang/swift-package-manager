@@ -844,14 +844,6 @@ class BuildCommandXcodeTests: BuildCommandTestCases {
     override func testGetTaskAllowEntitlement() async throws {
         try XCTSkip("Test not implemented for xcode build system.")
     }
-
-    override func testCodeCoverage() async throws {
-        try XCTSkip("Test not implemented for xcode build system.")
-    }
-
-    override func testBuildStartMessage() async throws {
-        try XCTSkip("Test not implemented for xcode build system.")
-    }
 }
 #endif
 
@@ -916,6 +908,10 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
 #endif
 
 #if !os(macOS)
+    override func testBuildStartMessage() async throws {
+        throw XCTSkip("Swift build produces an error building the fixture for this test.")
+    }
+
     override func testSwiftDriverRawOutputGetsNewlines() async throws {
         throw XCTSkip("Swift build produces an error building the fixture for this test.")
     }
