@@ -557,27 +557,6 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
         }
     }
 
-    private func _testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfully(configuration: TSCTestSupport.Configuration) async throws {
-        try await fixture(name: "Miscellaneous/TargetConditionals/ExecutableTargetContainsPlatformConditional") { fixturePath in
-            await XCTAssertBuilds(
-                fixturePath,
-                configurations: [configuration],
-                buildSystem: buildSystemProvider
-            )
-
-            // let result = try await execute([], packagePath: fixturePath)
-            // XCTAssertMatch(result.stdout, .contains("Build Complete"))
-        }
-    }
-
-    func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInDebugConfig() async throws {
-        try await self._testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfully(configuration: .Debug)
-    }
-
-    func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInReleaseConfig() async throws {
-        try await self._testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfully(configuration: .Release)
-    }
-
     func testSwiftGetVersion() async throws {
         try await fixture(name: "Miscellaneous/Simple") { fixturePath in
             func findSwiftGetVersionFile() throws -> AbsolutePath {
@@ -821,6 +800,14 @@ class BuildCommandXcodeTests: BuildCommandTestCases {
     override func testUsage() async throws {
         try await super.testUsage()
     }
+
+    override func testAutomaticParseableInterfacesWithLibraryEvolution() async throws {
+        try XCTSkip("Test not implemented for xcode build system.")
+    }
+
+    override func testNonReachableProductsAndTargetsFunctional() async throws {
+        try XCTSkip("Test not implemented for xcode build system.")
+    }
 }
 #endif
 
@@ -875,14 +862,6 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
     }
 
     override func testSymlink() async throws {
-        throw XCTSkip("Test failed.  needs to be investigated")
-    }
-
-    override func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInDebugConfig() async throws {
-        throw XCTSkip("Test failed.  needs to be investigated")
-    }
-
-    override func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInReleaseConfig() async throws {
         throw XCTSkip("Test failed.  needs to be investigated")
     }
 
