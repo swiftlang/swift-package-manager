@@ -151,7 +151,7 @@ public struct BuildParameters: Encodable {
         toolchain: Toolchain,
         triple: Triple? = nil,
         flags: BuildFlags,
-        buildSystemKind: BuildSystemProvider.Kind,
+        buildSystemKind: BuildSystemProvider.Kind = .native,
         pkgConfigDirectories: [AbsolutePath] = [],
         architectures: [String]? = nil,
         workers: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
