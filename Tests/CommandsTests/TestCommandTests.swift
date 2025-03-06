@@ -645,88 +645,88 @@ class TestCommandSwiftBuildTests: TestCommandTestCase {
     }
 
     override func testList() async throws {
-        throw XCTSkip("Test currently fails due to 'error: build failed'")
+        throw XCTSkip("SWBINTODO: Test currently fails due to 'error: build failed'")
     }
 
     override func testEnableTestDiscoveryDeprecation() async throws {
-        throw XCTSkip("Test currently fails due to 'error: build failed'")
+        throw XCTSkip("SWBINTODO: Test currently fails due to 'error: build failed'")
     }
 
     override func testEnableDisableTestability() async throws {
-        throw XCTSkip("Test currently fails due to 'error: build failed'")
+        throw XCTSkip("SWBINTODO: Test currently fails due to 'error: build failed'")
     }
 
     override func testToolsetRunner() async throws {
-        throw XCTSkip("Test currently fails, as some assertions are not met")
+        throw XCTSkip("SWBINTODO: Test currently fails, as some assertions are not met")
     }
 
     override func testWithReleaseConfiguration() async throws {
-        throw XCTSkip("Test currently fails with 'error: toolchain is invalid: could not find CLI tool `swiftpm-testing-helper` at any of these directories: [..., ...]'")
+        throw XCTSkip("SWBINTODO: Test currently fails with 'error: toolchain is invalid: could not find CLI tool `swiftpm-testing-helper` at any of these directories: [..., ...]'")
     }
 
     override func testXCTestOnlyDoesNotLogAboutNoMatchingTests() async throws {
-        throw XCTSkip("Test currently fails assertion as the there is a different error message 'error: no tests found; create a target in the 'Tests' directory'")
+        throw XCTSkip("SWBINTODO: Test currently fails assertion as the there is a different error message 'error: no tests found; create a target in the 'Tests' directory'")
     }
 
     override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagEnabledSwiftTesting() async throws {
-        throw XCTSkip("Test currently fails assertion as the there is a different error message 'error: no tests found; create a target in the 'Tests' directory'")
+        throw XCTSkip("SWBINTODO: Test currently fails assertion as the there is a different error message 'error: no tests found; create a target in the 'Tests' directory'")
     }
 
     override func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagDisabledSwiftTesting() async throws {
-        throw XCTSkip("Test currently fails, further investigation is needed")
+        throw XCTSkip("SWBINTODO: Test currently fails, further investigation is needed")
     }
 
     override func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagEnabledSwiftTesting() async throws {
-        throw XCTSkip("Test currently fails, further investigation is needed")
+        throw XCTSkip("SWBINTODO: Test currently fails, further investigation is needed")
     }
 
     override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagDisabledSwiftTesting() async throws {
-        throw XCTSkip("Test currently fails, further investigation is needed")
+        throw XCTSkip("SWBINTODO: Test currently fails, further investigation is needed")
     }
 
 #if !canImport(Darwin)
     override func testGeneratedMainIsExistentialAnyClean() async throws {
-        throw XCTSkip("This is a PIF builder missing GUID problem. Further investigation is needed.")
+        throw XCTSkip("SWBINTODO: This is a PIF builder missing GUID problem. Further investigation is needed.")
     }
 #endif
 
 #if !canImport(Darwin)
     override func testGeneratedMainIsConcurrencySafe_XCTest() async throws {
-        throw XCTSkip("This is a PIF builder missing GUID problem. Further investigation is needed.")
+        throw XCTSkip("SWBINTODO: This is a PIF builder missing GUID problem. Further investigation is needed.")
     }
 #endif
 
 #if !os(macOS)
     override func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagDisabledXCTest() async throws {
-        throw XCTSkip("Result XML could not be found. This looks to be a build layout issue. Further investigation is needed.")
+        throw XCTSkip("SWBINTODO: Result XML could not be found. This looks to be a build layout issue. Further investigation is needed.")
     }
 
     override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagEnabledXCTest() async throws {
-        throw XCTSkip("Result XML could not be found. This looks to be a build layout issue. Further investigation is needed.")
+        throw XCTSkip("SWBINTODO: Result XML could not be found. This looks to be a build layout issue. Further investigation is needed.")
     }
 
     override func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagEnabledXCTest() async throws {
-        throw XCTSkip("Result XML could not be found. This looks to be a build layout issue. Further investigation is needed.")
+        throw XCTSkip("SWBINTODO: Result XML could not be found. This looks to be a build layout issue. Further investigation is needed.")
     }
 
     override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagDisabledXCTest() async throws {
-        throw XCTSkip("Result XML could not be found. This looks to be a build layout issue. Further investigation is needed.")
+        throw XCTSkip("SWBINTODO: Result XML could not be found. This looks to be a build layout issue. Further investigation is needed.")
     }
 
     override func testSwiftTestSkip() async throws {
-        throw XCTSkip("This fails due to a linker error on Linux. Further investigation is needed.")
+        throw XCTSkip("SWBINTODO: This fails due to a linker error on Linux. Further investigation is needed.")
     }
 
     override func testSwiftTestXMLOutputWhenEmpty() async throws {
-        throw XCTSkip("This fails due to a linker error on Linux 'undefined reference to main'. Further investigation is needed.")
+        throw XCTSkip("SWBINTODO: This fails due to a linker error on Linux 'undefined reference to main'. Further investigation is needed.")
     }
 
     override func testSwiftTestFilter() async throws {
-        throw XCTSkip("This fails due to an unknown linker error on Linux. Further investigation is needed.")
+        throw XCTSkip("SWBINTODO: This fails due to an unknown linker error on Linux. Further investigation is needed.")
     }
 
     override func testSwiftTestParallel() async throws {
-        throw XCTSkip("This fails due to the test expecting specific test output that appears to be empty on Linux. Further investigation is needed.")
+        throw XCTSkip("SWBINTODO: This fails due to the test expecting specific test output that appears to be empty on Linux. Further investigation is needed.")
     }
 #endif
 }
