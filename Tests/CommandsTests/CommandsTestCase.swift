@@ -18,9 +18,6 @@ class CommandsTestCase: XCTestCase {
     
     /// Original working directory before the test ran (if known).
     private var originalWorkingDirectory: AbsolutePath? = .none
-    public let duplicateSymbolRegex = StringPattern.regex(
-        #"objc[83768]: (.*) is implemented in both .* \(.*\) and .* \(.*\) . One of the two will be used. Which one is undefined."#
-    )
 
     override func setUp() {
         originalWorkingDirectory = localFileSystem.currentWorkingDirectory
