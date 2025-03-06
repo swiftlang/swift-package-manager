@@ -19,7 +19,7 @@ import XCTest
 
 import class Basics.AsyncProcess
 
-class RunCommandTestCase: BuildSystemProviderTestCase {
+class RunCommandTestCase: CommandsBuildProviderTestCase {
     override func setUpWithError() throws {
         try XCTSkipIf(type(of: self) == RunCommandTestCase.self, "Pay no attention to the class behind the curtain.")
     }
@@ -48,12 +48,6 @@ class RunCommandTestCase: BuildSystemProviderTestCase {
         XCTAssert(stdout.contains("SEE ALSO: swift build, swift package, swift test"), "got stdout:\n" + stdout)
     }
 
-    func testCommandDoesNotEmitDuplicateSymbols() async throws {
-        let (stdout, stderr) = try await execute(["--help"])
-        XCTAssertNoMatch(stdout, duplicateSymbolRegex)
-        XCTAssertNoMatch(stderr, duplicateSymbolRegex)
-    }
-
     func testVersion() async throws {
         let stdout = try await execute(["--version"]).stdout
         XCTAssertMatch(stdout, .regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#))
@@ -65,7 +59,7 @@ class RunCommandTestCase: BuildSystemProviderTestCase {
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
             let (stdout, stderr) = try await execute(
                     ["--toolset", "\(fixturePath)/toolset.json"],
-                    packagePath: fixturePath,
+                    packagePath: fixturePath
                 )
 
             // We only expect tool's output on the stdout stream.

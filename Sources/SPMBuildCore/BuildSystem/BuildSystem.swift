@@ -173,7 +173,7 @@ extension BuildSystemProvider.Kind {
     public var usesXcodeBuildEngine: Bool {
         switch self {
             case .native: return false
-            case .swiftbuild: return false
+            case .swiftbuild: return true
             case .xcode: return true
         }
     }
