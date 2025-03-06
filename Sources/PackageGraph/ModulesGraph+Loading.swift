@@ -112,6 +112,7 @@ extension ModulesGraph {
                 manifest: package.manifest,
                 productFilter: .everything,
                 enabledTraits: calculateEnabledTraits(
+                    parentPackage: nil,
                     identity: identity,
                     manifest: package.manifest,
                     explictlyEnabledTraits: enabledTraits
@@ -154,6 +155,7 @@ extension ModulesGraph {
                                 manifest: manifest,
                                 productFilter: dependency.productFilter,
                                 enabledTraits: calculateEnabledTraits(
+                                    parentPackage: node.item.identity,
                                     identity: dependency.identity,
                                     manifest: manifest,
                                     explictlyEnabledTraits: explictlyEnabledTraits.flatMap { Set($0) }
@@ -941,6 +943,7 @@ private func emitDuplicateProductDiagnostic(
 }
 
 private func calculateEnabledTraits(
+    parentPackage: PackageIdentity?,
     identity: PackageIdentity,
     manifest: Manifest,
     explictlyEnabledTraits: Set<String>?
@@ -957,6 +960,15 @@ private func calculateEnabledTraits(
             // The enabled trait is invalid
             throw ModuleError.invalidTrait(package: identity, trait: trait)
         }
+    }
+    
+    if let parentPackage, !(explictlyEnabledTraits == nil || areDefaultsEnabled) && manifest.traits.isEmpty {
+        // We throw an error when default traits are disabled for a package without any traits
+        // This allows packages to initially move new API behind traits once.
+        throw ModuleError.disablingDefaultTraitsOnEmptyTraits(
+            parentPackage: parentPackage,
+            packageName: manifest.displayName
+        )
     }
 
     // We have to enable all default traits if no traits are enabled or the defaults are explicitly enabled
