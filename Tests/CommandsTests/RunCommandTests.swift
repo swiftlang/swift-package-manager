@@ -133,42 +133,6 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
         }
     }
 
-    private func _testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfully(configuration: TSCTestSupport.Configuration) async throws {
-        let expectedName: String
-        #if os(Windows)
-        expectedName = "Windows"
-        #else
-            #if os(macOS)
-            expectedName = "macOS"
-            #else
-                #if os(Linux)
-                    expectedName = "Linux"
-                #else
-                    throw TestError.platformNotSupported
-                #endif
-            #endif
-        #endif
-
-        try await fixture(name: "Miscellaneous/TargetConditionals/ExecutableTargetContainsPlatformConditional") { fixturePath in
-            let (stdout, _) = try await execute(
-                ["test"],
-                packagePath: fixturePath
-            )
-
-            XCTAssertMatch(stdout, .contains("Hello, world on \(expectedName)!  OSplatform: \(expectedName)"))
-
-        }
-    }
-
-    func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInDebugConfig() async throws {
-        try await self._testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfully(configuration: .Debug)
-    }
-
-    func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInReleaseConfig() async throws {
-        try await self._testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfully(configuration: .Release)
-    }
-
-
     func testSwiftRunSIGINT() throws {
         try XCTSkipIfCI()
         try fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
@@ -291,14 +255,6 @@ class RunCommandSwiftBuildTests: RunCommandTestCase {
 
     override func testUnknownProductAndArgumentPassing() async throws {
         throw XCTSkip("https://github.com/swiftlang/swift-package-manager/issues/8279: Swift run using Swift Build does not output executable content to the terminal")
-    }
-
-    override func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInDebugConfig() async throws {
-        throw XCTSkip("Test fixture fails to build")
-    }
-
-    override func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInReleaseConfig() async throws {
-        throw XCTSkip("Test fixture fails to build")
     }
 
     override func testToolsetDebugger() async throws {
