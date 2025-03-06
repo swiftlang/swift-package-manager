@@ -12,8 +12,8 @@
 
 import ArgumentParser
 
-import var Basics.localFileSystem
 import struct Basics.AbsolutePath
+import var Basics.localFileSystem
 import enum Basics.TestingLibrary
 import struct Basics.Triple
 
@@ -22,8 +22,8 @@ import struct Foundation.URL
 import enum PackageModel.BuildConfiguration
 import struct PackageModel.BuildFlags
 import struct PackageModel.EnabledSanitizers
-import struct PackageModel.PackageIdentity
 import class PackageModel.Manifest
+import struct PackageModel.PackageIdentity
 import enum PackageModel.Sanitizer
 @_spi(SwiftPMInternal) import struct PackageModel.SwiftSDK
 
@@ -36,9 +36,9 @@ import struct TSCBasic.StringError
 
 import struct TSCUtility.Version
 
+import Foundation
 import class Workspace.Workspace
 import struct Workspace.WorkspaceConfiguration
-import Foundation
 
 public struct GlobalOptions: ParsableArguments {
     public init() {}
@@ -125,14 +125,14 @@ public struct LocationOptions: ParsableArguments {
         completion: .directory
     )
     public var swiftSDKsDirectory: AbsolutePath?
-    
+
     @Option(
         name: .customLong("toolset"),
         help: """
-            Specify a toolset JSON file to use when building for the target platform. \
-            Use the option multiple times to specify more than one toolset. Toolsets will be merged in the order \
-            they're specified into a single final toolset for the current build.
-            """,
+        Specify a toolset JSON file to use when building for the target platform. \
+        Use the option multiple times to specify more than one toolset. Toolsets will be merged in the order \
+        they're specified into a single final toolset for the current build.
+        """,
         completion: .file(extensions: [".json"])
     )
     public var toolsetPaths: [AbsolutePath] = []
@@ -189,9 +189,11 @@ public struct CachingOptions: ParsableArguments {
     }
 
     /// Whether to use macro prebuilts or not
-    @Flag(name: .customLong("experimental-prebuilts"),
-          inversion: .prefixedEnableDisable,
-          help: "Whether to use prebuilt swift-syntax libraries for macros")
+    @Flag(
+        name: .customLong("experimental-prebuilts"),
+        inversion: .prefixedEnableDisable,
+        help: "Whether to use prebuilt swift-syntax libraries for macros"
+    )
     public var usePrebuilts: Bool = false
 }
 
@@ -210,7 +212,11 @@ public struct LoggingOptions: ParsableArguments {
     @Flag(name: .shortAndLong, help: "Decrease verbosity to only include error output.")
     public var quiet: Bool = false
 
-    @Flag(name: .customLong("color-diagnostics"), inversion: .prefixedNo, help: "Enables or disables color diagnostics when printing to a TTY. The default behavior if this flag is omitted is to use colors if connected to a TTY, and to not use colors otherwise.")
+    @Flag(
+        name: .customLong("color-diagnostics"),
+        inversion: .prefixedNo,
+        help: "Enables or disables color diagnostics when printing to a TTY. The default behavior if this flag is omitted is to use colors if connected to a TTY, and to not use colors otherwise."
+    )
     public var colorDiagnostics: Bool = ProcessInfo.processInfo.environment["NO_COLOR"] == nil
 }
 
@@ -309,22 +315,22 @@ public struct ResolverOptions: ParsableArguments {
         public static func name(for value: Self) -> NameSpecification {
             switch value {
             case .disabled:
-                return .customLong("disable-scm-to-registry-transformation")
+                .customLong("disable-scm-to-registry-transformation")
             case .identity:
-                return .customLong("use-registry-identity-for-scm")
+                .customLong("use-registry-identity-for-scm")
             case .swizzle:
-                return .customLong("replace-scm-with-registry")
+                .customLong("replace-scm-with-registry")
             }
         }
 
         public static func help(for value: SourceControlToRegistryDependencyTransformation) -> ArgumentHelp? {
             switch value {
             case .disabled:
-                return "disable source control to registry transformation"
+                "disable source control to registry transformation"
             case .identity:
-                return "look up source control dependencies in the registry and use their registry identity when possible to help deduplicate across the two origins"
+                "look up source control dependencies in the registry and use their registry identity when possible to help deduplicate across the two origins"
             case .swizzle:
-                return "look up source control dependencies in the registry and use the registry to retrieve them instead of source control when possible"
+                "look up source control dependencies in the registry and use the registry to retrieve them instead of source control when possible"
             }
         }
     }
@@ -455,7 +461,7 @@ public struct BuildOptions: ParsableArguments {
     public var sanitizers: [Sanitizer] = []
 
     public var enabledSanitizers: EnabledSanitizers {
-        EnabledSanitizers(Set(sanitizers))
+        EnabledSanitizers(Set(self.sanitizers))
     }
 
     @Flag(help: "Enable or disable indexing-while-building feature")
@@ -491,7 +497,9 @@ public struct BuildOptions: ParsableArguments {
 
     /// A flag that indicates this build should check whether targets only import
     /// their explicitly-declared dependencies
-    @Option(help: "A flag that indicates this build should check whether targets only import their explicitly-declared dependencies")
+    @Option(
+        help: "A flag that indicates this build should check whether targets only import their explicitly-declared dependencies"
+    )
     public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
 
     /// Whether to use the explicit module build flow (with the integrated driver)
@@ -508,7 +516,7 @@ public struct BuildOptions: ParsableArguments {
 
     public var buildSystem: BuildSystemProvider.Kind {
         // Force the Xcode build system if we want to build more than one arch.
-        return self.architectures.count > 1 ? .xcode : self._buildSystem
+        self.architectures.count > 1 ? .xcode : self._buildSystem
     }
 
     /// Whether to enable test discovery on platforms without Objective-C runtime.
@@ -536,7 +544,7 @@ public struct BuildOptions: ParsableArguments {
 
     // Whether to omit frame pointers
     // this can be removed once the backtracer uses DWARF instead of frame pointers
-    @Flag(inversion: .prefixedNo,  help: .hidden)
+    @Flag(inversion: .prefixedNo, help: .hidden)
     public var omitFramePointers: Bool? = nil
 
     // @Flag works best when there is a default value present
@@ -597,26 +605,32 @@ public struct TestLibraryOptions: ParsableArguments {
     ///
     /// Callers will generally want to use ``enableXCTestSupport`` since it will
     /// have the correct default value if the user didn't specify one.
-    @Flag(name: .customLong("xctest"),
-          inversion: .prefixedEnableDisable,
-          help: "Enable support for XCTest")
+    @Flag(
+        name: .customLong("xctest"),
+        inversion: .prefixedEnableDisable,
+        help: "Enable support for XCTest"
+    )
     public var explicitlyEnableXCTestSupport: Bool?
 
     /// Whether to enable support for Swift Testing (as explicitly specified by the user.)
     ///
     /// Callers will generally want to use ``enableSwiftTestingLibrarySupport`` since it will
     /// have the correct default value if the user didn't specify one.
-    @Flag(name: .customLong("swift-testing"),
-          inversion: .prefixedEnableDisable,
-          help: "Enable support for Swift Testing")
+    @Flag(
+        name: .customLong("swift-testing"),
+        inversion: .prefixedEnableDisable,
+        help: "Enable support for Swift Testing"
+    )
     public var explicitlyEnableSwiftTestingLibrarySupport: Bool?
 
     /// Legacy experimental equivalent of ``explicitlyEnableSwiftTestingLibrarySupport``.
     ///
     /// This option will be removed in a future update.
-    @Flag(name: .customLong("experimental-swift-testing"),
-          inversion: .prefixedEnableDisable,
-          help: .private)
+    @Flag(
+        name: .customLong("experimental-swift-testing"),
+        inversion: .prefixedEnableDisable,
+        help: .private
+    )
     public var explicitlyEnableExperimentalSwiftTestingLibrarySupport: Bool?
 
     /// The common implementation for `isEnabled()` and `isExplicitlyEnabled()`.
@@ -624,33 +638,34 @@ public struct TestLibraryOptions: ParsableArguments {
     /// It is intentional that `isEnabled()` is not simply this function with a
     /// default value for the `default` argument. There's no "true" default
     /// value to use; it depends on the semantics the caller is interested in.
-    private func isEnabled(_ library: TestingLibrary, `default`: Bool, swiftCommandState: SwiftCommandState) -> Bool {
+    private func isEnabled(_ library: TestingLibrary, default: Bool, swiftCommandState: SwiftCommandState) -> Bool {
         switch library {
         case .xctest:
             if let explicitlyEnableXCTestSupport {
                 return explicitlyEnableXCTestSupport
             }
             if let toolchain = try? swiftCommandState.getHostToolchain(),
-               toolchain.swiftSDK.xctestSupport == .supported {
+               toolchain.swiftSDK.xctestSupport == .supported
+            {
                 return `default`
             }
             return false
         case .swiftTesting:
-            return explicitlyEnableSwiftTestingLibrarySupport ?? explicitlyEnableExperimentalSwiftTestingLibrarySupport ?? `default`
+            return self.explicitlyEnableSwiftTestingLibrarySupport ?? self
+                .explicitlyEnableExperimentalSwiftTestingLibrarySupport ?? `default`
         }
     }
 
     /// Test whether or not a given library is enabled.
     public func isEnabled(_ library: TestingLibrary, swiftCommandState: SwiftCommandState) -> Bool {
-        isEnabled(library, default: true, swiftCommandState: swiftCommandState)
+        self.isEnabled(library, default: true, swiftCommandState: swiftCommandState)
     }
 
     /// Test whether or not a given library was explicitly enabled by the developer.
     public func isExplicitlyEnabled(_ library: TestingLibrary, swiftCommandState: SwiftCommandState) -> Bool {
-        isEnabled(library, default: false, swiftCommandState: swiftCommandState)
+        self.isEnabled(library, default: false, swiftCommandState: swiftCommandState)
     }
 }
-
 
 package struct TraitOptions: ParsableArguments {
     package init() {}

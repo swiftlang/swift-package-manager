@@ -17,8 +17,8 @@ import CoreCommands
 import Foundation
 import PackageModel
 
-import class Workspace.Workspace
 import var TSCBasic.stdoutStream
+import class Workspace.Workspace
 
 struct InstallSwiftSDK: SwiftSDKSubcommand {
     static let configuration = CommandConfiguration(
@@ -37,10 +37,14 @@ struct InstallSwiftSDK: SwiftSDKSubcommand {
 
     @Option(help: "The checksum of the bundle generated with `swift package compute-checksum`.")
     var checksum: String? = nil
-    
-    @Flag(name: .customLong("color-diagnostics"), inversion: .prefixedNo, help: "Enables or disables color diagnostics when printing to a TTY. The default behavior if this flag is omitted is to use colors if connected to a TTY, and to not use colors otherwise.")
+
+    @Flag(
+        name: .customLong("color-diagnostics"),
+        inversion: .prefixedNo,
+        help: "Enables or disables color diagnostics when printing to a TTY. The default behavior if this flag is omitted is to use colors if connected to a TTY, and to not use colors otherwise."
+    )
     public var colorDiagnostics: Bool = ProcessInfo.processInfo.environment["NO_COLOR"] == nil
-    
+
     func run(
         hostTriple: Triple,
         _ swiftSDKsDirectory: AbsolutePath,
@@ -55,13 +59,17 @@ struct InstallSwiftSDK: SwiftSDKSubcommand {
             observabilityScope: observabilityScope,
             outputHandler: { print($0.description) },
             downloadProgressAnimation: ProgressAnimation
-                .percent(stream: stdoutStream, verbose: false, header: "Downloading",
-                         isColorized: colorDiagnostics)
+                .percent(
+                    stream: stdoutStream,
+                    verbose: false,
+                    header: "Downloading",
+                    isColorized: self.colorDiagnostics
+                )
                 .throttled(interval: .milliseconds(300))
         )
 
         try await store.install(
-            bundlePathOrURL: bundlePathOrURL,
+            bundlePathOrURL: self.bundlePathOrURL,
             checksum: self.checksum,
             UniversalArchiver(self.fileSystem, cancellator),
             HTTPClient(),

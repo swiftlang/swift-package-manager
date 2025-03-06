@@ -22,9 +22,9 @@ import PackageModel
 @_spi(SwiftPMInternal)
 import SPMBuildCore
 
+import class Basics.AsyncProcess
 import func TSCBasic.memoize
 import protocol TSCBasic.OutputByteStream
-import class Basics.AsyncProcess
 import func TSCBasic.withTemporaryFile
 
 import enum TSCUtility.Diagnostics

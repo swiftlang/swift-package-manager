@@ -10,20 +10,20 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 @_spi(SwiftPMInternal)
 import Basics
-import _Concurrency
+import Foundation
 import LLBuildManifest
 import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
 import SPMLLBuild
-import Foundation
 
+import class Basics.AsyncProcess
 import class TSCBasic.DiagnosticsEngine
 import protocol TSCBasic.OutputByteStream
-import class Basics.AsyncProcess
 import struct TSCBasic.RegEx
 
 import enum TSCUtility.Diagnostics
@@ -88,7 +88,7 @@ package struct LLBuildSystemConfiguration {
         }
     }
 
-    func buildEnvironment(for destination:  BuildParameters.Destination) -> BuildEnvironment {
+    func buildEnvironment(for destination: BuildParameters.Destination) -> BuildEnvironment {
         switch destination {
         case .host: self.toolsBuildParameters.buildEnvironment
         case .target: self.destinationBuildParameters.buildEnvironment
@@ -178,17 +178,17 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// File system to operate on.
     private var fileSystem: Basics.FileSystem {
-        config.fileSystem
+        self.config.fileSystem
     }
 
     /// ObservabilityScope with which to emit diagnostics.
     private var observabilityScope: ObservabilityScope {
-        config.observabilityScope
+        self.config.observabilityScope
     }
 
     public var builtTestProducts: [BuiltTestProduct] {
         get async {
-            (try? await getBuildDescription())?.builtTestProducts ?? []
+            await (try? self.getBuildDescription())?.builtTestProducts ?? []
         }
     }
 
@@ -246,11 +246,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     ) {
         /// Checks if stdout stream is tty.
         var productsBuildParameters = productsBuildParameters
-        if productsBuildParameters.outputParameters.isColorized{
+        if productsBuildParameters.outputParameters.isColorized {
             productsBuildParameters.outputParameters.isColorized = outputStream.isTTY
         }
         var toolsBuildParameters = toolsBuildParameters
-        if toolsBuildParameters.outputParameters.isColorized{
+        if toolsBuildParameters.outputParameters.isColorized {
             toolsBuildParameters.outputParameters.isColorized = outputStream.isTTY
         }
         self.config = LLBuildSystemConfiguration(
@@ -282,10 +282,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// This will try skip build planning if build manifest caching is enabled
     /// and the package structure hasn't changed.
     public func getBuildDescription(subset: BuildSubset? = nil) async throws -> BuildDescription {
-        return try await self.buildDescription.memoize {
+        try await self.buildDescription.memoize {
             if self.cacheBuildManifest {
                 do {
-                    // if buildPackageStructure returns a valid description we use that, otherwise we perform full planning
+                    // if buildPackageStructure returns a valid description we use that, otherwise we perform full
+                    // planning
                     if try self.buildPackageStructure() {
                         // confirm the step above created the build description as expected
                         // we trust it to update the build description when needed
@@ -294,7 +295,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                             throw InternalError("could not find build descriptor at \(buildDescriptionPath)")
                         }
                         // return the build description that's on disk.
-                        let buildDescription = try BuildDescription.load(fileSystem: self.fileSystem, path: buildDescriptionPath)
+                        let buildDescription = try BuildDescription.load(
+                            fileSystem: self.fileSystem,
+                            path: buildDescriptionPath
+                        )
 
                         // We need to check that the build has same traits enabled for the cached build operation
                         // match otherwise we have to re-plan.
@@ -321,7 +325,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Cancel the active build operation.
     public func cancel(deadline: DispatchTime) throws {
-        current?.buildSystem.cancel()
+        self.current?.buildSystem.cancel()
     }
 
     // Emit a warning if a target imports another target in this build
@@ -348,25 +352,30 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 }
                 let targetDependenciesSet = Set(dependencies)
                 guard !description.generatedSourceTargetSet.contains(target),
-                      targetDependenciesSet.intersection(description.generatedSourceTargetSet).isEmpty else {
+                      targetDependenciesSet.intersection(description.generatedSourceTargetSet).isEmpty
+                else {
                     // Skip targets which contain, or depend-on-targets, with generated source-code.
                     // Such as test discovery targets and targets with plugins.
                     continue
                 }
                 let resolver = try ArgsResolver(fileSystem: localFileSystem)
-                let executor = SPMSwiftDriverExecutor(resolver: resolver,
-                                                      fileSystem: localFileSystem,
-                                                      env: Environment.current)
+                let executor = SPMSwiftDriverExecutor(
+                    resolver: resolver,
+                    fileSystem: localFileSystem,
+                    env: Environment.current
+                )
 
-                let consumeDiagnostics: DiagnosticsEngine = DiagnosticsEngine(handlers: [])
-                var driver = try Driver(args: commandLine,
-                                        diagnosticsOutput: .engine(consumeDiagnostics),
-                                        fileSystem: localFileSystem,
-                                        executor: executor)
+                let consumeDiagnostics = DiagnosticsEngine(handlers: [])
+                var driver = try Driver(
+                    args: commandLine,
+                    diagnosticsOutput: .engine(consumeDiagnostics),
+                    fileSystem: localFileSystem,
+                    executor: executor
+                )
                 guard !consumeDiagnostics.hasErrors else {
-                  // If we could not init the driver with this command, something went wrong,
-                  // proceed without checking this target.
-                  continue
+                    // If we could not init the driver with this command, something went wrong,
+                    // proceed without checking this target.
+                    continue
                 }
                 let imports = try driver.performImportPrescan().imports
                 let nonDependencyTargetsSet =
@@ -374,12 +383,18 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 let importedTargetsMissingDependency = Set(imports).intersection(nonDependencyTargetsSet)
                 if let missedDependency = importedTargetsMissingDependency.first {
                     switch checkingMode {
-                        case .error:
-                            self.observabilityScope.emit(error: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
-                        case .warn:
-                            self.observabilityScope.emit(warning: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
-                        case .none:
-                            fatalError("Explicit import checking is disabled.")
+                    case .error:
+                        self.observabilityScope
+                            .emit(
+                                error: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency."
+                            )
+                    case .warn:
+                        self.observabilityScope
+                            .emit(
+                                warning: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency."
+                            )
+                    case .none:
+                        fatalError("Explicit import checking is disabled.")
                     }
                 }
             } catch {
@@ -404,7 +419,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let buildDescription = try await self.getBuildDescription(subset: subset)
 
         // Verify dependency imports on the described targets
-        try verifyTargetImports(in: buildDescription)
+        try self.verifyTargetImports(in: buildDescription)
 
         // Create the build system.
         let (buildSystem, progressTracker) = try self.createBuildSystem(
@@ -430,14 +445,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         let duration = buildStartTime.distance(to: .now())
 
-        let subsetDescriptor: String?
-        switch subset {
+        let subsetDescriptor: String? = switch subset {
         case .product(let productName, _):
-            subsetDescriptor = "product '\(productName)'"
+            "product '\(productName)'"
         case .target(let targetName, _):
-            subsetDescriptor = "target: '\(targetName)'"
+            "target: '\(targetName)'"
         case .allExcludingTests, .allIncludingTests:
-            subsetDescriptor = nil
+            nil
         }
 
         progressTracker.buildComplete(
@@ -491,17 +505,17 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             pluginsToCompile = allPlugins
             continueBuilding = true
         case .product(let productName, _):
-            pluginsToCompile = allPlugins.filter{ $0.productNames.contains(productName) }
+            pluginsToCompile = allPlugins.filter { $0.productNames.contains(productName) }
             continueBuilding = pluginsToCompile.isEmpty
         case .target(let targetName, _):
-            pluginsToCompile = allPlugins.filter{ $0.moduleName == targetName }
+            pluginsToCompile = allPlugins.filter { $0.moduleName == targetName }
             continueBuilding = pluginsToCompile.isEmpty
         }
 
         // Compile any plugins we ended up with. If any of them fails, it will
         // throw.
         for plugin in pluginsToCompile {
-            try await compilePlugin(plugin)
+            try await self.compilePlugin(plugin)
         }
 
         // If we get this far they all succeeded. Return whether to continue the
@@ -523,35 +537,45 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 self.preparationStepName = preparationStepName
                 self.progressTracker = progressTracker
             }
+
             func willCompilePlugin(commandLine: [String], environment: [String: String]) {
-                self.progressTracker?.preparationStepStarted(preparationStepName)
+                self.progressTracker?.preparationStepStarted(self.preparationStepName)
             }
+
             func didCompilePlugin(result: PluginCompilationResult) {
                 self.progressTracker?.preparationStepHadOutput(
-                    preparationStepName,
+                    self.preparationStepName,
                     output: result.commandLine.joined(separator: " "),
                     verboseOnly: true
                 )
                 if !result.compilerOutput.isEmpty {
                     self.progressTracker?.preparationStepHadOutput(
-                        preparationStepName,
+                        self.preparationStepName,
                         output: result.compilerOutput,
                         verboseOnly: false
                     )
                 }
-                self.progressTracker?.preparationStepFinished(preparationStepName, result: (result.succeeded ? .succeeded : .failed))
+                self.progressTracker?.preparationStepFinished(
+                    self.preparationStepName,
+                    result: result.succeeded ? .succeeded : .failed
+                )
             }
+
             func skippedCompilingPlugin(cachedResult: PluginCompilationResult) {
-                // Historically we have emitted log info about cached plugins that are used. We should reconsider whether this is the right thing to do.
-                self.progressTracker?.preparationStepStarted(preparationStepName)
+                // Historically we have emitted log info about cached plugins that are used. We should reconsider
+                // whether this is the right thing to do.
+                self.progressTracker?.preparationStepStarted(self.preparationStepName)
                 if !cachedResult.compilerOutput.isEmpty {
                     self.progressTracker?.preparationStepHadOutput(
-                        preparationStepName,
+                        self.preparationStepName,
                         output: cachedResult.compilerOutput,
                         verboseOnly: false
                     )
                 }
-                self.progressTracker?.preparationStepFinished(preparationStepName, result: (cachedResult.succeeded ? .succeeded : .failed))
+                self.progressTracker?.preparationStepFinished(
+                    self.preparationStepName,
+                    result: cachedResult.succeeded ? .succeeded : .failed
+                )
             }
         }
         let delegate = Delegate(
@@ -600,26 +624,26 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             let product = graph.product(for: productName)
 
             guard let product else {
-                observabilityScope.emit(error: "no product named '\(productName)'")
+                self.observabilityScope.emit(error: "no product named '\(productName)'")
                 throw Diagnostics.fatalError
             }
 
             let buildParameters = if let destination {
-                config.buildParameters(for: destination)
+                self.config.buildParameters(for: destination)
             } else if product.type == .macro || product.type == .plugin {
-                config.buildParameters(for: .host)
+                self.config.buildParameters(for: .host)
             } else if product.type == .test {
-                config.buildParameters(for: product.hasDirectMacroDependencies ? .host : .target)
+                self.config.buildParameters(for: product.hasDirectMacroDependencies ? .host : .target)
             } else {
-                config.buildParameters(for: .target)
+                self.config.buildParameters(for: .target)
             }
 
             // If the product is automatic, we build the main target because automatic products
             // do not produce a binary right now.
             if product.type == .library(.automatic) {
-                observabilityScope.emit(
+                self.observabilityScope.emit(
                     warning:
-                        "'--product' cannot be used with the automatic product '\(productName)'; building the default target instead"
+                    "'--product' cannot be used with the automatic product '\(productName)'; building the default target instead"
                 )
                 return LLBuildManifestBuilder.TargetKind.main.targetName
             }
@@ -631,18 +655,18 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             let module = graph.module(for: targetName)
 
             guard let module else {
-                observabilityScope.emit(error: "no target named '\(targetName)'")
+                self.observabilityScope.emit(error: "no target named '\(targetName)'")
                 throw Diagnostics.fatalError
             }
 
             let buildParameters = if let destination {
-                config.buildParameters(for: destination)
+                self.config.buildParameters(for: destination)
             } else if module.type == .macro || module.type == .plugin {
-                config.buildParameters(for: .host)
+                self.config.buildParameters(for: .host)
             } else if module.type == .test {
-                try config.buildParameters(for: inferTestDestination(testModule: module, graph: graph))
+                try self.config.buildParameters(for: inferTestDestination(testModule: module, graph: graph))
             } else {
-                config.buildParameters(for: .target)
+                self.config.buildParameters(for: .target)
             }
 
             return module.getLLBuildTargetName(buildParameters: buildParameters)
@@ -665,7 +689,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             pluginTools = try await buildPluginTools(
                 graph: graph,
                 pluginsPerModule: pluginsPerModule,
-                hostTriple: try pluginConfiguration.scriptRunner.hostTriple
+                hostTriple: pluginConfiguration.scriptRunner.hostTriple
             )
         } else {
             pluginTools = [:]
@@ -678,34 +702,36 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             graph: graph,
             pluginConfiguration: self.pluginConfiguration,
             pluginTools: pluginTools,
-            additionalFileRules: additionalFileRules,
-            pkgConfigDirectories: pkgConfigDirectories,
+            additionalFileRules: self.additionalFileRules,
+            pkgConfigDirectories: self.pkgConfigDirectories,
             disableSandbox: self.pluginConfiguration?.disableSandbox ?? false,
             fileSystem: self.fileSystem,
             observabilityScope: self.observabilityScope
         )
-
     }
 
     /// Create the build plan and return the build description.
-    private func generateDescription(subset: BuildSubset? = nil) async throws -> (description: BuildDescription, manifest: LLBuildManifest) {
+    private func generateDescription(subset: BuildSubset? = nil) async throws
+        -> (description: BuildDescription, manifest: LLBuildManifest)
+    {
         let plan = try await generatePlan()
         self._buildPlan = plan
 
-        // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins, once we know what files they handled.
+        // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins,
+        // once we know what files they handled.
         // rdar://113256834 This fix works for the plugins that do not have PreBuildCommands.
-        let targetsToConsider: [ResolvedModule]
-        if let subset = subset, let recursiveDependencies = try
-            subset.recursiveDependencies(for: plan.graph, observabilityScope: observabilityScope) {
-            targetsToConsider = recursiveDependencies
+        let targetsToConsider: [ResolvedModule] = if let subset, let recursiveDependencies = try
+            subset.recursiveDependencies(for: plan.graph, observabilityScope: observabilityScope)
+        {
+            recursiveDependencies
         } else {
-            targetsToConsider = Array(plan.graph.reachableModules)
+            Array(plan.graph.reachableModules)
         }
 
         for module in targetsToConsider {
             // Subtract out any that were inputs to any commands generated by plugins.
             if let pluginResults = plan.buildToolPluginInvocationResults[module.id] {
-                diagnoseUnhandledFiles(
+                self.diagnoseUnhandledFiles(
                     modulesGraph: plan.graph,
                     module: module,
                     buildToolPluginInvocationResults: pluginResults
@@ -837,7 +863,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         // Check for cases involving modules that cannot be found.
         if let importedModule = try? RegEx(pattern: "no such module '(.+)'").matchGroups(in: message).first?.first {
-            // A target is importing a module that can't be found.  We take a look at the build plan and see if can offer any advice.
+            // A target is importing a module that can't be found.  We take a look at the build plan and see if can
+            // offer any advice.
 
             // Look for a target with the same module name as the one that's being imported.
             if let importedTarget = self._buildPlan?.targets.first(where: { $0.module.c99name == importedModule }) {
@@ -858,11 +885,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     public func packageStructureChanged() async -> Bool {
         do {
             _ = try await self.generateDescription()
-        }
-        catch Diagnostics.fatalError {
+        } catch Diagnostics.fatalError {
             return false
-        }
-        catch {
+        } catch {
             self.observabilityScope.emit(error)
             return false
         }
@@ -935,7 +960,7 @@ extension BuildOperation {
             config: config
         )
 
-        func buildToolBuilder(_ name: String, _ path: RelativePath) async throws -> AbsolutePath? {
+        func buildToolBuilder(_ name: String, _: RelativePath) async throws -> AbsolutePath? {
             let llbuildTarget = try await self.computeLLBuildTargetName(for: .product(name, for: .host))
             let success = buildSystem.build(target: llbuildTarget)
 
@@ -958,9 +983,9 @@ extension BuildOperation {
                     for: hostTriple
                 ) { name, path in
                     if let result = try await buildToolBuilder(name, path) {
-                        return result
+                        result
                     } else {
-                        return config.buildPath(for: .host).appending(path)
+                        config.buildPath(for: .host).appending(path)
                     }
                 }
 
@@ -1021,7 +1046,10 @@ extension BuildDescription {
 }
 
 extension BuildSubset {
-    func recursiveDependencies(for graph: ModulesGraph, observabilityScope: ObservabilityScope) throws -> [ResolvedModule]? {
+    func recursiveDependencies(
+        for graph: ModulesGraph,
+        observabilityScope: ObservabilityScope
+    ) throws -> [ResolvedModule]? {
         switch self {
         case .allIncludingTests:
             return Array(graph.reachableModules)
@@ -1045,6 +1073,6 @@ extension BuildSubset {
 
 extension Basics.Diagnostic.Severity {
     var isVerbose: Bool {
-        return self <= .info
+        self <= .info
     }
 }

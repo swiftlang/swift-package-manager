@@ -18,11 +18,12 @@ import protocol TSCBasic.OutputByteStream
 import class TSCBasic.TerminalController
 import class TSCBasic.ThreadSafeOutputByteStream
 
+import class TSCBasic.BufferedOutputByteStream
+import class TSCBasic.LocalFileOutputByteStream
 import class TSCUtility.MultiLineNinjaProgressAnimation
 import class TSCUtility.NinjaProgressAnimation
 import protocol TSCUtility.ProgressAnimationProtocol
-import class TSCBasic.LocalFileOutputByteStream
-import class TSCBasic.BufferedOutputByteStream
+
 public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
     private let outputHandler: OutputHandler
 
@@ -37,8 +38,13 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
     ///   emitted below this level will be ignored.
 
     public init(outputStream: OutputByteStream, logLevel: Basics.Diagnostic.Severity, colorDiagnostics: Bool = true) {
-        let threadSafeOutputByteStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
-        self.outputHandler = OutputHandler(logLevel: logLevel, outputStream: threadSafeOutputByteStream, colorDiagnostics: colorDiagnostics)
+        let threadSafeOutputByteStream = outputStream as? ThreadSafeOutputByteStream ??
+            ThreadSafeOutputByteStream(outputStream)
+        self.outputHandler = OutputHandler(
+            logLevel: logLevel,
+            outputStream: threadSafeOutputByteStream,
+            colorDiagnostics: colorDiagnostics
+        )
     }
 
     // for raw output reporting
@@ -67,13 +73,13 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
 
     struct OutputHandler {
         private let logLevel: Diagnostic.Severity
-        internal let outputStream: ThreadSafeOutputByteStream
+        let outputStream: ThreadSafeOutputByteStream
         private let writer: InteractiveWriter
         private let progressAnimation: ProgressAnimationProtocol
         private let colorDiagnostics: Bool
         private let queue = DispatchQueue(label: "org.swift.swiftpm.tools-output")
         private let sync = DispatchGroup()
-        
+
         init(logLevel: Diagnostic.Severity, outputStream: ThreadSafeOutputByteStream, colorDiagnostics: Bool) {
             self.logLevel = logLevel
             self.outputStream = outputStream
@@ -93,7 +99,7 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
 
                 // TODO: do something useful with scope
                 var output: String
-                
+
                 let prefix = diagnostic.severity.logLabel
                 let color = self.colorDiagnostics ? diagnostic.severity.color : .noColor
                 let bold = self.colorDiagnostics ? diagnostic.severity.isBold : false
@@ -167,34 +173,38 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
 extension SwiftCommandObservabilityHandler.OutputHandler: @unchecked Sendable {}
 extension SwiftCommandObservabilityHandler.OutputHandler: DiagnosticsHandler {}
 
+/// This type is used to write on the underlying stream.
+///
+/// If underlying stream is a not tty, the string will be written in without any
+/// formatting.
 private struct InteractiveWriter {
     /// The terminal controller, if present.
     let term: TerminalController?
 
     /// The output byte stream reference.
-    let stream : OutputByteStream
+    let stream: OutputByteStream
 
-    /// Create an instance with the given stream
+    /// Create an instance with the given stream.
     init(stream: OutputByteStream) {
         self.term = TerminalController(stream: stream)
         self.stream = stream
     }
 
-    /// Write the string to the contained terminal or stream
+    /// Write the string to the contained terminal or stream.
     func write(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) {
         if let term {
             term.write(string, inColor: color, bold: bold)
         } else {
-            string.write(to: stream)
-            stream.flush()
+            string.write(to: self.stream)
+            self.stream.flush()
         }
     }
 
     func format(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) -> String {
         if let term {
-            return term.wrap(string, inColor: color, bold: bold)
+            term.wrap(string, inColor: color, bold: bold)
         } else {
-            return string
+            string
         }
     }
 }
@@ -204,15 +214,15 @@ private struct InteractiveWriter {
 extension ObservabilityMetadata {
     fileprivate var diagnosticPrefix: String? {
         if let packageIdentity {
-            return "'\(packageIdentity)'"
+            "'\(packageIdentity)'"
         } else {
-            return .none
+            .none
         }
     }
 }
 
 extension Basics.Diagnostic.Severity {
     fileprivate var isVerbose: Bool {
-        return self <= .info
+        self <= .info
     }
 }

@@ -18,8 +18,8 @@ import PackageModel
 import var TSCBasic.stdoutStream
 import class TSCBasic.TerminalController
 
-fileprivate extension TerminalController {
-    func clearScreen() {
+extension TerminalController {
+    fileprivate func clearScreen() {
         write("\u{001b}[2J")
         write("\u{001b}[H")
         flush()
@@ -48,28 +48,28 @@ struct CardStack {
     }
 
     mutating func push(_ card: Card) {
-        cards.append(card)
+        self.cards.append(card)
     }
 
     mutating func pop() {
-        cards.removeLast()
+        self.cards.removeLast()
     }
 
     mutating func clear() {
-        cards.removeAll()
+        self.cards.removeAll()
     }
 
     func askForLineInput(prompt: String?) -> String? {
-        let isColorized: Bool = swiftCommandState.options.logging.colorDiagnostics
-        
+        let isColorized: Bool = self.swiftCommandState.options.logging.colorDiagnostics
+
         if let prompt {
             isColorized ?
-            print(brightBlack { prompt }.terminalString()) :
-            print(plain { prompt }.terminalString())
+                print(brightBlack { prompt }.terminalString()) :
+                print(plain { prompt }.terminalString())
         }
         isColorized ?
-            terminal.write(">>> ", inColor: .green, bold: true)
-        :   terminal.write(">>> ", inColor: .noColor, bold: false)
+            self.terminal.write(">>> ", inColor: .green, bold: true)
+            : self.terminal.write(">>> ", inColor: .noColor, bold: false)
 
         return readLine(strippingNewline: true)
     }
@@ -81,9 +81,9 @@ struct CardStack {
                 break
             }
 
-            if needsToClearScreen {
-                terminal.clearScreen()
-                needsToClearScreen = false
+            if self.needsToClearScreen {
+                self.terminal.clearScreen()
+                self.needsToClearScreen = false
             }
 
             print(top.render())
@@ -94,25 +94,27 @@ struct CardStack {
 
             askForLine: while let line = askForLineInput(prompt: top.inputPrompt) {
                 inputFinished = false
-                let trimmedLine = String(line.drop { $0.isWhitespace }
-                                            .reversed()
-                                            .drop { $0.isWhitespace }
-                                            .reversed())
+                let trimmedLine = String(
+                    line.drop { $0.isWhitespace }
+                        .reversed()
+                        .drop { $0.isWhitespace }
+                        .reversed()
+                )
                 let response = await top.acceptLineInput(trimmedLine)
                 switch response {
                 case .none:
                     continue askForLine
                 case .push(let card):
-                    push(card)
-                    needsToClearScreen = true
+                    self.push(card)
+                    self.needsToClearScreen = true
                     break askForLine
-                case let .pop(error):
-                    cards.removeLast()
+                case .pop(let error):
+                    self.cards.removeLast()
                     if let error {
                         self.swiftCommandState.observabilityScope.emit(error)
-                        needsToClearScreen = false
+                        self.needsToClearScreen = false
                     } else {
-                        needsToClearScreen = !cards.isEmpty
+                        self.needsToClearScreen = !self.cards.isEmpty
                     }
                     break askForLine
                 case .quit:

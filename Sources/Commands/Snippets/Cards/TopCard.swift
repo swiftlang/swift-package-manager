@@ -12,8 +12,8 @@
 
 import CoreCommands
 import Foundation
-import PackageModel
 import PackageGraph
+import PackageModel
 
 /// The top menu card for a package's help contents, including snippets.
 struct TopCard: Card {
@@ -33,15 +33,15 @@ struct TopCard: Card {
     }
 
     var inputPrompt: String? {
-        return """
-            Choose a group by name or number.
-            To exit, enter 'q'.
-            """
+        """
+        Choose a group by name or number.
+        To exit, enter 'q'.
+        """
     }
 
     func renderProducts() -> String {
-        let isColorized = swiftCommandState.options.logging.colorDiagnostics
-        let libraries = package.products
+        let isColorized = self.swiftCommandState.options.logging.colorDiagnostics
+        let libraries = self.package.products
             .filter {
                 guard case .library = $0.type else {
                     return false
@@ -51,7 +51,7 @@ struct TopCard: Card {
             .sorted { $0.name < $1.name }
             .map { "- \($0.name) (library)" }
 
-        let executables = package.products
+        let executables = self.package.products
             .filter { $0.type == .executable }
             .sorted { $0.name < $1.name }
             .map { "- \($0.name) (executable)" }
@@ -64,11 +64,10 @@ struct TopCard: Card {
             "\n## Products"
             "\n\n"
         }.terminalString() :
-        plain {
-            "\n## Products"
-            "\n\n"
-        }.terminalString()
-        
+            plain {
+                "\n## Products"
+                "\n\n"
+            }.terminalString()
 
         rendered += (libraries + executables).joined(separator: "\n")
 
@@ -76,11 +75,11 @@ struct TopCard: Card {
     }
 
     func renderSnippets() -> String {
-        let isColorized = swiftCommandState.options.logging.colorDiagnostics
-        guard !snippetGroups.isEmpty else {
+        let isColorized = self.swiftCommandState.options.logging.colorDiagnostics
+        guard !self.snippetGroups.isEmpty else {
             return ""
         }
-        let snippetPreviews = snippetGroups.enumerated().map { pair -> String in
+        let snippetPreviews = self.snippetGroups.enumerated().map { pair -> String in
             let (number, snippetGroup) = pair
             let snippetNoun = snippetGroup.snippets.count > 1 ? "snippets" : "snippet"
             let heading = "\(number). \(snippetGroup.name) (\(snippetGroup.snippets.count) \(snippetNoun))"
@@ -95,18 +94,17 @@ struct TopCard: Card {
                     """
                 }
             }.terminalString() :
-            plain {
                 plain {
-                    heading
-                    "\n"
-                }
-                if !snippetGroup.explanation.isEmpty {
-                    """
-                    \(snippetGroup.explanation.spm_multilineIndent(count: 3))
-                    """
-                }
-            }.terminalString()
-            
+                    plain {
+                        heading
+                        "\n"
+                    }
+                    if !snippetGroup.explanation.isEmpty {
+                        """
+                        \(snippetGroup.explanation.spm_multilineIndent(count: 3))
+                        """
+                    }
+                }.terminalString()
         }
 
         return isColorized ? colorized {
@@ -115,37 +113,36 @@ struct TopCard: Card {
             }
             "\n\n"
             snippetPreviews.joined(separator: "\n\n")
-          "\n"
+            "\n"
         }.terminalString() :
-        plain {
             plain {
-                "\n## Snippets"
-            }
-            "\n\n"
-            snippetPreviews.joined(separator: "\n\n")
-          "\n"
-        }.terminalString()
-        
+                plain {
+                    "\n## Snippets"
+                }
+                "\n\n"
+                snippetPreviews.joined(separator: "\n\n")
+                "\n"
+            }.terminalString()
     }
 
     func render() -> String {
-        let isColorized: Bool = swiftCommandState.options.logging.colorDiagnostics
+        let isColorized: Bool = self.swiftCommandState.options.logging.colorDiagnostics
         let heading = isColorized ? brightYellow {
             "# "
-            package.identity.description
+            self.package.identity.description
         } : plain {
             "# "
-            package.identity.description
+            self.package.identity.description
         }
-        
+
         return """
         \(heading)
-        \(renderProducts())
-        \(renderSnippets())
+        \(self.renderProducts())
+        \(self.renderSnippets())
         """
     }
 
-    func acceptLineInput<S>(_ line: S) -> CardEvent? where S : StringProtocol {
+    func acceptLineInput(_ line: some StringProtocol) -> CardEvent? {
         guard !line.isEmpty else {
             print("\u{0007}")
             return nil
@@ -154,10 +151,14 @@ struct TopCard: Card {
             return .quit()
         }
         if let index = Int(line),
-           snippetGroups.indices.contains(index) {
-            return .push(SnippetGroupCard(snippetGroup: snippetGroups[index], swiftCommandState: swiftCommandState))
+           snippetGroups.indices.contains(index)
+        {
+            return .push(SnippetGroupCard(
+                snippetGroup: self.snippetGroups[index],
+                swiftCommandState: self.swiftCommandState
+            ))
         } else if let groupByName = snippetGroups.first(where: { $0.name == line }) {
-            return .push(SnippetGroupCard(snippetGroup: groupByName, swiftCommandState: swiftCommandState))
+            return .push(SnippetGroupCard(snippetGroup: groupByName, swiftCommandState: self.swiftCommandState))
         } else {
             print(red { "There is not a group by that name or index." })
             return nil
@@ -165,25 +166,25 @@ struct TopCard: Card {
     }
 }
 
-fileprivate extension Module.Kind {
-    var pluralDescription: String {
+extension Module.Kind {
+    fileprivate var pluralDescription: String {
         switch self {
         case .executable:
-            return "executables"
+            "executables"
         case .library:
-            return "libraries"
+            "libraries"
         case .systemModule:
-            return "system modules"
+            "system modules"
         case .test:
-            return "tests"
+            "tests"
         case .binary:
-            return "binaries"
+            "binaries"
         case .plugin:
-            return "plugins"
+            "plugins"
         case .snippet:
-            return "snippets"
+            "snippets"
         case .macro:
-            return "macros"
+            "macros"
         }
     }
 }

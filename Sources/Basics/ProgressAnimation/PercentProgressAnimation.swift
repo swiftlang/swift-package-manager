@@ -25,7 +25,11 @@ extension ProgressAnimation {
         Self.dynamic(
             stream: stream,
             verbose: verbose,
-            ttyTerminalAnimationFactory: { RedrawingPercentProgressAnimation(terminal: $0, header: header, isColorized: isColorized) },
+            ttyTerminalAnimationFactory: { RedrawingPercentProgressAnimation(
+                terminal: $0,
+                header: header,
+                isColorized: isColorized
+            ) },
             dumbTerminalAnimationFactory: { SingleLinePercentProgressAnimation(stream: stream, header: header) },
             defaultAnimationFactory: { MultiLinePercentProgressAnimation(stream: stream, header: header) }
         )
@@ -48,11 +52,11 @@ final class RedrawingPercentProgressAnimation: ProgressAnimationProtocol {
     /// Creates repeating string for count times.
     /// If count is negative, returns empty string.
     private func repeating(string: String, count: Int) -> String {
-        return String(repeating: string, count: max(count, 0))
+        String(repeating: string, count: max(count, 0))
     }
-    
-    func colorizeText(color: TerminalController.Color = .noColor) -> TerminalController.Color{
-        if self.isColorized{
+
+    func colorizeText(color: TerminalController.Color = .noColor) -> TerminalController.Color {
+        if self.isColorized {
             return color
         }
         return .noColor
@@ -62,50 +66,54 @@ final class RedrawingPercentProgressAnimation: ProgressAnimationProtocol {
         assert(step <= total)
         let isBold = self.isColorized
 
-        let width = terminal.width
+        let width = self.terminal.width
 
-        if !hasDisplayedHeader {
-            let spaceCount = width / 2 - header.utf8.count / 2
-            terminal.write(repeating(string: " ", count: spaceCount))
-            terminal.write(header, inColor: colorizeText(color: .green), bold: isBold)
-            terminal.endLine()
-            hasDisplayedHeader = true
+        if !self.hasDisplayedHeader {
+            let spaceCount = width / 2 - self.header.utf8.count / 2
+            self.terminal.write(self.repeating(string: " ", count: spaceCount))
+            self.terminal.write(self.header, inColor: self.colorizeText(color: .green), bold: isBold)
+            self.terminal.endLine()
+            self.hasDisplayedHeader = true
         } else {
-            terminal.moveCursor(up: 1)
+            self.terminal.moveCursor(up: 1)
         }
 
-        terminal.clearLine()
+        self.terminal.clearLine()
         let percentage = step * 100 / total
         let paddedPercentage = percentage < 10 ? " \(percentage)" : "\(percentage)"
-        let prefix = "\(paddedPercentage)% " + terminal.wrap("[", inColor: colorizeText(color: .green), bold: isBold)
-        terminal.write(prefix)
+        let prefix = "\(paddedPercentage)% " + self.terminal
+            .wrap("[", inColor: self.colorizeText(color: .green), bold: isBold)
+        self.terminal.write(prefix)
 
         let barWidth = width - prefix.utf8.count
         let n = Int(Double(barWidth) * Double(percentage) / 100.0)
 
-        terminal.write(repeating(string: "=", count: n) + repeating(string: "-", count: barWidth - n), inColor: colorizeText(color: .green))
-        terminal.write("]", inColor: colorizeText(color: .green), bold: isBold)
-        terminal.endLine()
+        self.terminal.write(
+            self.repeating(string: "=", count: n) + self.repeating(string: "-", count: barWidth - n),
+            inColor: self.colorizeText(color: .green)
+        )
+        self.terminal.write("]", inColor: self.colorizeText(color: .green), bold: isBold)
+        self.terminal.endLine()
 
-        terminal.clearLine()
+        self.terminal.clearLine()
         if text.utf8.count > width {
             let prefix = "…"
-            terminal.write(prefix)
-            terminal.write(String(text.suffix(width - prefix.utf8.count)))
+            self.terminal.write(prefix)
+            self.terminal.write(String(text.suffix(width - prefix.utf8.count)))
         } else {
-            terminal.write(text)
+            self.terminal.write(text)
         }
     }
 
     func complete(success: Bool) {
-        terminal.endLine()
-        terminal.endLine()
+        self.terminal.endLine()
+        self.terminal.endLine()
     }
 
     func clear() {
-        terminal.clearLine()
-        terminal.moveCursor(up: 1)
-        terminal.clearLine()
+        self.terminal.clearLine()
+        self.terminal.moveCursor(up: 1)
+        self.terminal.clearLine()
     }
 }
 
@@ -129,23 +137,21 @@ final class MultiLinePercentProgressAnimation: ProgressAnimationProtocol {
     func update(step: Int, total: Int, text: String) {
         assert(step <= total)
 
-        if !hasDisplayedHeader, !header.isEmpty {
-            stream.send(header)
-            stream.send("\n")
-            stream.flush()
-            hasDisplayedHeader = true
+        if !self.hasDisplayedHeader, !self.header.isEmpty {
+            self.stream.send(self.header)
+            self.stream.send("\n")
+            self.stream.flush()
+            self.hasDisplayedHeader = true
         }
 
         let percentage = step * 100 / total
-        stream.send("\(percentage)%: ").send(text)
-        stream.send("\n")
-        stream.flush()
-        lastDisplayedText = text
+        self.stream.send("\(percentage)%: ").send(text)
+        self.stream.send("\n")
+        self.stream.flush()
+        self.lastDisplayedText = text
     }
 
-    func complete(success: Bool) {
-    }
+    func complete(success: Bool) {}
 
-    func clear() {
-    }
+    func clear() {}
 }
