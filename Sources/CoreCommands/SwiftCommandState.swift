@@ -307,15 +307,14 @@ public final class SwiftCommandState {
         workspaceLoaderProvider: @escaping WorkspaceLoaderProvider,
         hostTriple: Basics.Triple? = nil,
         fileSystem: any FileSystem = localFileSystem,
-        environment: Environment = .current,
-        manualWriterParams: [String : Bool] = ["use": false]
+        environment: Environment = .current
     ) throws {
         self.hostTriple = hostTriple
         self.fileSystem = fileSystem
         self.environment = environment
         // first, bootstrap the observability system
         self.logLevel = options.logging.logLevel
-        self.observabilityHandler = SwiftCommandObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel, colorDiagnostics: options.logging.colorDiagnostics, manualWriterParams: manualWriterParams)
+        self.observabilityHandler = SwiftCommandObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel, colorDiagnostics: options.logging.colorDiagnostics)
         let observabilitySystem = ObservabilitySystem(self.observabilityHandler)
         let observabilityScope = observabilitySystem.topScope
         self.observabilityScope = observabilityScope

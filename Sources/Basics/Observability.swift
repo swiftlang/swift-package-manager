@@ -162,15 +162,15 @@ public protocol DiagnosticsHandler: Sendable {
     func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic)
 }
 
-//helper protocol to configurate the style of diagnostics
+///Helper protocol to configurate the style of diagnostics.
 protocol SeverityConfig {
-    var prefix: String { get }
+    var logLabel: String { get }
     var color: TerminalController.Color { get }
     var isBold: Bool { get }
 }
 
 
-// helper protocol to share default behavior
+/// Helper protocol to share default behavior.
 public protocol DiagnosticsEmitterProtocol {
     func emit(_ diagnostic: Diagnostic)
 }
@@ -418,8 +418,9 @@ public struct Diagnostic: Sendable, CustomStringConvertible {
         public static func < (lhs: Self, rhs: Self) -> Bool {
             lhs.naturalIntegralValue < rhs.naturalIntegralValue
         }
-        
-        public var prefix: String {
+        /// A string that represents the log label associated with the severity level.
+        /// This property provides a descriptive prefix for log messages, indicating the type of message based on its severity.
+        public var logLabel: String {
             switch self{
             case .debug:
                 return "debug: "

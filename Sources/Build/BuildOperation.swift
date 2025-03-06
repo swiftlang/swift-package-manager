@@ -246,11 +246,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     ) {
         /// Checks if stdout stream is tty.
         var productsBuildParameters = productsBuildParameters
-        productsBuildParameters.outputParameters.isColorized = outputStream.isTTY
-
+        if productsBuildParameters.outputParameters.isColorized{
+            productsBuildParameters.outputParameters.isColorized = outputStream.isTTY
+        }
         var toolsBuildParameters = toolsBuildParameters
-        toolsBuildParameters.outputParameters.isColorized = outputStream.isTTY
-
+        if toolsBuildParameters.outputParameters.isColorized{
+            toolsBuildParameters.outputParameters.isColorized = outputStream.isTTY
+        }
         self.config = LLBuildSystemConfiguration(
             toolsBuildParameters: toolsBuildParameters,
             destinationBuildParameters: productsBuildParameters,

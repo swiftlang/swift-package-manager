@@ -51,10 +51,6 @@ final class RedrawingPercentProgressAnimation: ProgressAnimationProtocol {
         return String(repeating: string, count: max(count, 0))
     }
     
-    func isBold() -> Bool {
-        return self.isColorized
-    }
-    
     func colorizeText(color: TerminalController.Color = .noColor) -> TerminalController.Color{
         if self.isColorized{
             return color
@@ -64,7 +60,7 @@ final class RedrawingPercentProgressAnimation: ProgressAnimationProtocol {
 
     func update(step: Int, total: Int, text: String) {
         assert(step <= total)
-        let isBold = isBold()
+        let isBold = self.isColorized
 
         let width = terminal.width
 

@@ -36,9 +36,9 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
     ///   - logLevel: the lowest severity of diagnostics that this handler will forward to `outputStream`. Diagnostics
     ///   emitted below this level will be ignored.
 
-    public init(outputStream: OutputByteStream, logLevel: Basics.Diagnostic.Severity, colorDiagnostics: Bool = true, manualWriterParams: [String: Bool] = ["use": false]) {
+    public init(outputStream: OutputByteStream, logLevel: Basics.Diagnostic.Severity, colorDiagnostics: Bool = true) {
         let threadSafeOutputByteStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
-        self.outputHandler = OutputHandler(logLevel: logLevel, outputStream: threadSafeOutputByteStream, colorDiagnostics: colorDiagnostics, manualWriterParams: manualWriterParams)
+        self.outputHandler = OutputHandler(logLevel: logLevel, outputStream: threadSafeOutputByteStream, colorDiagnostics: colorDiagnostics)
     }
 
     // for raw output reporting
@@ -68,20 +68,16 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
     struct OutputHandler {
         private let logLevel: Diagnostic.Severity
         internal let outputStream: ThreadSafeOutputByteStream
-        private let writer: Writable
+        private let writer: InteractiveWriter
         private let progressAnimation: ProgressAnimationProtocol
         private let colorDiagnostics: Bool
         private let queue = DispatchQueue(label: "org.swift.swiftpm.tools-output")
         private let sync = DispatchGroup()
         
-        init(logLevel: Diagnostic.Severity, outputStream: ThreadSafeOutputByteStream, colorDiagnostics: Bool, manualWriterParams: [String: Bool]) {
+        init(logLevel: Diagnostic.Severity, outputStream: ThreadSafeOutputByteStream, colorDiagnostics: Bool) {
             self.logLevel = logLevel
             self.outputStream = outputStream
-            if manualWriterParams["manual"] ?? false {
-                self.writer = ManualWriter(isTTY: manualWriterParams["isTTY"] ?? false, stream: outputStream)
-            } else {
-                self.writer = InteractiveWriter(stream: outputStream)
-            }
+            self.writer = InteractiveWriter(stream: outputStream)
             self.progressAnimation = ProgressAnimation.ninja(
                 stream: self.outputStream,
                 verbose: self.logLevel.isVerbose
@@ -98,7 +94,7 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
                 // TODO: do something useful with scope
                 var output: String
                 
-                let prefix = diagnostic.severity.prefix
+                let prefix = diagnostic.severity.logLabel
                 let color = self.colorDiagnostics ? diagnostic.severity.color : .noColor
                 let bold = self.colorDiagnostics ? diagnostic.severity.isBold : false
 
@@ -171,76 +167,21 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
 extension SwiftCommandObservabilityHandler.OutputHandler: @unchecked Sendable {}
 extension SwiftCommandObservabilityHandler.OutputHandler: DiagnosticsHandler {}
 
-/// This type is used to write on the underlying stream.
-///
-/// If underlying stream is a not tty, the string will be written in without any
-/// formatting.
-///
-///
-private class Writable {
-    var isTTY: Bool
-    let stream: OutputByteStream
+private struct InteractiveWriter {
+    /// The terminal controller, if present.
+    let term: TerminalController?
 
-    init(isTTY: Bool = true, stream: OutputByteStream) {
-        self.isTTY = isTTY
+    /// The output byte stream reference.
+    let stream : OutputByteStream
+
+    /// Create an instance with the given stream
+    init(stream: OutputByteStream) {
+        self.term = TerminalController(stream: stream)
         self.stream = stream
     }
 
+    /// Write the string to the contained terminal or stream
     func write(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) {
-        if isTTY {
-            let stringColor = getColorString(color: color)
-            stream.send(stringColor).send(bold ? "\u{001B}[1m" : "").send(string).send("\u{001B}[0m")
-        } else {
-            string.write(to: stream)
-            stream.flush()
-        }
-    }
-
-    func format(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) -> String {
-        if isTTY {
-            let stringColor = getColorString(color: color)
-            guard !string.isEmpty && color != .noColor else {
-                return string
-            }
-            return "\(stringColor)\(bold ? "\u{001B}[1m" : "")\(string)\u{001B}[0m"
-        } else {
-            return string
-        }
-    }
-
-    private func getColorString(color: TerminalController.Color) -> String {
-        switch color {
-            case .noColor: return ""
-            case .red: return "\u{001B}[31m"
-            case .green: return "\u{001B}[32m"
-            case .yellow: return "\u{001B}[33m"
-            case .cyan: return "\u{001B}[36m"
-            case .white: return "\u{001B}[37m"
-            case .black: return "\u{001B}[30m"
-            case .gray: return "\u{001B}[30;1m"
-        }
-    }
-}
-
-private class ManualWriter: Writable {
-    override init(isTTY: Bool = true, stream: OutputByteStream) {
-        super.init(isTTY: isTTY, stream: stream)
-    }
-
-    public func setTTYMode(_ mode: Bool) {
-        self.isTTY = mode
-    }
-}
-
-private class InteractiveWriter: Writable {
-    let term: TerminalController?
-
-    init(stream: OutputByteStream) {
-        self.term = TerminalController(stream: stream)
-        super.init(stream: stream)
-    }
-
-    override func write(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) {
         if let term = term {
             term.write(string, inColor: color, bold: bold)
         } else {
@@ -249,7 +190,7 @@ private class InteractiveWriter: Writable {
         }
     }
 
-    override func format(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) -> String {
+    func format(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) -> String {
         if let term = term {
             return term.wrap(string, inColor: color, bold: bold)
         } else {
@@ -257,7 +198,6 @@ private class InteractiveWriter: Writable {
         }
     }
 }
-
 
 // FIXME: this is for backwards compatibility with existing diagnostics printing format
 // we should remove this as we make use of the new scope and metadata to provide better contextual information

@@ -50,10 +50,10 @@ final class SwiftCommandStateTests: CommandsTestCase {
                 XCTAssertEqual(error.severity.color, .red)
                 
                 //testing prefix
-                XCTAssertEqual(info.severity.prefix, "info: ")
-                XCTAssertEqual(debug.severity.prefix, "debug: ")
-                XCTAssertEqual(warning.severity.prefix, "warning: ")
-                XCTAssertEqual(error.severity.prefix, "error: ")
+                XCTAssertEqual(info.severity.logLabel, "info: ")
+                XCTAssertEqual(debug.severity.logLabel, "debug: ")
+                XCTAssertEqual(warning.severity.logLabel, "warning: ")
+                XCTAssertEqual(error.severity.logLabel, "error: ")
                 
                 //testing boldness
                 XCTAssertTrue(info.severity.isBold)
@@ -63,126 +63,6 @@ final class SwiftCommandStateTests: CommandsTestCase {
                                 
             }
         }
-    }
-    
-    func testColoredOutputWithTTY() async throws {
-        try fixture(name: "Miscellaneous/Simple") { fixturePath in
-            do {
-
-                let outputStream = BufferedOutputByteStream()
-                                
-                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--vv", "--color-diagnostics"])
-                let tool = try SwiftCommandState.makeMockState(outputStream: outputStream, options: options, manualWriterParams: ["manual": true, "isTTY": true])
-                tool.observabilityScope.emit(error: "error")
-                tool.observabilityScope.emit(warning: "warning")
-                tool.observabilityScope.emit(info: "info")
-                tool.observabilityScope.emit(debug: "debug")
-
-                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
-                
-                let expectedErrorString = "\u{001B}[31m\u{001B}[1merror: \u{001B}[0merror"
-                let expectedWarningString = "\u{001B}[33m\u{001B}[1mwarning: \u{001B}[0mwarning"
-                let expectedInfoString = "\u{001B}[37m\u{001B}[1minfo: \u{001B}[0minfo"
-                let expectedDebugString = "\u{001B}[37m\u{001B}[1mdebug: \u{001B}[0mdebug"
-
-                 XCTAssertMatch(outputStream.bytes.validDescription, .contains(expectedErrorString))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains(expectedWarningString))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains(expectedInfoString))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains(expectedDebugString))
-
-            }
-        }
-        
-    }
-    
-    func testColoredOutputWithNoTTY() async throws {
-        try fixture(name: "Miscellaneous/Simple") { fixturePath in
-            do {
-
-                let outputStream = BufferedOutputByteStream()
-                                
-                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--vv", "--color-diagnostics"])
-                let tool = try SwiftCommandState.makeMockState(outputStream: outputStream, options: options, manualWriterParams: ["manual": true, "isTTY": false])
-                tool.observabilityScope.emit(error: "error")
-                tool.observabilityScope.emit(warning: "warning")
-                tool.observabilityScope.emit(info: "info")
-                tool.observabilityScope.emit(debug: "debug")
-
-                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
-                
-                let expectedErrorString = "error: error"
-                let expectedWarningString = "warning: warning"
-                let expectedInfoString = "info: info"
-                let expectedDebugString = "debug: debug"
-
-                 XCTAssertMatch(outputStream.bytes.validDescription, .contains(expectedErrorString))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains(expectedWarningString))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains(expectedInfoString))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains(expectedDebugString))
-
-            }
-        }
-        
-    }
-    func testNoColoredOutput() async throws {
-        try fixture(name: "Miscellaneous/Simple") { fixturePath in
-            do {
-
-                let outputStream = BufferedOutputByteStream()
-                
-                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--vv", "--no-color-diagnostics"])
-                let tool = try SwiftCommandState.makeMockState(outputStream: outputStream, options: options, manualWriterParams: ["manual": true, "isTTY": true])
-                tool.observabilityScope.emit(error: "error")
-                tool.observabilityScope.emit(warning: "warning")
-                tool.observabilityScope.emit(info: "info")
-                tool.observabilityScope.emit(debug: "debug")
-
-                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
-                
-                let expectedErrorString = "error: error"
-                let expectedWarningString = "warning: warning"
-                let expectedInfoString = "info: info"
-                let expectedDebugString = "debug: debug"
-
-                 XCTAssertMatch(outputStream.bytes.validDescription, .contains(expectedErrorString))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains(expectedWarningString))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains(expectedInfoString))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains(expectedDebugString))
-
-            }
-        }
-        
-    }
-    
-    func testDefaultColoredOutputOption() async throws {
-        try fixture(name: "Miscellaneous/Simple") { fixturePath in
-            do {
-
-                let outputStream = BufferedOutputByteStream()
-                
-                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--vv"])
-                let tool = try SwiftCommandState.makeMockState(outputStream: outputStream, options: options, manualWriterParams: ["manual": true, "isTTY": true])
-                tool.observabilityScope.emit(error: "error")
-                tool.observabilityScope.emit(warning: "warning")
-                tool.observabilityScope.emit(info: "info")
-                tool.observabilityScope.emit(debug: "debug")
-
-                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
-                
-                let expectedErrorString = "\u{001B}[31m\u{001B}[1merror: \u{001B}[0merror"
-                let expectedWarningString = "\u{001B}[33m\u{001B}[1mwarning: \u{001B}[0mwarning"
-                let expectedInfoString = "\u{001B}[37m\u{001B}[1minfo: \u{001B}[0minfo"
-                let expectedDebugString = "\u{001B}[37m\u{001B}[1mdebug: \u{001B}[0mdebug"
-
-                 XCTAssertMatch(outputStream.bytes.validDescription, .contains(expectedErrorString))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains(expectedWarningString))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains(expectedInfoString))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains(expectedDebugString))
-
-
-            }
-        }
-        
     }
 
     func testVerbosityLogLevel() async throws {
@@ -650,8 +530,7 @@ extension SwiftCommandState {
         outputStream: OutputByteStream = stderrStream,
         options: GlobalOptions,
         fileSystem: any FileSystem = localFileSystem,
-        environment: Environment = .current,
-        manualWriterParams: [String: Bool] = ["use": false]
+        environment: Environment = .current
     ) throws -> SwiftCommandState {
         return try SwiftCommandState(
             outputStream: outputStream,
@@ -673,8 +552,7 @@ extension SwiftCommandState {
             },
             hostTriple: .arm64Linux,
             fileSystem: fileSystem,
-            environment: environment,
-            manualWriterParams: manualWriterParams
+            environment: environment
         )
     }
 }
