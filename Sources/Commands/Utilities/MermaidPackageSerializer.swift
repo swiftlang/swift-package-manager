@@ -10,7 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct OrderedCollections.OrderedDictionary
+private import OrderedCollections
+
 import class PackageModel.Package
 import class PackageModel.Product
 import class PackageModel.Module
