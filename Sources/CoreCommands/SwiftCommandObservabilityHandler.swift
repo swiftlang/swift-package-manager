@@ -182,7 +182,7 @@ private struct InteractiveWriter {
 
     /// Write the string to the contained terminal or stream
     func write(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) {
-        if let term = term {
+        if let term {
             term.write(string, inColor: color, bold: bold)
         } else {
             string.write(to: stream)
@@ -191,7 +191,7 @@ private struct InteractiveWriter {
     }
 
     func format(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) -> String {
-        if let term = term {
+        if let term {
             return term.wrap(string, inColor: color, bold: bold)
         } else {
             return string
