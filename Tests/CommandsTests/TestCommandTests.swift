@@ -645,42 +645,42 @@ class TestCommandSwiftBuildTests: TestCommandTestCase {
     }
 
     override func testList() async throws {
-        try XCTSkip("Test currently fails due to 'error: build failed'")
+        throw XCTSkip("Test currently fails due to 'error: build failed'")
     }
 
     override func testEnableTestDiscoveryDeprecation() async throws {
-        try XCTSkip("Test currently fails due to 'error: build failed'")
+        throw XCTSkip("Test currently fails due to 'error: build failed'")
     }
 
     override func testEnableDisableTestability() async throws {
-        try XCTSkip("Test currently fails due to 'error: build failed'")
+        throw XCTSkip("Test currently fails due to 'error: build failed'")
     }
 
     override func testToolsetRunner() async throws {
-        try XCTSkip("Test currently fails, as some assertions are not met")
+        throw XCTSkip("Test currently fails, as some assertions are not met")
     }
 
     override func testWithReleaseConfiguration() async throws {
-        try XCTSkip("Test currently fails with 'error: toolchain is invalid: could not find CLI tool `swiftpm-testing-helper` at any of these directories: [..., ...]'")
+        throw XCTSkip("Test currently fails with 'error: toolchain is invalid: could not find CLI tool `swiftpm-testing-helper` at any of these directories: [..., ...]'")
     }
 
     override func testXCTestOnlyDoesNotLogAboutNoMatchingTests() async throws {
-        try XCTSkip("Test currently fails assertion as the there is a different error message 'error: no tests found; create a target in the 'Tests' directory'")
+        throw XCTSkip("Test currently fails assertion as the there is a different error message 'error: no tests found; create a target in the 'Tests' directory'")
     }
 
     override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagEnabledSwiftTesting() async throws {
-        try XCTSkip("Test currently fails assertion as the there is a different error message 'error: no tests found; create a target in the 'Tests' directory'")
+        throw XCTSkip("Test currently fails assertion as the there is a different error message 'error: no tests found; create a target in the 'Tests' directory'")
     }
 
     override func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagDisabledSwiftTesting() async throws {
-        try XCTSkip("Test currently fails, further investigation is needed")
+        throw XCTSkip("Test currently fails, further investigation is needed")
     }
 
     override func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagEnabledSwiftTesting() async throws {
-        try XCTSkip("Test currently fails, further investigation is needed")
+        throw XCTSkip("Test currently fails, further investigation is needed")
     }
 
     override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagDisabledSwiftTesting() async throws {
-        try XCTSkip("Test currently fails, further investigation is needed")
+        throw XCTSkip("Test currently fails, further investigation is needed")
     }
 }
