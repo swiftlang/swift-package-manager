@@ -1089,7 +1089,7 @@ extension Triple {
     case cloudABI = "cloudabi"
     case darwin
     case dragonFly = "dragonfly"
-    case freebsd = "freebsd"
+    case freeBSD = "freebsd"
     case fuchsia
     case ios
     case kfreebsd
@@ -1137,7 +1137,7 @@ extension Triple {
       case _ where os.hasPrefix("dragonfly"):
         return .dragonFly
       case _ where os.hasPrefix("freebsd"):
-        return .freebsd
+        return .freeBSD
       case _ where os.hasPrefix("fuchsia"):
         return .fuchsia
       case _ where os.hasPrefix("ios"):

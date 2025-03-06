@@ -16,12 +16,11 @@ public enum SystemPackageProviderDescription: Hashable, Codable, Sendable {
     case apt([String])
     case yum([String])
     case nuget([String])
-    case pkg([String])
 }
 
 extension SystemPackageProviderDescription {
     private enum CodingKeys: String, CodingKey {
-        case brew, apt, yum, nuget, pkg
+        case brew, apt, yum, nuget
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -38,9 +37,6 @@ extension SystemPackageProviderDescription {
             try unkeyedContainer.encode(a1)
         case let .nuget(a1):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .nuget)
-            try unkeyedContainer.encode(a1)
-        case let .pkg(a1):
-            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .pkg)
             try unkeyedContainer.encode(a1)
         }
     }
@@ -67,10 +63,6 @@ extension SystemPackageProviderDescription {
             var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
             let a1 = try unkeyedValues.decode([String].self)
             self = .nuget(a1)
-        case .pkg:
-            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-            let a1 = try unkeyedValues.decode([String].self)
-            self = .pkg(a1)
         }
     }
 }

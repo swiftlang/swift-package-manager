@@ -16,8 +16,6 @@ extension Triple {
     public var platformBuildPathComponent: String {
         if isDarwin() {
             return self.tripleString(forPlatformVersion: "")
-        } else if isFreeBSD() {
-            return "\(self.archName)-\(self.vendorName)-\(self.osNameUnversioned)"
         }
 
         return self.tripleString

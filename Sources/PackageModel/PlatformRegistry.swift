@@ -38,7 +38,6 @@ public struct PlatformRegistry {
             .macOS,
             .macCatalyst,
             .openbsd,
-            .freebsd,
             .tvOS,
             .visionOS,
             .wasi,

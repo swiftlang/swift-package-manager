@@ -553,7 +553,7 @@ package final class AsyncProcess {
         return stdinPipe.fileHandleForWriting
         #elseif(!canImport(Darwin) || os(macOS))
         // Initialize the spawn attributes.
-        #if canImport(Darwin) || os(Android) || os(OpenBSD) || os(FreeBSD)
+        #if canImport(Darwin) || os(Android) || os(OpenBSD)
         var attributes: posix_spawnattr_t? = nil
         #else
         var attributes = posix_spawnattr_t()
@@ -598,7 +598,7 @@ package final class AsyncProcess {
         posix_spawnattr_setflags(&attributes, Int16(flags))
 
         // Setup the file actions.
-        #if canImport(Darwin) || os(Android) || os(OpenBSD) || os(FreeBSD)
+        #if canImport(Darwin) || os(Android) || os(OpenBSD)
         var fileActions: posix_spawn_file_actions_t? = nil
         #else
         var fileActions = posix_spawn_file_actions_t()
@@ -614,8 +614,6 @@ package final class AsyncProcess {
             if #available(macOS 10.15, *) {
                 posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
             }
-            #elseif os(FreeBSD)
-            posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
             #elseif os(Linux)
             guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
                 throw AsyncProcess.Error.workingDirectoryNotSupported
