@@ -3803,15 +3803,15 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
     }
 
     override func testCommandPluginBuildingCallbacks() async throws {
-        throw XCTSkip("SWBINTODO: Test fails as plugins are not currenty supported")
+        throw XCTSkip("SWBINTTODO: Test fails as plugins are not currenty supported")
     }
     override func testCommandPluginBuildTestability() async throws {
-        throw XCTSkip("SWBINTODO: Test fails as plugins are not currenty supported")
+        throw XCTSkip("SWBINTTODO: Test fails as plugins are not currenty supported")
     }
 
 #if !os(macOS)
     override func testCommandPluginTestingCallbacks() async throws {
-        throw XCTSkip("SWBINTODO: Test fails on inability to find libclang on Linux. Also, plugins are not currently supported")
+        throw XCTSkip("SWBINTTODO: Test fails on inability to find libclang on Linux. Also, plugins are not currently supported")
     }
 #endif
 }

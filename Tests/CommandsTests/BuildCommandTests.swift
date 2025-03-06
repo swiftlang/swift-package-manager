@@ -858,7 +858,7 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
     }
 
     override func testParseableInterfaces() async throws {
-        throw XCTSkip("SWBINTODO: Test failed.  needs to be investigated")
+        throw XCTSkip("SWBINTTODO: Test failed.  needs to be investigated")
     }
 
     override func testGetTaskAllowEntitlement() async throws {
@@ -866,54 +866,54 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
     }
 
     override func testCodeCoverage() async throws {
-        throw XCTSkip("SWBINTODO: Test failed.  needs to be investigated")
+        throw XCTSkip("SWBINTTODO: Test failed.  needs to be investigated")
     }
 
     override func testAtMainSupport() async throws {
-        throw XCTSkip("SWBINTODO: Test failed.  needs to be investigated")
+        throw XCTSkip("SWBINTTODO: Test failed.  needs to be investigated")
     }
 
     override func testAutomaticParseableInterfacesWithLibraryEvolution() async throws {
-        throw XCTSkip("SWBINTODO: Test failed.  needs to be investigated")
+        throw XCTSkip("SWBINTTODO: Test failed.  needs to be investigated")
     }
 
     override func testImportOfMissedDepWarning() async throws {
-        throw XCTSkip("SWBINTODO: Test failed.  needs to be investigated")
+        throw XCTSkip("SWBINTTODO: Test failed.  needs to be investigated")
     }
 
     override func testProductAndTarget() async throws {
-        throw XCTSkip("SWBINTODO: Test failed.  needs to be investigated")
+        throw XCTSkip("SWBINTTODO: Test failed.  needs to be investigated")
     }
 
     override func testPrintLLBuildManifestJobGraph() async throws {
-        throw XCTSkip("SWBINTODO: Test failed.  needs to be investigated")
+        throw XCTSkip("SWBINTTODO: Test failed.  needs to be investigated")
     }
 
     override func testSwiftGetVersion() async throws {
-        throw XCTSkip("SWBINTODO: Test failed.  needs to be investigated")
+        throw XCTSkip("SWBINTTODO: Test failed.  needs to be investigated")
     }
 
     override func testBinSymlink() async throws {
-        throw XCTSkip("SWBINTODO: Test failed.  need to update expected path")
+        throw XCTSkip("SWBINTTODO: Test failed.  need to update expected path")
     }
 
     override func testSymlink() async throws {
-        throw XCTSkip("SWBINTODO: Test failed.  needs to be investigated")
+        throw XCTSkip("SWBINTTODO: Test failed.  needs to be investigated")
     }
 
 #if !canImport(Darwin)
     override func testIgnoresLinuxMain() async throws {
-        throw XCTSkip("SWBINTODO: Swift build doesn't currently ignore Linux main when linking on Linux. This needs further investigation.")
+        throw XCTSkip("SWBINTTODO: Swift build doesn't currently ignore Linux main when linking on Linux. This needs further investigation.")
     }
 #endif
 
 #if !os(macOS)
     override func testBuildStartMessage() async throws {
-        throw XCTSkip("SWBINTODO: Swift build produces an error building the fixture for this test.")
+        throw XCTSkip("SWBINTTODO: Swift build produces an error building the fixture for this test.")
     }
 
     override func testSwiftDriverRawOutputGetsNewlines() async throws {
-        throw XCTSkip("SWBINTODO: Swift build produces an error building the fixture for this test.")
+        throw XCTSkip("SWBINTTODO: Swift build produces an error building the fixture for this test.")
     }
 #endif
 
