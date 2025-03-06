@@ -831,59 +831,59 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
     }
 
     override func testNonReachableProductsAndTargetsFunctional() async throws {
-        try XCTSkip("Test failed.  needs to be investigated")
+        throw XCTSkip("Test failed.  needs to be investigated")
     }
 
     override func testParseableInterfaces() async throws {
-        try XCTSkip("Test failed.  needs to be investigated")
+        throw XCTSkip("Test failed.  needs to be investigated")
     }
 
     override func testGetTaskAllowEntitlement() async throws {
-        try XCTSkip("Test failed.  needs to be investigated")
+        throw XCTSkip("Test failed.  needs to be investigated")
     }
 
     override func testCodeCoverage() async throws {
-        try XCTSkip("Test failed.  needs to be investigated")
+        throw XCTSkip("Test failed.  needs to be investigated")
     }
 
     override func testAtMainSupport() async throws {
-        try XCTSkip("Test failed.  needs to be investigated")
+        throw XCTSkip("Test failed.  needs to be investigated")
     }
 
     override func testAutomaticParseableInterfacesWithLibraryEvolution() async throws {
-        try XCTSkip("Test failed.  needs to be investigated")
+        throw XCTSkip("Test failed.  needs to be investigated")
     }
 
     override func testImportOfMissedDepWarning() async throws {
-        try XCTSkip("Test failed.  needs to be investigated")
+        throw XCTSkip("Test failed.  needs to be investigated")
     }
 
     override func testProductAndTarget() async throws {
-        try XCTSkip("Test failed.  needs to be investigated")
+        throw XCTSkip("Test failed.  needs to be investigated")
     }
 
     override func testPrintLLBuildManifestJobGraph() async throws {
-        try XCTSkip("Test failed.  needs to be investigated")
+        throw XCTSkip("Test failed.  needs to be investigated")
     }
 
     override func testSwiftGetVersion() async throws {
-        try XCTSkip("Test failed.  needs to be investigated")
+        throw XCTSkip("Test failed.  needs to be investigated")
     }
 
     override func testBinSymlink() async throws {
-        try XCTSkip("Test failed.  need to update expected path")
+        throw XCTSkip("Test failed.  need to update expected path")
     }
 
     override func testSymlink() async throws {
-        try XCTSkip("Test failed.  needs to be investigated")
+        throw XCTSkip("Test failed.  needs to be investigated")
     }
 
     override func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInDebugConfig() async throws {
-        try XCTSkip("Test failed.  needs to be investigated")
+        throw XCTSkip("Test failed.  needs to be investigated")
     }
 
     override func testPackageWithExcutableTargetsContainsPlatformConditionalsBuildsSuccessfullyInReleaseConfig() async throws {
-        try XCTSkip("Test failed.  needs to be investigated")
+        throw XCTSkip("Test failed.  needs to be investigated")
     }
 
     override func testBuildSystemDefaultSettings() async throws {
