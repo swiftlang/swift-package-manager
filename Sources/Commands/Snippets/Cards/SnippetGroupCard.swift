@@ -82,7 +82,7 @@ struct SnippetGroupCard: Card {
                         snippet.explanation.spm_multilineIndent(count: 3)
                     }
                 }.terminalString() :
-                    brightCyan {
+                    plain {
                         "\(number). \(snippet.name)\n"
                         plain {
                             snippet.explanation.spm_multilineIndent(count: 3)
