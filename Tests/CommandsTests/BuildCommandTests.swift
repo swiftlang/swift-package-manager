@@ -623,6 +623,7 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
             // lines.
             var buildResult = try await build(["-v"], packagePath: fixturePath)
 
+            // TODO verification of the ad-hoc code signing can be done by `swift run` of the executable in these cases once swiftbuild build system is working with that
             XCTAssertMatch(buildResult.stdout, .contains("codesign --force --sign - --entitlements"))
 
             buildResult = try await self.build(["-c", "debug", "-v"], packagePath: fixturePath)
@@ -854,51 +855,51 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
     }
 
     override func testNonReachableProductsAndTargetsFunctional() async throws {
-        throw XCTSkip("SWBINTTODO: Test failed.  needs to be investigated")
+        throw XCTSkip("SWBINTTODO: Test failed. This needs to be investigated")
     }
 
     override func testParseableInterfaces() async throws {
-        throw XCTSkip("SWBINTTODO: Test failed.  needs to be investigated")
+        throw XCTSkip("SWBINTTODO: Test failed with swiftbuild engine because the --enable-parseable-module-interfaces flag doesn't yet produce .swiftinterface files. This needs to be investigated")
     }
 
     override func testGetTaskAllowEntitlement() async throws {
-        throw XCTSkip("SWBINTTODO: Test failed.  needs to be investigated")
+        throw XCTSkip("SWBINTTODO: Test failed because swiftbuild doesn't output precis codesign commands. Once swift run works with swiftbuild the test can be investigated.")
     }
 
     override func testCodeCoverage() async throws {
-        throw XCTSkip("SWBINTTODO: Test failed.  needs to be investigated")
+        throw XCTSkip("SWBINTTODO: Test failed because of missing plugin support in the PIF builder. This can be reinvestigated after the support is there.")
     }
 
     override func testAtMainSupport() async throws {
-        throw XCTSkip("SWBINTTODO: Test failed.  needs to be investigated")
+        #if !os(macOS)
+        throw XCTSkip("SWBINTTODO: File not found or missing libclang errors on non-macOS platforms. This needs to be investigated")
+        #endif
+
+        try await super.testAtMainSupport()
     }
 
     override func testAutomaticParseableInterfacesWithLibraryEvolution() async throws {
-        throw XCTSkip("SWBINTTODO: Test failed.  needs to be investigated")
+        throw XCTSkip("SWBINTTODO: The test fails because when the unsafe flag for a target is set to '-enable-library-evolution' it is not producing the correct .swiftinterface files. This needs to be investigated")
     }
 
     override func testImportOfMissedDepWarning() async throws {
-        throw XCTSkip("SWBINTTODO: Test failed.  needs to be investigated")
+        throw XCTSkip("SWBINTTODO: Test fails because the warning message regarding missing imports is expected to be more verbose and actionable at the SwiftPM level with mention of the involved targets. This needs to be investigated. See case targetDiagnostic(TargetDiagnosticInfo) as a message type that may help.")
     }
 
     override func testProductAndTarget() async throws {
-        throw XCTSkip("SWBINTTODO: Test failed.  needs to be investigated")
-    }
-
-    override func testPrintLLBuildManifestJobGraph() async throws {
-        throw XCTSkip("SWBINTTODO: Test failed.  needs to be investigated")
+        throw XCTSkip("SWBINTTODO: Test fails because there isn't a clear warning message about the lib1 being an automatic product and that the default product is being built instead. This needs to be investigated")
     }
 
     override func testSwiftGetVersion() async throws {
-        throw XCTSkip("SWBINTTODO: Test failed.  needs to be investigated")
+        throw XCTSkip("SWBINTTODO: Test fails because the dummy-swiftc used in the test isn't accepted by swift-build. This needs to be investigated")
     }
 
     override func testBinSymlink() async throws {
-        throw XCTSkip("SWBINTTODO: Test failed.  need to update expected path")
+        throw XCTSkip("SWBINTTODO: Test fails because of a difference in the build layout. This needs to be updated to the expected path")
     }
 
     override func testSymlink() async throws {
-        throw XCTSkip("SWBINTTODO: Test failed.  needs to be investigated")
+        throw XCTSkip("SWBINTTODO: Test fails because of a difference in the build layout. This needs to be updated to the expected path")
     }
 
 #if !canImport(Darwin)
