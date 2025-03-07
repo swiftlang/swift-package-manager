@@ -98,7 +98,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
                             packagePath: packagePath,
                             observabilityScope: observabilityScope,
                             delegateQueue: delegateQueue,
-                            callbackQueue: callbackQueue,
+                            callbackQueue: callbackQueue
                         )
                         // inform delegate that we finished to fetch
                         let duration = start.distance(to: .now())
