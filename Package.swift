@@ -86,9 +86,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RPATH_OS"] == "android" 
  automatic linking type with `-auto` suffix appended to product's name.
  */
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
-let swiftDriverDep: [Target.Dependency]
-
-swiftDriverDep = [.product(name: "SwiftDriver", package: "swift-driver")] 
 
 let package = Package(
     name: "SwiftPM",
@@ -443,9 +440,10 @@ let package = Package(
                 "PackageGraph",
                 "SPMBuildCore",
                 "SPMLLBuild",
+                .product(name: "SwiftDriver", package: "swift-driver"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 "DriverSupport",
-            ] + swiftDriverDep,
+            ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .unsafeFlags(["-static"]),
@@ -456,7 +454,8 @@ let package = Package(
             dependencies: [
                 "Basics",
                 "PackageModel",
-            ] + swiftDriverDep,
+                .product(name: "SwiftDriver", package: "swift-driver"),
+            ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .unsafeFlags(["-static"]),
