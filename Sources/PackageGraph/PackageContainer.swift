@@ -172,11 +172,23 @@ public struct PackageContainerConstraint: Equatable, Hashable {
     public init(package: PackageReference, versionRequirement: VersionSetSpecifier, products: ProductFilter, enabledTraits: Set<String>? = nil) {
         self.init(package: package, requirement: .versionSet(versionRequirement), products: products, enabledTraits: enabledTraits)
     }
+
+    /// Custom implementation for the hash method due to interference of traits in its computation.
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(package)
+        hasher.combine(requirement)
+        hasher.combine(products)
+    }
+
+    /// Custom implementation to check equality due to interference of traits in its computation.
+    static public func == (lhs: PackageContainerConstraint, rhs: PackageContainerConstraint) -> Bool {
+        return lhs.package == rhs.package && lhs.requirement == rhs.requirement && lhs.products == rhs.products
+    }
 }
 
 extension PackageContainerConstraint: CustomStringConvertible {
     public var description: String {
-        return "Constraint(\(self.package), \(requirement), \(products))"
+        return "Constraint(\(self.package), \(requirement), \(products), \(enabledTraits ?? [])"
     }
 }
 

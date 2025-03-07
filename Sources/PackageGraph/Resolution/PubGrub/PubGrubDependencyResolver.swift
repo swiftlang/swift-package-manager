@@ -304,7 +304,6 @@ public struct PubGrubDependencyResolver {
     private func processInputs(
         root: DependencyResolutionNode,
         with constraints: [Constraint]
-//        traitConfiguration: TraitConfiguration?
     ) async throws -> (
         overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)],
         rootIncompatibilities: [Incompatibility]
