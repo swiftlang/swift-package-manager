@@ -190,7 +190,7 @@ Bug: N/A
 We need an easy way to edit the Package.swift manifest from automated tools, for
 cases where you don't want users to have to update the Swift code directly. We
 think that it's possible to provide an API to allow this, probably using
-[`SwiftSyntax`](https://github.com/apple/swift/tree/master/tools/SwiftSyntax).
+[`SwiftSyntax`](https://github.com/swiftlang/swift-syntax).
 
 Thread: N/A
 Bug: N/A
