@@ -293,8 +293,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
             observabilityScope: observer.topScope
         )
         try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
-                           [.anySequence, "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf"]
-        )
+                           [.anySequence, "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf"])
 
         /* -debug-info-format codeview */
         let explicitCodeViewOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "codeview"])
@@ -308,8 +307,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
             observabilityScope: observer.topScope
         )
         try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
-                           [.anySequence, "-g", "-debug-info-format=codeview", "-Xlinker", "-debug"]
-        )
+                           [.anySequence, "-g", "-debug-info-format=codeview", "-Xlinker", "-debug"])
 
         // Explicitly pass Linux as when the `SwiftCommandState` tests are enabled on
         // Windows, this would fail otherwise as CodeView is supported on the
@@ -428,7 +426,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
             targetArPath.pathString,
         ])
 
-        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath] {
+        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath,] {
             try fs.updatePermissions(path, isExecutable: true)
         }
 
@@ -473,10 +471,10 @@ final class SwiftCommandStateTests: CommandsTestCase {
             hostArPath.pathString,
             targetSwiftcPath.pathString,
             targetArPath.pathString,
-            targetClangPath.pathString
+            targetClangPath.pathString,
         ])
 
-        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath, targetClangPath] {
+        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath, targetClangPath,] {
             try fs.updatePermissions(path, isExecutable: true)
         }
 

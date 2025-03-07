@@ -108,7 +108,7 @@ struct CardStack {
                     push(card)
                     needsToClearScreen = true
                     break askForLine
-                case .pop(let error):
+                case let .pop(error):
                     cards.removeLast()
                     if let error {
                         self.swiftCommandState.observabilityScope.emit(error)

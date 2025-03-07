@@ -376,11 +376,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 if let missedDependency = importedTargetsMissingDependency.first {
                     switch checkingMode {
                     case .error:
-                        self.observabilityScope.emit(error: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
+                    self.observabilityScope.emit(error: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
                     case .warn:
-                        self.observabilityScope.emit(warning: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
+                    self.observabilityScope.emit(warning: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
                     case .none:
-                        fatalError("Explicit import checking is disabled.")
+                    fatalError("Explicit import checking is disabled.")
                     }
                 }
             } catch {
@@ -492,10 +492,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             pluginsToCompile = allPlugins
             continueBuilding = true
         case .product(let productName, _):
-            pluginsToCompile = allPlugins.filter { $0.productNames.contains(productName) }
+            pluginsToCompile = allPlugins.filter{ $0.productNames.contains(productName) }
             continueBuilding = pluginsToCompile.isEmpty
         case .target(let targetName, _):
-            pluginsToCompile = allPlugins.filter { $0.moduleName == targetName }
+            pluginsToCompile = allPlugins.filter{ $0.moduleName == targetName }
             continueBuilding = pluginsToCompile.isEmpty
         }
 

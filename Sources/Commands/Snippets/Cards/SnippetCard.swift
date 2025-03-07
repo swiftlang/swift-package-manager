@@ -58,7 +58,13 @@ struct SnippetCard: Card {
             }.terminalString()
 
         if !snippet.explanation.isEmpty {
-            rendered += brightBlack {
+            rendered += isColorized ? brightBlack {
+                snippet.explanation
+                    .split(separator: "\n", omittingEmptySubsequences: false)
+                    .map { "// " + $0 }
+                    .joined(separator: "\n")
+            }.terminalString()
+            : plain {
                 snippet.explanation
                     .split(separator: "\n", omittingEmptySubsequences: false)
                     .map { "// " + $0 }

@@ -68,10 +68,10 @@ final class RedrawingPercentProgressAnimation: ProgressAnimationProtocol {
 
         let width = terminal.width
 
-        if !self.hasDisplayedHeader {
-            let spaceCount = width / 2 - self.header.utf8.count / 2
-            terminal.write(self.repeating(string: " ", count: spaceCount))
-            terminal.write(self.header, inColor: self.colorizeText(color: .green), bold: isBold)
+        if !hasDisplayedHeader {
+            let spaceCount = width / 2 - header.utf8.count / 2
+            terminal.write(repeating(string: " ", count: spaceCount))
+            terminal.write(header, inColor: colorizeText(color: .green), bold: isBold)
             terminal.endLine()
             hasDisplayedHeader = true
         } else {
@@ -137,8 +137,8 @@ final class MultiLinePercentProgressAnimation: ProgressAnimationProtocol {
     func update(step: Int, total: Int, text: String) {
         assert(step <= total)
 
-        if !hasDisplayedHeader, !self.header.isEmpty {
-            stream.send(self.header)
+        if !hasDisplayedHeader, !header.isEmpty {
+            stream.send(header)
             stream.send("\n")
             stream.flush()
             hasDisplayedHeader = true

@@ -863,7 +863,7 @@ struct UnitTest {
 
     /// The specifier argument which can be passed to XCTest.
     var specifier: String {
-        return testCase + "/" + self.name
+        return testCase + "/" + name
     }
 }
 
@@ -902,9 +902,9 @@ final class TestRunner {
 
 #if os(macOS)
         return ["-XCTest", testSpecifier]
-    #else
+#else
         return [testSpecifier]
-    #endif
+#endif
     }
 
     /// Creates an instance of TestRunner.
@@ -978,10 +978,10 @@ final class TestRunner {
             }
             args += self.additionalArguments
             args += [testPath.pathString]
-#else
+    #else
             args += [testPath.pathString]
             args += self.additionalArguments
-#endif
+    #endif
         }
 
         if library == .swiftTesting {
@@ -1360,7 +1360,7 @@ fileprivate extension Array where Element == UnitTest {
         case .skip(let skippedTests):
             var result = self
             for skippedTest in skippedTests {
-                result = result.filter {
+                result = result.filter{
                     $0.specifier.range(of: skippedTest, options: .regularExpression) == nil
                 }
             }

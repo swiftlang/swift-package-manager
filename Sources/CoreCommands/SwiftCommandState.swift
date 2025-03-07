@@ -207,9 +207,10 @@ public final class SwiftCommandState {
         let packages: [AbsolutePath]
         
         if let workspace = options.locations.multirootPackageDataFile {
-            packages = try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope).load(workspace: workspace)
+            packages = try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope)
+                .load(workspace: workspace)
         } else {
-            packages = [try self.getPackageRoot()]
+            packages = [try getPackageRoot()]
         }
 
         return PackageGraphRootInput(packages: packages)
@@ -469,7 +470,7 @@ public final class SwiftCommandState {
                 fingerprintCheckingMode: self.options.security.fingerprintCheckingMode,
                 signingEntityCheckingMode: self.options.security.signingEntityCheckingMode,
                 skipSignatureValidation: !self.options.security.signatureValidation,
-                sourceControlToRegistryDependencyTransformation: self.options.resolver .sourceControlToRegistryDependencyTransformation.workspaceConfiguration,
+                sourceControlToRegistryDependencyTransformation: self.options.resolver.sourceControlToRegistryDependencyTransformation.workspaceConfiguration,
                 defaultRegistry: self.options.resolver.defaultRegistryURL.flatMap {
                     // TODO: should supportsAvailability be a flag as well?
                     .init(url: $0, supportsAvailability: true)
@@ -490,7 +491,7 @@ public final class SwiftCommandState {
 
     public func getRootPackageInformation() async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
         let workspace = try self.getActiveWorkspace()
-        let root = try self.getWorkspaceRoot()
+        let root = try getWorkspaceRoot()
         let rootManifests = try await workspace.loadRootManifests(
             packages: root.packages,
             observabilityScope: self.observabilityScope
@@ -692,7 +693,7 @@ public final class SwiftCommandState {
     }
 
     public func canUseCachedBuildManifest() throws -> Bool {
-        if !options.caching.cacheBuildManifest {
+        if !self.options.caching.cacheBuildManifest {
             return false
         }
 
@@ -804,7 +805,7 @@ public final class SwiftCommandState {
                 triple: triple,
                 shouldEnableDebuggingEntitlement:
                     options.build.getTaskAllowEntitlement ?? (options.build.configuration ?? self.preferredBuildConfiguration == .debug),
-                omitFramePointers: self.options.build.omitFramePointers
+                omitFramePointers: options.build.omitFramePointers
             ),
             driverParameters: .init(
                 canRenameEntrypointFunctionName: DriverSupport.checkSupportedFrontendFlags(
@@ -848,13 +849,13 @@ public final class SwiftCommandState {
     private lazy var _toolsBuildParameters: Result<BuildParameters, Swift.Error> = {
         Result(catching: {
             // Tools need to do a full build
-            try self._buildParams(toolchain: self.getHostToolchain(), destination: .host, prepareForIndexing: false)
+            try _buildParams(toolchain: self.getHostToolchain(), destination: .host, prepareForIndexing: false)
         })
     }()
 
     public var productsBuildParameters: BuildParameters {
         get throws {
-            try self._productsBuildParameters.get()
+            try _productsBuildParameters.get()
         }
     }
 
@@ -978,15 +979,15 @@ public final class SwiftCommandState {
     private var workspaceLock: FileLock?
 
     fileprivate func setNeedsLocking() {
-        assert(self.workspaceLockState == .unspecified, "attempting to `setNeedsLocking()` from unexpected state: \(self.workspaceLockState)")
-        self.workspaceLockState = .needsLocking
+        assert(workspaceLockState == .unspecified, "attempting to `setNeedsLocking()` from unexpected state: \(self.workspaceLockState)")
+        workspaceLockState = .needsLocking
     }
 
     fileprivate func acquireLockIfNeeded() throws {
         guard packageRoot != nil else {
             return
         }
-        assert(self.workspaceLockState == .needsLocking, "attempting to `acquireLockIfNeeded()` from unexpected state: \(self.workspaceLockState)")
+        assert(workspaceLockState == .needsLocking, "attempting to `acquireLockIfNeeded()` from unexpected state: \(workspaceLockState)")
         guard workspaceLock == nil else {
             throw InternalError("acquireLockIfNeeded() called multiple times")
         }
@@ -1016,7 +1017,7 @@ public final class SwiftCommandState {
 
     fileprivate func releaseLockIfNeeded() {
         // Never having acquired the lock is not an error case.
-        assert(self.workspaceLockState == .locked || self.workspaceLockState == .needsLocking,"attempting to `releaseLockIfNeeded()` from unexpected state: \(self.workspaceLockState)")
+        assert(workspaceLockState == .locked || workspaceLockState == .needsLocking,"attempting to `releaseLockIfNeeded()` from unexpected state: \(workspaceLockState)")
         workspaceLockState = .unlocked
 
         workspaceLock?.unlock()
