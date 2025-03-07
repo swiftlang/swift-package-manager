@@ -33,21 +33,30 @@ final class SignatureValidationTests: XCTestCase {
     )
     """
 
-    func testUnsignedPackage_shouldError() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
+    let registryURL = URL("https://packages.example.com")
+    let identity: PackageIdentity = .plain("mona.LinkedList")
+    var package: PackageIdentity.RegistryIdentity!
+    var metadataURL: URL!
+    let version = Version("1.1.1")
+    let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
+    let signingEntityStorage = MockPackageSigningEntityStorage()
+    let signingEntityCheckingMode = SigningEntityCheckingMode.strict
+    var registry: Registry!
 
+    override func setUp() {
+        super.setUp()
+        package = identity.registry!
+        metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
+        registry = Registry(url: registryURL, supportsAvailability: false)
+    }
+
+    func testUnsignedPackage_shouldError() async throws {
         // Get metadata endpoint will be called to see if package version is signed
         let handler = HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum
         )
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -59,8 +68,6 @@ final class SignatureValidationTests: XCTestCase {
             )
         )
 
-        let signingEntityStorage = MockPackageSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -95,20 +102,12 @@ final class SignatureValidationTests: XCTestCase {
     }
 
     func testUnsignedPackage_shouldWarn() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-
         // Get metadata endpoint will be called to see if package version is signed
         let handler = HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum
         )
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -119,9 +118,6 @@ final class SignatureValidationTests: XCTestCase {
                 signing: signingConfiguration
             )
         )
-
-        let signingEntityStorage = MockPackageSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -157,21 +153,12 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testUnsignedPackage_shouldPrompt() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-
-        // Get metadata endpoint will be called to see if package version is signed
+    func testUnsignedPackage_shouldPrompt() async throws {        // Get metadata endpoint will be called to see if package version is signed
         let handler = HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum
         )
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -183,8 +170,6 @@ final class SignatureValidationTests: XCTestCase {
             )
         )
 
-        let signingEntityStorage = MockPackageSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -243,12 +228,6 @@ final class SignatureValidationTests: XCTestCase {
     }
 
     func testFailedToFetchSignature_shouldError() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
             url: metadataURL,
@@ -257,7 +236,6 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         let httpClient = HTTPClient(implementation: serverErrorHandler.handle)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -269,8 +247,6 @@ final class SignatureValidationTests: XCTestCase {
             )
         )
 
-        let signingEntityStorage = MockPackageSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -303,21 +279,12 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testUnsignedArchiveAndManifest_shouldPrompt() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-
-        // Get metadata endpoint will be called to see if package version is signed
+    func testUnsignedArchiveAndManifest_shouldPrompt() async throws {        // Get metadata endpoint will be called to see if package version is signed
         let handler = HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum
         )
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -329,8 +296,6 @@ final class SignatureValidationTests: XCTestCase {
             )
         )
 
-        let signingEntityStorage = MockPackageSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -389,21 +354,12 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testUnsignedArchiveAndManifest_nonPrompt() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-
-        // Get metadata endpoint will be called to see if package version is signed
+    func testUnsignedArchiveAndManifest_nonPrompt() async throws {        // Get metadata endpoint will be called to see if package version is signed
         let handler = HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum
         )
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -415,8 +371,6 @@ final class SignatureValidationTests: XCTestCase {
             )
         )
 
-        let signingEntityStorage = MockPackageSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -454,12 +408,6 @@ final class SignatureValidationTests: XCTestCase {
     }
 
     func testFailedToFetchArchiveSignatureToValidateManifest_diagnostics() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
             url: metadataURL,
@@ -468,12 +416,9 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         let httpClient = HTTPClient(implementation: serverErrorHandler.handle)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
-        let signingEntityStorage = MockPackageSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -507,22 +452,14 @@ final class SignatureValidationTests: XCTestCase {
         testDiagnostics(observability.diagnostics, problemsOnly: false) { result in
             result.check(
                 diagnostic: .contains(
-                    "retrieval of source archive signature for \(package) \(version) from \(registry) failed"
+                    "retrieval of source archive signature for \(package!) \(version) from \(registry!) failed"
                 ),
                 severity: .debug
             )
         }
     }
 
-    func testSignedArchiveUnsignedManifest() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedArchiveUnsignedManifest() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -543,7 +480,6 @@ final class SignatureValidationTests: XCTestCase {
             signatureFormat: signatureFormat
         )
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -555,8 +491,6 @@ final class SignatureValidationTests: XCTestCase {
             )
         )
 
-        let signingEntityStorage = MockPackageSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -591,15 +525,7 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedArchiveUnknownManifestSignatureFormat() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedArchiveUnknownManifestSignatureFormat() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -630,7 +556,6 @@ final class SignatureValidationTests: XCTestCase {
             signatureFormat: signatureFormat
         )
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -642,8 +567,6 @@ final class SignatureValidationTests: XCTestCase {
             )
         )
 
-        let signingEntityStorage = MockPackageSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -677,15 +600,7 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedArchiveMalformedManifestSignature() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedArchiveMalformedManifestSignature() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -711,7 +626,6 @@ final class SignatureValidationTests: XCTestCase {
             signatureFormat: signatureFormat
         )
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -723,8 +637,6 @@ final class SignatureValidationTests: XCTestCase {
             )
         )
 
-        let signingEntityStorage = MockPackageSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -760,15 +672,7 @@ final class SignatureValidationTests: XCTestCase {
     }
 
     #if swift(>=5.5.2)
-    func testSignedPackage_validSignature() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedPackage_validSignature() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -789,7 +693,6 @@ final class SignatureValidationTests: XCTestCase {
             signatureFormat: signatureFormat
         )
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -816,8 +719,7 @@ final class SignatureValidationTests: XCTestCase {
                 )
             )
 
-            let signingEntityStorage = MockPackageSigningEntityStorage()
-            let signingEntityCheckingMode = SigningEntityCheckingMode.strict
+
 
             let registryClient = makeRegistryClient(
                 configuration: configuration,
@@ -845,15 +747,7 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedPackage_badSignature() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-
-        let signatureBytes = Array("bad signature".utf8)
+    func testSignedPackage_badSignature() async throws {        let signatureBytes = Array("bad signature".utf8)
         let signatureFormat = SignatureFormat.cms_1_0_0
 
         // Get metadata endpoint will be called to see if package version is signed
@@ -864,7 +758,6 @@ final class SignatureValidationTests: XCTestCase {
             signatureFormat: signatureFormat
         )
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -874,8 +767,6 @@ final class SignatureValidationTests: XCTestCase {
             )
         )
 
-        let signingEntityStorage = MockPackageSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -909,18 +800,12 @@ final class SignatureValidationTests: XCTestCase {
     }
 
     func testSignedPackage_badSignature_skipSignatureValidation() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-
         // Get metadata endpoint will be called to see if package version is signed
         let handler: HTTPClient.Implementation = { _, _ in
             throw StringError("unexpected request")
         }
 
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -930,8 +815,6 @@ final class SignatureValidationTests: XCTestCase {
             )
         )
 
-        let signingEntityStorage = MockPackageSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -959,15 +842,7 @@ final class SignatureValidationTests: XCTestCase {
         )
     }
 
-    func testSignedPackage_invalidSignature() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedPackage_invalidSignature() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -988,7 +863,6 @@ final class SignatureValidationTests: XCTestCase {
             signatureFormat: signatureFormat
         )
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -1015,8 +889,7 @@ final class SignatureValidationTests: XCTestCase {
                 )
             )
 
-            let signingEntityStorage = MockPackageSigningEntityStorage()
-            let signingEntityCheckingMode = SigningEntityCheckingMode.strict
+
 
             let registryClient = makeRegistryClient(
                 configuration: configuration,
@@ -1050,15 +923,7 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedPackage_certificateNotTrusted_shouldError() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedPackage_certificateNotTrusted_shouldError() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1079,7 +944,7 @@ final class SignatureValidationTests: XCTestCase {
             signatureFormat: signatureFormat
         )
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
+
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -1098,8 +963,6 @@ final class SignatureValidationTests: XCTestCase {
             )
         )
 
-        let signingEntityStorage = MockPackageSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -1132,15 +995,7 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedPackage_certificateNotTrusted_shouldPrompt() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedPackage_certificateNotTrusted_shouldPrompt() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1161,7 +1016,6 @@ final class SignatureValidationTests: XCTestCase {
             signatureFormat: signatureFormat
         )
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -1180,8 +1034,6 @@ final class SignatureValidationTests: XCTestCase {
             )
         )
 
-        let signingEntityStorage = MockPackageSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -1238,15 +1090,7 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedPackage_certificateNotTrusted_shouldWarn() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedPackage_certificateNotTrusted_shouldWarn() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1267,7 +1111,6 @@ final class SignatureValidationTests: XCTestCase {
             signatureFormat: signatureFormat
         )
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -1286,8 +1129,6 @@ final class SignatureValidationTests: XCTestCase {
             )
         )
 
-        let signingEntityStorage = MockPackageSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -1322,15 +1163,7 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedManifest_validSignature() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedManifest_validSignature() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1361,7 +1194,6 @@ final class SignatureValidationTests: XCTestCase {
             signatureFormat: signatureFormat
         )
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -1388,8 +1220,7 @@ final class SignatureValidationTests: XCTestCase {
                 )
             )
 
-            let signingEntityStorage = MockPackageSigningEntityStorage()
-            let signingEntityCheckingMode = SigningEntityCheckingMode.strict
+
 
             let registryClient = makeRegistryClient(
                 configuration: configuration,
@@ -1418,15 +1249,7 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedManifest_badSignature() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedManifest_badSignature() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1452,7 +1275,6 @@ final class SignatureValidationTests: XCTestCase {
             signatureFormat: signatureFormat
         )
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -1462,8 +1284,6 @@ final class SignatureValidationTests: XCTestCase {
             )
         )
 
-        let signingEntityStorage = MockPackageSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -1497,15 +1317,7 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedManifest_badSignature_skipSignatureValidation() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedManifest_badSignature_skipSignatureValidation() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1531,7 +1343,6 @@ final class SignatureValidationTests: XCTestCase {
             signatureFormat: signatureFormat
         )
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -1541,8 +1352,6 @@ final class SignatureValidationTests: XCTestCase {
             )
         )
 
-        let signingEntityStorage = MockPackageSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -1571,15 +1380,7 @@ final class SignatureValidationTests: XCTestCase {
         )
     }
 
-    func testSignedManifest_invalidSignature() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedManifest_invalidSignature() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1610,7 +1411,6 @@ final class SignatureValidationTests: XCTestCase {
             signatureFormat: signatureFormat
         )
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -1637,8 +1437,7 @@ final class SignatureValidationTests: XCTestCase {
                 )
             )
 
-            let signingEntityStorage = MockPackageSigningEntityStorage()
-            let signingEntityCheckingMode = SigningEntityCheckingMode.strict
+
 
             let registryClient = makeRegistryClient(
                 configuration: configuration,
@@ -1673,15 +1472,7 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedManifest_certificateNotTrusted_shouldPrompt() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedManifest_certificateNotTrusted_shouldPrompt() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1712,7 +1503,6 @@ final class SignatureValidationTests: XCTestCase {
             signatureFormat: signatureFormat
         )
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -1731,8 +1521,6 @@ final class SignatureValidationTests: XCTestCase {
             )
         )
 
-        let signingEntityStorage = MockPackageSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -1791,15 +1579,7 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedManifest_certificateNotTrusted_nonPrompt() async throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedManifest_certificateNotTrusted_nonPrompt() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1830,7 +1610,6 @@ final class SignatureValidationTests: XCTestCase {
             signatureFormat: signatureFormat
         )
         let httpClient = HTTPClient(implementation: handler)
-        let registry = Registry(url: registryURL, supportsAvailability: false)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
@@ -1849,8 +1628,6 @@ final class SignatureValidationTests: XCTestCase {
             )
         )
 
-        let signingEntityStorage = MockPackageSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -1884,6 +1661,80 @@ final class SignatureValidationTests: XCTestCase {
         testDiagnostics(observability.diagnostics, problemsOnly: false) { result in
             let diagnostics = result.check(diagnostic: .contains("not trusted"), severity: .debug)
             XCTAssertEqual(diagnostics?.metadata?.packageIdentity, package.underlying)
+        }
+    }
+
+    func testSignedManifest_emptyResources() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+        let signingIdentity = try SwiftSigningIdentity(
+            derEncodedCertificate: keyAndCertChain.leafCertificate,
+            derEncodedPrivateKey: keyAndCertChain.privateKey,
+            privateKeyType: .p256
+        )
+        let signatureFormat = SignatureFormat.cms_1_0_0
+        let signatureBytes = try self.sign(
+            content: emptyZipFile.contents,
+            signingIdentity: signingIdentity,
+            format: signatureFormat
+        )
+
+        // Get metadata endpoint will be called to see if package version is signed
+        let handler = HTTPClient.packageReleaseMetadataAPIHandler(
+            metadataURL: metadataURL,
+            checksum: checksum,
+            signatureBytes: signatureBytes,
+            signatureFormat: signatureFormat,
+            includeResouces: false
+        )
+        let httpClient = HTTPClient(implementation: handler)
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = registry
+
+        var signingConfiguration = RegistryConfiguration.Security.Signing()
+        signingConfiguration.onUnsigned = .error // intended for this test; don't change
+        configuration.security = RegistryConfiguration.Security(
+            default: RegistryConfiguration.Security.Global(
+                signing: signingConfiguration
+            )
+        )
+
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode
+        )
+
+        let signatureValidation = SignatureValidation(
+            skipSignatureValidation: false,
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode,
+            versionMetadataProvider: registryClient.getPackageVersionMetadata,
+            delegate: RejectingSignatureValidationDelegate()
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        // Archive is signed, but manifest is not signed
+        let entity = try await signatureValidation.validate(
+            registry: registry,
+            package: package,
+            version: version,
+            toolsVersion: ToolsVersion.v5_7,
+            manifestContent: Self.unsignedManifest,
+            configuration: configuration.signing(for: package, registry: registry),
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNil(entity, "Expected no signing entity")
+
+        let manifestName = "Package@swift-\(ToolsVersion.v5_7).swift"
+        testDiagnostics(observability.diagnostics, problemsOnly: false) { result in
+            result.check(
+                diagnostic: .contains(
+                    "cannot determine if \(manifestName) should be signed because source archive for \(package!) \(version) is not found in \(registry!)"
+                ),
+                severity: .debug
+            )
         }
     }
     #endif
@@ -2080,7 +1931,8 @@ extension HTTPClient {
         metadataURL: URL,
         checksum: String,
         signatureBytes: [UInt8],
-        signatureFormat: SignatureFormat
+        signatureFormat: SignatureFormat,
+        includeResouces: Bool = true
     ) -> HTTPClient.Implementation {
         { request, _ in
             switch (request.method, request.url) {
@@ -2092,6 +1944,7 @@ extension HTTPClient {
                     "id": "mona.LinkedList",
                     "version": "1.1.1",
                     "resources": [
+                        \(includeResouces ? """
                         {
                             "name": "source-archive",
                             "type": "application/zip",
@@ -2101,6 +1954,7 @@ extension HTTPClient {
                                 "signatureFormat": "\(signatureFormat.rawValue)"
                             }
                         }
+                        """ : "")
                     ],
                     "metadata": {
                         "description": "One thing links to another."
