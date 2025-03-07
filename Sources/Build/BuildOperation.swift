@@ -188,7 +188,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     public var builtTestProducts: [BuiltTestProduct] {
         get async {
-            (try? await self.getBuildDescription())?.builtTestProducts ?? []
+            (try? await getBuildDescription())?.builtTestProducts ?? []
         }
     }
 
@@ -624,7 +624,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             if product.type == .library(.automatic) {
                 observabilityScope.emit(
                     warning:
-                    "'--product' cannot be used with the automatic product '\(productName)'; building the default target instead"
+                        "'--product' cannot be used with the automatic product '\(productName)'; building the default target instead"
                 )
                 return LLBuildManifestBuilder.TargetKind.main.targetName
             }
@@ -700,8 +700,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // once we know what files they handled.
         // rdar://113256834 This fix works for the plugins that do not have PreBuildCommands.
         let targetsToConsider: [ResolvedModule]
-        if let subset, let recursiveDependencies = try
-            subset.recursiveDependencies(for: plan.graph, observabilityScope: observabilityScope){
+        if let subset = subset, let recursiveDependencies = try
+            subset.recursiveDependencies(for: plan.graph, observabilityScope: observabilityScope) {
             targetsToConsider = recursiveDependencies
         } else {
             targetsToConsider = Array(plan.graph.reachableModules)
@@ -864,9 +864,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     public func packageStructureChanged() async -> Bool {
         do {
             _ = try await self.generateDescription()
-        } catch Diagnostics.fatalError {
+        }
+        catch Diagnostics.fatalError {
             return false
-        } catch {
+        }
+        catch {
             self.observabilityScope.emit(error)
             return false
         }

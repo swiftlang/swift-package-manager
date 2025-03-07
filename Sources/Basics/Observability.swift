@@ -531,7 +531,7 @@ public struct ObservabilityMetadata: Sendable, CustomDebugStringConvertible {
         self.forEach { key, value in
             merged._storage[key] = value
         }
-        self.forEach {key, value in
+        other.forEach {key, value in
             merged._storage[key] = value
         }
         return merged
@@ -539,7 +539,7 @@ public struct ObservabilityMetadata: Sendable, CustomDebugStringConvertible {
 
     public var debugDescription: String {
         var items = [String]()
-        for (key, value) in self._storage {
+        self._storage.forEach { key, value in
             items.append("\(key.keyType.self): \(String(describing: value))")
         }
         return items.joined(separator: ", ")

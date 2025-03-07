@@ -30,7 +30,7 @@ struct SnippetGroupCard: Card {
             """
     }
 
-    func acceptLineInput<S>(_ line: S) -> CardEvent? where S : StringProtocol{
+    func acceptLineInput<S>(_ line: S) -> CardEvent? where S : StringProtocol {
         if line.isEmpty || line.allSatisfy({ $0.isWhitespace }) {
             return .pop()
         }
@@ -41,7 +41,7 @@ struct SnippetGroupCard: Card {
            snippetGroup.snippets.indices.contains(index) {
             return .push(SnippetCard(snippet: snippetGroup.snippets[index], number: index, swiftCommandState: swiftCommandState))
         } else if let foundSnippetIndex = snippetGroup.snippets.firstIndex(where: { $0.name == line }) {
-            return .push(SnippetCard(snippet: self.snippetGroup.snippets[foundSnippetIndex], number: foundSnippetIndex, swiftCommandState: self.swiftCommandState))
+            return .push(SnippetCard(snippet: snippetGroup.snippets[foundSnippetIndex], number: foundSnippetIndex, swiftCommandState: swiftCommandState))
         } else {
             print(red { "There is not a snippet by that name or index." })
             return nil
@@ -54,25 +54,25 @@ struct SnippetGroupCard: Card {
 
         var rendered = isColorized ? brightYellow {
             """
-            # \(self.snippetGroup.name)
+            # \(snippetGroup.name)
 
 
             """
         }.terminalString() :
             plain {
                 """
-                # \(self.snippetGroup.name)
+                # \(snippetGroup.name)
 
 
                 """
             }.terminalString()
 
-        if !self.snippetGroup.explanation.isEmpty {
-            rendered += self.snippetGroup.explanation
+        if !snippetGroup.explanation.isEmpty {
+            rendered += snippetGroup.explanation
         }
 
         rendered += "\n"
-        rendered += self.snippetGroup.snippets
+        rendered += snippetGroup.snippets
             .enumerated()
             .map { pair -> String in
                 let (number, snippet) = pair

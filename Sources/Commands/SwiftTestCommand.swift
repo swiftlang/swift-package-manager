@@ -158,7 +158,7 @@ struct TestCommandOptions: ParsableArguments {
     var _deprecated_shouldListTests: Bool = false
 
     /// If the path of the exported code coverage JSON should be printed.
-    @Flag(name: [.customLong("show-codecov-path"),.customLong("show-code-coverage-path"),.customLong("show-coverage-path")],
+    @Flag(name: [.customLong("show-codecov-path"), .customLong("show-code-coverage-path"), .customLong("show-coverage-path")],
           help: "Print the path of the exported code coverage JSON file")
     var shouldPrintCodeCovPath: Bool = false
 
@@ -391,7 +391,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
         case .regex, .specific, .skip:
             // If old specifier `-s` option was used, emit deprecation notice.
-            if case .specific = self.options.testCaseSpecifier {
+            if case .specific = options.testCaseSpecifier {
                 swiftCommandState.observabilityScope.emit(warning: "'--specifier' option is deprecated; use '--filter' instead")
             }
 
@@ -591,11 +591,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         for product in testProducts {
             // Export the codecov data as JSON.
             let jsonPath = productsBuildParameters.codeCovAsJSONPath(packageName: rootManifest.displayName)
-            try await exportCodeCovAsJSON(
-                to: jsonPath,
-                testBinary: product.binaryPath,
-                swiftCommandState: swiftCommandState
-            )
+            try await exportCodeCovAsJSON(to: jsonPath, testBinary: product.binaryPath, swiftCommandState: swiftCommandState)
         }
     }
 
@@ -751,7 +747,7 @@ extension SwiftTestCommand {
                 try await self.runCommand(swiftCommandState)
             } catch let error as FileSystemError {
                 if sharedOptions.shouldSkipBuilding {
-                    throw ErrorWithContext(error,"""
+                    throw ErrorWithContext(error, """
                         Test build artifacts were not found in the build folder.
                         The `--skip-build` flag was provided; either build the tests first with \
                         `swift build --build tests` or rerun the `swift test list` command without \
@@ -800,7 +796,7 @@ extension SwiftTestCommand {
 
             if testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState) {
                 lazy var testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first
-                if self.testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) || testEntryPointPath == nil {
+                if testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) || testEntryPointPath == nil {
                     let additionalArguments = ["--list-tests"] + CommandLine.arguments.dropFirst()
                     let runner = TestRunner(
                         bundlePaths: testProducts.map(\.binaryPath),
@@ -867,7 +863,7 @@ struct UnitTest {
 
     /// The specifier argument which can be passed to XCTest.
     var specifier: String {
-        self.testCase + "/" + self.name
+        return testCase + "/" + self.name
     }
 }
 
@@ -896,7 +892,7 @@ final class TestRunner {
     private let library: TestingLibrary
 
     /// Get the arguments used on this platform to pass test specifiers to XCTest.
-    static func xctestArguments<S>(forTestSpecifiers testSpecifiers: S) -> [String] where S: Collection, S.Element == String{
+    static func xctestArguments<S>(forTestSpecifiers testSpecifiers: S) -> [String] where S: Collection, S.Element == String {
         let testSpecifier: String
         if testSpecifiers.isEmpty {
             testSpecifier = "''"
@@ -906,9 +902,9 @@ final class TestRunner {
 
 #if os(macOS)
         return ["-XCTest", testSpecifier]
-#else
+    #else
         return [testSpecifier]
-#endif
+    #endif
     }
 
     /// Creates an instance of TestRunner.
@@ -1010,7 +1006,7 @@ final class TestRunner {
                 stdout: outputHandler,
                 stderr: outputHandler
             )
-            let process = try AsyncProcess(arguments: args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection)
+            let process = AsyncProcess(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection)
             guard let terminationKey = self.cancellator.register(process) else {
                 return .failure // terminating
             }
@@ -1037,7 +1033,7 @@ final class TestRunner {
     }
 }
 
-extension Collection where Element == TestRunner.Result{
+extension Collection where Element == TestRunner.Result {
     /// Reduce all results in this collection into a single result.
     func reduce() -> Element {
         if contains(.failure) {
@@ -1187,7 +1183,7 @@ final class ParallelTestRunner {
                     var output = ""
                     let outputLock = NSLock()
                     let start = DispatchTime.now()
-                    let result = testRunner.test(outputHandler: { _output in outputLock.withLock { output += _output }})
+                    let result = testRunner.test(outputHandler: { _output in outputLock.withLock{ output += _output }})
                     let duration = start.distance(to: .now())
                     if result == .failure {
                         self.ranSuccessfully = false
@@ -1216,7 +1212,7 @@ final class ParallelTestRunner {
 
             // We can't enqueue a sentinel into finished tests queue because we won't know
             // which test is last one so exit this when all the tests have finished running.
-            if self.numCurrentTest == numTests {
+            if numCurrentTest == numTests {
                 break
             }
         }
@@ -1301,14 +1297,12 @@ struct TestSuite {
             let testCases: [TestSuite.TestCase] = try allTestsData.map({ testCase in
                 guard case let .dictionary(testCaseData) = testCase,
                       case let .string(name)? = testCaseData["name"],
-                      case let .array(tests)? = testCaseData["tests"]
-                else {
+                      case let .array(tests)? = testCaseData["tests"] else {
                     throw TestError.invalidListTestJSONData(context: context)
                 }
                 let testMethods: [String] = try tests.map({ test in
                     guard case let .dictionary(testData) = test,
-                          case let .string(testMethod)? = testData["name"]
-                    else {
+                          case let .string(testMethod)? = testData["name"] else {
                         throw TestError.invalidListTestJSONData(context: context)
                     }
                     return testMethod
@@ -1350,7 +1344,7 @@ fileprivate extension Dictionary where Key == AbsolutePath, Value == [TestSuite]
                 }
             })
         case .specific(let name):
-            return allTests.filter { $0.specifier == name }
+            return allTests.filter{ $0.specifier == name }
         case .skip:
             throw InternalError("Tests to skip should never have been passed here.")
         }
@@ -1409,7 +1403,7 @@ final class XUnitGenerator {
         // We need better output reporting from XCTest.
         content +=
             """
-            <testsuite name="TestResults" errors="0" tests="\(self.results.count)" failures="\(failures)" time="\(duration)">
+            <testsuite name="TestResults" errors="0" tests="\(results.count)" failures="\(failures)" time="\(duration)">
 
             """
 

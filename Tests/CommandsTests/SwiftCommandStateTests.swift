@@ -292,7 +292,8 @@ final class SwiftCommandStateTests: CommandsTestCase {
             fileSystem: fs,
             observabilityScope: observer.topScope
         )
-        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [], [.anySequence, "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf"]
+        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
+                           [.anySequence, "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf"]
         )
 
         /* -debug-info-format codeview */
@@ -306,7 +307,8 @@ final class SwiftCommandStateTests: CommandsTestCase {
             fileSystem: fs,
             observabilityScope: observer.topScope
         )
-        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [], [.anySequence, "-g", "-debug-info-format=codeview", "-Xlinker", "-debug"]
+        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
+                           [.anySequence, "-g", "-debug-info-format=codeview", "-Xlinker", "-debug"]
         )
 
         // Explicitly pass Linux as when the `SwiftCommandState` tests are enabled on
@@ -329,15 +331,11 @@ final class SwiftCommandStateTests: CommandsTestCase {
             fileSystem: fs,
             observabilityScope: observer.topScope
         )
-        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [], [.anySequence, "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf"])
+        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
+                           [.anySequence, "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf"])
 
         /* -debug-info-format none */
-        let explicitNoDebugInfoOptions = try GlobalOptions.parse([
-            "--triple",
-            "x86_64-unknown-windows-msvc",
-            "-debug-info-format",
-            "none",
-        ])
+        let explicitNoDebugInfoOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "none"])
         let explicitNoDebugInfo = try SwiftCommandState.makeMockState(options: explicitNoDebugInfoOptions)
         plan = try await BuildPlan(
             destinationBuildParameters: explicitNoDebugInfo.productsBuildParameters,
@@ -346,7 +344,8 @@ final class SwiftCommandStateTests: CommandsTestCase {
             fileSystem: fs,
             observabilityScope: observer.topScope
         )
-        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [], [.anySequence, "-gnone", .anySequence])
+        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
+                           [.anySequence, "-gnone", .anySequence])
     }
 
     func testToolchainOption() async throws {

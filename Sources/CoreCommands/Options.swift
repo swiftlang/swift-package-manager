@@ -601,8 +601,7 @@ public struct TestLibraryOptions: ParsableArguments {
     /// have the correct default value if the user didn't specify one.
     @Flag(name: .customLong("xctest"),
           inversion: .prefixedEnableDisable,
-          help: "Enable support for XCTest"
-    )
+          help: "Enable support for XCTest")
     public var explicitlyEnableXCTestSupport: Bool?
 
     /// Whether to enable support for Swift Testing (as explicitly specified by the user.)

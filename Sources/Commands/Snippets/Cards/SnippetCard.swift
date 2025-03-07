@@ -77,7 +77,7 @@ struct SnippetCard: Card {
         return "\nRun this snippet? [R: run, or press Enter to return]"
     }
 
-    func acceptLineInput<S>(_ line: S) async -> CardEvent? where S : StringProtocol{
+    func acceptLineInput<S>(_ line: S) async -> CardEvent? where S : StringProtocol {
         let trimmed = line.drop { $0.isWhitespace }.prefix { !$0.isWhitespace }.lowercased()
         guard !trimmed.isEmpty else {
             return .pop()

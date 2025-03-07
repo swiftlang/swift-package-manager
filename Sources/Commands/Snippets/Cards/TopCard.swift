@@ -142,7 +142,7 @@ struct TopCard: Card {
         """
     }
 
-    func acceptLineInput<S>(_ line: S) -> CardEvent? where S : StringProtocol{
+    func acceptLineInput<S>(_ line: S) -> CardEvent? where S : StringProtocol {
         guard !line.isEmpty else {
             print("\u{0007}")
             return nil
@@ -151,7 +151,7 @@ struct TopCard: Card {
             return .quit()
         }
         if let index = Int(line),
-           snippetGroups.indices.contains(index){
+           snippetGroups.indices.contains(index) {
             return .push(SnippetGroupCard(snippetGroup: snippetGroups[index], swiftCommandState: swiftCommandState))
         } else if let groupByName = snippetGroups.first(where: { $0.name == line }) {
             return .push(SnippetGroupCard(snippetGroup: groupByName, swiftCommandState: swiftCommandState))
