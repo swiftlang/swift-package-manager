@@ -15492,7 +15492,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(diagnostic: .contains("dependency 'boo' is not used by any target"), severity: .warning)
             }
         }
-        workspace.checkManagedDependencies { result in
+        await workspace.checkManagedDependencies { result in
             result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
         }
     }
@@ -15573,7 +15573,7 @@ final class WorkspaceTests: XCTestCase {
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
-        workspace.checkManagedDependencies { result in
+        await workspace.checkManagedDependencies { result in
             result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
         }
     }
