@@ -83,7 +83,7 @@ public class RegistryPackageContainer: PackageContainer {
         try await self.knownVersionsCache.memoize {
             let metadata = try await self.registryClient.getPackageMetadata(
                 package: self.package.identity,
-                observabilityScope: self.observabilityScope,
+                observabilityScope: self.observabilityScope
             )
             return metadata.versions.sorted(by: >)
         }
