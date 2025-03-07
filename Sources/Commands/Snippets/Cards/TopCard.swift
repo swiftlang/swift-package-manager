@@ -33,15 +33,15 @@ struct TopCard: Card {
     }
 
     var inputPrompt: String? {
-        """
-        Choose a group by name or number.
-        To exit, enter 'q'.
-        """
+        return """
+            Choose a group by name or number.
+            To exit, enter 'q'.
+            """
     }
 
     func renderProducts() -> String {
-        let isColorized = self.swiftCommandState.options.logging.colorDiagnostics
-        let libraries = self.package.products
+        let isColorized = swiftCommandState.options.logging.colorDiagnostics
+        let libraries = package.products
             .filter {
                 guard case .library = $0.type else {
                     return false
@@ -51,7 +51,7 @@ struct TopCard: Card {
             .sorted { $0.name < $1.name }
             .map { "- \($0.name) (library)" }
 
-        let executables = self.package.products
+        let executables = package.products
             .filter { $0.type == .executable }
             .sorted { $0.name < $1.name }
             .map { "- \($0.name) (executable)" }
@@ -75,11 +75,11 @@ struct TopCard: Card {
     }
 
     func renderSnippets() -> String {
-        let isColorized = self.swiftCommandState.options.logging.colorDiagnostics
-        guard !self.snippetGroups.isEmpty else {
+        let isColorized = swiftCommandState.options.logging.colorDiagnostics
+        guard !snippetGroups.isEmpty else {
             return ""
         }
-        let snippetPreviews = self.snippetGroups.enumerated().map { pair -> String in
+        let snippetPreviews = snippetGroups.enumerated().map { pair -> String in
             let (number, snippetGroup) = pair
             let snippetNoun = snippetGroup.snippets.count > 1 ? "snippets" : "snippet"
             let heading = "\(number). \(snippetGroup.name) (\(snippetGroup.snippets.count) \(snippetNoun))"
@@ -129,20 +129,20 @@ struct TopCard: Card {
         let isColorized: Bool = self.swiftCommandState.options.logging.colorDiagnostics
         let heading = isColorized ? brightYellow {
             "# "
-            self.package.identity.description
+            package.identity.description
         } : plain {
             "# "
-            self.package.identity.description
+            package.identity.description
         }
 
         return """
         \(heading)
-        \(self.renderProducts())
-        \(self.renderSnippets())
+        \(renderProducts())
+        \(renderSnippets())
         """
     }
 
-    func acceptLineInput(_ line: some StringProtocol) -> CardEvent? {
+    func acceptLineInput<S>(_ line: S) -> CardEvent? where S : StringProtocol{
         guard !line.isEmpty else {
             print("\u{0007}")
             return nil
@@ -151,14 +151,10 @@ struct TopCard: Card {
             return .quit()
         }
         if let index = Int(line),
-           snippetGroups.indices.contains(index)
-        {
-            return .push(SnippetGroupCard(
-                snippetGroup: self.snippetGroups[index],
-                swiftCommandState: self.swiftCommandState
-            ))
+           snippetGroups.indices.contains(index){
+            return .push(SnippetGroupCard(snippetGroup: snippetGroups[index], swiftCommandState: swiftCommandState))
         } else if let groupByName = snippetGroups.first(where: { $0.name == line }) {
-            return .push(SnippetGroupCard(snippetGroup: groupByName, swiftCommandState: self.swiftCommandState))
+            return .push(SnippetGroupCard(snippetGroup: groupByName, swiftCommandState: swiftCommandState))
         } else {
             print(red { "There is not a group by that name or index." })
             return nil
@@ -166,25 +162,25 @@ struct TopCard: Card {
     }
 }
 
-extension Module.Kind {
-    fileprivate var pluralDescription: String {
+fileprivate extension Module.Kind {
+    var pluralDescription: String {
         switch self {
         case .executable:
-            "executables"
+            return "executables"
         case .library:
-            "libraries"
+            return "libraries"
         case .systemModule:
-            "system modules"
+            return "system modules"
         case .test:
-            "tests"
+            return "tests"
         case .binary:
-            "binaries"
+            return "binaries"
         case .plugin:
-            "plugins"
+            return "plugins"
         case .snippet:
-            "snippets"
+            return "snippets"
         case .macro:
-            "macros"
+            return "macros"
         }
     }
 }

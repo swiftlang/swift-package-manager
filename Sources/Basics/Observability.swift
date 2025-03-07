@@ -125,7 +125,7 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, Sendable, Cus
         if self.errorsReported {
             return true
         }
-        return self.parent?.errorsReportedInAnyScope ?? false
+        return parent?.errorsReportedInAnyScope ?? false
     }
 
     // DiagnosticsEmitterProtocol
@@ -186,7 +186,7 @@ extension DiagnosticsEmitterProtocol {
     }
 
     public func emit(error message: String, metadata: ObservabilityMetadata? = .none, underlyingError: Error? = .none) {
-        let message = self.makeMessage(from: message, underlyingError: underlyingError)
+        let message = makeMessage(from: message, underlyingError: underlyingError)
         self.emit(.init(severity: .error, message: message, metadata: metadata))
     }
 
@@ -207,7 +207,7 @@ extension DiagnosticsEmitterProtocol {
         metadata: ObservabilityMetadata? = .none,
         underlyingError: Error? = .none
     ) {
-        let message = self.makeMessage(from: message, underlyingError: underlyingError)
+        let message = makeMessage(from: message, underlyingError: underlyingError)
         self.emit(severity: .warning, message: message, metadata: metadata)
     }
 
@@ -220,7 +220,7 @@ extension DiagnosticsEmitterProtocol {
     }
 
     public func emit(info message: String, metadata: ObservabilityMetadata? = .none, underlyingError: Error? = .none) {
-        let message = self.makeMessage(from: message, underlyingError: underlyingError)
+        let message = makeMessage(from: message, underlyingError: underlyingError)
         self.emit(severity: .info, message: message, metadata: metadata)
     }
 
@@ -233,7 +233,7 @@ extension DiagnosticsEmitterProtocol {
     }
 
     public func emit(debug message: String, metadata: ObservabilityMetadata? = .none, underlyingError: Error? = .none) {
-        let message = self.makeMessage(from: message, underlyingError: underlyingError)
+        let message = makeMessage(from: message, underlyingError: underlyingError)
         self.emit(severity: .debug, message: message, metadata: metadata)
     }
 
@@ -303,9 +303,9 @@ extension DiagnosticsEmitterProtocol {
     /// otherwise `message` itself is returned.
     private func makeMessage(from message: String, underlyingError: Error?) -> String {
         if let underlyingError {
-            "\(message): \(underlyingError.interpolationDescription)"
+            return "\(message): \(underlyingError.interpolationDescription)"
         } else {
-            message
+            return message
         }
     }
 }
@@ -360,13 +360,13 @@ public struct Diagnostic: Sendable, CustomStringConvertible {
         let message: String
             // FIXME: this brings in the TSC API still
             // FIXME: string interpolation seems brittle
-            = if let diagnosticData = error as? DiagnosticData
+        if let diagnosticData = error as? DiagnosticData
         {
-            "\(diagnosticData)"
+            message = "\(diagnosticData)"
         } else if let convertible = error as? DiagnosticDataConvertible {
-            "\(convertible.diagnosticData)"
+            message = "\(convertible.diagnosticData)"
         } else {
-            error.interpolationDescription
+            message = error.interpolationDescription
         }
 
         return Self(severity: .error, message: message, metadata: metadata)
@@ -405,13 +405,13 @@ public struct Diagnostic: Sendable, CustomStringConvertible {
         var naturalIntegralValue: Int {
             switch self {
             case .debug:
-                0
+                return 0
             case .info:
-                1
+                return 1
             case .warning:
-                2
+                return 2
             case .error:
-                3
+                return 3
             }
         }
 
@@ -425,31 +425,31 @@ public struct Diagnostic: Sendable, CustomStringConvertible {
         public var logLabel: String {
             switch self {
             case .debug:
-                "debug: "
+                return "debug: "
             case .info:
-                "info: "
+                return "info: "
             case .warning:
-                "warning: "
+                return "warning: "
             case .error:
-                "error: "
+                return "error: "
             }
         }
 
         public var color: TerminalController.Color {
             switch self {
             case .debug:
-                .white
+                return .white
             case .info:
-                .white
+                return .white
             case .error:
-                .red
+                return .red
             case .warning:
-                .yellow
+                return .yellow
             }
         }
 
         public var isBold: Bool {
-            true
+            return true
         }
     }
 }
@@ -528,10 +528,10 @@ public struct ObservabilityMetadata: Sendable, CustomDebugStringConvertible {
 
     public func merging(_ other: ObservabilityMetadata) -> ObservabilityMetadata {
         var merged = ObservabilityMetadata()
-        for (key, value) in self {
+        self.forEach { key, value in
             merged._storage[key] = value
         }
-        for (key, value) in other {
+        self.forEach {key, value in
             merged._storage[key] = value
         }
         return merged
@@ -571,13 +571,13 @@ public struct ObservabilityMetadata: Sendable, CustomDebugStringConvertible {
     ) -> ObservabilityMetadata? {
         switch (lhs, rhs) {
         case (.none, .none):
-            .none
+            return .none
         case (.some(let left), .some(let right)):
-            left.merging(right)
+            return left.merging(right)
         case (.some(let left), .none):
-            left
+            return left
         case (.none, .some(let right)):
-            right
+            return right
         }
     }
 
@@ -587,7 +587,7 @@ public struct ObservabilityMetadata: Sendable, CustomDebugStringConvertible {
         /// The key's type represented erased to an `Any.Type`.
         public let keyType: Any.Type
 
-        init(_ keyType: (some ObservabilityMetadataKey).Type) {
+        init<Key: ObservabilityMetadataKey>(_ keyType: Key.Type) {
             self.keyType = keyType
         }
     }

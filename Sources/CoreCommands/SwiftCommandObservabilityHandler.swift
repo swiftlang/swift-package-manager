@@ -73,7 +73,7 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
 
     struct OutputHandler {
         private let logLevel: Diagnostic.Severity
-        let outputStream: ThreadSafeOutputByteStream
+        internal let outputStream: ThreadSafeOutputByteStream
         private let writer: InteractiveWriter
         private let progressAnimation: ProgressAnimationProtocol
         private let colorDiagnostics: Bool
@@ -195,16 +195,16 @@ private struct InteractiveWriter {
         if let term {
             term.write(string, inColor: color, bold: bold)
         } else {
-            string.write(to: self.stream)
-            self.stream.flush()
+            string.write(to: stream)
+            stream.flush()
         }
     }
 
     func format(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) -> String {
         if let term {
-            term.wrap(string, inColor: color, bold: bold)
+            return term.wrap(string, inColor: color, bold: bold)
         } else {
-            string
+            return string
         }
     }
 }
@@ -214,15 +214,15 @@ private struct InteractiveWriter {
 extension ObservabilityMetadata {
     fileprivate var diagnosticPrefix: String? {
         if let packageIdentity {
-            "'\(packageIdentity)'"
+            return "'\(packageIdentity)'"
         } else {
-            .none
+            return .none
         }
     }
 }
 
 extension Basics.Diagnostic.Severity {
     fileprivate var isVerbose: Bool {
-        self <= .info
+        return self <= .info
     }
 }

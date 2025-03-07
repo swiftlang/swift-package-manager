@@ -23,7 +23,7 @@ final class ProgressAnimationTests: XCTestCase {
         var steps: [Int] = []
 
         func update(step: Int, total: Int, text: String) {
-            self.steps.append(step)
+            steps.append(step)
         }
 
         func complete(success: Bool) {}
@@ -41,7 +41,7 @@ final class ProgressAnimationTests: XCTestCase {
 
             // Update the animation 10 times with a 50ms interval.
             let total = 10
-            for i in 0 ... total {
+            for i in 0...total {
                 animation.update(step: i, total: total, text: "")
                 now += .milliseconds(50)
             }
@@ -61,7 +61,7 @@ final class ProgressAnimationTests: XCTestCase {
 
             // Update the animation 10 times with a 50ms interval.
             let total = 10
-            for i in 0 ... total - 1 {
+            for i in 0...total - 1 {
                 animation.update(step: i, total: total, text: "")
                 now += .milliseconds(50)
             }

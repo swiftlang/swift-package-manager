@@ -69,7 +69,7 @@ struct InstallSwiftSDK: SwiftSDKSubcommand {
         )
 
         try await store.install(
-            bundlePathOrURL: self.bundlePathOrURL,
+            bundlePathOrURL: bundlePathOrURL,
             checksum: self.checksum,
             UniversalArchiver(self.fileSystem, cancellator),
             HTTPClient(),

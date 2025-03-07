@@ -22,35 +22,26 @@ struct SnippetGroupCard: Card {
     var swiftCommandState: SwiftCommandState
 
     var inputPrompt: String? {
-        """
+        return """
 
-        Choose a number or a name from the list of snippets.
-        To go back, press enter.
-        To exit, enter `q`.
-        """
+            Choose a number or a name from the list of snippets.
+            To go back, press enter.
+            To exit, enter `q`.
+            """
     }
 
-    func acceptLineInput(_ line: some StringProtocol) -> CardEvent? {
-        if line.isEmpty || line.allSatisfy(\.isWhitespace) {
+    func acceptLineInput<S>(_ line: S) -> CardEvent? where S : StringProtocol{
+        if line.isEmpty || line.allSatisfy({ $0.isWhitespace }) {
             return .pop()
         }
         if line.prefix(while: { !$0.isWhitespace }).lowercased() == "q" {
             return .quit()
         }
         if let index = Int(line),
-           snippetGroup.snippets.indices.contains(index)
-        {
-            return .push(SnippetCard(
-                snippet: self.snippetGroup.snippets[index],
-                number: index,
-                swiftCommandState: self.swiftCommandState
-            ))
+           snippetGroup.snippets.indices.contains(index) {
+            return .push(SnippetCard(snippet: snippetGroup.snippets[index], number: index, swiftCommandState: swiftCommandState))
         } else if let foundSnippetIndex = snippetGroup.snippets.firstIndex(where: { $0.name == line }) {
-            return .push(SnippetCard(
-                snippet: self.snippetGroup.snippets[foundSnippetIndex],
-                number: foundSnippetIndex,
-                swiftCommandState: self.swiftCommandState
-            ))
+            return .push(SnippetCard(snippet: self.snippetGroup.snippets[foundSnippetIndex], number: foundSnippetIndex, swiftCommandState: self.swiftCommandState))
         } else {
             print(red { "There is not a snippet by that name or index." })
             return nil
@@ -58,8 +49,8 @@ struct SnippetGroupCard: Card {
     }
 
     func render() -> String {
-        let isColorized = self.swiftCommandState.options.logging.colorDiagnostics
-        precondition(!self.snippetGroup.snippets.isEmpty)
+        let isColorized = swiftCommandState.options.logging.colorDiagnostics
+        precondition(!snippetGroup.snippets.isEmpty)
 
         var rendered = isColorized ? brightYellow {
             """

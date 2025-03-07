@@ -24,8 +24,8 @@ struct SnippetCard: Card {
 
         var description: String {
             switch self {
-            case .cantRunSnippet(let reason):
-                "Can't run snippet: \(reason)"
+            case let .cantRunSnippet(reason):
+                return "Can't run snippet: \(reason)"
             }
         }
     }
@@ -40,11 +40,11 @@ struct SnippetCard: Card {
     var swiftCommandState: SwiftCommandState
 
     func render() -> String {
-        let isColorized: Bool = self.swiftCommandState.options.logging.colorDiagnostics
+        let isColorized: Bool = swiftCommandState.options.logging.colorDiagnostics
         var rendered = isColorized ? colorized {
             brightYellow {
                 "# "
-                self.snippet.name
+                snippet.name
             }
             "\n\n"
         }.terminalString()
@@ -52,14 +52,14 @@ struct SnippetCard: Card {
             plain {
                 plain {
                     "# "
-                    self.snippet.name
+                    snippet.name
                 }
                 "\n\n"
             }.terminalString()
 
-        if !self.snippet.explanation.isEmpty {
+        if !snippet.explanation.isEmpty {
             rendered += brightBlack {
-                self.snippet.explanation
+                snippet.explanation
                     .split(separator: "\n", omittingEmptySubsequences: false)
                     .map { "// " + $0 }
                     .joined(separator: "\n")
@@ -68,16 +68,16 @@ struct SnippetCard: Card {
             rendered += "\n\n"
         }
 
-        rendered += self.snippet.presentationCode
+        rendered += snippet.presentationCode
 
         return rendered
     }
 
     var inputPrompt: String? {
-        "\nRun this snippet? [R: run, or press Enter to return]"
+        return "\nRun this snippet? [R: run, or press Enter to return]"
     }
 
-    func acceptLineInput(_ line: some StringProtocol) async -> CardEvent? {
+    func acceptLineInput<S>(_ line: S) async -> CardEvent? where S : StringProtocol{
         let trimmed = line.drop { $0.isWhitespace }.prefix { !$0.isWhitespace }.lowercased()
         guard !trimmed.isEmpty else {
             return .pop()
@@ -86,12 +86,14 @@ struct SnippetCard: Card {
         switch trimmed {
         case "r", "run":
             do {
-                try await self.runExample()
+                try await runExample()
             } catch {
                 return .pop(SnippetCard.Error.cantRunSnippet(reason: error.localizedDescription))
             }
+            break
         case "c", "copy":
             print("Unimplemented")
+            break
         default:
             break
         }
@@ -100,14 +102,10 @@ struct SnippetCard: Card {
     }
 
     func runExample() async throws {
-        print("Building '\(self.snippet.path)'\n")
-        let buildSystem = try await swiftCommandState.createBuildSystem(
-            explicitProduct: self.snippet.name,
-            traitConfiguration: .init()
-        )
-        try await buildSystem.build(subset: .product(self.snippet.name))
-        let executablePath = try swiftCommandState.productsBuildParameters.buildPath
-            .appending(component: self.snippet.name)
+        print("Building '\(snippet.path)'\n")
+        let buildSystem = try await swiftCommandState.createBuildSystem(explicitProduct: snippet.name, traitConfiguration: .init())
+        try await buildSystem.build(subset: .product(snippet.name))
+        let executablePath = try swiftCommandState.productsBuildParameters.buildPath.appending(component: snippet.name)
         if let exampleTarget = try await buildSystem.getPackageGraph().module(for: snippet.name) {
             try ProcessEnv.chdir(exampleTarget.sources.paths[0].parentDirectory)
         }

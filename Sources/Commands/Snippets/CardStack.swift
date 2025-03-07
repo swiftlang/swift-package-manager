@@ -18,8 +18,8 @@ import PackageModel
 import var TSCBasic.stdoutStream
 import class TSCBasic.TerminalController
 
-extension TerminalController {
-    fileprivate func clearScreen() {
+fileprivate extension TerminalController {
+    func clearScreen() {
         write("\u{001b}[2J")
         write("\u{001b}[H")
         flush()
@@ -48,19 +48,19 @@ struct CardStack {
     }
 
     mutating func push(_ card: Card) {
-        self.cards.append(card)
+        cards.append(card)
     }
 
     mutating func pop() {
-        self.cards.removeLast()
+        cards.removeLast()
     }
 
     mutating func clear() {
-        self.cards.removeAll()
+        cards.removeAll()
     }
 
     func askForLineInput(prompt: String?) -> String? {
-        let isColorized: Bool = self.swiftCommandState.options.logging.colorDiagnostics
+        let isColorized: Bool = swiftCommandState.options.logging.colorDiagnostics
 
         if let prompt {
             isColorized ?
@@ -68,8 +68,8 @@ struct CardStack {
                 print(plain { prompt }.terminalString())
         }
         isColorized ?
-            self.terminal.write(">>> ", inColor: .green, bold: true)
-            : self.terminal.write(">>> ", inColor: .noColor, bold: false)
+            terminal.write(">>> ", inColor: .green, bold: true)
+            : terminal.write(">>> ", inColor: .noColor, bold: false)
 
         return readLine(strippingNewline: true)
     }
@@ -81,9 +81,9 @@ struct CardStack {
                 break
             }
 
-            if self.needsToClearScreen {
-                self.terminal.clearScreen()
-                self.needsToClearScreen = false
+            if needsToClearScreen {
+                terminal.clearScreen()
+                needsToClearScreen = false
             }
 
             print(top.render())
@@ -105,16 +105,16 @@ struct CardStack {
                 case .none:
                     continue askForLine
                 case .push(let card):
-                    self.push(card)
-                    self.needsToClearScreen = true
+                    push(card)
+                    needsToClearScreen = true
                     break askForLine
                 case .pop(let error):
-                    self.cards.removeLast()
+                    cards.removeLast()
                     if let error {
                         self.swiftCommandState.observabilityScope.emit(error)
-                        self.needsToClearScreen = false
+                        needsToClearScreen = false
                     } else {
-                        self.needsToClearScreen = !self.cards.isEmpty
+                        needsToClearScreen = !cards.isEmpty
                     }
                     break askForLine
                 case .quit:
