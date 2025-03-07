@@ -54,9 +54,20 @@ struct PluginTargetBuildDescription: BuildTarget {
         return target.name
     }
 
+    var compiler: BuildTargetCompiler { .swift }
+
     var destination: BuildDestination {
         // Plugins are always built for the host.
         .host
+    }
+
+    var outputPaths: [URL] {
+        get throws {
+            struct NotSupportedError: Error, CustomStringConvertible {
+                var description: String { "Getting output paths for a plugin target is not supported" }
+            }
+            throw NotSupportedError()
+        }
     }
 
     func compileArguments(for fileURL: URL) throws -> [String] {

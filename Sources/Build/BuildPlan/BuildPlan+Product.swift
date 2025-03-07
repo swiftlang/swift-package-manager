@@ -76,7 +76,7 @@ extension BuildPlan {
             for description in dependencies.staticTargets {
                 if case let target as ClangModule = description.module.underlying, target.isCXX {
                     let triple = buildProduct.buildParameters.triple
-                    if triple.isDarwin() {
+                    if triple.isDarwin() || triple.isFreeBSD() {
                         buildProduct.additionalFlags += ["-lc++"]
                     } else if triple.isWindows() {
                         // Don't link any C++ library.

@@ -62,6 +62,10 @@ extension Triple {
         os == .openbsd
     }
 
+    public func isFreeBSD() -> Bool {
+        os == .freebsd
+    }
+
     /// Returns the triple string for the given platform version.
     ///
     /// This is currently meant for Apple platforms only.
@@ -143,7 +147,7 @@ extension Triple {
         switch os {
         case _ where isDarwin():
             return ".dylib"
-        case .linux, .openbsd:
+        case .linux, .openbsd, .freebsd:
             return ".so"
         case .win32:
             return ".dll"
@@ -183,7 +187,7 @@ extension Triple {
         switch os {
         case _ where isDarwin():
             return ""
-        case .linux, .openbsd:
+        case .linux, .openbsd, .freebsd:
             return ""
         case .win32:
             return ".exe"

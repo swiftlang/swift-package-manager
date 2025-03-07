@@ -1538,7 +1538,7 @@ private extension Basics.Diagnostic {
 /// it duplicates the definition of this constant in its own source. Any changes
 /// to this constant in either package must be mirrored in the other.
 private var EXIT_NO_TESTS_FOUND: CInt {
-#if os(macOS) || os(Linux) || canImport(Android)
+#if os(macOS) || os(Linux) || canImport(Android) || os(FreeBSD)
     EX_UNAVAILABLE
 #elseif os(Windows)
     ERROR_NOT_FOUND
