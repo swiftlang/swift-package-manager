@@ -1013,7 +1013,8 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                                 )
                             ),
                         ]),
-                    ]
+                    ],
+                    traits: []
                 ),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "ExtPkg",
@@ -1569,7 +1570,8 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                                 config: "debug"
                             )),
                         ]),
-                    ]
+                    ],
+                    traits: []
                 ),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "ExtPkg",
@@ -3549,7 +3551,8 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                                 config: "release"
                             )),
                         ]),
-                    ]
+                    ],
+                    traits: []
                 ),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "B",

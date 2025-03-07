@@ -131,6 +131,7 @@ extension Manifest {
             dependencies: dependencies,
             products: products,
             targets: targets,
+            traits: [],
             pruneDependencies: pruneDependencies
         )
     }
