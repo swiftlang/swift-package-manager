@@ -71,7 +71,7 @@ final class RedrawingPercentProgressAnimation: ProgressAnimationProtocol {
         if !hasDisplayedHeader {
             let spaceCount = width / 2 - header.utf8.count / 2
             terminal.write(repeating(string: " ", count: spaceCount))
-            terminal.write(header, inColor: colorizeText(color: .green), bold: isBold)
+            terminal.write(header, inColor: colorizeText(color: .cyan), bold: isBold)
             terminal.endLine()
             hasDisplayedHeader = true
         } else {

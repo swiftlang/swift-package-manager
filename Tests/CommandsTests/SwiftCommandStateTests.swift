@@ -240,7 +240,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
                     string: "machine mymachine.labkey.org login custom@labkey.org password custom"
                 )
 
-                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString,"--netrc-file", customPath.pathString])
+                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--netrc-file", customPath.pathString])
                 let tool = try SwiftCommandState.makeMockState(options: options)
 
                 // There is only one AuthorizationProvider depending on platform
@@ -361,7 +361,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
             targetArPath.pathString
         ])
 
-        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath] {
+        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath,] {
             try fs.updatePermissions(path, isExecutable: true)
         }
 
@@ -423,7 +423,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
             hostSwiftcPath.pathString,
             hostArPath.pathString,
             targetSwiftcPath.pathString,
-            targetArPath.pathString,
+            targetArPath.pathString
         ])
 
         for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath,] {
@@ -471,7 +471,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
             hostArPath.pathString,
             targetSwiftcPath.pathString,
             targetArPath.pathString,
-            targetClangPath.pathString,
+            targetClangPath.pathString
         ])
 
         for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath, targetClangPath,] {

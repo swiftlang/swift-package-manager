@@ -465,7 +465,7 @@ public final class SwiftCommandState {
                 prefetchBasedOnResolvedFile: options.resolver.shouldEnableResolverPrefetching,
                 shouldCreateMultipleTestProducts: toolWorkspaceConfiguration.wantsMultipleTestProducts || options.build.buildSystem == .xcode,
                 createREPLProduct: toolWorkspaceConfiguration.wantsREPLProduct,
-                additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription .xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
+                additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
                 sharedDependenciesCacheEnabled: self.options.caching.useDependenciesCache,
                 fingerprintCheckingMode: self.options.security.fingerprintCheckingMode,
                 signingEntityCheckingMode: self.options.security.signingEntityCheckingMode,
@@ -491,7 +491,7 @@ public final class SwiftCommandState {
 
     public func getRootPackageInformation() async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
         let workspace = try self.getActiveWorkspace()
-        let root = try getWorkspaceRoot()
+        let root = try self.getWorkspaceRoot()
         let rootManifests = try await workspace.loadRootManifests(
             packages: root.packages,
             observabilityScope: self.observabilityScope
@@ -644,7 +644,7 @@ public final class SwiftCommandState {
 
             // Fetch and load the package graph.
             let graph = try await workspace.loadPackageGraph(
-                rootInput: self.getWorkspaceRoot(),
+                rootInput: getWorkspaceRoot(),
                 explicitProduct: explicitProduct,
                 traitConfiguration: traitConfiguration,
                 forceResolvedVersions: options.resolver.forceResolvedVersions,
@@ -979,7 +979,7 @@ public final class SwiftCommandState {
     private var workspaceLock: FileLock?
 
     fileprivate func setNeedsLocking() {
-        assert(workspaceLockState == .unspecified, "attempting to `setNeedsLocking()` from unexpected state: \(self.workspaceLockState)")
+        assert(workspaceLockState == .unspecified, "attempting to `setNeedsLocking()` from unexpected state: \(workspaceLockState)")
         workspaceLockState = .needsLocking
     }
 
@@ -1000,7 +1000,8 @@ public final class SwiftCommandState {
             try workspaceLock.lock(type: .exclusive, blocking: false)
         } catch let ProcessLockError.unableToAquireLock(errno) {
             if errno == EWOULDBLOCK {
-                if self.options.locations.ignoreLock {self.outputStream.write("Another instance of SwiftPM is already running using '\(self.scratchDirectory)', but this will be ignored since `--ignore-lock` has been passed".utf8)
+                if self.options.locations.ignoreLock {
+                    self.outputStream.write("Another instance of SwiftPM is already running using '\(self.scratchDirectory)', but this will be ignored since `--ignore-lock` has been passed".utf8)
                     self.outputStream.flush()
                 } else {
                     self.outputStream.write("Another instance of SwiftPM is already running using '\(self.scratchDirectory)', waiting until that process has finished execution...".utf8)
@@ -1017,7 +1018,7 @@ public final class SwiftCommandState {
 
     fileprivate func releaseLockIfNeeded() {
         // Never having acquired the lock is not an error case.
-        assert(workspaceLockState == .locked || workspaceLockState == .needsLocking,"attempting to `releaseLockIfNeeded()` from unexpected state: \(workspaceLockState)")
+        assert(workspaceLockState == .locked || workspaceLockState == .needsLocking, "attempting to `releaseLockIfNeeded()` from unexpected state: \(workspaceLockState)")
         workspaceLockState = .unlocked
 
         workspaceLock?.unlock()
