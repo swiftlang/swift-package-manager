@@ -178,7 +178,8 @@ class ManifestTests: XCTestCase {
                 path: "/Foo",
                 toolsVersion: .v5_2,
                 products: products,
-                targets: targets
+                targets: targets,
+                traits: []
             )
 
             for trait in traits.sorted(by: { $0.name < $1.name }) {

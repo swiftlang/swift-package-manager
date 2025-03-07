@@ -1333,7 +1333,8 @@ final class ModulesGraphTests: XCTestCase {
                     toolsVersion: .v5_2,
                     targets: [
                         TargetDescription(name: "FooTarget", dependencies: [.product(name: "Barx")]),
-                    ]
+                    ],
+                    traits: []
                 )
             ],
             observabilityScope: observability.topScope
@@ -1772,7 +1773,8 @@ final class ModulesGraphTests: XCTestCase {
                         ]),
                         TargetDescription(name: "Bar"),
                         TargetDescription(name: "Baz"),
-                    ]
+                    ],
+                    traits: []
                 ),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "Biz",
