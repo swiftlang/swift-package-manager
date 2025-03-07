@@ -264,5 +264,24 @@ final class TraitTests: XCTestCase {
             XCTAssertTrue(symbolGraph.contains("TypeGatedByPackage10Trait2"))
         }
     }
+    
+    func testPackageDisablinDefaultsTrait_whenNoTraits() async throws {
+        try await fixture(name: "Traits") { fixturePath in
+            do {
+                let (_, _) = try await executeSwiftRun(fixturePath.appending("DisablingEmptyDefaultsExample"), "DisablingEmptyDefaultsExample")
+            } catch let error as SwiftPMError {
+                switch error {
+                case .packagePathNotFound:
+                    throw error
+                case .executionFailure(_, _, let stderr):
+                    let expectedErr = """
+                    error: Disabled default traits by package 'disablingemptydefaultsexample' on package 'Package11' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
+
+                    """
+                    XCTAssertTrue(stderr.contains(expectedErr))
+                }
+            }
+        }
+    }
 }
 #endif

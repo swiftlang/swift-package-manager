@@ -173,7 +173,7 @@ extension Workspace {
         }
 
         // Update the resolved file.
-        try self.saveResolvedFile(
+        try await self.saveResolvedFile(
             resolvedPackagesStore: resolvedPackagesStore,
             dependencyManifests: updatedDependencyManifests,
             originHash: resolvedFileOriginHash,
@@ -223,7 +223,7 @@ extension Workspace {
         case .update(let forceResolution):
             return try await resolveAndUpdateResolvedFile(forceResolution: forceResolution)
         case .bestEffort:
-            guard !self.state.dependencies.hasEditedDependencies() else {
+            guard await !self.state.dependencies.hasEditedDependencies() else {
                 return try await resolveAndUpdateResolvedFile(forceResolution: false)
             }
             guard self.fileSystem.exists(self.location.resolvedVersionsFile) else {
@@ -414,9 +414,10 @@ extension Workspace {
         //
         // We require cloning if there is no checkout or if the checkout doesn't
         // match with the pin.
+        let dependencies = await state.dependencies
         let requiredResolvedPackages = resolvedPackagesStore.resolvedPackages.values.filter { pin in
             // also compare the location in case it has changed
-            guard let dependency = state.dependencies[comparingLocation: pin.packageRef] else {
+            guard let dependency = dependencies[comparingLocation: pin.packageRef] else {
                 return true
             }
             switch dependency.state {
@@ -430,26 +431,31 @@ extension Workspace {
         }
 
         // Retrieve the required resolved packages.
-        for resolvedPackage in requiredResolvedPackages {
-            await observabilityScope.makeChildScope(
-                description: "retrieving resolved package versions for dependencies",
-                metadata: resolvedPackage.packageRef.diagnosticsMetadata
-            ).trap {
-                switch resolvedPackage.packageRef.kind {
-                case .localSourceControl, .remoteSourceControl:
-                    _ = try await self.checkoutRepository(
-                        package: resolvedPackage.packageRef,
-                        at: resolvedPackage.state,
-                        observabilityScope: observabilityScope
-                    )
-                case .registry:
-                    _ = try await self.downloadRegistryArchive(
-                        package: resolvedPackage.packageRef,
-                        at: resolvedPackage.state,
-                        observabilityScope: observabilityScope
-                    )
-                default:
-                    throw InternalError("invalid resolved package type \(resolvedPackage.packageRef.kind)")
+        await withThrowingTaskGroup(of: Void.self) { taskGroup in
+            for resolvedPackage in requiredResolvedPackages {
+                let observabilityScope = observabilityScope.makeChildScope(
+                    description: "retrieving resolved package versions for dependencies",
+                    metadata: resolvedPackage.packageRef.diagnosticsMetadata
+                )
+                taskGroup.addTask {
+                    await observabilityScope.trap {
+                        switch resolvedPackage.packageRef.kind {
+                        case .localSourceControl, .remoteSourceControl:
+                            _ = try await self.checkoutRepository(
+                                package: resolvedPackage.packageRef,
+                                at: resolvedPackage.state,
+                                observabilityScope: observabilityScope
+                            )
+                        case .registry:
+                            _ = try await self.downloadRegistryArchive(
+                                package: resolvedPackage.packageRef,
+                                at: resolvedPackage.state,
+                                observabilityScope: observabilityScope
+                            )
+                        default:
+                            throw InternalError("invalid resolved package type \(resolvedPackage.packageRef.kind)")
+                        }
+                    }
                 }
             }
         }
@@ -529,7 +535,7 @@ extension Workspace {
         }
 
         // load and update the `Package.resolved` store with any changes from loading the top level dependencies
-        guard let resolvedPackagesStore = self.loadAndUpdateResolvedPackagesStore(
+        guard let resolvedPackagesStore = await self.loadAndUpdateResolvedPackagesStore(
             dependencyManifests: currentManifests,
             rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
             observabilityScope: observabilityScope
@@ -560,7 +566,7 @@ extension Workspace {
             case .notRequired:
                 // since nothing changed we can exit early,
                 // but need update resolved file and download an missing binary artifact
-                try self.saveResolvedFile(
+                try await self.saveResolvedFile(
                     resolvedPackagesStore: resolvedPackagesStore,
                     dependencyManifests: currentManifests,
                     originHash: resolvedFileOriginHash,
@@ -632,7 +638,7 @@ extension Workspace {
         }
 
         // Update the resolved file.
-        try self.saveResolvedFile(
+        try await self.saveResolvedFile(
             resolvedPackagesStore: resolvedPackagesStore,
             dependencyManifests: updatedDependencyManifests,
             originHash: resolvedFileOriginHash,
@@ -686,7 +692,7 @@ extension Workspace {
 
         // First remove the checkouts that are no longer required.
         for (packageRef, state) in packageStateChanges {
-            observabilityScope.makeChildScope(
+            await observabilityScope.makeChildScope(
                 description: "removing unneeded checkouts",
                 metadata: packageRef.diagnosticsMetadata
             ).trap {
@@ -694,7 +700,7 @@ extension Workspace {
                 case .added, .updated, .unchanged:
                     break
                 case .removed:
-                    try self.remove(package: packageRef)
+                    try await self.remove(package: packageRef)
                 }
             }
         }
@@ -779,8 +785,8 @@ extension Workspace {
                     state: .custom(version: version, path: path),
                     subpath: RelativePath(validating: "")
                 )
-                self.state.dependencies.add(dependency)
-                try self.state.save()
+                await self.state.add(dependency: dependency)
+                try await self.state.save()
                 return path
             } else {
                 throw InternalError("invalid container for \(package.identity) of type \(package.kind)")
@@ -807,8 +813,8 @@ extension Workspace {
                 throw InternalError("invalid package type: \(package.kind)")
             }
 
-            self.state.dependencies.add(dependency)
-            try self.state.save()
+            await self.state.add(dependency: dependency)
+            try await self.state.save()
             return path
         }
     }
@@ -896,7 +902,7 @@ extension Workspace {
         dependencyManifests: DependencyManifests,
         rootManifestsMinimumToolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope
-    ) -> ResolvedPackagesStore? {
+    ) async -> ResolvedPackagesStore? {
         guard let resolvedPackagesStore = observabilityScope.trap({ try self.resolvedPackagesStore.load() }) else {
             return nil
         }
@@ -906,7 +912,7 @@ extension Workspace {
         else {
             return nil
         }
-        for dependency in self.state.dependencies.filter(\.packageRef.kind.isResolvable) {
+        for dependency in await self.state.dependencies.filter(\.packageRef.kind.isResolvable) {
             // a required dependency that is already loaded (managed) should be represented in the `Package.resolved` store.
             // also comparing location as it may have changed at this point
             if requiredDependencies.contains(where: { $0.equalsIncludingLocation(dependency.packageRef) }) {
@@ -1018,13 +1024,13 @@ extension Workspace {
             // Get the existing managed dependency for this package ref, if any.
 
             // first find by identity only since edit location may be different by design
-            var currentDependency = self.state.dependencies[binding.package.identity]
+            var currentDependency = await self.state.dependencies[binding.package.identity]
             // Check if this is an edited dependency.
             if case .edited(let basedOn, _) = currentDependency?.state, let originalReference = basedOn?.packageRef {
                 packageStateChanges[originalReference.identity] = (originalReference, .unchanged)
             } else {
                 // if not edited, also compare by location since it may have changed
-                currentDependency = self.state.dependencies[comparingLocation: binding.package]
+                currentDependency = await self.state.dependencies[comparingLocation: binding.package]
             }
 
             switch binding.boundVersion {
@@ -1126,7 +1132,7 @@ extension Workspace {
             }
         }
         // Set the state of any old package that might have been removed.
-        for packageRef in self.state.dependencies.lazy.map(\.packageRef)
+        for packageRef in await self.state.dependencies.lazy.map(\.packageRef)
             where packageStateChanges[packageRef.identity] == nil
         {
             packageStateChanges[packageRef.identity] = (packageRef, .removed)

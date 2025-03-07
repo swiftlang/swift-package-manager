@@ -33,7 +33,7 @@ public enum BuildSubset {
 }
 
 /// A protocol that represents a build system used by SwiftPM for all build operations. This allows factoring out the
-/// implementation details between SwiftPM's `BuildOperation` and the XCBuild backed `XCBuildSystem`.
+/// implementation details between SwiftPM's `BuildOperation` and the Swift Build backed `SwiftBuildSystem`.
 public protocol BuildSystem: Cancellable {
 
     /// The delegate used by the build system.
@@ -130,6 +130,7 @@ public struct BuildSystemProvider {
     // TODO: In the future, we may want this to be about specific capabilities of a build system rather than choosing a concrete one.
     public enum Kind: String, CaseIterable {
         case native
+        case swiftbuild
         case xcode
     }
 
@@ -172,6 +173,7 @@ extension BuildSystemProvider.Kind {
     public var usesXcodeBuildEngine: Bool {
         switch self {
             case .native: return false
+            case .swiftbuild: return false
             case .xcode: return true
         }
     }

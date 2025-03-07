@@ -205,7 +205,7 @@ let package = Package(
             name: "Basics",
             dependencies: [
                 "_AsyncFileSystem",
-                .target(name: "SPMSQLite3", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS, .macCatalyst, .linux])),
+                .target(name: "SPMSQLite3", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS, .macCatalyst, .linux, .custom("freebsd")])),
                 .product(name: "SwiftToolchainCSQLite", package: "swift-toolchain-sqlite", condition: .when(platforms: [.windows, .android])),
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
@@ -453,6 +453,13 @@ let package = Package(
             ]
         ),
         .target(
+            name: "SwiftBuildSupport",
+            dependencies: [
+                "SPMBuildCore",
+                "PackageGraph",
+            ]
+        ),
+        .target(
             /** High level functionality */
             name: "Workspace",
             dependencies: [
@@ -500,6 +507,7 @@ let package = Package(
                 "PackageGraph",
                 "Workspace",
                 "XCBuildSupport",
+                "SwiftBuildSupport",
             ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
@@ -521,6 +529,7 @@ let package = Package(
                 "SourceControl",
                 "Workspace",
                 "XCBuildSupport",
+                "SwiftBuildSupport",
             ] + swiftSyntaxDependencies(["SwiftIDEUtils"]),
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: [
@@ -619,6 +628,7 @@ let package = Package(
                 "PackageLoading",
                 "PackageModel",
                 "XCBuildSupport",
+                "SwiftBuildSupport",
             ],
             exclude: ["CMakeLists.txt"]
         ),
@@ -698,6 +708,7 @@ let package = Package(
                 dependencies: [
                     "Build",
                     "XCBuildSupport",
+                    "SwiftBuildSupport",
                     "_InternalTestSupport"
                 ],
                 swiftSettings: [
@@ -989,7 +1000,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // used by 'swift-driver' and 'sourcekit-lsp'. Please coordinate
         // dependency version changes here with those projects.
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.4.0")),
-        .package(url: "https://github.com/apple/swift-driver.git", branch: relatedDependenciesBranch),
+        .package(url: "https://github.com/swiftlang/swift-driver.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-system.git", from: "1.1.1"),
@@ -1009,4 +1020,28 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-certificates"),
         .package(path: "../swift-toolchain-sqlite"),
     ]
+}
+
+if ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] == nil &&
+    ProcessInfo.processInfo.environment["SWIFTPM_NO_SWBUILD_DEPENDENCY"] == nil {
+
+    let swiftbuildsupport: Target = package.targets.first(where: { $0.name == "SwiftBuildSupport" } )!
+    swiftbuildsupport.dependencies += [
+        .product(name: "SwiftBuild", package: "swift-build"),
+    ]
+
+    swiftbuildsupport.dependencies += [
+        // This is here to statically link the build service in the same executable as SwiftPM
+        .product(name: "SWBBuildService", package: "swift-build"),
+    ]
+
+    if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
+        package.dependencies += [
+            .package(url: "https://github.com/swiftlang/swift-build.git", branch: relatedDependenciesBranch),
+        ]
+    } else {
+        package.dependencies += [
+            .package(path: "../swift-build"),
+        ]
+    }
 }

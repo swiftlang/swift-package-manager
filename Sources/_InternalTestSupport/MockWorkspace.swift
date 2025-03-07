@@ -57,7 +57,8 @@ extension InMemoryFileSystem {
             "/fake/path/to/ar.exe",
             "/fake/path/to/libtool",
             "/fake/path/to/libtool.exe",
-            "/fake/path/to/link.exe"
+            "/fake/path/to/link.exe",
+            "/fake/path/to/lld-link.exe"
         ]
         self.createEmptyFiles(at: AbsolutePath.root, files: files)
         for toolPath in files {
@@ -384,9 +385,9 @@ public final class MockWorkspace {
 
     private var _workspace: Workspace?
 
-    public func closeWorkspace(resetState: Bool = true, resetResolvedFile: Bool = true) throws {
+    public func closeWorkspace(resetState: Bool = true, resetResolvedFile: Bool = true) async throws {
         if resetState {
-            try self._workspace?.resetState()
+            try await self._workspace?.resetState()
         }
         if resetResolvedFile {
             try self._workspace.map {
@@ -460,11 +461,11 @@ public final class MockWorkspace {
         result(observability.diagnostics)
     }
 
-    public func checkReset(_ result: ([Basics.Diagnostic]) -> Void) {
+    public func checkReset(_ result: ([Basics.Diagnostic]) -> Void) async {
         let observability = ObservabilitySystem.makeForTesting()
-        observability.topScope.trap {
+        await observability.topScope.trap {
             let workspace = try self.getOrCreateWorkspace()
-            workspace.reset(observabilityScope: observability.topScope)
+            await workspace.reset(observabilityScope: observability.topScope)
         }
         result(observability.diagnostics)
     }
@@ -617,7 +618,7 @@ public final class MockWorkspace {
         resolvedPackages: [PackageReference: CheckoutState] = [:],
         managedDependencies: [AbsolutePath: Workspace.ManagedDependency] = [:],
         managedArtifacts: [Workspace.ManagedArtifact] = []
-    ) throws {
+    ) async throws {
         let resolvedPackages = resolvedPackages.mapValues { checkoutState -> ResolvedPackagesStore.ResolutionState in
             switch checkoutState {
             case .version(let version, let revision):
@@ -628,14 +629,14 @@ public final class MockWorkspace {
                 return .revision(revision.identifier)
             }
         }
-        try self.set(resolvedPackages: resolvedPackages, managedDependencies: managedDependencies, managedArtifacts: managedArtifacts)
+        try await self.set(resolvedPackages: resolvedPackages, managedDependencies: managedDependencies, managedArtifacts: managedArtifacts)
     }
 
     public func set(
         resolvedPackages: [PackageReference: ResolvedPackagesStore.ResolutionState],
         managedDependencies: [AbsolutePath: Workspace.ManagedDependency] = [:],
         managedArtifacts: [Workspace.ManagedArtifact] = []
-    ) throws {
+    ) async throws {
         let workspace = try self.getOrCreateWorkspace()
         let resolvedPackagesStore = try workspace.resolvedPackagesStore.load()
 
@@ -652,21 +653,21 @@ public final class MockWorkspace {
             } else {
                 try self.fileSystem.createDirectory(managedPath, recursive: true)
             }
-            workspace.state.dependencies.add(dependency.value)
+            await workspace.state.add(dependency: dependency.value)
         }
 
         for artifact in managedArtifacts {
             // create an empty directory representing the artifact
             try self.fileSystem.createDirectory(artifact.path, recursive: true)
-            workspace.state.artifacts.add(artifact)
+            await workspace.state.artifacts.add(artifact)
         }
 
-        try workspace.state.save()
+        try await workspace.state.save()
     }
 
-    public func resetState() throws {
+    public func resetState() async throws {
         let workspace = try self.getOrCreateWorkspace()
-        try workspace.resetState()
+        try await workspace.resetState()
     }
 
     public enum State {
@@ -819,19 +820,19 @@ public final class MockWorkspace {
         result(manifests, observability.diagnostics)
     }
 
-    public func checkManagedDependencies(file: StaticString = #file, line: UInt = #line, _ result: (ManagedDependencyResult) throws -> Void) {
+    public func checkManagedDependencies(file: StaticString = #file, line: UInt = #line, _ result: (ManagedDependencyResult) throws -> Void) async {
         do {
             let workspace = try self.getOrCreateWorkspace()
-            try result(ManagedDependencyResult(workspace.state.dependencies))
+            try await result(ManagedDependencyResult(workspace.state.dependencies))
         } catch {
             XCTFail("Failed with error \(error.interpolationDescription)", file: file, line: line)
         }
     }
 
-    public func checkManagedArtifacts(file: StaticString = #file, line: UInt = #line, _ result: (ManagedArtifactResult) throws -> Void) {
+    public func checkManagedArtifacts(file: StaticString = #file, line: UInt = #line, _ result: (ManagedArtifactResult) throws -> Void) async {
         do {
             let workspace = try self.getOrCreateWorkspace()
-            try result(ManagedArtifactResult(workspace.state.artifacts))
+            try await result(ManagedArtifactResult(workspace.state.artifacts))
         } catch {
             XCTFail("Failed with error \(error.interpolationDescription)", file: file, line: line)
         }

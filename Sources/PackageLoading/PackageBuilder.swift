@@ -97,6 +97,11 @@ public enum ModuleError: Swift.Error {
         package: PackageIdentity,
         trait: String
     )
+    
+    case disablingDefaultTraitsOnEmptyTraits(
+        parentPackage: PackageIdentity,
+        packageName: String
+    )
 }
 
 extension ModuleError: CustomStringConvertible {
@@ -178,6 +183,10 @@ extension ModuleError: CustomStringConvertible {
         case .invalidTrait(let package, let trait):
             return """
             Trait '"\(trait)"' is not declared by package '\(package)'.
+            """
+        case .disablingDefaultTraitsOnEmptyTraits(let parentPackage, let packageName):
+            return """
+            Disabled default traits by package '\(parentPackage)' on package '\(packageName)' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
             """
         }
     }

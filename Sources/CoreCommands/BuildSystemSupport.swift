@@ -14,6 +14,7 @@ import Basics
 import Build
 import SPMBuildCore
 import XCBuildSupport
+import SwiftBuildSupport
 import PackageGraph
 
 import class Basics.ObservabilityScope
@@ -37,10 +38,15 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
     ) async throws -> any BuildSystem {
         _ = try await swiftCommandState.getRootPackageInformation(traitConfiguration: traitConfiguration)
         let testEntryPointPath = productsBuildParameters?.testProductStyle.explicitlySpecifiedEntryPointPath
+        let cacheBuildManifest = if cacheBuildManifest {
+            try await self.swiftCommandState.canUseCachedBuildManifest()
+        } else {
+            false
+        }
         return try BuildOperation(
             productsBuildParameters: try productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
             toolsBuildParameters: try toolsBuildParameters ?? self.swiftCommandState.toolsBuildParameters,
-            cacheBuildManifest: cacheBuildManifest && self.swiftCommandState.canUseCachedBuildManifest(),
+            cacheBuildManifest: cacheBuildManifest,
             packageGraphLoader: packageGraphLoader ?? {
                 try await self.swiftCommandState.loadPackageGraph(
                     explicitProduct: explicitProduct,
@@ -94,10 +100,40 @@ private struct XcodeBuildSystemFactory: BuildSystemFactory {
     }
 }
 
+private struct SwiftBuildSystemFactory: BuildSystemFactory {
+    let swiftCommandState: SwiftCommandState
+
+    func makeBuildSystem(
+        explicitProduct: String?,
+        traitConfiguration: TraitConfiguration,
+        cacheBuildManifest: Bool,
+        productsBuildParameters: BuildParameters?,
+        toolsBuildParameters: BuildParameters?,
+        packageGraphLoader: (() async throws -> ModulesGraph)?,
+        outputStream: OutputByteStream?,
+        logLevel: Diagnostic.Severity?,
+        observabilityScope: ObservabilityScope?
+    ) throws -> any BuildSystem {
+        return try SwiftBuildSystem(
+            buildParameters: productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
+            packageGraphLoader: packageGraphLoader ?? {
+                try await self.swiftCommandState.loadPackageGraph(
+                    explicitProduct: explicitProduct
+                )
+            },
+            outputStream: outputStream ?? self.swiftCommandState.outputStream,
+            logLevel: logLevel ?? self.swiftCommandState.logLevel,
+            fileSystem: self.swiftCommandState.fileSystem,
+            observabilityScope: observabilityScope ?? self.swiftCommandState.observabilityScope
+        )
+    }
+}
+
 extension SwiftCommandState {
     public var defaultBuildSystemProvider: BuildSystemProvider {
         .init(providers: [
             .native: NativeBuildSystemFactory(swiftCommandState: self),
+            .swiftbuild: SwiftBuildSystemFactory(swiftCommandState: self),
             .xcode: XcodeBuildSystemFactory(swiftCommandState: self)
         ])
     }

@@ -690,7 +690,7 @@ public final class SwiftCommandState {
         try _manifestLoader.get()
     }
 
-    public func canUseCachedBuildManifest() throws -> Bool {
+    public func canUseCachedBuildManifest() async throws -> Bool {
         if !self.options.caching.cacheBuildManifest {
             return false
         }
@@ -707,7 +707,7 @@ public final class SwiftCommandState {
         // Perform steps for build manifest caching if we can enabled it.
         //
         // FIXME: We don't add edited packages in the package structure command yet (SR-11254).
-        let hasEditedPackages = try self.getActiveWorkspace().state.dependencies.contains(where: \.isEdited)
+        let hasEditedPackages = try await self.getActiveWorkspace().state.dependencies.contains(where: \.isEdited)
         if hasEditedPackages {
             return false
         }
@@ -729,7 +729,7 @@ public final class SwiftCommandState {
         toolsBuildParameters: BuildParameters? = .none,
         packageGraphLoader: (() async throws -> ModulesGraph)? = .none,
         outputStream: OutputByteStream? = .none,
-        logLevel: Basics.Diagnostic.Severity? = .none,
+        logLevel: Basics.Diagnostic.Severity? = nil,
         observabilityScope: ObservabilityScope? = .none
     ) async throws -> BuildSystem {
         guard let buildSystemProvider else {
@@ -748,7 +748,7 @@ public final class SwiftCommandState {
             toolsBuildParameters: toolsBuildParameters,
             packageGraphLoader: packageGraphLoader,
             outputStream: outputStream,
-            logLevel: logLevel,
+            logLevel: logLevel ?? self.logLevel,
             observabilityScope: observabilityScope
         )
 

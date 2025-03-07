@@ -789,7 +789,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 let vfsOverlayTempFilePath = tempDir.appending("vfs.yaml")
                 try VFSOverlay(roots: [
                     VFSOverlay.File(
-                        name: manifestPath._normalized.replacingOccurrences(of: #"\"#, with: #"\\"#),
+                        name: manifestPath._normalized.replacing(#"\"#, with: #"\\"#),
                         externalContents: manifestTempFilePath._nativePathString(escaped: true)
                     )
                 ]).write(to: vfsOverlayTempFilePath, fileSystem: localFileSystem)
@@ -1065,7 +1065,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
                         var environment = Environment.current
                         #if os(Windows)
-                        let windowsPathComponent = runtimePath.pathString.replacingOccurrences(of: "/", with: "\\")
+                        let windowsPathComponent = runtimePath.pathString.replacing("/", with: "\\")
                         environment.prependPath(key: .path, value: windowsPathComponent)
                         #endif
 
