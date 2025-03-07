@@ -103,9 +103,10 @@ struct SignatureValidation {
         timeout: DispatchTimeInterval?,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
         completion: @escaping @Sendable (Result<SigningEntity?, Error>) -> Void
     ) {
-        DispatchQueue.sharedConcurrent.asyncResult(completion) {
+        callbackQueue.asyncResult(completion) {
             try await self.validate(
                 registry: registry,
                 package: package,
@@ -360,9 +361,10 @@ struct SignatureValidation {
         timeout: DispatchTimeInterval?,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
         completion: @escaping @Sendable (Result<SigningEntity?, Error>) -> Void
     ) {
-        DispatchQueue.sharedConcurrent.asyncResult(completion) {
+        callbackQueue.asyncResult(completion) {
             try await self.validate(
                 registry: registry,
                 package: package,
