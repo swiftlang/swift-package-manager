@@ -21,48 +21,6 @@ import func TSCBasic.findCycle
 
 extension ModulesGraph {
     /// Load the package graph for the given package path.
-    public static func load(
-        root: PackageGraphRoot,
-        identityResolver: IdentityResolver,
-        additionalFileRules: [FileRuleDescription] = [],
-        externalManifests: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>,
-        requiredDependencies: [PackageReference] = [],
-        unsafeAllowedPackages: Set<PackageReference> = [],
-        binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]],
-        prebuilts: [PackageIdentity: [String: PrebuiltLibrary]],
-        shouldCreateMultipleTestProducts: Bool = false,
-        createREPLProduct: Bool = false,
-        customPlatformsRegistry: PlatformRegistry? = .none,
-        customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
-        testEntryPointPath: AbsolutePath? = nil,
-        fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        productsFilter: ((Product) -> Bool)? = nil,
-        modulesFilter: ((Module) -> Bool)? = nil
-    ) throws -> ModulesGraph {
-        try Self.load(
-            root: root,
-            identityResolver: identityResolver,
-            additionalFileRules: additionalFileRules,
-            externalManifests: externalManifests,
-            requiredDependencies: requiredDependencies,
-            unsafeAllowedPackages: unsafeAllowedPackages,
-            binaryArtifacts: binaryArtifacts,
-            prebuilts: prebuilts,
-            shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
-            createREPLProduct: createREPLProduct,
-            traitConfiguration: nil,
-            customPlatformsRegistry: customPlatformsRegistry,
-            customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
-            testEntryPointPath: testEntryPointPath,
-            fileSystem: fileSystem,
-            observabilityScope: observabilityScope,
-            productsFilter: productsFilter,
-            modulesFilter: modulesFilter
-        )
-    }
-
-    /// Load the package graph for the given package path.
     package static func load(
         root: PackageGraphRoot,
         identityResolver: IdentityResolver,
@@ -74,7 +32,6 @@ extension ModulesGraph {
         prebuilts: [PackageIdentity: [String: PrebuiltLibrary]], // Product name to library mapping
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
-        traitConfiguration: TraitConfiguration? = nil,
         customPlatformsRegistry: PlatformRegistry? = .none,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
@@ -100,13 +57,7 @@ extension ModulesGraph {
         let rootManifestNodes = try root.packages.map { identity, package in
             // If we have enabled traits passed then we start with those. If there are no enabled
             // traits passed then the default traits will be used.
-            var enabledTraits = traitConfiguration?.enabledTraits
-
-            // If all traits should be enabled we just get the set of all traits of the package
-            if traitConfiguration?.enableAllTraits ?? false {
-                enabledTraits = Set(package.manifest.traits.map { $0.name })
-            }
-
+            let enabledTraits = root.enabledTraits[identity]
             return try GraphLoadingNode(
                 identity: identity,
                 manifest: package.manifest,
@@ -119,7 +70,7 @@ extension ModulesGraph {
                 )
             )
         }
-        let rootDependencyNodes = try root.dependencies.lazy.compactMap { dependency in
+        let rootDependencyNodes = try root.dependencies.lazy.filter({ requiredDependencies.contains($0.packageRef) }).compactMap { dependency in
             try manifestMap[dependency.identity].map {
                 try GraphLoadingNode(
                     identity: dependency.identity,
@@ -129,6 +80,7 @@ extension ModulesGraph {
                 )
             }
         }
+
         let inputManifests = (rootManifestNodes + rootDependencyNodes).map {
             KeyedPair($0, key: $0.identity)
         }
@@ -137,7 +89,7 @@ extension ModulesGraph {
         var allNodes = OrderedDictionary<PackageIdentity, GraphLoadingNode>()
 
         let nodeSuccessorProvider = { (node: KeyedPair<GraphLoadingNode, PackageIdentity>) in
-            return try node.item.requiredDependencies.compactMap { dependency in
+            return try (node.item.requiredDependencies + node.item.traitGuardedDependencies).compactMap { dependency -> KeyedPair<GraphLoadingNode, PackageIdentity>? in
                 return try manifestMap[dependency.identity].map { manifest, _ in
                     // We are going to check the conditionally enabled traits here and enable them if
                     // required. This checks the current node and then enables the conditional
@@ -149,17 +101,19 @@ extension ModulesGraph {
                         return !conditionTraits.intersection(node.item.enabledTraits).isEmpty
                     }.map { $0.name }
 
+                    let calculatedTraits = try calculateEnabledTraits(
+                        parentPackage: node.item.identity,
+                        identity: dependency.identity,
+                        manifest: manifest,
+                        explictlyEnabledTraits: explictlyEnabledTraits.flatMap { Set($0) }
+                    )
+
                     return try KeyedPair(
                             GraphLoadingNode(
                                 identity: dependency.identity,
                                 manifest: manifest,
                                 productFilter: dependency.productFilter,
-                                enabledTraits: calculateEnabledTraits(
-                                    parentPackage: node.item.identity,
-                                    identity: dependency.identity,
-                                    manifest: manifest,
-                                    explictlyEnabledTraits: explictlyEnabledTraits.flatMap { Set($0) }
-                                )
+                                enabledTraits: calculatedTraits
                             ),
                             key: dependency.identity
                         )
@@ -437,8 +391,9 @@ private func createResolvedPackages(
         var dependenciesByNameForModuleDependencyResolution = [String: ResolvedPackageBuilder]()
         var dependencyNamesForModuleDependencyResolutionOnly = [PackageIdentity: String]()
 
-        package.manifest.dependenciesRequired(
-            for: packageBuilder.productFilter
+        try package.manifest.dependenciesRequired(
+            for: packageBuilder.productFilter,
+            nil // traits unneeded at this stage
         ).forEach { dependency in
             let dependencyPackageRef = dependency.packageRef
 
@@ -666,18 +621,6 @@ private func createResolvedPackages(
 
             // Establish product dependencies.
             for case .product(let productRef, let conditions) in moduleBuilder.module.dependencies {
-                if let traitCondition = conditions.compactMap({ $0.traitCondition }).first {
-                    if packageBuilder.enabledTraits.intersection(traitCondition.traits).isEmpty {
-                        ///  If we land here non of the traits required to enable this depenendcy has been enabled.
-                        continue
-                    }
-                }
-
-                if let package = productRef.package, prebuilts[.plain(package)]?[productRef.name] != nil {
-                    // using a prebuilt instead.
-                    continue
-                }
-
                 // Find the product in this package's dependency products.
                 // Look it up by ID if module aliasing is used, otherwise by name.
                 let product = lookupByProductIDs ? productDependencyMap[productRef.identity] : productDependencyMap[productRef.name]

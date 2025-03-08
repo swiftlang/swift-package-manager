@@ -758,11 +758,17 @@ extension Workspace {
             requirement = defaultRequirement
         }
 
+        var dependencyEnabledTraits: Set<String>?
+        if let traits = root.dependencies.first(where: { $0.nameForModuleDependencyResolutionOnly == packageName })?.traits {
+            dependencyEnabledTraits = Set(traits.map(\.name))
+        }
+
         // If any products are required, the rest of the package graph will supply those constraints.
         let constraint = PackageContainerConstraint(
             package: dependency.packageRef,
             requirement: requirement,
-            products: .nothing
+            products: .nothing,
+            enabledTraits: dependencyEnabledTraits
         )
 
         // Run the resolution.
@@ -909,29 +915,6 @@ extension Workspace {
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
         observabilityScope: ObservabilityScope
     ) async throws -> ModulesGraph {
-        try await self.loadPackageGraph(
-            rootInput: root,
-            explicitProduct: explicitProduct,
-            traitConfiguration: nil,
-            forceResolvedVersions: forceResolvedVersions,
-            customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
-            testEntryPointPath: testEntryPointPath,
-            expectedSigningEntities: expectedSigningEntities,
-            observabilityScope: observabilityScope
-        )
-    }
-
-    @discardableResult
-    package func loadPackageGraph(
-        rootInput root: PackageGraphRootInput,
-        explicitProduct: String? = nil,
-        traitConfiguration: TraitConfiguration? = nil,
-        forceResolvedVersions: Bool = false,
-        customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
-        testEntryPointPath: AbsolutePath? = nil,
-        expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
-        observabilityScope: ObservabilityScope
-    ) async throws -> ModulesGraph {
         let start = DispatchTime.now()
         self.delegate?.willLoadGraph()
         defer {
@@ -967,7 +950,6 @@ extension Workspace {
                 $0[$1.packageRef.identity, default: [:]][product] = prebuilt
             }
         }
-
         // Load the graph.
         let packageGraph = try ModulesGraph.load(
             root: manifests.root,
@@ -980,7 +962,6 @@ extension Workspace {
             prebuilts: prebuilts,
             shouldCreateMultipleTestProducts: self.configuration.shouldCreateMultipleTestProducts,
             createREPLProduct: self.configuration.createREPLProduct,
-            traitConfiguration: traitConfiguration,
             customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
             testEntryPointPath: testEntryPointPath,
             fileSystem: self.fileSystem,
@@ -1017,9 +998,8 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async throws -> ModulesGraph {
         try await self.loadPackageGraph(
-            rootInput: PackageGraphRootInput(packages: [rootPath]),
+            rootInput: PackageGraphRootInput(packages: [rootPath], traitConfiguration: traitConfiguration),
             explicitProduct: explicitProduct,
-            traitConfiguration: traitConfiguration,
             observabilityScope: observabilityScope
         )
     }

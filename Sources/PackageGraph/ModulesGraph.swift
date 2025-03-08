@@ -425,7 +425,8 @@ public func loadModulesGraph(
     createREPLProduct: Bool = false,
     useXCBuildFileRules: Bool = false,
     customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
-    observabilityScope: ObservabilityScope
+    observabilityScope: ObservabilityScope,
+    traitConfiguration: TraitConfiguration? = nil
 ) throws -> ModulesGraph {
     let rootManifests = manifests.filter(\.packageKind.isRoot).spm_createDictionary { ($0.path, $0) }
     let externalManifests = try manifests.filter { !$0.packageKind.isRoot }
@@ -437,7 +438,7 @@ public func loadModulesGraph(
         }
 
     let packages = Array(rootManifests.keys)
-    let input = PackageGraphRootInput(packages: packages)
+    let input = PackageGraphRootInput(packages: packages, traitConfiguration: traitConfiguration)
     let graphRoot = PackageGraphRoot(
         input: input,
         manifests: rootManifests,
