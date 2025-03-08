@@ -10,20 +10,20 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 @_spi(SwiftPMInternal)
 import Basics
-import _Concurrency
+import Foundation
 import LLBuildManifest
 import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
 import SPMLLBuild
-import Foundation
 
+import class Basics.AsyncProcess
 import class TSCBasic.DiagnosticsEngine
 import protocol TSCBasic.OutputByteStream
-import class Basics.AsyncProcess
 import struct TSCBasic.RegEx
 
 import enum TSCUtility.Diagnostics
@@ -88,7 +88,7 @@ package struct LLBuildSystemConfiguration {
         }
     }
 
-    func buildEnvironment(for destination:  BuildParameters.Destination) -> BuildEnvironment {
+    func buildEnvironment(for destination: BuildParameters.Destination) -> BuildEnvironment {
         switch destination {
         case .host: self.toolsBuildParameters.buildEnvironment
         case .target: self.destinationBuildParameters.buildEnvironment
@@ -246,11 +246,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     ) {
         /// Checks if stdout stream is tty.
         var productsBuildParameters = productsBuildParameters
-        productsBuildParameters.outputParameters.isColorized = outputStream.isTTY
-
+        if productsBuildParameters.outputParameters.isColorized {
+            productsBuildParameters.outputParameters.isColorized = outputStream.isTTY
+        }
         var toolsBuildParameters = toolsBuildParameters
-        toolsBuildParameters.outputParameters.isColorized = outputStream.isTTY
-
+        if toolsBuildParameters.outputParameters.isColorized {
+            toolsBuildParameters.outputParameters.isColorized = outputStream.isTTY
+        }
         self.config = LLBuildSystemConfiguration(
             toolsBuildParameters: toolsBuildParameters,
             destinationBuildParameters: productsBuildParameters,
@@ -283,7 +285,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         return try await self.buildDescription.memoize {
             if self.cacheBuildManifest {
                 do {
-                    // if buildPackageStructure returns a valid description we use that, otherwise we perform full planning
+                    // if buildPackageStructure returns a valid description we use that, otherwise we perform full
+                    // planning
                     if try self.buildPackageStructure() {
                         // confirm the step above created the build description as expected
                         // we trust it to update the build description when needed
@@ -362,9 +365,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                                         fileSystem: localFileSystem,
                                         executor: executor)
                 guard !consumeDiagnostics.hasErrors else {
-                  // If we could not init the driver with this command, something went wrong,
-                  // proceed without checking this target.
-                  continue
+                    // If we could not init the driver with this command, something went wrong,
+                    // proceed without checking this target.
+                    continue
                 }
                 let imports = try driver.performImportPrescan().imports
                 let nonDependencyTargetsSet =
@@ -372,12 +375,12 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 let importedTargetsMissingDependency = Set(imports).intersection(nonDependencyTargetsSet)
                 if let missedDependency = importedTargetsMissingDependency.first {
                     switch checkingMode {
-                        case .error:
-                            self.observabilityScope.emit(error: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
-                        case .warn:
-                            self.observabilityScope.emit(warning: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
-                        case .none:
-                            fatalError("Explicit import checking is disabled.")
+                    case .error:
+                        self.observabilityScope.emit(error: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
+                    case .warn:
+                        self.observabilityScope.emit(warning: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
+                    case .none:
+                        fatalError("Explicit import checking is disabled.")
                     }
                 }
             } catch {
@@ -521,9 +524,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 self.preparationStepName = preparationStepName
                 self.progressTracker = progressTracker
             }
+
             func willCompilePlugin(commandLine: [String], environment: [String: String]) {
                 self.progressTracker?.preparationStepStarted(preparationStepName)
             }
+
             func didCompilePlugin(result: PluginCompilationResult) {
                 self.progressTracker?.preparationStepHadOutput(
                     preparationStepName,
@@ -539,8 +544,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 }
                 self.progressTracker?.preparationStepFinished(preparationStepName, result: (result.succeeded ? .succeeded : .failed))
             }
+
             func skippedCompilingPlugin(cachedResult: PluginCompilationResult) {
-                // Historically we have emitted log info about cached plugins that are used. We should reconsider whether this is the right thing to do.
+                // Historically we have emitted log info about cached plugins that are used. We should reconsider
+                // whether this is the right thing to do.
                 self.progressTracker?.preparationStepStarted(preparationStepName)
                 if !cachedResult.compilerOutput.isEmpty {
                     self.progressTracker?.preparationStepHadOutput(
@@ -682,7 +689,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             fileSystem: self.fileSystem,
             observabilityScope: self.observabilityScope
         )
-
     }
 
     /// Create the build plan and return the build description.
@@ -690,7 +696,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let plan = try await generatePlan()
         self._buildPlan = plan
 
-        // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins, once we know what files they handled.
+        // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins,
+        // once we know what files they handled.
         // rdar://113256834 This fix works for the plugins that do not have PreBuildCommands.
         let targetsToConsider: [ResolvedModule]
         if let subset = subset, let recursiveDependencies = try
@@ -835,7 +842,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         // Check for cases involving modules that cannot be found.
         if let importedModule = try? RegEx(pattern: "no such module '(.+)'").matchGroups(in: message).first?.first {
-            // A target is importing a module that can't be found.  We take a look at the build plan and see if can offer any advice.
+            // A target is importing a module that can't be found.  We take a look at the build plan and see if can
+            // offer any advice.
 
             // Look for a target with the same module name as the one that's being imported.
             if let importedTarget = self._buildPlan?.targets.first(where: { $0.module.c99name == importedModule }) {
