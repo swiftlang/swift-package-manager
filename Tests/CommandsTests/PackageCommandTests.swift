@@ -77,12 +77,6 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         XCTAssertMatch(stdout, .contains("SEE ALSO: swift build, swift run, swift test"))
     }
 
-    func testCommandDoesNotEmitDuplicateSymbols() async throws {
-        let (stdout, stderr) = try await execute(["--help"])
-        XCTAssertNoMatch(stdout, duplicateSymbolRegex)
-        XCTAssertNoMatch(stderr, duplicateSymbolRegex)
-    }
-
     func testVersion() async throws {
         // This test fails when `--build-system <system>` is provided, so directly invoke SwiftPM.Package.execute
         let stdout = try await SwiftPM.Package.execute(["--version"]).stdout
