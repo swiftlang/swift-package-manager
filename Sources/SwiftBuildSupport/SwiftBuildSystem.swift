@@ -46,12 +46,13 @@ struct SessionFailedError: Error {
 func withSession(
     service: SWBBuildService,
     name: String,
+    packageManagerResourcesDirectory: Basics.AbsolutePath?,
     body: @escaping (
         _ session: SWBBuildServiceSession,
         _ diagnostics: [SwiftBuild.SwiftBuildMessage.DiagnosticInfo]
     ) async throws -> Void
 ) async throws {
-    switch await service.createSession(name: name, cachePath: nil, inferiorProductsPath: nil, environment: nil) {
+    switch await service.createSession(name: name, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil) {
     case (.success(let session), let diagnostics):
         do {
             try await body(session, diagnostics)
@@ -143,6 +144,7 @@ private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sen
 public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
     private let packageGraphLoader: () async throws -> ModulesGraph
+    private let packageManagerResourcesDirectory: Basics.AbsolutePath?
     private let logLevel: Basics.Diagnostic.Severity
     private var packageGraph: AsyncThrowingValueMemoizer<ModulesGraph> = .init()
     private var pifBuilder: AsyncThrowingValueMemoizer<PIFBuilder> = .init()
@@ -193,6 +195,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     public init(
         buildParameters: BuildParameters,
         packageGraphLoader: @escaping () async throws -> ModulesGraph,
+        packageManagerResourcesDirectory: Basics.AbsolutePath?,
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: FileSystem,
@@ -200,6 +203,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     ) throws {
         self.buildParameters = buildParameters
         self.packageGraphLoader = packageGraphLoader
+        self.packageManagerResourcesDirectory = packageManagerResourcesDirectory
         self.outputStream = outputStream
         self.logLevel = logLevel
         self.fileSystem = fileSystem
@@ -241,7 +245,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         )
 
         do {
-            try await withSession(service: service, name: buildParameters.pifManifest.pathString) { session, _ in
+            try await withSession(service: service, name: buildParameters.pifManifest.pathString, packageManagerResourcesDirectory: packageManagerResourcesDirectory) { session, _ in
                 // Load the workspace, and set the system information to the default
                 do {
                     try await session.loadWorkspace(containerPath: self.buildParameters.pifManifest.pathString)

@@ -146,6 +146,12 @@ public struct LocationOptions: ParsableArguments {
         completion: .directory
     )
     public var pkgConfigDirectories: [AbsolutePath] = []
+    
+    @Option(
+        help: .init("Specify alternate path to search for SwiftPM resources.", visibility: .hidden),
+        completion: .directory
+    )
+    public var packageManagerResourcesDirectory: AbsolutePath?
 
     @Flag(name: .customLong("ignore-lock"), help: .hidden)
     public var ignoreLock: Bool = false
