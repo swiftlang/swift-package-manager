@@ -173,7 +173,7 @@ extension BuildSystemProvider.Kind {
     public var usesXcodeBuildEngine: Bool {
         switch self {
             case .native: return false
-            case .swiftbuild: return false
+            case .swiftbuild: return true
             case .xcode: return true
         }
     }
@@ -190,4 +190,17 @@ public enum BuildSystemUtilities {
         guard let env = Environment.current["SWIFTPM_BUILD_DIR"] else { return nil }
         return try AbsolutePath(validating: env, relativeTo: workingDir)
     }
+}
+
+
+extension BuildSystemProvider.Kind {
+
+    public var useXcodeBuildSystemPath: Bool {
+        switch self {
+            case .native: return false
+            case .swiftbuild: return true
+            case .xcode: return true
+        }
+    }
+
 }
