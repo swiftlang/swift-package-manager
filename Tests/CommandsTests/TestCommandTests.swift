@@ -652,6 +652,14 @@ class TestCommandSwiftBuildTests: TestCommandTestCase {
         try await super.testFatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation()
     }
 
+    override func testListWithSkipBuildAndNoBuildArtifacts() async throws {
+        guard ProcessInfo.processInfo.environment["SWIFTPM_NO_SWBUILD_DEPENDENCY"] == nil else {
+            throw XCTSkip("Skipping test because SwiftBuild is not linked in.")
+        }
+
+        try await super.testListWithSkipBuildAndNoBuildArtifacts()
+    }
+
     override func testList() async throws {
         throw XCTSkip("SWBINTTODO: Test currently fails due to 'error: build failed'")
     }
