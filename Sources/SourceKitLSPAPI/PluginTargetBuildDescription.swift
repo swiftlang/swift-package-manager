@@ -32,8 +32,10 @@ struct PluginTargetBuildDescription: BuildTarget {
         self.isPartOfRootPackage = isPartOfRootPackage
     }
 
-    var sources: [URL] {
-        return target.sources.paths.map(\.asURL)
+    var sources: [SourceItem] {
+        return target.sources.paths.map {
+          SourceItem(sourceFile: $0.asURL, outputFile: nil)
+        }
     }
 
     var headers: [URL] { [] }
@@ -74,7 +76,7 @@ struct PluginTargetBuildDescription: BuildTarget {
         // FIXME: This is very odd and we should clean this up by merging `ManifestLoader` and `DefaultPluginScriptRunner` again.
         var args = ManifestLoader.interpreterFlags(for: self.toolsVersion, toolchain: toolchain)
         // Note: we ignore the `fileURL` here as the expectation is that we get a commandline for the entire target in case of Swift. Plugins are always assumed to only consist of Swift files.
-        args += try sources.map { try $0.filePath }
+        args += try sources.map { try $0.sourceFile.filePath }
         return args
     }
 }
