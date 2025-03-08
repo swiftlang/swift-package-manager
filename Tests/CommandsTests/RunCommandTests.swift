@@ -48,6 +48,12 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
         XCTAssert(stdout.contains("SEE ALSO: swift build, swift package, swift test"), "got stdout:\n" + stdout)
     }
 
+    func testCommandDoesNotEmitDuplicateSymbols() async throws {
+        let (stdout, stderr) = try await execute(["--help"])
+        XCTAssertNoMatch(stdout, duplicateSymbolRegex)
+        XCTAssertNoMatch(stderr, duplicateSymbolRegex)
+    }
+
     func testVersion() async throws {
         let stdout = try await execute(["--version"]).stdout
         XCTAssertMatch(stdout, .regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#))
@@ -262,6 +268,6 @@ class RunCommandSwiftBuildTests: RunCommandTestCase {
     }
 
     override func testUnreachableExecutable() async throws {
-        throw XCTSkip("SWBINTTODO: Test fails because of build layout differences.)
+        throw XCTSkip("SWBINTTODO: Test fails because of build layout differences.")
     }
 }
