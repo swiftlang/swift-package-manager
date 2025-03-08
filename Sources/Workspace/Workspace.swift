@@ -906,7 +906,7 @@ extension Workspace {
     }
 
     @discardableResult
-    package func loadPackageGraph(
+    public func loadPackageGraph(
         rootInput root: PackageGraphRootInput,
         explicitProduct: String? = nil,
         forceResolvedVersions: Bool = false,
