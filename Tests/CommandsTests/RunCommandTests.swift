@@ -262,7 +262,6 @@ class RunCommandSwiftBuildTests: RunCommandTestCase {
     }
 
     override func testUnreachableExecutable() async throws {
-        throw XCTSkip("SWBINTTODO: Need to investigate test failure")
+        throw XCTSkip("SWBINTTODO: Test fails because of build layout differences.)
     }
-
 }

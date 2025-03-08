@@ -70,6 +70,12 @@ final class PackageRegistryCommandTests: CommandsTestCase {
         XCTAssert(stdout.contains("SEE ALSO: swift package"), "got stdout:\n" + stdout)
     }
 
+    func testCommandDoesNotEmitDuplicateSymbols() async throws {
+        let (stdout, stderr) = try await execute(["--help"])
+        XCTAssertNoMatch(stdout, duplicateSymbolRegex)
+        XCTAssertNoMatch(stderr, duplicateSymbolRegex)
+    }
+
     func testVersion() async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
         // plugin APIs require).
