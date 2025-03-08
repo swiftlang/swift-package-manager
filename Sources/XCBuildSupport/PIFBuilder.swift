@@ -306,6 +306,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS] = ["$(inherited)", "SWIFT_PACKAGE"]
         settings[.GCC_PREPROCESSOR_DEFINITIONS] = ["$(inherited)", "SWIFT_PACKAGE"]
         settings[.CLANG_ENABLE_OBJC_ARC] = "YES"
+
         settings[.KEEP_PRIVATE_EXTERNS] = "NO"
         // We currently deliberately do not support Swift ObjC interface headers.
         settings[.SWIFT_INSTALL_OBJC_HEADER] = "NO"
@@ -921,6 +922,11 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             // CoreData files should also be in the actual target because they can end up generating code during the
             // build. The build system will only perform codegen tasks for the main target in this case.
             if coreDataFileTypes.contains(resource.path.extension ?? "") {
+                pifTarget.addSourceFile(resourceFile)
+            }
+
+            // Asset Catalogs need to be included in the sources target for generated asset symbols.
+            if XCBuildFileType.xcassets.fileTypes.contains(resource.path.extension ?? "") {
                 pifTarget.addSourceFile(resourceFile)
             }
 
