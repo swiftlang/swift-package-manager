@@ -32,6 +32,14 @@ final class SwiftSDKCommandTests: CommandsTestCase {
         }
     }
 
+    func testCommandDoesNotEmitDuplicateSymbols() async throws {
+        for command in [SwiftPM.sdk, SwiftPM.experimentalSDK] {
+            let (stdout, stderr) = try await command.execute(["--help"])
+            XCTAssertNoMatch(stdout, duplicateSymbolRegex)
+            XCTAssertNoMatch(stderr, duplicateSymbolRegex)
+        }
+    }
+
     func testVersionS() async throws {
         for command in [SwiftPM.sdk, SwiftPM.experimentalSDK] {
             let stdout = try await command.execute(["--version"]).stdout

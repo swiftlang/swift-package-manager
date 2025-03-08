@@ -38,6 +38,7 @@ class CommandsTestCase: XCTestCase {
 class CommandsBuildProviderTestCase: BuildSystemProviderTestCase {
     /// Original working directory before the test ran (if known).
     private var originalWorkingDirectory: AbsolutePath? = .none
+    let duplicateSymbolRegex = StringPattern.regex(".*One of the duplicates must be removed or renamed.")
 
     override func setUp() {
         originalWorkingDirectory = localFileSystem.currentWorkingDirectory
