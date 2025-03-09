@@ -622,9 +622,21 @@ public final class SwiftModuleBuildDescription {
         // suppress warnings if the package is remote
         if self.package.isRemote {
             args += ["-suppress-warnings"]
-            // suppress-warnings and warnings-as-errors are mutually exclusive
-            if let index = args.firstIndex(of: "-warnings-as-errors") {
-                args.remove(at: index)
+            // suppress-warnings and the other warning control flags are mutually exclusive
+            for index in args.indices.reversed() {
+                let arg = args[index]
+                switch arg {
+                case "-warnings-as-errors", "-no-warnings-as-errors":
+                    args.remove(at: index)
+                case "-Wwarning", "-Werror":
+                    guard args.indices.contains(index + 1) else {
+                        throw InternalError("Unexpected '\(arg)' at the end of args")
+                    }
+                    args.remove(at: index + 1)
+                    args.remove(at: index)
+                default:
+                    break
+                }
             }
         }
 
