@@ -25,6 +25,12 @@ public enum TargetBuildSettingDescription {
         case Cxx
     }
 
+    /// The level at which a compiler warning should be treated.
+    public enum WarningTreatLevel: String, Codable, Hashable, Sendable {
+        case warning
+        case error
+    }
+
     /// The kind of the build setting, with associate configuration
     public enum Kind: Codable, Hashable, Sendable {
         case headerSearchPath(String)
@@ -42,13 +48,19 @@ public enum TargetBuildSettingDescription {
 
         case swiftLanguageMode(SwiftLanguageVersion)
 
+        case treatAllWarnings(WarningTreatLevel)
+        case treatWarning(String, WarningTreatLevel)
+        case enableWarning(String)
+        case disableWarning(String)
+
         public var isUnsafeFlags: Bool {
             switch self {
             case .unsafeFlags(let flags):
                 // If `.unsafeFlags` is used, but doesn't specify any flags, we treat it the same way as not specifying it.
                 return !flags.isEmpty
             case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode,
-                .enableUpcomingFeature, .enableExperimentalFeature, .strictMemorySafety, .swiftLanguageMode:
+                .enableUpcomingFeature, .enableExperimentalFeature, .strictMemorySafety, .swiftLanguageMode,
+                .treatAllWarnings, .treatWarning, .enableWarning, .disableWarning:
                 return false
             }
         }
