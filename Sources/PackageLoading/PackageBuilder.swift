@@ -1300,6 +1300,29 @@ public final class PackageBuilder {
                     values = [flag, name]
                 }
 
+            case .enableWarning(let name):
+                switch setting.tool {
+                case .c:
+                    decl = .OTHER_CFLAGS
+                    values = ["-W\(name)"]
+                case .cxx:
+                    decl = .OTHER_CPLUSPLUSFLAGS
+                    values = ["-W\(name)"]
+                case .swift, .linker:
+                    throw InternalError("enableWarning is supported by C/C++")
+                }
+
+            case .disableWarning(let name):
+                switch setting.tool {
+                case .c:
+                    decl = .OTHER_CFLAGS
+                    values = ["-Wno-\(name)"]
+                case .cxx:
+                    decl = .OTHER_CPLUSPLUSFLAGS
+                    values = ["-Wno-\(name)"]
+                case .swift, .linker:
+                    throw InternalError("disableWarning is supported by C/C++")
+                }
             }
 
             // Create an assignment for this setting.

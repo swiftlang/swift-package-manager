@@ -702,6 +702,8 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 try TargetDescription(
                     name: "cTarget",
                     settings: [
+                        .init(tool: .c, kind: .disableWarning("unused-parameter"), condition: .init(config: "release")),
+                        .init(tool: .c, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
                         .init(tool: .c, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
                         .init(tool: .c, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
                         .init(tool: .c, kind: .treatWarning("implicit-function-declaration", .error), condition: .init(config: "release")),
@@ -711,6 +713,8 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 try TargetDescription(
                     name: "cxxTarget",
                     settings: [
+                        .init(tool: .cxx, kind: .disableWarning("unused-parameter"), condition: .init(config: "release")),
+                        .init(tool: .cxx, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
                         .init(tool: .cxx, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
                         .init(tool: .cxx, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
                         .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .error), condition: .init(config: "release")),

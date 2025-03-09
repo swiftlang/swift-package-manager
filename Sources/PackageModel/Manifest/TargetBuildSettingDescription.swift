@@ -50,6 +50,8 @@ public enum TargetBuildSettingDescription {
 
         case treatAllWarnings(WarningTreatLevel)
         case treatWarning(String, WarningTreatLevel)
+        case enableWarning(String)
+        case disableWarning(String)
 
         public var isUnsafeFlags: Bool {
             switch self {
@@ -57,8 +59,8 @@ public enum TargetBuildSettingDescription {
                 // If `.unsafeFlags` is used, but doesn't specify any flags, we treat it the same way as not specifying it.
                 return !flags.isEmpty
             case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode,
-                .enableUpcomingFeature, .enableExperimentalFeature, .strictMemorySafety, .swiftLanguageMode, 
-                .treatAllWarnings, .treatWarning:
+                .enableUpcomingFeature, .enableExperimentalFeature, .strictMemorySafety, .swiftLanguageMode,
+                .treatAllWarnings, .treatWarning, .enableWarning, .disableWarning:
                 return false
             }
         }

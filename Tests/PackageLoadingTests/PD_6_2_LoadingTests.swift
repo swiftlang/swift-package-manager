@@ -31,10 +31,14 @@ final class PackageDescription6_2LoadingTests: PackageDescriptionLoadingTests {
                     .target(
                         name: "Foo",
                         cSettings: [
+                            .enableWarning(name: "implicit-fallthrough"),
+                            .disableWarning(name: "unused-parameter"),
                             .treatAllWarnings(as: .error),
                             .treatWarning(name: "deprecated-declarations", as: .warning),
                         ],
                         cxxSettings: [
+                            .enableWarning(name: "implicit-fallthrough"),
+                            .disableWarning(name: "unused-parameter"),
                             .treatAllWarnings(as: .warning),
                             .treatWarning(name: "deprecated-declarations", as: .error),
                         ],
@@ -46,10 +50,14 @@ final class PackageDescription6_2LoadingTests: PackageDescriptionLoadingTests {
                     .target(
                         name: "Bar",
                         cSettings: [
+                            .enableWarning(name: "implicit-fallthrough"),
+                            .disableWarning(name: "unused-parameter"),
                             .treatAllWarnings(as: .warning),
                             .treatWarning(name: "deprecated-declarations", as: .error),
                         ],
                         cxxSettings: [
+                            .enableWarning(name: "implicit-fallthrough"),
+                            .disableWarning(name: "unused-parameter"),
                             .treatAllWarnings(as: .error),
                             .treatWarning(name: "deprecated-declarations", as: .warning),
                         ],

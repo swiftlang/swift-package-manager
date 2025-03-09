@@ -549,6 +549,18 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
+        case .enableWarning(let name):
+            params.append(SourceCodeFragment(key: "name", string: name))
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
+        case .disableWarning(let name):
+            params.append(SourceCodeFragment(key: "name", string: name))
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
         }
     }
 }
@@ -709,6 +721,10 @@ extension TargetBuildSettingDescription.Kind {
             return "treatAllWarnings"
         case .treatWarning:
             return "treatWarning"
+        case .enableWarning:
+            return "enableWarning"
+        case .disableWarning:
+            return "disableWarning"
         }
     }
 }

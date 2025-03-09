@@ -4713,6 +4713,86 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
+    func testEnableDisableWarningSettings() async throws {
+        let Pkg: AbsolutePath = "/Pkg"
+
+        let fs: FileSystem = InMemoryFileSystem(
+            emptyFiles:
+            Pkg.appending(components: "Sources", "cLib", "lib.c").pathString,
+            Pkg.appending(components: "Sources", "cLib", "include", "lib.h").pathString,
+            Pkg.appending(components: "Sources", "cxxLib", "lib.cpp").pathString,
+            Pkg.appending(components: "Sources", "cxxLib", "include", "lib.h").pathString
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: .init(validating: Pkg.pathString),
+                    toolsVersion: .v6_2,
+                    targets: [
+                        TargetDescription(
+                            name: "cLib",
+                            dependencies: [],
+                            settings: [
+                                .init(tool: .c, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
+                                .init(tool: .c, kind: .disableWarning("unused-parameter"), condition: .init(config: "release")),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "cxxLib",
+                            dependencies: [],
+                            settings: [
+                                .init(tool: .cxx, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
+                                .init(tool: .cxx, kind: .disableWarning("unused-parameter"), condition: .init(config: "release")),
+                            ]
+                        )
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        // Test debug configuration
+        do {
+            let result = try await BuildPlanResult(plan: mockBuildPlan(
+                environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            ))
+
+            // Check C flags
+            let cLib = try result.moduleBuildDescription(for: "cLib").clang().basicArguments(isCXX: false)
+            XCTAssertMatch(cLib, [.anySequence, "-Wimplicit-fallthrough", .anySequence])
+
+            // Check C++ flags
+            let cxxLib = try result.moduleBuildDescription(for: "cxxLib").clang().basicArguments(isCXX: true)
+            XCTAssertMatch(cxxLib, [.anySequence, "-Wimplicit-fallthrough", .anySequence])
+        }
+
+        // Test release configuration
+        do {
+            let result = try await BuildPlanResult(plan: mockBuildPlan(
+                environment: BuildEnvironment(platform: .macOS, configuration: .release),
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            ))
+
+            // Check C flags
+            let cLib = try result.moduleBuildDescription(for: "cLib").clang().basicArguments(isCXX: false)
+            XCTAssertMatch(cLib, [.anySequence, "-Wno-unused-parameter", .anySequence])
+
+            // Check C++ flags
+            let cxxLib = try result.moduleBuildDescription(for: "cxxLib").clang().basicArguments(isCXX: true)
+            XCTAssertMatch(cxxLib, [.anySequence, "-Wno-unused-parameter", .anySequence])
+        }
+    }
+
     func testExtraBuildFlags() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:

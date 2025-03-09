@@ -583,6 +583,18 @@ extension TargetBuildSettingDescription.Kind {
 
             return .treatWarning(name, level)
 
+        case "enableWarning":
+            guard values.count == 1 else {
+                throw InternalError("invalid build settings value")
+            }
+            return .enableWarning(values[0])
+
+        case "disableWarning":
+            guard values.count == 1 else {
+                throw InternalError("invalid build settings value")
+            }
+            return .disableWarning(values[0])
+
         default:
             throw InternalError("invalid build setting \(name)")
         }

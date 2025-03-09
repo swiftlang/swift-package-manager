@@ -3316,6 +3316,92 @@ final class PackageBuilderTests: XCTestCase {
             }
         }
     }
+
+    func testCWarningEnableDisable() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/cfoo/foo.c",
+            "/Sources/cfoo/include/cfoo.h"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .v6_2,
+            targets: [
+                try TargetDescription(
+                    name: "cfoo",
+                    settings: [
+                        .init(tool: .c, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
+                        .init(tool: .c, kind: .disableWarning("unused-parameter"), condition: .init(config: "release")),
+                    ]
+                )
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("cfoo") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertEqual(
+                    macosDebugScope.evaluate(.OTHER_CFLAGS),
+                    ["-Wimplicit-fallthrough"]
+                )
+
+                let macosReleaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                XCTAssertEqual(
+                    macosReleaseScope.evaluate(.OTHER_CFLAGS),
+                    ["-Wno-unused-parameter"]
+                )
+            }
+        }
+    }
+
+    func testCXXWarningEnableDisable() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/cxxfoo/foo.cpp",
+            "/Sources/cxxfoo/include/cxxfoo.h"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .v6_2,
+            targets: [
+                try TargetDescription(
+                    name: "cxxfoo",
+                    settings: [
+                        .init(tool: .cxx, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
+                        .init(tool: .cxx, kind: .disableWarning("unused-parameter"), condition: .init(config: "release")),
+                    ]
+                )
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("cxxfoo") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertEqual(
+                    macosDebugScope.evaluate(.OTHER_CPLUSPLUSFLAGS),
+                    ["-Wimplicit-fallthrough"]
+                )
+
+                let macosReleaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                XCTAssertEqual(
+                    macosReleaseScope.evaluate(.OTHER_CPLUSPLUSFLAGS),
+                    ["-Wno-unused-parameter"]
+                )
+            }
+        }
+    }
 }
 
 final class PackageBuilderTester {

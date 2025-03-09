@@ -249,6 +249,44 @@ public struct CSetting: Sendable {
         return CSetting(
             name: "treatWarning", value: [name, level.rawValue], condition: condition)
     }
+
+    /// Enable a specific C compiler warning group.
+    ///
+    /// Use this setting to enable a specific warning group. This is equivalent to passing
+    /// `-W` followed by the group name to the C compiler.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the warning group to enable.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func enableWarning(
+      name: String,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CSetting {
+        return CSetting(
+            name: "enableWarning", value: [name], condition: condition)
+    }
+
+    /// Disable a specific C compiler warning group.
+    ///
+    /// Use this setting to disable a specific warning group. This is equivalent to passing
+    /// `-Wno-` followed by the group name to the C compiler.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the warning group to disable.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func disableWarning(
+      name: String,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CSetting {
+        return CSetting(
+            name: "disableWarning", value: [name], condition: condition)
+    }
 }
 
 /// A CXX-language build setting.
@@ -366,6 +404,44 @@ public struct CXXSetting: Sendable {
     ) -> CXXSetting {
         return CXXSetting(
             name: "treatWarning", value: [name, level.rawValue], condition: condition)
+    }
+
+    /// Enable a specific C++ compiler warning group.
+    ///
+    /// Use this setting to enable a specific warning group. This is equivalent to passing
+    /// `-W` followed by the group name to the C++ compiler.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the warning group to enable.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func enableWarning(
+      name: String,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CXXSetting {
+        return CXXSetting(
+            name: "enableWarning", value: [name], condition: condition)
+    }
+
+    /// Disable a specific C++ compiler warning group.
+    ///
+    /// Use this setting to disable a specific warning group. This is equivalent to passing
+    /// `-Wno-` followed by the group name to the C++ compiler.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the warning group to disable.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func disableWarning(
+      name: String,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CXXSetting {
+        return CXXSetting(
+            name: "disableWarning", value: [name], condition: condition)
     }
 }
 
