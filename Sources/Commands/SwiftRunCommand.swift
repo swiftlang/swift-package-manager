@@ -350,10 +350,10 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         #else
         let number_fds = getdtablesize()
         #endif /* os(Android) */
-        
-        // 2. close all file descriptors.
+
+        // 2. set to close all file descriptors on exec
         for i in 3..<number_fds {
-            close(i)
+            _ = fcntl(i, F_SETFD, FD_CLOEXEC)
         }
         #endif /* os(FreeBSD) || os(OpenBSD) */
         #endif
