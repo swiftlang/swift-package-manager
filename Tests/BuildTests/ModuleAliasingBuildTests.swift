@@ -4646,7 +4646,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                 .product(name: "Other", package: nil, moduleAliases: ["Other": "Other2"], condition: nil),
                             ]
                         )
-                    ]
+                    ],
+                    traits: []
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "Some",
@@ -4718,7 +4719,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     .product(name: "Some", package: nil, moduleAliases: ["Some": "Some2"], condition: nil),
                                 ]
                             )
-                        ]
+                        ],
+                        traits: []
                     ),
                     Manifest.createFileSystemManifest(
                         displayName: "Some",

@@ -2696,7 +2696,8 @@ final class PIFBuilderTests: XCTestCase {
                         ]),
                         .init(name: "FooLib1"),
                         .init(name: "FooLib2"),
-                    ]
+                    ],
+                    traits: []
                 ),
             ],
             shouldCreateMultipleTestProducts: true,
