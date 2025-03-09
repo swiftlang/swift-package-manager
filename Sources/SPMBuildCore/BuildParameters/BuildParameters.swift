@@ -115,8 +115,6 @@ public struct BuildParameters: Encodable {
             return .windows
         } else if self.triple.isOpenBSD() {
             return .openbsd
-        } else if self.triple.isFreeBSD() {
-            return .freebsd
         } else {
             return .linux
         }

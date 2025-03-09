@@ -75,7 +75,7 @@ public final class Cancellator: Cancellable, Sendable {
 
                 // Install the default signal handler.
                 var action = sigaction()
-                #if canImport(Darwin) || os(OpenBSD) || os(FreeBSD)
+                #if canImport(Darwin) || os(OpenBSD)
                 action.__sigaction_u.__sa_handler = SIG_DFL
                 #elseif canImport(Musl)
                 action.__sa_handler.sa_handler = SIG_DFL
