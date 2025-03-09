@@ -137,7 +137,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
                 version: version,
                 observabilityScope: observabilityScope,
                 delegateQueue: delegateQueue,
-                callbackQueue: callbackQueue,
+                callbackQueue: callbackQueue
             )
         }
     }
