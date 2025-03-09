@@ -1259,9 +1259,9 @@ public final class PackageBuilder {
                     throw InternalError("linker does not support treatAllWarnings")
 
                 case .swift:
-                    // TODO: this should be SWIFT_TREAT_WARNINGS_AS_ERRORS
-                    // but it probably will break the order of the warning control
-                    // flags (which is important)
+                    // We can't use SWIFT_WARNINGS_AS_WARNINGS_GROUPS and
+                    // SWIFT_WARNINGS_AS_ERRORS_GROUPS here.
+                    // See https://github.com/swiftlang/swift-build/issues/248
                     decl = .OTHER_SWIFT_FLAGS
                     let flag = switch level {
                     case .error: "-warnings-as-errors"
@@ -1292,6 +1292,9 @@ public final class PackageBuilder {
                     throw InternalError("linker does not support treatWarning")
 
                 case .swift:
+                    // We can't use SWIFT_WARNINGS_AS_WARNINGS_GROUPS and
+                    // SWIFT_WARNINGS_AS_ERRORS_GROUPS here.
+                    // See https://github.com/swiftlang/swift-build/issues/248
                     decl = .OTHER_SWIFT_FLAGS
                     let flag = switch level {
                     case .error: "-Werror"
