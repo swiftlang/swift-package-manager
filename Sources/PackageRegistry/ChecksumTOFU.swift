@@ -94,7 +94,7 @@ struct PackageVersionChecksumTOFU {
         package: PackageIdentity.RegistryIdentity,
         version: Version,
         timeout: DispatchTimeInterval?,
-        observabilityScope: ObservabilityScope,
+        observabilityScope: ObservabilityScope
     ) async throws -> String {
         // We either use a previously recorded checksum, or fetch it from the registry.
         if let savedChecksum = try? self.readFromStorage(package: package, version: version, contentType: .sourceCode, observabilityScope: observabilityScope) {
