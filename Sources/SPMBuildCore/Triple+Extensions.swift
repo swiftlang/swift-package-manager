@@ -26,9 +26,14 @@ extension Triple {
 
 extension Triple {
     public func platformBuildPathComponent(buildSystem: BuildSystemProvider.Kind) -> String {
-        // Use "apple" as the subdirectory because in theory Xcode build system
-        // can be used to build for any Apple platform and it has its own
-        // conventions for build subpaths based on platforms.
-        buildSystem.usesXcodeBuildEngine ? "apple" : self.platformBuildPathComponent
+        switch buildSystem {
+        case .xcode:
+            // Use "apple" as the subdirectory because in theory Xcode build system
+            // can be used to build for any Apple platform and it has its own
+            // conventions for build subpaths based on platforms.
+            return "apple"
+        case .swiftbuild, .native:
+            return self.platformBuildPathComponent
+        }
     }
 }
