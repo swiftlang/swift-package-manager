@@ -1119,6 +1119,11 @@ public enum PIF {
 
 /// Represents a filetype recognized by the Xcode build system.
 public struct SwiftBuildFileType: CaseIterable {
+    public static let xcassets: SwiftBuildFileType = SwiftBuildFileType(
+        fileType: "xcassets",
+        fileTypeIdentifier: "folder.abstractassetcatalog"
+    )
+
     public static let xcdatamodeld: SwiftBuildFileType = SwiftBuildFileType(
         fileType: "xcdatamodeld",
         fileTypeIdentifier: "wrapper.xcdatamodeld"
