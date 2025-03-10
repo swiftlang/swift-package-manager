@@ -117,6 +117,10 @@ public func testWithTemporaryDirectory<Result>(
     }
 }
 
+public enum TestError: Error {
+    case platformNotSupported
+}
+
 @discardableResult public func fixture<T>(
     name: String,
     createGitRepo: Bool = true,
@@ -252,7 +256,7 @@ public func getBuildSystemArgs(for buildSystem: BuildSystemProvider.Kind?) -> [S
 
 @discardableResult
 public func executeSwiftBuild(
-    _ packagePath: AbsolutePath,
+    _ packagePath: AbsolutePath?,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
@@ -274,8 +278,8 @@ public func executeSwiftBuild(
 
 @discardableResult
 public func executeSwiftRun(
-    _ packagePath: AbsolutePath,
-    _ executable: String,
+    _ packagePath: AbsolutePath?,
+    _ executable: String?,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
@@ -292,13 +296,15 @@ public func executeSwiftRun(
         Xswiftc: Xswiftc,
         buildSystem: buildSystem
     )
-    args.append(executable)
+    if let executable {
+        args.append(executable)
+    }
     return try await SwiftPM.Run.execute(args, packagePath: packagePath, env: env)
 }
 
 @discardableResult
 public func executeSwiftPackage(
-    _ packagePath: AbsolutePath,
+    _ packagePath: AbsolutePath?,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
@@ -320,7 +326,7 @@ public func executeSwiftPackage(
 
 @discardableResult
 public func executeSwiftPackageRegistry(
-    _ packagePath: AbsolutePath,
+    _ packagePath: AbsolutePath?,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
@@ -342,13 +348,14 @@ public func executeSwiftPackageRegistry(
 
 @discardableResult
 public func executeSwiftTest(
-    _ packagePath: AbsolutePath,
+    _ packagePath: AbsolutePath?,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: Environment? = nil,
+    throwIfCommandFails: Bool = false,
     buildSystem: BuildSystemProvider.Kind = .native
 ) async throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(
@@ -359,7 +366,7 @@ public func executeSwiftTest(
         Xswiftc: Xswiftc,
         buildSystem: buildSystem
     )
-    return try await SwiftPM.Test.execute(args, packagePath: packagePath, env: env)
+    return try await SwiftPM.Test.execute(args, packagePath: packagePath, env: env, throwIfCommandFails: throwIfCommandFails)
 }
 
 private func swiftArgs(

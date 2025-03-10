@@ -1360,7 +1360,7 @@ final class RegistryClientTests: XCTestCase {
                     version: version,
                     customToolsVersion: nil,
                     observabilityScope: ObservabilitySystem.NOOP,
-                    callbackQueue: .sharedConcurrent,
+                    callbackQueue: .sharedConcurrent
                 ) { continuation.resume(with: $0) }
             }
             let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifestSync)
@@ -3419,7 +3419,7 @@ final class RegistryClientTests: XCTestCase {
                     signatureFormat: .none,
                     fileSystem: localFileSystem,
                     observabilityScope: ObservabilitySystem.NOOP,
-                    callbackQueue: .sharedConcurrent,
+                    callbackQueue: .sharedConcurrent
                 ) { result in continuation.resume(with: result) }
             }
 
