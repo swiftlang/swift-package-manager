@@ -34,11 +34,7 @@ extension Int {
     public var id: Self { self }
 }
 
-#if compiler(<6.0)
-extension Int: Identifiable {}
-#else
 extension Int: @retroactive Identifiable {}
-#endif
 
 private func topologicalSort(_ nodes: [Int], _ successors: [Int: [Int]]) throws -> [Int] {
     return try topologicalSort(nodes, successors: { successors[$0] ?? [] })

@@ -20,8 +20,6 @@ import XCTest
 final class ManifestLoaderCacheTests: XCTestCase {
 
     func testDBCaching() async throws {
-        try UserToolchain.default.skipUnlessAtLeastSwift6()
-
         try await testWithTemporaryDirectory { path in
             let fileSystem = localFileSystem
             let observability = ObservabilitySystem.makeForTesting()
@@ -116,8 +114,6 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testInMemoryCaching() async throws {
-        try UserToolchain.default.skipUnlessAtLeastSwift6()
-
         let fileSystem = InMemoryFileSystem()
         let observability = ObservabilitySystem.makeForTesting()
 
@@ -207,8 +203,6 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testContentBasedCaching() async throws {
-        try UserToolchain.default.skipUnlessAtLeastSwift6()
-
         try await testWithTemporaryDirectory { path in
             let manifest = """
                 import PackageDescription
@@ -268,8 +262,6 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testCacheInvalidateOnBuildToolsFlags() async throws {
-        try UserToolchain.default.skipUnlessAtLeastSwift6()
-
         try await testWithTemporaryDirectory { path in
             let fileSystem = InMemoryFileSystem()
             let observability = ObservabilitySystem.makeForTesting()
@@ -330,8 +322,6 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testCacheInvalidationOnEnv() async throws {
-        try UserToolchain.default.skipUnlessAtLeastSwift6()
-
         try await testWithTemporaryDirectory { path in
             let fileSystem = InMemoryFileSystem()
             let observability = ObservabilitySystem.makeForTesting()
@@ -397,8 +387,6 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testCacheDoNotInvalidationExpectedEnv() async throws {
-        try UserToolchain.default.skipUnlessAtLeastSwift6()
-
         try await testWithTemporaryDirectory { path in
             let fileSystem = InMemoryFileSystem()
             let observability = ObservabilitySystem.makeForTesting()
@@ -484,8 +472,6 @@ final class ManifestLoaderCacheTests: XCTestCase {
     }
 
     func testInMemoryCacheHappyCase() async throws {
-        try UserToolchain.default.skipUnlessAtLeastSwift6()
-
         let content = """
             import PackageDescription
             let package = Package(

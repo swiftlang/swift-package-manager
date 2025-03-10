@@ -649,7 +649,6 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testManifestGenerationWithSwiftLanguageMode() async throws {
-        try UserToolchain.default.skipUnlessAtLeastSwift6()
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
             path: "/pkg",

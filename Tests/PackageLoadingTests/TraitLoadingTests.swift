@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if compiler(>=6.0)
 import Basics
 import PackageModel
 import SourceControl
@@ -317,4 +316,3 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
         )
     }
 }
-#endif

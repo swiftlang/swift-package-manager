@@ -331,8 +331,4 @@ extension SerializedDiagnostics.SourceLocation {
     }
 }
 
-#if compiler(<6.0)
-extension SerializedDiagnostics.SourceLocation: DiagnosticLocation {}
-#else
 extension SerializedDiagnostics.SourceLocation: @retroactive DiagnosticLocation {}
-#endif
