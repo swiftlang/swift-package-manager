@@ -295,7 +295,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
                 for packageVersion in packageVersions {
                     group.addTask {
                         delegate.prepare(fetchExpected: true)
-                        results[packageVersion] = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope, delegateQueue: .sharedConcurrent, callbackQueue: .sharedConcurrent)
+                        results[packageVersion] = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
                     }
                 }
                 try await group.waitForAll()
@@ -335,7 +335,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
                     group.addTask {
                         delegate.prepare(fetchExpected: index < concurrency / repeatRatio)
                         let packageVersion = Version(index % (concurrency / repeatRatio), 0 , 0)
-                        results[packageVersion] = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope, delegateQueue: .sharedConcurrent, callbackQueue: .sharedConcurrent)
+                        results[packageVersion] = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
                     }
                 }
                 try await group.waitForAll()
@@ -415,8 +415,7 @@ extension RegistryDownloadsManager {
             package: package,
             version: version,
             observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent,
-            callbackQueue: .sharedConcurrent
+            delegateQueue: .sharedConcurrent
         )
     }
 }

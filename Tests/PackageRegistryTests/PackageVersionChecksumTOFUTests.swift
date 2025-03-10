@@ -882,8 +882,7 @@ extension PackageVersionChecksumTOFU {
             version: version,
             checksum: checksum,
             timeout: nil,
-            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP
         )
     }
 

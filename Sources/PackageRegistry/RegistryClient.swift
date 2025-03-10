@@ -148,15 +148,13 @@ public final class RegistryClient: AsyncCancellable {
     public func getPackageMetadata(
         package: PackageIdentity,
         timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws -> PackageMetadata {
         let (registryIdentity, registry) = try self.unwrapRegistry(from: package)
 
         try await withAvailabilityCheck(
             registry: registry,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
+            observabilityScope: observabilityScope
         )
 
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
@@ -176,8 +174,7 @@ public final class RegistryClient: AsyncCancellable {
                 registry: registry,
                 package: registryIdentity,
                 timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             )
 
             let mergedMetadata = PackageMetadata(
@@ -222,12 +219,11 @@ public final class RegistryClient: AsyncCancellable {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<PackageMetadata, Error>) -> Void
     ) {
-        self.executeAsync(completion, on: callbackQueue) {
+        callbackQueue.asyncResult(completion) {
             try await self.getPackageMetadata(
                 package: package,
                 timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             )
         }
     }
@@ -237,8 +233,7 @@ public final class RegistryClient: AsyncCancellable {
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         timeout: DispatchTimeInterval?,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws -> PackageMetadata {
         let start = DispatchTime.now()
         observabilityScope.emit(info: "retrieving \(package) metadata from \(url)")
@@ -297,15 +292,13 @@ public final class RegistryClient: AsyncCancellable {
         version: Version,
         timeout: DispatchTimeInterval? = .none,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws -> PackageVersionMetadata {
         let (package, registry) = try self.unwrapRegistry(from: package)
 
         try await withAvailabilityCheck(
             registry: registry,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
+            observabilityScope: observabilityScope
         )
 
         let versionMetadata = try await self._getRawPackageVersionMetadata(
@@ -313,8 +306,7 @@ public final class RegistryClient: AsyncCancellable {
             package: package,
             version: version,
             timeout: timeout,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
+            observabilityScope: observabilityScope
         )
 
         var resourceSigning: [(resource: RegistryClient.Serialization.VersionMetadata.Resource, signingEntity: SigningEntity?)] = []
@@ -387,14 +379,13 @@ public final class RegistryClient: AsyncCancellable {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<PackageVersionMetadata, Error>) -> Void
     ) {
-        self.executeAsync(completion, on: callbackQueue) {
+        callbackQueue.asyncResult(completion) {
             try await self.getPackageVersionMetadata(
                 package: package,
                 version: version,
                 timeout: timeout,
                 fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             )
         }
     }
@@ -404,8 +395,7 @@ public final class RegistryClient: AsyncCancellable {
         package: PackageIdentity.RegistryIdentity,
         version: Version,
         timeout: DispatchTimeInterval?,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws -> Serialization.VersionMetadata {
         let cacheKey = MetadataCacheKey(registry: registry, package: package)
         if let cached = self.metadataCache[cacheKey], cached.expires < .now() {
@@ -473,15 +463,13 @@ public final class RegistryClient: AsyncCancellable {
         package: PackageIdentity,
         version: Version,
         timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws -> [String: (toolsVersion: ToolsVersion, content: String?)]{
         let (registryIdentity, registry) = try self.unwrapRegistry(from: package)
 
         try await withAvailabilityCheck(
             registry: registry,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
+            observabilityScope: observabilityScope
         )
 
         // first get the release metadata to see if archive is signed (therefore manifest is also signed)
@@ -490,8 +478,7 @@ public final class RegistryClient: AsyncCancellable {
             version: version,
             timeout: timeout,
             fileSystem: localFileSystem,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
+            observabilityScope: observabilityScope
         )
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
             throw RegistryError.invalidURL(registry.url)
@@ -567,8 +554,7 @@ public final class RegistryClient: AsyncCancellable {
                 configuration: self.configuration.signing(for: registryIdentity, registry: registry),
                 timeout: timeout,
                 fileSystem: localFileSystem,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             )
 
             // TODO: expose Data based API on checksumAlgorithm
@@ -636,13 +622,12 @@ public final class RegistryClient: AsyncCancellable {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<[String: (toolsVersion: ToolsVersion, content: String?)], Error>) -> Void
     ) {
-        self.executeAsync(completion, on: callbackQueue) {
+        callbackQueue.asyncResult(completion) {
             try await self.getAvailableManifests(
                 package: package,
                 version: version,
                 timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             )
         }
     }
@@ -652,15 +637,13 @@ public final class RegistryClient: AsyncCancellable {
         version: Version,
         customToolsVersion: ToolsVersion?,
         timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws -> String {
         let (registryIdentity, registry) = try self.unwrapRegistry(from: package)
 
         try await withAvailabilityCheck(
             registry: registry,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
+            observabilityScope: observabilityScope
         )
 
         // first get the release metadata to see if archive is signed (therefore manifest is also signed)
@@ -669,8 +652,7 @@ public final class RegistryClient: AsyncCancellable {
             version: version,
             timeout: timeout,
             fileSystem: localFileSystem,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
+            observabilityScope: observabilityScope
         )
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
             throw RegistryError.invalidURL(registry.url)
@@ -750,8 +732,7 @@ public final class RegistryClient: AsyncCancellable {
                 configuration: self.configuration.signing(for: registryIdentity, registry: registry),
                 timeout: timeout,
                 fileSystem: localFileSystem,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             )
 
             // TODO: expose Data based API on checksumAlgorithm
@@ -796,14 +777,13 @@ public final class RegistryClient: AsyncCancellable {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<String, Error>) -> Void
     ) {
-        self.executeAsync(completion, on: callbackQueue) {
+        callbackQueue.asyncResult(completion) {
             try await self.getManifestContent(
                 package: package,
                 version: version,
                 customToolsVersion: customToolsVersion,
                 timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             )
         }
     }
@@ -815,15 +795,13 @@ public final class RegistryClient: AsyncCancellable {
         progressHandler: (@Sendable (_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
         timeout: DispatchTimeInterval? = .none,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws {
         let (registryIdentity, registry) = try self.unwrapRegistry(from: package)
 
         try await withAvailabilityCheck(
             registry: registry,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
+            observabilityScope: observabilityScope
         )
 
         // first get the release metadata
@@ -833,8 +811,7 @@ public final class RegistryClient: AsyncCancellable {
             version: version,
             timeout: timeout,
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
+            observabilityScope: observabilityScope
         )
         // download archive
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
@@ -924,8 +901,7 @@ public final class RegistryClient: AsyncCancellable {
                 configuration: self.configuration.signing(for: registryIdentity, registry: registry),
                 timeout: timeout,
                 fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             )
 
             try await checksumTOFU.validateSourceArchive(
@@ -934,8 +910,7 @@ public final class RegistryClient: AsyncCancellable {
                 version: version,
                 checksum: actualChecksum,
                 timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             )
 
             do {
@@ -1024,7 +999,7 @@ public final class RegistryClient: AsyncCancellable {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        self.executeAsync(completion, on: callbackQueue) {
+        callbackQueue.asyncResult(completion) {
             try await self.downloadSourceArchive(
                 package: package,
                 version: version,
@@ -1032,8 +1007,7 @@ public final class RegistryClient: AsyncCancellable {
                 progressHandler: progressHandler,
                 timeout: timeout,
                 fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             )
         }
     }
@@ -1041,8 +1015,7 @@ public final class RegistryClient: AsyncCancellable {
     public func lookupIdentities(
         scmURL: SourceControlURL,
         timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws -> Set<PackageIdentity> {
         guard let registry = self.configuration.defaultRegistry else {
             throw RegistryError.registryNotConfigured(scope: nil)
@@ -1050,8 +1023,7 @@ public final class RegistryClient: AsyncCancellable {
 
         try await withAvailabilityCheck(
             registry: registry,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
+            observabilityScope: observabilityScope
         )
 
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
@@ -1114,12 +1086,11 @@ public final class RegistryClient: AsyncCancellable {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<Set<PackageIdentity>, Error>) -> Void
     ) {
-        self.executeAsync(completion, on: callbackQueue) {
+        callbackQueue.asyncResult(completion) {
             try await self.lookupIdentities(
                 scmURL: scmURL,
                 timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             )
         }
     }
@@ -1127,8 +1098,7 @@ public final class RegistryClient: AsyncCancellable {
     public func login(
         loginURL: URL,
         timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws {
         let start = DispatchTime.now()
         observabilityScope.emit(info: "logging-in into \(loginURL)")
@@ -1165,12 +1135,11 @@ public final class RegistryClient: AsyncCancellable {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        self.executeAsync(completion, on: callbackQueue) {
+        callbackQueue.asyncResult(completion) {
             try await self.login(
                 loginURL: loginURL,
                 timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             )
         }
     }
@@ -1191,7 +1160,7 @@ public final class RegistryClient: AsyncCancellable {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<PublishResult, Error>) -> Void
     ) {
-        self.executeAsync(completion, on: callbackQueue) {
+        callbackQueue.asyncResult(completion) {
             try await self.publish(
                 registryURL: registryURL,
                 packageIdentity: packageIdentity,
@@ -1203,8 +1172,7 @@ public final class RegistryClient: AsyncCancellable {
                 signatureFormat: signatureFormat,
                 timeout: timeout,
                 fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             )
         }
     }
@@ -1220,8 +1188,7 @@ public final class RegistryClient: AsyncCancellable {
         signatureFormat: SignatureFormat?,
         timeout: DispatchTimeInterval? = .none,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws -> PublishResult {
         guard let registryIdentity = packageIdentity.registry else {
             throw RegistryError.invalidPackageIdentity(packageIdentity)
@@ -1377,7 +1344,7 @@ public final class RegistryClient: AsyncCancellable {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<AvailabilityStatus, Error>) -> Void
     ) {
-        self.executeAsync(completion, on: callbackQueue) {
+        callbackQueue.asyncResult(completion) {
             try await self.checkAvailability(
                 registry: registry,
                 timeout: timeout,
@@ -1452,8 +1419,7 @@ public final class RegistryClient: AsyncCancellable {
     // explaining why the registry is unavailable is thrown.
     private func withAvailabilityCheck(
         registry: Registry,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws {
         if !registry.supportsAvailability {
             return
@@ -1514,21 +1480,6 @@ public final class RegistryClient: AsyncCancellable {
             )
         default:
             return RegistryError.invalidResponseStatus(expected: expectedStatus, actual: response.statusCode)
-        }
-    }
-
-    private func executeAsync<T>(
-        _ callback: @escaping (Result<T, Error>) -> Void,
-        on queue: DispatchQueue,
-        _ closure: @escaping () async throws -> T
-    ) {
-        let completion: (Result<T, Error>) -> Void = { result in queue.async { callback(result) } }
-        Task {
-            do {
-                completion(.success(try await closure()))
-            } catch {
-                completion(.failure(error))
-            }
         }
     }
 
@@ -2399,3 +2350,17 @@ extension Result {
         }
     }
 }
+
+extension DispatchQueue {
+    func asyncResult<T>(_ callback: @escaping (Result<T, Error>) -> Void, _ closure: @escaping () async throws -> T) {
+        let completion: (Result<T, Error>) -> Void = { result in self.async { callback(result) } }
+        Task {
+            do {
+                completion(.success(try await closure()))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+}
+
