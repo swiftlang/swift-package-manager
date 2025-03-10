@@ -20,7 +20,7 @@ import XCTest
 
 class TestCommandTestCase: CommandsBuildProviderTestCase {
     override func setUpWithError() throws {
-        try XCTSkipIf(type(of: self) == TestCommandTestCase.self, "Pay no attention to the class behind the curtain.")
+        try XCTSkipIf(type(of: self) == TestCommandTestCase.self, "Skipping this test since it will be run in subclasses that will provide different build systems to test.")
     }
 
     private func execute(
