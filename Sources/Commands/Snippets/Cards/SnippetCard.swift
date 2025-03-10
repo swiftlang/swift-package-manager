@@ -14,8 +14,8 @@ import Basics
 import CoreCommands
 import PackageModel
 
-import enum TSCBasic.ProcessEnv
 import func TSCBasic.exec
+import enum TSCBasic.ProcessEnv
 
 /// A card displaying a ``Snippet`` at the terminal.
 struct SnippetCard: Card {
@@ -29,6 +29,7 @@ struct SnippetCard: Card {
             }
         }
     }
+
     /// The snippet to display in the terminal.
     var snippet: Snippet
 
@@ -39,20 +40,35 @@ struct SnippetCard: Card {
     var swiftCommandState: SwiftCommandState
 
     func render() -> String {
-        var rendered = colorized {
+        let isColorized: Bool = swiftCommandState.options.logging.colorDiagnostics
+        var rendered = isColorized ? colorized {
             brightYellow {
                 "# "
                 snippet.name
             }
             "\n\n"
         }.terminalString()
+            :
+            plain {
+                plain {
+                    "# "
+                    snippet.name
+                }
+                "\n\n"
+            }.terminalString()
 
         if !snippet.explanation.isEmpty {
-            rendered += brightBlack {
+            rendered += isColorized ? brightBlack {
                 snippet.explanation
-                .split(separator: "\n", omittingEmptySubsequences: false)
-                .map { "// " + $0 }
-                .joined(separator: "\n")
+                    .split(separator: "\n", omittingEmptySubsequences: false)
+                    .map { "// " + $0 }
+                    .joined(separator: "\n")
+            }.terminalString()
+            : plain {
+                snippet.explanation
+                    .split(separator: "\n", omittingEmptySubsequences: false)
+                    .map { "// " + $0 }
+                    .joined(separator: "\n")
             }.terminalString()
 
             rendered += "\n\n"
