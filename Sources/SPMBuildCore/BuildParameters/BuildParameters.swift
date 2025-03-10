@@ -224,9 +224,16 @@ public struct BuildParameters: Encodable {
 
     /// The path to the build directory (inside the data directory).
     public var buildPath: AbsolutePath {
+        // TODO: query the build system for this.
         switch buildSystemKind {
         case .xcode, .swiftbuild:
-            return dataPath.appending(components: "Products", configuration.dirname.capitalized)
+            var configDir: String = configuration.dirname
+            if self.triple.isWindows() {
+                configDir += "-windows"
+            } else if self.triple.isLinux() {
+                configDir += "-linux"
+            }
+            return dataPath.appending(components: "Products", configDir)
         case .native:
             return dataPath.appending(component: configuration.dirname)
         }
