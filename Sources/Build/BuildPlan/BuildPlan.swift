@@ -14,11 +14,12 @@ import _Concurrency
 import Basics
 import Foundation
 import LLBuildManifest
-import OrderedCollections
 import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
+
+private import OrderedCollections
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import SwiftDriver
@@ -666,7 +667,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
 
         // Build cache
-        var cflagsCache: OrderedCollections.OrderedSet<String> = []
+        var cflagsCache: OrderedSet<String> = []
         var libsCache: [String] = []
         for tuple in ret {
             for cFlag in tuple.cFlags {
