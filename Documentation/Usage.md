@@ -140,7 +140,7 @@ You can link against system libraries using the package manager. To do so, you'l
 need to add a special `target` of type `.systemLibrary`, and a `module.modulemap`
 for each system library you're using.
 
-Let's see an example of adding [libgit2](https://libgit2.github.com) as a
+Let's see an example of adding [libgit2](https://github.com/libgit2/libgit2) as a
 dependency to an executable target.
 
 Create a directory called `example`, and initialize it as a package that

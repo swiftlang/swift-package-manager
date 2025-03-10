@@ -36,7 +36,7 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?
     ) async throws -> any BuildSystem {
-        _ = try await swiftCommandState.getRootPackageInformation()
+        _ = try await swiftCommandState.getRootPackageInformation(traitConfiguration: traitConfiguration)
         let testEntryPointPath = productsBuildParameters?.testProductStyle.explicitlySpecifiedEntryPointPath
         let cacheBuildManifest = if cacheBuildManifest {
             try await self.swiftCommandState.canUseCachedBuildManifest()
@@ -88,7 +88,8 @@ private struct XcodeBuildSystemFactory: BuildSystemFactory {
             buildParameters: productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
             packageGraphLoader: packageGraphLoader ?? {
                 try await self.swiftCommandState.loadPackageGraph(
-                    explicitProduct: explicitProduct
+                    explicitProduct: explicitProduct,
+                    traitConfiguration: traitConfiguration
                 )
             },
             outputStream: outputStream ?? self.swiftCommandState.outputStream,
@@ -120,6 +121,7 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
                     explicitProduct: explicitProduct
                 )
             },
+            packageManagerResourcesDirectory: swiftCommandState.packageManagerResourcesDirectory,
             outputStream: outputStream ?? self.swiftCommandState.outputStream,
             logLevel: logLevel ?? self.swiftCommandState.logLevel,
             fileSystem: self.swiftCommandState.fileSystem,

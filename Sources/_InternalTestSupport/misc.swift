@@ -401,7 +401,8 @@ public func loadPackageGraph(
     createREPLProduct: Bool = false,
     useXCBuildFileRules: Bool = false,
     customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
-    observabilityScope: ObservabilityScope
+    observabilityScope: ObservabilityScope,
+    traitConfiguration: TraitConfiguration?
 ) throws -> ModulesGraph {
     try loadModulesGraph(
         identityResolver: identityResolver,
@@ -413,7 +414,8 @@ public func loadPackageGraph(
         createREPLProduct: createREPLProduct,
         useXCBuildFileRules: useXCBuildFileRules,
         customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
-        observabilityScope: observabilityScope
+        observabilityScope: observabilityScope,
+        traitConfiguration: traitConfiguration
     )
 }
 

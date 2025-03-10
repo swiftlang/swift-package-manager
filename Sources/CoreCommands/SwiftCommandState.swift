@@ -203,7 +203,7 @@ public final class SwiftCommandState {
     }
 
     /// Get the current workspace root object.
-    public func getWorkspaceRoot() throws -> PackageGraphRootInput {
+    public func getWorkspaceRoot(traitConfiguration: TraitConfiguration? = nil) throws -> PackageGraphRootInput {
         let packages: [AbsolutePath]
 
         if let workspace = options.locations.multirootPackageDataFile {
@@ -213,7 +213,7 @@ public final class SwiftCommandState {
             packages = [try getPackageRoot()]
         }
 
-        return PackageGraphRootInput(packages: packages)
+        return PackageGraphRootInput(packages: packages, traitConfiguration: traitConfiguration)
     }
 
     /// Scratch space (.build) directory.
@@ -227,6 +227,9 @@ public final class SwiftCommandState {
 
     /// Path to the shared configuration directory
     public let sharedConfigurationDirectory: AbsolutePath
+    
+    /// Path to the package manager's own resources directory.
+    public let packageManagerResourcesDirectory: AbsolutePath?
 
     /// Path to the cross-compilation Swift SDKs directory.
     public let sharedSwiftSDKsDirectory: AbsolutePath
@@ -371,6 +374,17 @@ public final class SwiftCommandState {
                 warning: "`--experimental-swift-sdks-path` is deprecated and will be removed in a future version of SwiftPM. Use `--swift-sdks-path` instead."
             )
         }
+        
+        if let packageManagerResourcesDirectory = options.locations.packageManagerResourcesDirectory {
+            self.packageManagerResourcesDirectory = packageManagerResourcesDirectory
+        } else if let cwd = localFileSystem.currentWorkingDirectory {
+            self.packageManagerResourcesDirectory = try? AbsolutePath(validating: CommandLine.arguments[0], relativeTo: cwd)
+                .parentDirectory.parentDirectory.appending(components: ["share", "pm"])
+        } else {
+            self.packageManagerResourcesDirectory = try? AbsolutePath(validating: CommandLine.arguments[0])
+                .parentDirectory.parentDirectory.appending(components: ["share", "pm"])
+        }
+        
         self.sharedSwiftSDKsDirectory = try fileSystem.getSharedSwiftSDKsDirectory(
             explicitDirectory: options.locations.swiftSDKsDirectory ?? options.locations.deprecatedSwiftSDKsDirectory
         )
@@ -423,7 +437,7 @@ public final class SwiftCommandState {
     }
 
     /// Returns the currently active workspace.
-    public func getActiveWorkspace(emitDeprecatedConfigurationWarning: Bool = false) throws -> Workspace {
+    public func getActiveWorkspace(emitDeprecatedConfigurationWarning: Bool = false, traitConfiguration: TraitConfiguration? = nil) throws -> Workspace {
         if let workspace = _workspace {
             return workspace
         }
@@ -471,7 +485,9 @@ public final class SwiftCommandState {
                     .init(url: $0, supportsAvailability: true)
                 },
                 manifestImportRestrictions: .none,
-                usePrebuilts: options.caching.usePrebuilts
+                usePrebuilts: options.caching.usePrebuilts,
+                pruneDependencies: options.resolver.pruneDependencies,
+                traitConfiguration: traitConfiguration
             ),
             cancellator: self.cancellator,
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
@@ -484,9 +500,9 @@ public final class SwiftCommandState {
         return workspace
     }
 
-    public func getRootPackageInformation() async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
-        let workspace = try self.getActiveWorkspace()
-        let root = try self.getWorkspaceRoot()
+    public func getRootPackageInformation(traitConfiguration: TraitConfiguration? = nil) async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
+        let workspace = try self.getActiveWorkspace(traitConfiguration: traitConfiguration)
+        let root = try self.getWorkspaceRoot(traitConfiguration: traitConfiguration)
         let rootManifests = try await workspace.loadRootManifests(
             packages: root.packages,
             observabilityScope: self.observabilityScope
@@ -589,9 +605,9 @@ public final class SwiftCommandState {
     }
 
     /// Resolve the dependencies.
-    public func resolve() async throws {
-        let workspace = try getActiveWorkspace()
-        let root = try getWorkspaceRoot()
+    public func resolve(_ traitConfiguration: TraitConfiguration?) async throws {
+        let workspace = try getActiveWorkspace(traitConfiguration: traitConfiguration)
+        let root = try getWorkspaceRoot(traitConfiguration: traitConfiguration)
 
         try await workspace.resolve(
             root: root,
@@ -636,13 +652,12 @@ public final class SwiftCommandState {
         testEntryPointPath: AbsolutePath? = nil
     ) async throws -> ModulesGraph {
         do {
-            let workspace = try getActiveWorkspace()
+            let workspace = try getActiveWorkspace(traitConfiguration: traitConfiguration)
 
             // Fetch and load the package graph.
             let graph = try await workspace.loadPackageGraph(
-                rootInput: getWorkspaceRoot(),
+                rootInput: getWorkspaceRoot(traitConfiguration: traitConfiguration),
                 explicitProduct: explicitProduct,
-                traitConfiguration: traitConfiguration,
                 forceResolvedVersions: options.resolver.forceResolvedVersions,
                 testEntryPointPath: testEntryPointPath,
                 observabilityScope: self.observabilityScope

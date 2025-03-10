@@ -1013,7 +1013,8 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                                 )
                             ),
                         ]),
-                    ]
+                    ],
+                    traits: []
                 ),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "ExtPkg",
@@ -1569,7 +1570,8 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                                 config: "debug"
                             )),
                         ]),
-                    ]
+                    ],
+                    traits: []
                 ),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "ExtPkg",
@@ -2848,22 +2850,25 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         let buildPath = result.plan.productsBuildPath
 
+        let matchText = try result.moduleBuildDescription(for: "exe").swift().compileArguments()
+        let assertionText: [StringPattern] = [
+            "-enable-batch-mode",
+            "-Onone",
+            "-enable-testing",
+            .equal(self.j),
+            "-DSWIFT_PACKAGE",
+            "-DDEBUG",
+            "-Xcc", "-fmodule-map-file=\(Clibgit.appending(components: "module.modulemap"))",
+            "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
+            .anySequence,
+            "-swift-version", "4",
+            "-g",
+            .anySequence,
+        ]
+
         XCTAssertMatch(
-            try result.moduleBuildDescription(for: "exe").swift().compileArguments(),
-            [
-                "-enable-batch-mode",
-                "-Onone",
-                "-enable-testing",
-                .equal(self.j),
-                "-DSWIFT_PACKAGE",
-                "-DDEBUG",
-                "-Xcc", "-fmodule-map-file=\(Clibgit.appending(components: "module.modulemap"))",
-                "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
-                .anySequence,
-                "-swift-version", "4",
-                "-g",
-                .anySequence,
-            ]
+            matchText,
+            assertionText
         )
 
         #if os(macOS)
@@ -3546,7 +3551,8 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                                 config: "release"
                             )),
                         ]),
-                    ]
+                    ],
+                    traits: []
                 ),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "B",

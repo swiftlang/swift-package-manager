@@ -68,7 +68,14 @@ def get_arguments() -> argparse.Namespace:
         choices=[e.value for e in Configuration],
         help="The configuraiton to use.",
     )
-
+    parser.add_argument(
+        "--enable-swift-testing",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--enable-xctest",
+        action="store_true",
+    )
     args = parser.parse_args()
     return args
 
@@ -147,8 +154,10 @@ def main() -> None:
         call(
             shlex.split(f"swift build --configuration {args.config}"),
         )
+        swift_testing_arg= "--enable-swift-testing" if args.enable_swift_testing else ""
+        xctest_arg= "--enable-xctest" if args.enable_swift_testing else ""
         call(
-            shlex.split(f"swift test --configuration {args.config} --parallel"),
+            shlex.split(f"swift test --configuration {args.config} --parallel {swift_testing_arg} {xctest_arg}"),
         )
 
     with change_directory(REPO_ROOT_PATH / "IntegrationTests"):

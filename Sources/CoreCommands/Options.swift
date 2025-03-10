@@ -146,6 +146,12 @@ public struct LocationOptions: ParsableArguments {
         completion: .directory
     )
     public var pkgConfigDirectories: [AbsolutePath] = []
+    
+    @Option(
+        help: .init("Specify alternate path to search for SwiftPM resources.", visibility: .hidden),
+        completion: .directory
+    )
+    public var packageManagerResourcesDirectory: AbsolutePath?
 
     @Flag(name: .customLong("ignore-lock"), help: .hidden)
     public var ignoreLock: Bool = false
@@ -293,6 +299,17 @@ public struct ResolverOptions: ParsableArguments {
     @Flag(help: "Define automatic transformation of source control based dependencies to registry based ones")
     public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation =
         .disabled
+
+    /// Enables pruning unused dependencies to omit redundant calculations during resolution, and each phase thereafter.
+    /// Hidden from the generated help text as this feature is only currently being considered for traits.
+    @Flag(
+        name: .customLong("experimental-prune-unused-dependencies"),
+        help: ArgumentHelp(
+            "Enables the ability to prune unused dependencies of the package to avoid redundant loads during resolution",
+            visibility: .hidden
+        )
+    )
+    public var pruneDependencies: Bool = false
 
     @Option(help: "Default registry URL to use, instead of the registries.json configuration file")
     public var defaultRegistryURL: URL?
