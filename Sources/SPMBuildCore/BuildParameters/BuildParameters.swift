@@ -227,7 +227,7 @@ public struct BuildParameters: Encodable {
         // TODO: query the build system for this.
         switch buildSystemKind {
         case .xcode, .swiftbuild:
-            var configDir: String = configuration.dirname
+            var configDir: String = configuration.dirname.capitalized
             if self.triple.isWindows() {
                 configDir += "-windows"
             } else if self.triple.isLinux() {
