@@ -496,9 +496,9 @@ extension BuildConfiguration {
     }
 }
 
-extension AbsolutePath: @retroactive ExpressibleByArgument {}
-extension BuildConfiguration: @retroactive ExpressibleByArgument, CaseIterable {}
-extension BuildSystemProvider.Kind: @retroactive ExpressibleByArgument, CaseIterable {}
+extension AbsolutePath: ExpressibleByArgument {}
+extension BuildConfiguration: ExpressibleByArgument {}
+extension BuildSystemProvider.Kind: ExpressibleByArgument {}
 
 public func topologicalSort<T: Hashable>(
     _ nodes: [T], successors: (T) async throws -> [T]

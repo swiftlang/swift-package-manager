@@ -247,7 +247,7 @@ extension SignatureFormat {
     }
 }
 
-extension SignatureFormat: @retroactive ExpressibleByArgument {}
+extension SignatureFormat: ExpressibleByArgument {}
 
 enum MetadataLocation {
     case sourceTree(AbsolutePath)

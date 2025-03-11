@@ -85,4 +85,4 @@ extension SwiftPackageCommand {
     }
 }
 
-extension InitPackage.PackageType: @retroactive ExpressibleByArgument {}
+extension InitPackage.PackageType: ExpressibleByArgument {}
