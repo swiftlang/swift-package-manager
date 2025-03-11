@@ -26,3 +26,33 @@ public struct TraitConfiguration: Codable, Hashable {
         self.enableAllTraits = enableAllTraits
     }
 }
+
+public enum TraitConfiguration2: Codable, Hashable {
+    case enableAllTraits
+    case noConfiguration
+    case noEnabledTraits
+    case enabledTraits(Set<String>)
+
+    public init(
+        enabledTraits: Set<String>? = nil,
+        enableAllTraits: Bool = false
+    ) {
+        // If all traits are enabled, then no other checks are necessary.
+        guard !enableAllTraits else {
+            self = .enableAllTraits
+            return
+        }
+
+        if let enabledTraits {
+            if enabledTraits.isEmpty {
+                self = .noEnabledTraits
+            } else {
+                self = .enabledTraits(enabledTraits)
+            }
+        } else {
+            // Since enableAllTraits isn't enabled and there isn't a set of traits set,
+            // there is no configuration passed by the user.
+            self = .noConfiguration
+        }
+    }
+}
