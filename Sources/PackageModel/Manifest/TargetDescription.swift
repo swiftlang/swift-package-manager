@@ -32,7 +32,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         case product(name: String, package: String?, moduleAliases: [String: String]? = nil, condition: PackageConditionDescription?)
         case byName(name: String, condition: PackageConditionDescription?)
 
-        var condition: PackageConditionDescription? {
+        public var condition: PackageConditionDescription? {
             switch self {
             case .target(_, let condition):
                 return condition
@@ -40,6 +40,27 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
                 return condition
             case .byName(_, let condition):
                 return condition
+            }
+        }
+
+        public var name: String {
+            switch self {
+            case .target(let name, _):
+                return name
+            case .product(let name, _, _, _):
+                return name
+            case .byName(let name, _):
+                return name
+            }
+        }
+
+        public var package: String? {
+            switch self {
+            case .product(_, let name?, _, _),
+                  .byName(let name, _): // Note: byName can either refer to a product or target dependency
+                return name
+            default:
+                return nil
             }
         }
 

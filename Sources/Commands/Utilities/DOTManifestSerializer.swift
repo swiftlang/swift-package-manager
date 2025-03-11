@@ -38,8 +38,8 @@ struct DOTManifestSerializer {
 
     /// Quote the name and escape the quotes and backslashes
     func quoteName(_ name: String) -> String {
-        "\"" + name.replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "\\", with: "\\\\") + "\""
+        "\"" + name.replacing("\"", with: "\\\"")
+                   .replacing("\\", with: "\\\\") + "\""
     }
 
     mutating func writeDOT(to stream: OutputByteStream) {

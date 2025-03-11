@@ -2696,7 +2696,8 @@ final class PIFBuilderTests: XCTestCase {
                         ]),
                         .init(name: "FooLib1"),
                         .init(name: "FooLib2"),
-                    ]
+                    ],
+                    traits: []
                 ),
             ],
             shouldCreateMultipleTestProducts: true,
@@ -2947,7 +2948,8 @@ final class PIFBuilderTests: XCTestCase {
             emptyFiles:
             "/Foo/Sources/foo/main.swift",
             "/Foo/Sources/bar/main.swift",
-            "/Foo/Sources/baz/main.swift"
+            "/Foo/Sources/baz/main.swift",
+            "/Foo/Sources/qux/main.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -2958,7 +2960,7 @@ final class PIFBuilderTests: XCTestCase {
                     displayName: "Foo",
                     path: "/Foo",
                     toolsVersion: .v5_3,
-                    swiftLanguageVersions: [.v4_2, .v5],
+                    swiftLanguageVersions: [.v4_2],
                     targets: [
                         .init(name: "foo", dependencies: [], settings: [
                             .init(
@@ -2984,6 +2986,12 @@ final class PIFBuilderTests: XCTestCase {
                                 condition: .init(platformNames: ["macOS"])
                             ),
                         ]),
+                        .init(name: "qux", dependencies: [], settings: [
+                            .init(
+                                tool: .swift,
+                                kind: .swiftLanguageMode(.v5)
+                            )
+                        ]),
                     ]
                 ),
             ],
@@ -3001,13 +3009,14 @@ final class PIFBuilderTests: XCTestCase {
 
         testDiagnostics(observability.diagnostics) { result in
             result.check(
-                diagnostic: "Some of the Swift language versions used in target 'bar' settings are supported. (given: [6], supported: [4.2, 5])",
+                diagnostic: "Some of the Swift language versions used in target 'bar' settings are unsupported. (given: [6], supported: [4.2, 5])",
                 severity: .error
             )
             result.check(
-                diagnostic: "Some of the Swift language versions used in target 'baz' settings are supported. (given: [3], supported: [4.2, 5])",
+                diagnostic: "Some of the Swift language versions used in target 'baz' settings are unsupported. (given: [3], supported: [4.2, 5])",
                 severity: .error
             )
+            result.checkIsEmpty()
         }
     }
 }

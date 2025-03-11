@@ -71,8 +71,22 @@ def call(cmd, cwd=None, verbose=False):
     except subprocess.CalledProcessError as cpe:
         logging.debug("executing command >>> %r with cwd %s", " ".join([str(c) for c in cmd]), cwd)
         logging.error(
-            "Process failure: %s\n[---- START OUTPUT ----]\n%s\n[---- END OUTPUT ----]",
+            "\n".join([
+                "Process failure with return code %d: %s",
+                "[---- START stdout ----]",
+                "%s",
+                "[---- END stdout ----]",
+                "[---- START stderr ----]",
+                "%s",
+                "[---- END stderr ----]",
+                "[---- START OUTPUT ----]",
+                "%s",
+                "[---- END OUTPUT ----]",
+            ]),
+            cpe.returncode,
             str(cpe),
+            cpe.stdout,
+            cpe.stderr,
             cpe.output,
         )
         raise cpe
@@ -93,8 +107,22 @@ def call_output(cmd, cwd=None, stderr=False, verbose=False):
     except subprocess.CalledProcessError as cpe:
         logging.debug("executing command >>> %r with cwd %s", " ".join([str(c) for c in cmd]), cwd)
         logging.error(
-            "%s\n[---- START OUTPUT ----]\n%s\n[---- END OUTPUT ----]",
+            "\n".join([
+                "Process failure with return code %d: %s",
+                "[---- START stdout ----]",
+                "%s",
+                "[---- END stdout ----]",
+                "[---- START stderr ----]",
+                "%s",
+                "[---- END stderr ----]",
+                "[---- START OUTPUT ----]",
+                "%s",
+                "[---- END OUTPUT ----]",
+            ]),
+            cpe.returncode,
             str(cpe),
+            cpe.stdout,
+            cpe.stderr,
             cpe.output,
         )
         raise cpe

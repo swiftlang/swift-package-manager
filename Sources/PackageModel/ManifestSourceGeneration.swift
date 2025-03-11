@@ -416,6 +416,9 @@ fileprivate extension SourceCodeFragment {
         case .nuget(let names):
             let params = [SourceCodeFragment(strings: names)]
             self.init(enum: "nuget", subnodes: params)
+        case .pkg(let names):
+            let params = [SourceCodeFragment(strings: names)]
+            self.init(enum: "pkg", subnodes: params)
         }
     }
 
@@ -508,6 +511,8 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
+        case .strictMemorySafety:
+          self.init(enum: setting.kind.name, subnodes: [])
         case .define(let value):
             let parts = value.split(separator: "=", maxSplits: 1)
             assert(parts.count == 1 || parts.count == 2)
@@ -686,6 +691,8 @@ extension TargetBuildSettingDescription.Kind {
             return "enableUpcomingFeature"
         case .enableExperimentalFeature:
             return "enableExperimentalFeature"
+        case .strictMemorySafety:
+            return "strictMemorySafety"
         case .swiftLanguageMode:
             return "swiftLanguageMode"
         }
@@ -695,8 +702,8 @@ extension TargetBuildSettingDescription.Kind {
 extension String {
     fileprivate var quotedForPackageManifest: String {
         return "\"" + self
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacing("\\", with: "\\\\")
+            .replacing("\"", with: "\\\"")
             + "\""
     }
 }

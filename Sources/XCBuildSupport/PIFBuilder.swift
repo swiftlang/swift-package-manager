@@ -1727,6 +1727,9 @@ extension [PackageCondition] {
             case .openbsd:
                 result += PIF.PlatformFilter.openBSDFilters
 
+            case .freebsd:
+                result += PIF.PlatformFilter.freeBSDFilters
+
             default:
                 assertionFailure("Unhandled platform condition: \(condition)")
             }
@@ -1789,6 +1792,11 @@ extension PIF.PlatformFilter {
         .init(platform: "openbsd"),
     ]
 
+    /// FreeBSD filters.
+    public static let freeBSDFilters: [PIF.PlatformFilter] = [
+        .init(platform: "freebsd"),
+    ]
+
     /// WebAssembly platform filters.
     public static let webAssemblyFilters: [PIF.PlatformFilter] = [
         .init(platform: "wasi"),
@@ -1819,7 +1827,6 @@ extension PIF.BuildSettings {
 
         func computeEffectiveSwiftVersions(for versions: [SwiftLanguageVersion]) -> [String] {
             versions
-                .filter { target.declaredSwiftVersions.contains($0) }
                 .filter { isSupportedVersion($0) }.map(\.description)
         }
 
@@ -1937,7 +1944,7 @@ extension PIFGenerationError: CustomStringConvertible {
             versions: let given,
             supportedVersions: let supported
         ):
-            "Some of the Swift language versions used in target '\(target)' settings are supported. (given: \(given), supported: \(supported))"
+            "Some of the Swift language versions used in target '\(target)' settings are unsupported. (given: \(given), supported: \(supported))"
         }
     }
 }

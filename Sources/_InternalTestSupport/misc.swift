@@ -24,6 +24,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
+import SPMBuildCore
 import struct SPMBuildCore.BuildParameters
 import TSCTestSupport
 import Workspace
@@ -58,10 +59,10 @@ public func testWithTemporaryDirectory<Result>(
     body: (AbsolutePath) async throws -> Result
 ) async throws -> Result {
     let cleanedFunction = function.description
-        .replacingOccurrences(of: "(", with: "")
-        .replacingOccurrences(of: ")", with: "")
-        .replacingOccurrences(of: ".", with: "")
-        .replacingOccurrences(of: ":", with: "_")
+        .replacing("(", with: "")
+        .replacing(")", with: "")
+        .replacing(".", with: "")
+        .replacing(":", with: "_")
     return try await withTemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
         defer {
             // Unblock and remove the tmp dir on deinit.
@@ -240,6 +241,15 @@ public func initGitRepo(
     }
 }
 
+public func getBuildSystemArgs(for buildSystem: BuildSystemProvider.Kind?) -> [String] {
+    guard let system = buildSystem else { return [] }
+
+    return [
+        "--build-system",
+        "\(system)"
+    ]
+}
+
 @discardableResult
 public func executeSwiftBuild(
     _ packagePath: AbsolutePath,
@@ -248,9 +258,17 @@ public func executeSwiftBuild(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: Environment? = nil
+    env: Environment? = nil,
+    buildSystem: BuildSystemProvider.Kind = .native
 ) async throws -> (stdout: String, stderr: String) {
-    let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
+    let args = swiftArgs(
+        configuration: configuration,
+        extraArgs: extraArgs,
+        Xcc: Xcc,
+        Xld: Xld,
+        Xswiftc: Xswiftc,
+        buildSystem: buildSystem
+    )
     return try await SwiftPM.Build.execute(args, packagePath: packagePath, env: env)
 }
 
@@ -263,9 +281,17 @@ public func executeSwiftRun(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: Environment? = nil
+    env: Environment? = nil,
+    buildSystem: BuildSystemProvider.Kind = .native
 ) async throws -> (stdout: String, stderr: String) {
-    var args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
+    var args = swiftArgs(
+        configuration: configuration,
+        extraArgs: extraArgs,
+        Xcc: Xcc,
+        Xld: Xld,
+        Xswiftc: Xswiftc,
+        buildSystem: buildSystem
+    )
     args.append(executable)
     return try await SwiftPM.Run.execute(args, packagePath: packagePath, env: env)
 }
@@ -278,10 +304,40 @@ public func executeSwiftPackage(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: Environment? = nil
+    env: Environment? = nil,
+    buildSystem: BuildSystemProvider.Kind = .native
 ) async throws -> (stdout: String, stderr: String) {
-    let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
+    let args = swiftArgs(
+        configuration: configuration,
+        extraArgs: extraArgs,
+        Xcc: Xcc,
+        Xld: Xld,
+        Xswiftc: Xswiftc,
+        buildSystem: buildSystem
+    )
     return try await SwiftPM.Package.execute(args, packagePath: packagePath, env: env)
+}
+
+@discardableResult
+public func executeSwiftPackageRegistry(
+    _ packagePath: AbsolutePath,
+    configuration: Configuration = .Debug,
+    extraArgs: [String] = [],
+    Xcc: [String] = [],
+    Xld: [String] = [],
+    Xswiftc: [String] = [],
+    env: Environment? = nil,
+    buildSystem: BuildSystemProvider.Kind = .native
+) async throws -> (stdout: String, stderr: String) {
+    let args = swiftArgs(
+        configuration: configuration,
+        extraArgs: extraArgs,
+        Xcc: Xcc,
+        Xld: Xld,
+        Xswiftc: Xswiftc,
+        buildSystem: buildSystem
+    )
+    return try await SwiftPM.Registry.execute(args, packagePath: packagePath, env: env)
 }
 
 @discardableResult
@@ -292,9 +348,17 @@ public func executeSwiftTest(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: Environment? = nil
+    env: Environment? = nil,
+    buildSystem: BuildSystemProvider.Kind = .native
 ) async throws -> (stdout: String, stderr: String) {
-    let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
+    let args = swiftArgs(
+        configuration: configuration,
+        extraArgs: extraArgs,
+        Xcc: Xcc,
+        Xld: Xld,
+        Xswiftc: Xswiftc,
+        buildSystem: buildSystem
+    )
     return try await SwiftPM.Test.execute(args, packagePath: packagePath, env: env)
 }
 
@@ -303,7 +367,8 @@ private func swiftArgs(
     extraArgs: [String],
     Xcc: [String],
     Xld: [String],
-    Xswiftc: [String]
+    Xswiftc: [String],
+    buildSystem: BuildSystemProvider.Kind?
 ) -> [String] {
     var args = ["--configuration"]
     switch configuration {
@@ -313,10 +378,11 @@ private func swiftArgs(
         args.append("release")
     }
 
-    args += extraArgs
     args += Xcc.flatMap { ["-Xcc", $0] }
     args += Xld.flatMap { ["-Xlinker", $0] }
     args += Xswiftc.flatMap { ["-Xswiftc", $0] }
+    args += getBuildSystemArgs(for: buildSystem)
+    args += extraArgs
     return args
 }
 
@@ -335,7 +401,8 @@ public func loadPackageGraph(
     createREPLProduct: Bool = false,
     useXCBuildFileRules: Bool = false,
     customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
-    observabilityScope: ObservabilityScope
+    observabilityScope: ObservabilityScope,
+    traitConfiguration: TraitConfiguration?
 ) throws -> ModulesGraph {
     try loadModulesGraph(
         identityResolver: identityResolver,
@@ -347,7 +414,8 @@ public func loadPackageGraph(
         createREPLProduct: createREPLProduct,
         useXCBuildFileRules: useXCBuildFileRules,
         customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
-        observabilityScope: observabilityScope
+        observabilityScope: observabilityScope,
+        traitConfiguration: traitConfiguration
     )
 }
 
@@ -447,16 +515,6 @@ extension InitPackage {
     }
 }
 
-#if compiler(<6.0)
-extension RelativePath: ExpressibleByStringLiteral {}
-extension RelativePath: ExpressibleByStringInterpolation {}
-extension URL: ExpressibleByStringLiteral {}
-extension URL: ExpressibleByStringInterpolation {}
-extension PackageIdentity: ExpressibleByStringLiteral {}
-extension PackageIdentity: ExpressibleByStringInterpolation {}
-extension AbsolutePath: ExpressibleByStringLiteral {}
-extension AbsolutePath: ExpressibleByStringInterpolation {}
-#else
 extension RelativePath: @retroactive ExpressibleByStringLiteral {}
 extension RelativePath: @retroactive ExpressibleByStringInterpolation {}
 extension URL: @retroactive ExpressibleByStringLiteral {}
@@ -465,7 +523,6 @@ extension PackageIdentity: @retroactive ExpressibleByStringLiteral {}
 extension PackageIdentity: @retroactive ExpressibleByStringInterpolation {}
 extension AbsolutePath: @retroactive ExpressibleByStringLiteral {}
 extension AbsolutePath: @retroactive ExpressibleByStringInterpolation {}
-#endif
 
 public func getNumberOfMatches(of match: String, in value: String) -> Int {
     guard match.count != 0 else { return 0 }

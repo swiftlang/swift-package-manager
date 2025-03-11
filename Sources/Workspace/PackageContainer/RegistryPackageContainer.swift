@@ -113,16 +113,16 @@ public class RegistryPackageContainer: PackageContainer {
         return results
     }
 
-    public func getDependencies(at version: Version, productFilter: ProductFilter) async throws -> [PackageContainerConstraint] {
+    public func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: Set<String>?) async throws -> [PackageContainerConstraint] {
         let manifest = try await self.loadManifest(version: version)
-        return try manifest.dependencyConstraints(productFilter: productFilter)
+        return try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits)
     }
 
-    public func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+    public func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String>?) throws -> [PackageContainerConstraint] {
         throw InternalError("getDependencies for revision not supported by RegistryPackageContainer")
     }
 
-    public func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+    public func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: Set<String>?) throws -> [PackageContainerConstraint] {
         throw InternalError("getUnversionedDependencies not supported by RegistryPackageContainer")
     }
 
@@ -252,6 +252,18 @@ public class RegistryPackageContainer: PackageContainer {
                 return (manifests: manifests, fileSystem: fileSystem)
             })
         }
+    }
+
+    public func getEnabledTraits(traitConfiguration: TraitConfiguration?, at version: Version?) async throws -> Set<String> {
+        guard let version else {
+            throw InternalError("Version needed to compute enabled traits for registry package \(self.package.identity.description)")
+        }
+        let manifest = try await loadManifest(version: version)
+        guard manifest.packageKind.isRoot else {
+            return []
+        }
+        let enabledTraits = try manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
+        return enabledTraits ?? []
     }
 }
 

@@ -52,7 +52,11 @@ find_package(Foundation QUIET)
 find_package(SQLite3 REQUIRED)
 
 # Enable `package` modifier for the whole package.
-add_compile_options("$<$<COMPILE_LANGUAGE:Swift>:-package-name;SwiftPM>")
+if(CMAKE_SYSTEM_NAME STREQUAL FreeBSD)
+  add_compile_options("$<$<COMPILE_LANGUAGE:Swift>:-package-name;SwiftPM>" -L/usr/local/lib)
+else()
+  add_compile_options("$<$<COMPILE_LANGUAGE:Swift>:-package-name;SwiftPM>")
+endif()
 
 add_subdirectory(BuildSupport/SwiftSyntax)
 add_subdirectory(Sources)

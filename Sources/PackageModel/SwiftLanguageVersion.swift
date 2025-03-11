@@ -39,6 +39,11 @@ public struct SwiftLanguageVersion: Hashable, Sendable {
         v3, v4, v4_2, v5, v6
     ]
 
+    /// The list of supported Swift language versions for this toolchain.
+    public static let supportedSwiftLanguageVersions = [
+        v4, v4_2, v5, v6
+    ]
+
     /// The raw value of the language version.
     //
     // This should be passed as a value to Swift compiler's -swift-version flag.

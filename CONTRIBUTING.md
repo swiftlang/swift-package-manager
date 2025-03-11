@@ -174,26 +174,19 @@ Clone the following repositories beside the SwiftPM directory:
    $> git clone https://github.com/apple/swift-tools-support-core
    ```
 
-4. [Yams] and checkout tag with the [latest version](https://github.com/jpsim/Yams.git/tags) before 5.0.0.
-
-   For example, if the latest tag is 4.0.6:
-   ```sh
-   $> git clone https://github.com/jpsim/yams --branch 4.0.6
-   ```
-
-5. [swift-driver]
+4. [swift-driver]
    ```sh
    $> git clone https://github.com/apple/swift-driver
    ```
 
-6. [swift-system] and check out tag with the [latest version](https://github.com/apple/swift-system/tags).
+5. [swift-system] and check out tag with the [latest version](https://github.com/apple/swift-system/tags).
 
     For example, if the latest tag is 1.0.0:
     ```sh
     $> git clone https://github.com/apple/swift-system --branch 1.0.0
     ```
 
-7. [swift-collections] and check out tag with the [latest version](https://github.com/apple/swift-collections/tags).
+6. [swift-collections] and check out tag with the [latest version](https://github.com/apple/swift-collections/tags).
 
     For example, if the latest tag is 1.0.1:
     ```sh
@@ -217,6 +210,16 @@ Clone the following repositories beside the SwiftPM directory:
    $> git clone https://github.com/apple/swift-certificates
    ```
 
+10. [swift-syntax]
+   ```sh
+   $> git clone https://github.com/swiftlang/swift-syntax
+   ```
+
+11. [swift-toolchain-sqlite]
+   ```sh
+   $> git clone https://github.com/swiftlang/swift-toolchain-sqlite
+   ```
+
 [swift-argument-parser]: https://github.com/apple/swift-argument-parser
 [swift-collections]: https://github.com/apple/swift-collections
 [swift-driver]: https://github.com/apple/swift-driver
@@ -226,7 +229,8 @@ Clone the following repositories beside the SwiftPM directory:
 [swift-crypto]: https://github.com/apple/swift-crypto
 [swift-asn1]: https://github.com/apple/swift-asn1
 [swift-certificates]: https://github.com/apple/swift-certificates
-[Yams]: https://github.com/jpsim/yams
+[swift-toolchain-sqlite]: https://github.com/swiftlang/swift-toolchain-sqlite
+[swift-syntax]: https://github.com/swiftlang/swift-syntax
 
 
 #### Building
@@ -319,7 +323,7 @@ Note there are several Linux and Swift versions options to choose from, e.g.:
 3. Create a new branch
 4. Make your code changes
 5. Try to keep your changes (when possible) below 200 lines of code.
-6. We use [SwiftFormat](https://www.github.com/nicklockwood/SwiftFormat) to enforce code style. Please install and run SwiftFormat before submitting your PR.
+6. We use [SwiftFormat](https://www.github.com/nicklockwood/SwiftFormat) to enforce code style. Please install and run SwiftFormat before submitting your PR, ideally isolating formatting changes only to code changed for the original goal of the PR. This will keep the PR diff smaller.
 7. Commit (include the Radar link or GitHub issue id in the commit message if possible and a description your changes). Try to have only 1 commit in your PR (but, of course, if you add changes that can be helpful to be kept aside from the previous commit, make a new commit for them).
 8. Push the commit / branch to your fork
 9. Make a PR from your fork / branch to `apple: main`

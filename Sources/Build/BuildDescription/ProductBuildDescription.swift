@@ -270,11 +270,14 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // Set rpath such that dynamic libraries are looked up
         // adjacent to the product, unless overridden.
         if !self.buildParameters.linkingParameters.shouldDisableLocalRpath {
-            if triple.isLinux() {
+            switch triple.objectFormat {
+            case .elf:
                 args += ["-Xlinker", "-rpath=$ORIGIN"]
-            } else if triple.isDarwin() {
+            case .macho:
                 let rpath = self.product.type == .test ? "@loader_path/../../../" : "@loader_path"
                 args += ["-Xlinker", "-rpath", "-Xlinker", rpath]
+            default:
+                break
             }
         }
         args += ["@\(self.linkFileListPath.pathString)"]
@@ -283,14 +286,24 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             // Pass experimental features to link jobs in addition to compile jobs. Preserve ordering while eliminating
             // duplicates with `OrderedSet`.
             var experimentalFeatures = OrderedSet<String>()
+            var strictMemorySafety = false
             for target in self.product.modules {
                 let swiftSettings = target.underlying.buildSettingsDescription.filter { $0.tool == .swift }
-                for case let .enableExperimentalFeature(feature) in swiftSettings.map(\.kind)  {
+              for kind in swiftSettings.map(\.kind) {
+                if case let .enableExperimentalFeature(feature) = kind {
                     experimentalFeatures.append(feature)
+                } else if kind == .strictMemorySafety {
+                    strictMemorySafety = true
                 }
+              }
             }
+
             for feature in experimentalFeatures {
                 args += ["-enable-experimental-feature", feature]
+            }
+
+            if strictMemorySafety {
+                args.append("-strict-memory-safety")
             }
 
             // Embed the swift stdlib library path inside tests and executables on Darwin.

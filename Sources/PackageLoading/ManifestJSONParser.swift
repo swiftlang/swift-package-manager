@@ -537,6 +537,8 @@ extension TargetBuildSettingDescription.Kind {
                 throw InternalError("invalid (empty) build settings value")
             }
             return .enableExperimentalFeature(value)
+        case "strictMemorySafety":
+            return .strictMemorySafety
         case "unsafeFlags":
             return .unsafeFlags(values)
 

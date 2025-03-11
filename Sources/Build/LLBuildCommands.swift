@@ -240,11 +240,6 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
         if buildParameters.triple.isLinux() {
             // FIXME: work around crash on Amazon Linux 2 when main function is async (rdar://128303921)
             needsAsyncMainWorkaround = true
-        } else if buildParameters.triple.isDarwin() {
-#if compiler(<5.10)
-            // FIXME: work around duplicate async_Main symbols (SEE https://github.com/swiftlang/swift/pull/69113)
-            needsAsyncMainWorkaround = true
-#endif
         }
 
         stream.send(
