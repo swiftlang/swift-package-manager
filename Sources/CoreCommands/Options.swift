@@ -780,16 +780,6 @@ extension URL {
     }
 }
 
-#if compiler(<6.0)
-extension BuildConfiguration: ExpressibleByArgument, CaseIterable {}
-extension AbsolutePath: ExpressibleByArgument {}
-extension WorkspaceConfiguration.CheckingMode: ExpressibleByArgument {}
-extension Sanitizer: ExpressibleByArgument {}
-extension BuildSystemProvider.Kind: ExpressibleByArgument, CaseIterable {}
-extension Version: ExpressibleByArgument {}
-extension PackageIdentity: ExpressibleByArgument {}
-extension URL: ExpressibleByArgument {}
-#else
 extension BuildConfiguration: @retroactive ExpressibleByArgument, CaseIterable {}
 extension AbsolutePath: @retroactive ExpressibleByArgument {}
 extension WorkspaceConfiguration.CheckingMode: @retroactive ExpressibleByArgument {}
@@ -798,4 +788,3 @@ extension BuildSystemProvider.Kind: @retroactive ExpressibleByArgument, CaseIter
 extension Version: @retroactive ExpressibleByArgument {}
 extension PackageIdentity: @retroactive ExpressibleByArgument {}
 extension URL: @retroactive ExpressibleByArgument {}
-#endif

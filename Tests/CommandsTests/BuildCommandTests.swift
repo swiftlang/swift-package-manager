@@ -721,13 +721,7 @@ final class BuildCommandTests: CommandsTestCase {
     }
 
     func testFatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation() async throws {
-        // Test for GitHub Issue #6605
-        // GIVEN we have a Swift Package that has a fatalError building the tests
-        #if compiler(>=6)
         let expected = 0
-        #else
-        let expected = 1
-        #endif
         try await fixture(name: "Miscellaneous/Errors/FatalErrorInSingleXCTest/TypeLibrary") { fixturePath in
             // WHEN swift-build --build-tests is executed"
             await XCTAssertAsyncThrowsError(try await self.execute(["--build-tests"], packagePath: fixturePath)) { error in
