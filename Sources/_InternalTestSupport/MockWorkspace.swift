@@ -91,6 +91,7 @@ public final class MockWorkspace {
     public var sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation
     var defaultRegistry: Registry?
     public let traitConfiguration: TraitConfiguration?
+    public let pruneDependencies: Bool
 
     public init(
         sandbox: AbsolutePath,
@@ -110,7 +111,8 @@ public final class MockWorkspace {
         sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation = .disabled,
         defaultRegistry: Registry? = .none,
         customHostTriple: Triple = hostTriple,
-        traitConfiguration: TraitConfiguration? = nil
+        traitConfiguration: TraitConfiguration? = nil,
+        pruneDependencies: Bool = false
     ) async throws {
         try fileSystem.createMockToolchain()
 
@@ -148,6 +150,7 @@ public final class MockWorkspace {
         self.customPrebuiltsManager = customPrebuiltsManager
         self.customHostToolchain = try UserToolchain.mockHostToolchain(fileSystem, hostTriple: customHostTriple)
         self.traitConfiguration = traitConfiguration
+        self.pruneDependencies = pruneDependencies
         try await self.create()
     }
 
@@ -295,7 +298,8 @@ public final class MockWorkspace {
                     dependencies: package.dependencies.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) },
                     products: package.products.map { try ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.modules) },
                     targets: try package.targets.map { try $0.convert(identityResolver: self.identityResolver) },
-                    traits: package.traits
+                    traits: package.traits,
+                    pruneDependencies: self.pruneDependencies
                 )
             }
 
@@ -360,7 +364,7 @@ public final class MockWorkspace {
                 defaultRegistry: self.defaultRegistry,
                 manifestImportRestrictions: .none,
                 usePrebuilts: customPrebuiltsManager != nil,
-                pruneDependencies: false,
+                pruneDependencies: self.pruneDependencies,
                 traitConfiguration: self.traitConfiguration
             ),
             customFingerprints: self.fingerprints,

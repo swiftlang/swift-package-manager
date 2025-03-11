@@ -964,7 +964,8 @@ public final class SwiftCommandState {
                 isManifestSandboxEnabled: !self.shouldDisableSandbox,
                 cacheDir: cachePath,
                 extraManifestFlags: extraManifestFlags,
-                importRestrictions: .none
+                importRestrictions: .none,
+                pruneDependencies: self.options.resolver.pruneDependencies
             )
         })
     }()

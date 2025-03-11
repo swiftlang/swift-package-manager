@@ -320,7 +320,8 @@ public class Workspace {
             toolchain: customHostToolchain,
             cacheDir: location.sharedManifestsCacheDirectory,
             importRestrictions: configuration?.manifestImportRestrictions,
-            delegate: delegate.map(WorkspaceManifestLoaderDelegate.init(workspaceDelegate:))
+            delegate: delegate.map(WorkspaceManifestLoaderDelegate.init(workspaceDelegate:)),
+            pruneDependencies: configuration?.pruneDependencies ?? false
         )
         try self.init(
             fileSystem: fileSystem,
@@ -455,7 +456,8 @@ public class Workspace {
         var manifestLoader = customManifestLoader ?? ManifestLoader(
             toolchain: hostToolchain,
             cacheDir: location.sharedManifestsCacheDirectory,
-            importRestrictions: configuration?.manifestImportRestrictions
+            importRestrictions: configuration?.manifestImportRestrictions,
+            pruneDependencies: configuration?.pruneDependencies ?? false
         )
         // set delegate if not set
         if let manifestLoader = manifestLoader as? ManifestLoader, manifestLoader.delegate == nil {

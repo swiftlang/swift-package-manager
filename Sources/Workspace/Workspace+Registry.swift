@@ -331,7 +331,8 @@ extension Workspace {
                 dependencies: modifiedDependencies,
                 products: manifest.products,
                 targets: modifiedTargets,
-                traits: manifest.traits
+                traits: manifest.traits,
+                pruneDependencies: manifest.pruneDependencies
             )
 
             return modifiedManifest

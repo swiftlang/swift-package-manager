@@ -393,7 +393,7 @@ private func createResolvedPackages(
 
         try package.manifest.dependenciesRequired(
             for: packageBuilder.productFilter,
-            nil // traits unneeded at this stage
+            packageBuilder.enabledTraits
         ).forEach { dependency in
             let dependencyPackageRef = dependency.packageRef
 
