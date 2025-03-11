@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-@preconcurrency package import SystemPackage
+package import SystemPackage
 
 public actor OSFileSystem: AsyncFileSystem {
   public static let defaultChunkSize = 512 * 1024

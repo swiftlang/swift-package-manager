@@ -21,7 +21,7 @@ import PackageModel
 import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import SwiftDriver
+internal import SwiftDriver
 #else
 import SwiftDriver
 #endif

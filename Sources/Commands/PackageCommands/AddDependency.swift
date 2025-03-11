@@ -93,8 +93,6 @@ extension SwiftPackageCommand {
             workspace: Workspace,
             url: String
         ) throws {
-            let identity = PackageIdentity(url: .init(url))
-
             // Collect all of the possible version requirements.
             var requirements: [PackageDependency.SourceControl.Requirement] = []
             if let exact {
@@ -156,8 +154,6 @@ extension SwiftPackageCommand {
             workspace: Workspace,
             id: String
         ) throws {
-            let identity: PackageIdentity = .plain(id)
-
             // Collect all of the possible version requirements.
             var requirements: [PackageDependency.Registry.Requirement] = []
             if let exact {
