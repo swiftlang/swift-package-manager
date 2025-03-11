@@ -326,7 +326,7 @@ final class SourceKitLSPAPITests: XCTestCase {
     func testClangOutputPaths() async throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/lib/include/lib.h",
-            "/Pkg/Sources/lib/lib.cpp",
+            "/Pkg/Sources/lib/lib.cpp"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
