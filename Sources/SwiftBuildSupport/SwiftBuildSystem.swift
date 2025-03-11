@@ -68,7 +68,7 @@ func withSession(
         _ diagnostics: [SwiftBuild.SwiftBuildMessage.DiagnosticInfo]
     ) async throws -> Void
 ) async throws {
-    switch await service.createSession(name: name, cachePath: nil, inferiorProductsPath: nil, environment: nil) {
+    switch await service.createSession(name: name, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil) {
     case (.success(let session), let diagnostics):
         do {
             try await body(session, diagnostics)
