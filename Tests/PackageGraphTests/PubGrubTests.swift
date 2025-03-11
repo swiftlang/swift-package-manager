@@ -3494,8 +3494,8 @@ extension PackageReference {
     }
 }
 
-extension Term: @retroactive ExpressibleByStringLiteral {}
-extension PackageReference: @retroactive ExpressibleByStringLiteral {}
+extension Term: ExpressibleByStringLiteral {}
+extension PackageReference: ExpressibleByStringLiteral {}
 
 extension Result where Success == [DependencyResolverBinding] {
     var errorMsg: String? {
