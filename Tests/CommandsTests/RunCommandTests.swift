@@ -29,7 +29,6 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
         _ executable: String? = nil,
         packagePath: AbsolutePath? = nil
     ) async throws -> (stdout: String, stderr: String) {
-        // return try await SwiftPM.Run.execute(args, packagePath: packagePath)
         return try await executeSwiftRun(
             packagePath,
             nil,
