@@ -1012,8 +1012,7 @@ extension PackageSigningEntityTOFU {
             package: package,
             version: version,
             signingEntity: signingEntity,
-            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP
         )
     }
 }

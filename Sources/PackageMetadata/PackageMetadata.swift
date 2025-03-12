@@ -174,8 +174,8 @@ public struct PackageSearchClient {
             package: package,
             version: version,
             fileSystem: self.fileSystem,
-            observabilityScope: observabilityScope,
-            callbackQueue: DispatchQueue.sharedConcurrent)
+            observabilityScope: observabilityScope
+        )
 
         return Metadata(
             licenseURL: metadata.licenseURL,
@@ -285,7 +285,10 @@ public struct PackageSearchClient {
         }
         let metadata: RegistryClient.PackageMetadata
         do {
-            metadata = try await self.registryClient.getPackageMetadata(package: identity, observabilityScope: observabilityScope, callbackQueue: DispatchQueue.sharedConcurrent)
+            metadata = try await self.registryClient.getPackageMetadata(
+                package: identity,
+                observabilityScope: observabilityScope
+            )
         } catch {
             return try await fetchStandalonePackageByURL(error)
         }
@@ -403,7 +406,7 @@ extension Package.Author {
             url: author.url
         )
     }
-    
+
     fileprivate init(_ author: PackageCollectionsModel.Package.Author) {
         self.init(
             name: author.username,
