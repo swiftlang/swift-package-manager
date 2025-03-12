@@ -204,4 +204,4 @@ extension ProductFilter {
     }
 }
 
-extension ProductFilter: @retroactive JSONSerializable, @retroactive JSONMappable {}
+extension ProductFilter: JSONSerializable, JSONMappable {}

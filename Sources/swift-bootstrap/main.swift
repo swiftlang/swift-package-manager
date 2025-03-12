@@ -282,8 +282,6 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             shouldDisableLocalRpath: Bool,
             logLevel: Basics.Diagnostic.Severity
         ) throws -> BuildSystem {
-            var buildFlags = buildFlags
-
             let dataPath = scratchDirectory.appending(
                 component: self.targetToolchain.targetTriple.platformBuildPathComponent(buildSystem: buildSystem)
             )
@@ -295,8 +293,8 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 toolchain: self.targetToolchain,
                 triple: self.hostToolchain.targetTriple,
                 flags: buildFlags,
+                buildSystemKind: buildSystem,
                 architectures: architectures,
-                isXcodeBuildSystemEnabled: buildSystem.usesXcodeBuildEngine,
                 driverParameters: .init(
                     explicitTargetDependencyImportCheckingMode: explicitTargetDependencyImportCheck == .error ? .error : .none,
                     useIntegratedSwiftDriver: useIntegratedSwiftDriver,
@@ -496,9 +494,9 @@ extension BuildConfiguration {
     }
 }
 
-extension AbsolutePath: @retroactive ExpressibleByArgument {}
-extension BuildConfiguration: @retroactive ExpressibleByArgument, CaseIterable {}
-extension BuildSystemProvider.Kind: @retroactive ExpressibleByArgument, CaseIterable {}
+extension AbsolutePath: ExpressibleByArgument {}
+extension BuildConfiguration: ExpressibleByArgument {}
+extension BuildSystemProvider.Kind: ExpressibleByArgument {}
 
 public func topologicalSort<T: Hashable>(
     _ nodes: [T], successors: (T) async throws -> [T]

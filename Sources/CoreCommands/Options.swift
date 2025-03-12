@@ -785,11 +785,11 @@ extension URL {
     }
 }
 
-extension BuildConfiguration: @retroactive ExpressibleByArgument, CaseIterable {}
-extension AbsolutePath: @retroactive ExpressibleByArgument {}
-extension WorkspaceConfiguration.CheckingMode: @retroactive ExpressibleByArgument {}
-extension Sanitizer: @retroactive ExpressibleByArgument {}
-extension BuildSystemProvider.Kind: @retroactive ExpressibleByArgument, CaseIterable {}
+extension BuildConfiguration: ExpressibleByArgument {}
+extension AbsolutePath: ExpressibleByArgument {}
+extension WorkspaceConfiguration.CheckingMode: ExpressibleByArgument {}
+extension Sanitizer: ExpressibleByArgument {}
+extension BuildSystemProvider.Kind: ExpressibleByArgument {}
 extension Version: @retroactive ExpressibleByArgument {}
-extension PackageIdentity: @retroactive ExpressibleByArgument {}
+extension PackageIdentity: ExpressibleByArgument {}
 extension URL: @retroactive ExpressibleByArgument {}
