@@ -182,16 +182,3 @@ public enum BuildSystemUtilities {
         return try AbsolutePath(validating: env, relativeTo: workingDir)
     }
 }
-
-
-extension BuildSystemProvider.Kind {
-
-    public var useXcodeBuildSystemPath: Bool {
-        switch self {
-            case .native: return false
-            case .swiftbuild: return true
-            case .xcode: return true
-        }
-    }
-
-}
