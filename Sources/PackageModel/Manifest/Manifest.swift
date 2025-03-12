@@ -181,8 +181,19 @@ public final class Manifest: Sendable {
         #endif
     }
 
-    /// Returns a list of dependencies that are being guarded by traits.
-    public func dependenciesGuarded(by enabledTraits: Set<String>?, enableAllTraits: Bool = false) -> [PackageDependency] {
+    /// Returns a list of dependencies that are being guarded by unenabled traits, given a set of enabled traits.
+    ///
+    /// If a trait that is guarding a dependency is enabled (and is reflected in the `enabledTraits` parameter) and results in
+    /// that dependency being used, then that dependency is not considered trait-guarded.
+    ///
+    /// For example:
+    ///
+    /// Consider a package dependency `Bar` that is present in the manifest, and the manifest defines the following target:
+    /// `TargetDescription(name: "Baz", dependencies: [.product(name: "Bar", condition: .init(traits: ["Trait1"])]`
+    ///
+    /// If we set the `enabledTraits` to be `["Trait1"]`, then the list of dependencies guarded by traits would be `[]`.
+    /// Otherwise, if `enabledTraits` were `nil`, then the dependencies guarded by traits would be `["Bar"]`.
+    public func dependenciesTraitGuarded(withEnabledTraits enabledTraits: Set<String>?, enableAllTraits: Bool = false) -> [PackageDependency] {
         guard supportsTraits else {
             return []
         }

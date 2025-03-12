@@ -656,7 +656,7 @@ extension Workspace {
         let successorNodes: (KeyedPair<GraphLoadingNode, PackageIdentity>) async throws -> [KeyedPair<GraphLoadingNode, PackageIdentity>] = { node in
             // optimization: preload manifest we know about in parallel
             let dependenciesRequired = try node.item.manifest.dependenciesRequired(for: node.item.productFilter, node.item.enabledTraits)
-            let dependenciesGuarded = node.item.manifest.dependenciesGuarded(by: node.item.enabledTraits)
+            let dependenciesGuarded = node.item.manifest.dependenciesTraitGuarded(withEnabledTraits: node.item.enabledTraits)
             let dependenciesToLoad = dependenciesRequired.map(\.packageRef)
                 .filter { !loadedManifests.keys.contains($0.identity) }
             try await prepopulateManagedDependencies(dependenciesToLoad)

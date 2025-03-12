@@ -1559,6 +1559,77 @@ final class ModulesGraphTests: XCTestCase {
         testDiagnostics(observability.diagnostics) { _ in }
     }
 
+    func testUnusedDependency_WhenPruneDependenciesEnabled() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/main.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        _ = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Bar",
+                    path: "/Bar",
+                    dependencies: [
+                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        // Baz is unused by all targets in this package, and thus should be omitted
+                        // with `pruneDependencies` enabled.
+                        .localSourceControl(path: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "Bar",
+                            dependencies: [
+                                .product(
+                                    name: "Foo",
+                                    package: "Foo",
+                                    // This target dependency is guarded by Trait2; since Trait2
+                                    // is not enabled by default, the package dependency `Foo` will
+                                    // be omitted since `pruneDependencies` is enabled.
+                                    condition: .init(traits: ["Trait2"])
+                                )
+                            ]
+                        ),
+                    ],
+                    traits: [.init(name: "default", enabledTraits: ["Trait1"]), "Trait1", "Trait2"],
+                    pruneDependencies: true
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    products: [
+                        .init(name: "FooLibrary", type: .library(.automatic), targets: ["Foo"])
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "Foo",
+                            dependencies: []
+                        )
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "Baz",
+                    path: "/Baz",
+                    products: [
+                        .init(name: "BazLibrary", type: .library(.automatic), targets: ["Baz"])
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "Baz",
+                            dependencies: []
+                        )
+                    ]
+
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+    }
+
     func testDuplicateInterPackageTargetNames() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Start/Sources/Foo/foo.swift",

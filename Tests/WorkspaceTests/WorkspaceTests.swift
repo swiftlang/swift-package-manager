@@ -15429,11 +15429,13 @@ final class WorkspaceTests: XCTestCase {
                                 .product(
                                     name: "Baz",
                                     package: "Baz",
+                                    // Trait1 enabled; should be present in list of dependencies
                                     condition: .init(traits: ["Trait1"])
                                 ),
                                 .product(
                                     name: "Boo",
                                     package: "Boo",
+                                    // Trait2 disabled; should generate unused dependency warning
                                     condition: .init(traits: ["Trait2"])
                                 )
                             ]
@@ -15472,12 +15474,15 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0", "1.5.0"]
                 ),
             ],
+            // Only Trait1 is configured to be enabled; since `pruneDependencies` is false
+            // by default, there will be unused dependencies present
             traitConfiguration: .init(enabledTraits: ["Trait1"], enableAllTraits: false)
         )
 
         let deps: [MockDependency] = [
             .sourceControl(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
         ]
+
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
@@ -15489,6 +15494,172 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(diagnostic: .contains("dependency 'boo' is not used by any target"), severity: .warning)
             }
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    func testTraitConfigurationExists_WithDefaultTraits() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(
+                                    name: "Baz",
+                                    package: "Baz",
+                                    condition: .init(traits: ["Trait1"])
+                                ),
+                                .product(
+                                    name: "Boo",
+                                    package: "Boo",
+                                    condition: .init(traits: ["Trait2"])
+                                )
+                            ]
+                        ),
+                        MockTarget(name: "Bar", dependencies: ["Baz"])
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo", "Bar"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Boo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    traits: [.init(name: "default", enabledTraits: ["Trait2"]), "Trait1", "Trait2"]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", modules: ["Baz"]),
+                    ],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+                MockPackage(
+                    name: "Boo",
+                    targets: [
+                        MockTarget(name: "Boo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Boo", modules: ["Boo"]),
+                    ],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+            ],
+            // Trait configuration overrides default traits; all traits set to enabled.
+            traitConfiguration: .init(enabledTraits: [], enableAllTraits: true),
+            // With this configuration, no dependencies are unused so nothing should be pruned
+            // despite the `pruneDependencies` flag being set to true.
+            pruneDependencies: true
+        )
+
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
+            .sourceControl(path: "./Boo", requirement: .exact("1.0.0"), products: .specific(["Boo"])),
+        ]
+
+        try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "Baz", "Foo", "Boo")
+                result.check(modules: "Bar", "Baz", "Boo", "Foo")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Baz", "Boo") }
+                result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "boo", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    func testTraitConfiguration_WithPrunedDependencies() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(
+                                    name: "Baz",
+                                    package: "Baz",
+                                    condition: .init(traits: ["Trait1"])
+                                ),
+                                .product(
+                                    name: "Boo",
+                                    package: "Boo",
+                                    condition: .init(traits: ["Trait2"])
+                                )
+                            ]
+                        ),
+                        MockTarget(name: "Bar", dependencies: ["Baz"])
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo", "Bar"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        // unused dependency due to trait guarding; should be omitted
+                        .sourceControl(path: "./Boo", requirement: .upToNextMajor(from: "1.0.0")),
+                        // unused dependency; should be omitted
+                        .sourceControl(path: "./Bam", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    traits: [.init(name: "default", enabledTraits: ["Trait2"]), "Trait1", "Trait2"]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", modules: ["Baz"]),
+                    ],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+            ],
+            // Trait configuration overrides default traits; no traits enabled
+            traitConfiguration: .init(enabledTraits: [], enableAllTraits: false),
+            pruneDependencies: true
+        )
+
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
+            .sourceControl(path: "./Boo", requirement: .exact("1.0.0"), products: .specific(["Boo"])),
+        ]
+
+        try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "Baz", "Foo")
+                result.check(modules: "Bar", "Baz", "Foo")
+                result.checkTarget("Foo") { result in result.check(dependencies: []) }
+                result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
+            }
+            XCTAssertNoDiagnostics(diagnostics)
         }
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "baz", at: .checkout(.version("1.0.0")))

@@ -172,14 +172,22 @@ class ManifestTests: XCTestCase {
             TraitDescription(name: "Trait2")
         ]
 
+        let dependencies: [PackageDependency] = [
+            .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: "/MyPlugin", requirement: .upToNextMajor(from: "1.0.0")),
+        ]
+
         do {
             let manifest = Manifest.createRootManifest(
                 displayName: "Foo",
                 path: "/Foo",
                 toolsVersion: .v5_2,
+                dependencies: dependencies,
                 products: products,
                 targets: targets,
-                traits: []
+                traits: [],
+                pruneDependencies: true // Since all dependencies are used, this shouldn't affect the outcome.
             )
 
             for trait in traits.sorted(by: { $0.name < $1.name }) {
@@ -236,6 +244,7 @@ Trait '"\(trait.name)"' is not declared by package 'Foo'. There are no available
                 XCTAssertEqual(try manifest.isTraitEnabled(trait, nil), false)
             }
 
+            // Now, create a version of the same manifest but with the `pruneDependencies` flag set to true.
             let manifestPrunedDeps = Manifest.createRootManifest(
                 displayName: "Foo",
                 path: "/Foo",
@@ -368,7 +377,6 @@ Trait '"\(trait.name)"' is not declared by package 'Foo'. There are no available
             // passed set of traits, this will be factored into the calculation.
             let allEnabledTraitsWithDefaults = try manifest.enabledTraits(using: ["default", "Trait3"])?.sorted()
             XCTAssertEqual(allEnabledTraitsWithDefaults, ["Trait1", "Trait2", "Trait3"])
-
         }
     }
 
@@ -596,6 +604,193 @@ Trait '"\(trait.name)"' is not declared by package 'Foo'. There are no available
             XCTAssertTrue(try manifest.isPackageDependencyUsed(bam, enabledTraits: nil))
             XCTAssertFalse(try manifest.isPackageDependencyUsed(bam, enabledTraits: []))
             XCTAssertFalse(try manifest.isPackageDependencyUsed(bam, enabledTraits: ["Trait3"]))
+        }
+    }
+
+    func testPrunedDependencies_WhenAllDependenciesUsed() throws {
+        let products = [
+            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+            try ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
+        ]
+
+        let targets = [
+            try TargetDescription(
+                name: "Foo",
+                dependencies: [
+                    .product(
+                        name: "Bar",
+                        package: "Bar",
+                        condition: .init(traits: ["Trait1"])
+                    )
+                ]
+            ),
+            try TargetDescription(name: "Bar", dependencies: ["Baz"]),
+            try TargetDescription(name: "Baz", dependencies: ["MyPlugin"]),
+            try TargetDescription(name: "FooBar", dependencies: []),
+            try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .buildTool)
+        ]
+
+        let dependencies: [PackageDependency] = [
+            .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: "/MyPlugin", requirement: .upToNextMajor(from: "1.0.0")),
+        ]
+
+        do {
+            let manifest = Manifest.createRootManifest(
+                displayName: "Foo",
+                path: "/Foo",
+                toolsVersion: .v5_2,
+                dependencies: dependencies,
+                products: products,
+                targets: targets,
+                traits: [.init(name: "default", enabledTraits: ["Trait1"]), "Trait1", "Trait2"],
+                // Since all dependencies are used, this shouldn't affect the outcome.
+                pruneDependencies: true
+            )
+
+            // The list of required dependencies should remain the same, since all depenencies are being
+            // used in the current manifest.
+            let calculatedDependencies = try manifest.dependenciesRequired(for: .everything, nil, enableAllTraits: true)
+            XCTAssertEqual(calculatedDependencies.map(\.identity).sorted(), dependencies.map(\.identity).sorted())
+        }
+    }
+
+    func testPrunedDependencies_WhenSomeDependenciesUsed() throws {
+        let products = [
+            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+            try ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
+        ]
+
+        let targets = [
+            try TargetDescription(
+                name: "Foo",
+                dependencies: [
+                    .product(
+                        // This dependency on Bar is guarded by Trait1
+                        name: "Bar",
+                        package: "Bar",
+                        condition: .init(traits: ["Trait1"])
+                    )
+                ]
+            ),
+            try TargetDescription(
+                name: "Bar",
+                dependencies: [
+                    .product(
+                        name: "Baz",
+                        package: "Baz",
+                        condition: .init(traits: ["Trait2"])
+                    )
+                ]
+            ),
+            try TargetDescription(
+                name: "Baz",
+                dependencies: [
+                    "MyPlugin",
+                    "Bar" // Bar as a dependency is not trait-guarded here
+                ]
+            ),
+            try TargetDescription(name: "FooBar", dependencies: []),
+        ]
+
+        let dependencies: [PackageDependency] = [
+            .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: "/MyPlugin", requirement: .upToNextMajor(from: "1.0.0")),
+        ]
+
+        do {
+            let manifest = Manifest.createRootManifest(
+                displayName: "Foo",
+                path: "/Foo",
+                toolsVersion: .v5_2,
+                dependencies: dependencies,
+                products: products,
+                targets: targets,
+                traits: [.init(name: "default", enabledTraits: ["Trait1"]), "Trait1", "Trait2"],
+                pruneDependencies: true
+            )
+
+            let calculatedDependenciesWithDefaultTraits = try manifest.dependenciesRequired(for: .everything, nil)
+            XCTAssertEqual(
+                calculatedDependenciesWithDefaultTraits.map(\.identity).sorted(),
+                [
+                    PackageIdentity(stringLiteral: "Bar"),
+                    PackageIdentity(stringLiteral: "MyPlugin")
+                ]
+            )
+
+            let calculatedDependenciesWithTrait2EnabledOnly = try manifest.dependenciesRequired(for: .everything, ["Trait2"])
+            XCTAssertEqual(
+                calculatedDependenciesWithTrait2EnabledOnly.map(\.identity).sorted(),
+                [
+                    PackageIdentity(stringLiteral: "Bar"),
+                    PackageIdentity(stringLiteral: "Baz"),
+                    PackageIdentity(stringLiteral: "MyPlugin")
+                ]
+            )
+
+            let calculatedDependenciesWithAllTraitsEnabled = try manifest.dependenciesRequired(for: .everything, [], enableAllTraits: true)
+            XCTAssertEqual(
+                calculatedDependenciesWithAllTraitsEnabled.map(\.identity).sorted(),
+                [
+                    PackageIdentity(stringLiteral: "Bar"),
+                    PackageIdentity(stringLiteral: "Baz"),
+                    PackageIdentity(stringLiteral: "MyPlugin")
+                ]
+            )
+        }
+    }
+
+    func testDependenciesGuardedByTraits_WithTraitConfigurations() throws {
+        let products = [
+            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+            try ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
+        ]
+
+        let targets = [
+            try TargetDescription(
+                name: "Foo",
+                dependencies: [
+                    .product(
+                        name: "Bar",
+                        package: "Bar",
+                        condition: .init(traits: ["Trait1"])
+                    )
+                ]
+            ),
+            try TargetDescription(name: "Bar", dependencies: ["Baz"]),
+            try TargetDescription(name: "Baz", dependencies: ["MyPlugin"]),
+            try TargetDescription(name: "FooBar", dependencies: []),
+            try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .buildTool)
+        ]
+
+        let dependencies: [PackageDependency] = [
+            .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: "/MyPlugin", requirement: .upToNextMajor(from: "1.0.0")),
+        ]
+
+        do {
+            let manifest = Manifest.createRootManifest(
+                displayName: "Foo",
+                path: "/Foo",
+                toolsVersion: .v5_2,
+                dependencies: dependencies,
+                products: products,
+                targets: targets,
+                traits: [.init(name: "default", enabledTraits: ["Trait1"]), "Trait1", "Trait2"]
+            )
+
+            // With an empty list of enabled traits, the `Bar` dependency should be trait-guarded here.
+            let traitGuardedDependencies = manifest.dependenciesTraitGuarded(withEnabledTraits: [])
+            XCTAssertEqual(traitGuardedDependencies.map(\.identity), [PackageIdentity(path: "/Bar")])
+
+            // When using default traits (since we omit a list of enabled traits here),
+            // `Bar` should not be trait-guarded since `Trait1` is enabled by default.
+            let noTraitGuardedDependencies = manifest.dependenciesTraitGuarded(withEnabledTraits: nil)
+            XCTAssertEqual(noTraitGuardedDependencies, [])
         }
     }
 

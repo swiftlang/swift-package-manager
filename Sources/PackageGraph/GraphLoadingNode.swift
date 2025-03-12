@@ -53,7 +53,7 @@ public struct GraphLoadingNode: Equatable, Hashable {
     }
 
     internal var traitGuardedDependencies: [PackageDependency] {
-        return self.manifest.dependenciesGuarded(by: enabledTraits)
+        return self.manifest.dependenciesTraitGuarded(withEnabledTraits: enabledTraits)
     }
 }
 
