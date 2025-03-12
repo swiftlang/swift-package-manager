@@ -331,7 +331,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         #if !os(Windows)
         // Dispatch will disable almost all asynchronous signals on its worker threads, and this is called from `async`
         // context. To correctly `exec` a freshly built binary, we will need to:
-        // 1. reset the signal masks
+        // 1. Reset the signal masks
         for i in 1..<NSIG {
             signal(i, SIG_DFL)
         }
@@ -339,27 +339,49 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         sigfillset(&sig_set_all)
         sigprocmask(SIG_UNBLOCK, &sig_set_all, nil)
 
+        // 2. Close or set CLOEXEC on all fds above stdio.
+        //
+        // On platforms that have pthread_suspend_all_np, lets suspend all threads before
+        // closing fds above stderr. This is mostly to handle a race that can occur with debug
+        // builds of libdispatch, where we could be closing kqueue fds right before the exec.
+        // pthread_suspend_all_np is not portable however, and is really only available readily
+        // to call on FreeBSD.
         #if os(FreeBSD) || os(OpenBSD)
         #if os(FreeBSD)
         pthread_suspend_all_np()
         #endif
         closefrom(3)
         #else
-        #if os(Android)
-        let number_fds = Int32(sysconf(_SC_OPEN_MAX))
-        #else
-        let number_fds = getdtablesize()
-        #endif /* os(Android) */
-        
-        // 2. close all file descriptors.
-        for i in 3..<number_fds {
-            close(i)
-        }
+        // On other platforms lets do CLOEXEC and try /dev/fd and /proc/self/fd, and
+        // fall back to sysconf if those fail.
+        cloexecFDsFrom(3)
         #endif /* os(FreeBSD) || os(OpenBSD) */
-        #endif
+        #endif /* !os(Windows) */
 
+        // All of the swift run modes expect to replace the process itself, with no fork in between.
         try TSCBasic.exec(path: path, args: args)
     }
+
+    #if !os(Windows)
+    private func cloexecFDsFrom(_ from: Int32) {
+        let fdDirs = ["/proc/self/fd", "/dev/fd"]
+        for fdDir in fdDirs {
+            if let fds = try? FileManager.default.contentsOfDirectory(atPath: fdDir) {
+                for fdStr in fds {
+                    if let fd = Int32(fdStr), fd >= from {
+                        _ = fcntl(fd, F_SETFD, FD_CLOEXEC)
+                    }
+                }
+                return
+            }
+        }
+
+        let numFDs = sysconf(Int32(_SC_OPEN_MAX))
+        for fd in from..<Int32(numFDs) {
+            _ = fcntl(fd, F_SETFD, FD_CLOEXEC)
+        }
+    }
+    #endif
 
     public init() {}
 }
@@ -369,4 +391,3 @@ private extension Basics.Diagnostic {
         .warning("'swift run file.swift' command to interpret swift files is deprecated; use 'swift file.swift' instead")
     }
 }
-
