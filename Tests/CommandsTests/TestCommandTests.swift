@@ -259,16 +259,12 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
     }
 
     func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagEnabledSwiftTesting() async throws {
-        #if compiler(<6)
-        _ = XCTSkip("Swift Testing is not available by default in this Swift compiler version")
-        #else
         try await self._testSwiftTestXMLOutputFailureMessage(
             fixtureName: "Miscellaneous/TestSingleFailureSwiftTesting",
             testRunner: .SwiftTesting,
             enableExperimentalFlag: true,
             matchesPattern: [.contains("Purposely failing &amp; validating XML espace &quot;'&lt;&gt;")]
         )
-        #endif
     }
     func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagDisabledXCTest() async throws {
         try await self._testSwiftTestXMLOutputFailureMessage(
@@ -280,16 +276,12 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
     }
 
     func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagDisabledSwiftTesting() async throws {
-        #if compiler(<6)
-        _ = XCTSkip("Swift Testing is not available by default in this Swift compiler version")
-        #else
         try await self._testSwiftTestXMLOutputFailureMessage(
             fixtureName: "Miscellaneous/TestSingleFailureSwiftTesting",
             testRunner: .SwiftTesting,
             enableExperimentalFlag: false,
             matchesPattern: [.contains("Purposely failing &amp; validating XML espace &quot;'&lt;&gt;")]
         )
-        #endif
     }
 
     func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagEnabledXCTest() async throws {
@@ -313,9 +305,6 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
     }
 
     func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagEnabledSwiftTesting() async throws {
-        #if compiler(<6)
-        _ = XCTSkip("Swift Testing is not available by default in this Swift compiler version")
-        #else
         try await self._testSwiftTestXMLOutputFailureMessage(
             fixtureName: "Miscellaneous/TestMultipleFailureSwiftTesting",
             testRunner: .SwiftTesting,
@@ -333,7 +322,6 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
                 .contains("ST Test failure 10")
             ]
         )
-        #endif
     }
 
     func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagDisabledXCTest() async throws {
@@ -357,9 +345,6 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
     }
 
     func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagDisabledSwiftTesting() async throws {
-        #if compiler(<6)
-        _ = XCTSkip("Swift Testing is not available by default in this Swift compiler version")
-        #else
         try await self._testSwiftTestXMLOutputFailureMessage(
             fixtureName: "Miscellaneous/TestMultipleFailureSwiftTesting",
             testRunner: .SwiftTesting,
@@ -377,7 +362,6 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
                 .contains("ST Test failure 10")
             ]
         )
-        #endif
     }
 
     func testSwiftTestFilter() async throws {
@@ -589,11 +573,7 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
     func testFatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation() async throws {
         // Test for GitHub Issue #6605
         // GIVEN we have a Swift Package that has a fatalError building the tests
-        #if compiler(>=6)
         let expected = 1
-        #else
-        let expected = 2
-        #endif
         try await fixture(name: "Miscellaneous/Errors/FatalErrorInSingleXCTest/TypeLibrary") { fixturePath in
             // WHEN swift-test is executed
             await XCTAssertAsyncThrowsError(try await self.execute([], packagePath: fixturePath)) { error in

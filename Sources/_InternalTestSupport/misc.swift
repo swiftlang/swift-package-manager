@@ -522,25 +522,14 @@ extension InitPackage {
     }
 }
 
-#if compiler(<6.0)
 extension RelativePath: ExpressibleByStringLiteral {}
 extension RelativePath: ExpressibleByStringInterpolation {}
-extension URL: ExpressibleByStringLiteral {}
-extension URL: ExpressibleByStringInterpolation {}
-extension PackageIdentity: ExpressibleByStringLiteral {}
-extension PackageIdentity: ExpressibleByStringInterpolation {}
-extension AbsolutePath: ExpressibleByStringLiteral {}
-extension AbsolutePath: ExpressibleByStringInterpolation {}
-#else
-extension RelativePath: @retroactive ExpressibleByStringLiteral {}
-extension RelativePath: @retroactive ExpressibleByStringInterpolation {}
 extension URL: @retroactive ExpressibleByStringLiteral {}
 extension URL: @retroactive ExpressibleByStringInterpolation {}
 extension PackageIdentity: @retroactive ExpressibleByStringLiteral {}
 extension PackageIdentity: @retroactive ExpressibleByStringInterpolation {}
 extension AbsolutePath: @retroactive ExpressibleByStringLiteral {}
 extension AbsolutePath: @retroactive ExpressibleByStringInterpolation {}
-#endif
 
 public func getNumberOfMatches(of match: String, in value: String) -> Int {
     guard match.count != 0 else { return 0 }

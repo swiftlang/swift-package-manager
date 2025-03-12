@@ -65,11 +65,6 @@ class APIDiffTestCase: CommandsBuildProviderTestCase {
       guard (try? UserToolchain.default.getSwiftAPIDigester()) != nil else {
         throw XCTSkip("swift-api-digester unavailable")
       }
-      // The tests rely on swift-api-digester post-5.5 version and are certain
-      // to work with Swift compiler v6.0 and later.
-      #if compiler(<6.0)
-        throw XCTSkip("Skipping because test requires at least Swift compiler v6.0")
-      #endif
     }
 
     func testInvokeAPIDiffDigester() async throws {

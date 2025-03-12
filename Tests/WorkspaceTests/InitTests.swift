@@ -55,8 +55,6 @@ final class InitTests: XCTestCase {
     }
 
     func testInitPackageExecutable() async throws  {
-        try UserToolchain.default.skipUnlessAtLeastSwift6()
-
         try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
@@ -101,8 +99,6 @@ final class InitTests: XCTestCase {
     }
 
     func testInitPackageLibraryWithXCTestOnly() async throws {
-        try UserToolchain.default.skipUnlessAtLeastSwift6()
-
         try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
@@ -229,8 +225,6 @@ final class InitTests: XCTestCase {
     }
 
     func testInitPackageLibraryWithNoTests() async throws {
-        try UserToolchain.default.skipUnlessAtLeastSwift6()
-
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
@@ -336,7 +330,6 @@ final class InitTests: XCTestCase {
     // MARK: Special case testing
 
     func testInitPackageNonc99Directory() async throws {
-        try UserToolchain.default.skipUnlessAtLeastSwift6()
         try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
             XCTAssertDirectoryExists(tempDirPath)
             
@@ -364,8 +357,6 @@ final class InitTests: XCTestCase {
     }
     
     func testNonC99NameExecutablePackage() async throws {
-        try UserToolchain.default.skipUnlessAtLeastSwift6()
-
         try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
             XCTAssertDirectoryExists(tempDirPath)
             

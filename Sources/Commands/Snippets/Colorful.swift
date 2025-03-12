@@ -44,7 +44,7 @@ extension Array: Colorful where Element == Colorful {
     }
 }
 
-extension Optional: CustomStringConvertible where Wrapped: Colorful {
+extension Optional: @retroactive CustomStringConvertible where Wrapped: Colorful {
     public var description: String {
         return terminalString()
     }
