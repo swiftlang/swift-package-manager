@@ -18,8 +18,6 @@
 @_exported import llbuild
 #endif
 
-internal import SPMSQLite3
-internal import TSCclibc
 import Basics
 import Foundation
 

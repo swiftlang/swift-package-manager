@@ -19,7 +19,7 @@ import Basics
 
 #if USE_IMPL_ONLY_IMPORTS
 internal import SwiftASN1
-@_implementationOnly @_spi(DisableValidityCheck) import X509
+@_spi(DisableValidityCheck) internal import X509
 #else
 import SwiftASN1
 @_spi(DisableValidityCheck) import X509

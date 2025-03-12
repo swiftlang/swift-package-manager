@@ -19,7 +19,7 @@ internal import Security
 #endif
 
 internal import SwiftASN1
-@_implementationOnly @_spi(CMS) import X509
+@_spi(CMS) internal import X509
 #else
 #if canImport(Security)
 import Security

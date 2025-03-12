@@ -10,11 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if USE_IMPL_ONLY_IMPORTS
-internal import Foundation
-#else
 import Foundation
-#endif
 
 struct ContextModel {
     let packageDirectory : String
