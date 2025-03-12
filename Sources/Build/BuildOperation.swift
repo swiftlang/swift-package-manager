@@ -285,8 +285,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         return try await self.buildDescription.memoize {
             if self.cacheBuildManifest {
                 do {
-                    // if buildPackageStructure returns a valid description we use that, otherwise we perform full
-                    // planning
+                    // if buildPackageStructure returns a valid description we use that, otherwise we perform full planning
                     if try self.buildPackageStructure() {
                         // confirm the step above created the build description as expected
                         // we trust it to update the build description when needed
@@ -375,12 +374,12 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 let importedTargetsMissingDependency = Set(imports).intersection(nonDependencyTargetsSet)
                 if let missedDependency = importedTargetsMissingDependency.first {
                     switch checkingMode {
-                    case .error:
-                        self.observabilityScope.emit(error: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
-                    case .warn:
-                        self.observabilityScope.emit(warning: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
-                    case .none:
-                        fatalError("Explicit import checking is disabled.")
+                        case .error:
+                            self.observabilityScope.emit(error: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
+                        case .warn:
+                            self.observabilityScope.emit(warning: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
+                        case .none:
+                            fatalError("Explicit import checking is disabled.")
                     }
                 }
             } catch {
@@ -546,8 +545,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             }
 
             func skippedCompilingPlugin(cachedResult: PluginCompilationResult) {
-                // Historically we have emitted log info about cached plugins that are used. We should reconsider
-                // whether this is the right thing to do.
+                // Historically we have emitted log info about cached plugins that are used. We should reconsider whether this is the right thing to do.
                 self.progressTracker?.preparationStepStarted(preparationStepName)
                 if !cachedResult.compilerOutput.isEmpty {
                     self.progressTracker?.preparationStepHadOutput(
@@ -696,8 +694,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let plan = try await generatePlan()
         self._buildPlan = plan
 
-        // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins,
-        // once we know what files they handled.
+        // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins, once we know what files they handled.
         // rdar://113256834 This fix works for the plugins that do not have PreBuildCommands.
         let targetsToConsider: [ResolvedModule]
         if let subset = subset, let recursiveDependencies = try
@@ -842,8 +839,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         // Check for cases involving modules that cannot be found.
         if let importedModule = try? RegEx(pattern: "no such module '(.+)'").matchGroups(in: message).first?.first {
-            // A target is importing a module that can't be found.  We take a look at the build plan and see if can
-            // offer any advice.
+            // A target is importing a module that can't be found.  We take a look at the build plan and see if can offer any advice.
 
             // Look for a target with the same module name as the one that's being imported.
             if let importedTarget = self._buildPlan?.targets.first(where: { $0.module.c99name == importedModule }) {
