@@ -41,7 +41,10 @@ struct InstallSwiftSDK: SwiftSDKSubcommand {
     @Flag(
         name: .customLong("color-diagnostics"),
         inversion: .prefixedNo,
-        help: "Enables or disables color diagnostics when printing to a TTY. The default behavior if this flag is omitted is to use colors if connected to a TTY, and to not use colors otherwise."
+        help: """
+            Enables or disables color diagnostics when printing to a TTY. 
+            By default, color diagnostics are enabled when connected to a TTY and disabled otherwise.
+            """
     )
     public var colorDiagnostics: Bool = ProcessInfo.processInfo.environment["NO_COLOR"] == nil
 

@@ -162,13 +162,6 @@ public protocol DiagnosticsHandler: Sendable {
     func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic)
 }
 
-/// Helper protocol to configurate the style of diagnostics.
-protocol SeverityConfig {
-    var logLabel: String { get }
-    var color: TerminalController.Color { get }
-    var isBold: Bool { get }
-}
-
 /// Helper protocol to share default behavior.
 public protocol DiagnosticsEmitterProtocol {
     func emit(_ diagnostic: Diagnostic)
@@ -396,7 +389,7 @@ public struct Diagnostic: Sendable, CustomStringConvertible {
         Self(severity: .debug, message: message.description, metadata: metadata)
     }
 
-    public enum Severity: Comparable, Sendable, SeverityConfig {
+    public enum Severity: Comparable, Sendable {
         case error
         case warning
         case info
