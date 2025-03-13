@@ -316,7 +316,7 @@ final class PubGrubTests: XCTestCase {
         let deps = try builder.create(dependencies: [
             "foo": (.versionSet(v1Range), .specific(["foo"]))
         ])
-        let result = await resolver.solve(constraints: deps, traitConfiguration: nil)
+        let result = await resolver.solve(constraints: deps)
 
         switch result {
         case .failure(let error):
@@ -1615,7 +1615,7 @@ final class PubGrubTests: XCTestCase {
             "foo": (.versionSet(v1Range), .specific(["foo"])),
             "bar": (.versionSet(v2Range), .specific(["bar"])),
         ])
-        let result = await resolver.solve(constraints: dependencies, traitConfiguration: nil)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .version("1.1.0")),
@@ -1660,8 +1660,7 @@ final class PubGrubTests: XCTestCase {
                 package: other
             ),
             overriddenPackages: [:],
-            root: .root(package: root),
-            traitConfiguration: nil
+            root: .root(package: root)
         )
         XCTAssertEqual(
             result,

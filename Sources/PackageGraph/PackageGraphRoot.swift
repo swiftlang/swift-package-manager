@@ -24,13 +24,13 @@ public struct PackageGraphRootInput {
     public let dependencies: [PackageDependency]
 
     /// The trait configuration for the root packages.
-    public let traitConfiguration: TraitConfiguration?
+    public let traitConfiguration: TraitConfiguration
 
     /// Create a package graph root.
     public init(
         packages: [AbsolutePath],
         dependencies: [PackageDependency] = [],
-        traitConfiguration: TraitConfiguration? = nil
+        traitConfiguration: TraitConfiguration = .default
     ) {
         self.packages = packages
         self.dependencies = dependencies
@@ -103,16 +103,21 @@ public struct PackageGraphRoot {
             }
         })
 
+        var enableTraitsMap: [PackageIdentity: Set<String>] = [:]
         do {
             // Calculate the enabled traits for root.
-            self.enabledTraits = try packages.reduce(into: [PackageIdentity: Set<String>]()) { traitsMap, package in
+            enableTraitsMap = try packages.reduce(into: [PackageIdentity: Set<String>]()) { traitsMap, package in
                 let manifest = package.value.manifest
                 let traitConfiguration = input.traitConfiguration
 
-                let enabledTraits = try manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
+                // Should only ever have to use trait configuration here.
+//                let enabledTraits = try manifest.enabledTraits(using: traitConfiguration.enabledTraits, enableAllTraits: traitConfiguration.enableAllTraits)
+                let enabledTraits = try manifest.enabledTraits2(using: traitConfiguration)
 
                 traitsMap[package.key] = enabledTraits
             }
+
+            self.enabledTraits = enableTraitsMap
         } catch {
             self.enabledTraits = [:]
         }
@@ -131,7 +136,11 @@ public struct PackageGraphRoot {
             // is enabled.
             return manifests.values.reduce(false) {
                 guard $1.pruneDependencies else { return $0 || true }
-                if let isUsed = try? $1.isPackageDependencyUsed(dep, enabledTraits: input.traitConfiguration?.enabledTraits, enableAllTraits: input.traitConfiguration?.enableAllTraits ?? false) {
+//                if let isUsed = try? $1.isPackageDependencyUsed(dep, enabledTraits: input.traitConfiguration?.enabledTraits, enableAllTraits: input.traitConfiguration?.enableAllTraits ?? false) {
+//                    return $0 || isUsed
+//                }
+                let enabledTraits: Set<String>? = enableTraitsMap[$1.packageIdentity]
+                if let isUsed = try? $1.isPackageDependencyUsed(dep, enabledTraits: enabledTraits) {
                     return $0 || isUsed
                 }
                 return true
@@ -140,7 +149,14 @@ public struct PackageGraphRoot {
 
         if let explicitProduct {
             // FIXME: `dependenciesRequired` modifies manifests and prevents conversion of `Manifest` to a value type
-            let deps = try? manifests.values.lazy.map({ try $0.dependenciesRequired(for: .everything, input.traitConfiguration?.enabledTraits, enableAllTraits: input.traitConfiguration?.enableAllTraits ?? false) }).flatMap({ $0 })
+//            let deps = try? manifests.values.lazy.map({ try $0.dependenciesRequired(for: .everything, input.traitConfiguration.enabledTraits, enableAllTraits: input.traitConfiguration.enableAllTraits) }).flatMap({ $0 })
+            let deps = try? manifests.values.lazy
+                .map({ manifest -> [PackageDependency] in
+                    let enabledTraits: Set<String>? = enableTraitsMap[manifest.packageIdentity]
+                    return try manifest.dependenciesRequired(for: .everything, enabledTraits)
+                })
+                .flatMap({ $0 })
+
             for dependency in deps ?? [] {
                 adjustedDependencies.append(dependency.filtered(by: .specific([explicitProduct])))
             }
@@ -222,5 +238,55 @@ extension PackageDependency.Registry.Requirement {
         case .exact(let version):
             return .versionSet(.exact(version))
         }
+    }
+}
+
+// TODO: bp to move to Manifest+Traits.swift file
+extension Manifest {
+    public func enabledTraits2(using traitConfiguration: TraitConfiguration) throws -> Set<String>? {
+        guard supportsTraits else {
+//            if var explicitTraits {
+//                explicitTraits.remove("default")
+//                if !explicitTraits.isEmpty {
+//                    throw TraitError.traitsNotSupported(
+//                        package: displayName,
+//                        explicitlyEnabledTraits: traits.map(\.name)
+//                    )
+//                }
+//            }
+            // if no defaults enabled AND enabled traits is not empty (minus default traits)
+            if var explicitTraits = traitConfiguration.enabledTraits {
+                explicitTraits.remove("default")
+                if !explicitTraits.isEmpty {
+                    throw TraitError.traitsNotSupported(
+                        package: displayName,
+                        explicitlyEnabledTraits: traits.map(\.name)
+                    )
+                }
+            }
+
+            return nil
+        }
+
+        var enabledTraits: Set<String> = []
+
+        switch traitConfiguration {
+        case .enableAllTraits:
+            enabledTraits = Set(traits.map(\.name))
+        case .noConfiguration:
+            if let defaultTraits = defaultTraits?.map(\.name) {
+                enabledTraits = Set(defaultTraits)
+            }
+        case .noEnabledTraits:
+            return []
+        case .enabledTraits(let explicitlyEnabledTraits):
+            enabledTraits = explicitlyEnabledTraits
+        }
+
+        if let allEnabledTraits = try? calculateAllEnabledTraits(explictlyEnabledTraits: enabledTraits) {
+            enabledTraits = allEnabledTraits
+        }
+
+        return enabledTraits
     }
 }

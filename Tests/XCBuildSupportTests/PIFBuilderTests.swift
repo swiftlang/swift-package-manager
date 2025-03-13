@@ -133,6 +133,7 @@ final class PIFBuilderTests: XCTestCase {
                     displayName: "Foo",
                     path: "/Foo",
                     packageKind: .root("/Foo"),
+                    packageIdentity: .plain("Foo"),
                     defaultLocalization: "fr",
                     toolsVersion: .v5_2,
                     dependencies: [
@@ -1926,6 +1927,7 @@ final class PIFBuilderTests: XCTestCase {
                     displayName: "Bar",
                     path: "/Bar",
                     packageKind: .root("/Bar"),
+                    packageIdentity: .plain("Bar"),
                     toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     swiftLanguageVersions: [.v4_2],
@@ -2688,6 +2690,7 @@ final class PIFBuilderTests: XCTestCase {
                     displayName: "Foo",
                     path: "/Foo",
                     packageKind: .root("/Foo"),
+                    packageIdentity: .plain("Foo"),
                     toolsVersion: .v5_3,
                     targets: [
                         .init(name: "foo", dependencies: [

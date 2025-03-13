@@ -47,7 +47,7 @@ import struct SourceControl.Revision
 import struct TSCUtility.Version
 import struct PackageModel.TargetDescription
 import struct PackageModel.TraitDescription
-import struct PackageGraph.TraitConfiguration
+import enum PackageGraph.TraitConfiguration
 import class PackageModel.Manifest
 
 extension Workspace {

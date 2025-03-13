@@ -11,23 +11,23 @@
 //===----------------------------------------------------------------------===//
 
 /// The trait configuration.
-public struct TraitConfiguration: Codable, Hashable {
-    /// The traits to enable for the package.
-    package var enabledTraits: Set<String>?
+//public struct TraitConfiguration: Codable, Hashable {
+//    /// The traits to enable for the package.
+//    package var enabledTraits: Set<String>?
+//
+//    /// Enables all traits of the package.
+//    package var enableAllTraits: Bool
+//
+//    public init(
+//        enabledTraits: Set<String>? = nil,
+//        enableAllTraits: Bool = false
+//    ) {
+//        self.enabledTraits = enabledTraits
+//        self.enableAllTraits = enableAllTraits
+//    }
+//}
 
-    /// Enables all traits of the package.
-    package var enableAllTraits: Bool
-
-    public init(
-        enabledTraits: Set<String>? = nil,
-        enableAllTraits: Bool = false
-    ) {
-        self.enabledTraits = enabledTraits
-        self.enableAllTraits = enableAllTraits
-    }
-}
-
-public enum TraitConfiguration2: Codable, Hashable {
+public enum TraitConfiguration: Codable, Hashable {
     case enableAllTraits
     case noConfiguration
     case noEnabledTraits
@@ -55,4 +55,45 @@ public enum TraitConfiguration2: Codable, Hashable {
             self = .noConfiguration
         }
     }
+
+    /// Default instance of `TraitConfiguration`.
+    public static var `default`: TraitConfiguration {
+        .init(enabledTraits: nil)
+    }
+
+    public var enabledTraits: Set<String>? {
+        switch self {
+        case .enabledTraits(let traits):
+            return traits
+        case .noConfiguration, .enableAllTraits:
+            return nil
+        case .noEnabledTraits:
+            return []
+        }
+    }
+
+    public var enableAllTraits: Bool {
+        if case .enableAllTraits = self {
+            return true
+        }
+
+        return false
+    }
+
+//    public var enablesDefaultTraits: Bool {
+//        switch self {
+//        case .enableAllTraits, .noConfiguration:
+//            return true
+//        case .enabledTraits(let traits):
+//            return traits.contains("default")
+//        case .noEnabledTraits:
+//            return false
+//        }
+//    }
+
+//    public var enabledTraitsWithoutDefault: Set<String>? {
+//        switch self {
+//        case .enabledTraits(let traits):
+//        }
+//    }
 }

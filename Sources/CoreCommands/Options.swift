@@ -27,8 +27,7 @@ import class PackageModel.Manifest
 import enum PackageModel.Sanitizer
 @_spi(SwiftPMInternal) import struct PackageModel.SwiftSDK
 
-import struct PackageGraph.TraitConfiguration
-import enum PackageGraph.TraitConfiguration2
+import enum PackageGraph.TraitConfiguration
 
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildSystemProvider
@@ -696,23 +695,23 @@ package struct TraitOptions: ParsableArguments {
     public var disableDefaultTraits: Bool = false
 }
 
-extension TraitConfiguration {
-    package init(traitOptions: TraitOptions) {
-        var enabledTraits = traitOptions.enabledTraits
-        if traitOptions.disableDefaultTraits {
-            // If there are no enabled traits specified we can disable the
-            // default trait by passing in an empty set. Otherwise the enabling specific traits
-            // requires the user to pass the default as well.
-            enabledTraits = enabledTraits ?? []
-        }
-        self.init(
-            enabledTraits: enabledTraits,
-            enableAllTraits: traitOptions.enableAllTraits
-        )
-    }
-}
+//extension TraitConfiguration {
+//    package init(traitOptions: TraitOptions) {
+//        var enabledTraits = traitOptions.enabledTraits
+//        if traitOptions.disableDefaultTraits {
+//            // If there are no enabled traits specified we can disable the
+//            // default trait by passing in an empty set. Otherwise the enabling specific traits
+//            // requires the user to pass the default as well.
+//            enabledTraits = enabledTraits ?? []
+//        }
+//        self.init(
+//            enabledTraits: enabledTraits,
+//            enableAllTraits: traitOptions.enableAllTraits
+//        )
+//    }
+//}
 
-extension TraitConfiguration2 {
+extension TraitConfiguration {
     package init(traitOptions: TraitOptions) {
         var enabledTraits = traitOptions.enabledTraits
         if traitOptions.disableDefaultTraits {

@@ -426,7 +426,7 @@ public func loadModulesGraph(
     useXCBuildFileRules: Bool = false,
     customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
     observabilityScope: ObservabilityScope,
-    traitConfiguration: TraitConfiguration? = nil
+    traitConfiguration: TraitConfiguration = .default
 ) throws -> ModulesGraph {
     let rootManifests = manifests.filter(\.packageKind.isRoot).spm_createDictionary { ($0.path, $0) }
     let externalManifests = try manifests.filter { !$0.packageKind.isRoot }
