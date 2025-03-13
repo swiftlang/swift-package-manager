@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+internal import Foundation
 
 /// The basic building block of a Swift package.
 ///
