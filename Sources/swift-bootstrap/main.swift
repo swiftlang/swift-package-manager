@@ -282,8 +282,6 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             shouldDisableLocalRpath: Bool,
             logLevel: Basics.Diagnostic.Severity
         ) throws -> BuildSystem {
-            var buildFlags = buildFlags
-
             let dataPath = scratchDirectory.appending(
                 component: self.targetToolchain.targetTriple.platformBuildPathComponent(buildSystem: buildSystem)
             )
@@ -295,8 +293,8 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 toolchain: self.targetToolchain,
                 triple: self.hostToolchain.targetTriple,
                 flags: buildFlags,
+                buildSystemKind: buildSystem,
                 architectures: architectures,
-                isXcodeBuildSystemEnabled: buildSystem.usesXcodeBuildEngine,
                 driverParameters: .init(
                     explicitTargetDependencyImportCheckingMode: explicitTargetDependencyImportCheck == .error ? .error : .none,
                     useIntegratedSwiftDriver: useIntegratedSwiftDriver,
@@ -363,7 +361,6 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 return try SwiftBuildSystem(
                     buildParameters: buildParameters,
                     packageGraphLoader: asyncUnsafePackageGraphLoader,
-                    packageManagerResourcesDirectory: nil,
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
                     fileSystem: self.fileSystem,

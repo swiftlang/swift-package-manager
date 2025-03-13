@@ -227,9 +227,6 @@ public final class SwiftCommandState {
 
     /// Path to the shared configuration directory
     public let sharedConfigurationDirectory: AbsolutePath
-    
-    /// Path to the package manager's own resources directory.
-    public let packageManagerResourcesDirectory: AbsolutePath?
 
     /// Path to the cross-compilation Swift SDKs directory.
     public let sharedSwiftSDKsDirectory: AbsolutePath
@@ -374,17 +371,6 @@ public final class SwiftCommandState {
                 warning: "`--experimental-swift-sdks-path` is deprecated and will be removed in a future version of SwiftPM. Use `--swift-sdks-path` instead."
             )
         }
-        
-        if let packageManagerResourcesDirectory = options.locations.packageManagerResourcesDirectory {
-            self.packageManagerResourcesDirectory = packageManagerResourcesDirectory
-        } else if let cwd = localFileSystem.currentWorkingDirectory {
-            self.packageManagerResourcesDirectory = try? AbsolutePath(validating: CommandLine.arguments[0], relativeTo: cwd)
-                .parentDirectory.parentDirectory.appending(components: ["share", "pm"])
-        } else {
-            self.packageManagerResourcesDirectory = try? AbsolutePath(validating: CommandLine.arguments[0])
-                .parentDirectory.parentDirectory.appending(components: ["share", "pm"])
-        }
-        
         self.sharedSwiftSDKsDirectory = try fileSystem.getSharedSwiftSDKsDirectory(
             explicitDirectory: options.locations.swiftSDKsDirectory ?? options.locations.deprecatedSwiftSDKsDirectory
         )
@@ -455,7 +441,6 @@ public final class SwiftCommandState {
             self.observabilityHandler.progress,
             self.observabilityHandler.prompt
         )
-        let isXcodeBuildSystemEnabled = self.options.build.buildSystem.usesXcodeBuildEngine
         let workspace = try Workspace(
             fileSystem: self.fileSystem,
             location: .init(
@@ -473,9 +458,9 @@ public final class SwiftCommandState {
             configuration: .init(
                 skipDependenciesUpdates: options.resolver.skipDependencyUpdate,
                 prefetchBasedOnResolvedFile: options.resolver.shouldEnableResolverPrefetching,
-                shouldCreateMultipleTestProducts: toolWorkspaceConfiguration.wantsMultipleTestProducts || options.build.buildSystem.usesXcodeBuildEngine,
+                shouldCreateMultipleTestProducts: toolWorkspaceConfiguration.wantsMultipleTestProducts || options.build.buildSystem.shouldCreateMultipleTestProducts,
                 createREPLProduct: toolWorkspaceConfiguration.wantsREPLProduct,
-                additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
+                additionalFileRules: options.build.buildSystem.additionalFileRules,
                 sharedDependenciesCacheEnabled: self.options.caching.useDependenciesCache,
                 fingerprintCheckingMode: self.options.security.fingerprintCheckingMode,
                 signingEntityCheckingMode: self.options.security.signingEntityCheckingMode,
@@ -805,12 +790,12 @@ public final class SwiftCommandState {
             toolchain: toolchain,
             triple: triple,
             flags: options.build.buildFlags,
+            buildSystemKind: options.build.buildSystem,
             pkgConfigDirectories: options.locations.pkgConfigDirectories,
             architectures: options.build.architectures,
             workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
-            isXcodeBuildSystemEnabled: options.build.buildSystem.usesXcodeBuildEngine,
             prepareForIndexing: prepareForIndexingMode,
             debuggingParameters: .init(
                 debugInfoFormat: options.build.debugInfoFormat.buildParameter,
@@ -1035,6 +1020,26 @@ public final class SwiftCommandState {
     }
 }
 
+extension BuildSystemProvider.Kind {
+    fileprivate var shouldCreateMultipleTestProducts: Bool {
+        switch self {
+        case .xcode, .swiftbuild:
+            return true
+        case .native:
+            return false
+        }
+    }
+    
+    fileprivate var additionalFileRules: [FileRuleDescription] {
+        switch self {
+        case .xcode, .swiftbuild:
+            return FileRuleDescription.xcbuildFileTypes
+        case .native:
+            return FileRuleDescription.swiftpmFileTypes
+        }
+    }
+}
+
 /// Returns path of the nearest directory containing the manifest file w.r.t
 /// current working directory.
 private func findPackageRoot(fileSystem: FileSystem) -> AbsolutePath? {
@@ -1202,3 +1207,4 @@ extension Basics.Diagnostic {
         .error(arguments.map { "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
     }
 }
+
