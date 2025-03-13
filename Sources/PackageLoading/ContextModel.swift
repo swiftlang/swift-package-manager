@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #if USE_IMPL_ONLY_IMPORTS
-internal import Foundation
+@_implementationOnly import Foundation
 #else
 import Foundation
 #endif

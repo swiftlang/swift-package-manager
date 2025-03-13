@@ -14,7 +14,7 @@
 internal import ucrt
 internal import struct WinSDK.HANDLE
 #endif
-internal import Foundation
+@_implementationOnly import Foundation
 
 /// The configuration of a Swift package.
 ///
