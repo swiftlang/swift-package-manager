@@ -515,8 +515,8 @@ extension InitPackage {
     }
 }
 
-extension RelativePath: @retroactive ExpressibleByStringLiteral {}
-extension RelativePath: @retroactive ExpressibleByStringInterpolation {}
+extension RelativePath: ExpressibleByStringLiteral {}
+extension RelativePath: ExpressibleByStringInterpolation {}
 extension URL: @retroactive ExpressibleByStringLiteral {}
 extension URL: @retroactive ExpressibleByStringInterpolation {}
 extension PackageIdentity: @retroactive ExpressibleByStringLiteral {}
