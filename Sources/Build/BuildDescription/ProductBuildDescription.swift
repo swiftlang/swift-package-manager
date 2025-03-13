@@ -269,7 +269,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
         // Set rpath such that dynamic libraries are looked up
         // adjacent to the product, unless overridden.
-        if !self.buildParameters.linkingParameters.shouldDisableLocalRpath {
+        if triple.os != .noneOS, !self.buildParameters.linkingParameters.shouldDisableLocalRpath {
             switch triple.objectFormat {
             case .elf:
                 args += ["-Xlinker", "-rpath=$ORIGIN"]
