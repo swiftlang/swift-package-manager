@@ -351,10 +351,9 @@ public struct Diagnostic: Sendable, CustomStringConvertible {
         }
 
         let message: String
-            // FIXME: this brings in the TSC API still
-            // FIXME: string interpolation seems brittle
-        if let diagnosticData = error as? DiagnosticData
-        {
+        // FIXME: this brings in the TSC API still
+        // FIXME: string interpolation seems brittle
+        if let diagnosticData = error as? DiagnosticData {
             message = "\(diagnosticData)"
         } else if let convertible = error as? DiagnosticDataConvertible {
             message = "\(convertible.diagnosticData)"
