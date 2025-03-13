@@ -91,12 +91,7 @@ public class Workspace {
     public let state: WorkspaceState
 
     // `public` visibility for testing
-    @available(
-        *,
-        deprecated,
-        renamed: "resolvedPackagesStore",
-        message: "Renamed for consistency with the actual name of the feature"
-    )
+    @available(*, deprecated, renamed: "resolvedPackagesStore", message: "Renamed for consistency with the actual name of the feature")
     public var pinsStore: LoadableResult<PinsStore> { self.resolvedPackagesStore }
 
     /// The `Package.resolved` store. The `Package.resolved` file will be created when first resolved package is added
@@ -559,8 +554,7 @@ public class Workspace {
             authorizationProvider: authorizationProvider,
             hostToolchain: hostToolchain,
             checksumAlgorithm: checksumAlgorithm,
-            cachePath: customBinaryArtifactsManager?.useCache == false || !configuration
-                .sharedDependenciesCacheEnabled ? .none : location.sharedBinaryArtifactsCacheDirectory,
+            cachePath:  customBinaryArtifactsManager?.useCache == false || !configuration.sharedDependenciesCacheEnabled ? .none : location.sharedBinaryArtifactsCacheDirectory,
             customHTTPClient: customBinaryArtifactsManager?.httpClient,
             customArchiver: customBinaryArtifactsManager?.archiver,
             delegate: delegate.map(WorkspaceBinaryArtifactsManagerDelegate.init(workspaceDelegate:))
@@ -572,8 +566,7 @@ public class Workspace {
             fileSystem: fileSystem,
             authorizationProvider: authorizationProvider,
             scratchPath: location.prebuiltsDirectory,
-            cachePath: customPrebuiltsManager?.useCache == false || !configuration
-                .sharedDependenciesCacheEnabled ? .none : location.sharedPrebuiltsCacheDirectory,
+            cachePath: customPrebuiltsManager?.useCache == false || !configuration.sharedDependenciesCacheEnabled ? .none : location.sharedPrebuiltsCacheDirectory,
             customHTTPClient: customPrebuiltsManager?.httpClient,
             customArchiver: customPrebuiltsManager?.archiver,
             delegate: delegate.map(WorkspacePrebuiltsManagerDelegate.init(workspaceDelegate:))
@@ -756,20 +749,19 @@ extension Workspace {
         }
 
         // Compute the custom or extra constraint we need to impose.
-        let requirement: PackageRequirement = if let version {
-            .versionSet(.exact(version))
+        let requirement: PackageRequirement
+        if let version {
+            requirement = .versionSet(.exact(version))
         } else if let branch {
-            .revision(branch)
+            requirement = .revision(branch)
         } else if let revision {
-            .revision(revision)
+            requirement = .revision(revision)
         } else {
-            defaultRequirement
+            requirement = defaultRequirement
         }
 
         var dependencyEnabledTraits: Set<String>?
-        if let traits = root.dependencies.first(where: { $0.nameForModuleDependencyResolutionOnly == packageName })?
-            .traits
-        {
+        if let traits = root.dependencies.first(where: { $0.nameForModuleDependencyResolutionOnly == packageName })?.traits {
             dependencyEnabledTraits = Set(traits.map(\.name))
         }
 
@@ -955,13 +947,7 @@ extension Workspace {
             }
 
         let prebuilts: [PackageIdentity: [String: PrebuiltLibrary]] = await self.state.prebuilts.reduce(into: .init()) {
-            let prebuilt = PrebuiltLibrary(
-                packageRef: $1.packageRef,
-                libraryName: $1.libraryName,
-                path: $1.path,
-                products: $1.products,
-                cModules: $1.cModules
-            )
+            let prebuilt = PrebuiltLibrary(packageRef: $1.packageRef, libraryName: $1.libraryName, path: $1.path, products: $1.products, cModules: $1.cModules)
             for product in $1.products {
                 $0[$1.packageRef.identity, default: [:]][product] = prebuilt
             }
@@ -1042,7 +1028,7 @@ extension Workspace {
         let lock = NSLock()
         let sync = DispatchGroup()
         var rootManifests = [AbsolutePath: Manifest]()
-        for package in Set(packages) {
+        Set(packages).forEach { package in
             sync.enter()
             // TODO: this does not use the identity resolver which is probably fine since its the root packages
             self.loadManifest(
@@ -1173,7 +1159,7 @@ extension Workspace {
                     fileSystem: self.fileSystem,
                     observabilityScope: observabilityScope,
                     // For now we enable all traits
-                    enabledTraits: Set(manifest.traits.map(\.name))
+                    enabledTraits: Set(manifest.traits.map { $0.name })
                 )
                 return try builder.construct()
             }
@@ -1217,14 +1203,9 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async throws -> Package {
         try await withCheckedThrowingContinuation { continuation in
-            self.loadPackage(
-                with: identity,
-                packageGraph: packageGraph,
-                observabilityScope: observabilityScope,
-                completion: {
-                    continuation.resume(with: $0)
-                }
-            )
+            self.loadPackage(with: identity, packageGraph: packageGraph, observabilityScope: observabilityScope, completion: {
+                continuation.resume(with: $0)
+            })
         }
     }
 
@@ -1263,7 +1244,7 @@ extension Workspace {
                     fileSystem: self.fileSystem,
                     observabilityScope: observabilityScope,
                     // For now we enable all traits
-                    enabledTraits: Set(manifest.traits.map(\.name))
+                    enabledTraits: Set(manifest.traits.map { $0.name })
                 )
                 return try builder.construct()
             }
@@ -1352,9 +1333,9 @@ extension Workspace.ManagedArtifact {
     fileprivate var originURL: String? {
         switch self.source {
         case .remote(let url, _):
-            url
+            return url
         case .local:
-            nil
+            return nil
         }
     }
 }
@@ -1377,11 +1358,11 @@ extension PackageDependency {
     private var isLocal: Bool {
         switch self {
         case .fileSystem:
-            true
+            return true
         case .sourceControl:
-            false
+            return false
         case .registry:
-            false
+            return false
         }
     }
 }
@@ -1546,11 +1527,11 @@ extension ContainerUpdateStrategy {
     var repositoryUpdateStrategy: RepositoryUpdateStrategy {
         switch self {
         case .always:
-            .always
+            return .always
         case .never:
-            .never
+            return .never
         case .ifNeeded(let revision):
-            .ifNeeded(revision: .init(identifier: revision))
+            return .ifNeeded(revision: .init(identifier: revision))
         }
     }
 }
