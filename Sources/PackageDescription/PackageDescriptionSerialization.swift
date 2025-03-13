@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-internal import Foundation
+import Foundation
 
 enum Serialization {
     // MARK: - build settings serialization
