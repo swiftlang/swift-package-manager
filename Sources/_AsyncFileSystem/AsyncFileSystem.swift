@@ -11,8 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 package import _Concurrency
-@preconcurrency package import struct SystemPackage.Errno
-@preconcurrency package import struct SystemPackage.FilePath
+package import struct SystemPackage.Errno
+package import struct SystemPackage.FilePath
 
 /// An abstract file system protocol with first-class support for Swift Concurrency.
 package protocol AsyncFileSystem: Actor {

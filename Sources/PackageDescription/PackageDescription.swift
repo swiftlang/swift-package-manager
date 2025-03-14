@@ -11,8 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #if canImport(ucrt) && canImport(WinSDK)
-@_implementationOnly import ucrt
-@_implementationOnly import struct WinSDK.HANDLE
+internal import ucrt
+internal import struct WinSDK.HANDLE
 #endif
 @_implementationOnly import Foundation
 

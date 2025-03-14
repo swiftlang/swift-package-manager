@@ -14,11 +14,11 @@ import struct Foundation.Data
 
 #if USE_IMPL_ONLY_IMPORTS
 #if canImport(Security)
-@_implementationOnly import Security
+internal import Security
 #endif
 
-@_implementationOnly import SwiftASN1
-@_implementationOnly import X509
+internal import SwiftASN1
+internal import X509
 #else
 #if canImport(Security)
 import Security
