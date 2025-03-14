@@ -364,8 +364,8 @@ final class SourceKitLSPAPITests: XCTestCase {
 
         let target = try XCTUnwrap(description.getBuildTarget(for: XCTUnwrap(graph.module(for: "lib")), destination: .target))
         XCTAssertEqual(target.compiler, .clang)
-        XCTAssertEqual(try target.outputPaths.count, 1)
-        XCTAssertEqual(try target.outputPaths.last?.lastPathComponent, "lib.cpp.o")
+        XCTAssertEqual(target.sources.count, 1)
+        XCTAssertEqual(target.sources.last?.outputFile?.lastPathComponent, "lib.cpp.o")
     }
 }
 
@@ -387,7 +387,7 @@ extension SourceKitLSPAPI.BuildDescription {
         XCTAssertEqual(buildTarget.ignored, ignoredFiles, "build target \(targetName) contains unexpected ignored files")
         XCTAssertEqual(buildTarget.others, otherFiles, "build target \(targetName) contains unexpected other files")
 
-        guard let source = buildTarget.sources.first else {
+        guard let source = buildTarget.sources.first?.sourceFile else {
             XCTFail("build target \(targetName) contains no source files")
             return false
         }
