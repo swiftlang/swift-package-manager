@@ -35,10 +35,11 @@ final class EnvironmentTests: XCTestCase {
             "testKey": "TestValue2",
         ]
         let environment = Environment(dictionary)
-        XCTAssertEqual(environment["TestKey"], "TestValue")
         #if os(Windows)
+        XCTAssertEqual(environment["TestKey"], "TestValue2") // uppercase sorts before lowercase, so the second value overwrites the first
         XCTAssertEqual(environment.count, 1)
         #else
+        XCTAssertEqual(environment["TestKey"], "TestValue")
         XCTAssertEqual(environment.count, 2)
         #endif
     }
