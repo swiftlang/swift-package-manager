@@ -1029,7 +1029,7 @@ extension BuildSystemProvider.Kind {
             return false
         }
     }
-    
+
     fileprivate var additionalFileRules: [FileRuleDescription] {
         switch self {
         case .xcode, .swiftbuild:
