@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
-import Basics
+@_spi(SwiftPMInternal) import Basics
 import CoreCommands
 import Foundation
 import PackageGraph
@@ -233,7 +233,9 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                 let runnerPath: AbsolutePath
                 let arguments: [String]
 
-                if let debugger = try swiftCommandState.getTargetToolchain().swiftSDK.toolset.knownTools[.debugger],
+                let toolchain = try swiftCommandState.getTargetToolchain()
+
+                if let debugger = toolchain.swiftSDK.toolset.knownTools[.debugger],
                    let debuggerPath = debugger.path {
                     runnerPath = debuggerPath
                     arguments = debugger.extraCLIOptions + [productAbsolutePath.pathString] + options.arguments
@@ -242,11 +244,23 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                     arguments = options.arguments
                 }
 
+                // For Linux, need to point LD_LIBRARY_PATH at the swift runtime
+                let environment: [String: String]?
+                if toolchain.targetTriple.isLinux() {
+                    var current = Environment.current
+                    let pathVar: EnvironmentKey = "LD_LIBRARY_PATH"
+                    current.prependPath(key: pathVar, value: try toolchain.linuxSwiftStdlib.pathString)
+                    environment = .init(current)
+                } else {
+                    environment = nil
+                }
+
                 try self.run(
                     fileSystem: swiftCommandState.fileSystem,
                     executablePath: runnerPath,
                     originalWorkingDirectory: swiftCommandState.originalWorkingDirectory,
-                    arguments: arguments
+                    arguments: arguments,
+                    environment: environment
                 )
             } catch Diagnostics.fatalError {
                 throw ExitCode.failure
@@ -294,7 +308,8 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         fileSystem: FileSystem,
         executablePath: AbsolutePath,
         originalWorkingDirectory: AbsolutePath,
-        arguments: [String]
+        arguments: [String],
+        environment: [String: String]? = nil
     ) throws {
         // Make sure we are running from the original working directory.
         let cwd: AbsolutePath? = fileSystem.currentWorkingDirectory
@@ -303,7 +318,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         }
 
         let pathRelativeToWorkingDirectory = executablePath.relative(to: originalWorkingDirectory)
-        try execute(path: executablePath.pathString, args: [pathRelativeToWorkingDirectory.pathString] + arguments)
+        try execute(path: executablePath.pathString, args: [pathRelativeToWorkingDirectory.pathString] + arguments, env: environment)
     }
 
     /// Determines if a path points to a valid swift file.
@@ -327,7 +342,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
     }
 
     /// A safe wrapper of TSCBasic.exec.
-    private func execute(path: String, args: [String]) throws -> Never {
+    private func execute(path: String, args: [String], env: [String: String]?) throws -> Never {
         #if !os(Windows)
         // Dispatch will disable almost all asynchronous signals on its worker threads, and this is called from `async`
         // context. To correctly `exec` a freshly built binary, we will need to:
@@ -357,6 +372,13 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         }
         #endif /* os(FreeBSD) || os(OpenBSD) */
         #endif
+
+        if let env {
+            // set the env before we exec.
+            // TODO: we should really use execve here.
+            // Though, Windows doesn't really exec anyway.
+            try env.forEach { try ProcessEnv.setVar($0, value: $1) }
+        }
 
         try TSCBasic.exec(path: path, args: args)
     }

@@ -88,6 +88,14 @@ extension Toolchain {
         }
     }
 
+    public var linuxSwiftStdlib: AbsolutePath {
+        get throws {
+            try Self.toolchainLibDir(swiftCompilerPath: self.swiftCompilerPath).appending(
+                components: ["swift", "linux"]
+            )
+        }
+    }
+
     public var toolchainLibDir: AbsolutePath {
         get throws {
             // FIXME: Not sure if it's better to base this off of Swift compiler or our own binary.
