@@ -45,25 +45,25 @@ public struct GraphLoadingNode: Equatable, Hashable {
     }
 
     /// Returns the dependencies required by this node.
-    internal var requiredDependencies: [PackageDependency] {
+    var requiredDependencies: [PackageDependency] {
         guard let requiredDeps = try? self.manifest.dependenciesRequired(for: self.productFilter, enabledTraits) else {
             return []
         }
         return requiredDeps
     }
 
-    internal var traitGuardedDependencies: [PackageDependency] {
-        return self.manifest.dependenciesGuarded(by: enabledTraits)
+    var traitGuardedDependencies: [PackageDependency] {
+        self.manifest.dependenciesTraitGuarded(withEnabledTraits: self.enabledTraits)
     }
 }
 
 extension GraphLoadingNode: CustomStringConvertible {
     public var description: String {
-        switch productFilter {
+        switch self.productFilter {
         case .everything:
-            return self.identity.description
+            self.identity.description
         case .specific(let set):
-            return "\(self.identity.description)[\(set.sorted().joined(separator: ", "))]"
+            "\(self.identity.description)[\(set.sorted().joined(separator: ", "))]"
         }
     }
 }
