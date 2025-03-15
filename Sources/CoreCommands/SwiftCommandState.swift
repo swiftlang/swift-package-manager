@@ -10,9 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import ArgumentParser
 import Basics
-import _Concurrency
 import Dispatch
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
@@ -44,10 +44,10 @@ import Musl
 import Bionic
 #endif
 
+import class Basics.AsyncProcess
 import func TSCBasic.exec
 import class TSCBasic.FileLock
 import protocol TSCBasic.OutputByteStream
-import class Basics.AsyncProcess
 import enum TSCBasic.ProcessEnv
 import enum TSCBasic.ProcessLockError
 import var TSCBasic.stderrStream
@@ -205,7 +205,7 @@ public final class SwiftCommandState {
     /// Get the current workspace root object.
     public func getWorkspaceRoot(traitConfiguration: TraitConfiguration? = nil) throws -> PackageGraphRootInput {
         let packages: [AbsolutePath]
-
+        
         if let workspace = options.locations.multirootPackageDataFile {
             packages = try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope)
                 .load(workspace: workspace)
@@ -314,7 +314,11 @@ public final class SwiftCommandState {
         self.environment = environment
         // first, bootstrap the observability system
         self.logLevel = options.logging.logLevel
-        self.observabilityHandler = SwiftCommandObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel)
+        self.observabilityHandler = SwiftCommandObservabilityHandler(
+            outputStream: outputStream,
+            logLevel: self.logLevel,
+            colorDiagnostics: options.logging.colorDiagnostics
+        )
         let observabilitySystem = ObservabilitySystem(self.observabilityHandler)
         let observabilityScope = observabilitySystem.topScope
         self.observabilityScope = observabilityScope
@@ -505,7 +509,6 @@ public final class SwiftCommandState {
 
         return (identities, targets)
     }
-
 
     private func getEditsDirectory() throws -> AbsolutePath {
         // TODO: replace multiroot-data-file with explicit overrides
@@ -825,11 +828,13 @@ public final class SwiftCommandState {
                 shouldDisableLocalRpath: options.linker.shouldDisableLocalRpath
             ),
             outputParameters: .init(
+                isColorized: self.options.logging.colorDiagnostics,
                 isVerbose: self.logLevel <= .info
             ),
             testingParameters: .init(
-                forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
-                testEntryPointPath: options.build.testEntryPointPath
+                forceTestDiscovery: self.options.build.enableTestDiscovery,
+                // backwards compatibility, remove with --enable-test-discovery
+                testEntryPointPath: self.options.build.testEntryPointPath
             )
         )
     }
