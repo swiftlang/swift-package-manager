@@ -326,7 +326,7 @@ Trait '"\(trait.name)"' is not declared by package 'Foo'. There are no available
             // Calculate the enabled traits without an explicitly declared set of enabled traits.
             // This should default to fetching the default traits, if they exist (which in this test case
             // they do), and then will calculate the transitive set of traits that are enabled.
-            let allEnabledTraits = try manifest.enabledTraits(using: nil)?.sorted()
+            let allEnabledTraits = try manifest.enabledTraits2(using: .default)?.sorted()
             XCTAssertEqual(allEnabledTraits, ["Trait1", "Trait2"])
         }
     }
@@ -360,13 +360,13 @@ Trait '"\(trait.name)"' is not declared by package 'Foo'. There are no available
 
             // Calculate the enabled traits with an explicitly declared set of enabled traits.
             // This should override the default traits (since it isn't explicitly passed in here).
-            let allEnabledTraitsWithoutDefaults = try manifest.enabledTraits(using: ["Trait3"])?.sorted()
+            let allEnabledTraitsWithoutDefaults = try manifest.enabledTraits2(using: .enabledTraits(["Trait3"]))?.sorted()
             XCTAssertEqual(allEnabledTraitsWithoutDefaults, ["Trait3"])
 
             // Calculate the enabled traits with an explicitly declared set of enabled traits,
             // including the default traits. Since default traits are explicitly enabled in the
             // passed set of traits, this will be factored into the calculation.
-            let allEnabledTraitsWithDefaults = try manifest.enabledTraits(using: ["default", "Trait3"])?.sorted()
+            let allEnabledTraitsWithDefaults = try manifest.enabledTraits2(using: .enabledTraits(["default", "Trait3"]))?.sorted()
             XCTAssertEqual(allEnabledTraitsWithDefaults, ["Trait1", "Trait2", "Trait3"])
 
         }
@@ -400,7 +400,7 @@ Trait '"\(trait.name)"' is not declared by package 'Foo'. There are no available
             )
 
             // Calculate the enabled traits with all traits enabled flag.
-            let allEnabledTraits = try manifest.enabledTraits(using: [], enableAllTraits: true)?.sorted()
+            let allEnabledTraits = try manifest.enabledTraits2(using: .enableAllTraits)?.sorted()
             XCTAssertEqual(allEnabledTraits, ["Trait1", "Trait2", "Trait3"])
         }
     }

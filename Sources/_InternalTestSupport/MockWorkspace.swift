@@ -90,7 +90,7 @@ public final class MockWorkspace {
     let skipDependenciesUpdates: Bool
     public var sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation
     var defaultRegistry: Registry?
-    public let traitConfiguration: TraitConfiguration?
+    public let traitConfiguration: TraitConfiguration
 
     public init(
         sandbox: AbsolutePath,
@@ -110,7 +110,7 @@ public final class MockWorkspace {
         sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation = .disabled,
         defaultRegistry: Registry? = .none,
         customHostTriple: Triple = hostTriple,
-        traitConfiguration: TraitConfiguration? = nil
+        traitConfiguration: TraitConfiguration = .default
     ) async throws {
         try fileSystem.createMockToolchain()
 
@@ -288,6 +288,7 @@ public final class MockWorkspace {
                     displayName: package.name,
                     path: packagePath,
                     packageKind: packageKind,
+                    packageIdentity: .plain(package.name),
                     packageLocation: packageLocation,
                     platforms: package.platforms,
                     version: v,
