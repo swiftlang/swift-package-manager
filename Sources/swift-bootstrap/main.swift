@@ -361,6 +361,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 return try SwiftBuildSystem(
                     buildParameters: buildParameters,
                     packageGraphLoader: asyncUnsafePackageGraphLoader,
+                    packageManagerResourcesDirectory: nil,
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
                     fileSystem: self.fileSystem,
