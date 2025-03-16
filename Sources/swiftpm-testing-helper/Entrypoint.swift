@@ -10,7 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if canImport(Darwin)
 import Darwin.C
+#elseif canImport(Android)
+import Android
+#endif
 
 @main
 struct Entrypoint {
@@ -18,7 +22,12 @@ struct Entrypoint {
         let args = CommandLine.arguments
         if args.count >= 3, args[1] == "--test-bundle-path" {
             let bundlePath = args[2]
-            guard let image = dlopen(bundlePath, RTLD_LAZY | RTLD_FIRST) else {
+            #if canImport(Darwin)
+            let flags = RTLD_LAZY | RTLD_FIRST
+            #else
+            let flags = RTLD_LAZY
+            #endif
+            guard let image = dlopen(bundlePath, flags) else {
                 let errorMessage: String = dlerror().flatMap {
                     String(validatingCString: $0)
                 } ?? "An unknown error occurred."
