@@ -167,6 +167,7 @@ def main() -> None:
         call(
             shlex.split(
                 f"{swiftpm_bin_dir / 'swift-test'} --parallel",
+                posix=(os.name == "posix"), # must be set correctly, otherwhsie shlex.split("C:\\Foo\\bar") become ['CFoobar']
             ),
         )
 
