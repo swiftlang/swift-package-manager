@@ -931,6 +931,11 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
                 pifTarget.addSourceFile(resourceFile)
             }
 
+            // Asset Catalogs need to be included in the sources target for generated asset symbols.
+            if SwiftBuildFileType.xcassets.fileTypes.contains(resource.path.extension ?? "") {
+                pifTarget.addSourceFile(resourceFile)
+            }
+
             resourcesTarget.addResourceFile(resourceFile)
         }
 

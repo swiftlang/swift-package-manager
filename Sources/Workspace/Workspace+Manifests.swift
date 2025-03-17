@@ -188,13 +188,19 @@ extension Workspace {
                 unused: OrderedCollections.OrderedSet<PackageReference>
             )
         {
-            let manifestsMap: [PackageIdentity: Manifest] = try Dictionary(
-                throwingUniqueKeysWithValues:
-                root.packages.map { ($0.key, $0.value.manifest) } +
-                    dependencies.map {
-                        ($0.dependency.packageRef.identity, $0.manifest)
-                    }
-            )
+            // Temporary countermeasures against rdar://83316222; be robust against having colliding identities in both
+            // `root.packages` and `dependencies`.
+            var manifestsMap: [PackageIdentity: Manifest] = [:]
+            root.packages.map { ($0.key, $0.value.manifest) }.forEach {
+                if manifestsMap[$0.0] == nil {
+                    manifestsMap[$0.0] = $0.1
+                }
+            }
+            dependencies.map { ($0.dependency.packageRef.identity, $0.manifest) }.forEach {
+                if manifestsMap[$0.0] == nil {
+                    manifestsMap[$0.0] = $0.1
+                }
+            }
 
             let rootEnabledTraitsMap: [PackageIdentity: Set<String>] = root.manifests
                 .reduce(into: [PackageIdentity: Set<String>]()) { traitMap, manifest in

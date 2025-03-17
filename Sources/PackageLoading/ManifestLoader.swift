@@ -883,9 +883,15 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         if runtimePath.extension == "framework" {
             cmd += [
                 "-F", runtimePath.parentDirectory.pathString,
-                "-framework", "PackageDescription",
                 "-Xlinker", "-rpath", "-Xlinker", runtimePath.parentDirectory.pathString,
             ]
+
+            // Explicitly link `AppleProductTypes` since auto-linking won't work here.
+#if ENABLE_APPLE_PRODUCT_TYPES
+            cmd += ["-framework", "AppleProductTypes"]
+#else
+            cmd += ["-framework", "PackageDescription"]
+#endif
         } else {
             cmd += [
                 "-L", runtimePath.pathString,

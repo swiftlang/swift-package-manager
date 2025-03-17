@@ -92,6 +92,7 @@ let package = Package(
     platforms: [
         .macOS(.v13),
         .iOS(.v16),
+        .macCatalyst(.v17),
     ],
     products:
     autoProducts.flatMap {
@@ -119,6 +120,12 @@ let package = Package(
             type: .dynamic,
             targets: ["PackageDescription", "CompilerPluginSupport"]
         ),
+        .library(
+            name: "AppleProductTypes",
+            type: .dynamic,
+            targets: ["AppleProductTypes"]
+        ),
+        
         .library(
             name: "PackagePlugin",
             type: .dynamic,
@@ -152,6 +159,21 @@ let package = Package(
             ],
             linkerSettings: packageLibraryLinkSettings
         ),
+
+        // The `AppleProductTypes` target provides additional product types
+        // to `Package.swift` manifests. Here we build a debug version of the
+        // library; the bootstrap scripts build the deployable version.
+        .target(
+            name: "AppleProductTypes",
+            // Note: We use `-module-link-name` so clients link against the
+            // AppleProductTypes library when they import it without further
+            // messing with the manifest loader.
+            dependencies: ["PackageDescription"],
+            swiftSettings: [
+                .unsafeFlags(["-package-description-version", "999.0"]),
+                .unsafeFlags(["-enable-library-evolution"], .when(platforms: [.macOS])),
+                .unsafeFlags(["-Xfrontend", "-module-link-name", "-Xfrontend", "AppleProductTypes"])
+            ]),
 
         // The `PackagePlugin` target provides the API that is available to
         // plugin scripts. Here we build a debug version of the library; the
@@ -1020,6 +1042,13 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-certificates"),
         .package(path: "../swift-toolchain-sqlite"),
     ]
+}
+
+/// If ENABLE_APPLE_PRODUCT_TYPES is set in the environment, then also define ENABLE_APPLE_PRODUCT_TYPES in each of the regular targets and test targets.
+if ProcessInfo.processInfo.environment["ENABLE_APPLE_PRODUCT_TYPES"] == "1" {
+    for target in package.targets.filter({ $0.type == .regular || $0.type == .test }) {
+        target.swiftSettings = (target.swiftSettings ?? []) + [ .define("ENABLE_APPLE_PRODUCT_TYPES") ]
+    }
 }
 
 if ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] == nil &&
