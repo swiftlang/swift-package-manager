@@ -92,6 +92,7 @@ let package = Package(
     platforms: [
         .macOS(.v13),
         .iOS(.v16),
+        .macCatalyst(.v17),
     ],
     products:
     autoProducts.flatMap {
@@ -119,6 +120,12 @@ let package = Package(
             type: .dynamic,
             targets: ["PackageDescription", "CompilerPluginSupport"]
         ),
+        .library(
+            name: "AppleProductTypes",
+            type: .dynamic,
+            targets: ["AppleProductTypes"]
+        ),
+        
         .library(
             name: "PackagePlugin",
             type: .dynamic,
@@ -153,6 +160,21 @@ let package = Package(
             linkerSettings: packageLibraryLinkSettings
         ),
 
+        // The `AppleProductTypes` target provides additional product types
+        // to `Package.swift` manifests. Here we build a debug version of the
+        // library; the bootstrap scripts build the deployable version.
+        .target(
+            name: "AppleProductTypes",
+            // Note: We use `-module-link-name` so clients link against the
+            // AppleProductTypes library when they import it without further
+            // messing with the manifest loader.
+            dependencies: ["PackageDescription"],
+            swiftSettings: [
+                .unsafeFlags(["-package-description-version", "999.0"]),
+                .unsafeFlags(["-enable-library-evolution"], .when(platforms: [.macOS])),
+                .unsafeFlags(["-Xfrontend", "-module-link-name", "-Xfrontend", "AppleProductTypes"])
+            ]),
+
         // The `PackagePlugin` target provides the API that is available to
         // plugin scripts. Here we build a debug version of the library; the
         // bootstrap scripts build the deployable version.
@@ -169,7 +191,11 @@ let package = Package(
         .target(
             name: "SourceKitLSPAPI",
             dependencies: [
+                "Basics",
                 "Build",
+                "PackageGraph",
+                "PackageLoading",
+                "PackageModel",
                 "SPMBuildCore",
             ],
             exclude: ["CMakeLists.txt"],
@@ -201,7 +227,7 @@ let package = Package(
             name: "Basics",
             dependencies: [
                 "_AsyncFileSystem",
-                .target(name: "SPMSQLite3", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS, .macCatalyst, .linux])),
+                .target(name: "SPMSQLite3", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS, .macCatalyst, .linux, .custom("freebsd")])),
                 .product(name: "SwiftToolchainCSQLite", package: "swift-toolchain-sqlite", condition: .when(platforms: [.windows, .android])),
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
@@ -449,6 +475,13 @@ let package = Package(
             ]
         ),
         .target(
+            name: "SwiftBuildSupport",
+            dependencies: [
+                "SPMBuildCore",
+                "PackageGraph",
+            ]
+        ),
+        .target(
             /** High level functionality */
             name: "Workspace",
             dependencies: [
@@ -496,6 +529,7 @@ let package = Package(
                 "PackageGraph",
                 "Workspace",
                 "XCBuildSupport",
+                "SwiftBuildSupport",
             ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
@@ -517,6 +551,7 @@ let package = Package(
                 "SourceControl",
                 "Workspace",
                 "XCBuildSupport",
+                "SwiftBuildSupport",
             ] + swiftSyntaxDependencies(["SwiftIDEUtils"]),
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: [
@@ -615,6 +650,7 @@ let package = Package(
                 "PackageLoading",
                 "PackageModel",
                 "XCBuildSupport",
+                "SwiftBuildSupport",
             ],
             exclude: ["CMakeLists.txt"]
         ),
@@ -694,6 +730,7 @@ let package = Package(
                 dependencies: [
                     "Build",
                     "XCBuildSupport",
+                    "SwiftBuildSupport",
                     "_InternalTestSupport"
                 ],
                 swiftSettings: [
@@ -985,7 +1022,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // used by 'swift-driver' and 'sourcekit-lsp'. Please coordinate
         // dependency version changes here with those projects.
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.4.0")),
-        .package(url: "https://github.com/apple/swift-driver.git", branch: relatedDependenciesBranch),
+        .package(url: "https://github.com/swiftlang/swift-driver.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-system.git", from: "1.1.1"),
@@ -1005,4 +1042,35 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-certificates"),
         .package(path: "../swift-toolchain-sqlite"),
     ]
+}
+
+/// If ENABLE_APPLE_PRODUCT_TYPES is set in the environment, then also define ENABLE_APPLE_PRODUCT_TYPES in each of the regular targets and test targets.
+if ProcessInfo.processInfo.environment["ENABLE_APPLE_PRODUCT_TYPES"] == "1" {
+    for target in package.targets.filter({ $0.type == .regular || $0.type == .test }) {
+        target.swiftSettings = (target.swiftSettings ?? []) + [ .define("ENABLE_APPLE_PRODUCT_TYPES") ]
+    }
+}
+
+if ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] == nil &&
+    ProcessInfo.processInfo.environment["SWIFTPM_NO_SWBUILD_DEPENDENCY"] == nil {
+
+    let swiftbuildsupport: Target = package.targets.first(where: { $0.name == "SwiftBuildSupport" } )!
+    swiftbuildsupport.dependencies += [
+        .product(name: "SwiftBuild", package: "swift-build"),
+    ]
+
+    swiftbuildsupport.dependencies += [
+        // This is here to statically link the build service in the same executable as SwiftPM
+        .product(name: "SWBBuildService", package: "swift-build"),
+    ]
+
+    if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
+        package.dependencies += [
+            .package(url: "https://github.com/swiftlang/swift-build.git", branch: relatedDependenciesBranch),
+        ]
+    } else {
+        package.dependencies += [
+            .package(path: "../swift-build"),
+        ]
+    }
 }

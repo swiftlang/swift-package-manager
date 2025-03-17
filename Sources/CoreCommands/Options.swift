@@ -42,25 +42,25 @@ import struct Workspace.WorkspaceConfiguration
 public struct GlobalOptions: ParsableArguments {
     public init() {}
 
-    @OptionGroup()
+    @OptionGroup(title: "Paths & Locations")
     public var locations: LocationOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Caching")
     public var caching: CachingOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Logging")
     public var logging: LoggingOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Security")
     public var security: SecurityOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Resolution")
     public var resolver: ResolverOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Build Options")
     public var build: BuildOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Build Options")
     public var linker: LinkerOptions
 }
 
@@ -293,6 +293,17 @@ public struct ResolverOptions: ParsableArguments {
     @Flag(help: "Define automatic transformation of source control based dependencies to registry based ones")
     public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation =
         .disabled
+
+    /// Enables pruning unused dependencies to omit redundant calculations during resolution, and each phase thereafter.
+    /// Hidden from the generated help text as this feature is only currently being considered for traits.
+    @Flag(
+        name: .customLong("experimental-prune-unused-dependencies"),
+        help: ArgumentHelp(
+            "Enables the ability to prune unused dependencies of the package to avoid redundant loads during resolution",
+            visibility: .hidden
+        )
+    )
+    public var pruneDependencies: Bool = false
 
     @Option(help: "Default registry URL to use, instead of the registries.json configuration file")
     public var defaultRegistryURL: URL?
@@ -654,7 +665,7 @@ package struct TraitOptions: ParsableArguments {
     /// The traits to enable for the package.
     @Option(
         name: .customLong("traits"),
-        help: "Enables the passed traits of the package. Multiple traits can be specified by providing a space separated list e.g. `--traits Trait1 Trait2`. When enabling specific traits the defaults traits need to explictily enabled as well by passing `defaults` to this command."
+        help: "Enables the passed traits of the package. Multiple traits can be specified by providing a comma separated list e.g. `--traits Trait1,Trait2`. When enabling specific traits the defaults traits need to explictily enabled as well by passing `defaults` to this command."
     )
     package var _enabledTraits: String?
 
@@ -763,22 +774,11 @@ extension URL {
     }
 }
 
-#if compiler(<6.0)
-extension BuildConfiguration: ExpressibleByArgument, CaseIterable {}
+extension BuildConfiguration: ExpressibleByArgument {}
 extension AbsolutePath: ExpressibleByArgument {}
 extension WorkspaceConfiguration.CheckingMode: ExpressibleByArgument {}
 extension Sanitizer: ExpressibleByArgument {}
-extension BuildSystemProvider.Kind: ExpressibleByArgument, CaseIterable {}
-extension Version: ExpressibleByArgument {}
-extension PackageIdentity: ExpressibleByArgument {}
-extension URL: ExpressibleByArgument {}
-#else
-extension BuildConfiguration: @retroactive ExpressibleByArgument, CaseIterable {}
-extension AbsolutePath: @retroactive ExpressibleByArgument {}
-extension WorkspaceConfiguration.CheckingMode: @retroactive ExpressibleByArgument {}
-extension Sanitizer: @retroactive ExpressibleByArgument {}
-extension BuildSystemProvider.Kind: @retroactive ExpressibleByArgument, CaseIterable {}
+extension BuildSystemProvider.Kind: ExpressibleByArgument {}
 extension Version: @retroactive ExpressibleByArgument {}
-extension PackageIdentity: @retroactive ExpressibleByArgument {}
+extension PackageIdentity: ExpressibleByArgument {}
 extension URL: @retroactive ExpressibleByArgument {}
-#endif

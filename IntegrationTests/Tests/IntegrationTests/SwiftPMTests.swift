@@ -49,6 +49,38 @@ final class SwiftPMTests: XCTestCase {
         }
     }
 
+    func testSwiftBuild() throws {
+        #if os(Linux)
+        if FileManager.default.contents(atPath: "/etc/system-release").map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false {
+            throw XCTSkip("Skipping SwiftBuild testing on Amazon Linux because of platform issues.")
+        }
+        #endif
+
+        // Test SwiftBuildSystem
+        do {
+            try withTemporaryDirectory { tmpDir in
+                let packagePath = tmpDir.appending(component: "foo")
+                try localFileSystem.createDirectory(packagePath)
+                try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "executable")
+                try sh(swiftBuild, "--package-path", packagePath, "--build-system", "swiftbuild")
+                // SWBINTTODO: Path issues related to swift run of the output from swiftbuild buildsystem
+                //let (stdout, stderr)  = try sh(swiftRun, "--package-path", packagePath, "--build-system", "swiftbuild")
+                //XCTAssertMatch(stdout, .contains("Hello, world!"))
+            }
+        }
+
+        do {
+            try withTemporaryDirectory { tmpDir in
+                let packagePath = tmpDir.appending(component: "foo")
+                try localFileSystem.createDirectory(packagePath)
+                try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "library")
+                try sh(swiftBuild, "--package-path", packagePath, "--build-system", "swiftbuild")
+                // SWBINTTODO: Path issues related to swift test of the output from a swiftbuild buildsystem
+                //try sh(swiftTest, "--package-path", packagePath, "--build-system", "swiftbuild")
+            }
+        }
+    }
+
     func testArchCustomization() throws {
         #if !os(macOS)
         try XCTSkip("Test requires macOS")

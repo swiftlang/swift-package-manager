@@ -45,7 +45,11 @@ extension Build.BuildPlan {
     }
 }
 
-final class BuildPlanTests: XCTestCase {
+class BuildPlanTestCase: BuildSystemProviderTestCase {
+    override func setUpWithError() throws {
+        try XCTSkipIf(type(of: self) == BuildPlanTestCase.self, "Skipping this test since it will be run in subclasses that will provide different build systems to test.")
+    }
+
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
 
     /// The j argument.
@@ -622,20 +626,31 @@ final class BuildPlanTests: XCTestCase {
             fileSystem: localFileSystem
         )
         try await fixture(name: "Miscellaneous/PackageNameFlag") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("appPkg"), extraArgs: ["-vv"])
-            XCTAssertMatch(stdout, .contains("-module-name Foo"))
-            XCTAssertMatch(stdout, .contains("-module-name Zoo"))
-            XCTAssertMatch(stdout, .contains("-module-name Bar"))
-            XCTAssertMatch(stdout, .contains("-module-name Baz"))
-            XCTAssertMatch(stdout, .contains("-module-name App"))
-            XCTAssertMatch(stdout, .contains("-module-name exe"))
-            if isFlagSupportedInDriver {
-                XCTAssertMatch(stdout, .contains("-package-name apppkg"))
-                XCTAssertMatch(stdout, .contains("-package-name foopkg"))
-                // the flag is not supported if tools-version < 5.9
-                XCTAssertNoMatch(stdout, .contains("-package-name barpkg"))
+            let (stdout, stderr) = try await executeSwiftBuild(
+                fixturePath.appending("appPkg"),
+                extraArgs: ["--vv"],
+                buildSystem: buildSystemProvider
+            )
+
+            let out = if buildSystemProvider == .swiftbuild {
+                stderr
             } else {
-                XCTAssertNoMatch(stdout, .contains("-package-name"))
+                stdout
+            }
+
+            XCTAssertMatch(out, .contains("-module-name Foo"))
+            XCTAssertMatch(out, .contains("-module-name Zoo"))
+            XCTAssertMatch(out, .contains("-module-name Bar"))
+            XCTAssertMatch(out, .contains("-module-name Baz"))
+            XCTAssertMatch(out, .contains("-module-name App"))
+            XCTAssertMatch(out, .contains("-module-name exe"))
+            if isFlagSupportedInDriver {
+                XCTAssertMatch(out, .contains("-package-name apppkg"))
+                XCTAssertMatch(out, .contains("-package-name foopkg"))
+                // the flag is not supported if tools-version < 5.9
+                XCTAssertNoMatch(out, .contains("-package-name barpkg"))
+            } else {
+                XCTAssertNoMatch(out, .contains("-package-name"))
             }
             XCTAssertMatch(stdout, .contains("Build complete!"))
         }
@@ -651,7 +666,8 @@ final class BuildPlanTests: XCTestCase {
         try await fixture(name: "Miscellaneous/PackageNameFlag") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath.appending("appPkg"),
-                extraArgs: ["--build-system", "xcode", "-vv"]
+                extraArgs: ["--vv"],
+                buildSystem: .xcode
             )
             XCTAssertMatch(stdout, .contains("-module-name Foo"))
             XCTAssertMatch(stdout, .contains("-module-name Zoo"))
@@ -679,7 +695,11 @@ final class BuildPlanTests: XCTestCase {
             fileSystem: localFileSystem
         )
         try await fixture(name: "Miscellaneous/TargetPackageAccess") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("libPkg"), extraArgs: ["-v"])
+            let (stdout, _) = try await executeSwiftBuild(
+                fixturePath.appending("libPkg"),
+                extraArgs: ["-v"],
+                buildSystem: buildSystemProvider
+            )
             if isFlagSupportedInDriver {
                 let moduleFlag1 = stdout.range(of: "-module-name DataModel")
                 XCTAssertNotNil(moduleFlag1)
@@ -993,7 +1013,8 @@ final class BuildPlanTests: XCTestCase {
                                 )
                             ),
                         ]),
-                    ]
+                    ],
+                    traits: []
                 ),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "ExtPkg",
@@ -1549,7 +1570,8 @@ final class BuildPlanTests: XCTestCase {
                                 config: "debug"
                             )),
                         ]),
-                    ]
+                    ],
+                    traits: []
                 ),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "ExtPkg",
@@ -1681,6 +1703,20 @@ final class BuildPlanTests: XCTestCase {
             "-runtime-compatibility-version", "none",
             "-target", defaultTargetTriple,
             "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf",
+        ])
+        #elseif os(FreeBSD)
+        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
+            result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
+            "-lc++",
+            "-L", buildPath.pathString,
+            "-o", buildPath.appending(components: "exe").pathString,
+            "-module-name", "exe",
+            "-emit-executable",
+            "-Xlinker", "-rpath=$ORIGIN",
+            "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
+            "-runtime-compatibility-version", "none",
+            "-target", defaultTargetTriple,
+            "-g",
         ])
         #else
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
@@ -2813,22 +2849,25 @@ final class BuildPlanTests: XCTestCase {
 
         let buildPath = result.plan.productsBuildPath
 
+        let matchText = try result.moduleBuildDescription(for: "exe").swift().compileArguments()
+        let assertionText: [StringPattern] = [
+            "-enable-batch-mode",
+            "-Onone",
+            "-enable-testing",
+            .equal(self.j),
+            "-DSWIFT_PACKAGE",
+            "-DDEBUG",
+            "-Xcc", "-fmodule-map-file=\(Clibgit.appending(components: "module.modulemap"))",
+            "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
+            .anySequence,
+            "-swift-version", "4",
+            "-g",
+            .anySequence,
+        ]
+
         XCTAssertMatch(
-            try result.moduleBuildDescription(for: "exe").swift().compileArguments(),
-            [
-                "-enable-batch-mode",
-                "-Onone",
-                "-enable-testing",
-                .equal(self.j),
-                "-DSWIFT_PACKAGE",
-                "-DDEBUG",
-                "-Xcc", "-fmodule-map-file=\(Clibgit.appending(components: "module.modulemap"))",
-                "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
-                .anySequence,
-                "-swift-version", "4",
-                "-g",
-                .anySequence,
-            ]
+            matchText,
+            assertionText
         )
 
         #if os(macOS)
@@ -2907,7 +2946,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(2)
         var linkArgs = try result.buildProduct(for: "exe").linkArguments()
 
-        #if os(macOS)
+        #if os(macOS) || os(FreeBSD)
         XCTAssertMatch(linkArgs, ["-lc++"])
         #elseif !os(Windows)
         XCTAssertMatch(linkArgs, ["-lstdc++"])
@@ -3339,6 +3378,21 @@ final class BuildPlanTests: XCTestCase {
             "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf",
         ])
         #else
+        #if os(FreeBSD)
+        XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), [
+            result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
+            "-lc++",
+            "-L", buildPath.pathString,
+            "-o", buildPath.appending(components: "liblib.so").pathString,
+            "-module-name", "lib",
+            "-emit-library",
+            "-Xlinker", "-rpath=$ORIGIN",
+            "@\(buildPath.appending(components: "lib.product", "Objects.LinkFileList"))",
+            "-runtime-compatibility-version", "none",
+            "-target", defaultTargetTriple,
+            "-g",
+        ])
+        #else
         XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), [
             result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-lstdc++",
@@ -3352,6 +3406,7 @@ final class BuildPlanTests: XCTestCase {
             "-target", defaultTargetTriple,
             "-g",
         ])
+        #endif
 
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
@@ -3495,7 +3550,8 @@ final class BuildPlanTests: XCTestCase {
                                 config: "release"
                             )),
                         ]),
-                    ]
+                    ],
+                    traits: []
                 ),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "B",
@@ -3637,6 +3693,7 @@ final class BuildPlanTests: XCTestCase {
                                 .brew(["BTarget"]),
                                 .apt(["BTarget"]),
                                 .yum(["BTarget"]),
+                                .pkg(["BTarget"])
                             ]
                         ),
                     ]
@@ -4249,6 +4306,7 @@ final class BuildPlanTests: XCTestCase {
                             kind: .enableUpcomingFeature("WorstFeature"),
                             condition: .init(platformNames: ["macos"], config: "debug")
                         ),
+                        .init(tool: .swift, kind: .strictMemorySafety),
                     ]
                 ),
                 TargetDescription(
@@ -4373,6 +4431,7 @@ final class BuildPlanTests: XCTestCase {
                     "-cxx-interoperability-mode=default",
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature", "BestFeature",
+                    "-strict-memory-safety",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4437,6 +4496,7 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature",
                     "BestFeature",
+                    "-strict-memory-safety",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fomit-frame-pointer",
@@ -4492,6 +4552,7 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature",
                     "BestFeature",
+                    "-strict-memory-safety",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4536,6 +4597,7 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature", "BestFeature",
                     "-enable-upcoming-feature", "WorstFeature",
+                    "-strict-memory-safety",
                     "-g",
                     "-Xcc", "-g",
                     .end,
@@ -4819,10 +4881,7 @@ final class BuildPlanTests: XCTestCase {
                 "-sdk", "/fake/sdk",
             ]
         )
-        XCTAssertEqual(
-            mockToolchain.extraFlags.linkerFlags,
-            ["-rpath", "/fake/path/lib/swift/macosx/testing"]
-        )
+        XCTAssertNoMatch(mockToolchain.extraFlags.linkerFlags, ["-rpath"])
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadModulesGraph(
@@ -4857,37 +4916,29 @@ final class BuildPlanTests: XCTestCase {
 
         let testProductLinkArgs = try result.buildProduct(for: "Lib").linkArguments()
         XCTAssertMatch(testProductLinkArgs, [
-            .anySequence,
             "-I", "/fake/path/lib/swift/macosx/testing",
             "-L", "/fake/path/lib/swift/macosx/testing",
-            .anySequence,
-            "-Xlinker", "-rpath",
-            "-Xlinker", "/fake/path/lib/swift/macosx/testing",
         ])
 
         let libModuleArgs = try result.moduleBuildDescription(for: "Lib").swift().compileArguments()
         XCTAssertMatch(libModuleArgs, [
-            .anySequence,
             "-I", "/fake/path/lib/swift/macosx/testing",
             "-L", "/fake/path/lib/swift/macosx/testing",
             "-plugin-path", "/fake/path/lib/swift/host/plugins/testing",
-            .anySequence,
         ])
         XCTAssertNoMatch(libModuleArgs, ["-Xlinker"])
 
         let testModuleArgs = try result.moduleBuildDescription(for: "LibTest").swift().compileArguments()
         XCTAssertMatch(testModuleArgs, [
-            .anySequence,
             "-I", "/fake/path/lib/swift/macosx/testing",
             "-L", "/fake/path/lib/swift/macosx/testing",
             "-plugin-path", "/fake/path/lib/swift/host/plugins/testing",
-            .anySequence,
         ])
         XCTAssertNoMatch(testModuleArgs, ["-Xlinker"])
     }
 
     func testUserToolchainWithToolsetCompileFlags() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try skipOnWindowsAsTestCurrentlyFails(because: "Path delimiters donw's work well on Windows")
 
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
@@ -6851,4 +6902,47 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(contents, .regex(#"args: \[.*"-I","/testpackagedep/SomeArtifact.xcframework/macos/Headers".*,"/testpackage/Sources/CLib/lib.c".*]"#))
         XCTAssertMatch(contents, .regex(#"args: \[.*"-module-name","SwiftLib",.*"-I","/testpackagedep/SomeArtifact.xcframework/macos/Headers".*]"#))
     }
+}
+
+class BuildPlanNativeTests: BuildPlanTestCase {
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .native
+    }
+
+    override func testDuplicateProductNamesWithNonDefaultLibsThrowError() async throws {
+        try await super.testDuplicateProductNamesWithNonDefaultLibsThrowError()
+    }
+}
+
+class BuildPlanSwiftBuildTests: BuildPlanTestCase {
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .swiftbuild
+    }
+
+    override func testDuplicateProductNamesWithNonDefaultLibsThrowError() async throws {
+        try await super.testDuplicateProductNamesWithNonDefaultLibsThrowError()
+    }
+
+    override func testTargetsWithPackageAccess() async throws {
+        throw XCTSkip("Skip until swift build system can support this case.")
+    }
+
+    override func testTestModule() async throws {
+        throw XCTSkip("Skip until swift build system can support this case.")
+    }
+
+    override func testPackageNameFlag() async throws {
+#if os(Windows)
+        throw XCTSkip("Skip until there is a resolution to the partial linking with Windows that results in a 'subsystem must be defined' error.")
+#endif
+
+#if os(Linux)
+        if FileManager.default.contents(atPath: "/etc/system-release").map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false {
+            throw XCTSkip("Skipping SwiftBuild testing on Amazon Linux because of platform issues.")
+        }
+#endif
+
+        try await super.testPackageNameFlag()
+    }
+
 }

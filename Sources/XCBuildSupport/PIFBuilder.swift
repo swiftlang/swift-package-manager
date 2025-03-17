@@ -306,6 +306,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS] = ["$(inherited)", "SWIFT_PACKAGE"]
         settings[.GCC_PREPROCESSOR_DEFINITIONS] = ["$(inherited)", "SWIFT_PACKAGE"]
         settings[.CLANG_ENABLE_OBJC_ARC] = "YES"
+
         settings[.KEEP_PRIVATE_EXTERNS] = "NO"
         // We currently deliberately do not support Swift ObjC interface headers.
         settings[.SWIFT_INSTALL_OBJC_HEADER] = "NO"
@@ -921,6 +922,11 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             // CoreData files should also be in the actual target because they can end up generating code during the
             // build. The build system will only perform codegen tasks for the main target in this case.
             if coreDataFileTypes.contains(resource.path.extension ?? "") {
+                pifTarget.addSourceFile(resourceFile)
+            }
+
+            // Asset Catalogs need to be included in the sources target for generated asset symbols.
+            if XCBuildFileType.xcassets.fileTypes.contains(resource.path.extension ?? "") {
                 pifTarget.addSourceFile(resourceFile)
             }
 
@@ -1727,6 +1733,9 @@ extension [PackageCondition] {
             case .openbsd:
                 result += PIF.PlatformFilter.openBSDFilters
 
+            case .freebsd:
+                result += PIF.PlatformFilter.freeBSDFilters
+
             default:
                 assertionFailure("Unhandled platform condition: \(condition)")
             }
@@ -1789,6 +1798,11 @@ extension PIF.PlatformFilter {
         .init(platform: "openbsd"),
     ]
 
+    /// FreeBSD filters.
+    public static let freeBSDFilters: [PIF.PlatformFilter] = [
+        .init(platform: "freebsd"),
+    ]
+
     /// WebAssembly platform filters.
     public static let webAssemblyFilters: [PIF.PlatformFilter] = [
         .init(platform: "wasi"),
@@ -1819,7 +1833,6 @@ extension PIF.BuildSettings {
 
         func computeEffectiveSwiftVersions(for versions: [SwiftLanguageVersion]) -> [String] {
             versions
-                .filter { target.declaredSwiftVersions.contains($0) }
                 .filter { isSupportedVersion($0) }.map(\.description)
         }
 
@@ -1937,7 +1950,7 @@ extension PIFGenerationError: CustomStringConvertible {
             versions: let given,
             supportedVersions: let supported
         ):
-            "Some of the Swift language versions used in target '\(target)' settings are supported. (given: \(given), supported: \(supported))"
+            "Some of the Swift language versions used in target '\(target)' settings are unsupported. (given: \(given), supported: \(supported))"
         }
     }
 }

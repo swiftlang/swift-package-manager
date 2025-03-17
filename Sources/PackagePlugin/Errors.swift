@@ -43,6 +43,14 @@ extension PluginContextError: CustomStringConvertible {
 public enum PluginDeserializationError: Error {
     /// The input JSON is malformed in some way; the message provides more details.
     case malformedInputJSON(_ message: String)
+    /// The plugin doesn't support Xcode (it doesn't link against XcodeProjectPlugin).
+    case missingXcodeProjectPluginSupport
+    /// The plugin doesn't conform to an expected specialization of the BuildToolPlugin protocol.
+    case missingBuildToolPluginProtocolConformance(protocolName: String)
+    /// The plugin doesn't conform to an expected specialization of the CommandPlugin protocol.
+    case missingCommandPluginProtocolConformance(protocolName: String)
+    /// An internal error of some kind; the message provides more details.
+    case internalError(_ message: String)
 }
 
 extension PluginDeserializationError: CustomStringConvertible {
@@ -50,6 +58,14 @@ extension PluginDeserializationError: CustomStringConvertible {
         switch self {
         case .malformedInputJSON(let message):
             return "Malformed input JSON: \(message)"
+        case .missingXcodeProjectPluginSupport:
+            return "Plugin doesn't support Xcode projects (it doesn't use the XcodeProjectPlugin library)"
+        case .missingBuildToolPluginProtocolConformance(let protocolName):
+            return "Plugin is declared with the `buildTool` capability, but doesn't conform to the `\(protocolName)` protocol"
+        case .missingCommandPluginProtocolConformance(let protocolName):
+            return "Plugin is declared with the `command` capability, but doesn't conform to the `\(protocolName)` protocol"
+        case .internalError(let message):
+            return "Internal error: \(message)"
         }
     }
 }

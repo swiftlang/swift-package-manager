@@ -354,7 +354,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
     }
 }
 
-private class MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDelegate {
+private final class MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDelegate, @unchecked Sendable {
     private var _willFetch = [(packageVersion: PackageVersion, fetchDetails: RegistryDownloadsManager.FetchDetails)]()
     private var _didFetch = [(packageVersion: PackageVersion, result: Result<RegistryDownloadsManager.FetchDetails, Error>)]()
 
@@ -421,7 +421,7 @@ extension RegistryDownloadsManager {
     }
 }
 
-fileprivate struct PackageVersion: Hashable, Equatable {
+fileprivate struct PackageVersion: Hashable, Equatable, Sendable {
     let package: PackageIdentity
     let version: Version
 }

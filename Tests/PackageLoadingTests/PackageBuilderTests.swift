@@ -1697,7 +1697,8 @@ final class PackageBuilderTests: XCTestCase {
                 displayName: "pkg",
                 targets: [
                     try TargetDescription(name: "pkg", dependencies: [.target(name: "pkg")]),
-                ]
+                ],
+                traits: []
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
                 diagnostics.check(diagnostic: "cyclic dependency declaration found: pkg -> pkg", severity: .error)
@@ -2787,7 +2788,8 @@ final class PackageBuilderTests: XCTestCase {
                 try TargetDescription(name: "Foo2"),
                 try TargetDescription(name: "Foo3"),
                 try TargetDescription(name: "Qux")
-            ]
+            ],
+            traits: []
         )
 
         PackageBuilderTester(manifest, path: "/Foo", in: fs) { package, diagnostics in
@@ -2847,7 +2849,8 @@ final class PackageBuilderTests: XCTestCase {
                 ),
                 try TargetDescription(name: "Bar"),
                 try TargetDescription(name: "Baz"),
-            ]
+            ],
+            traits: []
         )
 
         PackageBuilderTester(manifest, in: fs) { package, _ in

@@ -12,18 +12,28 @@
 
 import Basics
 import Commands
+import SPMBuildCore
 import PackageModel
 import _InternalTestSupport
 import TSCTestSupport
 import XCTest
 
-final class TestCommandTests: CommandsTestCase {
+class TestCommandTestCase: CommandsBuildProviderTestCase {
+    override func setUpWithError() throws {
+        try XCTSkipIf(type(of: self) == TestCommandTestCase.self, "Skipping this test since it will be run in subclasses that will provide different build systems to test.")
+    }
+
     private func execute(
         _ args: [String],
         packagePath: AbsolutePath? = nil,
         throwIfCommandFails: Bool = true
     ) async throws -> (stdout: String, stderr: String) {
-        try await SwiftPM.Test.execute(args, packagePath: packagePath, throwIfCommandFails: throwIfCommandFails)
+        try await executeSwiftTest(
+            packagePath,
+            extraArgs: args,
+            throwIfCommandFails: throwIfCommandFails,
+            buildSystem: buildSystemProvider
+        )
     }
 
     func testUsage() async throws {
@@ -50,14 +60,14 @@ final class TestCommandTests: CommandsTestCase {
 
     func testVersion() async throws {
         let stdout = try await execute(["--version"]).stdout
-        XCTAssert(stdout.contains("Swift Package Manager"), "got stdout:\n" + stdout)
+        XCTAssertMatch(stdout, .regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#))
     }
 
     // `echo.sh` script from the toolset won't work on Windows
     #if !os(Windows)
         func testToolsetRunner() async throws {
             try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-                let (stdout, stderr) = try await SwiftPM.Test.execute(
+                let (stdout, stderr) = try await execute(
                     ["--toolset", "\(fixturePath)/toolset.json"], packagePath: fixturePath)
 
                 // We only expect tool's output on the stdout stream.
@@ -132,21 +142,21 @@ final class TestCommandTests: CommandsTestCase {
     func testSwiftTestParallel() async throws {
         try await fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
             // First try normal serial testing.
-            await XCTAssertThrowsCommandExecutionError(try await SwiftPM.Test.execute(packagePath: fixturePath)) { error in
+            await XCTAssertThrowsCommandExecutionError(try await execute([], packagePath: fixturePath)) { error in
                 // in "swift test" test output goes to stdout
                 XCTAssertMatch(error.stdout, .contains("Executed 2 tests"))
                 XCTAssertNoMatch(error.stdout, .contains("[3/3]"))
             }
 
             // Try --no-parallel.
-            await XCTAssertThrowsCommandExecutionError(try await SwiftPM.Test.execute(["--no-parallel"], packagePath: fixturePath)) { error in
+            await XCTAssertThrowsCommandExecutionError(try await execute(["--no-parallel"], packagePath: fixturePath)) { error in
                 // in "swift test" test output goes to stdout
                 XCTAssertMatch(error.stdout, .contains("Executed 2 tests"))
                 XCTAssertNoMatch(error.stdout, .contains("[3/3]"))
             }
 
             // Run tests in parallel.
-            await XCTAssertThrowsCommandExecutionError(try await SwiftPM.Test.execute(["--parallel"], packagePath: fixturePath)) { error in
+            await XCTAssertThrowsCommandExecutionError(try await execute(["--parallel"], packagePath: fixturePath)) { error in
                 // in "swift test" test output goes to stdout
                 XCTAssertMatch(error.stdout, .contains("testExample1"))
                 XCTAssertMatch(error.stdout, .contains("testExample2"))
@@ -159,7 +169,7 @@ final class TestCommandTests: CommandsTestCase {
                 let xUnitOutput = fixturePath.appending("result.xml")
                 // Run tests in parallel with verbose output.
                 await XCTAssertThrowsCommandExecutionError(
-                    try await SwiftPM.Test.execute(["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString], packagePath: fixturePath)
+                    try await execute(["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString], packagePath: fixturePath)
                 ) { error in
                     // in "swift test" test output goes to stdout
                     XCTAssertMatch(error.stdout, .contains("testExample1"))
@@ -183,7 +193,7 @@ final class TestCommandTests: CommandsTestCase {
         try await fixture(name: "Miscellaneous/EmptyTestsPkg") { fixturePath in
             let xUnitOutput = fixturePath.appending("result.xml")
             // Run tests in parallel with verbose output.
-            _ = try await SwiftPM.Test.execute(["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString], packagePath: fixturePath).stdout
+            _ = try await execute(["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString], packagePath: fixturePath).stdout
 
             // Check the xUnit output.
             XCTAssertFileExists(xUnitOutput)
@@ -249,16 +259,12 @@ final class TestCommandTests: CommandsTestCase {
     }
 
     func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagEnabledSwiftTesting() async throws {
-        #if compiler(<6)
-        _ = XCTSkip("Swift Testing is not available by default in this Swift compiler version")
-        #else
         try await self._testSwiftTestXMLOutputFailureMessage(
             fixtureName: "Miscellaneous/TestSingleFailureSwiftTesting",
             testRunner: .SwiftTesting,
             enableExperimentalFlag: true,
             matchesPattern: [.contains("Purposely failing &amp; validating XML espace &quot;'&lt;&gt;")]
         )
-        #endif
     }
     func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagDisabledXCTest() async throws {
         try await self._testSwiftTestXMLOutputFailureMessage(
@@ -270,16 +276,12 @@ final class TestCommandTests: CommandsTestCase {
     }
 
     func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagDisabledSwiftTesting() async throws {
-        #if compiler(<6)
-        _ = XCTSkip("Swift Testing is not available by default in this Swift compiler version")
-        #else
         try await self._testSwiftTestXMLOutputFailureMessage(
             fixtureName: "Miscellaneous/TestSingleFailureSwiftTesting",
             testRunner: .SwiftTesting,
             enableExperimentalFlag: false,
             matchesPattern: [.contains("Purposely failing &amp; validating XML espace &quot;'&lt;&gt;")]
         )
-        #endif
     }
 
     func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagEnabledXCTest() async throws {
@@ -303,9 +305,6 @@ final class TestCommandTests: CommandsTestCase {
     }
 
     func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagEnabledSwiftTesting() async throws {
-        #if compiler(<6)
-        _ = XCTSkip("Swift Testing is not available by default in this Swift compiler version")
-        #else
         try await self._testSwiftTestXMLOutputFailureMessage(
             fixtureName: "Miscellaneous/TestMultipleFailureSwiftTesting",
             testRunner: .SwiftTesting,
@@ -323,7 +322,6 @@ final class TestCommandTests: CommandsTestCase {
                 .contains("ST Test failure 10")
             ]
         )
-        #endif
     }
 
     func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagDisabledXCTest() async throws {
@@ -347,9 +345,6 @@ final class TestCommandTests: CommandsTestCase {
     }
 
     func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagDisabledSwiftTesting() async throws {
-        #if compiler(<6)
-        _ = XCTSkip("Swift Testing is not available by default in this Swift compiler version")
-        #else
         try await self._testSwiftTestXMLOutputFailureMessage(
             fixtureName: "Miscellaneous/TestMultipleFailureSwiftTesting",
             testRunner: .SwiftTesting,
@@ -367,12 +362,11 @@ final class TestCommandTests: CommandsTestCase {
                 .contains("ST Test failure 10")
             ]
         )
-        #endif
     }
 
     func testSwiftTestFilter() async throws {
         try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
-            let (stdout, _) = try await SwiftPM.Test.execute(["--filter", ".*1"], packagePath: fixturePath)
+            let (stdout, _) = try await execute(["--filter", ".*1"], packagePath: fixturePath)
             // in "swift test" test output goes to stdout
             XCTAssertMatch(stdout, .contains("testExample1"))
             XCTAssertNoMatch(stdout, .contains("testExample2"))
@@ -381,7 +375,7 @@ final class TestCommandTests: CommandsTestCase {
         }
 
         try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
-            let (stdout, _) = try await SwiftPM.Test.execute(["--filter", "SomeTests", "--skip", ".*1", "--filter", "testExample3"], packagePath: fixturePath)
+            let (stdout, _) = try await execute(["--filter", "SomeTests", "--skip", ".*1", "--filter", "testExample3"], packagePath: fixturePath)
             // in "swift test" test output goes to stdout
             XCTAssertNoMatch(stdout, .contains("testExample1"))
             XCTAssertMatch(stdout, .contains("testExample2"))
@@ -392,7 +386,7 @@ final class TestCommandTests: CommandsTestCase {
 
     func testSwiftTestSkip() async throws {
         try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
-            let (stdout, _) = try await SwiftPM.Test.execute(["--skip", "SomeTests"], packagePath: fixturePath)
+            let (stdout, _) = try await execute(["--skip", "SomeTests"], packagePath: fixturePath)
             // in "swift test" test output goes to stdout
             XCTAssertNoMatch(stdout, .contains("testExample1"))
             XCTAssertNoMatch(stdout, .contains("testExample2"))
@@ -401,7 +395,7 @@ final class TestCommandTests: CommandsTestCase {
         }
 
         try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
-            let (stdout, _) = try await SwiftPM.Test.execute(["--filter", "ExampleTests", "--skip", ".*2", "--filter", "MoreTests", "--skip", "testExample3"], packagePath: fixturePath)
+            let (stdout, _) = try await execute(["--filter", "ExampleTests", "--skip", ".*2", "--filter", "MoreTests", "--skip", "testExample3"], packagePath: fixturePath)
             // in "swift test" test output goes to stdout
             XCTAssertMatch(stdout, .contains("testExample1"))
             XCTAssertNoMatch(stdout, .contains("testExample2"))
@@ -410,7 +404,7 @@ final class TestCommandTests: CommandsTestCase {
         }
 
         try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
-            let (stdout, _) = try await SwiftPM.Test.execute(["--skip", "Tests"], packagePath: fixturePath)
+            let (stdout, _) = try await execute(["--skip", "Tests"], packagePath: fixturePath)
             // in "swift test" test output goes to stdout
             XCTAssertNoMatch(stdout, .contains("testExample1"))
             XCTAssertNoMatch(stdout, .contains("testExample2"))
@@ -424,26 +418,26 @@ final class TestCommandTests: CommandsTestCase {
         #if canImport(Darwin)
         // should emit when LinuxMain is present
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            let (_, stderr) = try await SwiftPM.Test.execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
+            let (_, stderr) = try await execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
             XCTAssertMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
         }
 
         // should emit when LinuxMain is not present
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
             try localFileSystem.writeFileContents(fixturePath.appending(components: "Tests", SwiftModule.defaultTestEntryPointName), bytes: "fatalError(\"boom\")")
-            let (_, stderr) = try await SwiftPM.Test.execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
+            let (_, stderr) = try await execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
             XCTAssertMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
         }
         #else
         // should emit when LinuxMain is present
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            let (_, stderr) = try await SwiftPM.Test.execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
+            let (_, stderr) = try await execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
             XCTAssertMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
         }
         // should not emit when LinuxMain is present
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
             try localFileSystem.writeFileContents(fixturePath.appending(components: "Tests", SwiftModule.defaultTestEntryPointName), bytes: "fatalError(\"boom\")")
-            let (_, stderr) = try await SwiftPM.Test.execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
+            let (_, stderr) = try await execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
             XCTAssertNoMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
         }
         #endif
@@ -451,7 +445,7 @@ final class TestCommandTests: CommandsTestCase {
 
     func testList() async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            let (stdout, stderr) = try await SwiftPM.Test.execute(["list"], packagePath: fixturePath)
+            let (stdout, stderr) = try await execute(["list"], packagePath: fixturePath)
             // build was run
             XCTAssertMatch(stderr, .contains("Build complete!"))
             // getting the lists
@@ -468,7 +462,7 @@ final class TestCommandTests: CommandsTestCase {
             }
             // list
             do {
-                let (stdout, stderr) = try await SwiftPM.Test.execute(["list"], packagePath: fixturePath)
+                let (stdout, stderr) = try await execute(["list"], packagePath: fixturePath)
                 // build was run
                 XCTAssertMatch(stderr, .contains("Build complete!"))
                 // getting the lists
@@ -486,7 +480,7 @@ final class TestCommandTests: CommandsTestCase {
             }
             // list while skipping build
             do {
-                let (stdout, stderr) = try await SwiftPM.Test.execute(["list", "--skip-build"], packagePath: fixturePath)
+                let (stdout, stderr) = try await execute(["list", "--skip-build"], packagePath: fixturePath)
                 // build was not run
                 XCTAssertNoMatch(stderr, .contains("Build complete!"))
                 // getting the lists
@@ -500,7 +494,7 @@ final class TestCommandTests: CommandsTestCase {
     func testListWithSkipBuildAndNoBuildArtifacts() async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
             await XCTAssertThrowsCommandExecutionError(
-                try await SwiftPM.Test.execute(["list", "--skip-build"], packagePath: fixturePath)
+                try await execute(["list", "--skip-build"], packagePath: fixturePath, throwIfCommandFails: true)
             ) { error in
                 XCTAssertMatch(error.stderr, .contains("Test build artifacts were not found in the build folder"))
             }
@@ -517,7 +511,7 @@ final class TestCommandTests: CommandsTestCase {
 
         try await fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
             do {
-                let (stdout, _) = try await SwiftPM.Test.execute(["--enable-swift-testing", "--disable-xctest"], packagePath: fixturePath)
+                let (stdout, _) = try await execute(["--enable-swift-testing", "--disable-xctest"], packagePath: fixturePath)
                 XCTAssertMatch(stdout, .contains(#"Test "SOME TEST FUNCTION" started"#))
             }
         }
@@ -533,7 +527,7 @@ final class TestCommandTests: CommandsTestCase {
 
         try await fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
             do {
-                let (stdout, _) = try await SwiftPM.Test.execute(["--enable-experimental-swift-testing", "--disable-xctest"], packagePath: fixturePath)
+                let (stdout, _) = try await execute(["--enable-experimental-swift-testing", "--disable-xctest"], packagePath: fixturePath)
                 XCTAssertMatch(stdout, .contains(#"Test "SOME TEST FUNCTION" started"#))
             }
         }
@@ -543,7 +537,7 @@ final class TestCommandTests: CommandsTestCase {
     func testGeneratedMainIsConcurrencySafe_XCTest() async throws {
         let strictConcurrencyFlags = ["-Xswiftc", "-strict-concurrency=complete"]
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            let (_, stderr) = try await SwiftPM.Test.execute(strictConcurrencyFlags, packagePath: fixturePath)
+            let (_, stderr) = try await execute(strictConcurrencyFlags, packagePath: fixturePath)
             XCTAssertNoMatch(stderr, .contains("is not concurrency-safe"))
         }
     }
@@ -553,24 +547,25 @@ final class TestCommandTests: CommandsTestCase {
     func testGeneratedMainIsExistentialAnyClean() async throws {
         let existentialAnyFlags = ["-Xswiftc", "-enable-upcoming-feature", "-Xswiftc", "ExistentialAny"]
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            let (_, stderr) = try await SwiftPM.Test.execute(existentialAnyFlags, packagePath: fixturePath)
+            let (_, stderr) = try await execute(existentialAnyFlags, packagePath: fixturePath)
             XCTAssertNoMatch(stderr, .contains("error: use of protocol"))
         }
     }
 #endif
 
-#if os(macOS)
-    // "SWIFT_TESTING_ENABLED" is set only on macOS, skip the check on other platforms.
     func testLibraryEnvironmentVariable() async throws {
         try await fixture(name: "Miscellaneous/CheckTestLibraryEnvironmentVariable") { fixturePath in
-            await XCTAssertAsyncNoThrow(try await SwiftPM.Test.execute(packagePath: fixturePath))
+            var extraEnv = Environment()
+            if try UserToolchain.default.swiftTestingPath != nil {
+              extraEnv["CONTAINS_SWIFT_TESTING"] = "1"
+            }
+            await XCTAssertAsyncNoThrow(try await SwiftPM.Test.execute(packagePath: fixturePath, env: extraEnv))
         }
     }
-#endif
 
     func testXCTestOnlyDoesNotLogAboutNoMatchingTests() async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            let (_, stderr) = try await SwiftPM.Test.execute(["--disable-swift-testing"], packagePath: fixturePath)
+            let (_, stderr) = try await execute(["--disable-swift-testing"], packagePath: fixturePath)
             XCTAssertNoMatch(stderr, .contains("No matching test cases were run"))
         }
     }
@@ -578,11 +573,7 @@ final class TestCommandTests: CommandsTestCase {
     func testFatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation() async throws {
         // Test for GitHub Issue #6605
         // GIVEN we have a Swift Package that has a fatalError building the tests
-        #if compiler(>=6)
         let expected = 1
-        #else
-        let expected = 2
-        #endif
         try await fixture(name: "Miscellaneous/Errors/FatalErrorInSingleXCTest/TypeLibrary") { fixturePath in
             // WHEN swift-test is executed
             await XCTAssertAsyncThrowsError(try await self.execute([], packagePath: fixturePath)) { error in
@@ -611,4 +602,127 @@ final class TestCommandTests: CommandsTestCase {
         }
     }
 
+}
+
+class TestCommandNativeTests: TestCommandTestCase {
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .native
+    }
+
+    override func testUsage() async throws {
+        try await super.testUsage()
+    }
+}
+
+
+class TestCommandSwiftBuildTests: TestCommandTestCase {
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .swiftbuild
+    }
+
+    override func testUsage() async throws {
+        try await super.testUsage()
+    }
+
+    override func testFatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation() async throws {
+        guard ProcessInfo.processInfo.environment["SWIFTPM_NO_SWBUILD_DEPENDENCY"] == nil else {
+            throw XCTSkip("Skipping test because SwiftBuild is not linked in.")
+        }
+
+        try await super.testFatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation()
+    }
+
+    override func testListWithSkipBuildAndNoBuildArtifacts() async throws {
+        guard ProcessInfo.processInfo.environment["SWIFTPM_NO_SWBUILD_DEPENDENCY"] == nil else {
+            throw XCTSkip("Skipping test because SwiftBuild is not linked in.")
+        }
+
+        try await super.testListWithSkipBuildAndNoBuildArtifacts()
+    }
+
+    override func testList() async throws {
+        throw XCTSkip("SWBINTTODO: Test currently fails due to 'error: build failed'")
+    }
+
+    override func testEnableTestDiscoveryDeprecation() async throws {
+        throw XCTSkip("SWBINTTODO: Test currently fails due to 'error: build failed'")
+    }
+
+    override func testEnableDisableTestability() async throws {
+        throw XCTSkip("SWBINTTODO: Test currently fails due to 'error: build failed'")
+    }
+
+    override func testToolsetRunner() async throws {
+        throw XCTSkip("SWBINTTODO: Test currently fails, as some assertions are not met")
+    }
+
+    override func testWithReleaseConfiguration() async throws {
+        throw XCTSkip("SWBINTTODO: Test currently fails with 'error: toolchain is invalid: could not find CLI tool `swiftpm-testing-helper` at any of these directories: [..., ...]'")
+    }
+
+    override func testXCTestOnlyDoesNotLogAboutNoMatchingTests() async throws {
+        throw XCTSkip("SWBINTTODO: Test currently fails assertion as the there is a different error message 'error: no tests found; create a target in the 'Tests' directory'")
+    }
+
+    override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagEnabledSwiftTesting() async throws {
+        throw XCTSkip("SWBINTTODO: Test currently fails assertion as the there is a different error message 'error: no tests found; create a target in the 'Tests' directory'")
+    }
+
+    override func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagDisabledSwiftTesting() async throws {
+        throw XCTSkip("SWBINTTODO: Test currently fails, further investigation is needed")
+    }
+
+    override func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagEnabledSwiftTesting() async throws {
+        throw XCTSkip("SWBINTTODO: Test currently fails, further investigation is needed")
+    }
+
+    override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagDisabledSwiftTesting() async throws {
+        throw XCTSkip("SWBINTTODO: Test currently fails, further investigation is needed")
+    }
+
+#if !canImport(Darwin)
+    override func testGeneratedMainIsExistentialAnyClean() async throws {
+        throw XCTSkip("SWBINTTODO: This is a PIF builder missing GUID problem. Further investigation is needed.")
+    }
+#endif
+
+#if !canImport(Darwin)
+    override func testGeneratedMainIsConcurrencySafe_XCTest() async throws {
+        throw XCTSkip("SWBINTTODO: This is a PIF builder missing GUID problem. Further investigation is needed.")
+    }
+#endif
+
+#if !os(macOS)
+    override func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagDisabledXCTest() async throws {
+        throw XCTSkip("SWBINTTODO: Result XML could not be found. This looks to be a build layout issue. Further investigation is needed.")
+    }
+
+    override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagEnabledXCTest() async throws {
+        throw XCTSkip("SWBINTTODO: Result XML could not be found. This looks to be a build layout issue. Further investigation is needed.")
+    }
+
+    override func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagEnabledXCTest() async throws {
+        throw XCTSkip("SWBINTTODO: Result XML could not be found. This looks to be a build layout issue. Further investigation is needed.")
+    }
+
+    override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagDisabledXCTest() async throws {
+        throw XCTSkip("SWBINTTODO: Result XML could not be found. This looks to be a build layout issue. Further investigation is needed.")
+    }
+
+    override func testSwiftTestSkip() async throws {
+        throw XCTSkip("SWBINTTODO: This fails due to a linker error on Linux. Further investigation is needed.")
+    }
+
+    override func testSwiftTestXMLOutputWhenEmpty() async throws {
+        throw XCTSkip("SWBINTTODO: This fails due to a linker error on Linux 'undefined reference to main'. Further investigation is needed.")
+    }
+
+    override func testSwiftTestFilter() async throws {
+        throw XCTSkip("SWBINTTODO: This fails due to an unknown linker error on Linux. Further investigation is needed.")
+    }
+
+    override func testSwiftTestParallel() async throws {
+        throw XCTSkip("SWBINTTODO: This fails due to the test expecting specific test output that appears to be empty on Linux. Further investigation is needed.")
+    }
+#endif
 }

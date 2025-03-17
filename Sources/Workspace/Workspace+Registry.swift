@@ -266,7 +266,8 @@ extension Workspace {
                         ):
                             if let packageName,
                                // makes sure we use the updated package name for target based dependencies
-                               let modifiedPackageName = targetDependencyPackageNameTransformations[packageName.lowercased()]
+                               let modifiedPackageName =
+                               targetDependencyPackageNameTransformations[packageName.lowercased()]
                             {
                                 modifiedDependency = .product(
                                     name: name,
@@ -276,7 +277,9 @@ extension Workspace {
                                 )
                             }
                         case .byName(name: let packageName, condition: let condition):
-                            if let modifiedPackageName = targetDependencyPackageNameTransformations[packageName.lowercased()] {
+                            if let modifiedPackageName =
+                                targetDependencyPackageNameTransformations[packageName.lowercased()]
+                            {
                                 modifiedDependency = .product(
                                     name: packageName,
                                     package: modifiedPackageName,
@@ -331,7 +334,8 @@ extension Workspace {
                 dependencies: modifiedDependencies,
                 products: manifest.products,
                 targets: modifiedTargets,
-                traits: manifest.traits
+                traits: manifest.traits,
+                pruneDependencies: manifest.pruneDependencies
             )
 
             return modifiedManifest
@@ -424,14 +428,14 @@ extension Workspace {
             debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies",
             metadata: package.diagnosticsMetadata
         )
-        try self.state.dependencies.add(
-            .registryDownload(
+        try await self.state.add(
+            dependency: .registryDownload(
                 packageRef: package,
                 version: version,
                 subpath: downloadPath.relative(to: self.location.registryDownloadDirectory)
             )
         )
-        try self.state.save()
+        try await self.state.save()
 
         return downloadPath
     }

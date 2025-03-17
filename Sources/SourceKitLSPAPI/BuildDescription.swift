@@ -10,24 +10,26 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Foundation.URL
+import Foundation
+import TSCBasic
 
-private import struct Basics.AbsolutePath
-private import func Basics.resolveSymlinks
-
-internal import SPMBuildCore
-
-// FIXME: should import these module with `private` or `internal` access control
-import class Build.BuildPlan
-import class Build.ClangModuleBuildDescription
-import class Build.SwiftModuleBuildDescription
-import struct PackageGraph.ResolvedModule
-import struct PackageGraph.ModulesGraph
-internal import class PackageModel.UserToolchain
+// Ideally wouldn't expose these (it defeats the purpose of this module), but we should replace this entire API with
+// a BSP server, so this is good enough for now (and LSP is using all these types internally anyway).
+import Basics
+import Build
+import PackageGraph
+internal import PackageLoading
+internal import PackageModel
+import SPMBuildCore
 
 public enum BuildDestination {
     case host
     case target
+}
+
+public enum BuildTargetCompiler {
+    case swift
+    case clang
 }
 
 public protocol BuildTarget {
@@ -49,12 +51,17 @@ public protocol BuildTarget {
     /// The name of the target. It should be possible to build a target by passing this name to `swift build --target`
     var name: String { get }
 
+    /// The compiler that is responsible for building this target.
+    var compiler: BuildTargetCompiler { get }
+
     var destination: BuildDestination { get }
 
     /// Whether the target is part of the root package that the user opened or if it's part of a package dependency.
     var isPartOfRootPackage: Bool { get }
 
     var isTestTarget: Bool { get }
+
+    var outputPaths: [URL] { get throws }
 
     func compileArguments(for fileURL: URL) throws -> [String]
 }
@@ -90,19 +97,34 @@ private struct WrappedClangTargetBuildDescription: BuildTarget {
     }
 
     var others: [URL] {
-        return description.others.map(\.asURL)
+        var others = Set(description.others)
+        for pluginResult in description.buildToolPluginInvocationResults {
+            for buildCommand in pluginResult.buildCommands {
+                others.formUnion(buildCommand.inputFiles)
+            }
+        }
+        return others.map(\.asURL)
     }
 
     public var name: String {
         return description.clangTarget.name
     }
 
+    var compiler: BuildTargetCompiler { .clang }
+
+
     public var destination: BuildDestination {
         return description.destination == .host ? .host : .target
     }
 
+    var outputPaths: [URL] {
+       get throws {
+           return try description.compilePaths().map(\.object.asURL)
+       }
+    }
+
     public func compileArguments(for fileURL: URL) throws -> [String] {
-        let filePath = try resolveSymlinks(try AbsolutePath(validating: fileURL.path))
+        let filePath = try resolveSymlinks(try Basics.AbsolutePath(validating: fileURL.path))
         let commandLine = try description.emitCommandLine(for: filePath)
         // First element on the command line is the compiler itself, not an argument.
         return Array(commandLine.dropFirst())
@@ -124,6 +146,8 @@ private struct WrappedSwiftTargetBuildDescription: BuildTarget {
         return description.target.name
     }
 
+    var compiler: BuildTargetCompiler { .swift }
+
     public var destination: BuildDestination {
         return description.destination == .host ? .host : .target
     }
@@ -143,7 +167,22 @@ private struct WrappedSwiftTargetBuildDescription: BuildTarget {
     }
 
     var others: [URL] {
-        return description.others.map(\.asURL)
+        var others = Set(description.others)
+        for pluginResult in description.buildToolPluginInvocationResults {
+            for buildCommand in pluginResult.buildCommands {
+                others.formUnion(buildCommand.inputFiles)
+            }
+        }
+        return others.map(\.asURL)
+    }
+
+    var outputPaths: [URL] {
+        get throws {
+            struct NotSupportedError: Error, CustomStringConvertible {
+                var description: String { "Getting output paths for a Swift target is not supported" }
+            }
+            throw NotSupportedError()
+        }
     }
 
     func compileArguments(for fileURL: URL) throws -> [String] {
@@ -160,12 +199,50 @@ public struct BuildDescription {
 
     /// The inputs of the build plan so we don't need to re-compute them  on every call to
     /// `fileAffectsSwiftOrClangBuildSettings`.
-    private let inputs: [BuildPlan.Input]
+    private let inputs: [Build.BuildPlan.Input]
 
-    // FIXME: should not use `BuildPlan` in the public interface
+    /// Wrap an already constructed build plan.
     public init(buildPlan: Build.BuildPlan) {
         self.buildPlan = buildPlan
         self.inputs = buildPlan.inputs
+    }
+
+    /// Construct a build description, compiling build tool plugins and generating their output when necessary.
+    public static func load(
+        destinationBuildParameters: BuildParameters,
+        toolsBuildParameters: BuildParameters,
+        packageGraph: ModulesGraph,
+        pluginConfiguration: PluginConfiguration,
+        traitConfiguration: TraitConfiguration,
+        disableSandbox: Bool,
+        scratchDirectory: URL,
+        fileSystem: any FileSystem,
+        observabilityScope: ObservabilityScope
+    ) async throws -> (description: BuildDescription, errors: String) {
+        let bufferedOutput = BufferedOutputByteStream()
+        let threadSafeOutput = ThreadSafeOutputByteStream(bufferedOutput)
+
+        // This is quite an abuse of `BuildOperation`, building plugins should really be refactored out of it. Though
+        // even better would be to have a BSP server that handles both preparing and getting settings.
+        // https://github.com/swiftlang/swift-package-manager/issues/8287
+        let operation = BuildOperation(
+            productsBuildParameters: destinationBuildParameters,
+            toolsBuildParameters: toolsBuildParameters,
+            cacheBuildManifest: true,
+            packageGraphLoader: { packageGraph },
+            pluginConfiguration: pluginConfiguration,
+            scratchDirectory: try Basics.AbsolutePath(validating: scratchDirectory.path),
+            traitConfiguration: traitConfiguration,
+            additionalFileRules: FileRuleDescription.swiftpmFileTypes,
+            pkgConfigDirectories: [],
+            outputStream: threadSafeOutput,
+            logLevel: .error,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+
+        let plan = try await operation.generatePlan()
+        return (BuildDescription(buildPlan: plan), bufferedOutput.bytes.description)
     }
 
     func getBuildTarget(
@@ -219,7 +296,7 @@ public struct BuildDescription {
     /// Returns `true` if the file at the given path might influence build settings for a `swiftc` or `clang` invocation
     /// generated by SwiftPM.
     public func fileAffectsSwiftOrClangBuildSettings(_ url: URL) -> Bool {
-        guard let filePath = try? AbsolutePath(validating: url.path) else {
+        guard let filePath = try? Basics.AbsolutePath(validating: url.path) else {
             return false
         }
 

@@ -32,10 +32,18 @@ final class SwiftSDKCommandTests: CommandsTestCase {
         }
     }
 
-    func testVersion() async throws {
+    func testCommandDoesNotEmitDuplicateSymbols() async throws {
+        for command in [SwiftPM.sdk, SwiftPM.experimentalSDK] {
+            let (stdout, stderr) = try await command.execute(["--help"])
+            XCTAssertNoMatch(stdout, duplicateSymbolRegex)
+            XCTAssertNoMatch(stderr, duplicateSymbolRegex)
+        }
+    }
+
+    func testVersionS() async throws {
         for command in [SwiftPM.sdk, SwiftPM.experimentalSDK] {
             let stdout = try await command.execute(["--version"]).stdout
-            XCTAssert(stdout.contains("Swift Package Manager"), "got stdout:\n" + stdout)
+            XCTAssertMatch(stdout, .regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#))
         }
     }
 

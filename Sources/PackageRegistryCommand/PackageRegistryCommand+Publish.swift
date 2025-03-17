@@ -247,11 +247,7 @@ extension SignatureFormat {
     }
 }
 
-#if compiler(<6.0)
 extension SignatureFormat: ExpressibleByArgument {}
-#else
-extension SignatureFormat: @retroactive ExpressibleByArgument {}
-#endif
 
 enum MetadataLocation {
     case sourceTree(AbsolutePath)

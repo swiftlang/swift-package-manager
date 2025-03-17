@@ -13,6 +13,7 @@
 import Basics
 import Build
 import Commands
+import SPMBuildCore
 
 @_spi(SwiftPMInternal)
 import DriverSupport
@@ -24,7 +25,11 @@ import _InternalTestSupport
 import Workspace
 import XCTest
 
-final class APIDiffTests: CommandsTestCase {
+class APIDiffTestCase: CommandsBuildProviderTestCase {
+    override func setUpWithError() throws {
+        try XCTSkipIf(type(of: self) == APIDiffTestCase.self, "Skipping this test since it will be run in subclasses that will provide different build systems to test.")
+    }
+
     @discardableResult
     private func execute(
         _ args: [String],
@@ -34,7 +39,12 @@ final class APIDiffTests: CommandsTestCase {
         var environment = env ?? [:]
         // don't ignore local packages when caching
         environment["SWIFTPM_TESTS_PACKAGECACHE"] = "1"
-        return try await SwiftPM.Package.execute(args, packagePath: packagePath, env: environment)
+        return try await executeSwiftPackage(
+            packagePath,
+            extraArgs: args,
+            env: environment,
+            buildSystem: buildSystemProvider
+        )
     }
 
     func skipIfApiDigesterUnsupportedOrUnset() throws {
@@ -55,11 +65,6 @@ final class APIDiffTests: CommandsTestCase {
       guard (try? UserToolchain.default.getSwiftAPIDigester()) != nil else {
         throw XCTSkip("swift-api-digester unavailable")
       }
-      // The tests rely on swift-api-digester post-5.5 version and are certain
-      // to work with Swift compiler v6.0 and later.
-      #if compiler(<6.0)
-        throw XCTSkip("Skipping because test requires at least Swift compiler v6.0")
-      #endif
     }
 
     func testInvokeAPIDiffDigester() async throws {
@@ -447,5 +452,28 @@ final class APIDiffTests: CommandsTestCase {
                 XCTAssertMatch(error.stderr, .contains("baseline for Swift2 contains no symbols, swift-api-digester output"))
             }
         }
+    }
+}
+
+class APIDiffNativeTests: APIDiffTestCase {
+
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .native
+    }
+
+    override func skipIfApiDigesterUnsupportedOrUnset() throws {
+        try super.skipIfApiDigesterUnsupportedOrUnset()
+    }
+
+}
+
+class APIDiffSwiftBuildTests: APIDiffTestCase {
+
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .swiftbuild
+    }
+
+    override func skipIfApiDigesterUnsupportedOrUnset() throws {
+        try super.skipIfApiDigesterUnsupportedOrUnset()
     }
 }
