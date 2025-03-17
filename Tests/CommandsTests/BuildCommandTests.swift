@@ -108,6 +108,12 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
         XCTAssertMatch(stdout, .contains("SEE ALSO: swift run, swift package, swift test"))
     }
 
+    func testCommandDoesNotEmitDuplicateSymbols() async throws {
+        let (stdout, stderr) = try await SwiftPM.Build.execute(["--help"])
+        XCTAssertNoMatch(stdout, duplicateSymbolRegex)
+        XCTAssertNoMatch(stderr, duplicateSymbolRegex)
+    }
+
     func testVersion() async throws {
         let stdout = try await execute(["--version"]).stdout
         XCTAssertMatch(stdout, .regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#))
@@ -202,12 +208,15 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
             )
 
             guard buildSystemProvider == .xcode  || buildSystemProvider == .swiftbuild else {
+                // The remainder of this test only applies to XCBuild or Swift Build
                 return
             }
 
             // Print correct path when building with XCBuild or Swift Build
-            let xcodeDebugOutput = try await execute(["--show-bin-path"], packagePath: fullPath)
-                .stdout
+            let xcodeDebugOutput = try await execute(
+                ["-c", "debug", "--show-bin-path"],
+                packagePath: fullPath)
+            .stdout
             let xcodeReleaseOutput = try await execute(
                 ["-c", "release", "--show-bin-path"],
                 packagePath: fullPath
