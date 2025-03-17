@@ -318,7 +318,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                     "-package-name", "pkg",
                     "-emit-dependencies",
                     "-emit-module",
-                    "-emit-module-path", "/path/to/build/\(destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule"
+                    "-emit-module-path", "/path/to/build/\(destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule".fixwin
                 ],
                 isPartOfRootPackage: true
             )
@@ -400,5 +400,15 @@ extension SourceKitLSPAPI.BuildDescription {
         XCTAssertTrue(result, "could not match \(partialArguments) to actual arguments \(arguments)")
         XCTAssertEqual(buildTarget.isPartOfRootPackage, isPartOfRootPackage)
         return result
+    }
+}
+
+extension String {
+    var fixwin: String {
+        #if os(Windows)
+        return self.replacingOccurrences(of: "/", with: "\\")
+        #else
+        return self
+        #endif
     }
 }

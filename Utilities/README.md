@@ -14,7 +14,7 @@ Here are some steps the worked running on Windows.
     cd C:\source
     git clone https://github.com/swiftlang/swift-package-manager .
     # Assign the PR ID to a variable
-    $PR_ID = "8288"
+    $PR_ID = "8210"
     git fetch origin pull/$PR_ID/merge:ci_merge_$PR_ID
     git checkout ci_merge_$PR_ID
     ```
