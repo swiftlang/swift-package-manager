@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
+import XCTest
 import Basics
 import struct Foundation.URL
 #if os(macOS)
