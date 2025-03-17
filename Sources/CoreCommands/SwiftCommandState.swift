@@ -225,6 +225,9 @@ public final class SwiftCommandState {
 
     /// Path to the shared configuration directory
     public let sharedConfigurationDirectory: AbsolutePath
+    
+    /// Path to the package manager's own resources directory.
+    public let packageManagerResourcesDirectory: AbsolutePath?
 
     /// Path to the cross-compilation Swift SDKs directory.
     public let sharedSwiftSDKsDirectory: AbsolutePath
@@ -372,6 +375,17 @@ public final class SwiftCommandState {
                 warning: "`--experimental-swift-sdks-path` is deprecated and will be removed in a future version of SwiftPM. Use `--swift-sdks-path` instead."
             )
         }
+        
+        if let packageManagerResourcesDirectory = options.locations.packageManagerResourcesDirectory {
+            self.packageManagerResourcesDirectory = packageManagerResourcesDirectory
+        } else if let cwd = localFileSystem.currentWorkingDirectory {
+            self.packageManagerResourcesDirectory = try? AbsolutePath(validating: CommandLine.arguments[0], relativeTo: cwd)
+                .parentDirectory.parentDirectory.appending(components: ["share", "pm"])
+        } else {
+            self.packageManagerResourcesDirectory = try? AbsolutePath(validating: CommandLine.arguments[0])
+                .parentDirectory.parentDirectory.appending(components: ["share", "pm"])
+        }
+        
         self.sharedSwiftSDKsDirectory = try fileSystem.getSharedSwiftSDKsDirectory(
             explicitDirectory: options.locations.swiftSDKsDirectory ?? options.locations.deprecatedSwiftSDKsDirectory
         )

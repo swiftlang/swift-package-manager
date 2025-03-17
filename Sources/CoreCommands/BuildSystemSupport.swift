@@ -121,6 +121,7 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
                     explicitProduct: explicitProduct
                 )
             },
+            packageManagerResourcesDirectory: swiftCommandState.packageManagerResourcesDirectory,
             outputStream: outputStream ?? self.swiftCommandState.outputStream,
             logLevel: logLevel ?? self.swiftCommandState.logLevel,
             fileSystem: self.swiftCommandState.fileSystem,

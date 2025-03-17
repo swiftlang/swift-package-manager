@@ -544,6 +544,11 @@ def install_swiftpm(prefix, args):
     dest = os.path.join(prefix, "lib", "swift", "pm", "PluginAPI")
     install_dylib(args, "PackagePlugin", dest, ["PackagePlugin"])
 
+    # Install resource bundles produced during the build.
+    for file in os.listdir(args.bin_dir):
+        if file.endswith('.bundle') or file.endswith('.resources'):
+            install_binary(args, file, os.path.join(os.path.join(prefix, "share"), "pm"))
+
 
 # Helper function that installs a dynamic library and a set of modules to a particular directory.
 @log_entry_exit
@@ -587,7 +592,7 @@ def install_file(args, src, destination, destination_is_directory=True, ignored_
 
     logging.info("Installing %s to %s", src, dest)
     if os.path.isdir(src):
-        shutil.copytree(src, dest, ignore=shutil.ignore_patterns(*ignored_patterns))
+        shutil.copytree(src, dest, ignore=shutil.ignore_patterns(*ignored_patterns), dirs_exist_ok=True)
     else:
         shutil.copy2(src, dest)
 
@@ -851,7 +856,6 @@ def get_swiftpm_env_cmd(args):
 
     if args.llbuild_link_framework:
         env_cmd.append("SWIFTPM_LLBUILD_FWK=1")
-    env_cmd.append("SWIFTPM_NO_SWBUILD_DEPENDENCY=1")
     env_cmd.append("SWIFTCI_USE_LOCAL_DEPS=1")
     env_cmd.append("SWIFTPM_MACOS_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
 
