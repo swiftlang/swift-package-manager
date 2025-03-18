@@ -1761,7 +1761,10 @@ extension [PackageCondition] {
 
             case .openbsd:
                 result += PIF.PlatformFilter.openBSDFilters
-
+            
+            case .freebsd:
+                result += PIF.PlatformFilter.freeBSDFilters
+            
             default:
                 assertionFailure("Unhandled platform condition: \(condition)")
             }
@@ -1835,6 +1838,11 @@ extension PIF.PlatformFilter {
         .init(platform: "xros", environment: "simulator"),
         .init(platform: "visionos"),
         .init(platform: "visionos", environment: "simulator"),
+    ]
+    
+    /// FreeBSD filters.
+    public static let freeBSDFilters: [PIF.PlatformFilter] = [
+        .init(platform: "freebsd"),
     ]
 }
 
