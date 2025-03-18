@@ -85,7 +85,7 @@ final class InitTests: XCTestCase {
             let versionSpecifier = "\(version.major).\(version.minor)"
             XCTAssertMatch(manifestContents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources")), ["main.swift"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources")), ["Foo.swift"])
             await XCTAssertBuilds(path)
             let triple = try UserToolchain.default.targetTriple
             let binPath = path.appending(components: ".build", triple.platformBuildPathComponent, "debug")

@@ -579,12 +579,7 @@ public final class InitPackage {
         }
         try makeDirectories(moduleDir)
 
-        let sourceFileName: String
-        if packageType == .executable {
-            sourceFileName = "main.swift"
-        } else {
-            sourceFileName = "\(typeName).swift"
-        }
+        let sourceFileName = "\(typeName).swift"
         let sourceFile = try AbsolutePath(validating: sourceFileName, relativeTo: moduleDir)
 
         let content: String
