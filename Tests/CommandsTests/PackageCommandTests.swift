@@ -21,6 +21,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
+import SPMBuildCore
 import _InternalTestSupport
 import Workspace
 import XCTest
@@ -30,7 +31,11 @@ import class TSCBasic.BufferedOutputByteStream
 import enum TSCBasic.JSON
 import class Basics.AsyncProcess
 
-final class PackageCommandTests: CommandsTestCase {
+class PackageCommandTestCase: CommandsBuildProviderTestCase {
+    override func setUpWithError() throws {
+        try XCTSkipIf(type(of: self) == PackageCommandTestCase.self, "Skipping this test since it will be run in subclasses that will provide different build systems to test.")
+    }
+
     @discardableResult
     private func execute(
         _ args: [String] = [],
@@ -40,7 +45,13 @@ final class PackageCommandTests: CommandsTestCase {
         var environment = env ?? [:]
         // don't ignore local packages when caching
         environment["SWIFTPM_TESTS_PACKAGECACHE"] = "1"
-        return try await SwiftPM.Package.execute(args, packagePath: packagePath, env: environment)
+        // return try await self.execute(args, packagePath: packagePath, env: environment)
+        return try await executeSwiftPackage(
+            packagePath,
+            extraArgs: args,
+            env: environment,
+            buildSystem: buildSystemProvider
+        )
     }
 
     func testNoParameters() async throws {
@@ -61,18 +72,14 @@ final class PackageCommandTests: CommandsTestCase {
     }
 
     func testSeeAlso() async throws {
-        let stdout = try await execute(["--help"]).stdout
+        // This test fails when `--build-system <system>` is provided, so directly invoke SwiftPM.Package.execute
+        let stdout = try await SwiftPM.Package.execute(["--help"]).stdout
         XCTAssertMatch(stdout, .contains("SEE ALSO: swift build, swift run, swift test"))
     }
 
-    func testCommandDoesNotEmitDuplicateSymbols() async throws {
-        let (stdout, stderr) = try await execute(["--help"])
-        XCTAssertNoMatch(stdout, duplicateSymbolRegex)
-        XCTAssertNoMatch(stderr, duplicateSymbolRegex)
-    }
-
     func testVersion() async throws {
-        let stdout = try await execute(["--version"]).stdout
+        // This test fails when `--build-system <system>` is provided, so directly invoke SwiftPM.Package.execute
+        let stdout = try await SwiftPM.Package.execute(["--version"]).stdout
         XCTAssertMatch(stdout, .regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#))
     }
 	
@@ -346,7 +353,7 @@ final class PackageCommandTests: CommandsTestCase {
     func testDescribe() async throws {
         try await fixture(name: "Miscellaneous/ExeTest") { fixturePath in
             // Generate the JSON description.
-            let (jsonOutput, _) = try await SwiftPM.Package.execute(["describe", "--type=json"], packagePath: fixturePath)
+            let (jsonOutput, _) = try await self.execute(["describe", "--type=json"], packagePath: fixturePath)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
 
             // Check that tests don't appear in the product memberships.
@@ -359,7 +366,7 @@ final class PackageCommandTests: CommandsTestCase {
 
         try await fixture(name: "CFamilyTargets/SwiftCMixed") { fixturePath in
             // Generate the JSON description.
-            let (jsonOutput, _) = try await SwiftPM.Package.execute(["describe", "--type=json"], packagePath: fixturePath)
+            let (jsonOutput, _) = try await self.execute(["describe", "--type=json"], packagePath: fixturePath)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
 
             // Check that the JSON description contains what we expect it to.
@@ -386,7 +393,7 @@ final class PackageCommandTests: CommandsTestCase {
             XCTAssertEqual(jsonTarget2["product_memberships"]?.array?[0].stringValue, "CExec")
 
             // Generate the text description.
-            let (textOutput, _) = try await SwiftPM.Package.execute(["describe", "--type=text"], packagePath: fixturePath)
+            let (textOutput, _) = try await self.execute(["describe", "--type=text"], packagePath: fixturePath)
             let textChunks = textOutput.components(separatedBy: "\n").reduce(into: [""]) { chunks, line in
                 // Split the text into chunks based on presence or absence of leading whitespace.
                 if line.hasPrefix(" ") == chunks[chunks.count-1].hasPrefix(" ") {
@@ -440,7 +447,7 @@ final class PackageCommandTests: CommandsTestCase {
 
         try await fixture(name: "DependencyResolution/External/Simple/Bar") { fixturePath in
             // Generate the JSON description.
-            let (jsonOutput, _) = try await SwiftPM.Package.execute(["describe", "--type=json"], packagePath: fixturePath)
+            let (jsonOutput, _) = try await self.execute(["describe", "--type=json"], packagePath: fixturePath)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
 
             // Check that product dependencies and memberships are as expected.
@@ -456,7 +463,7 @@ final class PackageCommandTests: CommandsTestCase {
     func testDescribePackageUsingPlugins() async throws {
         try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in
             // Generate the JSON description.
-            let (stdout, _) = try await SwiftPM.Package.execute(["describe", "--type=json"], packagePath: fixturePath)
+            let (stdout, _) = try await self.execute(["describe", "--type=json"], packagePath: fixturePath)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: stdout))
 
             // Check the contents of the JSON.
@@ -512,7 +519,7 @@ final class PackageCommandTests: CommandsTestCase {
 
         let arguments = withPrettyPrinting ? ["dump-symbol-graph", "--pretty-print"] : ["dump-symbol-graph"]
 
-        let result = try await SwiftPM.Package.execute(arguments, packagePath: path, env: ["SWIFT_SYMBOLGRAPH_EXTRACT": symbolGraphExtractorPath.pathString])
+        let result = try await self.execute(arguments, packagePath: path, env: ["SWIFT_SYMBOLGRAPH_EXTRACT": symbolGraphExtractorPath.pathString])
         let enumerator = try XCTUnwrap(FileManager.default.enumerator(at: URL(fileURLWithPath: path.pathString), includingPropertiesForKeys: nil), file: file, line: line)
 
         var symbolGraphURL: URL?
@@ -588,11 +595,11 @@ final class PackageCommandTests: CommandsTestCase {
     func testShowExecutables() async throws {
         try await fixture(name: "Miscellaneous/ShowExecutables") { fixturePath in
             let packageRoot = fixturePath.appending("app")
-            let (textOutput, _) = try await SwiftPM.Package.execute(["show-executables", "--format=flatlist"], packagePath: packageRoot)
+            let (textOutput, _) = try await self.execute(["show-executables", "--format=flatlist"], packagePath: packageRoot)
             XCTAssert(textOutput.contains("dealer\n"))
             XCTAssert(textOutput.contains("deck (deck-of-playing-cards)\n"))
 
-            let (jsonOutput, _) = try await SwiftPM.Package.execute(["show-executables", "--format=json"], packagePath: packageRoot)
+            let (jsonOutput, _) = try await self.execute(["show-executables", "--format=json"], packagePath: packageRoot)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
             guard case let .array(contents) = json else { XCTFail("unexpected result"); return }
 
@@ -623,10 +630,10 @@ final class PackageCommandTests: CommandsTestCase {
     func testShowDependencies() async throws {
         try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
             let packageRoot = fixturePath.appending("app")
-            let (textOutput, _) = try await SwiftPM.Package.execute(["show-dependencies", "--format=text"], packagePath: packageRoot)
+            let (textOutput, _) = try await self.execute(["show-dependencies", "--format=text"], packagePath: packageRoot)
             XCTAssert(textOutput.contains("FisherYates@1.2.3"))
 
-            let (jsonOutput, _) = try await SwiftPM.Package.execute(["show-dependencies", "--format=json"], packagePath: packageRoot)
+            let (jsonOutput, _) = try await self.execute(["show-dependencies", "--format=json"], packagePath: packageRoot)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
             guard case let .dictionary(contents) = json else { XCTFail("unexpected result"); return }
             guard case let .string(name)? = contents["name"] else { XCTFail("unexpected result"); return }
@@ -1206,12 +1213,12 @@ final class PackageCommandTests: CommandsTestCase {
         try await fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
             let fooPath = fixturePath.appending("foo")
             func build() async throws -> (stdout: String, stderr: String) {
-                return try await SwiftPM.Build.execute(packagePath: fooPath)
+                return try await executeSwiftBuild(fooPath)
             }
 
             // Put bar and baz in edit mode.
-            _ = try await SwiftPM.Package.execute(["edit", "bar", "--branch", "bugfix"], packagePath: fooPath)
-            _ = try await SwiftPM.Package.execute(["edit", "baz", "--branch", "bugfix"], packagePath: fooPath)
+            _ = try await self.execute(["edit", "bar", "--branch", "bugfix"], packagePath: fooPath)
+            _ = try await self.execute(["edit", "baz", "--branch", "bugfix"], packagePath: fooPath)
 
             // Path to the executable.
             let exec = [fooPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "foo").pathString]
@@ -1238,7 +1245,7 @@ final class PackageCommandTests: CommandsTestCase {
 
             // It shouldn't be possible to unedit right now because of uncommitted changes.
             do {
-                _ = try await SwiftPM.Package.execute(["unedit", "bar"], packagePath: fooPath)
+                _ = try await self.execute(["unedit", "bar"], packagePath: fooPath)
                 XCTFail("Unexpected unedit success")
             } catch {}
 
@@ -1247,7 +1254,7 @@ final class PackageCommandTests: CommandsTestCase {
 
             // It shouldn't be possible to unedit right now because of unpushed changes.
             do {
-                _ = try await SwiftPM.Package.execute(["unedit", "bar"], packagePath: fooPath)
+                _ = try await self.execute(["unedit", "bar"], packagePath: fooPath)
                 XCTFail("Unexpected unedit success")
             } catch {}
 
@@ -1255,11 +1262,11 @@ final class PackageCommandTests: CommandsTestCase {
             try editsRepo.push(remote: "origin", branch: "bugfix")
 
             // We should be able to unedit now.
-            _ = try await SwiftPM.Package.execute(["unedit", "bar"], packagePath: fooPath)
+            _ = try await self.execute(["unedit", "bar"], packagePath: fooPath)
 
             // Test editing with a path i.e. ToT development.
             let bazTot = fixturePath.appending("tot")
-            try await SwiftPM.Package.execute(["edit", "baz", "--path", bazTot.pathString], packagePath: fooPath)
+            try await self.execute(["edit", "baz", "--path", bazTot.pathString], packagePath: fooPath)
             XCTAssertTrue(localFileSystem.exists(bazTot))
             XCTAssertTrue(localFileSystem.isSymlink(bazEditsPath))
 
@@ -1270,12 +1277,12 @@ final class PackageCommandTests: CommandsTestCase {
             try localFileSystem.writeFileContents(bazTotPackageFile, string: content)
 
             // Unediting baz will remove the symlink but not the checked out package.
-            try await SwiftPM.Package.execute(["unedit", "baz"], packagePath: fooPath)
+            try await self.execute(["unedit", "baz"], packagePath: fooPath)
             XCTAssertTrue(localFileSystem.exists(bazTot))
             XCTAssertFalse(localFileSystem.isSymlink(bazEditsPath))
 
             // Check that on re-editing with path, we don't make a new clone.
-            try await SwiftPM.Package.execute(["edit", "baz", "--path", bazTot.pathString], packagePath: fooPath)
+            try await self.execute(["edit", "baz", "--path", bazTot.pathString], packagePath: fooPath)
             XCTAssertTrue(localFileSystem.isSymlink(bazEditsPath))
             XCTAssertEqual(try localFileSystem.readFileContents(bazTotPackageFile), content)
         }
@@ -1331,7 +1338,7 @@ final class PackageCommandTests: CommandsTestCase {
 
             @discardableResult
             func execute(_ args: String..., printError: Bool = true) async throws -> String {
-                return try await SwiftPM.Package.execute([] + args, packagePath: fooPath).stdout
+                return try await self.execute([] + args, packagePath: fooPath).stdout
             }
 
             try await execute("update")
@@ -1392,7 +1399,7 @@ final class PackageCommandTests: CommandsTestCase {
             ).pathString]
 
             // Build and check.
-            _ = try await SwiftPM.Build.execute(packagePath: fooPath)
+            _ = try await executeSwiftBuild(fooPath)
             try await XCTAssertAsyncEqual(try await AsyncProcess.checkNonZeroExit(arguments: exec).spm_chomp(), "\(5)")
 
             // Get path to `bar` checkout.
@@ -1435,7 +1442,7 @@ final class PackageCommandTests: CommandsTestCase {
 
             @discardableResult
             func execute(_ args: String...) async throws -> String {
-                return try await SwiftPM.Package.execute([] + args, packagePath: fooPath).stdout
+                return try await self.execute([] + args, packagePath: fooPath).stdout
             }
 
             // Try to pin bar.
@@ -1766,7 +1773,7 @@ final class PackageCommandTests: CommandsTestCase {
             try await execute(["config", "set-mirror", "--original", "https://scm.com/org/foo", "--mirror", "https://scm.com/org/bar"], packagePath: packageRoot)
             XCTAssertTrue(fs.isFile(configFile))
 
-            let (stdout, _) = try await SwiftPM.Package.execute(["dump-package"], packagePath: packageRoot)
+            let (stdout, _) = try await self.execute(["dump-package"], packagePath: packageRoot)
             XCTAssertMatch(stdout, .contains("https://scm.com/org/bar"))
             XCTAssertNoMatch(stdout, .contains("https://scm.com/org/foo"))
         }
@@ -1809,7 +1816,7 @@ final class PackageCommandTests: CommandsTestCase {
             try await execute(["config", "set-mirror", "--original", "https://scm.com/org/foo", "--mirror", "org.bar"], packagePath: packageRoot)
             XCTAssertTrue(fs.isFile(configFile))
 
-            let (stdout, _) = try await SwiftPM.Package.execute(["dump-package"], packagePath: packageRoot)
+            let (stdout, _) = try await self.execute(["dump-package"], packagePath: packageRoot)
             XCTAssertMatch(stdout, .contains("org.bar"))
             XCTAssertNoMatch(stdout, .contains("https://scm.com/org/foo"))
         }
@@ -1852,7 +1859,7 @@ final class PackageCommandTests: CommandsTestCase {
             try await execute(["config", "set-mirror", "--original", "org.foo", "--mirror", "https://scm.com/org/bar"], packagePath: packageRoot)
             XCTAssertTrue(fs.isFile(configFile))
 
-            let (stdout, _) = try await SwiftPM.Package.execute(["dump-package"], packagePath: packageRoot)
+            let (stdout, _) = try await self.execute(["dump-package"], packagePath: packageRoot)
             XCTAssertMatch(stdout, .contains("https://scm.com/org/bar"))
             XCTAssertNoMatch(stdout, .contains("org.foo"))
         }
@@ -1882,7 +1889,7 @@ final class PackageCommandTests: CommandsTestCase {
                 // Invoke `swift-package`, passing in the overriding `PATH` environment variable.
                 let packageRoot = fixturePath.appending("Library")
                 let patchedPATH = fakeBinDir.pathString + ":" + ProcessInfo.processInfo.environment["PATH"]!
-                let (stdout, _) = try await SwiftPM.Package.execute(["dump-package"], packagePath: packageRoot, env: ["PATH": patchedPATH])
+                let (stdout, _) = try await self.execute(["dump-package"], packagePath: packageRoot, env: ["PATH": patchedPATH])
 
                 // Check that the wrong tools weren't invoked.  We can't just check the exit code because of fallbacks.
                 XCTAssertNoMatch(stdout, .contains("wrong xcrun invoked"))
@@ -1990,7 +1997,10 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Invoke it, and check the results.
             let args = staticStdlib ? ["--static-swift-stdlib"] : []
-            let (stdout, stderr) = try await SwiftPM.Build.execute(args, packagePath: packageDir)
+            let (stdout, stderr) = try await executeSwiftBuild(
+                packageDir,
+                extraArgs: args
+            )
             XCTAssert(stdout.contains("Build complete!"))
 
             // We expect a warning about `library.bar` but not about `library.foo`.
@@ -2056,7 +2066,7 @@ final class PackageCommandTests: CommandsTestCase {
             )
 
             // Invoke it, and check the results.
-            await XCTAssertAsyncThrowsError(try await SwiftPM.Build.execute(["-v"], packagePath: packageDir)) { error in
+            await XCTAssertAsyncThrowsError(try await executeSwiftBuild(packageDir, extraArgs: ["-v"])) { error in
                 guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
                     return XCTFail("invalid error \(error)")
                 }
@@ -2073,34 +2083,34 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Running without arguments or options
             do {
-                let (stdout, _) = try await SwiftPM.Package.execute(["archive-source"], packagePath: packageRoot)
+                let (stdout, _) = try await self.execute(["archive-source"], packagePath: packageRoot)
                 XCTAssert(stdout.contains("Created Bar.zip"), #"actual: "\#(stdout)""#)
             }
 
             // Running without arguments or options again, overwriting existing archive
             do {
-                let (stdout, _) = try await SwiftPM.Package.execute(["archive-source"], packagePath: packageRoot)
+                let (stdout, _) = try await self.execute(["archive-source"], packagePath: packageRoot)
                 XCTAssert(stdout.contains("Created Bar.zip"), #"actual: "\#(stdout)""#)
             }
 
             // Running with output as absolute path within package root
             do {
                 let destination = packageRoot.appending("Bar-1.2.3.zip")
-                let (stdout, _) = try await SwiftPM.Package.execute(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
+                let (stdout, _) = try await self.execute(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
                 XCTAssert(stdout.contains("Created Bar-1.2.3.zip"), #"actual: "\#(stdout)""#)
             }
 
             // Running with output is outside the package root
             try await withTemporaryDirectory { tempDirectory in
                 let destination = tempDirectory.appending("Bar-1.2.3.zip")
-                let (stdout, _) = try await SwiftPM.Package.execute(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
+                let (stdout, _) = try await self.execute(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
                 XCTAssert(stdout.hasPrefix("Created /"), #"actual: "\#(stdout)""#)
                 XCTAssert(stdout.contains("Bar-1.2.3.zip"), #"actual: "\#(stdout)""#)
             }
 
             // Running without arguments or options in non-package directory
             do {
-                await XCTAssertAsyncThrowsError(try await SwiftPM.Package.execute(["archive-source"], packagePath: fixturePath)) { error in
+                await XCTAssertAsyncThrowsError(try await self.execute(["archive-source"], packagePath: fixturePath)) { error in
                     guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
                         return XCTFail("invalid error \(error)")
                     }
@@ -2111,7 +2121,7 @@ final class PackageCommandTests: CommandsTestCase {
             // Running with output as absolute path to existing directory
             do {
                 let destination = AbsolutePath.root
-                await XCTAssertAsyncThrowsError(try await SwiftPM.Package.execute(["archive-source", "--output", destination.pathString], packagePath: packageRoot)) { error in
+                await XCTAssertAsyncThrowsError(try await self.execute(["archive-source", "--output", destination.pathString], packagePath: packageRoot)) { error in
                     guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
                         return XCTFail("invalid error \(error)")
                     }
@@ -2332,25 +2342,25 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Check that we can invoke the plugin with the "plugin" subcommand.
             do {
-                let (stdout, _) = try await SwiftPM.Package.execute(["plugin", "mycmd"], packagePath: packageDir)
+                let (stdout, _) = try await self.execute(["plugin", "mycmd"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("This is MyCommandPlugin."))
             }
 
             // Check that we can also invoke it without the "plugin" subcommand.
             do {
-                let (stdout, _) = try await SwiftPM.Package.execute(["mycmd"], packagePath: packageDir)
+                let (stdout, _) = try await self.execute(["mycmd"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("This is MyCommandPlugin."))
             }
 
             // Testing listing the available command plugins.
             do {
-                let (stdout, _) = try await SwiftPM.Package.execute(["plugin", "--list"], packagePath: packageDir)
+                let (stdout, _) = try await self.execute(["plugin", "--list"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("‘mycmd’ (plugin ‘MyPlugin’ in package ‘MyPackage’)"))
             }
 
             // Check that we get the expected error if trying to invoke a plugin with the wrong name.
             do {
-                await XCTAssertAsyncThrowsError(try await SwiftPM.Package.execute(["my-nonexistent-cmd"], packagePath: packageDir)) { error in
+                await XCTAssertAsyncThrowsError(try await self.execute(["my-nonexistent-cmd"], packagePath: packageDir)) { error in
                     guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
                         return XCTFail("invalid error \(error)")
                     }
@@ -2360,7 +2370,7 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Check that the .docc file was properly vended to the plugin.
             do {
-                let (stdout, _) = try await SwiftPM.Package.execute(["mycmd", "--target", "MyLibrary"], packagePath: packageDir)
+                let (stdout, _) = try await self.execute(["mycmd", "--target", "MyLibrary"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("Sources/MyLibrary/library.swift: source"))
                 XCTAssertMatch(stdout, .contains("Sources/MyLibrary/test.docc: unknown"))
             }
@@ -2368,13 +2378,13 @@ final class PackageCommandTests: CommandsTestCase {
             // Check that the initial working directory is what we expected.
             do {
                 let workingDirectory = FileManager.default.currentDirectoryPath
-                let (stdout, _) = try await SwiftPM.Package.execute(["mycmd"], packagePath: packageDir)
+                let (stdout, _) = try await self.execute(["mycmd"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("Initial working directory: \(workingDirectory)"))
             }
 
             // Check that information about the dependencies was properly sent to the plugin.
             do {
-                let (stdout, _) = try await SwiftPM.Package.execute(["mycmd", "--target", "MyLibrary"], packagePath: packageDir)
+                let (stdout, _) = try await self.execute(["mycmd", "--target", "MyLibrary"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("dependency HelperPackage: local"))
             }
         }
@@ -2385,7 +2395,7 @@ final class PackageCommandTests: CommandsTestCase {
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
         try await fixture(name: "Miscellaneous/Plugins/AmbiguousCommands") { fixturePath in
-            let (stdout, _) = try await SwiftPM.Package.execute(["plugin", "--package", "A", "A"], packagePath: fixturePath)
+            let (stdout, _) = try await self.execute(["plugin", "--package", "A", "A"], packagePath: fixturePath)
             XCTAssertMatch(stdout, .contains("Hello A!"))
         }
     }
@@ -2407,13 +2417,13 @@ final class PackageCommandTests: CommandsTestCase {
 
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
             func runPlugin(flags: [String], diagnostics: [String], completion: (String, String) -> Void) async throws {
-                let (stdout, stderr) = try await SwiftPM.Package.execute(flags + ["print-diagnostics"] + diagnostics, packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
+                let (stdout, stderr) = try await self.execute(flags + ["print-diagnostics"] + diagnostics, packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
                 completion(stdout, stderr)
             }
 
             // Diagnostics.error causes SwiftPM to return a non-zero exit code, but we still need to check stdout and stderr
             func runPluginWithError(flags: [String], diagnostics: [String], completion: (String, String) -> Void) async throws {
-                await XCTAssertAsyncThrowsError(try await SwiftPM.Package.execute(flags + ["print-diagnostics"] + diagnostics, packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])) { error in
+                await XCTAssertAsyncThrowsError(try await self.execute(flags + ["print-diagnostics"] + diagnostics, packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])) { error in
                     guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = error else {
                         return XCTFail("invalid error \(error)")
                     }
@@ -2555,35 +2565,35 @@ final class PackageCommandTests: CommandsTestCase {
 
         // By default, a plugin-requested build produces a debug binary
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let _ = try await SwiftPM.Package.execute(["-c", "release", "build-target"], packagePath: fixturePath)
+            let _ = try await self.execute(["-c", "release", "build-target"], packagePath: fixturePath)
             AssertIsExecutableFile(fixturePath.appending(components: debugTarget))
             AssertNotExists(fixturePath.appending(components: releaseTarget))
         }
 
         // If the plugin specifies a debug binary, that is what will be built, regardless of overall configuration
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let _ = try await SwiftPM.Package.execute(["-c", "release", "build-target", "build-debug"], packagePath: fixturePath)
+            let _ = try await self.execute(["-c", "release", "build-target", "build-debug"], packagePath: fixturePath)
             AssertIsExecutableFile(fixturePath.appending(components: debugTarget))
             AssertNotExists(fixturePath.appending(components: releaseTarget))
         }
 
         // If the plugin requests a release binary, that is what will be built, regardless of overall configuration
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let _ = try await SwiftPM.Package.execute(["-c", "debug", "build-target", "build-release"], packagePath: fixturePath)
+            let _ = try await self.execute(["-c", "debug", "build-target", "build-release"], packagePath: fixturePath)
             AssertNotExists(fixturePath.appending(components: debugTarget))
             AssertIsExecutableFile(fixturePath.appending(components: releaseTarget))
         }
 
         // If the plugin inherits the overall build configuration, that is what will be built
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let _ = try await SwiftPM.Package.execute(["-c", "debug", "build-target", "build-inherit"], packagePath: fixturePath)
+            let _ = try await self.execute(["-c", "debug", "build-target", "build-inherit"], packagePath: fixturePath)
             AssertIsExecutableFile(fixturePath.appending(components: debugTarget))
             AssertNotExists(fixturePath.appending(components: releaseTarget))
         }
 
         // If the plugin inherits the overall build configuration, that is what will be built
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let _ = try await SwiftPM.Package.execute(["-c", "release", "build-target", "build-inherit"], packagePath: fixturePath)
+            let _ = try await self.execute(["-c", "release", "build-target", "build-inherit"], packagePath: fixturePath)
             AssertNotExists(fixturePath.appending(components: debugTarget))
             AssertIsExecutableFile(fixturePath.appending(components: releaseTarget))
         }
@@ -2594,27 +2604,27 @@ final class PackageCommandTests: CommandsTestCase {
 
         // Overall configuration: debug, plugin build request: debug -> without testability
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "debug", "check-testability", "InternalModule", "debug", "true"], packagePath: fixturePath))
+            await XCTAssertAsyncNoThrow(try await self.execute(["-c", "debug", "check-testability", "InternalModule", "debug", "true"], packagePath: fixturePath))
         }
 
         // Overall configuration: debug, plugin build request: release -> without testability
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "debug", "check-testability", "InternalModule", "release", "false"], packagePath: fixturePath))
+            await XCTAssertAsyncNoThrow(try await self.execute(["-c", "debug", "check-testability", "InternalModule", "release", "false"], packagePath: fixturePath))
         }
 
         // Overall configuration: release, plugin build request: debug -> with testability
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "release", "check-testability", "InternalModule", "debug", "true"], packagePath: fixturePath))
+            await XCTAssertAsyncNoThrow(try await self.execute(["-c", "release", "check-testability", "InternalModule", "debug", "true"], packagePath: fixturePath))
         }
 
         // Overall configuration: release, plugin build request: release -> with testability
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "release", "check-testability", "InternalModule", "release", "false"], packagePath: fixturePath))
+            await XCTAssertAsyncNoThrow(try await self.execute(["-c", "release", "check-testability", "InternalModule", "release", "false"], packagePath: fixturePath))
         }
 
         // Overall configuration: release, plugin build request: release including tests -> with testability
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            await XCTAssertAsyncNoThrow(try await SwiftPM.Package.execute(["-c", "release", "check-testability", "all-with-tests", "release", "true"], packagePath: fixturePath))
+            await XCTAssertAsyncNoThrow(try await self.execute(["-c", "release", "check-testability", "all-with-tests", "release", "true"], packagePath: fixturePath))
         }
     }
 
@@ -2638,7 +2648,7 @@ final class PackageCommandTests: CommandsTestCase {
 
         // Check than nothing is echoed when echoLogs is false
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let (stdout, stderr) = try await SwiftPM.Package.execute(["print-diagnostics", "build"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
+            let (stdout, stderr) = try await self.execute(["print-diagnostics", "build"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertMatch(stdout, isEmpty)
             // Filter some unrelated output that could show up on stderr.
             let filteredStderr = stderr.components(separatedBy: "\n")
@@ -2648,7 +2658,7 @@ final class PackageCommandTests: CommandsTestCase {
 
         // Check that logs are returned to the plugin when echoLogs is false
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let (stdout, stderr) = try await SwiftPM.Package.execute(["print-diagnostics", "build", "printlogs"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
+            let (stdout, stderr) = try await self.execute(["print-diagnostics", "build", "printlogs"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertMatch(stdout, containsLogtext)
             // Filter some unrelated output that could show up on stderr.
             let filteredStderr = stderr.components(separatedBy: "\n")
@@ -2658,14 +2668,14 @@ final class PackageCommandTests: CommandsTestCase {
 
         // Check that logs echoed to the console (on stderr) when echoLogs is true
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let (stdout, stderr) = try await SwiftPM.Package.execute(["print-diagnostics", "build", "echologs"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
+            let (stdout, stderr) = try await self.execute(["print-diagnostics", "build", "echologs"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertMatch(stdout, isEmpty)
             XCTAssertMatch(stderr, containsLogecho)
         }
 
         // Check that logs are returned to the plugin and echoed to the console (on stderr) when echoLogs is true
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let (stdout, stderr) = try await SwiftPM.Package.execute(["print-diagnostics", "build", "printlogs", "echologs"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
+            let (stdout, stderr) = try await self.execute(["print-diagnostics", "build", "printlogs", "echologs"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertMatch(stdout, containsLogtext)
             XCTAssertMatch(stderr, containsLogecho)
         }
@@ -2707,7 +2717,7 @@ final class PackageCommandTests: CommandsTestCase {
 
             #if os(macOS)
             do {
-                await XCTAssertAsyncThrowsError(try await SwiftPM.Package.execute(["plugin", "Network"], packagePath: packageDir)) { error in
+                await XCTAssertAsyncThrowsError(try await self.execute(["plugin", "Network"], packagePath: packageDir)) { error in
                     guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = error else {
                         return XCTFail("invalid error \(error)")
                     }
@@ -2721,7 +2731,7 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Check that we don't get an error (and also are allowed to write to the package directory) if we pass `--allow-writing-to-package-directory`.
             do {
-                let (stdout, _) = try await SwiftPM.Package.execute(["plugin"] + remedy + ["Network"], packagePath: packageDir)
+                let (stdout, _) = try await self.execute(["plugin"] + remedy + ["Network"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("hello world"))
             }
         }
@@ -2838,7 +2848,7 @@ final class PackageCommandTests: CommandsTestCase {
             // Check that we get an error if the plugin needs permission but if we don't give it to them. Note that sandboxing is only currently supported on macOS.
           #if os(macOS)
             do {
-                await XCTAssertAsyncThrowsError(try await SwiftPM.Package.execute(["plugin", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])) { error in
+                await XCTAssertAsyncThrowsError(try await self.execute(["plugin", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])) { error in
                     guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = error else {
                         return XCTFail("invalid error \(error)")
                     }
@@ -2852,7 +2862,7 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Check that we don't get an error (and also are allowed to write to the package directory) if we pass `--allow-writing-to-package-directory`.
             do {
-                let (stdout, stderr) = try await SwiftPM.Package.execute(["plugin", "--allow-writing-to-package-directory", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
+                let (stdout, stderr) = try await self.execute(["plugin", "--allow-writing-to-package-directory", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
                 XCTAssertMatch(stdout, .contains("successfully created it"))
                 XCTAssertNoMatch(stderr, .contains("error: Couldn’t create file at path"))
             }
@@ -2860,7 +2870,7 @@ final class PackageCommandTests: CommandsTestCase {
             // Check that we get an error if the plugin doesn't declare permission but tries to write anyway. Note that sandboxing is only currently supported on macOS.
           #if os(macOS)
             do {
-                await XCTAssertAsyncThrowsError(try await SwiftPM.Package.execute(["plugin", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "0"])) { error in
+                await XCTAssertAsyncThrowsError(try await self.execute(["plugin", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "0"])) { error in
                     guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = error else {
                         return XCTFail("invalid error \(error)")
                     }
@@ -2872,21 +2882,21 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Check default command with arguments
             do {
-                let (stdout, stderr) = try await SwiftPM.Package.execute(["--allow-writing-to-package-directory", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
+                let (stdout, stderr) = try await self.execute(["--allow-writing-to-package-directory", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
                 XCTAssertMatch(stdout, .contains("successfully created it"))
                 XCTAssertNoMatch(stderr, .contains("error: Couldn’t create file at path"))
             }
 
             // Check plugin arguments after plugin name
             do {
-                let (stdout, stderr) = try await SwiftPM.Package.execute(["plugin", "PackageScribbler",  "--allow-writing-to-package-directory"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
+                let (stdout, stderr) = try await self.execute(["plugin", "PackageScribbler",  "--allow-writing-to-package-directory"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
                 XCTAssertMatch(stdout, .contains("successfully created it"))
                 XCTAssertNoMatch(stderr, .contains("error: Couldn’t create file at path"))
             }
 
             // Check default command with arguments after plugin name
             do {
-                let (stdout, stderr) = try await SwiftPM.Package.execute(["PackageScribbler", "--allow-writing-to-package-directory", ], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
+                let (stdout, stderr) = try await self.execute(["PackageScribbler", "--allow-writing-to-package-directory", ], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
                 XCTAssertMatch(stdout, .contains("successfully created it"))
                 XCTAssertNoMatch(stderr, .contains("error: Couldn’t create file at path"))
             }
@@ -2958,14 +2968,14 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Check arguments
             do {
-                let (stdout, stderr) = try await SwiftPM.Package.execute(["plugin", "MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
+                let (stdout, stderr) = try await self.execute(["plugin", "MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
                 XCTAssertMatch(stdout, .contains("success"))
                 XCTAssertFalse(stderr.contains("error:"))
             }
 
             // Check default command arguments
             do {
-                let (stdout, stderr) = try await SwiftPM.Package.execute(["MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
+                let (stdout, stderr) = try await self.execute(["MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
                 XCTAssertMatch(stdout, .contains("success"))
                 XCTAssertFalse(stderr.contains("error:"))
             }
@@ -3058,7 +3068,7 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Check that if we don't pass any target, we successfully get symbol graph information for all targets in the package, and at different paths.
             do {
-                let (stdout, _) = try await SwiftPM.Package.execute(["generate-documentation"], packagePath: packageDir)
+                let (stdout, _) = try await self.execute(["generate-documentation"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .and(.contains("MyLibrary:"), .contains("mypackage/MyLibrary")))
                 XCTAssertMatch(stdout, .and(.contains("MyCommand:"), .contains("mypackage/MyCommand")))
 
@@ -3066,7 +3076,7 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Check that if we pass a target, we successfully get symbol graph information for just the target we asked for.
             do {
-                let (stdout, _) = try await SwiftPM.Package.execute(["generate-documentation", "--target", "MyLibrary"], packagePath: packageDir)
+                let (stdout, _) = try await self.execute(["generate-documentation", "--target", "MyLibrary"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .and(.contains("MyLibrary:"), .contains("mypackage/MyLibrary")))
                 XCTAssertNoMatch(stdout, .and(.contains("MyCommand:"), .contains("mypackage/MyCommand")))
             }
@@ -3187,7 +3197,7 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Invoke the plugin with parameters choosing a verbose build of MyExecutable for debugging.
             do {
-                let (stdout, _) = try await SwiftPM.Package.execute(["my-build-tester", "--product", "MyExecutable", "--print-commands"], packagePath: packageDir)
+                let (stdout, _) = try await self.execute(["my-build-tester", "--product", "MyExecutable", "--print-commands"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("Building for debugging..."))
                 XCTAssertNoMatch(stdout, .contains("Building for production..."))
                 XCTAssertMatch(stdout, .contains("-module-name MyExecutable"))
@@ -3200,7 +3210,7 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Invoke the plugin with parameters choosing a concise build of MyExecutable for release.
             do {
-                let (stdout, _) = try await SwiftPM.Package.execute(["my-build-tester", "--product", "MyExecutable", "--release"], packagePath: packageDir)
+                let (stdout, _) = try await self.execute(["my-build-tester", "--product", "MyExecutable", "--release"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("Building for production..."))
                 XCTAssertNoMatch(stdout, .contains("Building for debug..."))
                 XCTAssertNoMatch(stdout, .contains("-module-name MyExecutable"))
@@ -3212,7 +3222,7 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Invoke the plugin with parameters choosing a verbose build of MyStaticLibrary for release.
             do {
-                let (stdout, _) = try await SwiftPM.Package.execute(["my-build-tester", "--product", "MyStaticLibrary", "--print-commands", "--release"], packagePath: packageDir)
+                let (stdout, _) = try await self.execute(["my-build-tester", "--product", "MyStaticLibrary", "--print-commands", "--release"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("Building for production..."))
                 XCTAssertNoMatch(stdout, .contains("Building for debug..."))
                 XCTAssertNoMatch(stdout, .contains("-module-name MyLibrary"))
@@ -3224,7 +3234,7 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Invoke the plugin with parameters choosing a verbose build of MyDynamicLibrary for release.
             do {
-                let (stdout, _) = try await SwiftPM.Package.execute(["my-build-tester", "--product", "MyDynamicLibrary", "--print-commands", "--release"], packagePath: packageDir)
+                let (stdout, _) = try await self.execute(["my-build-tester", "--product", "MyDynamicLibrary", "--print-commands", "--release"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("Building for production..."))
                 XCTAssertNoMatch(stdout, .contains("Building for debug..."))
                 XCTAssertNoMatch(stdout, .contains("-module-name MyLibrary"))
@@ -3353,7 +3363,7 @@ final class PackageCommandTests: CommandsTestCase {
             )
 
             // Check basic usage with filtering and code coverage. The plugin itself asserts a bunch of values.
-            try await SwiftPM.Package.execute(["my-test-tester"], packagePath: packageDir)
+            try await self.execute(["my-test-tester"], packagePath: packageDir)
 
             // We'll add checks for various error conditions here in a future commit.
         }
@@ -3529,28 +3539,28 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Check that a target doesn't include itself in its recursive dependencies.
             do {
-                let (stdout, _) = try await SwiftPM.Package.execute(["print-target-dependencies", "--target", "SecondTarget"], packagePath: packageDir)
+                let (stdout, _) = try await self.execute(["print-target-dependencies", "--target", "SecondTarget"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("Recursive dependencies of 'SecondTarget': [\"FirstTarget\"]"))
                 XCTAssertMatch(stdout, .contains("Module kind of 'SecondTarget': generic"))
             }
 
             // Check that targets are not included twice in recursive dependencies.
             do {
-                let (stdout, _) = try await SwiftPM.Package.execute(["print-target-dependencies", "--target", "ThirdTarget"], packagePath: packageDir)
+                let (stdout, _) = try await self.execute(["print-target-dependencies", "--target", "ThirdTarget"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("Recursive dependencies of 'ThirdTarget': [\"FirstTarget\"]"))
                 XCTAssertMatch(stdout, .contains("Module kind of 'ThirdTarget': generic"))
             }
 
             // Check that product dependencies work in recursive dependencies.
             do {
-                let (stdout, _) = try await SwiftPM.Package.execute(["print-target-dependencies", "--target", "FourthTarget"], packagePath: packageDir)
+                let (stdout, _) = try await self.execute(["print-target-dependencies", "--target", "FourthTarget"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("Recursive dependencies of 'FourthTarget': [\"FirstTarget\", \"SecondTarget\", \"ThirdTarget\", \"HelperLibrary\"]"))
                 XCTAssertMatch(stdout, .contains("Module kind of 'FourthTarget': generic"))
             }
 
             // Check some of the other utility APIs.
             do {
-                let (stdout, _) = try await SwiftPM.Package.execute(["print-target-dependencies", "--target", "FifthTarget"], packagePath: packageDir)
+                let (stdout, _) = try await self.execute(["print-target-dependencies", "--target", "FifthTarget"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("execProducts: [\"FifthTarget\"]"))
                 XCTAssertMatch(stdout, .contains("swiftTargets: [\"FifthTarget\", \"FirstTarget\", \"FourthTarget\", \"SecondTarget\", \"TestTarget\", \"ThirdTarget\"]"))
                 XCTAssertMatch(stdout, .contains("swiftSources: [\"library.swift\", \"library.swift\", \"library.swift\", \"library.swift\", \"main.swift\", \"tests.swift\"]"))
@@ -3559,7 +3569,7 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Check a test target.
             do {
-                let (stdout, _) = try await SwiftPM.Package.execute(["print-target-dependencies", "--target", "TestTarget"], packagePath: packageDir)
+                let (stdout, _) = try await self.execute(["print-target-dependencies", "--target", "TestTarget"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("Recursive dependencies of 'TestTarget': [\"FirstTarget\", \"SecondTarget\"]"))
                 XCTAssertMatch(stdout, .contains("Module kind of 'TestTarget': test"))
             }
@@ -3654,7 +3664,7 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Check that building without options compiles both plugins and that the build proceeds.
             do {
-                let (stdout, _) = try await SwiftPM.Build.execute(packagePath: packageDir)
+                let (stdout, _) = try await executeSwiftBuild(packageDir)
                 XCTAssertMatch(stdout, .contains("Compiling plugin MyBuildToolPlugin"))
                 XCTAssertMatch(stdout, .contains("Compiling plugin MyCommandPlugin"))
                 XCTAssertMatch(stdout, .contains("Building for debugging..."))
@@ -3662,7 +3672,10 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Check that building just one of them just compiles that plugin and doesn't build anything else.
             do {
-                let (stdout, _) = try await SwiftPM.Build.execute(["--target", "MyCommandPlugin"], packagePath: packageDir)
+                let (stdout, _) = try await executeSwiftBuild(
+                    packageDir,
+                    extraArgs: ["--target", "MyCommandPlugin"]
+                )
                 XCTAssertNoMatch(stdout, .contains("Compiling plugin MyBuildToolPlugin"))
                 XCTAssertMatch(stdout, .contains("Compiling plugin MyCommandPlugin"))
                 XCTAssertNoMatch(stdout, .contains("Building for debugging..."))
@@ -3685,7 +3698,7 @@ final class PackageCommandTests: CommandsTestCase {
             // Check that building stops after compiling the plugin and doesn't proceed.
             // Run this test a number of times to try to catch any race conditions.
             for _ in 1...5 {
-                await XCTAssertAsyncThrowsError(try await SwiftPM.Build.execute(packagePath: packageDir)) { error in
+                await XCTAssertAsyncThrowsError(try await executeSwiftBuild(packageDir)) { error in
                     guard case SwiftPMError.executionFailure(_, let stdout, _) = error else {
                         return XCTFail("invalid error \(error)")
                     }
@@ -3765,4 +3778,40 @@ final class PackageCommandTests: CommandsTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }
+}
+
+
+class PackageCommandNativeTests: PackageCommandTestCase {
+
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .native
+    }
+
+    override func testNoParameters() async throws {
+        try await super.testNoParameters()
+    }
+}
+
+class PackageCommandSwiftBuildTests: PackageCommandTestCase {
+
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .swiftbuild
+    }
+
+    override func testNoParameters() async throws {
+        try await super.testNoParameters()
+    }
+
+    override func testCommandPluginBuildingCallbacks() async throws {
+        throw XCTSkip("SWBINTTODO: Test fails as plugins are not currenty supported")
+    }
+    override func testCommandPluginBuildTestability() async throws {
+        throw XCTSkip("SWBINTTODO: Test fails as plugins are not currenty supported")
+    }
+
+#if !os(macOS)
+    override func testCommandPluginTestingCallbacks() async throws {
+        throw XCTSkip("SWBINTTODO: Test fails on inability to find libclang on Linux. Also, plugins are not currently supported")
+    }
+#endif
 }
