@@ -439,7 +439,7 @@ public func loadModulesGraph(
 
     let packages = Array(rootManifests.keys)
     let input = PackageGraphRootInput(packages: packages, traitConfiguration: traitConfiguration)
-    let graphRoot = PackageGraphRoot(
+    let graphRoot = try PackageGraphRoot(
         input: input,
         manifests: rootManifests,
         explicitProduct: explicitProduct,

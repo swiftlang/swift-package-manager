@@ -142,6 +142,7 @@ public struct FileSystemPackageContainer: PackageContainer {
         }
         let manifest = try await loadManifest()
         guard manifest.packageKind.isRoot else {
+            // TODO: bp throw?
             return []
         }
         let enabledTraits = try manifest.enabledTraits2(using: traitConfiguration)

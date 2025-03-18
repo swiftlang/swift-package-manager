@@ -11,22 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 /// The trait configuration.
-//public struct TraitConfiguration: Codable, Hashable {
-//    /// The traits to enable for the package.
-//    package var enabledTraits: Set<String>?
-//
-//    /// Enables all traits of the package.
-//    package var enableAllTraits: Bool
-//
-//    public init(
-//        enabledTraits: Set<String>? = nil,
-//        enableAllTraits: Bool = false
-//    ) {
-//        self.enabledTraits = enabledTraits
-//        self.enableAllTraits = enableAllTraits
-//    }
-//}
-
 public enum TraitConfiguration: Codable, Hashable {
     case enableAllTraits
     case noConfiguration
@@ -78,6 +62,29 @@ public enum TraitConfiguration: Codable, Hashable {
         }
 
         return false
+    }
+
+    public var enablesDefaultTraits: Bool {
+        switch self {
+        case .enabledTraits(let traits):
+            return traits.contains("default")
+        case .noConfiguration, .enableAllTraits:
+            return true
+        case .noEnabledTraits:
+            return false
+        }
+    }
+
+    public var enablesNonDefaultTraits: Bool {
+        switch self {
+        case .enabledTraits(let traits):
+            let traitsWithoutDefault = traits.subtracting(["default"])
+            return !traitsWithoutDefault.isEmpty
+        case .enableAllTraits:
+            return true
+        case .noConfiguration, .noEnabledTraits:
+            return false
+        }
     }
 
 //    public var enablesDefaultTraits: Bool {

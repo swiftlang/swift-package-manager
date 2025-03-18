@@ -313,14 +313,17 @@ final class TraitTests: XCTestCase {
         }
     }
 
-    func testPackageDisablinDefaultsTrait_whenNoTraits() async throws {
+    func testPackageDisablingDefaultsTrait_whenNoTraits() async throws {
         try await fixture(name: "Traits") { fixturePath in
             do {
-                let _ = try await executeSwiftRun(
+                let (stdout, stderr) = try await executeSwiftRun(
                     fixturePath.appending("DisablingEmptyDefaultsExample"),
-                    "DisablingEmptyDefaultsExample"
+                    "DisablingEmptyDefaultsExample",
+                    extraArgs: ["--experimental-prune-unused-dependencies"]
                 )
+                print("noop")
             } catch let error as SwiftPMError {
+                // TODO: bp this isn't being hit
                 switch error {
                 case .packagePathNotFound:
                     throw error

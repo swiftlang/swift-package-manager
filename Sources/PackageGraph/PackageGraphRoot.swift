@@ -49,6 +49,7 @@ public struct PackageGraphRoot {
         return self.packages.compactMapValues { $0.manifest }
     }
 
+    /// The root manifest(s)'s enabled traits (and their transitively enabled traits).
     public var enabledTraits: [PackageIdentity: Set<String>]
 
     /// The root package references.
@@ -94,7 +95,7 @@ public struct PackageGraphRoot {
         explicitProduct: String? = nil,
         dependencyMapper: DependencyMapper? = nil,
         observabilityScope: ObservabilityScope
-    ) {
+    ) throws {
         self.packages = input.packages.reduce(into: .init(), { partial, inputPath in
             if let manifest = manifests[inputPath]  {
                 let packagePath = manifest.path.parentDirectory
@@ -103,24 +104,18 @@ public struct PackageGraphRoot {
             }
         })
 
+        // Calculate the enabled traits for root.
         var enableTraitsMap: [PackageIdentity: Set<String>] = [:]
-        do {
-            // Calculate the enabled traits for root.
-            enableTraitsMap = try packages.reduce(into: [PackageIdentity: Set<String>]()) { traitsMap, package in
-                let manifest = package.value.manifest
-                let traitConfiguration = input.traitConfiguration
+        enableTraitsMap = try packages.reduce(into: [PackageIdentity: Set<String>]()) { traitsMap, package in
+            let manifest = package.value.manifest
+            let traitConfiguration = input.traitConfiguration
 
-                // Should only ever have to use trait configuration here.
-//                let enabledTraits = try manifest.enabledTraits(using: traitConfiguration.enabledTraits, enableAllTraits: traitConfiguration.enableAllTraits)
-                let enabledTraits = try manifest.enabledTraits2(using: traitConfiguration)
-
-                traitsMap[package.key] = enabledTraits
-            }
-
-            self.enabledTraits = enableTraitsMap
-        } catch {
-            self.enabledTraits = [:]
+            // Should only ever have to use trait configuration here for roots.
+            let enabledTraits = try manifest.enabledTraits2(using: traitConfiguration)
+            traitsMap[package.key] = enabledTraits
         }
+
+        self.enabledTraits = enableTraitsMap
 
         // FIXME: Deprecate special casing once the manifest supports declaring used executable products.
         // Special casing explicit products like this is necessary to pass the test suite and satisfy backwards compatibility.
@@ -134,22 +129,19 @@ public struct PackageGraphRoot {
             // Check that the dependency is used in at least one of the manifests.
             // If not, then we can omit this dependency if pruning unused dependencies
             // is enabled.
-            return manifests.values.reduce(false) {
-                guard $1.pruneDependencies else { return $0 || true }
-//                if let isUsed = try? $1.isPackageDependencyUsed(dep, enabledTraits: input.traitConfiguration?.enabledTraits, enableAllTraits: input.traitConfiguration?.enableAllTraits ?? false) {
-//                    return $0 || isUsed
-//                }
-                let enabledTraits: Set<String>? = enableTraitsMap[$1.packageIdentity]
-                if let isUsed = try? $1.isPackageDependencyUsed(dep, enabledTraits: enabledTraits) {
-                    return $0 || isUsed
+            return manifests.values.reduce(false) { result, manifest in
+                guard manifest.pruneDependencies else { return true }
+                let enabledTraits: Set<String>? = enableTraitsMap[manifest.packageIdentity]
+                if let isUsed = try? manifest.isPackageDependencyUsed(dep, enabledTraits: enabledTraits) {
+                    return result || isUsed
                 }
+
                 return true
             }
         })
 
         if let explicitProduct {
             // FIXME: `dependenciesRequired` modifies manifests and prevents conversion of `Manifest` to a value type
-//            let deps = try? manifests.values.lazy.map({ try $0.dependenciesRequired(for: .everything, input.traitConfiguration.enabledTraits, enableAllTraits: input.traitConfiguration.enableAllTraits) }).flatMap({ $0 })
             let deps = try? manifests.values.lazy
                 .map({ manifest -> [PackageDependency] in
                     let enabledTraits: Set<String>? = enableTraitsMap[manifest.packageIdentity]
@@ -243,26 +235,22 @@ extension PackageDependency.Registry.Requirement {
 
 // TODO: bp to move to Manifest+Traits.swift file
 extension Manifest {
+    /// Calculates the set of all transitive traits that are enabled for this manifest using the passed set of
+    /// explicitly enabled traits and a flag that
+    /// determines whether all traits are enabled.
     public func enabledTraits2(using traitConfiguration: TraitConfiguration) throws -> Set<String>? {
         guard supportsTraits else {
-//            if var explicitTraits {
-//                explicitTraits.remove("default")
-//                if !explicitTraits.isEmpty {
-//                    throw TraitError.traitsNotSupported(
-//                        package: displayName,
-//                        explicitlyEnabledTraits: traits.map(\.name)
-//                    )
-//                }
-//            }
-            // if no defaults enabled AND enabled traits is not empty (minus default traits)
-            if var explicitTraits = traitConfiguration.enabledTraits {
-                explicitTraits.remove("default")
-                if !explicitTraits.isEmpty {
-                    throw TraitError.traitsNotSupported(
-                        package: displayName,
-                        explicitlyEnabledTraits: traits.map(\.name)
-                    )
-                }
+            // If this manifest does not support traits, but the passed configuration either
+            // disables default traits or enables non-default traits (i.e. traits that would
+            // not exist for this manifest) then we must throw an error.
+
+            if !traitConfiguration.enablesDefaultTraits && traitConfiguration.enablesNonDefaultTraits {
+                // TODO: bp add parent package to error message like in modulesgraph+loading.swift
+                // TODO: bp fix explicitlyEnabledTraits value passed here
+                throw TraitError.traitsNotSupported(
+                    package: displayName,
+                    explicitlyEnabledTraits: traits.map(\.name)
+                )
             }
 
             return nil

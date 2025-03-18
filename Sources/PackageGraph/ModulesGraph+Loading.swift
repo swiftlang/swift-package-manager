@@ -967,7 +967,6 @@ private func calculateEnabledTraits(
     }
 
     // explicitlyEnabledTraits != nil && !areDefaultsEnabled
-
     if let parentPackage, !(explictlyEnabledTraits == nil || areDefaultsEnabled) && !manifest.supportsTraits {
         // We throw an error when default traits are disabled for a package without any traits
         // This allows packages to initially move new API behind traits once.

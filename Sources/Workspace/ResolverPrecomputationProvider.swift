@@ -182,13 +182,9 @@ private struct LocalPackageContainer: PackageContainer {
             return []
         }
 
-//        let configurationEnabledTraits = traitConfiguration?.enabledTraits
-//        let enableAllTraits = traitConfiguration?.enableAllTraits ?? false
-
         if let version {
             switch dependency?.state {
             case .sourceControlCheckout(.version(version, revision: _)):
-//                return try manifest.enabledTraits2(using: configurationEnabledTraits, enableAllTraits: enableAllTraits) ?? []
                 return try manifest.enabledTraits2(using: traitConfiguration) ?? []
             case .registryDownload(version: version):
                 return try manifest.enabledTraits2(using: traitConfiguration) ?? []

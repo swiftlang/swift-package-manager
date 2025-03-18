@@ -286,7 +286,6 @@ public final class Manifest: Sendable {
             return dependencies
         }
         #else
-//        let explicitlyEnabledTraits: Set<String>? = try self.enabledTraits(using: enabledTraits, enableAllTraits: enableAllTraits)
 
         guard self.toolsVersion >= .v5_2 && !self.packageKind.isRoot else {
             var dependencies = self.dependencies
@@ -297,8 +296,6 @@ public final class Manifest: Sendable {
             }
             return dependencies
         }
-
-        // calculate explicitly enabled traits through config:
 
         // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
         if var dependencies = self._requiredDependencies[.nothing] {
@@ -764,10 +761,7 @@ extension Manifest {
         return allEnabledTraits.contains(trait.name)
     }
 
-    /// Calculates and returns a set of all enabled traits, beginning with a set of explicitly enabled traits (either
-    /// defined by default traits of
-    /// this manifest, or by a user-generated traits configuration) and determines which traits are transitively
-    /// enabled.
+    /// Calculates and returns a set of all enabled traits, beginning with a set of explicitly enabled traits (which can either be the default traits of a manifest, or a configuration of enabled traits determined from a user-generated trait configuration) and determines which traits are transitively enabled.
     public func calculateAllEnabledTraits(explictlyEnabledTraits: Set<String>?) throws -> Set<String> {
         // This the point where we flatten the enabled traits and resolve the recursive traits
         var enabledTraits = explictlyEnabledTraits ?? []
@@ -778,6 +772,19 @@ extension Manifest {
             if self.traits.first(where: { $0.name == trait }) == nil {
                 throw TraitError.invalidTrait(package: self.displayName, trait: trait)
             }
+        }
+
+        if !(explictlyEnabledTraits == nil || areDefaultsEnabled) && !self.supportsTraits {
+            // We throw an error when default traits are disabled for a package without any traits
+            // This allows packages to initially move new API behind traits once.
+//            throw ModuleError.disablingDefaultTraitsOnEmptyTraits(
+//                parentPackage: parentPackage,
+//                packageName: manifest.displayName
+//            )
+            throw TraitError.traitsNotSupported(
+                package: displayName,
+                explicitlyEnabledTraits: explictlyEnabledTraits?.map({ $0 }) ?? []
+            )
         }
 
         // We have to enable all default traits if no traits are enabled or the defaults are explicitly enabled
