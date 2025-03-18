@@ -81,6 +81,12 @@ public struct ToolsVersion {
 
     /// The patch version.
     public let patch: Int
+    
+    @_spi(PackagePluginInternal) public init(major: Int, minor: Int, patch: Int) {
+        self.major = major
+        self.minor = minor
+        self.patch = patch
+    }
 }
 
 /// Represents a resolved dependency of a package on another package. This is a
@@ -474,7 +480,7 @@ public struct SystemLibraryTarget: Target {
 public struct FileList {
     private var files: [File]
 
-    init(_ files: [File]) {
+    @_spi(PackagePluginInternal) public init(_ files: [File]) {
         self.files = files
     }
 }
@@ -510,7 +516,9 @@ extension FileList: RandomAccessCollection {
 public struct File {
     /// The path of the file.
     @available(_PackageDescription, deprecated: 6.0, renamed: "url")
-    public let path: Path
+    public var path: Path {
+        return try! Path(url: url)
+    }
 
     /// The path of the file.
     @available(_PackageDescription, introduced: 6.0)
@@ -518,6 +526,11 @@ public struct File {
 
     /// File type, as determined by SwiftPM.
     public let type: FileType
+
+    @_spi(PackagePluginInternal) public init(url: URL, type: FileType) {
+        self.url = url
+        self.type = type
+    }
 }
 
 /// Provides information about the type of a file. Any future cases will
@@ -536,3 +549,33 @@ public enum FileType {
     /// A file not covered by any other rule.
     case unknown
 }
+
+/// Provides information about a list of paths. The order is not defined
+/// but is guaranteed to be stable. This allows the implementation to be
+/// more efficient than a static path list.
+public struct PathList {
+    private var paths: [URL]
+
+    @_spi(PackagePluginInternal) public init(_ paths: [URL]) {
+        self.paths = paths
+    }
+}
+extension PathList: Sequence {
+    public struct Iterator: IteratorProtocol {
+        private var paths: ArraySlice<Path>
+        fileprivate init(paths: ArraySlice<Path>) {
+            self.paths = paths
+        }
+        mutating public func next() -> Path? {
+            guard let nextInfo = self.paths.popFirst() else {
+                return nil
+            }
+            return nextInfo
+        }
+    }
+    public func makeIterator() -> Iterator {
+        // FIXME: This iterator should be converted to URLs, too, but that doesn't seem to be possible without breaking source compatibility
+        return Iterator(paths: ArraySlice(self.paths.map { try! Path(url: $0) }))
+    }
+}
+

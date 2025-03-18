@@ -10,9 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import ArgumentParser
 import Basics
-import _Concurrency
 import Dispatch
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
@@ -44,10 +44,10 @@ import Musl
 import Bionic
 #endif
 
+import class Basics.AsyncProcess
 import func TSCBasic.exec
 import class TSCBasic.FileLock
 import protocol TSCBasic.OutputByteStream
-import class Basics.AsyncProcess
 import enum TSCBasic.ProcessEnv
 import enum TSCBasic.ProcessLockError
 import var TSCBasic.stderrStream
@@ -94,7 +94,7 @@ public protocol _SwiftCommand {
 
 extension _SwiftCommand {
     public var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
-        return .init()
+        .init()
     }
 }
 
@@ -196,7 +196,7 @@ public final class SwiftCommandState {
 
     /// Helper function to get package root or throw error if it is not found.
     public func getPackageRoot() throws -> AbsolutePath {
-        guard let packageRoot = packageRoot else {
+        guard let packageRoot else {
             throw StringError("Could not find \(Manifest.filename) in this directory or any of its parent directories.")
         }
         return packageRoot
@@ -204,13 +204,11 @@ public final class SwiftCommandState {
 
     /// Get the current workspace root object.
     public func getWorkspaceRoot(traitConfiguration: TraitConfiguration? = nil) throws -> PackageGraphRootInput {
-        let packages: [AbsolutePath]
-
-        if let workspace = options.locations.multirootPackageDataFile {
-            packages = try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope)
+        let packages: [AbsolutePath] = if let workspace = options.locations.multirootPackageDataFile {
+            try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope)
                 .load(workspace: workspace)
         } else {
-            packages = [try getPackageRoot()]
+            try [self.getPackageRoot()]
         }
 
         return PackageGraphRootInput(packages: packages, traitConfiguration: traitConfiguration)
@@ -227,6 +225,9 @@ public final class SwiftCommandState {
 
     /// Path to the shared configuration directory
     public let sharedConfigurationDirectory: AbsolutePath
+    
+    /// Path to the package manager's own resources directory.
+    public let packageManagerResourcesDirectory: AbsolutePath?
 
     /// Path to the cross-compilation Swift SDKs directory.
     public let sharedSwiftSDKsDirectory: AbsolutePath
@@ -299,7 +300,7 @@ public final class SwiftCommandState {
     }
 
     // marked internal for testing
-    internal init(
+    init(
         outputStream: OutputByteStream,
         options: GlobalOptions,
         toolWorkspaceConfiguration: ToolWorkspaceConfiguration,
@@ -314,7 +315,10 @@ public final class SwiftCommandState {
         self.environment = environment
         // first, bootstrap the observability system
         self.logLevel = options.logging.logLevel
-        self.observabilityHandler = SwiftCommandObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel)
+        self.observabilityHandler = SwiftCommandObservabilityHandler(
+            outputStream: outputStream,
+            logLevel: self.logLevel
+        )
         let observabilitySystem = ObservabilitySystem(self.observabilityHandler)
         let observabilityScope = observabilitySystem.topScope
         self.observabilityScope = observabilityScope
@@ -371,6 +375,17 @@ public final class SwiftCommandState {
                 warning: "`--experimental-swift-sdks-path` is deprecated and will be removed in a future version of SwiftPM. Use `--swift-sdks-path` instead."
             )
         }
+        
+        if let packageManagerResourcesDirectory = options.locations.packageManagerResourcesDirectory {
+            self.packageManagerResourcesDirectory = packageManagerResourcesDirectory
+        } else if let cwd = localFileSystem.currentWorkingDirectory {
+            self.packageManagerResourcesDirectory = try? AbsolutePath(validating: CommandLine.arguments[0], relativeTo: cwd)
+                .parentDirectory.parentDirectory.appending(components: ["share", "pm"])
+        } else {
+            self.packageManagerResourcesDirectory = try? AbsolutePath(validating: CommandLine.arguments[0])
+                .parentDirectory.parentDirectory.appending(components: ["share", "pm"])
+        }
+        
         self.sharedSwiftSDKsDirectory = try fileSystem.getSharedSwiftSDKsDirectory(
             explicitDirectory: options.locations.swiftSDKsDirectory ?? options.locations.deprecatedSwiftSDKsDirectory
         )
@@ -385,7 +400,8 @@ public final class SwiftCommandState {
         }
 
         if options.build.useExplicitModuleBuild && !options.build.useIntegratedSwiftDriver {
-            observabilityScope.emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
+            observabilityScope
+                .emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
         }
 
         if !options.build.architectures.isEmpty && options.build.customCompileTriple != nil {
@@ -423,7 +439,10 @@ public final class SwiftCommandState {
     }
 
     /// Returns the currently active workspace.
-    public func getActiveWorkspace(emitDeprecatedConfigurationWarning: Bool = false, traitConfiguration: TraitConfiguration? = nil) throws -> Workspace {
+    public func getActiveWorkspace(
+        emitDeprecatedConfigurationWarning: Bool = false,
+        traitConfiguration: TraitConfiguration? = nil
+    ) throws -> Workspace {
         if let workspace = _workspace {
             return workspace
         }
@@ -431,8 +450,9 @@ public final class SwiftCommandState {
         // Before creating the workspace, we need to acquire a lock on the build directory.
         try self.acquireLockIfNeeded()
 
-        if options.resolver.skipDependencyUpdate {
-            self.observabilityScope.emit(warning: "'--skip-update' option is deprecated and will be removed in a future release")
+        if self.options.resolver.skipDependencyUpdate {
+            self.observabilityScope
+                .emit(warning: "'--skip-update' option is deprecated and will be removed in a future release")
         }
 
         let delegate = self.workspaceDelegateProvider(
@@ -447,7 +467,7 @@ public final class SwiftCommandState {
                 scratchDirectory: self.scratchDirectory,
                 editsDirectory: self.getEditsDirectory(),
                 resolvedVersionsFile: self.getResolvedVersionsFile(),
-                localConfigurationDirectory: try self.getLocalConfigurationDirectory(),
+                localConfigurationDirectory: self.getLocalConfigurationDirectory(),
                 sharedConfigurationDirectory: self.sharedConfigurationDirectory,
                 sharedSecurityDirectory: self.sharedSecurityDirectory,
                 sharedCacheDirectory: self.sharedCacheDirectory,
@@ -465,14 +485,15 @@ public final class SwiftCommandState {
                 fingerprintCheckingMode: self.options.security.fingerprintCheckingMode,
                 signingEntityCheckingMode: self.options.security.signingEntityCheckingMode,
                 skipSignatureValidation: !self.options.security.signatureValidation,
-                sourceControlToRegistryDependencyTransformation: self.options.resolver.sourceControlToRegistryDependencyTransformation.workspaceConfiguration,
+                sourceControlToRegistryDependencyTransformation: self.options.resolver
+                    .sourceControlToRegistryDependencyTransformation.workspaceConfiguration,
                 defaultRegistry: self.options.resolver.defaultRegistryURL.flatMap {
                     // TODO: should supportsAvailability be a flag as well?
                     .init(url: $0, supportsAvailability: true)
                 },
                 manifestImportRestrictions: .none,
-                usePrebuilts: options.caching.usePrebuilts,
-                pruneDependencies: options.resolver.pruneDependencies,
+                usePrebuilts: self.options.caching.usePrebuilts,
+                pruneDependencies: self.options.resolver.pruneDependencies,
                 traitConfiguration: traitConfiguration
             ),
             cancellator: self.cancellator,
@@ -481,12 +502,14 @@ public final class SwiftCommandState {
             customManifestLoader: self.getManifestLoader(),
             delegate: delegate
         )
-        _workspace = workspace
-        _workspaceDelegate = delegate
+        self._workspace = workspace
+        self._workspaceDelegate = delegate
         return workspace
     }
 
-    public func getRootPackageInformation(traitConfiguration: TraitConfiguration? = nil) async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
+    public func getRootPackageInformation(traitConfiguration: TraitConfiguration? = nil) async throws
+        -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]])
+    {
         let workspace = try self.getActiveWorkspace(traitConfiguration: traitConfiguration)
         let root = try self.getWorkspaceRoot(traitConfiguration: traitConfiguration)
         let rootManifests = try await workspace.loadRootManifests(
@@ -497,15 +520,14 @@ public final class SwiftCommandState {
         var identities = [PackageIdentity: [PackageIdentity]]()
         var targets = [PackageIdentity: [String]]()
 
-        rootManifests.forEach {
-            let identity = PackageIdentity(path: $0.key)
-            identities[identity] = $0.value.dependencies.map(\.identity)
-            targets[identity] = $0.value.targets.map { $0.name.spm_mangledToC99ExtendedIdentifier() }
+        for rootManifest in rootManifests {
+            let identity = PackageIdentity(path: rootManifest.key)
+            identities[identity] = rootManifest.value.dependencies.map(\.identity)
+            targets[identity] = rootManifest.value.targets.map { $0.name.spm_mangledToC99ExtendedIdentifier() }
         }
 
         return (identities, targets)
     }
-
 
     private func getEditsDirectory() throws -> AbsolutePath {
         // TODO: replace multiroot-data-file with explicit overrides
@@ -518,12 +540,16 @@ public final class SwiftCommandState {
     private func getResolvedVersionsFile() throws -> AbsolutePath {
         // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
-            return multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", Workspace.DefaultLocations.resolvedFileName)
+            return multiRootPackageDataFile.appending(
+                components: "xcshareddata",
+                "swiftpm",
+                Workspace.DefaultLocations.resolvedFileName
+            )
         }
         return try Workspace.DefaultLocations.resolvedVersionsFile(forRootPackage: self.getPackageRoot())
     }
 
-    internal func getLocalConfigurationDirectory() throws -> AbsolutePath {
+    func getLocalConfigurationDirectory() throws -> AbsolutePath {
         // Otherwise, use the default path.
         // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
@@ -537,7 +563,7 @@ public final class SwiftCommandState {
             return try Workspace.migrateMirrorsConfiguration(
                 from: legacyPath,
                 to: newPath,
-                observabilityScope: observabilityScope
+                observabilityScope: self.observabilityScope
             )
         } else {
             // migrate from legacy location
@@ -546,14 +572,14 @@ public final class SwiftCommandState {
             return try Workspace.migrateMirrorsConfiguration(
                 from: legacyPath,
                 to: newPath,
-                observabilityScope: observabilityScope
+                observabilityScope: self.observabilityScope
             )
         }
     }
 
     public func getAuthorizationProvider() throws -> AuthorizationProvider? {
         var authorization = Workspace.Configuration.Authorization.default
-        if !options.security.netrc {
+        if !self.options.security.netrc {
             authorization.netrc = .disabled
         } else if let configuredPath = options.security.netrcFilePath {
             authorization.netrc = .custom(configuredPath)
@@ -598,7 +624,7 @@ public final class SwiftCommandState {
         try await workspace.resolve(
             root: root,
             forceResolution: false,
-            forceResolvedVersions: options.resolver.forceResolvedVersions,
+            forceResolvedVersions: self.options.resolver.forceResolvedVersions,
             observabilityScope: self.observabilityScope
         )
 
@@ -642,9 +668,9 @@ public final class SwiftCommandState {
 
             // Fetch and load the package graph.
             let graph = try await workspace.loadPackageGraph(
-                rootInput: getWorkspaceRoot(traitConfiguration: traitConfiguration),
+                rootInput: self.getWorkspaceRoot(traitConfiguration: traitConfiguration),
                 explicitProduct: explicitProduct,
-                forceResolvedVersions: options.resolver.forceResolvedVersions,
+                forceResolvedVersions: self.options.resolver.forceResolvedVersions,
                 testEntryPointPath: testEntryPointPath,
                 observabilityScope: self.observabilityScope
             )
@@ -678,15 +704,15 @@ public final class SwiftCommandState {
 
     /// Returns the user toolchain to compile the actual product.
     public func getTargetToolchain() throws -> UserToolchain {
-        try _targetToolchain.get()
+        try self._targetToolchain.get()
     }
 
     public func getHostToolchain() throws -> UserToolchain {
-        try _hostToolchain.get()
+        try self._hostToolchain.get()
     }
 
     func getManifestLoader() throws -> ManifestLoader {
-        try _manifestLoader.get()
+        try self._manifestLoader.get()
     }
 
     public func canUseCachedBuildManifest() async throws -> Bool {
@@ -739,7 +765,7 @@ public final class SwiftCommandState {
         productsParameters.linkingParameters.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
 
         let buildSystem = try await buildSystemProvider.createBuildSystem(
-            kind: explicitBuildSystem ?? options.build.buildSystem,
+            kind: explicitBuildSystem ?? self.options.build.buildSystem,
             explicitProduct: explicitProduct,
             traitConfiguration: traitConfiguration,
             cacheBuildManifest: cacheBuildManifest,
@@ -769,24 +795,24 @@ public final class SwiftCommandState {
         let triple = toolchain.targetTriple
 
         let dataPath = self.scratchDirectory.appending(
-            component: triple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
+            component: triple.platformBuildPathComponent(buildSystem: self.options.build.buildSystem)
         )
 
-        if options.build.getTaskAllowEntitlement != nil && !triple.isMacOSX {
-            observabilityScope.emit(warning: Self.entitlementsMacOSWarning)
+        if self.options.build.getTaskAllowEntitlement != nil && !triple.isMacOSX {
+            self.observabilityScope.emit(warning: Self.entitlementsMacOSWarning)
         }
 
         let prepareForIndexingMode: BuildParameters.PrepareForIndexingMode =
-            switch (prepareForIndexing, options.build.prepareForIndexingNoLazy) {
-                case (false, _): .off
-                case (true, false): .on
-                case (true, true): .noLazy
+            switch (prepareForIndexing, self.options.build.prepareForIndexingNoLazy) {
+            case (false, _): .off
+            case (true, false): .on
+            case (true, true): .noLazy
             }
 
         return try BuildParameters(
             destination: destination,
             dataPath: dataPath,
-            configuration: options.build.configuration ?? self.preferredBuildConfiguration,
+            configuration: self.options.build.configuration ?? self.preferredBuildConfiguration,
             toolchain: toolchain,
             triple: triple,
             flags: options.build.buildFlags,
@@ -798,11 +824,13 @@ public final class SwiftCommandState {
             indexStoreMode: options.build.indexStoreMode.buildParameter,
             prepareForIndexing: prepareForIndexingMode,
             debuggingParameters: .init(
-                debugInfoFormat: options.build.debugInfoFormat.buildParameter,
+                debugInfoFormat: self.options.build.debugInfoFormat.buildParameter,
                 triple: triple,
                 shouldEnableDebuggingEntitlement:
-                    options.build.getTaskAllowEntitlement ?? (options.build.configuration ?? self.preferredBuildConfiguration == .debug),
-                omitFramePointers: options.build.omitFramePointers
+                self.options.build
+                    .getTaskAllowEntitlement ??
+                    (self.options.build.configuration ?? self.preferredBuildConfiguration == .debug),
+                omitFramePointers: self.options.build.omitFramePointers
             ),
             driverParameters: .init(
                 canRenameEntrypointFunctionName: DriverSupport.checkSupportedFrontendFlags(
@@ -810,26 +838,28 @@ public final class SwiftCommandState {
                     toolchain: toolchain,
                     fileSystem: self.fileSystem
                 ),
-                enableParseableModuleInterfaces: options.build.shouldEnableParseableModuleInterfaces,
-                explicitTargetDependencyImportCheckingMode: options.build.explicitTargetDependencyImportCheck.modeParameter,
-                useIntegratedSwiftDriver: options.build.useIntegratedSwiftDriver,
-                useExplicitModuleBuild: options.build.useExplicitModuleBuild,
+                enableParseableModuleInterfaces: self.options.build.shouldEnableParseableModuleInterfaces,
+                explicitTargetDependencyImportCheckingMode: self.options.build.explicitTargetDependencyImportCheck
+                    .modeParameter,
+                useIntegratedSwiftDriver: self.options.build.useIntegratedSwiftDriver,
+                useExplicitModuleBuild: self.options.build.useExplicitModuleBuild,
                 isPackageAccessModifierSupported: DriverSupport.isPackageNameSupported(
                     toolchain: toolchain,
                     fileSystem: self.fileSystem
                 )
             ),
             linkingParameters: .init(
-                linkerDeadStrip: options.linker.linkerDeadStrip,
-                linkTimeOptimizationMode: options.build.linkTimeOptimizationMode?.buildParameter,
-                shouldDisableLocalRpath: options.linker.shouldDisableLocalRpath
+                linkerDeadStrip: self.options.linker.linkerDeadStrip,
+                linkTimeOptimizationMode: self.options.build.linkTimeOptimizationMode?.buildParameter,
+                shouldDisableLocalRpath: self.options.linker.shouldDisableLocalRpath
             ),
             outputParameters: .init(
                 isVerbose: self.logLevel <= .info
             ),
             testingParameters: .init(
-                forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
-                testEntryPointPath: options.build.testEntryPointPath
+                forceTestDiscovery: self.options.build.enableTestDiscovery,
+                // backwards compatibility, remove with --enable-test-discovery
+                testEntryPointPath: self.options.build.testEntryPointPath
             )
         )
     }
@@ -837,28 +867,28 @@ public final class SwiftCommandState {
     /// Return the build parameters for the host toolchain.
     public var toolsBuildParameters: BuildParameters {
         get throws {
-            try _toolsBuildParameters.get()
+            try self._toolsBuildParameters.get()
         }
     }
 
-    private lazy var _toolsBuildParameters: Result<BuildParameters, Swift.Error> = {
-        Result(catching: {
-            // Tools need to do a full build
-            try _buildParams(toolchain: self.getHostToolchain(), destination: .host, prepareForIndexing: false)
-        })
-    }()
+    private lazy var _toolsBuildParameters: Result<BuildParameters, Swift.Error> = Result(catching: {
+        // Tools need to do a full build
+        try self._buildParams(toolchain: self.getHostToolchain(), destination: .host, prepareForIndexing: false)
+    })
 
     public var productsBuildParameters: BuildParameters {
         get throws {
-            try _productsBuildParameters.get()
+            try self._productsBuildParameters.get()
         }
     }
 
-    private lazy var _productsBuildParameters: Result<BuildParameters, Swift.Error> = {
-        Result(catching: {
-            try _buildParams(toolchain: self.getTargetToolchain(), destination: .target, prepareForIndexing: options.build.prepareForIndexing)
-        })
-    }()
+    private lazy var _productsBuildParameters: Result<BuildParameters, Swift.Error> = Result(catching: {
+        try self._buildParams(
+            toolchain: self.getTargetToolchain(),
+            destination: .target,
+            prepareForIndexing: self.options.build.prepareForIndexing
+        )
+    })
 
     /// Lazily compute the target toolchain.z
     private lazy var _targetToolchain: Result<UserToolchain, Swift.Error> = {
@@ -866,15 +896,15 @@ public final class SwiftCommandState {
         let hostSwiftSDK: SwiftSDK
         let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: self.sharedSwiftSDKsDirectory,
-            fileSystem: fileSystem,
-            observabilityScope: observabilityScope,
+            fileSystem: self.fileSystem,
+            observabilityScope: self.observabilityScope,
             outputHandler: { print($0.description) }
         )
         do {
             let hostToolchain = try _hostToolchain.get()
             hostSwiftSDK = hostToolchain.swiftSDK
 
-            if options.build.deprecatedSwiftSDKSelector != nil {
+            if self.options.build.deprecatedSwiftSDKSelector != nil {
                 self.observabilityScope.emit(
                     warning: "`--experimental-swift-sdk` is deprecated and will be removed in a future version of SwiftPM. Use `--swift-sdk` instead."
                 )
@@ -882,13 +912,13 @@ public final class SwiftCommandState {
             swiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostToolchain.targetTriple,
-                customToolsets: options.locations.toolsetPaths,
-                customCompileDestination: options.locations.customCompileDestination,
-                customCompileTriple: options.build.customCompileTriple,
-                customCompileToolchain: options.build.customCompileToolchain,
-                customCompileSDK: options.build.customCompileSDK,
-                swiftSDKSelector: options.build.swiftSDKSelector ?? options.build.deprecatedSwiftSDKSelector,
-                architectures: options.build.architectures,
+                customToolsets: self.options.locations.toolsetPaths,
+                customCompileDestination: self.options.locations.customCompileDestination,
+                customCompileTriple: self.options.build.customCompileTriple,
+                customCompileToolchain: self.options.build.customCompileToolchain,
+                customCompileSDK: self.options.build.customCompileSDK,
+                swiftSDKSelector: self.options.build.swiftSDKSelector ?? self.options.build.deprecatedSwiftSDKSelector,
+                architectures: self.options.build.architectures,
                 store: store,
                 observabilityScope: self.observabilityScope,
                 fileSystem: self.fileSystem
@@ -907,52 +937,51 @@ public final class SwiftCommandState {
     }()
 
     /// Lazily compute the host toolchain used to compile the package description.
-    private lazy var _hostToolchain: Result<UserToolchain, Swift.Error> = {
-        return Result(catching: {
-            var hostSwiftSDK = try SwiftSDK.hostSwiftSDK(
-                environment: self.environment,
-                observabilityScope: self.observabilityScope
-            )
-            hostSwiftSDK.targetTriple = self.hostTriple
+    private lazy var _hostToolchain: Result<UserToolchain, Swift.Error> = Result(catching: {
+        var hostSwiftSDK = try SwiftSDK.hostSwiftSDK(
+            environment: self.environment,
+            observabilityScope: self.observabilityScope
+        )
+        hostSwiftSDK.targetTriple = self.hostTriple
 
-            return try UserToolchain(
-                swiftSDK: hostSwiftSDK,
-                environment: self.environment,
-                fileSystem: self.fileSystem
-            )
-        })
-    }()
+        return try UserToolchain(
+            swiftSDK: hostSwiftSDK,
+            environment: self.environment,
+            fileSystem: self.fileSystem
+        )
+    })
 
-    private lazy var _manifestLoader: Result<ManifestLoader, Swift.Error> = {
-        return Result(catching: {
-            let cachePath: AbsolutePath?
-            switch (self.options.caching.shouldDisableManifestCaching, self.options.caching.manifestCachingMode) {
-            case (true, _):
-                // backwards compatibility
-                cachePath = .none
-            case (false, .none):
-                cachePath = .none
-            case (false, .local):
-                cachePath = self.scratchDirectory
-            case (false, .shared):
-                cachePath = Workspace.DefaultLocations.manifestsDirectory(at: self.sharedCacheDirectory)
-            }
+    private lazy var _manifestLoader: Result<ManifestLoader, Swift.Error> = Result(catching: {
+        let cachePath: AbsolutePath? = switch (
+            self.options.caching.shouldDisableManifestCaching,
+            self.options.caching.manifestCachingMode
+        ) {
+        case (true, _):
+            // backwards compatibility
+            .none
+        case (false, .none):
+            .none
+        case (false, .local):
+            self.scratchDirectory
+        case (false, .shared):
+            Workspace.DefaultLocations.manifestsDirectory(at: self.sharedCacheDirectory)
+        }
 
-            var extraManifestFlags = self.options.build.manifestFlags
-            if self.logLevel <= .info {
-                extraManifestFlags.append("-v")
-            }
+        var extraManifestFlags = self.options.build.manifestFlags
+        if self.logLevel <= .info {
+            extraManifestFlags.append("-v")
+        }
 
-            return try ManifestLoader(
-                // Always use the host toolchain's resources for parsing manifest.
-                toolchain: self.getHostToolchain(),
-                isManifestSandboxEnabled: !self.shouldDisableSandbox,
-                cacheDir: cachePath,
-                extraManifestFlags: extraManifestFlags,
-                importRestrictions: .none
-            )
-        })
-    }()
+        return try ManifestLoader(
+            // Always use the host toolchain's resources for parsing manifest.
+            toolchain: self.getHostToolchain(),
+            isManifestSandboxEnabled: !self.shouldDisableSandbox,
+            cacheDir: cachePath,
+            extraManifestFlags: extraManifestFlags,
+            importRestrictions: .none,
+            pruneDependencies: self.options.resolver.pruneDependencies
+        )
+    })
 
     /// An enum indicating the execution status of run commands.
     public enum ExecutionStatus {
@@ -974,32 +1003,46 @@ public final class SwiftCommandState {
     private var workspaceLock: FileLock?
 
     fileprivate func setNeedsLocking() {
-        assert(workspaceLockState == .unspecified, "attempting to `setNeedsLocking()` from unexpected state: \(workspaceLockState)")
-        workspaceLockState = .needsLocking
+        assert(
+            self.workspaceLockState == .unspecified,
+            "attempting to `setNeedsLocking()` from unexpected state: \(self.workspaceLockState)"
+        )
+        self.workspaceLockState = .needsLocking
     }
 
-    fileprivate func acquireLockIfNeeded() throws {
-        guard packageRoot != nil else {
+    private func acquireLockIfNeeded() throws {
+        guard self.packageRoot != nil else {
             return
         }
-        assert(workspaceLockState == .needsLocking, "attempting to `acquireLockIfNeeded()` from unexpected state: \(workspaceLockState)")
+        assert(
+            self.workspaceLockState == .needsLocking,
+            "attempting to `acquireLockIfNeeded()` from unexpected state: \(self.workspaceLockState)"
+        )
         guard workspaceLock == nil else {
             throw InternalError("acquireLockIfNeeded() called multiple times")
         }
-        workspaceLockState = .locked
+        self.workspaceLockState = .locked
 
         let workspaceLock = try FileLock.prepareLock(fileToLock: self.scratchDirectory)
 
         // Try a non-blocking lock first so that we can inform the user about an already running SwiftPM.
         do {
             try workspaceLock.lock(type: .exclusive, blocking: false)
-        } catch let ProcessLockError.unableToAquireLock(errno) {
+        } catch ProcessLockError.unableToAquireLock(let errno) {
             if errno == EWOULDBLOCK {
                 if self.options.locations.ignoreLock {
-                    self.outputStream.write("Another instance of SwiftPM is already running using '\(self.scratchDirectory)', but this will be ignored since `--ignore-lock` has been passed".utf8)
+                    self.outputStream
+                        .write(
+                            "Another instance of SwiftPM is already running using '\(self.scratchDirectory)', but this will be ignored since `--ignore-lock` has been passed"
+                                .utf8
+                        )
                     self.outputStream.flush()
                 } else {
-                    self.outputStream.write("Another instance of SwiftPM is already running using '\(self.scratchDirectory)', waiting until that process has finished execution...".utf8)
+                    self.outputStream
+                        .write(
+                            "Another instance of SwiftPM is already running using '\(self.scratchDirectory)', waiting until that process has finished execution..."
+                                .utf8
+                        )
                     self.outputStream.flush()
 
                     // Only if we fail because there's an existing lock we need to acquire again as blocking.
@@ -1013,10 +1056,13 @@ public final class SwiftCommandState {
 
     fileprivate func releaseLockIfNeeded() {
         // Never having acquired the lock is not an error case.
-        assert(workspaceLockState == .locked || workspaceLockState == .needsLocking, "attempting to `releaseLockIfNeeded()` from unexpected state: \(workspaceLockState)")
-        workspaceLockState = .unlocked
+        assert(
+            self.workspaceLockState == .locked || self.workspaceLockState == .needsLocking,
+            "attempting to `releaseLockIfNeeded()` from unexpected state: \(self.workspaceLockState)"
+        )
+        self.workspaceLockState = .unlocked
 
-        workspaceLock?.unlock()
+        self.workspaceLock?.unlock()
     }
 }
 
@@ -1128,13 +1174,13 @@ extension Workspace.ManagedDependency {
 extension LoggingOptions {
     fileprivate var logLevel: Diagnostic.Severity {
         if self.verbose {
-            return .info
+            .info
         } else if self.veryVerbose {
-            return .debug
+            .debug
         } else if self.quiet {
-            return .error
+            .error
         } else {
-            return .warning
+            .warning
         }
     }
 }
@@ -1143,11 +1189,11 @@ extension ResolverOptions.SourceControlToRegistryDependencyTransformation {
     fileprivate var workspaceConfiguration: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation {
         switch self {
         case .disabled:
-            return .disabled
+            .disabled
         case .identity:
-            return .identity
+            .identity
         case .swizzle:
-            return .swizzle
+            .swizzle
         }
     }
 }
@@ -1156,11 +1202,11 @@ extension BuildOptions.StoreMode {
     fileprivate var buildParameter: BuildParameters.IndexStoreMode {
         switch self {
         case .autoIndexStore:
-            return .auto
+            .auto
         case .enableIndexStore:
-            return .on
+            .on
         case .disableIndexStore:
-            return .off
+            .off
         }
     }
 }
@@ -1169,11 +1215,11 @@ extension BuildOptions.TargetDependencyImportCheckingMode {
     fileprivate var modeParameter: BuildParameters.TargetDependencyImportCheckingMode {
         switch self {
         case .none:
-            return .none
+            .none
         case .warn:
-            return .warn
+            .warn
         case .error:
-            return .error
+            .error
         }
     }
 }
@@ -1182,9 +1228,9 @@ extension BuildOptions.LinkTimeOptimizationMode {
     fileprivate var buildParameter: BuildParameters.LinkTimeOptimizationMode? {
         switch self {
         case .full:
-            return .full
+            .full
         case .thin:
-            return .thin
+            .thin
         }
     }
 }
@@ -1193,11 +1239,11 @@ extension BuildOptions.DebugInfoFormat {
     fileprivate var buildParameter: BuildParameters.DebugInfoFormat {
         switch self {
         case .dwarf:
-            return .dwarf
+            .dwarf
         case .codeview:
-            return .codeview
+            .codeview
         case .none:
-            return .none
+            .none
         }
     }
 }
