@@ -29,7 +29,7 @@ import struct SPMBuildCore.BuildParameters
 import TSCTestSupport
 import Workspace
 import func XCTest.XCTFail
-import func XCTest.XCTSkip
+import struct XCTest.XCTSkip
 
 import struct TSCBasic.ByteString
 import struct Basics.AsyncProcessResult
