@@ -6,7 +6,7 @@ Here are some steps the worked running on Windows.
 2. Launch a `Powershell.exe` session
 3. Run the following in power shell to start a container running the nightly toolchain
     ```
-    docker run --rm --interactive --tty swiftlang/swift:nightly-main-windowsservercore-1809 powershell.exe
+    docker run --pull always --rm --interactive --tty swiftlang/swift:nightly-main-windowsservercore-1809 powershell.exe
     ```
 4. When the container start, clone the "merged" PR to `C:\source`
     ```
@@ -20,5 +20,5 @@ Here are some steps the worked running on Windows.
     ```
 5. Run the CI pipeline script
     ```
-    python C:\source\Utilities\build-using-self
+    python C:\source\Utilities\build-using-self  --enable-swift-testing --enable-xctest
     ```
