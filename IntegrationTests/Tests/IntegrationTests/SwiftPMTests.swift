@@ -69,6 +69,8 @@ final class SwiftPMTests: XCTestCase {
             }
         }
 
+        #if !os(Windows)
+        // SWBINTTODO: Windows fails to link this library package due to a "lld-link: error: subsystem must be defined" error. See https://github.com/swiftlang/swift-build/issues/310
         do {
             try withTemporaryDirectory { tmpDir in
                 let packagePath = tmpDir.appending(component: "foo")
@@ -79,6 +81,7 @@ final class SwiftPMTests: XCTestCase {
                 //try sh(swiftTest, "--package-path", packagePath, "--build-system", "swiftbuild")
             }
         }
+        #endif
     }
 
     func testArchCustomization() throws {
