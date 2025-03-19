@@ -12,8 +12,6 @@
 
 import enum Dispatch.DispatchTimeInterval
 
-extension DispatchTimeInterval: @unchecked Sendable {}
-
 /// This typealias hides `DispatchTimeInterval` as an implementation detail until we can use `Swift.Duration`, as the
 /// latter requires macOS 13.
 public typealias SendableTimeInterval = DispatchTimeInterval
