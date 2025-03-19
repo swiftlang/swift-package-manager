@@ -419,8 +419,7 @@ extension Workspace {
             package: package.identity,
             version: version,
             observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent,
-            callbackQueue: .sharedConcurrent
+            delegateQueue: .sharedConcurrent
         )
 
         // Record the new state.
