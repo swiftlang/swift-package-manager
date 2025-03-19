@@ -114,22 +114,21 @@ def set_environment(*, swiftpm_bin_dir: pathlib.Path,) -> None:
 
 
 def run_bootstrap(swiftpm_bin_dir: pathlib.Path) -> None:
-    if is_on_darwin():
-        logging.info("Current working directory is %s", pathlib.Path.cwd())
-        logging.info("Bootstrapping with the XCBuild codepath...")
-        call(
-            [
-                REPO_ROOT_PATH / "Utilities" / "bootstrap",
-                "build",
-                "--release",
-                "--verbose",
-                "--cross-compile-hosts",
-                "macosx-arm64",
-                "--skip-cmake-bootstrap",
-                "--swift-build-path",
-                (swiftpm_bin_dir / "swift-build").resolve(),
-            ],
-        )
+    logging.info("Current working directory is %s", pathlib.Path.cwd())
+    logging.info("Bootstrapping with the XCBuild codepath...")
+    call(
+        [
+            REPO_ROOT_PATH / "Utilities" / "bootstrap",
+            "build",
+            "--release",
+            "--verbose",
+            "--cross-compile-hosts",
+            "macosx-arm64",
+            "--skip-cmake-bootstrap",
+            "--swift-build-path",
+            (swiftpm_bin_dir / "swift-build").resolve(),
+        ],
+    )
 
 
 def main() -> None:
@@ -171,7 +170,9 @@ def main() -> None:
             ),
         )
 
-    run_bootstrap(swiftpm_bin_dir=swiftpm_bin_dir)
+    if is_on_darwin():
+        run_bootstrap(swiftpm_bin_dir=swiftpm_bin_dir)
+    logging.info("Done")
 
 
 if __name__ == "__main__":
