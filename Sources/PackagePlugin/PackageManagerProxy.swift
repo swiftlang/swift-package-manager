@@ -62,6 +62,12 @@ public struct PackageManager {
         /// Whether to print build logs to the console
         public var echoLogs: Bool
 
+        /// Whether to print build progress to the console
+        ///
+        /// If this is set to true, `BuildResult.logText` will not contain any
+        /// progress information.
+        public var progressToConsole: Bool
+
         /// Additional flags to pass to all C compiler invocations.
         public var otherCFlags: [String] = []
 
@@ -77,11 +83,13 @@ public struct PackageManager {
         public init(
             configuration: BuildConfiguration = .debug,
             logging: BuildLogVerbosity = .concise,
-            echoLogs: Bool = false
+            echoLogs: Bool = false,
+            progressToConsole: Bool = false
         ) {
             self.configuration = configuration
             self.logging = logging
             self.echoLogs = echoLogs
+            self.progressToConsole = progressToConsole
         }
     }
 
@@ -331,6 +339,7 @@ extension PluginToHostMessage.BuildParameters {
         self.configuration = .init(parameters.configuration)
         self.logging = .init(parameters.logging)
         self.echoLogs = parameters.echoLogs
+        self.progressToConsole = parameters.progressToConsole
         self.otherCFlags = parameters.otherCFlags
         self.otherCxxFlags = parameters.otherCxxFlags
         self.otherSwiftcFlags = parameters.otherSwiftcFlags

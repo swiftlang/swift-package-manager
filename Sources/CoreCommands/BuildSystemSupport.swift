@@ -33,6 +33,7 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
         toolsBuildParameters: BuildParameters?,
         packageGraphLoader: (() async throws -> ModulesGraph)?,
         outputStream: OutputByteStream?,
+        progressOutputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?
     ) async throws -> any BuildSystem {
@@ -64,6 +65,7 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
             additionalFileRules: FileRuleDescription.swiftpmFileTypes,
             pkgConfigDirectories: self.swiftCommandState.options.locations.pkgConfigDirectories,
             outputStream: outputStream ?? self.swiftCommandState.outputStream,
+            progressOutputStream: progressOutputStream ?? self.swiftCommandState.outputStream,
             logLevel: logLevel ?? self.swiftCommandState.logLevel,
             fileSystem: self.swiftCommandState.fileSystem,
             observabilityScope: observabilityScope ?? self.swiftCommandState.observabilityScope)
@@ -81,6 +83,7 @@ private struct XcodeBuildSystemFactory: BuildSystemFactory {
         toolsBuildParameters: BuildParameters?,
         packageGraphLoader: (() async throws -> ModulesGraph)?,
         outputStream: OutputByteStream?,
+        progressOutputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?
     ) throws -> any BuildSystem {
@@ -111,6 +114,7 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
         toolsBuildParameters: BuildParameters?,
         packageGraphLoader: (() async throws -> ModulesGraph)?,
         outputStream: OutputByteStream?,
+        progressOutputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?
     ) throws -> any BuildSystem {

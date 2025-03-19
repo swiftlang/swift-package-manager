@@ -372,6 +372,7 @@ enum PluginToHostMessage: Codable {
                 case concise, verbose, debug
             }
             var echoLogs: Bool
+            var progressToConsole: Bool
             var otherCFlags: [String]
             var otherCxxFlags: [String]
             var otherSwiftcFlags: [String]

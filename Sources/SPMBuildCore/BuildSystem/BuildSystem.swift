@@ -121,6 +121,7 @@ public protocol BuildSystemFactory {
         toolsBuildParameters: BuildParameters?,
         packageGraphLoader: (() async throws -> ModulesGraph)?,
         outputStream: OutputByteStream?,
+        progressOutputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?
     ) async throws -> any BuildSystem
@@ -149,6 +150,7 @@ public struct BuildSystemProvider {
         toolsBuildParameters: BuildParameters? = .none,
         packageGraphLoader: (() async throws -> ModulesGraph)? = .none,
         outputStream: OutputByteStream? = .none,
+        progressOutputStream: OutputByteStream? = .none,
         logLevel: Diagnostic.Severity? = .none,
         observabilityScope: ObservabilityScope? = .none
     ) async throws -> any BuildSystem {
@@ -163,6 +165,7 @@ public struct BuildSystemProvider {
             toolsBuildParameters: toolsBuildParameters,
             packageGraphLoader: packageGraphLoader,
             outputStream: outputStream,
+            progressOutputStream: progressOutputStream,
             logLevel: logLevel,
             observabilityScope: observabilityScope
         )
