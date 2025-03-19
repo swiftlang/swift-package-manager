@@ -717,7 +717,8 @@ extension Workspace {
                     let calculatedTraits = try manifest.calculateAllEnabledTraits(
 //                        parentPackage: node.item.identity,
 //                        identity: dependency.identity,
-                        explictlyEnabledTraits: explicitlyEnabledTraits.flatMap { Set($0) }
+                        explictlyEnabledTraits: explicitlyEnabledTraits.flatMap { Set($0) },
+                        node.item.identity.description
                     )
 
                     return manifest.canonicalPackageLocation == dependency.packageRef.canonicalLocation ?

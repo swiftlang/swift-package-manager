@@ -206,7 +206,6 @@ public final class Manifest: Sendable {
         }
 
         let traitGuardedDeps = self.traitGuardedDependencies(lowercasedKeys: true)
-//        let explicitlyEnabledTraits = try? self.enabledTraits(using: enabledTraits, enableAllTraits: enableAllTraits)
         guard self.toolsVersion >= .v5_2 && !self.packageKind.isRoot else {
             let deps = self.dependencies.filter({
                 if let guardTraits = traitGuardedDeps[$0.identity.description]?.values.flatMap({ $0 }),
@@ -762,7 +761,10 @@ extension Manifest {
     }
 
     /// Calculates and returns a set of all enabled traits, beginning with a set of explicitly enabled traits (which can either be the default traits of a manifest, or a configuration of enabled traits determined from a user-generated trait configuration) and determines which traits are transitively enabled.
-    public func calculateAllEnabledTraits(explictlyEnabledTraits: Set<String>?) throws -> Set<String> {
+    public func calculateAllEnabledTraits(
+        explictlyEnabledTraits: Set<String>?,
+        _ parentPackage: String? = nil
+    ) throws -> Set<String> {
         // This the point where we flatten the enabled traits and resolve the recursive traits
         var enabledTraits = explictlyEnabledTraits ?? []
         let areDefaultsEnabled = enabledTraits.remove("default") != nil
@@ -777,11 +779,8 @@ extension Manifest {
         if !(explictlyEnabledTraits == nil || areDefaultsEnabled) && !self.supportsTraits {
             // We throw an error when default traits are disabled for a package without any traits
             // This allows packages to initially move new API behind traits once.
-//            throw ModuleError.disablingDefaultTraitsOnEmptyTraits(
-//                parentPackage: parentPackage,
-//                packageName: manifest.displayName
-//            )
             throw TraitError.traitsNotSupported(
+                parentPackage: parentPackage,
                 package: displayName,
                 explicitlyEnabledTraits: explictlyEnabledTraits?.map({ $0 }) ?? []
             )
@@ -840,10 +839,7 @@ extension Manifest {
     }
 
     /// Computes the set of package dependencies that are used by targets of this manifest.
-    public func usedDependencies(
-        withTraits enabledTraits: Set<String>?,
-        enableAllTraits: Bool = false
-    ) throws -> (knownPackage: Set<String>, unknownPackage: Set<String>) {
+    public func usedDependencies(withTraits enabledTraits: Set<String>?) throws -> (knownPackage: Set<String>, unknownPackage: Set<String>) {
         let deps = try self.usedTargetDependencies(withTraits: enabledTraits)
         .values
         .flatMap { $0 }
@@ -936,6 +932,7 @@ public indirect enum TraitError: Swift.Error {
     /// Indicates that the manifest does not support traits, yet a method was called with a configuration of enabled
     /// traits.
     case traitsNotSupported(
+        parentPackage: String?,
         package: String,
         explicitlyEnabledTraits: [String]
     )
@@ -955,15 +952,29 @@ extension TraitError: CustomStringConvertible {
                     " The available traits defined for this package are: \(availableTraits.joined(separator: ", "))."
             }
             return errorMsg
-        case .traitsNotSupported(let package, let explicitlyEnabledTraits):
-            return """
-            Package \(
-                package
-            ) does not have any available traits defined, yet an explicit configuration of enabled traits were provided: \(
-                explicitlyEnabledTraits
-                    .joined(separator: ", ")
-            ).
+        case .traitsNotSupported(let parentPackage, let package, let explicitlyEnabledTraits):
+            if explicitlyEnabledTraits.isEmpty {
+                if let parentPackage {
+                    return """
+            Disabled default traits by package '\(parentPackage)' on package '\(package)' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
             """
+                } else {
+                    return """
+            Disabled default traits on package '\(package)' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
+            """
+                }
+            } else {
+                if let parentPackage {
+                    return """
+                Package \(parentPackage) enables traits [\(explicitlyEnabledTraits.joined(separator: ", "))] on package '\(package)' that declares no traits.
+                """
+                } else {
+                    // TODO: bp fix msg
+                    return """
+                Enabled traits [\(explicitlyEnabledTraits.joined(separator: ", "))] on package '\(package)' that declares no traits.
+                """
+                }
+            }
         }
     }
 }

@@ -13,9 +13,9 @@
 /// The trait configuration.
 public enum TraitConfiguration: Codable, Hashable {
     case enableAllTraits
-    case noConfiguration
-    case noEnabledTraits
+    case disableAllTraits
     case enabledTraits(Set<String>)
+    case none
 
     public init(
         enabledTraits: Set<String>? = nil,
@@ -29,14 +29,14 @@ public enum TraitConfiguration: Codable, Hashable {
 
         if let enabledTraits {
             if enabledTraits.isEmpty {
-                self = .noEnabledTraits
+                self = .disableAllTraits
             } else {
                 self = .enabledTraits(enabledTraits)
             }
         } else {
             // Since enableAllTraits isn't enabled and there isn't a set of traits set,
             // there is no configuration passed by the user.
-            self = .noConfiguration
+            self = .none
         }
     }
 
@@ -49,9 +49,9 @@ public enum TraitConfiguration: Codable, Hashable {
         switch self {
         case .enabledTraits(let traits):
             return traits
-        case .noConfiguration, .enableAllTraits:
+        case .none, .enableAllTraits:
             return nil
-        case .noEnabledTraits:
+        case .disableAllTraits:
             return []
         }
     }
@@ -68,9 +68,9 @@ public enum TraitConfiguration: Codable, Hashable {
         switch self {
         case .enabledTraits(let traits):
             return traits.contains("default")
-        case .noConfiguration, .enableAllTraits:
+        case .none, .enableAllTraits:
             return true
-        case .noEnabledTraits:
+        case .disableAllTraits:
             return false
         }
     }
@@ -82,7 +82,7 @@ public enum TraitConfiguration: Codable, Hashable {
             return !traitsWithoutDefault.isEmpty
         case .enableAllTraits:
             return true
-        case .noConfiguration, .noEnabledTraits:
+        case .none, .disableAllTraits:
             return false
         }
     }

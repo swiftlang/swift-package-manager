@@ -315,25 +315,22 @@ final class TraitTests: XCTestCase {
 
     func testPackageDisablingDefaultsTrait_whenNoTraits() async throws {
         try await fixture(name: "Traits") { fixturePath in
-            do {
-                let (stdout, stderr) = try await executeSwiftRun(
-                    fixturePath.appending("DisablingEmptyDefaultsExample"),
-                    "DisablingEmptyDefaultsExample",
-                    extraArgs: ["--experimental-prune-unused-dependencies"]
-                )
-                print("noop")
-            } catch let error as SwiftPMError {
-                // TODO: bp this isn't being hit
-                switch error {
-                case .packagePathNotFound:
-                    throw error
-                case .executionFailure(_, _, let stderr):
-                    let expectedErr = """
-                    error: Disabled default traits by package 'disablingemptydefaultsexample' on package 'Package11' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
-
-                    """
-                    XCTAssertTrue(stderr.contains(expectedErr))
+            await XCTAssertAsyncThrowsError(try await executeSwiftRun(
+                fixturePath.appending("DisablingEmptyDefaultsExample"),
+                "DisablingEmptyDefaultsExample"
+                //extraArgs: ["--experimental-prune-unused-dependencies"]
+            )) { error in
+                guard case SwiftPMError.executionFailure(let underlying, let stdout, let stderr) = error else {
+                    XCTFail()
+                    return
                 }
+
+                let expectedErr = """
+                        error: Disabled default traits by package 'disablingemptydefaultsexample' on package 'Package11' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
+                        
+                        """
+                XCTAssertTrue(stderr.contains(expectedErr))
+
             }
         }
     }

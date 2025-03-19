@@ -245,9 +245,8 @@ extension Manifest {
             // not exist for this manifest) then we must throw an error.
 
             if !traitConfiguration.enablesDefaultTraits && traitConfiguration.enablesNonDefaultTraits {
-                // TODO: bp add parent package to error message like in modulesgraph+loading.swift
-                // TODO: bp fix explicitlyEnabledTraits value passed here
                 throw TraitError.traitsNotSupported(
+                    parentPackage: nil,
                     package: displayName,
                     explicitlyEnabledTraits: traits.map(\.name)
                 )
@@ -261,11 +260,11 @@ extension Manifest {
         switch traitConfiguration {
         case .enableAllTraits:
             enabledTraits = Set(traits.map(\.name))
-        case .noConfiguration:
+        case .none:
             if let defaultTraits = defaultTraits?.map(\.name) {
                 enabledTraits = Set(defaultTraits)
             }
-        case .noEnabledTraits:
+        case .disableAllTraits:
             return []
         case .enabledTraits(let explicitlyEnabledTraits):
             enabledTraits = explicitlyEnabledTraits

@@ -97,9 +97,9 @@ public enum DependencyResolutionNode {
             switch config {
             case .enabledTraits(let traits):
                 return traits
-            case .noEnabledTraits:
+            case .disableAllTraits:
                 return []
-            case .noConfiguration, .enableAllTraits: // TODO: bp fix
+            case .none, .enableAllTraits: // TODO: bp fix
                 return nil
             }
         case .product(_, _, let enabledTraits):
