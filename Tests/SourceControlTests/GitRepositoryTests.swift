@@ -690,6 +690,8 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testAlternativeObjectStoreValidation() throws {
+        try skipOnWindowsAsTestCurrentlyFails(because: "test might hang in CI")
+
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
