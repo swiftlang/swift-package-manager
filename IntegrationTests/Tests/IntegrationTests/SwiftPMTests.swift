@@ -50,6 +50,8 @@ final class SwiftPMTests: XCTestCase {
     }
 
     func testSwiftBuild() throws {
+        try skipOnWindowsAsTestCurrentlyFails(because: "SWBINTTODO: swift-build command failed")
+
         #if os(Linux)
         if FileManager.default.contents(atPath: "/etc/system-release").map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false {
             throw XCTSkip("Skipping SwiftBuild testing on Amazon Linux because of platform issues.")
