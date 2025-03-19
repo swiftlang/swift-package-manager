@@ -92,6 +92,7 @@ let package = Package(
     platforms: [
         .macOS(.v13),
         .iOS(.v16),
+        .macCatalyst(.v17),
     ],
     products:
     autoProducts.flatMap {
@@ -119,6 +120,12 @@ let package = Package(
             type: .dynamic,
             targets: ["PackageDescription", "CompilerPluginSupport"]
         ),
+        .library(
+            name: "AppleProductTypes",
+            type: .dynamic,
+            targets: ["AppleProductTypes"]
+        ),
+        
         .library(
             name: "PackagePlugin",
             type: .dynamic,
@@ -152,6 +159,21 @@ let package = Package(
             ],
             linkerSettings: packageLibraryLinkSettings
         ),
+
+        // The `AppleProductTypes` target provides additional product types
+        // to `Package.swift` manifests. Here we build a debug version of the
+        // library; the bootstrap scripts build the deployable version.
+        .target(
+            name: "AppleProductTypes",
+            // Note: We use `-module-link-name` so clients link against the
+            // AppleProductTypes library when they import it without further
+            // messing with the manifest loader.
+            dependencies: ["PackageDescription"],
+            swiftSettings: [
+                .unsafeFlags(["-package-description-version", "999.0"]),
+                .unsafeFlags(["-enable-library-evolution"], .when(platforms: [.macOS])),
+                .unsafeFlags(["-Xfrontend", "-module-link-name", "-Xfrontend", "AppleProductTypes"])
+            ]),
 
         // The `PackagePlugin` target provides the API that is available to
         // plugin scripts. Here we build a debug version of the library; the
@@ -457,7 +479,8 @@ let package = Package(
             dependencies: [
                 "SPMBuildCore",
                 "PackageGraph",
-            ]
+            ],
+            exclude: ["CMakeLists.txt", "README.md"],
         ),
         .target(
             /** High level functionality */
@@ -979,7 +1002,7 @@ let relatedDependenciesBranch = "main"
 if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         package.dependencies += [
-            .package(url: "https://github.com/apple/swift-llbuild.git", branch: relatedDependenciesBranch),
+            .package(url: "https://github.com/swiftlang/swift-llbuild.git", branch: relatedDependenciesBranch),
         ]
     } else {
         // In Swift CI, use a local path to llbuild to interoperate with tools
@@ -995,7 +1018,7 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
-        .package(url: "https://github.com/apple/swift-tools-support-core.git", branch: relatedDependenciesBranch),
+        .package(url: "https://github.com/swiftlang/swift-tools-support-core.git", branch: relatedDependenciesBranch),
         // The 'swift-argument-parser' version declared here must match that
         // used by 'swift-driver' and 'sourcekit-lsp'. Please coordinate
         // dependency version changes here with those projects.
@@ -1020,6 +1043,13 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-certificates"),
         .package(path: "../swift-toolchain-sqlite"),
     ]
+}
+
+/// If ENABLE_APPLE_PRODUCT_TYPES is set in the environment, then also define ENABLE_APPLE_PRODUCT_TYPES in each of the regular targets and test targets.
+if ProcessInfo.processInfo.environment["ENABLE_APPLE_PRODUCT_TYPES"] == "1" {
+    for target in package.targets.filter({ $0.type == .regular || $0.type == .test }) {
+        target.swiftSettings = (target.swiftSettings ?? []) + [ .define("ENABLE_APPLE_PRODUCT_TYPES") ]
+    }
 }
 
 if ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] == nil &&

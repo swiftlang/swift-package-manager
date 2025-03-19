@@ -149,7 +149,7 @@ public struct LocationOptions: ParsableArguments {
     public var pkgConfigDirectories: [AbsolutePath] = []
     
     @Option(
-        help: .init("Specify alternate path to search for SwiftPM resources.", visibility: .hidden),
+        help: .init("Specify alternate path to search for resources required for SwiftPM to operate. (default: <Toolchain Directory>/usr/share/pm)", visibility: .hidden),
         completion: .directory
     )
     public var packageManagerResourcesDirectory: AbsolutePath?

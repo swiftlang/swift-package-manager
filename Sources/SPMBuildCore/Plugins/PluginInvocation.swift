@@ -30,7 +30,14 @@ public enum PluginAction {
         pluginGeneratedSources: [AbsolutePath],
         pluginGeneratedResources: [AbsolutePath]
     )
+    case createXcodeProjectBuildToolCommands(
+        project: XcodeProjectRepresentation,
+        target: XcodeProjectRepresentation.Target,
+        pluginGeneratedSources: [AbsolutePath],
+        pluginGeneratedResources: [AbsolutePath]
+    )
     case performCommand(package: ResolvedPackage, arguments: [String])
+    case performXcodeProjectCommand(project: XcodeProjectRepresentation, arguments: [String])
 }
 
 public struct PluginTool {
@@ -172,6 +179,8 @@ extension PluginModule {
                     targets: serializer.targets,
                     products: serializer.products,
                     packages: serializer.packages,
+                    xcodeTargets: serializer.xcodeTargets,
+                    xcodeProjects: serializer.xcodeProjects,
                     pluginWorkDirId: pluginWorkDirId,
                     toolSearchDirIds: toolSearchDirIds,
                     accessibleTools: accessibleTools)
@@ -182,6 +191,32 @@ extension PluginModule {
                     pluginGeneratedSources: generatedSources,
                     pluginGeneratedResources: generatedResources
                 )
+
+            case .createXcodeProjectBuildToolCommands(let project, let target, let generatedSources, let generatedResources):
+                let rootProjectId = try serializer.serialize(xcodeProject: project)
+                guard let targetId = try serializer.serialize(xcodeTarget: target) else {
+                    throw StringError("unexpectedly was unable to serialize target \(target)")
+                }
+                let pluginGeneratedSources = try generatedSources.map { try serializer.serialize(path: $0) }
+                let pluginGeneratedResources = try generatedResources.map { try serializer.serialize(path: $0) }
+                let wireInput = WireInput(
+                    paths: serializer.paths,
+                    targets: serializer.targets,
+                    products: serializer.products,
+                    packages: serializer.packages,
+                    xcodeTargets: serializer.xcodeTargets,
+                    xcodeProjects: serializer.xcodeProjects,
+                    pluginWorkDirId: pluginWorkDirId,
+                    toolSearchDirIds: toolSearchDirIds,
+                    accessibleTools: accessibleTools)
+                actionMessage = .createXcodeProjectBuildToolCommands(
+                    context: wireInput,
+                    rootProjectId: rootProjectId,
+                    targetId: targetId,
+                    pluginGeneratedSources: pluginGeneratedSources,
+                    pluginGeneratedResources: pluginGeneratedResources
+                )
+
             case .performCommand(let package, let arguments):
                 let rootPackageId = try serializer.serialize(package: package)
                 let wireInput = WireInput(
@@ -189,12 +224,31 @@ extension PluginModule {
                     targets: serializer.targets,
                     products: serializer.products,
                     packages: serializer.packages,
+                    xcodeTargets: serializer.xcodeTargets,
+                    xcodeProjects: serializer.xcodeProjects,
                     pluginWorkDirId: pluginWorkDirId,
                     toolSearchDirIds: toolSearchDirIds,
                     accessibleTools: accessibleTools)
                 actionMessage = .performCommand(
                     context: wireInput,
                     rootPackageId: rootPackageId,
+                    arguments: arguments)
+                
+            case .performXcodeProjectCommand(let xcodeProject, let arguments):
+                let rootProjectId = try serializer.serialize(xcodeProject: xcodeProject)
+                let wireInput = WireInput(
+                    paths: serializer.paths,
+                    targets: serializer.targets,
+                    products: serializer.products,
+                    packages: serializer.packages,
+                    xcodeTargets: serializer.xcodeTargets,
+                    xcodeProjects: serializer.xcodeProjects,
+                    pluginWorkDirId: pluginWorkDirId,
+                    toolSearchDirIds: toolSearchDirIds,
+                    accessibleTools: accessibleTools)
+                actionMessage = .performXcodeProjectCommand(
+                    context: wireInput,
+                    rootProjectId: rootProjectId,
                     arguments: arguments)
             }
             initialMessage = try actionMessage.toData()

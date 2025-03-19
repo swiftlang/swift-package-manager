@@ -263,6 +263,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
             do {
                 try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
+                    self.outputStream.send("Building for \(self.buildParameters.configuration == .debug ? "debugging" : "production")...\n")
+
                     // Load the workspace, and set the system information to the default
                     do {
                         try await session.loadWorkspace(containerPath: self.buildParameters.pifManifest.pathString)
@@ -432,10 +434,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
         // native build system.
         settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
-        // Use lld linker instead of Visual Studio link.exe when targeting Windows
-        if buildParameters.triple.isWindows() {
-            settings["ALTERNATE_LINKER"] = "lld-link"
-        }
         // FIXME: workaround for old Xcode installations such as what is in CI
         settings["LM_SKIP_METADATA_EXTRACTION"] = "YES"
 

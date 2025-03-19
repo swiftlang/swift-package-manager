@@ -12,17 +12,29 @@
 
 import Basics
 import Commands
+import SPMBuildCore
 import _InternalTestSupport
+import TSCTestSupport
 import XCTest
 
 import class Basics.AsyncProcess
 
-final class RunCommandTests: CommandsTestCase {
+class RunCommandTestCase: CommandsBuildProviderTestCase {
+    override func setUpWithError() throws {
+        try XCTSkipIf(type(of: self) == RunCommandTestCase.self, "Skipping this test since it will be run in subclasses that will provide different build systems to test.")
+    }
+
     private func execute(
         _ args: [String] = [],
+        _ executable: String? = nil,
         packagePath: AbsolutePath? = nil
     ) async throws -> (stdout: String, stderr: String) {
-        return try await SwiftPM.Run.execute(args, packagePath: packagePath)
+        return try await executeSwiftRun(
+            packagePath,
+            nil,
+            extraArgs: args,
+            buildSystem: buildSystemProvider
+        )
     }
 
     func testUsage() async throws {
@@ -50,23 +62,27 @@ final class RunCommandTests: CommandsTestCase {
 #if !os(Windows)
     func testToolsetDebugger() async throws {
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-            let (stdout, stderr) = try await SwiftPM.Run.execute(
-                ["--toolset", "\(fixturePath)/toolset.json"], packagePath: fixturePath)
+            let (stdout, stderr) = try await execute(
+                    ["--toolset", "\(fixturePath)/toolset.json"],
+                    packagePath: fixturePath
+                )
 
             // We only expect tool's output on the stdout stream.
             XCTAssertMatch(stdout, .contains("\(fixturePath)/.build"))
             XCTAssertMatch(stdout, .contains("sentinel"))
 
             // swift-build-tool output should go to stderr.
-            XCTAssertMatch(stderr, .regex("Compiling"))
-            XCTAssertMatch(stderr, .contains("Linking"))
+            XCTAssertMatch(stderr, .contains("Building for debugging"))
+            if self.buildSystemProvider == .native {
+                XCTAssertMatch(stderr, .contains("Linking"))
+            }
         }
     }
 #endif
 
     func testUnknownProductAndArgumentPassing() async throws {
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-            let (stdout, stderr) = try await SwiftPM.Run.execute(
+            let (stdout, stderr) = try await execute(
                 ["secho", "1", "--hello", "world"], packagePath: fixturePath)
 
             // We only expect tool's output on the stdout stream.
@@ -75,8 +91,10 @@ final class RunCommandTests: CommandsTestCase {
                 """))
 
             // swift-build-tool output should go to stderr.
-            XCTAssertMatch(stderr, .regex("Compiling"))
-            XCTAssertMatch(stderr, .contains("Linking"))
+            XCTAssertMatch(stderr, .contains("Building for debugging"))
+            if self.buildSystemProvider == .native {
+                XCTAssertMatch(stderr, .contains("Linking"))
+            }
 
             await XCTAssertThrowsCommandExecutionError(try await execute(["unknown"], packagePath: fixturePath)) { error in
                 XCTAssertMatch(error.stderr, .contains("error: no executable product named 'unknown'"))
@@ -218,4 +236,25 @@ final class RunCommandTests: CommandsTestCase {
         }
     }
 
+}
+
+class RunCommandNativeTests: RunCommandTestCase {
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .native
+    }
+
+    override func testUsage() async throws {
+        try await super.testUsage()
+    }
+}
+
+
+class RunCommandSwiftBuildTests: RunCommandTestCase {
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .swiftbuild
+    }
+
+    override func testUsage() async throws {
+        try await super.testUsage()
+    }
 }

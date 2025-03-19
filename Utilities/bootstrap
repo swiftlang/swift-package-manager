@@ -592,7 +592,7 @@ def install_file(args, src, destination, destination_is_directory=True, ignored_
 
     logging.info("Installing %s to %s", src, dest)
     if os.path.isdir(src):
-        shutil.copytree(src, dest, ignore=shutil.ignore_patterns(*ignored_patterns))
+        shutil.copytree(src, dest, ignore=shutil.ignore_patterns(*ignored_patterns), dirs_exist_ok=True)
     else:
         shutil.copy2(src, dest)
 
