@@ -135,7 +135,7 @@ class GitRepositoryTests: XCTestCase {
 #if os(Windows)
             try systemQuietly(["tar.exe", "-x", "-v", "-C", path.pathString, "-f", inputArchivePath.pathString])
 #else
-            try systemQuietly(["tar", "-x", "-v", "-C", path.pathString, "-f", inputArchivePath.pathString])
+            try systemQuietly(["tar", "--no-same-owner", "-x", "-v", "-C", path.pathString, "-f", inputArchivePath.pathString])
 #endif
             let testRepoPath = path.appending("TestRepo")
 
