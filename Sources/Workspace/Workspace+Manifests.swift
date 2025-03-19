@@ -27,7 +27,6 @@ import protocol PackageGraph.CustomPackageContainer
 import struct PackageGraph.GraphLoadingNode
 import struct PackageGraph.PackageContainerConstraint
 import struct PackageGraph.PackageGraphRoot
-import enum PackageGraph.TraitConfiguration
 import class PackageLoading.ManifestLoader
 import struct PackageLoading.ManifestValidator
 import struct PackageLoading.ToolsVersionParser
@@ -36,6 +35,7 @@ import struct PackageModel.PackageIdentity
 import struct PackageModel.PackageReference
 import enum PackageModel.ProductFilter
 import struct PackageModel.ToolsVersion
+import enum PackageModel.TraitConfiguration
 import protocol TSCBasic.FileSystem
 import func TSCBasic.findCycle
 import struct TSCBasic.KeyedPair

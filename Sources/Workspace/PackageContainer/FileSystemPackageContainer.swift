@@ -145,7 +145,7 @@ public struct FileSystemPackageContainer: PackageContainer {
             // TODO: bp throw?
             return []
         }
-        let enabledTraits = try manifest.enabledTraits2(using: traitConfiguration)
+        let enabledTraits = try manifest.enabledTraits(using: traitConfiguration)
         return enabledTraits ?? []
     }
 }

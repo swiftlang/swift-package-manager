@@ -13,6 +13,8 @@
 import Basics
 import PackageGraph
 
+import enum PackageModel.TraitConfiguration
+
 import protocol TSCBasic.OutputByteStream
 
 /// An enum representing what subset of the package to build.

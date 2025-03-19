@@ -424,7 +424,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
             return []
         }
         let manifest = try await self.loadManifest(tag: tag, version: version)
-        return try manifest.enabledTraits2(using: traitConfiguration) ?? []
+        return try manifest.enabledTraits(using: traitConfiguration) ?? []
     }
 
     public var isRemoteContainer: Bool? {

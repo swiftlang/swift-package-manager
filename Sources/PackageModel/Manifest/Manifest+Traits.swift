@@ -1,0 +1,423 @@
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift.org open source project
+//
+// Copyright (c) 2025 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See https://swift.org/LICENSE.txt for license information
+// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
+
+import Basics
+import Foundation
+
+// MARK: - Traits Validation
+
+/// Validator methods that check the correctness of traits and their support as defined in the manifest.
+extension Manifest {
+    /// Determines whether traits are supported for this Manifest.
+    public var supportsTraits: Bool {
+        !self.traits.isEmpty
+    }
+
+    /// Validates a trait by checking that it is defined in the manifest; if not, an error is thrown.
+    private func validateTrait(_ trait: TraitDescription) throws {
+        try self.validateTrait(trait.name)
+    }
+
+    /// Validates a trait by checking that it is defined in the manifest; if not, an error is thrown.
+    private func validateTrait(_ trait: String) throws {
+        // Check if the enabled trait is a valid trait
+        if self.traits.first(where: { $0.name == trait }) == nil {
+            throw TraitError.invalidTrait(package: self.displayName, trait: trait)
+        }
+    }
+
+    /// Validates a set of traits that is intended to be enabled for the manifest; if there are any discrepencies in the
+    /// set of enabled traits and whether the manifest defines these traits (or if it defines any traits at all), then an
+    /// error indicating the issue will be thrown.
+    public func validateEnabledTraits(
+        _ explicitlyEnabledTraits: Set<String>?,
+        _ parentPackage: String? = nil
+    ) throws {
+        guard supportsTraits else {
+            if let explicitlyEnabledTraits {
+                let enabledTraitsWithoutDefault = explicitlyEnabledTraits.subtracting(["default"])
+                if !enabledTraitsWithoutDefault.isEmpty {
+                    throw TraitError.traitsNotSupported(
+                        parentPackage: parentPackage,
+                        package: self.displayName,
+                        explicitlyEnabledTraits: explicitlyEnabledTraits.map({ $0 })
+                    )
+                }
+            }
+
+            return
+        }
+
+        let enabledTraits = explicitlyEnabledTraits ?? []
+
+        // Validate each trait to assure it's defined in the current package.
+        for trait in enabledTraits {
+           try validateTrait(trait)
+        }
+
+        let areDefaultsEnabled = enabledTraits.contains("default")
+
+        // Ensure that disabling default traits is disallowed for packages that don't define any traits.
+        if !(explicitlyEnabledTraits == nil || areDefaultsEnabled) && !self.supportsTraits {
+            // We throw an error when default traits are disabled for a package without any traits
+            // This allows packages to initially move new API behind traits once.
+            throw TraitError.traitsNotSupported(
+                parentPackage: parentPackage,
+                package: displayName,
+                explicitlyEnabledTraits: enabledTraits.map({ $0 })
+            )
+        }
+    }
+
+    private func validateTraitConfiguration(_ traitConfiguration: TraitConfiguration) throws {
+        guard supportsTraits else {
+            switch traitConfiguration {
+            case .disableAllTraits:
+                throw TraitError.traitsNotSupported(
+                    parentPackage: nil,
+                    package: displayName,
+                    explicitlyEnabledTraits: []
+                )
+            case .enabledTraits(let traits):
+                throw TraitError.traitsNotSupported(
+                    parentPackage: nil,
+                    package: displayName,
+                    explicitlyEnabledTraits: traits.map({ $0 })
+                )
+            case .enableAllTraits, .none:
+                return
+            }
+        }
+
+        var enabledTraits = traitConfiguration.enabledTraits
+
+        try validateEnabledTraits(enabledTraits)
+    }
+}
+
+
+// MARK: - Traits
+
+/// Helper methods to calculate states of the manifest and its dependencies when given a set of enabled traits.
+extension Manifest {
+    /// The default traits as defined in this package as the root.
+    public var defaultTraits: Set<TraitDescription>? {
+        // First, guard against whether this package actually has traits.
+        guard self.supportsTraits else { return nil }
+        return self.traits.filter(\.isDefault)
+    }
+
+    /// A map of trait names to the trait description.
+    public var traitsMap: [String: TraitDescription] {
+        self.traits.reduce(into: [String: TraitDescription]()) { traitsMap, trait in
+            traitsMap[trait.name] = trait
+        }
+    }
+
+    /// Calculates the set of all transitive traits that are enabled for this manifest using the passed set of
+    /// explicitly enabled traits and a flag that
+    /// determines whether all traits are enabled.
+    public func enabledTraits(using traitConfiguration: TraitConfiguration) throws -> Set<String>? {
+        guard supportsTraits else {
+            // If this manifest does not support traits, but the passed configuration either
+            // disables default traits or enables non-default traits (i.e. traits that would
+            // not exist for this manifest) then we must throw an error.
+
+            // TODO: bp redundant guards? may be able to change this to a bool
+            try validateTraitConfiguration(traitConfiguration)
+
+            return nil
+        }
+
+        var enabledTraits: Set<String> = []
+
+        switch traitConfiguration {
+        case .enableAllTraits:
+            enabledTraits = Set(traits.map(\.name))
+        case .none:
+            if let defaultTraits = defaultTraits?.map(\.name) {
+                enabledTraits = Set(defaultTraits)
+            }
+        case .disableAllTraits:
+            return []
+        case .enabledTraits(let explicitlyEnabledTraits):
+            enabledTraits = explicitlyEnabledTraits
+        }
+
+        if let allEnabledTraits = try? calculateAllEnabledTraits(explictlyEnabledTraits: enabledTraits) {
+            enabledTraits = allEnabledTraits
+        }
+
+        return enabledTraits
+    }
+
+
+    /// Given a trait, determine if the trait is enabled given the current set of enabled traits.
+    public func isTraitEnabled(_ trait: TraitDescription, _ enabledTraits: Set<String>?) throws -> Bool {
+        guard supportsTraits else {
+            if var enabledTraits {
+                enabledTraits.remove("default")
+                if !enabledTraits.isEmpty {
+                    throw TraitError.invalidTrait(
+                        package: self.displayName,
+                        trait: trait.name,
+                        availableTraits: self.traits.map(\.name)
+                    )
+                }
+            }
+
+            return false
+        }
+
+        // TODO: bp double check that this guard/check is doing what it's meant to do...
+        // i.e. what if the set of enabled traits does not specify default?
+        guard !trait.isDefault else {
+            if self.traits.contains(where: \.isDefault) {
+                // TODO: bp if there is either no config (nil enabledTraits) or the enabledTraits contains "default", then we can just return true. else, return false.
+                if let enabledTraits, enabledTraits.contains(trait.name) {
+                    return true
+                } else if enabledTraits == nil {
+                    return true
+                } else {
+                    return false
+                }
+            }
+            throw TraitError.invalidTrait(
+                package: self.displayName,
+                trait: trait.name,
+                availableTraits: self.traits.map(\.name)
+            )
+        }
+
+        let allEnabledTraits = try calculateAllEnabledTraits(explictlyEnabledTraits: enabledTraits)
+
+        return allEnabledTraits.contains(trait.name)
+    }
+
+    /// Calculates and returns a set of all enabled traits, beginning with a set of explicitly enabled traits (which can either be the default traits of a manifest, or a configuration of enabled traits determined from a user-generated trait configuration) and determines which traits are transitively enabled.
+    public func calculateAllEnabledTraits(
+        explictlyEnabledTraits: Set<String>?,
+        _ parentPackage: String? = nil
+    ) throws -> Set<String> {
+        // This the point where we flatten the enabled traits and resolve the recursive traits
+        var enabledTraits = explictlyEnabledTraits ?? []
+        let areDefaultsEnabled = enabledTraits.remove("default") != nil
+
+        for trait in enabledTraits {
+            // Check if the enabled trait is a valid trait
+            if self.traits.first(where: { $0.name == trait }) == nil {
+                throw TraitError.invalidTrait(package: self.displayName, trait: trait)
+            }
+        }
+
+        if !(explictlyEnabledTraits == nil || areDefaultsEnabled) && !self.supportsTraits {
+            // We throw an error when default traits are disabled for a package without any traits
+            // This allows packages to initially move new API behind traits once.
+            throw TraitError.traitsNotSupported(
+                parentPackage: parentPackage,
+                package: displayName,
+                explicitlyEnabledTraits: explictlyEnabledTraits?.map({ $0 }) ?? []
+            )
+        }
+
+        // We have to enable all default traits if no traits are enabled or the defaults are explicitly enabled
+        if explictlyEnabledTraits == nil || areDefaultsEnabled {
+            if let defaultTraits {
+                enabledTraits.formUnion(defaultTraits.flatMap(\.enabledTraits))
+            }
+        }
+
+        // Iteratively flatten transitively enabled traits; stop when all transitive traits have been found.
+        while true {
+            let transitivelyEnabledTraits = try Set(
+                // We are going to calculate which traits are actually enabled for a node here. To do this
+                // we have to check if default traits should be used and then flatten all the enabled traits.
+                enabledTraits
+                    .flatMap { trait in
+                        guard let traitDescription = traitsMap[trait] else {
+                            throw TraitError.invalidTrait(package: self.displayName, trait: trait)
+                        }
+                        return traitDescription.enabledTraits
+                    }
+            )
+
+            let appendedList = enabledTraits.union(transitivelyEnabledTraits)
+            if appendedList.count == enabledTraits.count {
+                break
+            } else {
+                enabledTraits = appendedList
+            }
+        }
+
+        return enabledTraits
+    }
+
+    /// Computes the dependencies that are in use per target in this manifest.
+    public func usedTargetDependencies(withTraits enabledTraits: Set<String>?) throws -> [String: Set<TargetDescription.Dependency>] {
+        try self.targets.reduce(into: [String: Set<TargetDescription.Dependency>]()) { depMap, target in
+            let nonTraitDeps = target.dependencies.filter {
+                $0.condition?.traits?.isEmpty ?? true
+            }
+
+            let traitGuardedDeps = try target.dependencies.filter { dep in
+                let traits = dep.condition?.traits ?? []
+
+                // For each trait that is a condition on this target dependency, assure that
+                // each one is enabled in the manifest.
+                return try traits.allSatisfy({ try isTraitEnabled(.init(stringLiteral: $0), enabledTraits) })
+            }
+
+            let deps = nonTraitDeps + traitGuardedDeps
+            depMap[target.name] = Set(deps)
+        }
+    }
+
+    /// Computes the set of package dependencies that are used by targets of this manifest.
+    public func usedDependencies(withTraits enabledTraits: Set<String>?) throws -> (knownPackage: Set<String>, unknownPackage: Set<String>) {
+        let deps = try self.usedTargetDependencies(withTraits: enabledTraits)
+        .values
+        .flatMap { $0 }
+        .compactMap(\.package)
+
+        var known: Set<String> = []
+        var unknown: Set<String> = []
+
+        for item in deps {
+            if let dep = self.packageDependency(referencedBy: item) {
+                known.insert(dep.identity.description)
+            } else if self.targetMap[item] == nil {
+                // Marking this dependency as tentatively used, given that we cannot find the package ref at this stage.
+                unknown.insert(item)
+            }
+        }
+
+        return (knownPackage: known, unknownPackage: unknown)
+    }
+
+    /// Returns the set of package dependencies that are potentially guarded by traits, per target. This does not
+    /// calculate enabled and disabled dependencies enforced by traits.
+    public func traitGuardedDependencies(lowercasedKeys: Bool = false) -> [String: [String: Set<String>]] {
+        self.targets.reduce(into: [String: [String: Set<String>]]()) { depMap, target in
+            let traitGuardedTargetDependencies = target.dependencies.filter {
+                !($0.condition?.traits?.isEmpty ?? true)
+            }
+            traitGuardedTargetDependencies.forEach {
+                guard let package = lowercasedKeys ? $0.package?.lowercased() : $0.package else { return }
+                depMap[package, default: [:]][target.name, default: []].formUnion($0.condition?.traits ?? [])
+            }
+        }
+    }
+
+    /// Computes the enabled traits for a given target dependency
+    public func enabledTraits(forDependency dependency: TargetDescription.Dependency) -> Set<String>? {
+        guard let package = self.packageDependency(referencedBy: dependency),
+              let traits = package.traits?.compactMap(\.name)
+        else {
+            return nil
+        }
+
+        return Set(traits)
+    }
+
+    /// Determines whether a target dependency is enabled given a set of enabled traits for this manifest.
+    public func isTargetDependencyEnabled(
+        target: String,
+        _ dependency: TargetDescription.Dependency,
+        enabledTraits: Set<String>?,
+        enableAllTraits: Bool = false
+    ) throws -> Bool {
+        guard self.supportsTraits, !enableAllTraits else { return true }
+        guard let package = dependency.package, let target = self.targetMap[target] else { return false }
+        guard target.dependencies.contains(where: { $0 == dependency }) else {
+            throw InternalError(
+                "target dependency \(dependency.name) not found for target \(target.name) in package \(self.displayName)"
+            )
+        }
+        let traitsThatEnableDependency = self.traitGuardedDependencies()[package]?[target.name] ?? []
+
+        let isEnabled = try traitsThatEnableDependency.allSatisfy({ try isTraitEnabled(.init(stringLiteral: $0), enabledTraits) })
+
+        return traitsThatEnableDependency.isEmpty || isEnabled
+    }
+
+    /// Determines whether a given package dependency is used by this manifest given a set of enabled traits.
+    public func isPackageDependencyUsed(_ dependency: PackageDependency, enabledTraits: Set<String>?) throws -> Bool {
+        let usedDependencies = try self.usedDependencies(withTraits: enabledTraits)
+        let foundKnownPackage = usedDependencies.knownPackage.contains(where: {
+            $0.caseInsensitiveCompare(dependency.identity.description) == .orderedSame
+        })
+
+        // if there is a target dependency referenced by name and the package it originates from is unknown, default to
+        // tentatively marking the package dependency as used. to be resolved later on.
+        return foundKnownPackage || (!foundKnownPackage && !usedDependencies.unknownPackage.isEmpty)
+    }
+}
+
+// MARK: - Trait Error
+
+public enum TraitError: Swift.Error {
+    /// Indicates that an invalid trait was enabled.
+    case invalidTrait(
+        package: String,
+        trait: String,
+        availableTraits: [String] = []
+    )
+
+    /// Indicates that the manifest does not support traits, yet a method was called with a configuration of enabled
+    /// traits.
+    case traitsNotSupported(
+        parentPackage: String?,
+        package: String,
+        explicitlyEnabledTraits: [String]
+    )
+}
+
+extension TraitError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .invalidTrait(let package, let trait, let availableTraits):
+            var errorMsg = """
+            Trait '"\(trait)"' is not declared by package '\(package)'.
+            """
+            if availableTraits.isEmpty {
+                errorMsg += " There are no available traits defined by this package."
+            } else {
+                errorMsg +=
+                    " The available traits defined for this package are: \(availableTraits.joined(separator: ", "))."
+            }
+            return errorMsg
+        case .traitsNotSupported(let parentPackage, let package, let explicitlyEnabledTraits):
+            if explicitlyEnabledTraits.isEmpty {
+                if let parentPackage {
+                    return """
+            Disabled default traits by package '\(parentPackage)' on package '\(package)' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
+            """
+                } else {
+                    return """
+            Disabled default traits on package '\(package)' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
+            """
+                }
+            } else {
+                if let parentPackage {
+                    return """
+                Package \(parentPackage) enables traits [\(explicitlyEnabledTraits.joined(separator: ", "))] on package '\(package)' that declares no traits.
+                """
+                } else {
+                    // TODO: bp fix msg
+                    return """
+                Enabled traits [\(explicitlyEnabledTraits.joined(separator: ", "))] on package '\(package)' that declares no traits.
+                """
+                }
+            }
+        }
+    }
+}

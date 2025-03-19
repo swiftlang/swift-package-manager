@@ -19,7 +19,7 @@ import Basics
 import Build
 import PackageGraph
 internal import PackageLoading
-internal import PackageModel
+import PackageModel
 import SPMBuildCore
 
 public enum BuildDestination {

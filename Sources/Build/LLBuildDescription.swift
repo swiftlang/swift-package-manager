@@ -16,6 +16,8 @@ import LLBuildManifest
 import SPMBuildCore
 import PackageGraph
 
+import enum PackageModel.TraitConfiguration
+
 import struct TSCBasic.ByteString
 
 /// Contains the description of the build that is needed during the execution.

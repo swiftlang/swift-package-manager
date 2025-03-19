@@ -27,6 +27,9 @@ public enum TraitConfiguration: Codable, Hashable {
             return
         }
 
+        // There can be two possible cases here:
+        //  - The set of enabled traits is empty, which means that no traits are enabled.
+        //  - The set of enabled traits is not empty and specifies which traits are enabled.
         if let enabledTraits {
             if enabledTraits.isEmpty {
                 self = .disableAllTraits
@@ -34,7 +37,7 @@ public enum TraitConfiguration: Codable, Hashable {
                 self = .enabledTraits(enabledTraits)
             }
         } else {
-            // Since enableAllTraits isn't enabled and there isn't a set of traits set,
+            // Since enableAllTraits isn't enabled and there isn't a set of enabled traits,
             // there is no configuration passed by the user.
             self = .none
         }
@@ -45,62 +48,17 @@ public enum TraitConfiguration: Codable, Hashable {
         .init(enabledTraits: nil)
     }
 
+    /// The set of enabled traits, if available.
     public var enabledTraits: Set<String>? {
         switch self {
+        case .none:
+            ["default"]
         case .enabledTraits(let traits):
-            return traits
-        case .none, .enableAllTraits:
-            return nil
+            traits
         case .disableAllTraits:
-            return []
-        }
-    }
-
-    public var enableAllTraits: Bool {
-        if case .enableAllTraits = self {
-            return true
-        }
-
-        return false
-    }
-
-    public var enablesDefaultTraits: Bool {
-        switch self {
-        case .enabledTraits(let traits):
-            return traits.contains("default")
-        case .none, .enableAllTraits:
-            return true
-        case .disableAllTraits:
-            return false
-        }
-    }
-
-    public var enablesNonDefaultTraits: Bool {
-        switch self {
-        case .enabledTraits(let traits):
-            let traitsWithoutDefault = traits.subtracting(["default"])
-            return !traitsWithoutDefault.isEmpty
+            []
         case .enableAllTraits:
-            return true
-        case .none, .disableAllTraits:
-            return false
+            nil
         }
     }
-
-//    public var enablesDefaultTraits: Bool {
-//        switch self {
-//        case .enableAllTraits, .noConfiguration:
-//            return true
-//        case .enabledTraits(let traits):
-//            return traits.contains("default")
-//        case .noEnabledTraits:
-//            return false
-//        }
-//    }
-
-//    public var enabledTraitsWithoutDefault: Set<String>? {
-//        switch self {
-//        case .enabledTraits(let traits):
-//        }
-//    }
 }

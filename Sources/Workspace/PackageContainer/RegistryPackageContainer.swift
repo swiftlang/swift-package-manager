@@ -262,7 +262,7 @@ public class RegistryPackageContainer: PackageContainer {
         guard manifest.packageKind.isRoot else {
             return []
         }
-        let enabledTraits = try manifest.enabledTraits2(using: traitConfiguration)
+        let enabledTraits = try manifest.enabledTraits(using: traitConfiguration)
         return enabledTraits ?? []
     }
 }

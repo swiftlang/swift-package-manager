@@ -111,7 +111,7 @@ public struct PackageGraphRoot {
             let traitConfiguration = input.traitConfiguration
 
             // Should only ever have to use trait configuration here for roots.
-            let enabledTraits = try manifest.enabledTraits2(using: traitConfiguration)
+            let enabledTraits = try manifest.enabledTraits(using: traitConfiguration)
             traitsMap[package.key] = enabledTraits
         }
 
@@ -233,47 +233,3 @@ extension PackageDependency.Registry.Requirement {
     }
 }
 
-// TODO: bp to move to Manifest+Traits.swift file
-extension Manifest {
-    /// Calculates the set of all transitive traits that are enabled for this manifest using the passed set of
-    /// explicitly enabled traits and a flag that
-    /// determines whether all traits are enabled.
-    public func enabledTraits2(using traitConfiguration: TraitConfiguration) throws -> Set<String>? {
-        guard supportsTraits else {
-            // If this manifest does not support traits, but the passed configuration either
-            // disables default traits or enables non-default traits (i.e. traits that would
-            // not exist for this manifest) then we must throw an error.
-
-            if !traitConfiguration.enablesDefaultTraits && traitConfiguration.enablesNonDefaultTraits {
-                throw TraitError.traitsNotSupported(
-                    parentPackage: nil,
-                    package: displayName,
-                    explicitlyEnabledTraits: traits.map(\.name)
-                )
-            }
-
-            return nil
-        }
-
-        var enabledTraits: Set<String> = []
-
-        switch traitConfiguration {
-        case .enableAllTraits:
-            enabledTraits = Set(traits.map(\.name))
-        case .none:
-            if let defaultTraits = defaultTraits?.map(\.name) {
-                enabledTraits = Set(defaultTraits)
-            }
-        case .disableAllTraits:
-            return []
-        case .enabledTraits(let explicitlyEnabledTraits):
-            enabledTraits = explicitlyEnabledTraits
-        }
-
-        if let allEnabledTraits = try? calculateAllEnabledTraits(explictlyEnabledTraits: enabledTraits) {
-            enabledTraits = allEnabledTraits
-        }
-
-        return enabledTraits
-    }
-}
