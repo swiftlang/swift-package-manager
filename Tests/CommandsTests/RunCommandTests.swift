@@ -72,8 +72,10 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
             XCTAssertMatch(stdout, .contains("sentinel"))
 
             // swift-build-tool output should go to stderr.
-            XCTAssertMatch(stderr, .regex("Compiling"))
-            XCTAssertMatch(stderr, .contains("Linking"))
+            XCTAssertMatch(stderr, .contains("Building for debugging"))
+            if self.buildSystemProvider == .native {
+                XCTAssertMatch(stderr, .contains("Linking"))
+            }
         }
     }
 #endif
@@ -89,8 +91,10 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
                 """))
 
             // swift-build-tool output should go to stderr.
-            XCTAssertMatch(stderr, .regex("Compiling"))
-            XCTAssertMatch(stderr, .contains("Linking"))
+            XCTAssertMatch(stderr, .contains("Building for debugging"))
+            if self.buildSystemProvider == .native {
+                XCTAssertMatch(stderr, .contains("Linking"))
+            }
 
             await XCTAssertThrowsCommandExecutionError(try await execute(["unknown"], packagePath: fixturePath)) { error in
                 XCTAssertMatch(error.stderr, .contains("error: no executable product named 'unknown'"))
@@ -252,21 +256,5 @@ class RunCommandSwiftBuildTests: RunCommandTestCase {
 
     override func testUsage() async throws {
         try await super.testUsage()
-    }
-
-    override func testMultipleExecutableAndExplicitExecutable() async throws {
-        throw XCTSkip("SWBINTTODO: https://github.com/swiftlang/swift-package-manager/issues/8279: Swift run using Swift Build does not output executable content to the terminal")
-    }
-
-    override func testUnknownProductAndArgumentPassing() async throws {
-        throw XCTSkip("SWBINTTODO: https://github.com/swiftlang/swift-package-manager/issues/8279: Swift run using Swift Build does not output executable content to the terminal")
-    }
-
-    override func testToolsetDebugger() async throws {
-        throw XCTSkip("SWBINTTODO: Test fixture fails to build")
-    }
-
-    override func testUnreachableExecutable() async throws {
-        throw XCTSkip("SWBINTTODO: Test fails because of build layout differences.")
     }
 }

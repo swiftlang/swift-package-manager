@@ -866,7 +866,7 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
     }
 
     override func testGetTaskAllowEntitlement() async throws {
-        throw XCTSkip("SWBINTTODO: Test failed because swiftbuild doesn't output precis codesign commands. Once swift run works with swiftbuild the test can be investigated.")
+        throw XCTSkip("SWBINTTODO: Test failed because swiftbuild doesn't output the codesign commands that the test expects.")
     }
 
     override func testCodeCoverage() async throws {
