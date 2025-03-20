@@ -20,7 +20,6 @@ import struct Basics.InternalError
 import struct Basics.RelativePath
 
 import enum TSCBasic.PathValidationError
-import struct TSCBasic.RegEx
 import struct TSCBasic.StringError
 
 import struct TSCUtility.Version
@@ -254,7 +253,7 @@ enum ManifestJSONParser {
     }
 
     /// Looks for Xcode-style build setting macros "$()".
-    fileprivate static let invalidValueRegex = try! RegEx(pattern: #"(\$\(.*?\))"#)
+    fileprivate static let invalidValueRegex = #/(\$\(.*?\))/#
 }
 
 extension SystemPackageProviderDescription {
@@ -681,7 +680,7 @@ extension TargetBuildSettingDescription.Kind {
     static func from(_ name: String, values: [String]) throws -> Self {
         // Diagnose invalid values.
         for item in values {
-            let groups = ManifestJSONParser.invalidValueRegex.matchGroups(in: item).flatMap{ $0 }
+            let groups = item.matches(of: ManifestJSONParser.invalidValueRegex).map { $0.1 }
             if !groups.isEmpty {
                 let error = "the build setting '\(name)' contains invalid component(s): \(groups.joined(separator: " "))"
                 throw ManifestParseError.runtimeManifestErrors([error])
