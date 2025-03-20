@@ -336,6 +336,37 @@ fileprivate extension ResolvedProduct {
     }
 }
 
+private func getPathInGraph(
+    start: CanonicalPackageLocation,
+    finish: CanonicalPackageLocation,
+    graph: [ResolvedPackageBuilder]
+) throws -> [[CanonicalPackageLocation]] {
+    let edges = try Dictionary(uniqueKeysWithValues: graph.map { try (
+        $0.package.manifest.canonicalPackageLocation,
+        Set(
+            $0.package.manifest.dependenciesRequired(for: $0.productFilter, $0.enabledTraits)
+                .map(\.packageRef.canonicalLocation)
+        )
+    ) })
+    // Use BFS to find paths between start and finish.
+    var queue: [(CanonicalPackageLocation, [CanonicalPackageLocation])] = []
+    var foundPaths: [[CanonicalPackageLocation]] = []
+    queue.append((start, []))
+    while !queue.isEmpty {
+        let currentItem = queue.removeFirst()
+        let current = currentItem.0
+        let pathToCurrent = currentItem.1
+        if current == finish {
+            let pathToFinish = pathToCurrent + [current]
+            foundPaths.append(pathToFinish)
+        }
+        for dependency in edges[current] ?? [] {
+            queue.append((dependency, pathToCurrent + [current]))
+        }
+    }
+    return foundPaths
+}
+
 /// Create resolved packages from the loaded packages.
 private func createResolvedPackages(
     nodes: [GraphLoadingNode],
@@ -410,9 +441,9 @@ private func createResolvedPackages(
                 guard dependencies[resolvedPackage.package.identity] == nil else {
                     let error = PackageGraphError.dependencyAlreadySatisfiedByIdentifier(
                         package: package.identity.description,
-                        dependencyLocation: dependencyPackageRef.locationString,
-                        otherDependencyURL: resolvedPackage.package.manifest.packageLocation,
-                        identity: dependency.identity
+                        identity: dependency.identity,
+                        dependencyLocation: dependencyPackageRef.canonicalLocation.description,
+                        otherDependencyLocation: resolvedPackage.package.manifest.canonicalPackageLocation.description,
                     )
                     return packageObservabilityScope.emit(error)
                 }
@@ -423,11 +454,32 @@ private func createResolvedPackages(
                 if resolvedPackage.package.manifest.canonicalPackageLocation != dependencyPackageRef
                     .canonicalLocation && !resolvedPackage.allowedToOverride
                 {
+                    let rootPackages = packageBuilders.filter { $0.allowedToOverride == true }
+                    let dependenciesPaths = try rootPackages.map { try getPathInGraph(
+                        start: $0.package.manifest.canonicalPackageLocation,
+                        finish: dependencyPackageRef.canonicalLocation,
+                        graph: packageBuilders
+                    ) }.filter { !$0.isEmpty }.flatMap { $0 }
+                    let otherDependenciesPaths = try rootPackages.map { try getPathInGraph(
+                        start: $0.package.manifest.canonicalPackageLocation,
+                        finish: resolvedPackage.package.manifest.canonicalPackageLocation,
+                        graph: packageBuilders
+                    ) }.filter { !$0.isEmpty }.flatMap { $0 }
+                    packageObservabilityScope
+                        .emit(
+                            debug: "Conflicting identity for \(dependency.identity): chains of dependencies for \(dependencyPackageRef.locationString): \(String(describing: dependenciesPaths))"
+                        )
+                    packageObservabilityScope
+                        .emit(
+                            debug: "Conflicting identity for \(dependency.identity): chains of dependencies for \(resolvedPackage.package.manifest.packageLocation): \(String(describing: otherDependenciesPaths))"
+                        )
                     let error = PackageGraphError.dependencyAlreadySatisfiedByIdentifier(
                         package: package.identity.description,
-                        dependencyLocation: dependencyPackageRef.locationString,
-                        otherDependencyURL: resolvedPackage.package.manifest.packageLocation,
-                        identity: dependency.identity
+                        identity: dependency.identity,
+                        dependencyLocation: dependencyPackageRef.canonicalLocation.description,
+                        otherDependencyLocation: resolvedPackage.package.manifest.canonicalPackageLocation.description,
+                        dependencyPath: (dependenciesPaths.first ?? []).map(\.description),
+                        otherDependencyPath: (otherDependenciesPaths.first ?? []).map(\.description)
                     )
                     // 9/2021 this is currently emitting a warning only to support
                     // backwards compatibility with older versions of SwiftPM that had too weak of a validation
@@ -439,7 +491,7 @@ private func createResolvedPackages(
                         packageObservabilityScope
                             .emit(
                                 warning: error
-                                    .description + ". this will be escalated to an error in future versions of SwiftPM."
+                                    .description + " This will be escalated to an error in future versions of SwiftPM."
                             )
                     } else {
                         return packageObservabilityScope.emit(error)
