@@ -336,9 +336,17 @@ fileprivate extension ResolvedProduct {
     }
 }
 
-private func getPathInGraph(
-    start: CanonicalPackageLocation,
-    finish: CanonicalPackageLocation,
+/// Find all transitive dependencies between `root` and `dependency`.
+/// - root: A root package to start search from
+/// - dependency: A dependency which to find transitive dependencies for.
+/// - graph: List of resolved package builders representing a dependency graph.
+/// The function returns all possible dependency chains, each chain is a list of nodes representing transitive
+/// dependencies between `root` and `dependency`. A dependency chain
+/// "A root depends on B, which depends on C" is returned as [Root, B, C].
+/// If `root` doesn't actually depend on `dependency` then the function returns empty list.
+private func findAllTransitiveDependencies(
+    root: CanonicalPackageLocation,
+    dependency: CanonicalPackageLocation,
     graph: [ResolvedPackageBuilder]
 ) throws -> [[CanonicalPackageLocation]] {
     let edges = try Dictionary(uniqueKeysWithValues: graph.map { try (
@@ -351,12 +359,12 @@ private func getPathInGraph(
     // Use BFS to find paths between start and finish.
     var queue: [(CanonicalPackageLocation, [CanonicalPackageLocation])] = []
     var foundPaths: [[CanonicalPackageLocation]] = []
-    queue.append((start, []))
+    queue.append((root, []))
     while !queue.isEmpty {
         let currentItem = queue.removeFirst()
         let current = currentItem.0
         let pathToCurrent = currentItem.1
-        if current == finish {
+        if current == dependency {
             let pathToFinish = pathToCurrent + [current]
             foundPaths.append(pathToFinish)
         }
@@ -455,14 +463,14 @@ private func createResolvedPackages(
                     .canonicalLocation && !resolvedPackage.allowedToOverride
                 {
                     let rootPackages = packageBuilders.filter { $0.allowedToOverride == true }
-                    let dependenciesPaths = try rootPackages.map { try getPathInGraph(
-                        start: $0.package.manifest.canonicalPackageLocation,
-                        finish: dependencyPackageRef.canonicalLocation,
+                    let dependenciesPaths = try rootPackages.map { try findAllTransitiveDependencies(
+                        root: $0.package.manifest.canonicalPackageLocation,
+                        dependency: dependencyPackageRef.canonicalLocation,
                         graph: packageBuilders
                     ) }.filter { !$0.isEmpty }.flatMap { $0 }
-                    let otherDependenciesPaths = try rootPackages.map { try getPathInGraph(
-                        start: $0.package.manifest.canonicalPackageLocation,
-                        finish: resolvedPackage.package.manifest.canonicalPackageLocation,
+                    let otherDependenciesPaths = try rootPackages.map { try findAllTransitiveDependencies(
+                        root: $0.package.manifest.canonicalPackageLocation,
+                        dependency: resolvedPackage.package.manifest.canonicalPackageLocation,
                         graph: packageBuilders
                     ) }.filter { !$0.isEmpty }.flatMap { $0 }
                     packageObservabilityScope
