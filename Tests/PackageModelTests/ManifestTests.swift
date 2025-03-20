@@ -459,6 +459,10 @@ class ManifestTests: XCTestCase {
                         name: "Baz",
                         package: "Baz"
                     ),
+                    .product(
+                        name: "Bar2",
+                        package: "Bar"
+                    )
                 ]
             ),
         ]
@@ -482,10 +486,13 @@ class ManifestTests: XCTestCase {
             )
 
             let traitGuardedDependencies = manifest.traitGuardedDependencies()
+
             XCTAssertEqual(
                 traitGuardedDependencies,
                 [
-                    "Bar": ["Foo": ["Trait2"]],
+                    "Bar": [
+                        .product(name: "Bar", package: "Bar", condition: .init(traits: ["Trait2"]))
+                    ]
                 ]
             )
         }
