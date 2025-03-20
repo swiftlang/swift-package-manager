@@ -1,76 +1,98 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import XCTest
+import Foundation
+import IntegrationTestSupport
+import Testing
 import TSCBasic
 import TSCTestSupport
 
-final class SwiftPMTests: XCTestCase {
-    func testBinaryTargets() throws {
-        try XCTSkip("FIXME: ld: warning: dylib (/../BinaryTargets.6YVYK4/TestBinary/.build/x86_64-apple-macosx/debug/SwiftFramework.framework/SwiftFramework) was built for newer macOS version (10.15) than being linked (10.10)")
-
-#if !os(macOS)
-        try XCTSkip("Test requires macOS")
-#endif
-
+@Suite
+private struct SwiftPMTests {
+    @Test(nil, .requireHostOS(.macOS))
+    func binaryTargets() throws {
         try binaryTargetsFixture { fixturePath in
             do {
                 let (stdout, stderr) = try sh(swiftRun, "--package-path", fixturePath, "exe")
-                XCTAssertNoMatch(stderr, .contains("warning: "))
-                XCTAssertEqual(stdout, """
-                    SwiftFramework()
-                    Library(framework: SwiftFramework.SwiftFramework())
+                withKnownIssue("There is no binary artifact produced") {
+                    #expect(!stderr.contains("error:"))
+                    #expect(
+                        stdout == """
+                        SwiftFramework()
+                        Library(framework: SwiftFramework.SwiftFramework())
 
-                    """)
+                        """
+                    )
+                }
             }
 
             do {
                 let (stdout, stderr) = try sh(swiftRun, "--package-path", fixturePath, "cexe")
-                XCTAssertNoMatch(stderr, .contains("warning: "))
-                XCTAssertMatch(stdout, .contains("<CLibrary: "))
+                withKnownIssue("There is no binary artifact produced") {
+                    #expect(!stderr.contains("error:"))
+                    #expect(stdout.contains("<CLibrary: "))
+                }
             }
 
             do {
                 let invalidPath = fixturePath.appending(component: "SwiftFramework.xcframework")
-                let (_, stderr) = try shFails(swiftPackage, "--package-path", fixturePath, "compute-checksum", invalidPath)
-                XCTAssertMatch(stderr, .contains("error: unexpected file type; supported extensions are: zip"))
+                let (_, stderr) = try shFails(
+                    swiftPackage, "--package-path", fixturePath, "compute-checksum", invalidPath
+                )
+                #expect(
+                    // The order of supported extensions is not ordered, and changes.
+                    //   '...supported extensions are: zip, tar.gz, tar'
+                    //   '...supported extensions are: tar.gz, zip, tar'
+                    // Only check for the start of that string.
+                    stderr.contains("error: unexpected file type; supported extensions are:")
+                )
 
                 let validPath = fixturePath.appending(component: "SwiftFramework.zip")
-                let (stdout, _) = try sh(swiftPackage, "--package-path", fixturePath, "compute-checksum", validPath)
-                XCTAssertEqual(stdout.spm_chomp(), "d1f202b1bfe04dea30b2bc4038f8059dcd75a5a176f1d81fcaedb6d3597d1158")
+                let (stdout, _) = try sh(
+                    swiftPackage, "--package-path", fixturePath, "compute-checksum", validPath
+                )
+                #expect(
+                    stdout.spm_chomp()
+                        == "d1f202b1bfe04dea30b2bc4038f8059dcd75a5a176f1d81fcaedb6d3597d1158"
+                )
             }
         }
     }
 
-    func testSwiftBuild() throws {
-        #if os(Linux)
-        if FileManager.default.contents(atPath: "/etc/system-release").map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false {
-            throw XCTSkip("Skipping SwiftBuild testing on Amazon Linux because of platform issues.")
-        }
-        #endif
-
-        // Test SwiftBuildSystem
+    @Test(nil, .skipHostOS(.linux, "Amazon Linux has platform issues"))
+    func packageInitExecutable() throws {
+        // Executable
         do {
             try withTemporaryDirectory { tmpDir in
                 let packagePath = tmpDir.appending(component: "foo")
                 try localFileSystem.createDirectory(packagePath)
                 try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "executable")
                 try sh(swiftBuild, "--package-path", packagePath, "--build-system", "swiftbuild")
-                // SWBINTTODO: Path issues related to swift run of the output from swiftbuild buildsystem
-                //let (stdout, stderr)  = try sh(swiftRun, "--package-path", packagePath, "--build-system", "swiftbuild")
-                //XCTAssertMatch(stdout, .contains("Hello, world!"))
+                // SWBINTTODO: Path issues related to swift test of the output from a swiftbuild buildsystem
+                // let (stdout, stderr) = try sh(
+                //     swiftRun, "--package-path", packagePath, "--build-system", "swiftbuild"
+                // )
+                // #expect(!stderr.contains("error:"))
+                // #expect(stdout.contains("Hello, world!"))
             }
         }
+    }
 
-        #if !os(Windows)
-        // SWBINTTODO: Windows fails to link this library package due to a "lld-link: error: subsystem must be defined" error. See https://github.com/swiftlang/swift-build/issues/310
+    @Test(
+        nil, .skipHostOS(.linux, "Amazon Linux has platform issues"),
+        .skipHostOS(
+            .windows,
+            "Windows fails to link this library package due to a 'lld-link: error: subsystem must be defined' error. See https://github.com/swiftlang/swift-build/issues/310"
+        )
+    )
+    func packageInitLibrary() throws {
         do {
             try withTemporaryDirectory { tmpDir in
                 let packagePath = tmpDir.appending(component: "foo")
@@ -78,29 +100,32 @@ final class SwiftPMTests: XCTestCase {
                 try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "library")
                 try sh(swiftBuild, "--package-path", packagePath, "--build-system", "swiftbuild")
                 // SWBINTTODO: Path issues related to swift test of the output from a swiftbuild buildsystem
-                //try sh(swiftTest, "--package-path", packagePath, "--build-system", "swiftbuild")
+                // let (stdout, stderr) = try sh(
+                //     swiftTest, "--package-path", packagePath, "--build-system", "swiftbuild"
+                // )
+                // #expect(!stderr.contains("error:"))
+                // #expect(stdout.contains("Test Suite 'All tests' passed"))
             }
         }
-        #endif
     }
 
+    @Test(nil, .requireHostOS(.macOS))
     func testArchCustomization() throws {
-        #if !os(macOS)
-        try XCTSkip("Test requires macOS")
-        #endif
-        #if swift(<6.0)
-        try XCTSkipIf(true, "Skipping because test requires at least Swift 6.0")
-        #endif
-
         try withTemporaryDirectory { tmpDir in
             let packagePath = tmpDir.appending(component: "foo")
             try localFileSystem.createDirectory(packagePath)
             try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "executable")
             // delete any files generated
-            for entry in try localFileSystem.getDirectoryContents(packagePath.appending(components: "Sources")) {
-                try localFileSystem.removeFileTree(packagePath.appending(components: "Sources", entry))
+            for entry in try localFileSystem.getDirectoryContents(
+                packagePath.appending(components: "Sources")
+            ) {
+                try localFileSystem.removeFileTree(
+                    packagePath.appending(components: "Sources", entry)
+                )
             }
-            try localFileSystem.writeFileContents(AbsolutePath(validating: "Sources/main.m", relativeTo: packagePath)) {
+            try localFileSystem.writeFileContents(
+                AbsolutePath(validating: "Sources/main.m", relativeTo: packagePath)
+            ) {
                 $0.send("int main() {}")
             }
             let archs = ["x86_64", "arm64"]
@@ -111,21 +136,26 @@ final class SwiftPMTests: XCTestCase {
                     validating: ".build/\(arch)-apple-macosx/debug/foo",
                     relativeTo: packagePath
                 )
-                XCTAssertFileExists(fooPath)
+                #expect(localFileSystem.exists(fooPath))
             }
 
-            let args = [swiftBuild.pathString, "--package-path", packagePath.pathString] + archs.flatMap{ ["--arch", $0] }
+            let args =
+                [swiftBuild.pathString, "--package-path", packagePath.pathString]
+                    + archs.flatMap { ["--arch", $0] }
             try _sh(args)
 
-            let fooPath = try AbsolutePath(validating: ".build/apple/Products/Debug/foo", relativeTo: packagePath)
-            XCTAssertFileExists(fooPath)
+            let fooPath = try AbsolutePath(
+                validating: ".build/apple/Products/Debug/foo", relativeTo: packagePath
+            )
+            #expect(localFileSystem.exists(fooPath))
 
             let objectsDir = try AbsolutePath(
-                validating: ".build/apple/Intermediates.noindex/foo.build/Debug/foo.build/Objects-normal",
+                validating:
+                ".build/apple/Intermediates.noindex/foo.build/Debug/foo.build/Objects-normal",
                 relativeTo: packagePath
             )
             for arch in archs {
-                XCTAssertDirectoryExists(objectsDir.appending(component: arch))
+                #expect(localFileSystem.isDirectory(objectsDir.appending(component: arch)))
             }
         }
     }
