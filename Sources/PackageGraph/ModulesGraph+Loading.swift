@@ -467,11 +467,19 @@ private func createResolvedPackages(
                     ) }.filter { !$0.isEmpty }.flatMap { $0 }
                     packageObservabilityScope
                         .emit(
-                            debug: "Conflicting identity for \(dependency.identity): chains of dependencies for \(dependencyPackageRef.locationString): \(String(describing: dependenciesPaths))"
+                            debug: (
+                                "Conflicting identity for \(dependency.identity): " +
+                                "chains of dependencies for \(dependencyPackageRef.locationString): " +
+                                "\(String(describing: dependenciesPaths))"
+                            )
                         )
                     packageObservabilityScope
                         .emit(
-                            debug: "Conflicting identity for \(dependency.identity): chains of dependencies for \(resolvedPackage.package.manifest.packageLocation): \(String(describing: otherDependenciesPaths))"
+                            debug: (
+                                "Conflicting identity for \(dependency.identity): " +
+                                "chains of dependencies for \(resolvedPackage.package.manifest.packageLocation): " +
+                                "\(String(describing: otherDependenciesPaths))"
+                            )
                         )
                     let error = PackageGraphError.dependencyAlreadySatisfiedByIdentifier(
                         package: package.identity.description,
