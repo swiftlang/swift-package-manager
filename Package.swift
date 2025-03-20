@@ -480,7 +480,7 @@ let package = Package(
                 "SPMBuildCore",
                 "PackageGraph",
             ],
-            exclude: ["CMakeLists.txt", "README.md"],
+            exclude: ["CMakeLists.txt", "README.md"]
         ),
         .target(
             /** High level functionality */
