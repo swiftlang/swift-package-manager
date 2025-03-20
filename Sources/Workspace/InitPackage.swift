@@ -579,7 +579,9 @@ public final class InitPackage {
         }
         try makeDirectories(moduleDir)
 
-        let sourceFileName = "\(typeName).swift"
+        // If we're creating an executable we can't 't have both a @main delcaration and a Main.swift file.
+        // Handle the edge case of a user creating a project called "Main" by give the generated file a different name.
+        let sourceFileName = (packageType == .executable && typeName.lowercased() == "main") ? "MainEntrypoint.swift" : "\(typeName).swift"
         let sourceFile = try AbsolutePath(validating: sourceFileName, relativeTo: moduleDir)
 
         let content: String

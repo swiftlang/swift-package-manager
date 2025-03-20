@@ -98,6 +98,27 @@ final class InitTests: XCTestCase {
         }
     }
 
+    func testInitPackageExecutableCalledMain() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("Main")
+            let name = path.basename
+            try fs.createDirectory(path)
+
+            // Create the package
+            let initPackage = try InitPackage(
+                name: name,
+                packageType: .executable,
+                destinationPath: path,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources")), ["MainEntrypoint.swift"])
+            await XCTAssertBuilds(path)
+        }
+    }
+
     func testInitPackageLibraryWithXCTestOnly() async throws {
         try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
