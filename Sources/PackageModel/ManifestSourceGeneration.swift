@@ -573,6 +573,17 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
+        case .defaultIsolation(let isolation):
+            switch isolation {
+            case .MainActor:
+                params.append(SourceCodeFragment("MainActor.self"))
+            case .nonisolated:
+                params.append(SourceCodeFragment("nil"))
+            }
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
         }
     }
 
@@ -1010,6 +1021,8 @@ extension TargetBuildSettingDescription.Kind {
             return "strictMemorySafety"
         case .swiftLanguageMode:
             return "swiftLanguageMode"
+        case .defaultIsolation:
+            return "defaultIsolation"
         }
     }
 }
