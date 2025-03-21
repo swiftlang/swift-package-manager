@@ -27,7 +27,7 @@ import class PackageModel.Manifest
 import enum PackageModel.Sanitizer
 @_spi(SwiftPMInternal) import struct PackageModel.SwiftSDK
 
-import struct PackageGraph.TraitConfiguration
+import enum PackageModel.TraitConfiguration
 
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildSystemProvider

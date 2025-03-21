@@ -155,7 +155,7 @@ final class PubGrubPackageContainer {
         node: DependencyResolutionNode,
         overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)],
         root: DependencyResolutionNode,
-        traitConfiguration: TraitConfiguration? = nil
+        traitConfiguration: TraitConfiguration = .default
     ) async throws -> [Incompatibility] {
         // FIXME: It would be nice to compute bounds for this as well.
         if await !self.underlying.isToolsVersionCompatible(at: version) {

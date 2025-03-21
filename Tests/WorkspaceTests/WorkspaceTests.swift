@@ -2920,6 +2920,7 @@ final class WorkspaceTests: XCTestCase {
                 displayName: manifest.displayName,
                 path: manifest.path,
                 packageKind: manifest.packageKind,
+                packageIdentity: manifest.packageIdentity,
                 packageLocation: manifest.packageLocation,
                 platforms: [],
                 version: manifest.version,
@@ -12415,6 +12416,7 @@ final class WorkspaceTests: XCTestCase {
                                 displayName: packageIdentity.description,
                                 path: manifestPath,
                                 packageKind: packageKind,
+                                packageIdentity: packageIdentity,
                                 packageLocation: packageLocation,
                                 platforms: [],
                                 toolsVersion: manifestToolsVersion
@@ -15115,6 +15117,7 @@ final class WorkspaceTests: XCTestCase {
                 displayName: "Foo",
                 path: packagePath.appending(component: Manifest.filename),
                 packageKind: .registry("org.foo"),
+                packageIdentity: .plain("Foo"),
                 packageLocation: "org.foo",
                 toolsVersion: .current,
                 products: [

@@ -440,6 +440,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
                 let manifest = Manifest(
                     displayName: parsedManifest.name,
+                    packageIdentity: packageIdentity,
                     path: manifestPath,
                     packageKind: packageKind,
                     packageLocation: packageLocation,

@@ -14,7 +14,7 @@ import ArgumentParser
 import CoreCommands
 import TSCUtility
 
-import struct PackageGraph.TraitConfiguration
+import enum PackageModel.TraitConfiguration
 
 extension SwiftPackageCommand {
     struct ResolveOptions: ParsableArguments {
