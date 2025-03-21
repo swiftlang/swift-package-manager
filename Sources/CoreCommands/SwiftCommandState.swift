@@ -110,6 +110,7 @@ extension _SwiftCommand {
 public protocol SwiftCommand: ParsableCommand, _SwiftCommand {
     func run(_ swiftCommandState: SwiftCommandState) throws
 }
+
 extension SwiftCommand {
     public static var _errorLabel: String { "error" }
 

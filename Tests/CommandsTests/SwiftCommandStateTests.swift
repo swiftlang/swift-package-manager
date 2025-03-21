@@ -489,7 +489,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
     }
 
     func testPackagePathWithMissingFolder() async throws {
-        try fixture(name: "Miscellaneous/Simple") { fixturePath in
+        try withTemporaryDirectory { fixturePath in
             let packagePath = fixturePath.appending(component: "Foo")
             let options = try GlobalOptions.parse(["--package-path", packagePath.pathString])
 
