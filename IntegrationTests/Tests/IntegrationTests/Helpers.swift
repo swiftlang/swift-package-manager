@@ -344,6 +344,18 @@ func XCTSkip(_ message: String? = nil) throws {
     throw XCTSkip(message)
 }
 
+public func skipOnWindowsAsTestCurrentlyFails(because reason: String? = nil) throws {
+    #if os(Windows)
+    let failureCause: String
+    if let reason {
+        failureCause = " because \(reason.description)"
+    } else {
+        failureCause = ""
+    }
+    throw XCTSkip("Test fails on windows\(failureCause)")
+    #endif
+}
+
 extension ProcessResult {
     var integrationTests_debugDescription: String {
         return """

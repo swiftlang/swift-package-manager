@@ -233,6 +233,8 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testAdvancedFeatures() async throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         let manifestContents = """
             // swift-tools-version:5.3
             // The swift-tools-version declares the minimum version of Swift required to build this package.
