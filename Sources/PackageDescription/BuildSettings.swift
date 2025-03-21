@@ -479,9 +479,9 @@ public struct SwiftSetting: Sendable {
     ) -> SwiftSetting {
         let isolationString =
             if isolation == nil {
-                "nil"
+                "nonisolated"
             } else {
-                "MainActor.self"
+                "MainActor"
             }
         return SwiftSetting(
             name: "defaultIsolation", value: [isolationString], condition: condition)

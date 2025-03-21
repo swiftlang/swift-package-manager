@@ -1261,13 +1261,8 @@ public final class PackageBuilder {
                 case .swift:
                     decl = .OTHER_SWIFT_FLAGS
                 }
-                
-                // Strip off the '.self' in 'MainActor.self'
-                guard let argument = isolation.components(separatedBy: ".").first else {
-                    throw InternalError("incorrect isolation argument")
-                }
 
-                values = ["-default-isolation", argument]
+                values = ["-default-isolation", isolation.rawValue]
             }
 
             // Create an assignment for this setting.

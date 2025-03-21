@@ -25,6 +25,11 @@ public enum TargetBuildSettingDescription {
         case Cxx
     }
 
+    public enum DefaultIsolation: String, Codable, Hashable, Sendable {
+        case MainActor
+        case nonisolated
+    }
+
     /// The kind of the build setting, with associate configuration
     public enum Kind: Codable, Hashable, Sendable {
         case headerSearchPath(String)
@@ -42,7 +47,7 @@ public enum TargetBuildSettingDescription {
 
         case swiftLanguageMode(SwiftLanguageVersion)
 
-        case defaultIsolation(String)
+        case defaultIsolation(DefaultIsolation)
 
         public var isUnsafeFlags: Bool {
             switch self {
