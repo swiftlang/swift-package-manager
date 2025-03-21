@@ -251,7 +251,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     #if canImport(SwiftBuild)
     private func startSWBuildOperation(pifTargetName: String) async throws {
-        let buildStartTime = DispatchTime.now()
+        let buildStartTime = ContinuousClock.Instant.now
 
         try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
             let parameters = try self.makeBuildParameters()
@@ -389,7 +389,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     case .succeeded:
                         progressAnimation.update(step: 100, total: 100, text: "")
                         progressAnimation.complete(success: true)
-                        let duration = buildStartTime.distance(to: .now())
+                        let duration = ContinuousClock.Instant.now - buildStartTime
                         self.outputStream.send("Build complete! (\(duration))\n")
                         self.outputStream.flush()
                     case .failed:
