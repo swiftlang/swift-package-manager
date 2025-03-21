@@ -6,8 +6,8 @@ Create custom build steps and command-line actions for your Swift package.
 
 Use `PackagePlugin` to create plugins that extend Swift package manager's behavior in one of two ways:
 
-* term Build-tool plugins: Create a command that Swift package manager runs either before or during a target's build process.
-* term Command plugins: Create a command that someone runs by passing its name as an argument to the `swift package` command-line tool.
+* term Build-tool plugins: Create a command that Swift package manager runs either as a pre-build step before it performs a build action, or as a specific step in a target's build process.
+* term Command plugins: Create a command that someone runs either by passing its name as an argument to the `swift package` command-line tool, or from UI their developer environment.
 
 Define your plugins as targets in your `Package.swift` file.
 To make a build-tool plugin available for other packages to use, define a product that exports the plugin.
