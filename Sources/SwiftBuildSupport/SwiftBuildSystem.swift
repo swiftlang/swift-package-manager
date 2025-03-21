@@ -260,7 +260,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             let progressAnimation = ProgressAnimation.percent(
                 stream: self.outputStream,
                 verbose: self.logLevel.isVerbose,
-                header: ""
+                header: "",
+                isColorized: self.buildParameters.outputParameters.isColorized
             )
 
             do {
