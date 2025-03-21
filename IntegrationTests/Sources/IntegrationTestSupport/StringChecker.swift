@@ -10,8 +10,6 @@
 
 import Foundation
 import TSCTestSupport
-import XCTest
-
 public class StringChecker {
     private let string: String
     private let lines: [Substring]

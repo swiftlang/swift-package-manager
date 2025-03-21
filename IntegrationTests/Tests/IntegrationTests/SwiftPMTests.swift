@@ -16,57 +16,59 @@ import TSCTestSupport
 
 @Suite
 private struct SwiftPMTests {
-    @Test(nil, .requireHostOS(.macOS))
+    @Test(.requireHostOS(.macOS))
     func binaryTargets() throws {
-        try binaryTargetsFixture { fixturePath in
-            do {
-                let (stdout, stderr) = try sh(swiftRun, "--package-path", fixturePath, "exe")
-                withKnownIssue("There is no binary artifact produced") {
-                    #expect(!stderr.contains("error:"))
-                    #expect(
-                        stdout == """
-                        SwiftFramework()
-                        Library(framework: SwiftFramework.SwiftFramework())
+        withKnownIssue("error: the path does not point to a valid framework:") {
+            try binaryTargetsFixture { fixturePath in
+                do {
+                    withKnownIssue("error: local binary target ... does not contain a binary artifact") {
+                        let (stdout, stderr) = try sh(swiftRun, "--package-path", fixturePath, "exe")
+                        #expect(!stderr.contains("error:"))
+                        #expect(
+                            stdout == """
+                            SwiftFramework()
+                            Library(framework: SwiftFramework.SwiftFramework())
 
-                        """
+                            """
+                        )
+                    }
+                }
+
+                do {
+                    withKnownIssue("error: local binary target ... does not contain a binary artifact") {
+                        let (stdout, stderr) = try sh(swiftRun, "--package-path", fixturePath, "cexe")
+                        #expect(!stderr.contains("error:"))
+                        #expect(stdout.contains("<CLibrary: "))
+                    }
+                }
+
+                do {
+                    let invalidPath = fixturePath.appending(component: "SwiftFramework.xcframework")
+                    let (_, stderr) = try shFails(
+                        swiftPackage, "--package-path", fixturePath, "compute-checksum", invalidPath
+                    )
+                    #expect(
+                        // The order of supported extensions is not ordered, and changes.
+                        //   '...supported extensions are: zip, tar.gz, tar'
+                        //   '...supported extensions are: tar.gz, zip, tar'
+                        // Only check for the start of that string.
+                        stderr.contains("error: unexpected file type; supported extensions are:")
+                    )
+
+                    let validPath = fixturePath.appending(component: "SwiftFramework.zip")
+                    let (stdout, _) = try sh(
+                        swiftPackage, "--package-path", fixturePath, "compute-checksum", validPath
+                    )
+                    #expect(
+                        stdout.spm_chomp()
+                            == "d1f202b1bfe04dea30b2bc4038f8059dcd75a5a176f1d81fcaedb6d3597d1158"
                     )
                 }
-            }
-
-            do {
-                let (stdout, stderr) = try sh(swiftRun, "--package-path", fixturePath, "cexe")
-                withKnownIssue("There is no binary artifact produced") {
-                    #expect(!stderr.contains("error:"))
-                    #expect(stdout.contains("<CLibrary: "))
-                }
-            }
-
-            do {
-                let invalidPath = fixturePath.appending(component: "SwiftFramework.xcframework")
-                let (_, stderr) = try shFails(
-                    swiftPackage, "--package-path", fixturePath, "compute-checksum", invalidPath
-                )
-                #expect(
-                    // The order of supported extensions is not ordered, and changes.
-                    //   '...supported extensions are: zip, tar.gz, tar'
-                    //   '...supported extensions are: tar.gz, zip, tar'
-                    // Only check for the start of that string.
-                    stderr.contains("error: unexpected file type; supported extensions are:")
-                )
-
-                let validPath = fixturePath.appending(component: "SwiftFramework.zip")
-                let (stdout, _) = try sh(
-                    swiftPackage, "--package-path", fixturePath, "compute-checksum", validPath
-                )
-                #expect(
-                    stdout.spm_chomp()
-                        == "d1f202b1bfe04dea30b2bc4038f8059dcd75a5a176f1d81fcaedb6d3597d1158"
-                )
             }
         }
     }
 
-    @Test(nil, .skipHostOS(.linux, "Amazon Linux has platform issues"))
+    @Test(.requireThreadSafeWorkingDirectory)
     func packageInitExecutable() throws {
         // Executable
         do {
@@ -86,11 +88,11 @@ private struct SwiftPMTests {
     }
 
     @Test(
-        nil, .skipHostOS(.linux, "Amazon Linux has platform issues"),
         .skipHostOS(
             .windows,
             "Windows fails to link this library package due to a 'lld-link: error: subsystem must be defined' error. See https://github.com/swiftlang/swift-build/issues/310"
-        )
+        ),
+        .requireThreadSafeWorkingDirectory
     )
     func packageInitLibrary() throws {
         do {
@@ -109,7 +111,7 @@ private struct SwiftPMTests {
         }
     }
 
-    @Test(nil, .requireHostOS(.macOS))
+    @Test(.requireHostOS(.macOS))
     func testArchCustomization() throws {
         try withTemporaryDirectory { tmpDir in
             let packagePath = tmpDir.appending(component: "foo")

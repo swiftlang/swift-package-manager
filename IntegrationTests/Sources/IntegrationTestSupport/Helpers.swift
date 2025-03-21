@@ -9,10 +9,9 @@
  */
 
 import Foundation
+import Testing
 import TSCBasic
 import TSCTestSupport
-import XCTest
-
 import enum TSCUtility.Git
 
 public let sdkRoot: AbsolutePath? = {
@@ -136,10 +135,12 @@ public func sh(
     let stderr = try result.utf8stderrOutput()
 
     if result.exitStatus != .terminated(code: 0) {
-        XCTFail(
-            "Command failed with exit code: \(result.exitStatus) - \(result.integrationTests_debugDescription)",
-            file: file, line: line
-        )
+        Issue
+            .record(
+                Comment(
+                    "Command failed with exit code: \(result.exitStatus) - \(result.integrationTests_debugDescription)"
+                )
+            )
     }
 
     return (stdout, stderr)
@@ -157,10 +158,12 @@ public func shFails(
     let stderr = try result.utf8stderrOutput()
 
     if result.exitStatus == .terminated(code: 0) {
-        XCTFail(
-            "Command unexpectedly succeeded with exit code: \(result.exitStatus) - \(result.integrationTests_debugDescription)",
-            file: file, line: line
-        )
+        Issue
+            .record(
+                Comment(
+                    "Command unexpectedly succeeded with exit code: \(result.exitStatus) - \(result.integrationTests_debugDescription)"
+                )
+            )
     }
 
     return (stdout, stderr)
@@ -222,7 +225,7 @@ public func fixture(
 
             // Check that the fixture is really there.
             guard localFileSystem.isDirectory(fixtureDir) else {
-                XCTFail("No such fixture: \(fixtureDir)", file: file, line: line)
+                Issue.record(Comment("No such fixture: \(fixtureDir)"))
                 return
             }
 
@@ -257,7 +260,7 @@ public func fixture(
             }
         }
     } catch {
-        XCTFail("\(error)", file: file, line: line)
+        Issue.record(error)
     }
 }
 
@@ -302,7 +305,7 @@ public func initGitRepo(
             try systemQuietly([Git.tool, "-C", dir.pathString, "tag", tag])
         }
     } catch {
-        XCTFail("\(error)", file: file, line: line)
+        Issue.record(error)
     }
 }
 

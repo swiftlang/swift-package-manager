@@ -10,8 +10,6 @@
 
 import TSCBasic
 import TSCTestSupport
-import XCTest
-
 import IntegrationTestSupport
 import Testing
 

@@ -8,24 +8,22 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import XCTest
-import TSCBasic
-import TSCTestSupport
 import IntegrationTestSupport
 import Testing
-
+import TSCBasic
+import TSCTestSupport
 @Suite
-fileprivate struct BasicTests {
+private struct BasicTests {
     @Test
     func testVersion() throws {
         #expect(try sh(swift, "--version").stdout.contains("Swift version"))
     }
 
     @Test(
-        nil,
         .skipSwiftCISelfHosted(
             "These packages don't use the latest runtime library, which doesn't work with self-hosted builds."
-        ))
+        )
+    )
     func testExamplePackageDealer() throws {
         try withTemporaryDirectory { tempDir in
             let packagePath = tempDir.appending(component: "dealer")
@@ -61,19 +59,22 @@ fileprivate struct BasicTests {
                 packagePath.appending(component: "Package.swift"),
                 bytes: ByteString(
                     encodingAsUTF8: """
-                        // swift-tools-version:4.2
-                        import PackageDescription
+                    // swift-tools-version:4.2
+                    import PackageDescription
 
-                        let package = Package(
-                            name: "tool",
-                            targets: [
-                                .target(name: "tool", path: "./"),
-                            ]
-                        )
-                        """))
+                    let package = Package(
+                        name: "tool",
+                        targets: [
+                            .target(name: "tool", path: "./"),
+                        ]
+                    )
+                    """
+                )
+            )
             try localFileSystem.writeFileContents(
                 packagePath.appending(component: "main.swift"),
-                bytes: ByteString(encodingAsUTF8: #"print("HI")"#))
+                bytes: ByteString(encodingAsUTF8: #"print("HI")"#)
+            )
 
             // Check the build.
             let buildOutput = try sh(swiftBuild, "--package-path", packagePath, "-v").stdout
@@ -92,7 +93,8 @@ fileprivate struct BasicTests {
             let helloSourcePath = tempDir.appending(component: "hello.swift")
             try localFileSystem.writeFileContents(
                 helloSourcePath,
-                bytes: ByteString(encodingAsUTF8: #"print("hello")"#))
+                bytes: ByteString(encodingAsUTF8: #"print("hello")"#)
+            )
             let helloBinaryPath = tempDir.appending(component: "hello")
             try sh(swiftc, helloSourcePath, "-o", helloBinaryPath)
 
@@ -104,6 +106,7 @@ fileprivate struct BasicTests {
             #expect(helloOutput == "hello\n")
         }
     }
+
     @Test
     func testSwiftPackageInitExec() throws {
         try withTemporaryDirectory { tempDir in
@@ -130,7 +133,7 @@ fileprivate struct BasicTests {
         }
     }
 
-    @Test(nil, .skip("FIXME: swift-test invocations are timing out in Xcode and self-hosted CI"))
+    @Test(.skip("FIXME: swift-test invocations are timing out in Xcode and self-hosted CI"))
     func testSwiftPackageInitExecTests() throws {
         try withTemporaryDirectory { tempDir in
             // Create a new package with an executable target.
@@ -200,29 +203,33 @@ fileprivate struct BasicTests {
                 packagePath.appending(component: "Package.swift"),
                 bytes: ByteString(
                     encodingAsUTF8: """
-                        // swift-tools-version:4.2
-                        import PackageDescription
+                    // swift-tools-version:4.2
+                    import PackageDescription
 
-                        let package = Package(
-                           name: "special tool",
-                           targets: [
-                               .target(name: "special tool", path: "./"),
-                           ]
-                        )
-                        """))
+                    let package = Package(
+                       name: "special tool",
+                       targets: [
+                           .target(name: "special tool", path: "./"),
+                       ]
+                    )
+                    """
+                )
+            )
             try localFileSystem.writeFileContents(
                 packagePath.appending(component: "main.swift"),
-                bytes: ByteString(encodingAsUTF8: #"foo()"#))
+                bytes: ByteString(encodingAsUTF8: #"foo()"#)
+            )
             try localFileSystem.writeFileContents(
                 packagePath.appending(component: "some file.swift"),
-                bytes: ByteString(encodingAsUTF8: #"func foo() { print("HI") }"#))
+                bytes: ByteString(encodingAsUTF8: #"func foo() { print("HI") }"#)
+            )
 
             // Check the build.
             let buildOutput = try sh(swiftBuild, "--package-path", packagePath, "-v").stdout
-            #expect(
-                try
-                    #/swiftc.* -module-name special_tool .* '@.*/more spaces/special tool/.build/[^/]+/debug/special_tool.build/sources'/#
-                    .firstMatch(in: buildOutput) != nil)
+            #expect(try 
+                #/swiftc.* -module-name special_tool .* '@.*/more spaces/special tool/.build/[^/]+/debug/special_tool.build/sources'/#
+                    .firstMatch(in: buildOutput) != nil
+            )
             #expect(buildOutput.contains("Build complete"))
 
             // Verify that the tool exists and works.
@@ -241,20 +248,24 @@ fileprivate struct BasicTests {
             try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "executable")
             // delete any files generated
             for entry in try localFileSystem.getDirectoryContents(
-                packagePath.appending(components: "Sources"))
-            {
+                packagePath.appending(components: "Sources")
+            ) {
                 try localFileSystem.removeFileTree(
-                    packagePath.appending(components: "Sources", entry))
+                    packagePath.appending(components: "Sources", entry)
+                )
             }
             try localFileSystem.writeFileContents(
                 packagePath.appending(components: "Sources", "secho.swift"),
                 bytes: ByteString(
                     encodingAsUTF8: """
-                        import Foundation
-                        print(CommandLine.arguments.dropFirst().joined(separator: " "))
-                        """))
+                    import Foundation
+                    print(CommandLine.arguments.dropFirst().joined(separator: " "))
+                    """
+                )
+            )
             let (runOutput, runError) = try sh(
-                swiftRun, "--package-path", packagePath, "secho", "1", #""two""#)
+                swiftRun, "--package-path", packagePath, "secho", "1", #""two""#
+            )
 
             // Check the run log.
             let checker = StringChecker(string: runError)
@@ -276,18 +287,20 @@ fileprivate struct BasicTests {
                 packagePath.appending(components: "Tests", "swiftTestTests", "MyTests.swift"),
                 bytes: ByteString(
                     encodingAsUTF8: """
-                        import XCTest
+                    import XCTest
 
-                        final class MyTests: XCTestCase {
-                            func testFoo() {
-                                XCTAssertTrue(1 == 1)
-                            }
-                            func testBar() {
-                                XCTAssertFalse(1 == 2)
-                            }
-                            func testBaz() { }
+                    final class MyTests: XCTestCase {
+                        func testFoo() {
+                            XCTAssertTrue(1 == 1)
                         }
-                        """))
+                        func testBar() {
+                            XCTAssertFalse(1 == 2)
+                        }
+                        func testBaz() { }
+                    }
+                    """
+                )
+            )
             let testOutput = try sh(
                 swiftTest, "--package-path", packagePath, "--filter", "MyTests.*", "--skip",
                 "testBaz"
@@ -310,34 +323,38 @@ fileprivate struct BasicTests {
                 packagePath.appending(component: "Package.swift"),
                 bytes: ByteString(
                     encodingAsUTF8: """
-                        // swift-tools-version:5.3
-                        import PackageDescription
+                    // swift-tools-version:5.3
+                    import PackageDescription
 
-                        let package = Package(
-                           name: "AwesomeResources",
-                           targets: [
-                               .target(name: "AwesomeResources", resources: [.copy("hello.txt")]),
-                               .testTarget(name: "AwesomeResourcesTest", dependencies: ["AwesomeResources"], resources: [.copy("world.txt")])
-                           ]
-                        )
-                        """)
+                    let package = Package(
+                       name: "AwesomeResources",
+                       targets: [
+                           .target(name: "AwesomeResources", resources: [.copy("hello.txt")]),
+                           .testTarget(name: "AwesomeResourcesTest", dependencies: ["AwesomeResources"], resources: [.copy("world.txt")])
+                       ]
+                    )
+                    """
+                )
             )
             try localFileSystem.createDirectory(packagePath.appending(component: "Sources"))
             try localFileSystem.createDirectory(
-                packagePath.appending(components: "Sources", "AwesomeResources"))
+                packagePath.appending(components: "Sources", "AwesomeResources")
+            )
             try localFileSystem.writeFileContents(
                 packagePath.appending(
-                    components: "Sources", "AwesomeResources", "AwesomeResource.swift"),
+                    components: "Sources", "AwesomeResources", "AwesomeResource.swift"
+                ),
                 bytes: ByteString(
                     encodingAsUTF8: """
-                        import Foundation
+                    import Foundation
 
-                        public struct AwesomeResource {
-                          public init() {}
-                          public let hello = try! String(contentsOf: Bundle.module.url(forResource: "hello", withExtension: "txt")!)
-                        }
+                    public struct AwesomeResource {
+                      public init() {}
+                      public let hello = try! String(contentsOf: Bundle.module.url(forResource: "hello", withExtension: "txt")!)
+                    }
 
-                        """)
+                    """
+                )
             )
 
             try localFileSystem.writeFileContents(
@@ -347,7 +364,8 @@ fileprivate struct BasicTests {
 
             try localFileSystem.createDirectory(packagePath.appending(component: "Tests"))
             try localFileSystem.createDirectory(
-                packagePath.appending(components: "Tests", "AwesomeResourcesTest"))
+                packagePath.appending(components: "Tests", "AwesomeResourcesTest")
+            )
 
             try localFileSystem.writeFileContents(
                 packagePath.appending(components: "Tests", "AwesomeResourcesTest", "world.txt"),
@@ -358,20 +376,22 @@ fileprivate struct BasicTests {
                 packagePath.appending(components: "Tests", "AwesomeResourcesTest", "MyTests.swift"),
                 bytes: ByteString(
                     encodingAsUTF8: """
-                        import XCTest
-                        import Foundation
-                        import AwesomeResources
+                    import XCTest
+                    import Foundation
+                    import AwesomeResources
 
-                        final class MyTests: XCTestCase {
-                            func testFoo() {
-                                XCTAssertTrue(AwesomeResource().hello == "hello")
-                            }
-                            func testBar() {
-                                let world = try! String(contentsOf: Bundle.module.url(forResource: "world", withExtension: "txt")!)
-                                XCTAssertTrue(world == "world")
-                            }
+                    final class MyTests: XCTestCase {
+                        func testFoo() {
+                            XCTAssertTrue(AwesomeResource().hello == "hello")
                         }
-                        """))
+                        func testBar() {
+                            let world = try! String(contentsOf: Bundle.module.url(forResource: "world", withExtension: "txt")!)
+                            XCTAssertTrue(world == "world")
+                        }
+                    }
+                    """
+                )
+            )
 
             let testOutput = try sh(
                 swiftTest, "--package-path", packagePath, "--filter", "MyTests.*"
@@ -386,8 +406,8 @@ fileprivate struct BasicTests {
     }
 }
 
-private extension Character {
-    var isPlayingCardSuit: Bool {
+extension Character {
+    fileprivate var isPlayingCardSuit: Bool {
         switch self {
         case "♠︎", "♡", "♢", "♣︎":
             return true
