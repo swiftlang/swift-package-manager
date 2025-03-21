@@ -243,6 +243,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, string: pif)
 
         try await startSWBuildOperation(pifTargetName: subset.pifTargetName)
+
         #else
         fatalError("Swift Build support is not linked in.")
         #endif
@@ -250,6 +251,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     #if canImport(SwiftBuild)
     private func startSWBuildOperation(pifTargetName: String) async throws {
+        let buildStartTime = ContinuousClock.Instant.now
+
         try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
             let parameters = try self.makeBuildParameters()
             let derivedDataPath = self.buildParameters.dataPath.pathString
@@ -386,7 +389,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     case .succeeded:
                         progressAnimation.update(step: 100, total: 100, text: "")
                         progressAnimation.complete(success: true)
-                        self.outputStream.send("Build complete!\n")
+                        let duration = ContinuousClock.Instant.now - buildStartTime
+                        self.outputStream.send("Build complete! (\(duration))\n")
                         self.outputStream.flush()
                     case .failed:
                         self.observabilityScope.emit(error: "Build failed")
