@@ -1733,9 +1733,6 @@ extension [PackageCondition] {
             case .openbsd:
                 result += PIF.PlatformFilter.openBSDFilters
 
-            case .freebsd:
-                result += PIF.PlatformFilter.freeBSDFilters
-
             default:
                 assertionFailure("Unhandled platform condition: \(condition)")
             }
@@ -1796,11 +1793,6 @@ extension PIF.PlatformFilter {
     /// OpenBSD filters.
     public static let openBSDFilters: [PIF.PlatformFilter] = [
         .init(platform: "openbsd"),
-    ]
-
-    /// FreeBSD filters.
-    public static let freeBSDFilters: [PIF.PlatformFilter] = [
-        .init(platform: "freebsd"),
     ]
 
     /// WebAssembly platform filters.
