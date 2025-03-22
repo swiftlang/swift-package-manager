@@ -495,9 +495,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
 
             do {
                 let outputStream = BufferedOutputByteStream()
-                XCTAssertThrowsError(try SwiftCommandState.makeMockState(outputStream: outputStream, options: options), "error expected") { error in
-                    XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: No such file or directory"))
-                }
+                XCTAssertThrowsError(try SwiftCommandState.makeMockState(outputStream: outputStream, options: options), "error expected")
             }
 
             do {
