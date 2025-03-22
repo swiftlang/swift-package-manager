@@ -11,7 +11,10 @@ struct diagnostics_stub: CommandPlugin {
             // SwiftPM does not add a prefix to these logs.
             let result = try packageManager.build(
                 .product("placeholder"),
-                parameters: .init(echoLogs: arguments.contains("echologs"))
+                parameters: .init(
+                    echoLogs: arguments.contains("echologs"),
+                    progressToConsole: arguments.contains("progresstoconsole")
+                )
             )
 
             // To verify that logs are also returned correctly to the plugin,

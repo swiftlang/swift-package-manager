@@ -2648,6 +2648,8 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         // Echoed logs have no prefix
         let containsLogecho = StringPattern.contains("Building for debugging...\n")
 
+        let containsProgressLog = StringPattern.contains("Compiling placeholder")
+
         // These tests involve building a target, so each test must run with a fresh copy of the fixture
         // otherwise the logs may be different in subsequent tests.
 
@@ -2682,7 +2684,16 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
             let (stdout, stderr) = try await self.execute(["print-diagnostics", "build", "printlogs", "echologs"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertMatch(stdout, containsLogtext)
+            XCTAssertMatch(stdout, containsProgressLog)
             XCTAssertMatch(stderr, containsLogecho)
+            XCTAssertMatch(stderr, containsProgressLog)
+        }
+
+        try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            let (stdout, stderr) = try await self.execute(["print-diagnostics", "build", "printlogs", "progresstoconsole"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
+            XCTAssertMatch(stdout, containsLogtext)
+            XCTAssertNoMatch(stdout, containsProgressLog)
+            XCTAssertMatch(stderr, containsProgressLog)
         }
     }
 
