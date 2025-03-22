@@ -49,6 +49,9 @@ extension SwiftPackageCommand {
         @Option(name: .customLong("name"), help: "Provide custom package name")
         var packageName: String?
 
+        // This command should support creating the supplied --package-path if it isn't created.
+        var createPackagePath = true
+
         func run(_ swiftCommandState: SwiftCommandState) throws {
             guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
                 throw InternalError("Could not find the current working directory")

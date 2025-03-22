@@ -22,8 +22,10 @@ import _InternalTestSupport
 @testable import PackageModel
 import XCTest
 
+import ArgumentParser
 import class TSCBasic.BufferedOutputByteStream
 import protocol TSCBasic.OutputByteStream
+import enum TSCBasic.SystemError
 import var TSCBasic.stderrStream
 
 final class SwiftCommandStateTests: CommandsTestCase {
@@ -512,12 +514,32 @@ final class SwiftCommandStateTests: CommandsTestCase {
         XCTAssertEqual(try targetToolchain.getClangCompiler(), targetClangPath)
         XCTAssertEqual(targetToolchain.librarianPath, targetArPath)
     }
+
+    func testPackagePathWithMissingFolder() async throws {
+        try withTemporaryDirectory { fixturePath in
+            let packagePath = fixturePath.appending(component: "Foo")
+            let options = try GlobalOptions.parse(["--package-path", packagePath.pathString])
+
+            do {
+                let outputStream = BufferedOutputByteStream()
+                XCTAssertThrowsError(try SwiftCommandState.makeMockState(outputStream: outputStream, options: options), "error expected")
+            }
+
+            do {
+                let outputStream = BufferedOutputByteStream()
+                let tool = try SwiftCommandState.makeMockState(outputStream: outputStream, options: options, createPackagePath: true)
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("error:"))
+            }
+        }
+    }
 }
 
 extension SwiftCommandState {
     static func makeMockState(
         outputStream: OutputByteStream = stderrStream,
         options: GlobalOptions,
+        createPackagePath: Bool = false,
         fileSystem: any FileSystem = localFileSystem,
         environment: Environment = .current
     ) throws -> SwiftCommandState {
@@ -539,6 +561,7 @@ extension SwiftCommandState {
                     observabilityScope: $1
                 )
             },
+            createPackagePath: createPackagePath,
             hostTriple: .arm64Linux,
             fileSystem: fileSystem,
             environment: environment
