@@ -630,16 +630,26 @@ class ManifestTests: XCTestCase {
             ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
         ]
 
-        let unguardedTargetDependency: TargetDescription.Dependency = .product(name: "Bar", package: "Bar")
+        let unguardedTargetDependency: TargetDescription.Dependency = .product(
+            name: "Bar",
+            package: "Bar"
+        )
+
         let trait3GuardedTargetDependency: TargetDescription.Dependency = .product(
             name: "Baz",
             package: "Baz",
             condition: .init(traits: ["Trait3"])
         )
+
         let defaultTraitGuardedTargetDependency: TargetDescription.Dependency = .product(
             name: "Bam",
             package: "Bam",
             condition: .init(traits: ["Trait2"])
+        )
+
+        let unguardedTargetDependencyWithBamPackage: TargetDescription.Dependency = .product(
+            name: "Qux",
+            package: "Bam"
         )
 
         let target = try TargetDescription(
@@ -648,6 +658,16 @@ class ManifestTests: XCTestCase {
                 unguardedTargetDependency,
                 trait3GuardedTargetDependency,
                 defaultTraitGuardedTargetDependency,
+            ]
+        )
+
+        let targetWithUnguardedBamPackageDep = try TargetDescription(
+            name: "Foo",
+            dependencies: [
+                unguardedTargetDependency,
+                trait3GuardedTargetDependency,
+                defaultTraitGuardedTargetDependency,
+                unguardedTargetDependencyWithBamPackage,
             ]
         )
 
@@ -669,6 +689,16 @@ class ManifestTests: XCTestCase {
                 traits: traits
             )
 
+            let manifestWithBamDependencyAlwaysUsed = Manifest.createRootManifest(
+                displayName: "Foo",
+                path: "/Foo",
+                toolsVersion: .v5_2,
+                dependencies: dependencies,
+                products: products,
+                targets: [targetWithUnguardedBamPackageDep],
+                traits: traits
+            )
+
             XCTAssertTrue(try manifest.isPackageDependencyUsed(bar, enabledTraits: nil))
             XCTAssertTrue(try manifest.isPackageDependencyUsed(bar, enabledTraits: []))
             XCTAssertFalse(try manifest.isPackageDependencyUsed(baz, enabledTraits: nil))
@@ -676,6 +706,14 @@ class ManifestTests: XCTestCase {
             XCTAssertTrue(try manifest.isPackageDependencyUsed(bam, enabledTraits: nil))
             XCTAssertFalse(try manifest.isPackageDependencyUsed(bam, enabledTraits: []))
             XCTAssertFalse(try manifest.isPackageDependencyUsed(bam, enabledTraits: ["Trait3"]))
+
+            // Configuration of the manifest that includes a case where there exists a target
+            // dependency that depends on the same package as another target dependency, but
+            // is unguarded by traits; therefore, this package dependency should be considered used
+            // in every scenario, regardless of the passed trait configuration.
+            XCTAssertTrue(try manifestWithBamDependencyAlwaysUsed.isPackageDependencyUsed(bam, enabledTraits: nil))
+            XCTAssertTrue(try manifestWithBamDependencyAlwaysUsed.isPackageDependencyUsed(bam, enabledTraits: []))
+            XCTAssertTrue(try manifestWithBamDependencyAlwaysUsed.isPackageDependencyUsed(bam, enabledTraits: ["Trait3"]))
         }
     }
 
