@@ -15,7 +15,7 @@ import TSCTestSupport
 @Suite
 private struct BasicTests {
     @Test(
-        .skipHostOs(.windows,  "'try!' expression unexpectedly raised an error: TSCBasic.Process.Error.missingExecutableProgram(program: \"which\")")
+        .skipHostOS(.windows,  "'try!' expression unexpectedly raised an error: TSCBasic.Process.Error.missingExecutableProgram(program: \"which\")")
     )
     func testVersion() throws {
         #expect(try sh(swift, "--version").stdout.contains("Swift version"))
@@ -112,7 +112,7 @@ private struct BasicTests {
     }
 
     @Test(
-        .skipHostOs(.windows, "failed to build package")
+        .skipHostOS(.windows, "failed to build package")
     )
     func testSwiftPackageInitExec() throws {
         try withTemporaryDirectory { tempDir in
@@ -201,7 +201,7 @@ private struct BasicTests {
     }
 
     @Test(
-        .skipHostOs(.windows, "unexpected failure matching")
+        .skipHostOS(.windows, "unexpected failure matching")
     )
     func testSwiftPackageWithSpaces() throws {
         try withTemporaryDirectory { tempDir in
@@ -249,7 +249,7 @@ private struct BasicTests {
     }
 
     @Test(
-        .skipHostOs(.windows, "package fails to build")
+        .skipHostOS(.windows, "package fails to build")
     )
     func testSwiftRun() throws {
         try withTemporaryDirectory { tempDir in
