@@ -866,7 +866,8 @@ extension Manifest {
     }
 
 
-    // TODO: bp add description
+    /// Computes the list of target dependencies per target that are guarded by traits.
+    /// A  target dependency is considered potentially trait-guarded if it defines a condition wherein there exists a list of traits.
     public func traitGuardedDependencies(lowercasedKeys: Bool = false) -> [String: [TargetDescription.Dependency]] {
         self.targets.reduce(into: [String: [TargetDescription.Dependency]]()) { depMap, target in
             let traitGuardedTargetDependencies = traitGuardedTargetDependencies(lowercasedKeys: lowercasedKeys, for: target)
@@ -878,7 +879,8 @@ extension Manifest {
         }
     }
 
-    // TODO: bp add description
+    /// Computes the list of target dependencies that are guarded by traits for given target.
+    /// A  target dependency is considered potentially trait-guarded if it defines a condition wherein there exists a list of traits.
     public func traitGuardedTargetDependencies(lowercasedKeys: Bool = false, for target: TargetDescription) -> [TargetDescription.Dependency: Set<String>] {
         target.dependencies.filter {
             !($0.condition?.traits?.isEmpty ?? true)

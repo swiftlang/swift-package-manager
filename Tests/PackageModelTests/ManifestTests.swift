@@ -508,16 +508,26 @@ class ManifestTests: XCTestCase {
             ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
         ]
 
-        let unguardedTargetDependency: TargetDescription.Dependency = .product(name: "Bar", package: "Blah")
+        let unguardedTargetDependency: TargetDescription.Dependency = .product(
+            name: "Bar",
+            package: "Blah"
+        )
+
         let trait3GuardedTargetDependency: TargetDescription.Dependency = .product(
             name: "Baz",
             package: "Buzz",
             condition: .init(traits: ["Trait3"])
         )
+
         let defaultTraitGuardedTargetDependency: TargetDescription.Dependency = .product(
             name: "Bam",
             package: "Boom",
             condition: .init(traits: ["Trait2"])
+        )
+
+        let enabledTargetDependencyWithSamePackage: TargetDescription.Dependency = .product(
+            name: "Kaboom",
+            package: "Boom"
         )
 
         let target = try TargetDescription(
@@ -526,6 +536,7 @@ class ManifestTests: XCTestCase {
                 unguardedTargetDependency,
                 trait3GuardedTargetDependency,
                 defaultTraitGuardedTargetDependency,
+                enabledTargetDependencyWithSamePackage,
             ]
         )
 
@@ -591,6 +602,14 @@ class ManifestTests: XCTestCase {
             XCTAssertFalse(try manifest.isTargetDependencyEnabled(
                 target: "Foo",
                 defaultTraitGuardedTargetDependency,
+                enabledTraits: []
+            ))
+
+            // Test if a target dependency that isn't guarded by traits wherein it uses a product
+            // from the same package as another target dependency that is guarded by traits; should be true.
+            XCTAssertTrue(try manifest.isTargetDependencyEnabled(
+                target: "Foo",
+                enabledTargetDependencyWithSamePackage,
                 enabledTraits: []
             ))
         }
