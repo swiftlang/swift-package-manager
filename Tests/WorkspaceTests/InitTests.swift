@@ -101,7 +101,7 @@ final class InitTests: XCTestCase {
     func testInitPackageExecutableCalledMain() async throws {
         try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
-            let path = tmpPath.appending("Main")
+            let path = tmpPath.appending("main")
             let name = path.basename
             try fs.createDirectory(path)
 
