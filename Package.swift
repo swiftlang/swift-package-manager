@@ -970,16 +970,14 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
 }
 #endif
 
-/// Whether swift-syntax is being built as a single dynamic library instead of as a separate library per module.
-///
-/// This means that the swift-syntax symbols don't need to be statically linked, which allows us to stay below the
-/// maximum number of exported symbols on Windows, in turn allowing us to build sourcekit-lsp using SwiftPM on Windows
-/// and run its tests.
-var buildDynamicSwiftSyntaxLibrary: Bool {
-  ProcessInfo.processInfo.environment["SWIFTSYNTAX_BUILD_DYNAMIC_LIBRARY"] != nil
-}
 
 func swiftSyntaxDependencies(_ names: [String]) -> [Target.Dependency] {
+  /// Whether swift-syntax is being built as a single dynamic library instead of as a separate library per module.
+  ///
+  /// This means that the swift-syntax symbols don't need to be statically linked, which allows us to stay below the
+  /// maximum number of exported symbols on Windows, in turn allowing us to build sourcekit-lsp using SwiftPM on Windows
+  /// and run its tests.
+  let buildDynamicSwiftSyntaxLibrary = ProcessInfo.processInfo.environment["SWIFTSYNTAX_BUILD_DYNAMIC_LIBRARY"] != nil
   if buildDynamicSwiftSyntaxLibrary {
     return [.product(name: "_SwiftSyntaxDynamic", package: "swift-syntax")]
   } else {
