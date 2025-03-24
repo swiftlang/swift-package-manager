@@ -317,7 +317,8 @@ public final class SwiftCommandState {
         self.logLevel = options.logging.logLevel
         self.observabilityHandler = SwiftCommandObservabilityHandler(
             outputStream: outputStream,
-            logLevel: self.logLevel
+            logLevel: self.logLevel,
+            colorDiagnostics: options.logging.colorDiagnostics
         )
         let observabilitySystem = ObservabilitySystem(self.observabilityHandler)
         let observabilityScope = observabilitySystem.topScope
@@ -854,6 +855,7 @@ public final class SwiftCommandState {
                 shouldDisableLocalRpath: self.options.linker.shouldDisableLocalRpath
             ),
             outputParameters: .init(
+                isColorized: self.options.logging.colorDiagnostics,
                 isVerbose: self.logLevel <= .info
             ),
             testingParameters: .init(

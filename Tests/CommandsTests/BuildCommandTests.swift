@@ -416,14 +416,13 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
     }
 
     func testBuildCompleteMessage() async throws {
-        try XCTSkipIf(true, "This test fails to match the 'Compiling' regex; rdar://101815761")
-
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             do {
                 let result = try await execute(packagePath: fixturePath)
-                XCTAssertMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
+                // This test fails to match the 'Compiling' regex; rdar://101815761
+                // XCTAssertMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
                 let lines = result.stdout.split(whereSeparator: { $0.isNewline })
-                XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*s\\)"))
+                XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*\\s*s(econds)?\\)"))
             }
 
             do {
@@ -434,9 +433,10 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
             do {
                 // test third time, to make sure message is presented even when nothing to build (cached)
                 let result = try await execute(packagePath: fixturePath)
-                XCTAssertNoMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
+                // This test fails to match the 'Compiling' regex; rdar://101815761
+                // XCTAssertNoMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
                 let lines = result.stdout.split(whereSeparator: { $0.isNewline })
-                XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*s\\)"))
+                XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*\\s*s(econds)?\\)"))
             }
         }
     }
@@ -848,6 +848,10 @@ class BuildCommandXcodeTests: BuildCommandTestCases {
     override func testGetTaskAllowEntitlement() async throws {
         try XCTSkip("Test not implemented for xcode build system.")
     }
+
+    override func testBuildCompleteMessage() async throws {
+        try XCTSkip("Test not implemented for xcode build system.")
+    }
 }
 #endif
 
@@ -866,7 +870,7 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
     }
 
     override func testGetTaskAllowEntitlement() async throws {
-        throw XCTSkip("SWBINTTODO: Test failed because swiftbuild doesn't output the codesign commands that the test expects.")
+        throw XCTSkip("SWBINTTODO: Test failed because swiftbuild doesn't output precis codesign commands. Once swift run works with swiftbuild the test can be investigated.")
     }
 
     override func testCodeCoverage() async throws {

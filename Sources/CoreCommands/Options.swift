@@ -12,8 +12,8 @@
 
 import ArgumentParser
 
-import var Basics.localFileSystem
 import struct Basics.AbsolutePath
+import var Basics.localFileSystem
 import enum Basics.TestingLibrary
 import struct Basics.Triple
 
@@ -22,8 +22,8 @@ import struct Foundation.URL
 import enum PackageModel.BuildConfiguration
 import struct PackageModel.BuildFlags
 import struct PackageModel.EnabledSanitizers
-import struct PackageModel.PackageIdentity
 import class PackageModel.Manifest
+import struct PackageModel.PackageIdentity
 import enum PackageModel.Sanitizer
 @_spi(SwiftPMInternal) import struct PackageModel.SwiftSDK
 
@@ -36,6 +36,7 @@ import struct TSCBasic.StringError
 
 import struct TSCUtility.Version
 
+import Foundation
 import class Workspace.Workspace
 import struct Workspace.WorkspaceConfiguration
 
@@ -124,7 +125,7 @@ public struct LocationOptions: ParsableArguments {
         completion: .directory
     )
     public var swiftSDKsDirectory: AbsolutePath?
-    
+
     @Option(
         name: .customLong("toolset"),
         help: """
@@ -214,6 +215,15 @@ public struct LoggingOptions: ParsableArguments {
     /// Whether logging output should be limited to `.error`.
     @Flag(name: .shortAndLong, help: "Decrease verbosity to only include error output.")
     public var quiet: Bool = false
+
+    @Flag(name: .customLong("color-diagnostics"),
+          inversion: .prefixedNo,
+          help:
+            """
+            Enables or disables color diagnostics when printing to a TTY. 
+            By default, color diagnostics are enabled when connected to a TTY and disabled otherwise.
+            """)
+    public var colorDiagnostics: Bool = ProcessInfo.processInfo.environment["NO_COLOR"] == nil
 }
 
 public struct SecurityOptions: ParsableArguments {
@@ -549,7 +559,7 @@ public struct BuildOptions: ParsableArguments {
 
     // Whether to omit frame pointers
     // this can be removed once the backtracer uses DWARF instead of frame pointers
-    @Flag(inversion: .prefixedNo,  help: .hidden)
+    @Flag(inversion: .prefixedNo, help: .hidden)
     public var omitFramePointers: Bool? = nil
 
     // @Flag works best when there is a default value present
@@ -663,7 +673,6 @@ public struct TestLibraryOptions: ParsableArguments {
         isEnabled(library, default: false, swiftCommandState: swiftCommandState)
     }
 }
-
 
 package struct TraitOptions: ParsableArguments {
     package init() {}

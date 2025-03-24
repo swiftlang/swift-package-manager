@@ -10,20 +10,20 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 @_spi(SwiftPMInternal)
 import Basics
-import _Concurrency
+import Foundation
 import LLBuildManifest
 import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
 import SPMLLBuild
-import Foundation
 
+import class Basics.AsyncProcess
 import class TSCBasic.DiagnosticsEngine
 import protocol TSCBasic.OutputByteStream
-import class Basics.AsyncProcess
 import struct TSCBasic.RegEx
 
 import enum TSCUtility.Diagnostics
@@ -88,7 +88,7 @@ package struct LLBuildSystemConfiguration {
         }
     }
 
-    func buildEnvironment(for destination:  BuildParameters.Destination) -> BuildEnvironment {
+    func buildEnvironment(for destination: BuildParameters.Destination) -> BuildEnvironment {
         switch destination {
         case .host: self.toolsBuildParameters.buildEnvironment
         case .target: self.destinationBuildParameters.buildEnvironment
@@ -246,11 +246,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     ) {
         /// Checks if stdout stream is tty.
         var productsBuildParameters = productsBuildParameters
-        productsBuildParameters.outputParameters.isColorized = outputStream.isTTY
-
+        if productsBuildParameters.outputParameters.isColorized {
+            productsBuildParameters.outputParameters.isColorized = outputStream.isTTY
+        }
         var toolsBuildParameters = toolsBuildParameters
-        toolsBuildParameters.outputParameters.isColorized = outputStream.isTTY
-
+        if toolsBuildParameters.outputParameters.isColorized {
+            toolsBuildParameters.outputParameters.isColorized = outputStream.isTTY
+        }
         self.config = LLBuildSystemConfiguration(
             toolsBuildParameters: toolsBuildParameters,
             destinationBuildParameters: productsBuildParameters,
@@ -362,9 +364,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                                         fileSystem: localFileSystem,
                                         executor: executor)
                 guard !consumeDiagnostics.hasErrors else {
-                  // If we could not init the driver with this command, something went wrong,
-                  // proceed without checking this target.
-                  continue
+                    // If we could not init the driver with this command, something went wrong,
+                    // proceed without checking this target.
+                    continue
                 }
                 let imports = try driver.performImportPrescan().imports
                 let nonDependencyTargetsSet =
@@ -521,9 +523,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 self.preparationStepName = preparationStepName
                 self.progressTracker = progressTracker
             }
+
             func willCompilePlugin(commandLine: [String], environment: [String: String]) {
                 self.progressTracker?.preparationStepStarted(preparationStepName)
             }
+
             func didCompilePlugin(result: PluginCompilationResult) {
                 self.progressTracker?.preparationStepHadOutput(
                     preparationStepName,
@@ -539,6 +543,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 }
                 self.progressTracker?.preparationStepFinished(preparationStepName, result: (result.succeeded ? .succeeded : .failed))
             }
+
             func skippedCompilingPlugin(cachedResult: PluginCompilationResult) {
                 // Historically we have emitted log info about cached plugins that are used. We should reconsider whether this is the right thing to do.
                 self.progressTracker?.preparationStepStarted(preparationStepName)
@@ -682,7 +687,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             fileSystem: self.fileSystem,
             observabilityScope: self.observabilityScope
         )
-
     }
 
     /// Create the build plan and return the build description.
