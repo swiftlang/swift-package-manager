@@ -775,7 +775,6 @@ let package = Package(
                 .unsafeFlags(["-static"]),
             ]
         ),
-
         .target(
             /** Test for thread-sanitizer. */
             name: "tsan_utils",
@@ -826,6 +825,13 @@ let package = Package(
         .testTarget(
             name: "LLBuildManifestTests",
             dependencies: ["Basics", "LLBuildManifest", "_InternalTestSupport"]
+        ),
+        .testTarget(
+            name: "IntegrationTests",
+            dependencies: [
+                "_InternalTestSupport",
+                "SPMBuildCore",
+            ]
         ),
         .testTarget(
             name: "WorkspaceTests",
@@ -983,6 +989,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "dummy-swiftc",
             ]
         ),
+
     ])
 }
 #endif
