@@ -758,6 +758,12 @@ let package = Package(
                 .unsafeFlags(["-static"]),
             ]
         ),
+        .target(
+            name: "IntegrationTestSupport",
+            dependencies: [
+                .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
+            ]
+        ),
 
         .target(
             /** Test for thread-sanitizer. */
@@ -809,6 +815,14 @@ let package = Package(
         .testTarget(
             name: "LLBuildManifestTests",
             dependencies: ["Basics", "LLBuildManifest", "_InternalTestSupport"]
+        ),
+        .testTarget(
+            name: "IntegrationTests",
+            dependencies: [
+                .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+                .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
+                "IntegrationTestSupport",
+            ]
         ),
         .testTarget(
             name: "WorkspaceTests",
@@ -966,6 +980,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "dummy-swiftc",
             ]
         ),
+
     ])
 }
 #endif
