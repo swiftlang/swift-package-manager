@@ -870,7 +870,7 @@ extension Manifest {
     }
 
     /// Computes the list of target dependencies per target that are guarded by traits.
-    /// A  target dependency is considered potentially trait-guarded if it defines a condition wherein there exists a
+    /// A target dependency is considered potentially trait-guarded if it defines a condition wherein there exists a
     /// list of traits.
     /// - Parameters:
     ///    - lowercasedKeys: A flag that determines whether the keys in the resulting dictionary are lowercased.
@@ -892,7 +892,7 @@ extension Manifest {
     }
 
     /// Computes the list of target dependencies that are guarded by traits for given target.
-    /// A  target dependency is considered potentially trait-guarded if it defines a condition wherein there exists a
+    /// A target dependency is considered potentially trait-guarded if it defines a condition wherein there exists a
     /// list of traits.
     /// - Parameters:
     ///    - target: A `TargetDescription` for which the trait-guarded target dependencies are calculated.
