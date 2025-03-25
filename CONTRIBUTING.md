@@ -88,7 +88,13 @@ $> swift --version
 Apple Swift version 5.3
 ```
 
-Note: Alternatively, there are tools like [swiftly](https://github.com/swiftlang/swiftly) that can instll and manage toolchains automatically. This repository has a file called `.swift-version` that will keep swiftly at the current recommended version of the toolchain for best results.
+Alternatively, there are tools like [swiftly](https://github.com/swiftlang/swiftly) that can install and manage toolchains automatically. This repository has a file called `.swift-version` that will keep swiftly at the current recommended version of the toolchain for best results. The `swiftly install` command ensures that SwiftPM's in-use toolchain is installed on your system and ready for you to do your development work with the usual swift commands.
+
+``` bash
+swiftly install
+swift build
+swift test
+```
 
 ## Local Development
 
