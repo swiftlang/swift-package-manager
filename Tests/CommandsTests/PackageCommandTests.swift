@@ -840,7 +840,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             XCTAssertMatch(contents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             XCTAssertFileExists(manifest)
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources")), ["Foo.swift"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending(("Foo"))), ["Foo.swift"])
         }
     }
 
