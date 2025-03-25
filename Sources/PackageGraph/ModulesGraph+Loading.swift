@@ -451,7 +451,7 @@ private func createResolvedPackages(
                         package: package.identity.description,
                         identity: dependency.identity,
                         dependencyLocation: dependencyPackageRef.canonicalLocation.description,
-                        otherDependencyLocation: resolvedPackage.package.manifest.canonicalPackageLocation.description,
+                        otherDependencyLocation: resolvedPackage.package.manifest.canonicalPackageLocation.description
                     )
                     return packageObservabilityScope.emit(error)
                 }
