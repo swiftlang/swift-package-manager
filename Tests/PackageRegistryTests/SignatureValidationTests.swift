@@ -153,7 +153,8 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testUnsignedPackage_shouldPrompt() async throws {        // Get metadata endpoint will be called to see if package version is signed
+    func testUnsignedPackage_shouldPrompt() async throws {
+        // Get metadata endpoint will be called to see if package version is signed
         let handler = HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum
@@ -279,7 +280,8 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testUnsignedArchiveAndManifest_shouldPrompt() async throws {        // Get metadata endpoint will be called to see if package version is signed
+    func testUnsignedArchiveAndManifest_shouldPrompt() async throws {
+        // Get metadata endpoint will be called to see if package version is signed
         let handler = HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum
@@ -354,7 +356,8 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testUnsignedArchiveAndManifest_nonPrompt() async throws {        // Get metadata endpoint will be called to see if package version is signed
+    func testUnsignedArchiveAndManifest_nonPrompt() async throws {
+        // Get metadata endpoint will be called to see if package version is signed
         let handler = HTTPClient.packageReleaseMetadataAPIHandler(
             metadataURL: metadataURL,
             checksum: checksum
@@ -459,7 +462,8 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedArchiveUnsignedManifest() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedArchiveUnsignedManifest() async throws {
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -525,7 +529,8 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedArchiveUnknownManifestSignatureFormat() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedArchiveUnknownManifestSignatureFormat() async throws {
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -600,7 +605,8 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedArchiveMalformedManifestSignature() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedArchiveMalformedManifestSignature() async throws {
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -672,7 +678,8 @@ final class SignatureValidationTests: XCTestCase {
     }
 
     #if swift(>=5.5.2)
-    func testSignedPackage_validSignature() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedPackage_validSignature() async throws {
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -747,7 +754,8 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedPackage_badSignature() async throws {        let signatureBytes = Array("bad signature".utf8)
+    func testSignedPackage_badSignature() async throws {
+        let signatureBytes = Array("bad signature".utf8)
         let signatureFormat = SignatureFormat.cms_1_0_0
 
         // Get metadata endpoint will be called to see if package version is signed
@@ -842,7 +850,8 @@ final class SignatureValidationTests: XCTestCase {
         )
     }
 
-    func testSignedPackage_invalidSignature() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedPackage_invalidSignature() async throws {
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -923,7 +932,8 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedPackage_certificateNotTrusted_shouldError() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedPackage_certificateNotTrusted_shouldError() async throws {
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -995,7 +1005,8 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedPackage_certificateNotTrusted_shouldPrompt() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedPackage_certificateNotTrusted_shouldPrompt() async throws {
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1090,7 +1101,8 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedPackage_certificateNotTrusted_shouldWarn() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedPackage_certificateNotTrusted_shouldWarn() async throws {
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1163,7 +1175,8 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedManifest_validSignature() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedManifest_validSignature() async throws {
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1249,7 +1262,8 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedManifest_badSignature() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedManifest_badSignature() async throws {
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1284,7 +1298,6 @@ final class SignatureValidationTests: XCTestCase {
             )
         )
 
-
         let registryClient = makeRegistryClient(
             configuration: configuration,
             httpClient: httpClient,
@@ -1317,7 +1330,8 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedManifest_badSignature_skipSignatureValidation() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedManifest_badSignature_skipSignatureValidation() async throws {
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1380,7 +1394,8 @@ final class SignatureValidationTests: XCTestCase {
         )
     }
 
-    func testSignedManifest_invalidSignature() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedManifest_invalidSignature() async throws {
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1472,7 +1487,8 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedManifest_certificateNotTrusted_shouldPrompt() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedManifest_certificateNotTrusted_shouldPrompt() async throws {
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1579,7 +1595,8 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedManifest_certificateNotTrusted_nonPrompt() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedManifest_certificateNotTrusted_nonPrompt() async throws {
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1664,7 +1681,8 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedManifest_emptyResources() async throws {        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+    func testSignedManifest_emptyResources() async throws {
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
