@@ -15844,6 +15844,127 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testInvalidTrait_WhenParentPackageEnablesTraits() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(
+                                    name: "Baz",
+                                    package: "Baz",
+                                    condition: .init(traits: ["Trait1"])
+                                ),
+                            ]
+                        ),
+                        MockTarget(name: "Bar", dependencies: ["Baz"]),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo", "Bar"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0"), traits: ["TraitNotFound"]),
+                    ],
+                    traits: [.init(name: "default", enabledTraits: ["Trait2"]), "Trait1", "Trait2"]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", modules: ["Baz"]),
+                    ],
+                    traits: ["TraitFound"],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+            ]
+        )
+
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"]), traits: ["TraitFound"]),
+        ]
+
+        try await workspace.checkPackageGraphFailure(roots: ["Foo"], deps: deps) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(diagnostic: .equal("Trait 'TraitNotFound' enabled by parent package 'foo' is not declared by package 'Baz'. The available traits declared by this package are: TraitFound."), severity: .error)
+            }
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    func testInvalidTraitConfiguration_ForRootPackage() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(
+                                    name: "Baz",
+                                    package: "Baz",
+                                    condition: .init(traits: ["Trait1"])
+                                ),
+                            ]
+                        ),
+                        MockTarget(name: "Bar", dependencies: ["Baz"]),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo", "Bar"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0"), traits: ["TraitFound"]),
+                    ],
+                    traits: [.init(name: "default", enabledTraits: ["Trait2"]), "Trait1", "Trait2"]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", modules: ["Baz"]),
+                    ],
+                    traits: ["TraitFound"],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+            ],
+            // Trait configuration containing trait that isn't defined in the root package.
+            traitConfiguration: .enabledTraits(["TraitNotFound"]),
+        )
+
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"]), traits: ["TraitFound"]),
+        ]
+
+        try await workspace.checkPackageGraphFailure(roots: ["Foo"], deps: deps) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(diagnostic: .equal("Trait 'TraitNotFound' is not declared by package 'Foo'. The available traits declared by this package are: Trait1, Trait2, default."), severity: .error)
+            }
+        }
+    }
+
     func makeRegistryClient(
         packageIdentity: PackageIdentity,
         packageVersion: Version,
