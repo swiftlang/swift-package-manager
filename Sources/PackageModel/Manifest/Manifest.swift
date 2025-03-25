@@ -876,9 +876,9 @@ extension Manifest {
     ///    - lowercasedKeys: A flag that determines whether the keys in the resulting dictionary are lowercased.
     /// - Returns: A dictionary that maps the name of a `TargetDescription` to a list of its dependencies that are
     /// guarded by traits.
-    public func traitGuardedTargetDependencies(lowercasedKeys: Bool = false)
-        -> [String: [TargetDescription.Dependency]]
-    {
+    public func traitGuardedTargetDependencies(
+        lowercasedKeys: Bool = false
+    ) -> [String: [TargetDescription.Dependency]] {
         self.targets.reduce(into: [String: [TargetDescription.Dependency]]()) { depMap, target in
             let traitGuardedTargetDependencies = traitGuardedTargetDependencies(
                 for: target
