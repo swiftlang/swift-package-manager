@@ -7,9 +7,15 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(SwiftBuildSupport STATIC
+  BuildSystem.swift
+  PackagePIFBuilder.swift
+  PackagePIFBuilder+Helpers.swift
+  PackagePIFBuilder+Plugins.swift
+  PackagePIFProjectBuilder.swift
+  PackagePIFProjectBuilder+Modules.swift
+  PackagePIFProjectBuilder+Products.swift
   PIF.swift
   PIFBuilder.swift
-  BuildSystem.swift
   SwiftBuildSystem.swift)
 target_link_libraries(SwiftBuildSupport PUBLIC
   Build
