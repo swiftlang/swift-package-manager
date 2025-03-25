@@ -85,7 +85,7 @@ final class InitTests: XCTestCase {
             let versionSpecifier = "\(version.major).\(version.minor)"
             XCTAssertMatch(manifestContents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources")), ["Foo.swift"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending("Foo")), ["Foo.swift"])
             await XCTAssertBuilds(path)
             let triple = try UserToolchain.default.targetTriple
             let binPath = path.appending(components: ".build", triple.platformBuildPathComponent, "debug")
@@ -114,7 +114,7 @@ final class InitTests: XCTestCase {
             )
             try initPackage.writePackageStructure()
 
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources")), ["MainEntrypoint.swift"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending("main")), ["MainEntrypoint.swift"])
             await XCTAssertBuilds(path)
         }
     }
