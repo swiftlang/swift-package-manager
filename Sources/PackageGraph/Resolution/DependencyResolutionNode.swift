@@ -94,18 +94,22 @@ public enum DependencyResolutionNode {
     public var traits: Set<String>? {
         switch self {
         case .root(_, let config):
-            switch config {
-            case .enabledTraits(let traits):
-                return traits
-            case .disableAllTraits:
-                return []
-            case .none, .enableAllTraits: // TODO: bp fix
-                return nil
-            }
+            return config.enabledTraits
         case .product(_, _, let enabledTraits):
             return enabledTraits
         default:
             return nil
+        }
+    }
+
+    public var traitConfiguration: TraitConfiguration {
+        switch self {
+        case .root(_, let config):
+            return config
+        case .product(_, _, let enabledTraits):
+            return .init(enabledTraits: enabledTraits)
+        case .empty:
+            return .default
         }
     }
 

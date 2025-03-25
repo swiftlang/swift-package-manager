@@ -141,10 +141,6 @@ public struct FileSystemPackageContainer: PackageContainer {
             throw InternalError("File system package container does not support versioning.")
         }
         let manifest = try await loadManifest()
-        guard manifest.packageKind.isRoot else {
-            // TODO: bp throw?
-            return []
-        }
         let enabledTraits = try manifest.enabledTraits(using: traitConfiguration)
         return enabledTraits ?? []
     }
