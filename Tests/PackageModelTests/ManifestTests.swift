@@ -485,7 +485,7 @@ class ManifestTests: XCTestCase {
                 traits: traits
             )
 
-            let traitGuardedDependencies = manifest.traitGuardedDependencies()
+            let traitGuardedDependencies = manifest.traitGuardedTargetDependencies()
 
             XCTAssertEqual(
                 traitGuardedDependencies,
