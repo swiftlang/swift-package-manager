@@ -22,7 +22,8 @@ private struct BasicTests {
     @Test(
         .skipSwiftCISelfHosted(
             "These packages don't use the latest runtime library, which doesn't work with self-hosted builds."
-        )
+        ),
+        .requireUnrestrictedNetworkAccess("Test requires access to https://github.com")
     )
     func testExamplePackageDealer() throws {
         try withTemporaryDirectory { tempDir in

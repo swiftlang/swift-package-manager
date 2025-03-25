@@ -40,6 +40,13 @@ extension Trait where Self == Testing.ConditionTrait {
         }
     }
 
+    /// Skip test if the test environment has a restricted network access, i.e. cannot get to internet.
+    public static func requireUnrestrictedNetworkAccess(_ comment: Comment? = nil) -> Self {
+        disabled(comment ?? "CI Environment has restricted network access") {
+            ProcessInfo.processInfo.environment["SWIFTCI_RESTRICTED_NETWORK_ACCESS"] != nil
+        }
+    }
+
     /// Skip test if built by XCode.
     public static func skipIfXcodeBuilt() -> Self {
         disabled("Tests built by Xcode") {
