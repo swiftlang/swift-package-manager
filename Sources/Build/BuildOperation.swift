@@ -29,8 +29,8 @@ import struct TSCBasic.RegEx
 import enum TSCUtility.Diagnostics
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import DriverSupport
-@_implementationOnly import SwiftDriver
+internal import DriverSupport
+internal import SwiftDriver
 #else
 import DriverSupport
 import SwiftDriver

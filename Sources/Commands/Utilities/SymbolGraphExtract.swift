@@ -17,7 +17,7 @@ import PackageModel
 import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import DriverSupport
+internal import DriverSupport
 #else
 import DriverSupport
 #endif

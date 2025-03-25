@@ -26,9 +26,9 @@
 import Foundation
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import _CryptoExtras
-@_implementationOnly import Crypto
-@_implementationOnly import X509
+internal import _CryptoExtras
+internal import Crypto
+internal import X509
 #else
 import _CryptoExtras
 import Crypto
