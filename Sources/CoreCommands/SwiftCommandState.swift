@@ -215,11 +215,13 @@ public final class SwiftCommandState {
 
     /// Get the current workspace root object.
     public func getWorkspaceRoot(traitConfiguration: TraitConfiguration? = nil) throws -> PackageGraphRootInput {
-        let packages: [AbsolutePath] = if let workspace = options.locations.multirootPackageDataFile {
-            try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope)
+        let packages: [AbsolutePath]
+
+        if let workspace = options.locations.multirootPackageDataFile {
+            packages = try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope)
                 .load(workspace: workspace)
         } else {
-            try [self.getPackageRoot()]
+            packages = [try getPackageRoot()]
         }
 
         return PackageGraphRootInput(packages: packages, traitConfiguration: traitConfiguration)
@@ -748,7 +750,7 @@ public final class SwiftCommandState {
         try self._manifestLoader.get()
     }
 
-    public func canUseCachedBuildManifest() async throws -> Bool {
+    public func canUseCachedBuildManifest(_ traitConfiguration: TraitConfiguration? = nil) async throws -> Bool {
         if !self.options.caching.cacheBuildManifest {
             return false
         }
@@ -765,7 +767,7 @@ public final class SwiftCommandState {
         // Perform steps for build manifest caching if we can enabled it.
         //
         // FIXME: We don't add edited packages in the package structure command yet (SR-11254).
-        let hasEditedPackages = try await self.getActiveWorkspace().state.dependencies.contains(where: \.isEdited)
+        let hasEditedPackages = try await self.getActiveWorkspace(traitConfiguration: traitConfiguration).state.dependencies.contains(where: \.isEdited)
         if hasEditedPackages {
             return false
         }
