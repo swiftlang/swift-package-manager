@@ -36,11 +36,19 @@ enum PackageGraphError: Swift.Error {
     )
 
     /// The package dependency already satisfied by a different dependency package
+    ///  - package: Package for which the dependency conflict was detected.
+    ///  - identity: Conflicting identity.
+    ///  - dependencyLocation: Dependency from the current package which triggered the conflict.
+    ///  - otherDependencyLocation: Conflicting dependency from another package.
+    ///  - dependencyPath: a dependency path as a list of locations from the root to the dependency that triggered the conflict.
+    ///  - otherDependencyPath: a dependency path as a list of locations from the root to the conflicting dependency from another package.
     case dependencyAlreadySatisfiedByIdentifier(
         package: String,
+        identity: PackageIdentity,
         dependencyLocation: String,
-        otherDependencyURL: String,
-        identity: PackageIdentity
+        otherDependencyLocation: String,
+        dependencyPath: [String] = [],
+        otherDependencyPath: [String] = []
     )
 
     /// The package dependency already satisfied by a different dependency package
@@ -300,8 +308,30 @@ extension PackageGraphError: CustomStringConvertible {
                 }
                 return description
             }
-        case .dependencyAlreadySatisfiedByIdentifier(let package, let dependencyURL, let otherDependencyURL, let identity):
-            return "'\(package)' dependency on '\(dependencyURL)' conflicts with dependency on '\(otherDependencyURL)' which has the same identity '\(identity)'"
+        case .dependencyAlreadySatisfiedByIdentifier(
+            _,
+            let identity,
+            let dependencyURL,
+            let otherDependencyURL,
+            let dependencyPath,
+            let otherDependencyPath
+        ):
+            var description =
+                "Conflicting identity for \(identity): " +
+                "dependency '\(dependencyURL)' and dependency '\(otherDependencyURL)' " +
+                "both point to the same package identity '\(identity)'."
+            if !dependencyPath.isEmpty && !otherDependencyPath.isEmpty {
+                let chainA = dependencyPath.map { String(describing: $0) }.joined(separator: "->")
+                let chainB = otherDependencyPath.map { String(describing: $0) }.joined(separator: "->")
+                description += (
+                    " The dependencies are introduced through the following chains: " +
+                    "(A) \(chainA) (B) \(chainB). If there are multiple chains that lead to the same dependency, " +
+                    "only the first chain is shown here. To see all chains use debug output option. " +
+                    "To resolve the conflict, coordinate with the maintainer of the package " +
+                    "that introduces the conflicting dependency."
+                )
+            }
+            return description
 
         case .dependencyAlreadySatisfiedByName(let package, let dependencyURL, let otherDependencyURL, let name):
             return "'\(package)' dependency on '\(dependencyURL)' conflicts with dependency on '\(otherDependencyURL)' which has the same explicit name '\(name)'"

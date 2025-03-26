@@ -45,7 +45,6 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         var environment = env ?? [:]
         // don't ignore local packages when caching
         environment["SWIFTPM_TESTS_PACKAGECACHE"] = "1"
-        // return try await self.execute(args, packagePath: packagePath, env: environment)
         return try await executeSwiftPackage(
             packagePath,
             extraArgs: args,
@@ -75,6 +74,12 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         // This test fails when `--build-system <system>` is provided, so directly invoke SwiftPM.Package.execute
         let stdout = try await SwiftPM.Package.execute(["--help"]).stdout
         XCTAssertMatch(stdout, .contains("SEE ALSO: swift build, swift run, swift test"))
+    }
+
+    func testCommandDoesNotEmitDuplicateSymbols() async throws {
+        let (stdout, stderr) = try await SwiftPM.Package.execute(["--help"])
+        XCTAssertNoMatch(stdout, duplicateSymbolRegex)
+        XCTAssertNoMatch(stderr, duplicateSymbolRegex)
     }
 
     func testVersion() async throws {

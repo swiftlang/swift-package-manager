@@ -189,8 +189,7 @@ public final class Manifest: Sendable {
     /// Returns a list of dependencies that are being guarded by unenabled traits, given a set of enabled traits.
     ///
     /// If a trait that is guarding a dependency is enabled (and is reflected in the `enabledTraits` parameter) and
-    /// results in
-    /// that dependency being used, then that dependency is not considered trait-guarded.
+    /// results in that dependency being used, then that dependency is not considered trait-guarded.
     ///
     /// For example:
     ///
@@ -205,37 +204,47 @@ public final class Manifest: Sendable {
             return []
         }
 
-        let traitGuardedDeps = self.traitGuardedDependencies(lowercasedKeys: true)
+        let traitGuardedDeps = self.traitGuardedTargetDependencies(lowercasedKeys: true)
+        let explicitlyEnabledTraits = try? self.enabledTraits(using: enabledTraits, nil)
+
         guard self.toolsVersion >= .v5_2 && !self.packageKind.isRoot else {
-            let deps = self.dependencies.filter({
-                if let guardTraits = traitGuardedDeps[$0.identity.description]?.values.flatMap({ $0 }),
-                   !guardTraits.isEmpty, let enabledTraits
-                {
-                    return !guardTraits.allSatisfy({ enabledTraits.contains($0) })
+            let deps = self.dependencies.filter {
+                var result = false
+                for guardedTargetDeps in traitGuardedDeps[$0.identity.description] ?? [] {
+                    if let guardTraits = guardedTargetDeps.condition?.traits, !guardTraits.isEmpty,
+                       let explicitlyEnabledTraits
+                    {
+                        result = result || !guardTraits.allSatisfy { explicitlyEnabledTraits.contains($0) }
+                    }
                 }
 
-                return false
-            })
+                return result
+            }
             return deps
         }
 
         if let dependencies = self._requiredDependencies[.nothing] {
-            let deps = dependencies.filter({
-                if let guardTraits = traitGuardedDeps[$0.identity.description]?.values.flatMap({ $0 }),
-                   let enabledTraits
-                {
-                    return !guardTraits.allSatisfy({ enabledTraits.contains($0) })
+            let deps = dependencies.filter {
+                var result = false
+                for guardedTargetDeps in traitGuardedDeps[$0.identity.description] ?? [] {
+                    if let guardTraits = guardedTargetDeps.condition?.traits, !guardTraits.isEmpty,
+                       let explicitlyEnabledTraits
+                    {
+                        result = result || !guardTraits.allSatisfy { explicitlyEnabledTraits.contains($0) }
+                    }
                 }
 
-                return false
-            })
+                return result
+            }
             return deps
         } else {
             var guardedDependencies: Set<PackageIdentity> = []
             for target in self.targetsRequired(for: self.products) {
+                let traitGuardedTargetDeps = traitGuardedTargetDependencies(for: target)
+
                 for targetDependency in target.dependencies {
                     guard let dependency = self.packageDependency(referencedBy: targetDependency),
-                          let guardingTraits = traitGuardedDeps[dependency.identity.description]?[target.name]
+                          let guardingTraits = traitGuardedTargetDeps[targetDependency]
                     else {
                         continue
                     }
@@ -247,17 +256,17 @@ public final class Manifest: Sendable {
                     }
                 }
 
-                target.pluginUsages?.forEach {
-                    guard let dependency = self.packageDependency(referencedBy: $0),
-                          let guardingTraits = traitGuardedDeps[dependency.identity.description]?[target.name]
-                    else {
-                        return
-                    }
-                    if let enabledTraits,
-                       guardingTraits.intersection(enabledTraits) != guardingTraits {
-                        guardedDependencies.insert(dependency.identity)
-                    }
-                }
+//                target.pluginUsages?.forEach {
+//                    guard let dependency = self.packageDependency(referencedBy: $0),
+//                          let guardingTraits = traitGuardedDeps[dependency.identity.description]?[target.name]
+//                    else {
+//                        return
+//                    }
+//                    if let enabledTraits,
+//                       guardingTraits.intersection(enabledTraits) != guardingTraits {
+//                        guardedDependencies.insert(dependency.identity)
+//                    }
+//                }
             }
 
             let dependencies = self.dependencies.filter { guardedDependencies.contains($0.identity) }

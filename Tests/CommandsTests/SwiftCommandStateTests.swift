@@ -12,21 +12,52 @@
 
 @testable import Basics
 @testable import Build
-@testable import CoreCommands
 @testable import Commands
+@testable import CoreCommands
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import func PackageGraph.loadModulesGraph
 
-@testable import PackageModel
 import _InternalTestSupport
+@testable import PackageModel
 import XCTest
 
+import ArgumentParser
 import class TSCBasic.BufferedOutputByteStream
 import protocol TSCBasic.OutputByteStream
+import enum TSCBasic.SystemError
 import var TSCBasic.stderrStream
 
 final class SwiftCommandStateTests: CommandsTestCase {
+    func testSeverityEnum() async throws {
+        try fixture(name: "Miscellaneous/Simple") { _ in
+
+            do {
+                let info = Diagnostic(severity: .info, message: "info-string", metadata: nil)
+                let debug = Diagnostic(severity: .debug, message: "debug-string", metadata: nil)
+                let warning = Diagnostic(severity: .warning, message: "warning-string", metadata: nil)
+                let error = Diagnostic(severity: .error, message: "error-string", metadata: nil)
+                // testing color
+                XCTAssertEqual(info.severity.color, .white)
+                XCTAssertEqual(debug.severity.color, .white)
+                XCTAssertEqual(warning.severity.color, .yellow)
+                XCTAssertEqual(error.severity.color, .red)
+
+                // testing prefix
+                XCTAssertEqual(info.severity.logLabel, "info: ")
+                XCTAssertEqual(debug.severity.logLabel, "debug: ")
+                XCTAssertEqual(warning.severity.logLabel, "warning: ")
+                XCTAssertEqual(error.severity.logLabel, "error: ")
+
+                // testing boldness
+                XCTAssertTrue(info.severity.isBold)
+                XCTAssertTrue(debug.severity.isBold)
+                XCTAssertTrue(warning.severity.isBold)
+                XCTAssertTrue(error.severity.isBold)
+            }
+        }
+    }
+
     func testVerbosityLogLevel() async throws {
         try fixture(name: "Miscellaneous/Simple") { fixturePath in
             do {
@@ -253,7 +284,6 @@ final class SwiftCommandStateTests: CommandsTestCase {
 
         var plan: BuildPlan
 
-
         /* -debug-info-format dwarf */
         let explicitDwarfOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "dwarf"])
         let explicitDwarf = try SwiftCommandState.makeMockState(options: explicitDwarfOptions)
@@ -267,7 +297,6 @@ final class SwiftCommandStateTests: CommandsTestCase {
         try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
                            [.anySequence, "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf"])
 
-
         /* -debug-info-format codeview */
         let explicitCodeViewOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "codeview"])
         let explicitCodeView = try SwiftCommandState.makeMockState(options: explicitCodeViewOptions)
@@ -279,7 +308,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
             fileSystem: fs,
             observabilityScope: observer.topScope
         )
-        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as?  Build.ProductBuildDescription }.first?.linkArguments() ?? [],
+        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
                            [.anySequence, "-g", "-debug-info-format=codeview", "-Xlinker", "-debug"])
 
         // Explicitly pass Linux as when the `SwiftCommandState` tests are enabled on
@@ -323,7 +352,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
         let customTargetToolchain = AbsolutePath("/path/to/toolchain")
         let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
         let hostArPath = AbsolutePath("/usr/bin/ar")
-        let targetSwiftcPath = customTargetToolchain.appending(components: ["usr", "bin" , "swiftc"])
+        let targetSwiftcPath = customTargetToolchain.appending(components: ["usr", "bin", "swiftc"])
         let targetArPath = customTargetToolchain.appending(components: ["usr", "bin", "llvm-ar"])
 
         let fs = InMemoryFileSystem(emptyFiles: [
@@ -485,12 +514,32 @@ final class SwiftCommandStateTests: CommandsTestCase {
         XCTAssertEqual(try targetToolchain.getClangCompiler(), targetClangPath)
         XCTAssertEqual(targetToolchain.librarianPath, targetArPath)
     }
+
+    func testPackagePathWithMissingFolder() async throws {
+        try withTemporaryDirectory { fixturePath in
+            let packagePath = fixturePath.appending(component: "Foo")
+            let options = try GlobalOptions.parse(["--package-path", packagePath.pathString])
+
+            do {
+                let outputStream = BufferedOutputByteStream()
+                XCTAssertThrowsError(try SwiftCommandState.makeMockState(outputStream: outputStream, options: options), "error expected")
+            }
+
+            do {
+                let outputStream = BufferedOutputByteStream()
+                let tool = try SwiftCommandState.makeMockState(outputStream: outputStream, options: options, createPackagePath: true)
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("error:"))
+            }
+        }
+    }
 }
 
 extension SwiftCommandState {
     static func makeMockState(
         outputStream: OutputByteStream = stderrStream,
         options: GlobalOptions,
+        createPackagePath: Bool = false,
         fileSystem: any FileSystem = localFileSystem,
         environment: Environment = .current
     ) throws -> SwiftCommandState {
@@ -512,6 +561,7 @@ extension SwiftCommandState {
                     observabilityScope: $1
                 )
             },
+            createPackagePath: createPackagePath,
             hostTriple: .arm64Linux,
             fileSystem: fileSystem,
             environment: environment

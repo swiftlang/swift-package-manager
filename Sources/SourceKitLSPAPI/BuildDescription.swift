@@ -32,9 +32,19 @@ public enum BuildTargetCompiler {
     case clang
 }
 
+/// Information about a source file that belongs to a target.
+public struct SourceItem {
+    /// The URL of the source file itself.
+    public let sourceFile: URL
+
+    /// If the file has a unique output path (eg. for clang files), the output paths. `nil` for eg. Swift targets,
+    /// which don't have unique output paths for each file.
+    public let outputFile: URL?
+}
+
 public protocol BuildTarget {
     /// Source files in the target
-    var sources: [URL] { get }
+    var sources: [SourceItem] { get }
 
     /// Header files in the target
     var headers: [URL] { get }
@@ -61,8 +71,6 @@ public protocol BuildTarget {
 
     var isTestTarget: Bool { get }
 
-    var outputPaths: [URL] { get throws }
-
     func compileArguments(for fileURL: URL) throws -> [String]
 }
 
@@ -77,11 +85,13 @@ private struct WrappedClangTargetBuildDescription: BuildTarget {
         self.isTestTarget = description.isTestTarget
     }
 
-    public var sources: [URL] {
+    public var sources: [SourceItem] {
         guard let compilePaths = try? description.compilePaths() else {
             return []
         }
-        return compilePaths.map(\.source.asURL)
+        return compilePaths.map {
+            SourceItem(sourceFile: $0.source.asURL, outputFile: $0.object.asURL)
+        }
     }
 
     public var headers: [URL] {
@@ -117,12 +127,6 @@ private struct WrappedClangTargetBuildDescription: BuildTarget {
         return description.destination == .host ? .host : .target
     }
 
-    var outputPaths: [URL] {
-       get throws {
-           return try description.compilePaths().map(\.object.asURL)
-       }
-    }
-
     public func compileArguments(for fileURL: URL) throws -> [String] {
         let filePath = try resolveSymlinks(try Basics.AbsolutePath(validating: fileURL.path))
         let commandLine = try description.emitCommandLine(for: filePath)
@@ -152,8 +156,10 @@ private struct WrappedSwiftTargetBuildDescription: BuildTarget {
         return description.destination == .host ? .host : .target
     }
 
-    var sources: [URL] {
-        return description.sources.map(\.asURL)
+    var sources: [SourceItem] {
+        return description.sources.map {
+            return SourceItem(sourceFile: $0.asURL, outputFile: nil)
+        }
     }
 
     var headers: [URL] { [] }

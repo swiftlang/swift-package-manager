@@ -3022,6 +3022,110 @@ final class PIFBuilderTests: XCTestCase {
             result.checkIsEmpty()
         }
     }
+
+    func testPerTargetDefaultIsolation() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Foo/Sources/foo/foo.swift",
+            "/Foo/Sources/bar/bar.swift",
+            "/Foo/Sources/baz/baz.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    toolsVersion: .v6_2,
+                    targets: [
+                        .init(name: "foo", dependencies: [], settings: [
+                            .init(
+                                tool: .swift,
+                                kind: .defaultIsolation(.MainActor)
+                            ),
+                        ]),
+                        .init(name: "bar", dependencies: [], settings: [
+                            .init(
+                                tool: .swift,
+                                kind: .defaultIsolation(.nonisolated)
+                            ),
+                        ]),
+                        .init(name: "baz", dependencies: [], settings: [
+                            .init(
+                                tool: .swift,
+                                kind: .defaultIsolation(.MainActor),
+                                condition: .init(platformNames: ["linux"])
+                            )
+                        ])
+                    ]
+                ),
+            ],
+            shouldCreateMultipleTestProducts: true,
+            observabilityScope: observability.topScope
+        )
+
+        let builder = PIFBuilder(
+            graph: graph,
+            parameters: .mock(supportedSwiftVersions: [.v6]),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let pif = try builder.construct()
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        try PIFTester(pif) { workspace in
+            try workspace.checkProject("PACKAGE:/Foo") { project in
+                project.checkTarget("PACKAGE-TARGET:foo") { target in
+                    for config in ["Debug", "Release"] {
+                        target.checkBuildConfiguration(config) { configuration in
+                            configuration.checkBuildSettings { settings in
+                                XCTAssertMatch(
+                                    settings[.OTHER_SWIFT_FLAGS] ?? [],
+                                     [.anySequence, "-default-isolation", "MainActor", .anySequence]
+                                )
+                            }
+                        }
+                    }
+                }
+
+                project.checkTarget("PACKAGE-TARGET:bar") { target in
+                    for config in ["Debug", "Release"] {
+                        target.checkBuildConfiguration(config) { configuration in
+                            configuration.checkBuildSettings { settings in
+                                XCTAssertMatch(
+                                    settings[.OTHER_SWIFT_FLAGS] ?? [],
+                                    [.anySequence, "-default-isolation", "nonisolated", .anySequence]
+                                )
+                            }
+                        }
+                    }
+                }
+
+                project.checkTarget("PACKAGE-TARGET:baz") { target in
+                    for config in ["Debug", "Release"] {
+                        target.checkBuildConfiguration(config) { configuration in
+                            configuration.checkBuildSettings { settings in
+                                XCTAssertMatch(
+                                    settings[.OTHER_SWIFT_FLAGS, for: .linux] ?? [],
+                                    [.anySequence, "-default-isolation", "MainActor", .anySequence]
+                                )
+                                XCTAssertNoMatch(
+                                    settings[.OTHER_SWIFT_FLAGS, for: .macOS] ?? [],
+                                    [.anySequence, "-default-isolation", "MainActor", .anySequence]
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 extension PIFBuilderParameters {

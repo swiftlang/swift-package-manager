@@ -368,17 +368,42 @@ extension Manifest {
         return (knownPackage: known, unknownPackage: unknown)
     }
 
-    /// Returns the set of package dependencies that are potentially guarded by traits, per target. This does not
-    /// calculate enabled and disabled dependencies enforced by traits.
-    public func traitGuardedDependencies(lowercasedKeys: Bool = false) -> [String: [String: Set<String>]] {
-        self.targets.reduce(into: [String: [String: Set<String>]]()) { depMap, target in
-            let traitGuardedTargetDependencies = target.dependencies.filter {
-                !($0.condition?.traits?.isEmpty ?? true)
-            }
+    /// Computes the list of target dependencies per target that are guarded by traits.
+    /// A target dependency is considered potentially trait-guarded if it defines a condition wherein there exists a
+    /// list of traits.
+    /// - Parameters:
+    ///    - lowercasedKeys: A flag that determines whether the keys in the resulting dictionary are lowercased.
+    /// - Returns: A dictionary that maps the name of a `TargetDescription` to a list of its dependencies that are
+    /// guarded by traits.
+    public func traitGuardedTargetDependencies(
+        lowercasedKeys: Bool = false
+    ) -> [String: [TargetDescription.Dependency]] {
+        self.targets.reduce(into: [String: [TargetDescription.Dependency]]()) { depMap, target in
+            let traitGuardedTargetDependencies = traitGuardedTargetDependencies(
+                for: target
+            )
+
             traitGuardedTargetDependencies.forEach {
-                guard let package = lowercasedKeys ? $0.package?.lowercased() : $0.package else { return }
-                depMap[package, default: [:]][target.name, default: []].formUnion($0.condition?.traits ?? [])
+                guard let package = lowercasedKeys ? $0.key.package?.lowercased() : $0.key.package else { return }
+                depMap[package, default: []].append($0.key)
             }
+        }
+    }
+
+    /// Computes the list of target dependencies that are guarded by traits for given target.
+    /// A target dependency is considered potentially trait-guarded if it defines a condition wherein there exists a
+    /// list of traits.
+    /// - Parameters:
+    ///    - target: A `TargetDescription` for which the trait-guarded target dependencies are calculated.
+    /// - Returns: A dictionary that maps each trait-guarded `TargetDescription.Dependency` of the given
+    /// `TargetDescription` to the list of traits that guard it.
+    public func traitGuardedTargetDependencies(for target: TargetDescription)
+        -> [TargetDescription.Dependency: Set<String>]
+    {
+        target.dependencies.filter {
+            !($0.condition?.traits?.isEmpty ?? true)
+        }.reduce(into: [TargetDescription.Dependency: Set<String>]()) { depMap, dep in
+            depMap[dep, default: []].formUnion(dep.condition?.traits ?? [])
         }
     }
 
@@ -390,19 +415,22 @@ extension Manifest {
         enableAllTraits: Bool = false
     ) throws -> Bool {
         guard self.supportsTraits, !enableAllTraits else { return true }
-        guard let package = dependency.package, let target = self.targetMap[target] else { return false }
+        guard let target = self.targetMap[target] else { return false }
         guard target.dependencies.contains(where: { $0 == dependency }) else {
             throw InternalError(
                 "target dependency \(dependency.name) not found for target \(target.name) in package \(self.displayName)"
             )
         }
-        let traitsThatEnableDependency = self.traitGuardedDependencies()[package]?[target.name] ?? []
 
-        let isEnabled = try traitsThatEnableDependency.allSatisfy({ try isTraitEnabled(.init(stringLiteral: $0), enabledTraits) })
+        let traitsToEnable = self.traitGuardedTargetDependencies(for: target)[dependency] ?? []
 
-        return traitsThatEnableDependency.isEmpty || isEnabled
+        let isEnabled = try traitsToEnable.allSatisfy { try self.isTraitEnabled(
+            .init(stringLiteral: $0),
+            enabledTraits,
+        ) }
+
+        return traitsToEnable.isEmpty || isEnabled
     }
-
     /// Determines whether a given package dependency is used by this manifest given a set of enabled traits.
     public func isPackageDependencyUsed(_ dependency: PackageDependency, enabledTraits: Set<String>?) throws -> Bool {
         let usedDependencies = try self.usedDependencies(withTraits: enabledTraits)

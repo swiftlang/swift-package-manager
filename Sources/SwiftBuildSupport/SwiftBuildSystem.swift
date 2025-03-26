@@ -62,12 +62,13 @@ func withService(
 func withSession(
     service: SWBBuildService,
     name: String,
+    packageManagerResourcesDirectory: Basics.AbsolutePath?,
     body: @escaping (
         _ session: SWBBuildServiceSession,
         _ diagnostics: [SwiftBuild.SwiftBuildMessage.DiagnosticInfo]
     ) async throws -> Void
 ) async throws {
-    switch await service.createSession(name: name, cachePath: nil, inferiorProductsPath: nil, environment: nil) {
+    switch await service.createSession(name: name, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil) {
     case (.success(let session), let diagnostics):
         do {
             try await body(session, diagnostics)
@@ -159,6 +160,7 @@ private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sen
 public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
     private let packageGraphLoader: () async throws -> ModulesGraph
+    private let packageManagerResourcesDirectory: Basics.AbsolutePath?
     private let logLevel: Basics.Diagnostic.Severity
     private var packageGraph: AsyncThrowingValueMemoizer<ModulesGraph> = .init()
     private var pifBuilder: AsyncThrowingValueMemoizer<PIFBuilder> = .init()
@@ -209,6 +211,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     public init(
         buildParameters: BuildParameters,
         packageGraphLoader: @escaping () async throws -> ModulesGraph,
+        packageManagerResourcesDirectory: Basics.AbsolutePath?,
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: FileSystem,
@@ -216,6 +219,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     ) throws {
         self.buildParameters = buildParameters
         self.packageGraphLoader = packageGraphLoader
+        self.packageManagerResourcesDirectory = packageManagerResourcesDirectory
         self.outputStream = outputStream
         self.logLevel = logLevel
         self.fileSystem = fileSystem
@@ -239,6 +243,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, string: pif)
 
         try await startSWBuildOperation(pifTargetName: subset.pifTargetName)
+
         #else
         fatalError("Swift Build support is not linked in.")
         #endif
@@ -246,6 +251,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     #if canImport(SwiftBuild)
     private func startSWBuildOperation(pifTargetName: String) async throws {
+        let buildStartTime = ContinuousClock.Instant.now
+
         try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
             let parameters = try self.makeBuildParameters()
             let derivedDataPath = self.buildParameters.dataPath.pathString
@@ -253,11 +260,12 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             let progressAnimation = ProgressAnimation.percent(
                 stream: self.outputStream,
                 verbose: self.logLevel.isVerbose,
-                header: ""
+                header: "",
+                isColorized: self.buildParameters.outputParameters.isColorized
             )
 
             do {
-                try await withSession(service: service, name: self.buildParameters.pifManifest.pathString) { session, _ in
+                try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
                     self.outputStream.send("Building for \(self.buildParameters.configuration == .debug ? "debugging" : "production")...\n")
 
                     // Load the workspace, and set the system information to the default
@@ -382,7 +390,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     case .succeeded:
                         progressAnimation.update(step: 100, total: 100, text: "")
                         progressAnimation.complete(success: true)
-                        self.outputStream.send("Build complete!\n")
+                        let duration = ContinuousClock.Instant.now - buildStartTime
+                        self.outputStream.send("Build complete! (\(duration))\n")
                         self.outputStream.flush()
                     case .failed:
                         self.observabilityScope.emit(error: "Build failed")
@@ -429,10 +438,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
         // native build system.
         settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
-        // Use lld linker instead of Visual Studio link.exe when targeting Windows
-        if buildParameters.triple.isWindows() {
-            settings["ALTERNATE_LINKER"] = "lld-link"
-        }
         // FIXME: workaround for old Xcode installations such as what is in CI
         settings["LM_SKIP_METADATA_EXTRACTION"] = "YES"
 

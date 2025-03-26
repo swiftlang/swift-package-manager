@@ -108,6 +108,12 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
         XCTAssertMatch(stdout, .contains("SEE ALSO: swift run, swift package, swift test"))
     }
 
+    func testCommandDoesNotEmitDuplicateSymbols() async throws {
+        let (stdout, stderr) = try await SwiftPM.Build.execute(["--help"])
+        XCTAssertNoMatch(stdout, duplicateSymbolRegex)
+        XCTAssertNoMatch(stderr, duplicateSymbolRegex)
+    }
+
     func testVersion() async throws {
         let stdout = try await execute(["--version"]).stdout
         XCTAssertMatch(stdout, .regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#))
@@ -202,12 +208,15 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
             )
 
             guard buildSystemProvider == .xcode  || buildSystemProvider == .swiftbuild else {
+                // The remainder of this test only applies to XCBuild or Swift Build
                 return
             }
 
             // Print correct path when building with XCBuild or Swift Build
-            let xcodeDebugOutput = try await execute(["--show-bin-path"], packagePath: fullPath)
-                .stdout
+            let xcodeDebugOutput = try await execute(
+                ["-c", "debug", "--show-bin-path"],
+                packagePath: fullPath)
+            .stdout
             let xcodeReleaseOutput = try await execute(
                 ["-c", "release", "--show-bin-path"],
                 packagePath: fullPath
@@ -407,14 +416,13 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
     }
 
     func testBuildCompleteMessage() async throws {
-        try XCTSkipIf(true, "This test fails to match the 'Compiling' regex; rdar://101815761")
-
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             do {
                 let result = try await execute(packagePath: fixturePath)
-                XCTAssertMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
+                // This test fails to match the 'Compiling' regex; rdar://101815761
+                // XCTAssertMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
                 let lines = result.stdout.split(whereSeparator: { $0.isNewline })
-                XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*s\\)"))
+                XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*\\s*s(econds)?\\)"))
             }
 
             do {
@@ -425,9 +433,10 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
             do {
                 // test third time, to make sure message is presented even when nothing to build (cached)
                 let result = try await execute(packagePath: fixturePath)
-                XCTAssertNoMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
+                // This test fails to match the 'Compiling' regex; rdar://101815761
+                // XCTAssertNoMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
                 let lines = result.stdout.split(whereSeparator: { $0.isNewline })
-                XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*s\\)"))
+                XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*\\s*s(econds)?\\)"))
             }
         }
     }
@@ -837,6 +846,10 @@ class BuildCommandXcodeTests: BuildCommandTestCases {
     }
 
     override func testGetTaskAllowEntitlement() async throws {
+        try XCTSkip("Test not implemented for xcode build system.")
+    }
+
+    override func testBuildCompleteMessage() async throws {
         try XCTSkip("Test not implemented for xcode build system.")
     }
 }
