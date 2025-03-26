@@ -97,7 +97,16 @@ public enum AddTarget {
             // into this folder before we can add a new target.
             if !fileSystem.isDirectory(expectedTargetFolder) {
                 if verbose {
-                    print("Moving existing files in \(sourcesFolder.relative(to: packagePath)) to \(expectedTargetFolder.relative(to: packagePath))...", terminator: "")
+                    print(
+                        """
+                        Moving existing files from \(
+                            sourcesFolder.relative(to: packagePath)
+                        ) to \(
+                            expectedTargetFolder.relative(to: packagePath)
+                        )...
+                        """,
+                        terminator: ""
+                    )
                 }
                 let contentsToMove = try fileSystem.getDirectoryContents(sourcesFolder)
                 try fileSystem.createDirectory(expectedTargetFolder)
