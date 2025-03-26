@@ -10594,7 +10594,7 @@ final class WorkspaceTests: XCTestCase {
                             path: "shack",
                             requirement: .upToNextMajor(from: "1.0.0")
                         ),
-                    ],
+                    ]
                 ),
             ],
             packages: [
@@ -10755,7 +10755,7 @@ final class WorkspaceTests: XCTestCase {
                             path: "flowing/water",
                             requirement: .upToNextMajor(from: "1.0.0")
                         ),
-                    ],
+                    ]
                 ),
                 MockPackage(
                     name: "Lake",
@@ -10771,7 +10771,7 @@ final class WorkspaceTests: XCTestCase {
                             path: "standing/water",
                             requirement: .upToNextMajor(from: "1.0.0")
                         ),
-                    ],
+                    ]
                 ),
             ],
             packages: [
