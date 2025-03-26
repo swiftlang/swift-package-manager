@@ -1555,7 +1555,7 @@ extension ResolvedProduct {
     var pifTargetGUID: PIF.GUID { "PACKAGE-PRODUCT:\(name)" }
 
     var mainTarget: ResolvedModule {
-        modules.first { $0.type == underlying.type.targetType }!
+        modules.first { $0.type == underlying.type._targetType }!
     }
 
     /// Returns the recursive dependencies, limited to the target's package, which satisfy the input build environment,
@@ -1608,6 +1608,25 @@ extension ResolvedModule {
 extension Module {
     var isCxx: Bool {
         (self as? ClangModule)?.isCXX ?? false
+    }
+}
+
+extension ProductType {
+    var _targetType: Module.Kind {
+        switch self {
+        case .executable:
+            .executable
+        case .snippet:
+            .snippet
+        case .test:
+            .test
+        case .library:
+            .library
+        case .plugin:
+            .plugin
+        case .macro:
+            .macro
+        }
     }
 }
 
