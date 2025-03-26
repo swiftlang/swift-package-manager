@@ -60,7 +60,7 @@ public enum AddTarget {
     // Check if the package has a single target with that target's sources located
     // directly in `./Sources`. If so, move the sources into a folder named after
     // the target before adding a new target.
-    public static func moveSingleTargetSources(
+    package static func moveSingleTargetSources(
         packagePath: AbsolutePath,
         manifest: SourceFileSyntax,
         fileSystem: any FileSystem,
