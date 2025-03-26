@@ -20,7 +20,7 @@ import SwiftToolchainCSQLite
 #endif
 #else
 #if USE_IMPL_ONLY_IMPORTS
-internal import SPMSQLite3
+package import SPMSQLite3
 #else
 import SPMSQLite3
 #endif

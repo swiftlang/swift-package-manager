@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #if USE_IMPL_ONLY_IMPORTS
-internal import TSCclibc
+package import TSCclibc
 #else
 private import TSCclibc
 #endif
