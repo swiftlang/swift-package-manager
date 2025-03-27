@@ -120,7 +120,7 @@ public final class PIFBuilder {
             let sortedPackages = self.graph.packages
                 .sorted { $0.manifest.displayName < $1.manifest.displayName } // TODO: use identity instead?
             var projects: [PIFProjectBuilder] = try sortedPackages.map { package in
-                try PackagePIFProjectBuilder(
+                try _PackagePIFProjectBuilder(
                     package: package,
                     parameters: self.parameters,
                     fileSystem: self.fileSystem,
@@ -247,7 +247,7 @@ class PIFProjectBuilder {
     }
 }
 
-final class PackagePIFProjectBuilder: PIFProjectBuilder {
+final class _PackagePIFProjectBuilder: PIFProjectBuilder {
     private let package: ResolvedPackage
     private let parameters: PIFBuilderParameters
     private let fileSystem: FileSystem
@@ -1074,7 +1074,7 @@ final class AggregatePIFProjectBuilder: PIFProjectBuilder {
         allIncludingTestsTarget.addBuildConfiguration(name: "Debug")
         allIncludingTestsTarget.addBuildConfiguration(name: "Release")
 
-        for case let project as PackagePIFProjectBuilder in projects where project.isRootPackage {
+        for case let project as _PackagePIFProjectBuilder in projects where project.isRootPackage {
             for case let target as PIFTargetBuilder in project.targets {
                 if target.productType != .unitTest {
                     allExcludingTestsTarget.addDependency(
@@ -1555,7 +1555,7 @@ extension ResolvedProduct {
     var pifTargetGUID: PIF.GUID { "PACKAGE-PRODUCT:\(name)" }
 
     var mainTarget: ResolvedModule {
-        modules.first { $0.type == underlying.type.targetType }!
+        modules.first { $0.type == underlying.type._targetType }!
     }
 
     /// Returns the recursive dependencies, limited to the target's package, which satisfy the input build environment,
@@ -1612,7 +1612,7 @@ extension Module {
 }
 
 extension ProductType {
-    var targetType: Module.Kind {
+    var _targetType: Module.Kind {
         switch self {
         case .executable:
             .executable

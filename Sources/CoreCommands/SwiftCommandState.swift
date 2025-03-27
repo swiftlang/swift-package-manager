@@ -53,6 +53,7 @@ import enum TSCBasic.ProcessLockError
 import var TSCBasic.stderrStream
 import class TSCBasic.TerminalController
 import class TSCBasic.ThreadSafeOutputByteStream
+import enum TSCBasic.SystemError
 
 import var TSCUtility.verbosity
 
@@ -90,11 +91,19 @@ public protocol _SwiftCommand {
     var workspaceDelegateProvider: WorkspaceDelegateProvider { get }
     var workspaceLoaderProvider: WorkspaceLoaderProvider { get }
     func buildSystemProvider(_ swiftCommandState: SwiftCommandState) throws -> BuildSystemProvider
+
+    // If a packagePath is specificed, this indicates that the command allows
+    // creating the directory if it doesn't exist.
+    var createPackagePath: Bool { get }
 }
 
 extension _SwiftCommand {
     public var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
         .init()
+    }
+
+    public var createPackagePath: Bool {
+        return false
     }
 }
 
@@ -110,7 +119,8 @@ extension SwiftCommand {
             options: globalOptions,
             toolWorkspaceConfiguration: self.toolWorkspaceConfiguration,
             workspaceDelegateProvider: self.workspaceDelegateProvider,
-            workspaceLoaderProvider: self.workspaceLoaderProvider
+            workspaceLoaderProvider: self.workspaceLoaderProvider,
+            createPackagePath: self.createPackagePath
         )
 
         // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
@@ -151,7 +161,8 @@ extension AsyncSwiftCommand {
             options: globalOptions,
             toolWorkspaceConfiguration: self.toolWorkspaceConfiguration,
             workspaceDelegateProvider: self.workspaceDelegateProvider,
-            workspaceLoaderProvider: self.workspaceLoaderProvider
+            workspaceLoaderProvider: self.workspaceLoaderProvider,
+            createPackagePath: self.createPackagePath
         )
 
         // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
@@ -204,11 +215,13 @@ public final class SwiftCommandState {
 
     /// Get the current workspace root object.
     public func getWorkspaceRoot(traitConfiguration: TraitConfiguration? = nil) throws -> PackageGraphRootInput {
-        let packages: [AbsolutePath] = if let workspace = options.locations.multirootPackageDataFile {
-            try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope)
+        let packages: [AbsolutePath]
+
+        if let workspace = options.locations.multirootPackageDataFile {
+            packages = try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope)
                 .load(workspace: workspace)
         } else {
-            try [self.getPackageRoot()]
+            packages = [try getPackageRoot()]
         }
 
         return PackageGraphRootInput(packages: packages, traitConfiguration: traitConfiguration)
@@ -283,7 +296,8 @@ public final class SwiftCommandState {
         options: GlobalOptions,
         toolWorkspaceConfiguration: ToolWorkspaceConfiguration = .init(),
         workspaceDelegateProvider: @escaping WorkspaceDelegateProvider,
-        workspaceLoaderProvider: @escaping WorkspaceLoaderProvider
+        workspaceLoaderProvider: @escaping WorkspaceLoaderProvider,
+        createPackagePath: Bool
     ) throws {
         // output from background activities goes to stderr, this includes diagnostics and output from build operations,
         // package resolution that take place as part of another action
@@ -295,7 +309,8 @@ public final class SwiftCommandState {
             options: options,
             toolWorkspaceConfiguration: toolWorkspaceConfiguration,
             workspaceDelegateProvider: workspaceDelegateProvider,
-            workspaceLoaderProvider: workspaceLoaderProvider
+            workspaceLoaderProvider: workspaceLoaderProvider,
+            createPackagePath: createPackagePath
         )
     }
 
@@ -306,6 +321,7 @@ public final class SwiftCommandState {
         toolWorkspaceConfiguration: ToolWorkspaceConfiguration,
         workspaceDelegateProvider: @escaping WorkspaceDelegateProvider,
         workspaceLoaderProvider: @escaping WorkspaceLoaderProvider,
+        createPackagePath: Bool,
         hostTriple: Basics.Triple? = nil,
         fileSystem: any FileSystem = localFileSystem,
         environment: Environment = .current
@@ -342,18 +358,19 @@ public final class SwiftCommandState {
             self.options = options
 
             // Honor package-path option is provided.
-            if let packagePath = options.locations.packageDirectory {
-                try ProcessEnv.chdir(packagePath)
-            }
-
-            if toolWorkspaceConfiguration.shouldInstallSignalHandlers {
-                cancellator.installSignalHandlers()
-            }
-            self.cancellator = cancellator
+            try Self.chdirIfNeeded(
+                packageDirectory: self.options.locations.packageDirectory,
+                createPackagePath: createPackagePath
+            )
         } catch {
             self.observabilityScope.emit(error)
             throw ExitCode.failure
         }
+
+        if toolWorkspaceConfiguration.shouldInstallSignalHandlers {
+            cancellator.installSignalHandlers()
+        }
+        self.cancellator = cancellator
 
         // Create local variables to use while finding build path to avoid capture self before init error.
         let packageRoot = findPackageRoot(fileSystem: fileSystem)
@@ -528,6 +545,23 @@ public final class SwiftCommandState {
         }
 
         return (identities, targets)
+    }
+
+    private static func chdirIfNeeded(packageDirectory: AbsolutePath?, createPackagePath: Bool) throws {
+        if let packagePath = packageDirectory {
+            do {
+                try ProcessEnv.chdir(packagePath)
+            } catch let SystemError.chdir(errorCode, path) {
+                // If the command allows for the directory at the package path
+                // to not be present then attempt to create it and chdir again.
+                if createPackagePath {
+                    try makeDirectories(packagePath)
+                    try ProcessEnv.chdir(packagePath)
+                } else {
+                    throw SystemError.chdir(errorCode, path)
+                }
+            }
+        }
     }
 
     private func getEditsDirectory() throws -> AbsolutePath {
@@ -716,7 +750,7 @@ public final class SwiftCommandState {
         try self._manifestLoader.get()
     }
 
-    public func canUseCachedBuildManifest() async throws -> Bool {
+    public func canUseCachedBuildManifest(_ traitConfiguration: TraitConfiguration? = nil) async throws -> Bool {
         if !self.options.caching.cacheBuildManifest {
             return false
         }
@@ -733,7 +767,7 @@ public final class SwiftCommandState {
         // Perform steps for build manifest caching if we can enabled it.
         //
         // FIXME: We don't add edited packages in the package structure command yet (SR-11254).
-        let hasEditedPackages = try await self.getActiveWorkspace().state.dependencies.contains(where: \.isEdited)
+        let hasEditedPackages = try await self.getActiveWorkspace(traitConfiguration: traitConfiguration).state.dependencies.contains(where: \.isEdited)
         if hasEditedPackages {
             return false
         }

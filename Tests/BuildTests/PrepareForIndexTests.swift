@@ -214,6 +214,7 @@ class PrepareForIndexTests: XCTestCase {
                     observabilityScope: $1
                 )
             },
+            createPackagePath: false,
             hostTriple: .arm64Linux,
             fileSystem: localFileSystem,
             environment: .current

@@ -462,6 +462,30 @@ public struct SwiftSetting: Sendable {
         return SwiftSetting(
             name: "swiftLanguageMode", value: [.init(describing: mode)], condition: condition)
     }
+
+    /// Set the default isolation to the given global actor type.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - isolation: The type of global actor to use for default actor isolation
+    ///     inference. The only valid arguments are `MainActor.self` and `nil`.
+    ///   - condition: A condition that restricts the application of the build
+    ///     setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func defaultIsolation(
+        _ isolation: MainActor.Type?,
+        _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        let isolationString =
+            if isolation == nil {
+                "nonisolated"
+            } else {
+                "MainActor"
+            }
+        return SwiftSetting(
+            name: "defaultIsolation", value: [isolationString], condition: condition)
+    }
 }
 
 /// A linker build setting.

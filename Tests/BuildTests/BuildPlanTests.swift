@@ -4307,6 +4307,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                             condition: .init(platformNames: ["macos"], config: "debug")
                         ),
                         .init(tool: .swift, kind: .strictMemorySafety),
+                        .init(tool: .swift, kind: .defaultIsolation(.MainActor)),
                     ]
                 ),
                 TargetDescription(
@@ -4340,6 +4341,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                             condition: .init(platformNames: ["macos"])
                         ),
                         .init(tool: .linker, kind: .unsafeFlags(["-Ilfoo", "-L", "lbar"])),
+                        .init(tool: .swift, kind: .defaultIsolation(.nonisolated)),
                     ]
                 ),
                 TargetDescription(
@@ -4432,6 +4434,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature", "BestFeature",
                     "-strict-memory-safety",
+                    "-default-isolation", "MainActor",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4440,7 +4443,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             )
 
             let exe = try result.moduleBuildDescription(for: "exe").swift().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-swift-version", "5", "-DFOO", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
+            XCTAssertMatch(exe, [.anySequence, "-swift-version", "5", "-DFOO", "-default-isolation", "nonisolated", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
 
             let linkExe = try result.buildProduct(for: "exe").linkArguments()
             XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-Ilfoo", "-L", "lbar", "-g", .end])
@@ -4497,6 +4500,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                     "-enable-upcoming-feature",
                     "BestFeature",
                     "-strict-memory-safety",
+                    "-default-isolation", "MainActor",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fomit-frame-pointer",
@@ -4505,7 +4509,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             )
 
             let exe = try result.moduleBuildDescription(for: "exe").swift().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-swift-version", "5", "-DFOO", "-g", "-Xcc", "-g", "-Xcc", "-fomit-frame-pointer", .end])
+            XCTAssertMatch(exe, [.anySequence, "-swift-version", "5", "-DFOO", "-default-isolation", "nonisolated", "-g", "-Xcc", "-g", "-Xcc", "-fomit-frame-pointer", .end])
         }
 
         // omit frame pointers explicitly set to false
@@ -4553,6 +4557,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                     "-enable-upcoming-feature",
                     "BestFeature",
                     "-strict-memory-safety",
+                    "-default-isolation", "MainActor",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4561,7 +4566,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             )
 
             let exe = try result.moduleBuildDescription(for: "exe").swift().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-swift-version", "5", "-DFOO", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
+            XCTAssertMatch(exe, [.anySequence, "-swift-version", "5", "-DFOO", "-default-isolation", "nonisolated", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
         }
 
         do {
@@ -4598,6 +4603,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                     "-enable-upcoming-feature", "BestFeature",
                     "-enable-upcoming-feature", "WorstFeature",
                     "-strict-memory-safety",
+                    "-default-isolation", "MainActor",
                     "-g",
                     "-Xcc", "-g",
                     .end,
@@ -4613,6 +4619,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                     "-DFOO",
                     "-cxx-interoperability-mode=default",
                     "-Xcc", "-std=c++17",
+                    "-default-isolation", "nonisolated",
                     "-g",
                     "-Xcc", "-g",
                     .end,
