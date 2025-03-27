@@ -615,6 +615,142 @@ class ManifestEditTests: XCTestCase {
         }
     }
 }
+/// Assert that applying the moveSingleTargetSources operation to the manifest
+/// produces the expected file system.
+func assertFileSystemRefactor(
+    _ manifest: String,
+    inputFileLayout: [AbsolutePath] = [],
+    expectedFileLayout: [AbsolutePath] = [],
+    file: StaticString = #filePath,
+    line: UInt = #line
+) throws {
+    let mockFileSystem = InMemoryFileSystem();
+    for path in inputFileLayout {
+        try mockFileSystem.writeFileContents(path, string: "print(\"Hello, world!\")")
+    }
+
+    try AddTarget.moveSingleTargetSources(
+        packagePath: AbsolutePath("/"),
+        manifest: Parser.parse(source: manifest),
+        fileSystem: mockFileSystem
+    )
+
+    for path in expectedFileLayout {
+        XCTAssertTrue(mockFileSystem.exists(path))
+    }
+
+    let unexpectedFiles = inputFileLayout.filter { !expectedFileLayout.contains($0) }
+    for path in unexpectedFiles {
+        XCTAssertFalse(mockFileSystem.exists(path))
+    }
+}
+
+class SingleTargetSourceTests: XCTestCase {
+    func testMoveSingleTargetSources() throws {
+        try assertFileSystemRefactor(
+            """
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .executableTarget(name: "Foo"),
+                ]
+            )
+            """,
+            inputFileLayout: [AbsolutePath("/Sources/Foo.swift")],
+            expectedFileLayout: [AbsolutePath("/Sources/Foo/Foo.swift")]
+        )
+    }
+
+    func testMoveSingleTargetSourcesNoTargets() throws {
+        try assertFileSystemRefactor(
+            """
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages"
+            )
+            """,
+            inputFileLayout: [AbsolutePath("/Sources/Foo.swift")],
+            expectedFileLayout: [AbsolutePath("/Sources/Foo.swift")]
+        )
+    }
+
+    func testMoveSingleTargetSourcesAlreadyOrganized() throws {
+        try assertFileSystemRefactor(
+            """
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .executableTarget(name: "Foo"),
+                ]
+            )
+            """,
+            inputFileLayout: [AbsolutePath("/Sources/Foo/Foo.swift")],
+            expectedFileLayout: [AbsolutePath("/Sources/Foo/Foo.swift")]
+        )
+    }
+
+    func testMoveSingleTargetSourcesInvalidManifestTargets() throws {
+        XCTAssertThrowsError(
+            try assertFileSystemRefactor(
+                """
+                // swift-tools-version: 5.5
+                let package = Package(
+                    name: "packages",
+                    targets: "invalid"
+                )
+                """
+            )
+        ) { error in
+            XCTAssertTrue(error is ManifestEditError)
+        }
+    }
+
+    func testMoveSingleTargetSourcesInvalidManifestToolsVersion() throws {
+        XCTAssertThrowsError(
+            try assertFileSystemRefactor(
+                """
+                // swift-tools-version: 5.4
+                let package = Package(
+                    name: "packages",
+                    targets: []
+                )
+                """
+            )
+        ) { error in
+            XCTAssertTrue(error is ManifestEditError)
+        }
+    }
+
+    func testMoveSingleTargetSourcesInvalidManifestTarget() throws {
+        XCTAssertThrowsError(
+            try assertFileSystemRefactor(
+                """
+                // swift-tools-version: 5.4
+                let package = Package(
+                    name: "packages",
+                    targets: [.executableTarget(123)]
+                )
+                """
+            )
+        ) { error in
+            XCTAssertTrue(error is ManifestEditError)
+        }
+    }
+
+    func testMoveSingleTargetSourcesInvalidManifestPackage() throws {
+        XCTAssertThrowsError(
+            try assertFileSystemRefactor(
+                """
+                // swift-tools-version: 5.5
+                """
+            )
+        ) { error in
+            XCTAssertTrue(error is ManifestEditError)
+        }
+    }
+}
 
 
 // FIXME: Copy-paste from _SwiftSyntaxTestSupport

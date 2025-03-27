@@ -64,7 +64,7 @@ public enum AddTarget {
         packagePath: AbsolutePath,
         manifest: SourceFileSyntax,
         fileSystem: any FileSystem,
-        verbose: Bool
+        verbose: Bool = false
     ) throws {
         // Make sure we have a suitable tools version in the manifest.
         try manifest.checkEditManifestToolsVersion()
