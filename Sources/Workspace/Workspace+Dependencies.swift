@@ -47,7 +47,7 @@ import struct SourceControl.Revision
 import struct TSCUtility.Version
 import struct PackageModel.TargetDescription
 import struct PackageModel.TraitDescription
-import struct PackageGraph.TraitConfiguration
+import enum PackageModel.TraitConfiguration
 import class PackageModel.Manifest
 
 extension Workspace {
@@ -82,7 +82,7 @@ extension Workspace {
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
         // Load the current manifests.
-        let graphRoot = PackageGraphRoot(
+        let graphRoot = try PackageGraphRoot(
             input: root,
             manifests: rootManifests,
             dependencyMapper: self.dependencyMapper,
@@ -350,7 +350,7 @@ extension Workspace {
             packages: root.packages,
             observabilityScope: observabilityScope
         )
-        let graphRoot = PackageGraphRoot(
+        let graphRoot = try PackageGraphRoot(
             input: root,
             manifests: rootManifests,
             explicitProduct: explicitProduct,
@@ -517,7 +517,7 @@ extension Workspace {
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
         // Load the current manifests.
-        let graphRoot = PackageGraphRoot(
+        let graphRoot = try PackageGraphRoot(
             input: root,
             manifests: rootManifests,
             explicitProduct: explicitProduct,

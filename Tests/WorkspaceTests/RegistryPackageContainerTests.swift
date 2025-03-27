@@ -275,6 +275,7 @@ final class RegistryPackageContainerTests: XCTestCase {
                             displayName: packageIdentity.description,
                             path: manifestPath,
                             packageKind: packageKind,
+                            packageIdentity: packageIdentity,
                             packageLocation: packageLocation,
                             platforms: [],
                             toolsVersion: manifestToolsVersion

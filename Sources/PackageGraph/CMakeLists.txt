@@ -19,7 +19,6 @@ add_library(PackageGraph
   PackageModel+Extensions.swift
   PackageRequirement.swift
   ResolvedPackagesStore.swift
-  TraitConfiguration.swift
   Resolution/PubGrub/Assignment.swift
   Resolution/PubGrub/ContainerProvider.swift
   Resolution/PubGrub/DiagnosticReportBuilder.swift

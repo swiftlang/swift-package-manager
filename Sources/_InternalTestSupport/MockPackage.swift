@@ -35,7 +35,7 @@ public struct MockPackage {
         targets: [MockTarget],
         products: [MockProduct] = [],
         dependencies: [MockDependency] = [],
-        traits: Set<TraitDescription> = [.init(name: "defaults")],
+        traits: Set<TraitDescription> = [.init(name: "default")],
         versions: [String?] = [],
         revisionProvider: ((String) -> String)? = nil,
         toolsVersion: ToolsVersion? = nil
@@ -60,7 +60,7 @@ public struct MockPackage {
         targets: [MockTarget],
         products: [MockProduct],
         dependencies: [MockDependency] = [],
-        traits: Set<TraitDescription> = [.init(name: "defaults")],
+        traits: Set<TraitDescription> = [.init(name: "default")],
         versions: [String?] = [],
         revisionProvider: ((String) -> String)? = nil,
         toolsVersion: ToolsVersion? = nil
@@ -86,7 +86,7 @@ public struct MockPackage {
         targets: [MockTarget],
         products: [MockProduct],
         dependencies: [MockDependency] = [],
-        traits: Set<TraitDescription> = [.init(name: "defaults")],
+        traits: Set<TraitDescription> = [.init(name: "default")],
         versions: [String?] = [],
         revisionProvider: ((String) -> String)? = nil,
         toolsVersion: ToolsVersion? = nil
