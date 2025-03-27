@@ -55,7 +55,7 @@ import struct PackageGraph.ResolvedProduct
 
 import func PackageLoading.pkgConfigArgs
 
-import enum SwiftBuild.PIF
+import enum SWBProjectModel.PIF
 
 // MARK: - PIF GUID Helpers
 
@@ -139,8 +139,8 @@ extension PackageModel.Package {
         self.manifest.displayName
     }
 
-    var packageBaseBuildSettings: SwiftBuild.PIF.BuildSettings {
-        var settings = SwiftBuild.PIF.BuildSettings()
+    var packageBaseBuildSettings: SWBProjectModel.PIF.BuildSettings {
+        var settings = SWBProjectModel.PIF.BuildSettings()
         settings.SDKROOT = "auto"
         settings.SDK_VARIANT = "auto"
 
@@ -203,14 +203,14 @@ extension PackageModel.Platform {
 }
 
 extension Sequence<PackageModel.PackageCondition> {
-    func toPlatformFilter(toolsVersion: ToolsVersion) -> Set<SwiftBuild.PIF.PlatformFilter> {
-        let pifPlatforms = self.flatMap { packageCondition -> [SwiftBuild.PIF.BuildSettings.Platform] in
+    func toPlatformFilter(toolsVersion: ToolsVersion) -> Set<SWBProjectModel.PIF.PlatformFilter> {
+        let pifPlatforms = self.flatMap { packageCondition -> [SWBProjectModel.PIF.BuildSettings.Platform] in
             guard let platforms = packageCondition.platformsCondition?.platforms else {
                 return []
             }
 
-            var pifPlatformsForCondition: [SwiftBuild.PIF.BuildSettings.Platform] = platforms
-                .map { SwiftBuild.PIF.BuildSettings.Platform(from: $0) }
+            var pifPlatformsForCondition: [SWBProjectModel.PIF.BuildSettings.Platform] = platforms
+                .map { SWBProjectModel.PIF.BuildSettings.Platform(from: $0) }
 
             // Treat catalyst like macOS for backwards compatibility with older tools versions.
             if pifPlatformsForCondition.contains(.macOS), toolsVersion < ToolsVersion.v5_5 {
@@ -313,7 +313,7 @@ extension PackageGraph.ResolvedPackage {
 }
 
 extension PackageGraph.ResolvedPackage {
-    public var packageBaseBuildSettings: SwiftBuild.PIF.BuildSettings {
+    public var packageBaseBuildSettings: SWBProjectModel.PIF.BuildSettings {
         self.underlying.packageBaseBuildSettings
     }
 }
@@ -793,12 +793,12 @@ extension TSCUtility.Version {
 // MARK: - Swift Build PIF Helpers
 
 /// Helpers for building custom PIF targets by `PIFPackageBuilder` clients.
-extension SwiftBuild.PIF.Project {
+extension SWBProjectModel.PIF.Project {
     @discardableResult
     public func addTarget(
         packageProductName: String,
-        productType: SwiftBuild.PIF.Target.ProductType
-    ) throws -> SwiftBuild.PIF.Target {
+        productType: SWBProjectModel.PIF.Target.ProductType
+    ) throws -> SWBProjectModel.PIF.Target {
         let pifTarget = try self.addTargetThrowing(
             id: PIFPackageBuilder.targetGUID(forProductName: packageProductName),
             productType: productType,
@@ -811,8 +811,8 @@ extension SwiftBuild.PIF.Project {
     @discardableResult
     public func addTarget(
         packageModuleName: String,
-        productType: SwiftBuild.PIF.Target.ProductType
-    ) throws -> SwiftBuild.PIF.Target {
+        productType: SWBProjectModel.PIF.Target.ProductType
+    ) throws -> SWBProjectModel.PIF.Target {
         let pifTarget = try self.addTargetThrowing(
             id: PIFPackageBuilder.targetGUID(forModuleName: packageModuleName),
             productType: productType,
@@ -823,7 +823,7 @@ extension SwiftBuild.PIF.Project {
     }
 }
 
-extension SwiftBuild.PIF.BuildSettings {
+extension SWBProjectModel.PIF.BuildSettings {
     /// Internal helper function that appends list of string values to a declaration.
     /// If a platform is specified, then the values are appended to the `platformSpecificSettings`,
     /// otherwise they are appended to the platform-neutral settings.
@@ -895,7 +895,7 @@ extension SwiftBuild.PIF.BuildSettings {
     }
 }
 
-extension SwiftBuild.PIF.BuildSettings.Platform {
+extension SWBProjectModel.PIF.BuildSettings.Platform {
     init(from platform: PackageModel.Platform) {
         self = switch platform {
         case .macOS: .macOS
@@ -915,7 +915,7 @@ extension SwiftBuild.PIF.BuildSettings.Platform {
     }
 }
 
-extension SwiftBuild.PIF.BuildSettings {
+extension SWBProjectModel.PIF.BuildSettings {
     /// Configure necessary settings for a dynamic library/framework.
     mutating func configureDynamicSettings(
         productName: String,
@@ -959,7 +959,7 @@ extension SwiftBuild.PIF.BuildSettings {
     }
 }
 
-extension SwiftBuild.PIF.BuildSettings.Declaration {
+extension SWBProjectModel.PIF.BuildSettings.Declaration {
     init(from declaration: PackageModel.BuildSettings.Declaration) {
         self = switch declaration {
         // Swift.

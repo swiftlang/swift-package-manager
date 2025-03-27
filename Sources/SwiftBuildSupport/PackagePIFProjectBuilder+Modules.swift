@@ -25,7 +25,7 @@ import class PackageModel.SystemLibraryModule
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedPackage
 
-import enum SwiftBuild.PIF
+import enum SWBProjectModel.PIF
 
 /// Extension to create PIF **modules** for a given package.
 extension PackagePIFProjectBuilder {
@@ -43,7 +43,7 @@ extension PackagePIFProjectBuilder {
         )
         log(.debug, "created \(type(of: pluginPifTarget)) '\(pluginPifTarget.id)' with name '\(pluginPifTarget.name)'")
 
-        var buildSettings: SwiftBuild.PIF.BuildSettings = self.package.underlying.packageBaseBuildSettings
+        var buildSettings: SWBProjectModel.PIF.BuildSettings = self.package.underlying.packageBaseBuildSettings
 
         // Add the dependencies.
         pluginModule.recursivelyTraverseDependencies { dependency in
@@ -167,8 +167,8 @@ extension PackagePIFProjectBuilder {
             dynamicLibraryVariant.isDynamicLibraryVariant = true
             self.builtModulesAndProducts.append(dynamicLibraryVariant)
 
-            let pifTarget = staticLibrary.pifTarget as? SwiftBuild.PIF.Target
-            let dynamicPifTarget = dynamicLibraryVariant.pifTarget as? SwiftBuild.PIF.Target
+            let pifTarget = staticLibrary.pifTarget as? SWBProjectModel.PIF.Target
+            let dynamicPifTarget = dynamicLibraryVariant.pifTarget as? SWBProjectModel.PIF.Target
 
             guard let pifTarget, let dynamicPifTarget else {
                 fatalError("Could not assign dynamic PIF target")
@@ -224,7 +224,7 @@ extension PackagePIFProjectBuilder {
 
         let pifTargetName: String
         let executableName: String
-        let productType: SwiftBuild.PIF.Target.ProductType
+        let productType: SWBProjectModel.PIF.Target.ProductType
 
         switch desiredModuleType {
         case .dynamicLibrary:
@@ -321,10 +321,10 @@ extension PackagePIFProjectBuilder {
         }
 
         // Create a set of build settings that will be imparted to any target that depends on this one.
-        var impartedSettings = SwiftBuild.PIF.BuildSettings()
+        var impartedSettings = SWBProjectModel.PIF.BuildSettings()
 
         // Configure the target-wide build settings. The details depend on the kind of product we're building.
-        var settings: SwiftBuild.PIF.BuildSettings = self.package.underlying.packageBaseBuildSettings
+        var settings: SWBProjectModel.PIF.BuildSettings = self.package.underlying.packageBaseBuildSettings
 
         if shouldGenerateBundleAccessor {
             settings.GENERATE_RESOURCE_ACCESSORS = "YES"
@@ -683,10 +683,10 @@ extension PackagePIFProjectBuilder {
         for (buildConfig, declarationsByPlatform) in allBuildSettings.targetSettings {
             for (platform, settingsByDeclaration) in declarationsByPlatform {
                 // A `nil` platform means that the declaration applies to *all* platforms.
-                let pifPlatform = platform.map { SwiftBuild.PIF.BuildSettings.Platform(from: $0) }
+                let pifPlatform = platform.map { SWBProjectModel.PIF.BuildSettings.Platform(from: $0) }
 
                 for (declaration, stringValues) in settingsByDeclaration {
-                    let pifDeclaration = SwiftBuild.PIF.BuildSettings.Declaration(from: declaration)
+                    let pifDeclaration = SWBProjectModel.PIF.BuildSettings.Declaration(from: declaration)
                     switch buildConfig {
                     case .debug:
                         debugSettings.append(values: stringValues, to: pifDeclaration, platform: pifPlatform)
@@ -700,10 +700,10 @@ extension PackagePIFProjectBuilder {
         // Impart the linker flags.
         for (platform, settingsByDeclaration) in sourceModule.allBuildSettings.impartedSettings {
             // A `nil` platform means that the declaration applies to *all* platforms.
-            let pifPlatform = platform.map { SwiftBuild.PIF.BuildSettings.Platform(from: $0) }
+            let pifPlatform = platform.map { SWBProjectModel.PIF.BuildSettings.Platform(from: $0) }
 
             for (declaration, stringValues) in settingsByDeclaration {
-                let pifDeclaration = SwiftBuild.PIF.BuildSettings.Declaration(from: declaration)
+                let pifDeclaration = SWBProjectModel.PIF.BuildSettings.Declaration(from: declaration)
                 impartedSettings.append(values: stringValues, to: pifDeclaration, platform: pifPlatform)
             }
         }
@@ -771,14 +771,14 @@ extension PackagePIFProjectBuilder {
             "created \(type(of: systemLibraryPifTarget)) '\(systemLibraryPifTarget.id)' with name '\(systemLibraryPifTarget.name)'"
         )
 
-        let settings: SwiftBuild.PIF.BuildSettings = self.package.underlying.packageBaseBuildSettings
+        let settings: SWBProjectModel.PIF.BuildSettings = self.package.underlying.packageBaseBuildSettings
         let pkgConfig = try systemLibrary.pkgConfig(
             package: self.package,
             observabilityScope: pifBuilder.observabilityScope
         )
 
         // Impart the header search path to all direct and indirect clients.
-        var impartedSettings = SwiftBuild.PIF.BuildSettings()
+        var impartedSettings = SWBProjectModel.PIF.BuildSettings()
         impartedSettings.OTHER_CFLAGS = ["-fmodule-map-file=\(systemLibrary.modulemapFileAbsolutePath)"] + pkgConfig
             .cFlags.prepending("$(inherited)")
         impartedSettings.OTHER_LDFLAGS = pkgConfig.libs.prepending("$(inherited)")

@@ -17,7 +17,7 @@ import let Basics.localFileSystem
 import enum Basics.Sandbox
 import struct Basics.SourceControlURL
 
-import enum SwiftBuild.PIF
+import enum SWBProjectModel.PIF
 
 extension PIFPackageBuilder {
     /// Contains all of the information resulting from applying a build tool plugin to a package target thats affect how
