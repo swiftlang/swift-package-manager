@@ -14,7 +14,7 @@ extension BuildSubset {
     var pifTargetName: String {
         switch self {
         case .product(let name, _):
-            PackagePIFProjectBuilder.targetName(for: name)
+            _PackagePIFProjectBuilder.targetName(for: name)
         case .target(let name, _):
             name
         case .allExcludingTests:
