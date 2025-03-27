@@ -144,9 +144,9 @@ def main() -> None:
             shlex.split("swift --version"),
         )
 
-        call(
-            shlex.split("swift package reset"),
-        )
+        # call(
+        #     shlex.split("swift package reset"),
+        # )
         call(
             shlex.split("swift package update"),
         )

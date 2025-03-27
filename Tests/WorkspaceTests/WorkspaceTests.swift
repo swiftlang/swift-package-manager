@@ -10826,9 +10826,9 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateTransitiveIdentityMultiplePossibleChains() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
+        try skipOnWindowsAsTestCurrentlyFails(because: #"""
         threw error "\tmp\ws doesn't exist in file system"
-        """)
+        """#)
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -10996,9 +10996,9 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateIdentityDependenciesMultipleRoots() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
+        try skipOnWindowsAsTestCurrentlyFails(because: #"""
         threw error "\tmp\ws doesn't exist in file system"
-        """)
+        """#)
 
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
