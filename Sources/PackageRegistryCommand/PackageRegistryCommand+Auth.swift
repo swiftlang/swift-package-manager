@@ -263,8 +263,7 @@ extension PackageRegistryCommand {
             try await registryClient.login(
                 loginURL: loginURL,
                 timeout: .seconds(5),
-                observabilityScope: swiftCommandState.observabilityScope,
-                callbackQueue: .sharedConcurrent
+                observabilityScope: swiftCommandState.observabilityScope
             )
 
             print("Login successful.")

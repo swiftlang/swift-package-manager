@@ -54,8 +54,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
         package: PackageIdentity,
         version: Version,
         observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue,
-        callbackQueue: DispatchQueue
+        delegateQueue: DispatchQueue
     ) async throws -> AbsolutePath {
         let packageRelativePath: RelativePath
         let packagePath: AbsolutePath
@@ -97,8 +96,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
                             version: version,
                             packagePath: packagePath,
                             observabilityScope: observabilityScope,
-                            delegateQueue: delegateQueue,
-                            callbackQueue: callbackQueue
+                            delegateQueue: delegateQueue
                         )
                         // inform delegate that we finished to fetch
                         let duration = start.distance(to: .now())
@@ -131,13 +129,12 @@ public class RegistryDownloadsManager: AsyncCancellable {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<AbsolutePath, Error>) -> Void
     ) {
-        self.executeAsync(completion, on: callbackQueue) {
+        callbackQueue.asyncResult(completion) {
             try await self.lookup(
                 package: package,
                 version: version,
                 observabilityScope: observabilityScope,
-                delegateQueue: delegateQueue,
-                callbackQueue: callbackQueue
+                delegateQueue: delegateQueue
             )
         }
     }
@@ -152,8 +149,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
         version: Version,
         packagePath: AbsolutePath,
         observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue,
-        callbackQueue: DispatchQueue
+        delegateQueue: DispatchQueue
     ) async throws -> FetchDetails {
         if let cachePath {
             do {
@@ -184,8 +180,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
                                 destinationPath: cachedPackagePath,
                                 progressHandler: updateDownloadProgress,
                                 fileSystem: self.fileSystem,
-                                observabilityScope: observabilityScope,
-                                callbackQueue: callbackQueue
+                                observabilityScope: observabilityScope
                             )
 
                             // extra validation to defend from racy edge cases
@@ -219,8 +214,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
                     destinationPath: packagePath,
                     progressHandler: updateDownloadProgress,
                     fileSystem: self.fileSystem,
-                    observabilityScope: observabilityScope,
-                    callbackQueue: callbackQueue
+                    observabilityScope: observabilityScope
                 )
                 return FetchDetails(fromCache: false, updatedCache: false)
             }
@@ -235,8 +229,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
                 destinationPath: packagePath,
                 progressHandler: updateDownloadProgress,
                 fileSystem: self.fileSystem,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             )
             return FetchDetails(fromCache: false, updatedCache: false)
         }
@@ -312,21 +305,6 @@ public class RegistryDownloadsManager: AsyncCancellable {
     private func initializeCacheIfNeeded(cachePath: AbsolutePath) throws {
         if !self.fileSystem.exists(cachePath) {
             try self.fileSystem.createDirectory(cachePath, recursive: true)
-        }
-    }
-
-    private func executeAsync<T>(
-        _ callback: @escaping (Result<T, Error>) -> Void,
-        on queue: DispatchQueue,
-        _ closure: @escaping () async throws -> T
-    ) {
-        let completion: (Result<T, Error>) -> Void = { result in queue.async { callback(result) } }
-        Task {
-            do {
-                completion(.success(try await closure()))
-            } catch {
-                completion(.failure(error))
-            }
         }
     }
 }
