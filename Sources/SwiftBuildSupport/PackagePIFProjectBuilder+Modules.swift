@@ -545,7 +545,7 @@ extension PackagePIFProjectBuilder {
             indexableFileURLs.append(SourceControlURL(fileURLWithPath: resource.path))
         }
 
-        let headerFiles = try Set(sourceModule.headerFileAbsolutePaths)
+        let headerFiles = Set(sourceModule.headerFileAbsolutePaths)
 
         // Add any additional source files emitted by custom build commands.
         for path in generatedSourceFiles {
