@@ -350,6 +350,11 @@ To run just the self-hosted test suite (faster turnaround times so it can be use
 @swift-ci please test self hosted
 ```
 
+To run the windows self-hosted suite, use:
+
+```
+@swift-ci please test self hosted windows
+```
 
 To run the swift toolchain test suite including SwiftPM use:
 
