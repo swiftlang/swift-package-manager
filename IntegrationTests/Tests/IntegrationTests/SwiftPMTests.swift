@@ -74,7 +74,14 @@ private struct SwiftPMTests {
         }
     }
 
-    @Test(.requireThreadSafeWorkingDirectory, arguments: BuildSystemProvider.allCases)
+    @Test(
+        .requireThreadSafeWorkingDirectory,
+        .bug(
+            "https://github.com/swiftlang/swift-package-manager/issues/8416",
+            "swift run using --build-system swiftbuild fails to run executable"
+        ),
+        arguments: BuildSystemProvider.allCases
+    )
     func packageInitExecutable(_ buildSystemProvider: BuildSystemProvider) throws {
         // Executable
         do {
@@ -84,7 +91,7 @@ private struct SwiftPMTests {
                 try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "executable")
                 try sh(swiftBuild, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue)
 
-                try withKnownIssue("Issue #8416 - error while loading shared libraries: libswiftCore.so: cannot open shared object file: No such file or directory") {
+                try withKnownIssue("Error while loading shared libraries: libswiftCore.so: cannot open shared object file: No such file or directory") {
                     // The 'native' build system uses 'swiftc' as the linker driver, which adds an RUNPATH to the swift runtime libraries in the SDK.
                     // 'swiftbuild' directly calls clang, which does not add the extra RUNPATH, so runtime libraries cannot be found.
                     let (stdout, stderr) = try sh(
@@ -99,7 +106,13 @@ private struct SwiftPMTests {
         }
     }
 
-    @Test(.requireThreadSafeWorkingDirectory, arguments: BuildSystemProvider.allCases)
+    @Test(
+        .requireThreadSafeWorkingDirectory,
+        .bug(id: 0, "SWBINTTODO: Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error:"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8380", "lld-link: error: subsystem must be defined"),
+        .bug(id:0, "SWBINTTODO: MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found"),
+        arguments: BuildSystemProvider.allCases
+    )
     func packageInitLibrary(_ buildSystemProvider: BuildSystemProvider) throws {
         do {
             try withTemporaryDirectory { tmpDir in
