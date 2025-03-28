@@ -226,8 +226,8 @@ The header file should look like this:
 #include <git2.h>
 ```
 
-**Note:** Avoiding specifying an absolute path to `git2.h` provided
-by the library in the `module.modulemap`. Doing so will break compatibility of 
+**Note:** Avoid specifying an absolute path  in the `module.modulemap` to `git2.h`
+header provided by the library. Doing so will break compatibility of 
 your project between machines that may use a different file system layout or
 install libraries to different paths.
 
