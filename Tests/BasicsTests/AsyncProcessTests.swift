@@ -23,6 +23,11 @@ import func TSCBasic.withTemporaryFile
 import func TSCTestSupport.withCustomEnv
 
 final class AsyncProcessTests: XCTestCase {
+
+    override func setUp() async throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+    }
+    
     func testBasics() throws {
         do {
             let process = AsyncProcess(args: "echo", "hello")

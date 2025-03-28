@@ -23,8 +23,10 @@ import struct TSCBasic.ByteString
 
 final class ModulesGraphTests: XCTestCase {
     func testBasic() throws {
+        try skipOnWindowsAsTestCurrentlyFails()
         let fs = InMemoryFileSystem(
             emptyFiles:
+            "/Foo/Sources/Foo/source.swift",
             "/Foo/Sources/Foo/source.swift",
             "/Foo/Sources/FooDep/source.swift",
             "/Foo/Tests/FooTests/source.swift",

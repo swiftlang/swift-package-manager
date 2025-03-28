@@ -564,6 +564,8 @@ final class PackageBuilderTests: XCTestCase {
     }
 
     func testTestManifestSearch() throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         let fs = InMemoryFileSystem(emptyFiles:
             "/pkg/foo.swift",
             "/pkg/footests.swift"

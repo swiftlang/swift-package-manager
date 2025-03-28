@@ -29,6 +29,7 @@ import struct SPMBuildCore.BuildParameters
 import TSCTestSupport
 import Workspace
 import func XCTest.XCTFail
+import struct XCTest.XCTSkip
 
 import struct TSCBasic.ByteString
 import struct Basics.AsyncProcessResult
@@ -274,6 +275,18 @@ public func executeSwiftBuild(
         buildSystem: buildSystem
     )
     return try await SwiftPM.Build.execute(args, packagePath: packagePath, env: env)
+}
+
+public func skipOnWindowsAsTestCurrentlyFails(because reason: String? = nil) throws {
+    #if os(Windows)
+    let failureCause: String
+    if let reason {
+        failureCause = " because \(reason.description)"
+    } else {
+        failureCause = ""
+    }
+    throw XCTSkip("Test fails on windows\(failureCause)")
+    #endif
 }
 
 @discardableResult

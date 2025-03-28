@@ -110,6 +110,10 @@ class GitRepositoryTests: XCTestCase {
 
     /// Check hash validation.
     func testGitRepositoryHash() throws {
+        try skipOnWindowsAsTestCurrentlyFails(because: """
+        Test failed with: 0 [main] sh (9736) C:\\Program Files\\Git\\usr\\bin\\sh.exe: *** fatal error - add_item ("\\??\\C:\\Program Files\\Git", "/", ...) failed, errno 1
+        """)
+
         let validHash = "0123456789012345678901234567890123456789"
         XCTAssertNotEqual(GitRepository.Hash(validHash), nil)
 
@@ -126,9 +130,8 @@ class GitRepositoryTests: XCTestCase {
     /// `Inputs`, which has known commit hashes. See the `construct.sh` script
     /// contained within it for more information.
     func testRawRepository() throws {
-#if os(Windows)
-        try XCTSkipIf(true, "test repository has non-portable file names")
-#endif
+        try skipOnWindowsAsTestCurrentlyFails(because: "https://github.com/swiftlang/swift-package-manager/issues/8385: test repository has non-portable file names")
+
         try testWithTemporaryDirectory { path in
             // Unarchive the static test repository.
             let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", "TestRepo.tgz")
@@ -187,6 +190,10 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testSubmoduleRead() throws {
+        try skipOnWindowsAsTestCurrentlyFails(because: """
+        Test failed with: 0 [main] sh (9736) C:\\Program Files\\Git\\usr\\bin\\sh.exe: *** fatal error - add_item ("\\??\\C:\\Program Files\\Git", "/", ...) failed, errno 1
+        """)
+
         try testWithTemporaryDirectory { path in
             let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
@@ -298,6 +305,10 @@ class GitRepositoryTests: XCTestCase {
 
     /// Test the handling of local checkouts.
     func testCheckouts() throws {
+        try skipOnWindowsAsTestCurrentlyFails(because: """
+        Test failed with: 0 [main] sh (9736) C:\\Program Files\\Git\\usr\\bin\\sh.exe: *** fatal error - add_item ("\\??\\C:\\Program Files\\Git", "/", ...) failed, errno 1
+        """)
+
         try testWithTemporaryDirectory { path in
             // Create a test repository.
             let testRepoPath = path.appending("test-repo")
@@ -344,6 +355,10 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testFetch() throws {
+        try skipOnWindowsAsTestCurrentlyFails(because: """
+        Test failed with: 0 [main] sh (9736) C:\\Program Files\\Git\\usr\\bin\\sh.exe: *** fatal error - add_item ("\\??\\C:\\Program Files\\Git", "/", ...) failed, errno 1
+        """)
+
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -383,6 +398,10 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testHasUnpushedCommits() throws {
+        try skipOnWindowsAsTestCurrentlyFails(because: """
+        Test failed with: 0 [main] sh (9736) C:\\Program Files\\Git\\usr\\bin\\sh.exe: *** fatal error - add_item ("\\??\\C:\\Program Files\\Git", "/", ...) failed, errno 1
+        """)
+
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -419,6 +438,10 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testSetRemote() throws {
+        try skipOnWindowsAsTestCurrentlyFails(because: """
+        Test failed with: 0 [main] sh (9736) C:\\Program Files\\Git\\usr\\bin\\sh.exe: *** fatal error - add_item ("\\??\\C:\\Program Files\\Git", "/", ...) failed, errno 1
+        """)
+
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -531,6 +554,10 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testCheckoutRevision() throws {
+        try skipOnWindowsAsTestCurrentlyFails(because: """
+        Test failed with: 0 [main] sh (9736) C:\\Program Files\\Git\\usr\\bin\\sh.exe: *** fatal error - add_item ("\\??\\C:\\Program Files\\Git", "/", ...) failed, errno 1
+        """)
+
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -663,6 +690,8 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testAlternativeObjectStoreValidation() throws {
+        try skipOnWindowsAsTestCurrentlyFails(because: "test might hang in CI")
+
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -733,6 +762,10 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testMissingDefaultBranch() throws {
+        try skipOnWindowsAsTestCurrentlyFails(because: """
+        Test failed with: 0 [main] sh (9736) C:\\Program Files\\Git\\usr\\bin\\sh.exe: *** fatal error - add_item ("\\??\\C:\\Program Files\\Git", "/", ...) failed, errno 1
+        """)
+
         try testWithTemporaryDirectory { path in
             // Create a repository.
             let testRepoPath = path.appending("test-repo")

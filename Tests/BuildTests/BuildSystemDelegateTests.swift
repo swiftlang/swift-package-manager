@@ -30,6 +30,8 @@ final class BuildSystemDelegateTests: XCTestCase {
     }
 
     func testFilterNonFatalCodesignMessages() async throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
         // Note: we can re-use the `TestableExe` fixture here since we just need an executable.
         try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in

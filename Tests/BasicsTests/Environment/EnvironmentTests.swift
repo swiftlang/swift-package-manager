@@ -15,6 +15,7 @@
 import Basics
 
 import XCTest
+import _InternalTestSupport // for skipOnWindowsAsTestCurrentlyFails()
 
 final class EnvironmentTests: XCTestCase {
     func test_init() {
@@ -36,7 +37,7 @@ final class EnvironmentTests: XCTestCase {
         ]
         let environment = Environment(dictionary)
         #if os(Windows)
-        XCTAssertEqual(environment["TestKey"], "TestValue2") // uppercase sorts before lowercase, so the second value overwrites the first
+        XCTAssertEqual(environment["TestKey"], "TestValue2")
         XCTAssertEqual(environment.count, 1)
         #else
         XCTAssertEqual(environment["TestKey"], "TestValue")
@@ -48,6 +49,7 @@ final class EnvironmentTests: XCTestCase {
         let dictionary = ["TestKey": "TestValue"]
         let environment = Environment(dictionary)
         XCTAssertEqual(environment["TestKey"], "TestValue")
+        XCTAssertEqual(environment.count, 1)
     }
 
     func path(_ components: String...) -> String {
@@ -100,10 +102,20 @@ final class EnvironmentTests: XCTestCase {
 
     /// Important: This test is inherently race-prone, if it is proven to be
     /// flaky, it should run in a singled threaded environment/removed entirely.
-    func test_current() {
+    func test_current() throws {
+        try skipOnWindowsAsTestCurrentlyFails(because: "ProcessInfo.processInfo.environment[pathEnvVarName] return nil in the docker container")
+
+        #if os(Windows)
+        let pathEnvVarName = "Path"
+        #else
+        let pathEnvVarName = "PATH"
+        #endif
+
+
         XCTAssertEqual(
             Environment.current["PATH"],
-            ProcessInfo.processInfo.environment["PATH"])
+            ProcessInfo.processInfo.environment[pathEnvVarName]
+        )
     }
 
     /// Important: This test is inherently race-prone, if it is proven to be

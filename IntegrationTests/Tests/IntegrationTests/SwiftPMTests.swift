@@ -68,7 +68,9 @@ private struct SwiftPMTests {
         }
     }
 
-    @Test(.requireThreadSafeWorkingDirectory)
+    @Test(
+        .requireThreadSafeWorkingDirectory
+    )
     func packageInitExecutable() throws {
         // Executable
         do {
