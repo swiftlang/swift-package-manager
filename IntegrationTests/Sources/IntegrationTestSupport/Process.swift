@@ -28,4 +28,16 @@ extension ProcessInfo {
     #else
     public static let hostOperatingSystem = OperatingSystem.unknown
     #endif
+
+    #if os(Windows)
+    public static let EOL = "\r\n"
+    #else
+    public static let EOL = "\n"
+    #endif
+
+    #if os(Windows)
+    public static let exeSuffix = ".exe"
+    #else
+    public static let exeSuffix = ""
+    #endif
 }
