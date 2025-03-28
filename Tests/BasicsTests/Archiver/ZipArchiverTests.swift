@@ -105,15 +105,15 @@ final class ZipArchiverTests: XCTestCase {
         #endif
 
          try await testWithTemporaryDirectory { tmpdir in
-             let archiver = ZipArchiver(fileSystem: localFileSystem)
+            let archiver = ZipArchiver(fileSystem: localFileSystem)
 
-             let rootDir = tmpdir.appending(component: UUID().uuidString)
-             try localFileSystem.createDirectory(rootDir)
-             try localFileSystem.writeFileContents(rootDir.appending("file1.txt"), string: "Hello World!")
+            let rootDir = tmpdir.appending(component: UUID().uuidString)
+            try localFileSystem.createDirectory(rootDir)
+            try localFileSystem.writeFileContents(rootDir.appending("file1.txt"), string: "Hello World!")
 
-             let dir1 = rootDir.appending("dir1")
-             try localFileSystem.createDirectory(dir1)
-             try localFileSystem.writeFileContents(dir1.appending("file2.txt"), string: "Hello World 2!")
+            let dir1 = rootDir.appending("dir1")
+            try localFileSystem.createDirectory(dir1)
+            try localFileSystem.writeFileContents(dir1.appending("file2.txt"), string: "Hello World 2!")
 
              let dir2 = dir1.appending("dir2")
              try localFileSystem.createDirectory(dir2)
@@ -121,28 +121,28 @@ final class ZipArchiverTests: XCTestCase {
              try localFileSystem.writeFileContents(dir2.appending("file4.txt"), string: "Hello World 4!")
              try localFileSystem.createSymbolicLink(dir2.appending("file5.txt"), pointingAt: dir1.appending("file2.txt"), relative: true)
 
-             let archivePath = tmpdir.appending(component: UUID().uuidString + ".zip")
-             try await archiver.compress(directory: rootDir, to: archivePath)
-             XCTAssertFileExists(archivePath)
+            let archivePath = tmpdir.appending(component: UUID().uuidString + ".zip")
+            try await archiver.compress(directory: rootDir, to: archivePath)
+            XCTAssertFileExists(archivePath)
 
-             let extractRootDir = tmpdir.appending(component: UUID().uuidString)
-             try localFileSystem.createDirectory(extractRootDir)
-             try await archiver.extract(from: archivePath, to: extractRootDir)
-             try localFileSystem.stripFirstLevel(of: extractRootDir)
+            let extractRootDir = tmpdir.appending(component: UUID().uuidString)
+            try localFileSystem.createDirectory(extractRootDir)
+            try await archiver.extract(from: archivePath, to: extractRootDir)
+            try localFileSystem.stripFirstLevel(of: extractRootDir)
 
-             XCTAssertFileExists(extractRootDir.appending("file1.txt"))
-             XCTAssertEqual(
-                 try? localFileSystem.readFileContents(extractRootDir.appending("file1.txt")),
-                 "Hello World!"
-             )
+            XCTAssertFileExists(extractRootDir.appending("file1.txt"))
+            XCTAssertEqual(
+                try? localFileSystem.readFileContents(extractRootDir.appending("file1.txt")),
+                "Hello World!"
+            )
 
-             let extractedDir1 = extractRootDir.appending("dir1")
-             XCTAssertDirectoryExists(extractedDir1)
-             XCTAssertFileExists(extractedDir1.appending("file2.txt"))
-             XCTAssertEqual(
-                 try? localFileSystem.readFileContents(extractedDir1.appending("file2.txt")),
-                 "Hello World 2!"
-             )
+            let extractedDir1 = extractRootDir.appending("dir1")
+            XCTAssertDirectoryExists(extractedDir1)
+            XCTAssertFileExists(extractedDir1.appending("file2.txt"))
+            XCTAssertEqual(
+                try? localFileSystem.readFileContents(extractedDir1.appending("file2.txt")),
+                "Hello World 2!"
+            )
 
              let extractedDir2 = extractedDir1.appending("dir2")
              XCTAssertDirectoryExists(extractedDir2)

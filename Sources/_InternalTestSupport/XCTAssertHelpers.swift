@@ -44,8 +44,12 @@ public func XCTAssertEqual<T:Equatable, U:Equatable> (_ lhs:(T,U), _ rhs:(T,U), 
     TSCTestSupport.XCTAssertEqual(lhs, rhs, file: file, line: line)
 }
 
+public func isRunninginCI(file: StaticString = #filePath, line: UInt = #line) -> Bool {
+    return (ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil || ProcessInfo.processInfo.environment["CI"] != nil)
+}
+
 public func XCTSkipIfCI(file: StaticString = #filePath, line: UInt = #line) throws {
-    if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil {
+    if isRunninginCI() {
         throw XCTSkip("Skipping because the test is being run on CI", file: file, line: line)
     }
 }
