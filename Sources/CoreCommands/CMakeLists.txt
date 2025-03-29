@@ -6,7 +6,7 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-add_library(CoreCommands
+add_library(CoreCommands STATIC
   BuildSystemSupport.swift
   SwiftCommandState.swift
   SwiftCommandObservabilityHandler.swift
@@ -16,6 +16,8 @@ target_link_libraries(CoreCommands PUBLIC
   Basics
   Build
   PackageGraph
+  PackageModel
+  PackageLoading
   TSCBasic
   TSCUtility
   Workspace
@@ -27,8 +29,3 @@ target_link_libraries(CoreCommands PRIVATE
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(CoreCommands PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
-
-install(TARGETS CoreCommands
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin)
