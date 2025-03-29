@@ -16,7 +16,14 @@ import struct TSCBasic.FileSystemError
 
 /// An `Archiver` that handles Tar archives using the command-line `tar` tool.
 public struct TarArchiver: Archiver {
-    public let supportedExtensions: Set<String> = ["tar", "tar.gz"]
+
+    public let supportedExtensions: Set<String> = [
+        "tar",
+        "gz", "tgz", // gzip
+        "bz2", "tz2", "tbz2", "tbz", // bzip2
+        "lzma", // lzma
+        "xz" // xz
+    ]
 
     /// The file-system implementation used for various file-system operations and checks.
     private let fileSystem: FileSystem
