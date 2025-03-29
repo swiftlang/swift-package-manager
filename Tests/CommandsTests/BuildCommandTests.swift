@@ -938,4 +938,12 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
 
         try await super.testBuildSystemDefaultSettings()
     }
+
+    override func testBuildCompleteMessage() async throws {
+        #if os(Linux)
+        try XCTSkip("SWBINTTODO: Need to properly set LD_LIBRARY_PATH on linux")
+        #endif
+        try await super.testBuildCompleteMessage()
+    }
+
 }
