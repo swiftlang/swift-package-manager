@@ -33,13 +33,13 @@ add_library(Build
 target_link_libraries(Build PUBLIC
   TSCBasic
   Basics
-  SwiftCollections::OrderedCollections
   PackageGraph
   SPMBuildCore)
 target_link_libraries(Build PRIVATE
   DriverSupport
   LLBuildManifest
   SPMLLBuild
+  SwiftCollections::OrderedCollections
   SwiftDriver)
 target_link_libraries(Build INTERFACE
   llbuildSwift)

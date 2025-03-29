@@ -424,7 +424,6 @@ let package = Package(
             dependencies: [
                 "Basics",
                 "PackageGraph",
-                .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
@@ -467,7 +466,6 @@ let package = Package(
             dependencies: [
                 "SPMBuildCore",
                 "PackageGraph",
-                .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
@@ -751,7 +749,6 @@ let package = Package(
                 "PackageSigning",
                 "SourceControl",
                 .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
-                .product(name: "OrderedCollections", package: "swift-collections"),
                 "Workspace",
             ],
             swiftSettings: [

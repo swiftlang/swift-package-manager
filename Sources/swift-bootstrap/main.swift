@@ -20,13 +20,14 @@ import Dispatch
 import DriverSupport
 
 import Foundation
-import OrderedCollections
 import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
 import XCBuildSupport
 import SwiftBuildSupport
+
+private import OrderedCollections
 
 import struct TSCBasic.KeyedPair
 import func TSCBasic.topologicalSort
@@ -414,7 +415,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             return try ModulesGraph.load(
                 root: packageGraphRoot,
                 identityResolver: identityResolver,
-                externalManifests: loadedManifests.reduce(into: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()) { partial, item in
+                externalManifests: loadedManifests.reduce(into: OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()) { partial, item in
                     partial[item.key] = (manifest: item.value, fs: self.fileSystem)
                 },
                 binaryArtifacts: [:],

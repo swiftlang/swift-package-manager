@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct OrderedCollections.OrderedSet
+private import OrderedCollections
 
 /// Implements a pre-order depth-first search.
 ///
