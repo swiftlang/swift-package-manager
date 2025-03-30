@@ -11,9 +11,11 @@ add_library(PackageModelSyntax
   AddProduct.swift
   AddTarget.swift
   AddTargetDependency.swift
+  AddTargetPlugin.swift
   ManifestEditError.swift
   ManifestSyntaxRepresentable.swift
   PackageDependency+Syntax.swift
+  PluginUsage+Syntax.swift
   PackageEditResult.swift
   ProductDescription+Syntax.swift
   SyntaxEditUtils.swift
