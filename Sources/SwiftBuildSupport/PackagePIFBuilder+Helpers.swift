@@ -55,7 +55,7 @@ import struct PackageGraph.ResolvedProduct
 
 import func PackageLoading.pkgConfigArgs
 
-import enum SWBProjectModel.PIF
+import enum SwiftBuild.ProjectModel
 
 // MARK: - PIF GUID Helpers
 
@@ -75,25 +75,25 @@ extension TargetGUIDSuffix? {
 }
 
 extension PackageModel.Module {
-    func pifTargetGUID(suffix: TargetGUIDSuffix? = nil) -> String {
+    func pifTargetGUID(suffix: TargetGUIDSuffix? = nil) -> GUID {
         PIFPackageBuilder.targetGUID(forModuleName: self.name, suffix: suffix)
     }
 }
 
 extension PackageGraph.ResolvedModule {
-    func pifTargetGUID(suffix: TargetGUIDSuffix? = nil) -> String {
+    func pifTargetGUID(suffix: TargetGUIDSuffix? = nil) -> GUID {
         self.underlying.pifTargetGUID(suffix: suffix)
     }
 }
 
 extension PackageModel.Product {
-    func pifTargetGUID(suffix: TargetGUIDSuffix? = nil) -> String {
+    func pifTargetGUID(suffix: TargetGUIDSuffix? = nil) -> GUID {
         PIFPackageBuilder.targetGUID(forProductName: self.name, suffix: suffix)
     }
 }
 
 extension PackageGraph.ResolvedProduct {
-    func pifTargetGUID(suffix: TargetGUIDSuffix? = nil) -> String {
+    func pifTargetGUID(suffix: TargetGUIDSuffix? = nil) -> GUID {
         self.underlying.pifTargetGUID(suffix: suffix)
     }
 
@@ -110,7 +110,7 @@ extension PIFPackageBuilder {
     ///
     /// This format helps make sure that there is no collision with any other PIF targets,
     /// and in particular that a PIF target and a PIF product can have the same name (as they often do).
-    static func targetGUID(forModuleName name: String, suffix: TargetGUIDSuffix? = nil) -> String {
+    static func targetGUID(forModuleName name: String, suffix: TargetGUIDSuffix? = nil) -> GUID {
         let suffixDescription = suffix.description(forName: name)
         return "PACKAGE-TARGET:\(name)\(suffixDescription)"
     }
@@ -119,7 +119,7 @@ extension PIFPackageBuilder {
     ///
     /// This format helps make sure that there is no collision with any other PIF targets,
     /// and in particular that a PIF target and a PIF product can have the same name (as they often do).
-    static func targetGUID(forProductName name: String, suffix: TargetGUIDSuffix? = nil) -> String {
+    static func targetGUID(forProductName name: String, suffix: TargetGUIDSuffix? = nil) -> GUID {
         let suffixDescription = suffix.description(forName: name)
         return "PACKAGE-PRODUCT:\(name)\(suffixDescription)"
     }
@@ -139,8 +139,8 @@ extension PackageModel.Package {
         self.manifest.displayName
     }
 
-    var packageBaseBuildSettings: SWBProjectModel.PIF.BuildSettings {
-        var settings = SWBProjectModel.PIF.BuildSettings()
+    var packageBaseBuildSettings: ProjectModel.BuildSettings {
+        var settings = SwiftBuild.ProjectModel.BuildSettings()
         settings.SDKROOT = "auto"
         settings.SDK_VARIANT = "auto"
 
@@ -203,14 +203,14 @@ extension PackageModel.Platform {
 }
 
 extension Sequence<PackageModel.PackageCondition> {
-    func toPlatformFilter(toolsVersion: ToolsVersion) -> Set<SWBProjectModel.PIF.PlatformFilter> {
-        let pifPlatforms = self.flatMap { packageCondition -> [SWBProjectModel.PIF.BuildSettings.Platform] in
+    func toPlatformFilter(toolsVersion: ToolsVersion) -> Set<SwiftBuild.ProjectModel.PlatformFilter> {
+        let pifPlatforms = self.flatMap { packageCondition -> [SwiftBuild.ProjectModel.BuildSettings.Platform] in
             guard let platforms = packageCondition.platformsCondition?.platforms else {
                 return []
             }
 
-            var pifPlatformsForCondition: [SWBProjectModel.PIF.BuildSettings.Platform] = platforms
-                .map { SWBProjectModel.PIF.BuildSettings.Platform(from: $0) }
+            var pifPlatformsForCondition: [SwiftBuild.ProjectModel.BuildSettings.Platform] = platforms
+                .map { SwiftBuild.ProjectModel.BuildSettings.Platform(from: $0) }
 
             // Treat catalyst like macOS for backwards compatibility with older tools versions.
             if pifPlatformsForCondition.contains(.macOS), toolsVersion < ToolsVersion.v5_5 {
@@ -313,7 +313,7 @@ extension PackageGraph.ResolvedPackage {
 }
 
 extension PackageGraph.ResolvedPackage {
-    public var packageBaseBuildSettings: SWBProjectModel.PIF.BuildSettings {
+    public var packageBaseBuildSettings: SwiftBuild.ProjectModel.BuildSettings {
         self.underlying.packageBaseBuildSettings
     }
 }
@@ -792,13 +792,20 @@ extension TSCUtility.Version {
 
 // MARK: - Swift Build PIF Helpers
 
+extension SwiftBuild.ProjectModel.BuildSettings {
+    subscript(_ setting: MultipleValueSetting, default defaultValue: [String]) -> [String] {
+        get { multipleValueSettings[setting.rawValue] ?? defaultValue }
+        set { multipleValueSettings[setting.rawValue] = newValue }
+    }
+}
+
 /// Helpers for building custom PIF targets by `PIFPackageBuilder` clients.
-extension SWBProjectModel.PIF.Project {
+extension SwiftBuild.ProjectModel.Project {
     @discardableResult
     public func addTarget(
         packageProductName: String,
-        productType: SWBProjectModel.PIF.Target.ProductType
-    ) throws -> SWBProjectModel.PIF.Target {
+        productType: SwiftBuild.ProjectModel.Target.ProductType
+    ) throws -> SwiftBuild.ProjectModel.Target {
         let pifTarget = try self.addTargetThrowing(
             id: PIFPackageBuilder.targetGUID(forProductName: packageProductName),
             productType: productType,
@@ -811,8 +818,8 @@ extension SWBProjectModel.PIF.Project {
     @discardableResult
     public func addTarget(
         packageModuleName: String,
-        productType: SWBProjectModel.PIF.Target.ProductType
-    ) throws -> SWBProjectModel.PIF.Target {
+        productType: SwiftBuild.ProjectModel.Target.ProductType
+    ) throws -> SwiftBuild.ProjectModel.Target {
         let pifTarget = try self.addTargetThrowing(
             id: PIFPackageBuilder.targetGUID(forModuleName: packageModuleName),
             productType: productType,
@@ -823,7 +830,7 @@ extension SWBProjectModel.PIF.Project {
     }
 }
 
-extension SWBProjectModel.PIF.BuildSettings {
+extension SwiftBuild.ProjectModel.BuildSettings {
     /// Internal helper function that appends list of string values to a declaration.
     /// If a platform is specified, then the values are appended to the `platformSpecificSettings`,
     /// otherwise they are appended to the platform-neutral settings.
@@ -895,7 +902,7 @@ extension SWBProjectModel.PIF.BuildSettings {
     }
 }
 
-extension SWBProjectModel.PIF.BuildSettings.Platform {
+extension SwiftBuild.ProjectModel.BuildSettings.Platform {
     init(from platform: PackageModel.Platform) {
         self = switch platform {
         case .macOS: .macOS
@@ -915,7 +922,7 @@ extension SWBProjectModel.PIF.BuildSettings.Platform {
     }
 }
 
-extension SWBProjectModel.PIF.BuildSettings {
+extension SwiftBuild.ProjectModel.BuildSettings {
     /// Configure necessary settings for a dynamic library/framework.
     mutating func configureDynamicSettings(
         productName: String,
@@ -959,7 +966,7 @@ extension SWBProjectModel.PIF.BuildSettings {
     }
 }
 
-extension SWBProjectModel.PIF.BuildSettings.Declaration {
+extension SwiftBuild.ProjectModel.BuildSettings.Declaration {
     init(from declaration: PackageModel.BuildSettings.Declaration) {
         self = switch declaration {
         // Swift.

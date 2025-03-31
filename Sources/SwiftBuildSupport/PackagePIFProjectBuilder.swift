@@ -30,8 +30,9 @@ import struct PackageGraph.ResolvedPackage
 import struct PackageLoading.FileRuleDescription
 import struct PackageLoading.TargetSourcesBuilder
 
-import enum SWBProjectModel.PIF
-import struct SWBProjectModel.SwiftBuildFileType
+import enum SwiftBuild.ProjectModel
+import struct SwiftBuild.SwiftBuildFileType
+import struct SwiftBuild.Pair
 
 /// Helper type to create PIF **project** and **targets** for a given package.
 struct PackagePIFProjectBuilder {
@@ -40,9 +41,9 @@ struct PackagePIFProjectBuilder {
     let packageManifest: PackageModel.Manifest
     let modulesGraph: PackageGraph.ModulesGraph
 
-    let pif: SWBProjectModel.PIF.Project
-    let binaryGroup: SWBProjectModel.PIF.Group
-    let additionalFilesGroup: SWBProjectModel.PIF.Group
+    var pif: ProjectModel.Project
+    let binaryGroup: ProjectModel.Group
+    let additionalFilesGroup: ProjectModel.Group
 
     let declaredPlatforms: [PackageModel.Platform]?
     let deploymentTargets: [PackageModel.Platform: String?]
@@ -70,7 +71,7 @@ struct PackagePIFProjectBuilder {
         // We use the package manifest path as the project path, and the package path as the project's base source
         // directory.
         // FIXME: The PIF creation should ideally be done on a background thread.
-        let pifProject = SWBProjectModel.PIF.Project(
+        var pifProject = ProjectModel.Project(
             id: "PACKAGE:\(package.identity)",
             path: package.manifest.path.pathString,
             projectDir: package.path.pathString,
@@ -78,13 +79,23 @@ struct PackagePIFProjectBuilder {
             developmentRegion: package.manifest.defaultLocalization
         )
 
-        let additionalFilesGroup = pifProject.mainGroup.addGroup(
-            path: "/",
-            pathBase: .absolute,
-            name: "AdditionalFiles"
-        )
-        let binaryGroup = pifProject.mainGroup.addGroup(path: "/", pathBase: .absolute, name: "Binaries")
-
+        let additionalFilesGroupKP = pifProject.mainGroup.addGroup { id in
+            ProjectModel.Group(
+                id: id,
+                path: "/",
+                pathBase: .absolute,
+                name: "AdditionalFiles"
+            )
+        }
+        let binaryGroupKP = pifProject.mainGroup.addGroup { id in
+            ProjectModel.Group(
+                id: id,
+                path: "/",
+                pathBase: .absolute,
+                name: "Binaries"
+            )
+        }
+        
         // Test modules have a higher minimum deployment target by default,
         // so we favor non-test modules as representative for the package's deployment target.
         let firstModule = package.modules.first { $0.type != .test } ?? package.modules.first
@@ -119,8 +130,8 @@ struct PackagePIFProjectBuilder {
         self.packageManifest = self.pifBuilder.packageManifest
         self.modulesGraph = self.pifBuilder.modulesGraph
         self.pif = pifProject
-        self.binaryGroup = binaryGroup
-        self.additionalFilesGroup = additionalFilesGroup
+        self.binaryGroup = pifProject.mainGroup[keyPath: binaryGroupKP]
+        self.additionalFilesGroup = pifProject.mainGroup[keyPath: additionalFilesGroupKP]
         self.declaredPlatforms = declaredPlatforms
         self.deploymentTargets = deploymentTargets
         self.dynamicLibraryProductNames = dynamicLibraryProductNames
@@ -129,9 +140,9 @@ struct PackagePIFProjectBuilder {
 
     // MARK: - Handling Resources
 
-    func addResourceBundle(
+    mutating func addResourceBundle(
         for module: PackageGraph.ResolvedModule,
-        pifTarget: SWBProjectModel.PIF.Target,
+        pifTargetKP: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
         generatedResourceFiles: [String]
     ) throws -> (PIFPackageBuilder.EmbedResourcesResult, PIFPackageBuilder.ModuleOrProduct?) {
         if module.resources.isEmpty && generatedResourceFiles.isEmpty {
@@ -143,45 +154,61 @@ struct PackagePIFProjectBuilder {
         }
 
         let bundleName = self.resourceBundleName(forModuleName: module.name)
-        let resourcesTarget = try self.pif.addTargetThrowing(
-            id: self.pifTargetIdForResourceBundle(module.name),
-            productType: .bundle,
-            name: bundleName,
-            productName: bundleName
-        )
+        let resourceBundleGUID = self.pifTargetIdForResourceBundle(module.name)
+        let resourcesTargetKP = try self.pif.addTarget { id in
+            ProjectModel.Target(
+                id: resourceBundleGUID,
+                productType: .bundle,
+                name: bundleName,
+                productName: bundleName
+            )
+        }
+        var resourcesTarget: ProjectModel.Target { self.pif[keyPath: resourcesTargetKP] }
 
-        pifTarget.addDependency(on: resourcesTarget.id, platformFilters: [], linkProduct: false)
+        self.pif[keyPath: pifTargetKP].common.addDependency(
+            on: resourcesTarget.id,
+            platformFilters: [],
+            linkProduct: false
+        )
         self.log(.debug, ".. added dependency on resource target '\(resourcesTarget.id)'")
 
         for pluginModule in module.pluginsAppliedToModule {
-            resourcesTarget.addDependency(on: pluginModule.pifTargetGUID(), linkProduct: false)
+            self.pif[keyPath: resourcesTargetKP].common.addDependency(
+                on: pluginModule.pifTargetGUID(),
+                platformFilters: [],
+                linkProduct: false
+            )
         }
 
         self.log(
             .debug,
-            ".. created \(type(of: resourcesTarget)) '\(resourcesTarget.id)' of type '\(resourcesTarget.productType.asString)' with name '\(resourcesTarget.name)' and product name '\(resourcesTarget.productName)'"
+            ".. created \(type(of: resourcesTarget)) '\(resourcesTarget.id)' of type '\(resourcesTarget.productType)' with name '\(resourcesTarget.name)' and product name '\(resourcesTarget.productName)'"
         )
 
-        var settings: SWBProjectModel.PIF.BuildSettings = self.package.underlying.packageBaseBuildSettings
-        settings.TARGET_NAME = bundleName
-        settings.PRODUCT_NAME = "$(TARGET_NAME)"
-        settings.PRODUCT_MODULE_NAME = bundleName
-        settings.PRODUCT_BUNDLE_IDENTIFIER = "\(self.package.identity).\(module.name).resources"
+        var settings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
+        settings[.TARGET_NAME] = bundleName
+        settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
+        settings[.PRODUCT_MODULE_NAME] = bundleName
+        settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(module.name).resources"
             .spm_mangledToBundleIdentifier()
-        settings.EXECUTABLE_NAME = ""
-        settings.GENERATE_INFOPLIST_FILE = "YES"
-        settings.PACKAGE_RESOURCE_TARGET_KIND = "resource"
+        settings[.EXECUTABLE_NAME] = ""
+        settings[.GENERATE_INFOPLIST_FILE] = "YES"
+        settings[.PACKAGE_RESOURCE_TARGET_KIND] = "resource"
 
-        settings.COREML_COMPILER_CONTAINER = "swift-package"
-        settings.COREML_CODEGEN_LANGUAGE = "None"
+        settings[.COREML_COMPILER_CONTAINER] = "swift-package"
+        settings[.COREML_CODEGEN_LANGUAGE] = "None"
 
-        resourcesTarget.addBuildConfig(name: "Debug", settings: settings)
-        resourcesTarget.addBuildConfig(name: "Release", settings: settings)
+        self.pif[keyPath: resourcesTargetKP].common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Debug", settings: settings)
+        }
+        self.pif[keyPath: resourcesTargetKP].common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Release", settings: settings)
+        }
 
         let result = self.processResources(
             for: module,
-            sourceModulePifTarget: pifTarget,
-            resourceBundlePifTarget: resourcesTarget,
+            sourceModulePifTargetKP: pifTargetKP,
+            resourceBundlePifTargetKP: resourcesTargetKP,
             generatedResourceFiles: generatedResourceFiles
         )
 
@@ -189,7 +216,7 @@ struct PackagePIFProjectBuilder {
             type: .resourceBundle,
             name: bundleName,
             moduleName: bundleName,
-            pifTarget: resourcesTarget,
+            pifTarget: .target(resourcesTarget),
             indexableFileURLs: [],
             headerFiles: [],
             linkedPackageBinaries: [],
@@ -201,10 +228,10 @@ struct PackagePIFProjectBuilder {
         return (result, resourceBundle)
     }
 
-    func processResources(
+    mutating func processResources(
         for module: PackageGraph.ResolvedModule,
-        sourceModulePifTarget: SWBProjectModel.PIF.Target,
-        resourceBundlePifTarget: SWBProjectModel.PIF.Target?,
+        sourceModulePifTargetKP: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
+        resourceBundlePifTargetKP: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>?,
         generatedResourceFiles: [String]
     ) -> PIFPackageBuilder.EmbedResourcesResult {
         if module.resources.isEmpty && generatedResourceFiles.isEmpty {
@@ -215,7 +242,7 @@ struct PackagePIFProjectBuilder {
             )
         }
         // If `resourceBundlePifTarget` is nil, we add resources to the `sourceModulePifTarget`.
-        let pifTargetForResources = resourceBundlePifTarget ?? sourceModulePifTarget
+        let pifTargetForResourcesKP = resourceBundlePifTargetKP ?? sourceModulePifTargetKP
 
         // Generated resources get a default treatment for rule and localization.
         let generatedResources = generatedResourceFiles.compactMap {
@@ -230,9 +257,9 @@ struct PackagePIFProjectBuilder {
             let resourcePath = resource.path
             // Add a file reference for the resource. We use an absolute path, as for all the other files,
             // but we should be able to optimize this later by making it group-relative.
-            let ref = self.pif.mainGroup.addFileReference(
-                path: resourcePath, pathBase: .absolute
-            )
+            let ref = self.pif.mainGroup.addFileReference { id in
+                ProjectModel.FileReference(id: id, path: resourcePath, pathBase: .absolute)
+            }
 
             // CoreData files should also be in the actual target because they
             // can end up generating code during the build.
@@ -241,7 +268,9 @@ struct PackagePIFProjectBuilder {
                 .contains { $0.fileTypes.contains(resourcePath.pathExtension) }
 
             if isCoreDataFile {
-                sourceModulePifTarget.addSourceFile(ref: ref)
+                self.pif[keyPath: sourceModulePifTargetKP].addSourceFile { id in
+                    BuildFile(id: id, fileRef: ref)
+                }
                 self.log(.debug, ".. .. added core data resource as source file '\(resourcePath)'")
             }
 
@@ -250,49 +279,68 @@ struct PackagePIFProjectBuilder {
             let isCoreMLFile = coreMLFileTypes.contains { $0.fileTypes.contains(resourcePath.pathExtension) }
 
             if isCoreMLFile {
-                sourceModulePifTarget.addSourceFile(ref: ref, generatedCodeVisibility: .public)
+                self.pif[keyPath: sourceModulePifTargetKP].addSourceFile { id in
+                    BuildFile(id: id, fileRef: ref, generatedCodeVisibility: .public)
+                }
                 self.log(.debug, ".. .. added coreml resource as source file '\(resourcePath)'")
             }
-
+            
             // Metal source code needs to be added to the source build phase.
             let isMetalFile = SWBProjectModel.SwiftBuildFileType.metal.fileTypes.contains(resourcePath.pathExtension)
 
             if isMetalFile {
-                pifTargetForResources.addSourceFile(ref: ref)
+                self.pif[keyPath: pifTargetForResourcesKP].addSourceFile { id in
+                    BuildFile(id: id, fileRef: ref)
+                }
             } else {
                 // FIXME: Handle additional rules here (e.g. `.copy`).
-                pifTargetForResources.addResourceFile(
-                    ref: ref,
-                    platformFilters: [],
-                    resourceRule: resource.rule == .embedInCode ? .embedInCode : .process
-                )
+                self.pif[keyPath: pifTargetForResourcesKP].addResourceFile { id in
+                    BuildFile(
+                        id: id,
+                        fileRef: ref,
+                        platformFilters: [],
+                        resourceRule: resource.rule == .embedInCode ? .embedInCode : .process
+                    )
+                }
             }
 
             // Asset Catalogs need to be included in the sources modules for generated asset symbols.
             let isAssetCatalog = resourcePath.pathExtension == "xcassets"
             if isAssetCatalog {
-                sourceModulePifTarget.addSourceFile(ref: ref)
+                self.pif[keyPath: sourceModulePifTargetKP].addSourceFile { id in
+                    BuildFile(id: id, fileRef: ref)
+                }
                 self.log(.debug, ".. .. added asset catalog as source file '\(resourcePath)'")
             }
 
             self.log(.debug, ".. .. added resource file '\(resourcePath)'")
         }
-
+        
+        let resourceBundlePifTargetName: String? = if let resourceBundlePifTargetKP {
+            self.pif[keyPath: resourceBundlePifTargetKP].name
+        } else {
+            nil
+        }
         return PIFPackageBuilder.EmbedResourcesResult(
-            bundleName: resourceBundlePifTarget?.name,
+            bundleName: resourceBundlePifTargetName,
             shouldGenerateBundleAccessor: shouldGenerateBundleAccessor,
             shouldGenerateEmbedInCodeAccessor: shouldGenerateEmbedInCodeAccessor
         )
     }
 
-    func resourceBundleTarget(forModuleName name: String) -> SWBProjectModel.PIF.Target? {
+    func resourceBundleTarget(forModuleName name: String) -> ProjectModel.Target? {
         let resourceBundleGUID = self.pifTargetIdForResourceBundle(name)
-        let target = self.pif.targets.only { $0.id == resourceBundleGUID } as? SWBProjectModel.PIF.Target
-        return target
+        let target = self.pif.targets.only { $0.id == resourceBundleGUID }
+        guard let target else { return nil }
+
+        return switch target {
+        case .target(let target): target
+        case .aggregate: nil
+        }
     }
 
-    func pifTargetIdForResourceBundle(_ name: String) -> String {
-        "PACKAGE-RESOURCE:\(name)"
+    func pifTargetIdForResourceBundle(_ name: String) -> GUID {
+        GUID("PACKAGE-RESOURCE:\(name)")
     }
 
     func resourceBundleName(forModuleName name: String) -> String {
@@ -308,7 +356,7 @@ struct PackagePIFProjectBuilder {
     /// only the primary target adds the build tool commands to the PIF target.
     func computePluginGeneratedFiles(
         module: PackageGraph.ResolvedModule,
-        pifTarget: SWBProjectModel.PIF.Target,
+        pifTarget: inout ProjectModel.Target,
         addBuildToolPluginCommands: Bool
     ) -> (sourceFilePaths: [AbsolutePath], resourceFilePaths: [String]) {
         guard let pluginResult = pifBuilder.buildToolPluginResultsByTargetName[module.name] else {
@@ -320,7 +368,7 @@ struct PackagePIFProjectBuilder {
         // If we've been asked to add build tool commands for the result, we do so now.
         if addBuildToolPluginCommands {
             for command in pluginResult.buildCommands {
-                self.addBuildToolCommand(command, to: pifTarget)
+                self.addBuildToolCommand(command, to: &pifTarget)
             }
         }
 
@@ -340,8 +388,8 @@ struct PackagePIFProjectBuilder {
     /// sources or resources.
     func addBuildToolCommands(
         module: PackageGraph.ResolvedModule,
-        sourceModulePifTarget: SWBProjectModel.PIF.Target,
-        resourceBundlePifTarget: SWBProjectModel.PIF.Target,
+        sourceModulePifTarget: inout ProjectModel.Target,
+        resourceBundlePifTarget: inout ProjectModel.Target,
         sourceFilePaths: [AbsolutePath],
         resourceFilePaths: [String]
     ) {
@@ -353,9 +401,9 @@ struct PackagePIFProjectBuilder {
             let producesResources = Set(command.outputPaths).intersection(resourceFilePaths).hasContent
 
             if producesResources {
-                self.addBuildToolCommand(command, to: resourceBundlePifTarget)
+                self.addBuildToolCommand(command, to: &resourceBundlePifTarget)
             } else {
-                self.addBuildToolCommand(command, to: sourceModulePifTarget)
+                self.addBuildToolCommand(command, to: &sourceModulePifTarget)
             }
         }
     }
@@ -365,7 +413,7 @@ struct PackagePIFProjectBuilder {
     /// PIF target.
     func addBuildToolCommands(
         from pluginInvocationResults: [PIFPackageBuilder.BuildToolPluginInvocationResult],
-        pifTarget: SWBProjectModel.PIF.Target,
+        pifTarget: inout ProjectModel.Target,
         addBuildToolPluginCommands: Bool
     ) -> [String] {
         var generatedSourceFileAbsPaths: [String] = []
@@ -373,7 +421,7 @@ struct PackagePIFProjectBuilder {
             // Create build rules for all the commands in the result.
             if addBuildToolPluginCommands {
                 for command in result.buildCommands {
-                    self.addBuildToolCommand(command, to: pifTarget)
+                    self.addBuildToolCommand(command, to: &pifTarget)
                 }
             }
             // Add the paths of the generated source files, so that they can be added to the Sources build phase.
@@ -385,7 +433,7 @@ struct PackagePIFProjectBuilder {
     /// Adds a single plugin-created build command to a PIF target.
     func addBuildToolCommand(
         _ command: PIFPackageBuilder.CustomBuildCommand,
-        to pifTarget: SWBProjectModel.PIF.Target
+        to pifTarget: inout ProjectModel.Target
     ) {
         var commandLine = [command.executable] + command.arguments
         if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled {
@@ -393,9 +441,9 @@ struct PackagePIFProjectBuilder {
         }
 
         pifTarget.customTasks.append(
-            SWBProjectModel.PIF.CustomTask(
+            ProjectModel.CustomTask(
                 commandLine: commandLine,
-                environment: command.environment.map { ($0, $1) }.sorted(by: <),
+                environment: command.environment.map { Pair($0, $1) }.sorted(by: <),
                 workingDirectory: command.workingDir?.pathString,
                 executionDescription: command.displayName ?? "Performing build tool plugin command",
                 inputFilePaths: [command.executable] + command.inputPaths.map(\.pathString),

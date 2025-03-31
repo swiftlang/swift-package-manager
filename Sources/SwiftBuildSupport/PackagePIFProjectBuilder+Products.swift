@@ -27,7 +27,7 @@ import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedPackage
 import struct PackageGraph.ResolvedProduct
 
-import enum SWBProjectModel.PIF
+import enum SwiftBuild.ProjectModel
 
 /// Extension to create PIF **products** for a given package.
 extension PackagePIFProjectBuilder {
@@ -48,7 +48,7 @@ extension PackagePIFProjectBuilder {
         }
 
         // Determine the kind of PIF target *product type* to create for the package product.
-        let pifProductType: SWBProjectModel.PIF.Target.ProductType
+        let pifProductType: SwiftBuild.ProjectModel.Target.ProductType
         let moduleOrProductType: PIFPackageBuilder.ModuleOrProductType
         let synthesizedResourceGeneratingPluginInvocationResults: [PIFPackageBuilder.BuildToolPluginInvocationResult] =
             []
@@ -100,7 +100,7 @@ extension PackagePIFProjectBuilder {
 
         // Configure the target-wide build settings. The details depend on the kind of product we're building,
         // but are in general the ones that are suitable for end-product artifacts such as executables and test bundles.
-        var settings: SWBProjectModel.PIF.BuildSettings = package.underlying.packageBaseBuildSettings
+        var settings: SwiftBuild.ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
         settings.TARGET_NAME = product.name
         settings.PACKAGE_RESOURCE_TARGET_KIND = "regular"
         settings.PRODUCT_NAME = "$(TARGET_NAME)"
@@ -406,16 +406,16 @@ extension PackagePIFProjectBuilder {
         // Until this point the build settings for the target have been the same between debug and release
         // configurations.
         // The custom manifest settings might cause them to diverge.
-        var debugSettings: SWBProjectModel.PIF.BuildSettings = settings
-        var releaseSettings: SWBProjectModel.PIF.BuildSettings = settings
+        var debugSettings: SwiftBuild.ProjectModel.BuildSettings = settings
+        var releaseSettings: SwiftBuild.ProjectModel.BuildSettings = settings
 
         // Apply target-specific build settings defined in the manifest.
         for (buildConfig, declarationsByPlatform) in mainModule.allBuildSettings.targetSettings {
             for (platform, declarations) in declarationsByPlatform {
                 // A `nil` platform means that the declaration applies to *all* platforms.
-                let pifPlatform = platform.map { SWBProjectModel.PIF.BuildSettings.Platform(from: $0) }
+                let pifPlatform = platform.map { SwiftBuild.ProjectModel.BuildSettings.Platform(from: $0) }
                 for (declaration, stringValues) in declarations {
-                    let pifDeclaration = SWBProjectModel.PIF.BuildSettings.Declaration(from: declaration)
+                    let pifDeclaration = SwiftBuild.ProjectModel.BuildSettings.Declaration(from: declaration)
                     switch buildConfig {
                     case .debug:
                         debugSettings.append(values: stringValues, to: pifDeclaration, platform: pifPlatform)
@@ -452,8 +452,8 @@ extension PackagePIFProjectBuilder {
         _ product: PackageGraph.ResolvedProduct,
         with packageConditions: [PackageModel.PackageCondition],
         isLinkable: Bool,
-        pifTarget: SWBProjectModel.PIF.Target,
-        settings: inout SWBProjectModel.PIF.BuildSettings
+        pifTarget: SwiftBuild.ProjectModel.Target,
+        settings: inout SwiftBuild.ProjectModel.BuildSettings
     ) {
         // Do not add a dependency for binary-only executable products since they are not part of the build.
         if product.isBinaryOnlyExecutableProduct {
@@ -502,8 +502,8 @@ extension PackagePIFProjectBuilder {
             dynamicLibraryVariant.isDynamicLibraryVariant = true
             self.builtModulesAndProducts.append(dynamicLibraryVariant)
 
-            let pifTarget = library.pifTarget as? SWBProjectModel.PIF.Target
-            let dynamicPifTarget = dynamicLibraryVariant.pifTarget as? SWBProjectModel.PIF.Target
+            let pifTarget = library.pifTarget as? SwiftBuild.ProjectModel.Target
+            let dynamicPifTarget = dynamicLibraryVariant.pifTarget as? SwiftBuild.ProjectModel.Target
 
             if let pifTarget, let dynamicPifTarget {
                 pifTarget.dynamicTargetVariant = dynamicPifTarget
@@ -531,7 +531,7 @@ extension PackagePIFProjectBuilder {
 
         let pifTargetProductName: String
         let executableName: String
-        let productType: SWBProjectModel.PIF.Target.ProductType
+        let productType: SwiftBuild.ProjectModel.Target.ProductType
 
         if desiredProductType == .dynamic {
             if pifBuilder.createDylibForDynamicProducts {
@@ -606,7 +606,7 @@ extension PackagePIFProjectBuilder {
             }
         }
 
-        var settings: SWBProjectModel.PIF.BuildSettings = package.underlying.packageBaseBuildSettings
+        var settings: SwiftBuild.ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
 
         // Add other build settings when we're building an actual dylib.
         if desiredProductType == .dynamic {
@@ -839,7 +839,7 @@ extension PackagePIFProjectBuilder {
         )
         log(.debug, "created \(type(of: pluginPifTarget)) '\(pluginPifTarget.id)' with name '\(pluginPifTarget.name)'")
 
-        let buildSettings: SWBProjectModel.PIF.BuildSettings = package.underlying.packageBaseBuildSettings
+        let buildSettings: SwiftBuild.ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
         pluginPifTarget.addBuildConfig(name: "Debug", settings: buildSettings)
         pluginPifTarget.addBuildConfig(name: "Release", settings: buildSettings)
 
