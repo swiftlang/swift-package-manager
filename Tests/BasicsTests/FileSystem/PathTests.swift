@@ -24,7 +24,7 @@ struct PathTests {
         private func pathStringIsSetCorrectlyTestImplementation(path: String, expected: String, label: String) {
             let actual = AbsolutePath(path).pathString
 
-            #expect(actual == expected, "\(label): Actual is not as expected.")
+            #expect(actual == expected, "\(label): Actual is not as expected. Path is: \(path)")
         }
 
         @Test(
@@ -32,13 +32,6 @@ struct PathTests {
                 (path: "/", expected: (windows ? #"\"# : "/"), label: "Basics"),
                 (path: "/a", expected: (windows ? #"\a"# : "/a"), label: "Basics"),
                 (path: "/a/b/c", expected: (windows ? #"\a\b\c"# : "/a/b/c"), label: "Basics"),
-
-
-                (path: "/ab/cd/ef/", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "Trailing path seperator"),
-                (path: "/ab/cd/ef//", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "Trailing path seperator"),
-                (path: "/ab/cd/ef///", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "Trailing path seperator"),
-
-
             ]
         )
         func pathStringIsSetCorrectly(path: String, expected: String, label: String) {
@@ -50,15 +43,14 @@ struct PathTests {
         }
 
         @Test(
-            .skipHostOS(.windows),
             arguments: [
-                (path: "/ab//cd//ef", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "repeated path seperators"), // skip on windows
-                (path: "/ab///cd//ef", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "repeated path seperators"), // skip on windows
-
+                (path: "/ab/cd/ef/", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "Trailing path seperator"),
+                (path: "/ab/cd/ef//", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "Trailing path seperator"),
+                (path: "/ab/cd/ef///", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "Trailing path seperator"),
+                (path: "/ab//cd//ef", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "repeated path seperators"),
+                (path: "/ab///cd//ef", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "repeated path seperators"),
                 (path: "/ab/././cd//ef", expected: "/ab/cd/ef", label: "dot path component"),
                 (path: "/ab/./cd//ef/.", expected:  "/ab/cd/ef", label: "dot path component"),
-
-
                 (path: "/..", expected: (windows ? #"\"# : "/"), label: "dot dot path component"),
                 (path: "/../../../../..", expected: (windows ? #"\"# : "/"), label: "dot dot path component"),
                 (path: "/abc/..", expected: (windows ? #"\"# : "/"), label: "dot dot path component"),
@@ -66,18 +58,20 @@ struct PathTests {
                 (path: "/../abc", expected: (windows ? #"\abc"# : "/abc"), label: "dot dot path component"),
                 (path: "/../abc/..", expected: (windows ? #"\"# : "/"), label: "dot dot path component"),
                 (path: "/../abc/../def", expected: (windows ? #"\def"# : "/def"), label: "dot dot path component"),
-
                 (path: "///", expected: (windows ? #"\"# : "/"), label: "combinations and edge cases"),
                 (path: "/./", expected: (windows ? #"\"# : "/"), label: "combinations and edge cases"),
-
             ]
         )
         func pathStringIsSetCorrectlySkipOnWindows(path: String, expected: String, label: String) {
-            pathStringIsSetCorrectlyTestImplementation(
-                path: path,
-                expected: expected,
-                label: label
-            )
+            withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not properly") {
+                pathStringIsSetCorrectlyTestImplementation(
+                    path: path,
+                    expected: expected,
+                    label: label
+                )
+            } when :{
+                ProcessInfo.hostOperatingSystem == .windows
+            }
         }
 
         @Test
@@ -97,78 +91,146 @@ struct PathTests {
             #expect(abs6 == AbsolutePath("/base/path/~/bla"))
         }
 
-        @Test(
-            .skipHostOS(.windows),
-            arguments: [
-                (path: "/", expected: (windows ? #"\"# : "/")),
-                (path: "/a", expected: (windows ? #"\"# : "/")),
-                (path: "/./a", expected: (windows ? #"\"# : "/")),
-                (path: "/../..", expected: (windows ? #"\"# : "/")),
-                (path: "/ab/c//d/", expected: (windows ? #"\ab\c"# : "/ab/c")),
-            ]
-        )
-        func directoryNameExtraction(path: String, expected: String) throws {
-            let actual = AbsolutePath(path).dirname
+        struct AbsolutePathDirectoryNameAtributeReturnsExpectedValue {
+            private func testImplementation(path: String, expected: String) throws {
+                let actual = AbsolutePath(path).dirname
 
-            #expect(actual == expected, "Actual is not as expected")
-        }
-
-        @Test(
-            .skipHostOS(.windows),
-            arguments: [
-                (path: "/", expected: (windows ? #"\"# : "/")),
-                (path: "/a", expected: "a"),
-                (path: "/./a", expected: "a"),
-                (path: "/../..", expected: "/"),
-            ]
-        )
-        func baseNameExtraction(path: String, expected: String) throws {
-            let actual = AbsolutePath(path).basename
-
-            #expect(actual == expected, "Actual is not as expected")
-        }
-
-        @Test(
-            .skipHostOS(.windows),
-            arguments: [
-                (path: "/", expected:  (windows ? #"\"# : "/")),
-                (path: "/a", expected:  "a"),
-                (path: "/./a", expected:  "a"),
-                (path: "/../..", expected:  "/"),
-                (path: "/a.txt", expected:  "a"),
-                (path: "/./a.txt", expected:  "a"),
-            ]
-        )
-        func baseNameWithoutExt(path: String, expected: String) throws {
-            let actual = AbsolutePath(path).basenameWithoutExt
-
-            #expect(actual == expected, "Actual is not as expected")
-            
-        }
-
-        @Test(
-            arguments: [
-                (path: "/", numParentDirectoryCalls: 1, expected: "/"),
-                (path: "/", numParentDirectoryCalls: 2, expected: "/"),
-                (path: "/bar", numParentDirectoryCalls: 1, expected: "/"),
-                (path: "/bar/../foo/..//", numParentDirectoryCalls: 2, expected: "/"),
-                (path: "/bar/../foo/..//yabba/a/b", numParentDirectoryCalls: 2, expected: "/yabba")
-            ]
-        )
-        func parentDirectoryAttributeReturnsAsExpected(path: String, numParentDirectoryCalls: Int, expected: String) throws {
-            let pathUnderTest = AbsolutePath(path)
-            let expectedPath = AbsolutePath(expected)
-            try #require(numParentDirectoryCalls >= 1, "Test configuration Error.")
-
-            var actual = pathUnderTest
-            for _ in 0 ..< numParentDirectoryCalls {
-                actual = actual.parentDirectory
+                #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
             }
-            #expect(actual == expectedPath)
+
+            @Test(
+                arguments: [
+                    (path: "/", expected: (windows ? #"\"# : "/")),
+                    (path: "/a", expected: (windows ? #"\"# : "/")),
+                    (path: "/ab/c//d/", expected: (windows ? #"\ab\c"# : "/ab/c")),
+                ]
+            )
+            func absolutePathDirectoryNameAttributeAllPlatforms(path: String, expected: String) throws {
+                try testImplementation(path: path, expected: expected)
+            }
+
+            @Test(
+                arguments: [
+                    (path: "/./a", expected: (windows ? #"\"# : "/")),
+                    (path: "/../..", expected: (windows ? #"\"# : "/")),
+                ]
+            )
+            func absolutePathDirectoryNameAttributeFailsOnWindows(path: String, expected: String) throws {
+                try withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not properly") {
+                    try testImplementation(path: path, expected: expected)
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
+            }
+        }
+
+        struct AbsolutePathBaseNameAttributeReturnsExpectedValue {
+            private func testImplementation(path: String, expected: String) throws {
+                let actual = AbsolutePath(path).basename
+
+                #expect(actual == expected, "Actual is not as expected: \(path)")
+            }
+
+            @Test(
+                arguments: [
+                    (path: "/", expected: (windows ? #"\"# : "/")),
+                    (path: "/a", expected: "a"),
+                    (path: "/./a", expected: "a"),
+                ]
+            )
+            func absolutePathBaseNameExtractionAllPlatforms(path: String, expected: String) throws {
+                try testImplementation(path: path, expected: expected)
+            }
+
+            @Test(
+                arguments: [
+                    (path: "/../..", expected: "/"),
+                ]
+            )
+            func absolutePathBaseNameExtractionFailsOnWindows(path: String, expected: String) throws {
+                try withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not properly") {
+                    try testImplementation(path: path, expected: expected)
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
+            }
+        }
+
+        struct AbsolutePathBasenameWithoutExtAttributeReturnsExpectedValue {
+            private func testImplementation(path: String, expected: String) throws {
+                let actual = AbsolutePath(path).basenameWithoutExt
+
+                #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
+                
+            }
+
+            @Test(
+                arguments: [
+                    (path: "/", expected:  (windows ? #"\"# : "/")),
+                    (path: "/a", expected:  "a"),
+                    (path: "/./a", expected:  "a"),
+                    (path: "/a.txt", expected:  "a"),
+                    (path: "/./a.txt", expected:  "a"),
+                ]
+            )
+            func absolutePathBaseNameWithoutExt(path: String, expected: String) throws {
+                try testImplementation(path: path, expected: expected)
+            }
+
+            @Test(
+                arguments: [
+                    (path: "/../..", expected:  "/"),
+                ]
+            )
+            func absolutePathBaseNameWithoutExtFailedOnWindows(path: String, expected: String) throws {
+                try withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not handled properly") {
+                    try testImplementation(path: path, expected: expected)
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
+            }
+        }
+
+        struct AbsolutePathParentDirectoryAttributeReturnsExpectedValue {
+            private func testImplementation(path: String, numParentDirectoryCalls: Int, expected: String) throws {
+                let pathUnderTest = AbsolutePath(path)
+                let expectedPath = AbsolutePath(expected)
+                try #require(numParentDirectoryCalls >= 1, "Test configuration Error.")
+
+                var actual = pathUnderTest
+                for _ in 0 ..< numParentDirectoryCalls {
+                    actual = actual.parentDirectory
+                }
+                #expect(actual == expectedPath)
+            }
+            @Test(
+                arguments: [
+                    (path: "/", numParentDirectoryCalls: 1, expected: "/"),
+                    (path: "/", numParentDirectoryCalls: 2, expected: "/"),
+                    (path: "/bar", numParentDirectoryCalls: 1, expected: "/"),
+                ]
+            )
+            func absolutePathParentDirectoryAttributeReturnsAsExpected(path: String, numParentDirectoryCalls: Int, expected: String) throws {
+                try testImplementation(path: path, numParentDirectoryCalls: numParentDirectoryCalls, expected: expected)
+            }
+
+            @Test(
+                arguments: [
+                    (path: "/bar/../foo/..//", numParentDirectoryCalls: 2, expected: "/"),
+                    (path: "/bar/../foo/..//yabba/a/b", numParentDirectoryCalls: 2, expected: "/yabba")
+                ]
+            )
+            func absolutePathParentDirectoryAttributeReturnsAsExpectedFailsOnWindows(path: String, numParentDirectoryCalls: Int, expected: String) throws {
+                try withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not handled properly") {
+                    try testImplementation(path: path, numParentDirectoryCalls: numParentDirectoryCalls, expected: expected)
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
+            }
+
         }
 
         @Test(
-            .skipHostOS(.windows),
             arguments: [
                 (path: "/", expected: ["/"]),
                 (path: "/.", expected: ["/"]),
@@ -181,9 +243,13 @@ struct PathTests {
             ]
         )
         func componentsAttributeReturnsExpectedValue(path: String, expected: [String]) throws {
-            let actual = AbsolutePath(path).components
+            withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not handled properly") {
+                let actual = AbsolutePath(path).components
 
-            #expect(actual == expected, "Actual is not as expected")
+                #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
         }
 
         struct AncestryTest {
@@ -200,7 +266,7 @@ struct PathTests {
             func isDescendantOfOrEqual(path: String, descendentOfOrEqualTo: String, expected: Bool) {
                 let actual = AbsolutePath(path).isDescendantOfOrEqual(to: AbsolutePath(descendentOfOrEqualTo))
 
-                #expect(actual == expected, "Actual is not as expected")
+                #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
             }
 
             @Test(
@@ -212,7 +278,7 @@ struct PathTests {
             func isDescendant(path: String, ancesterOf: String, expected: Bool) {
                 let actual = AbsolutePath(path).isDescendant(of: AbsolutePath(ancesterOf))
 
-                #expect(actual == expected, "Actual is not as expected")
+                #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
             }
 
             @Test(
@@ -228,7 +294,7 @@ struct PathTests {
             func isAncestorOfOrEqual(path: String, ancestorOfOrEqualTo: String, expected: Bool) {
                 let actual = AbsolutePath(path).isAncestorOfOrEqual(to: AbsolutePath(ancestorOfOrEqualTo))
 
-                #expect(actual == expected, "Actual is not as expected")
+                #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
             }
 
             @Test(
@@ -240,20 +306,22 @@ struct PathTests {
             func isAncestor(path: String, ancesterOf: String, expected: Bool) {
                 let actual = AbsolutePath(path).isAncestor(of: AbsolutePath(ancesterOf))
 
-                #expect(actual == expected, "Actual is not as expected")
+                #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
             }
         }
 
-        @Test(
-            .skipHostOS(.windows)
-        )
+        @Test
         func absolutePathValidation() throws {
             #expect(throws: Never.self) { 
                 try AbsolutePath(validating: "/a/b/c/d")
             }
 
-            #expect {try AbsolutePath(validating: "~/a/b/d")} throws: { error in
-                ("\(error)" == "invalid absolute path '~/a/b/d'; absolute path must begin with '/'")
+            withKnownIssue {
+                #expect {try AbsolutePath(validating: "~/a/b/d")} throws: { error in
+                    ("\(error)" == "invalid absolute path '~/a/b/d'; absolute path must begin with '/'")
+                }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
             }
 
             #expect {try AbsolutePath(validating: "a/b/d") } throws: { error in
@@ -261,9 +329,7 @@ struct PathTests {
             }
         }
 
-        @Test(
-            .skipHostOS(.windows)
-        )
+        @Test
         func comparison() {
             #expect(AbsolutePath("/") <= AbsolutePath("/"));
             #expect(AbsolutePath("/abc") < AbsolutePath("/def"));
@@ -278,7 +344,7 @@ struct PathTests {
         private func pathStringIsSetCorrectlyTestImplementation(path: String, expected: String, label: String) {
             let actual = RelativePath(path).pathString
 
-            #expect(actual == expected, "\(label): Actual is not as expected.")
+            #expect(actual == expected, "\(label): Actual is not as expected. Path is: \(path)")
         }
 
         @Test(
@@ -287,8 +353,10 @@ struct PathTests {
                 (path: "a", expected: "a", label: "Basics"),
                 (path: "a/b/c", expected: (windows ? #"a\b\c"# : "a/b/c"), label: "Basics"),
                 (path: "~", expected: "~", label: "Basics"),
-
-
+                (path: "..", expected: "..", label: "dot dot path component"),
+                (path: "", expected:  ".", label: "combinations and edge cases"),
+                (path: ".", expected:  ".", label: "combinations and edge cases"),
+                (path: "../a", expected:  (windows ? #"..\a"# : "../a"), label: "combinations and edge cases"),
             ]
         )
         func pathStringIsSetCorrectly(path: String, expected: String, label: String) {
@@ -300,7 +368,6 @@ struct PathTests {
         }
 
         @Test(
-            .skipHostOS(.windows),
             arguments: [
                 (path: "ab//cd//ef", expected: (windows ? #"ab\cd\ef"# : "ab/cd/ef"), label: "repeated path seperators"),
                 (path: "ab//cd///ef", expected: (windows ? #"ab\cd\ef"# : "ab/cd/ef"), label: "repeated path seperators"),
@@ -312,15 +379,13 @@ struct PathTests {
                 (path: "ab/./cd/././ef", expected: "ab/cd/ef", label: "dot path component"),
                 (path: "ab/./cd/ef/.", expected: "ab/cd/ef", label: "dot path component"),
 
-                (path: "..", expected: "..", label: "dot dot path component"),
                 (path: "../..", expected: "../..", label: "dot dot path component"),
                 (path: ".././..", expected: "../..", label: "dot dot path component"),
                 (path: "../abc/..", expected: "..", label: "dot dot path component"),
                 (path: "../abc/.././", expected: "..", label: "dot dot path component"),
                 (path: "abc/..", expected: ".", label: "dot dot path component"),
 
-                (path: "", expected:  ".", label: "combinations and edge cases"),
-                (path: ".", expected:  ".", label: "combinations and edge cases"),
+                (path: "../", expected:  "..", label: "combinations and edge cases"),
                 (path: "./abc", expected:  "abc", label: "combinations and edge cases"),
                 (path: "./abc/", expected:  "abc", label: "combinations and edge cases"),
                 (path: "./abc/../bar", expected:  "bar", label: "combinations and edge cases"),
@@ -334,159 +399,247 @@ struct PathTests {
                 (path: ".//", expected:  ".", label: "combinations and edge cases"),
                 (path: "./.", expected:  ".", label: "combinations and edge cases"),
                 (path: "././", expected:  ".", label: "combinations and edge cases"),
-                (path: "../", expected:  "..", label: "combinations and edge cases"),
                 (path: "../.", expected:  "..", label: "combinations and edge cases"),
                 (path: "./..", expected:  "..", label: "combinations and edge cases"),
                 (path: "./../.", expected:  "..", label: "combinations and edge cases"),
                 (path: "./////../////./////", expected:  "..", label: "combinations and edge cases"),
-                (path: "../a", expected:  (windows ? #"..\a"# : "../a"), label: "combinations and edge cases"),
                 (path: "../a/..", expected:  "..", label: "combinations and edge cases"),
                 (path: "a/..", expected:  ".", label: "combinations and edge cases"),
                 (path: "a/../////../////./////", expected:  "..", label: "combinations and edge cases"),
 
             ]
         )
-        func pathStringIsSetCorrectlySkipOnWindows(path: String, expected: String, label: String) {
-            pathStringIsSetCorrectlyTestImplementation(
-                path: path,
-                expected: expected,
-                label: label
+        func pathStringIsSetCorrectlyFailsOnWindows(path: String, expected: String, label: String) {
+            withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) does not resolve properly") {
+                    pathStringIsSetCorrectlyTestImplementation(
+                    path: path,
+                    expected: expected,
+                    label: label
+                )
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
+        }
+
+        struct relateivePathDirectoryNameAttributeReturnsExpectedValue {
+            private func testImplementation(path: String, expected: String) throws {
+                let actual = RelativePath(path).dirname
+
+                #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
+            }
+
+            @Test(
+                arguments: [
+                    (path: "ab/c//d/", expected: (windows ? #"ab\c"# : "ab/c")),
+                    (path: "../a", expected: ".."),
+                    (path: "./..", expected: "."),
+                ]
             )
+            func relativePathDirectoryNameExtraction(path: String, expected: String) throws {
+                try testImplementation(path: path, expected: expected)
+            }
+
+            @Test(
+                arguments: [
+                    (path: "../a/..", expected: "."),
+                    (path: "a/..", expected: "."),
+                    (path: "a/../////../////./////", expected: "."),
+                    (path: "abc", expected: "."),
+                    (path: "", expected: "."),
+                    (path: ".", expected: "."),
+                ]
+            )
+            func relativePathDirectoryNameExtractionFailsOnWindows(path: String, expected: String) throws {
+                try withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not handled properly") {
+                    try testImplementation(path: path, expected: expected)
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
+            }
+
         }
 
-        @Test(
-            .skipHostOS(.windows),
-            arguments: [
-                (path: "ab/c//d/", expected: (windows ? #"ab\c"# : "ab/c")),
-                (path: "../a", expected: ".."),
-                (path: "../a/..", expected: "."),
-                (path: "a/..", expected: "."),
-                (path: "./..", expected: "."),
-                (path: "a/../////../////./////", expected: "."),
-                (path: "abc", expected: "."),
-                (path: "", expected: "."),
-                (path: ".", expected: "."),
-            ]
-        )
-        func directoryNameExtraction(path: String, expected: String) throws {
-            let actual = RelativePath(path).dirname
+        struct relativePathBaseNameAttributeReturnsExpectedValue {
+            private func testImplementation(path: String, expected: String) throws {
+                let actual = RelativePath(path).basename
 
-            #expect(actual == expected, "Actual is not as expected")
+                #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
+            }
+            @Test(
+                arguments: [
+                    (path: "../..", expected:  ".."),
+                    (path: "../a", expected:  "a"),
+                    (path: "../a/..", expected:  ".."),
+                    (path: "./..", expected:  ".."),
+                    (path: "abc", expected:  "abc"),
+                    (path: "", expected:  "."),
+                    (path: ".", expected:  "."),
+                ]
+            )
+            func relativePathBaseNameExtraction(path: String, expected: String) throws {
+                try testImplementation(path: path, expected: expected)
+            }
+
+            @Test(
+                arguments: [
+                    (path: "a/..", expected:  "."),
+                    (path: "a/../////../////./////", expected:  ".."),
+                ]
+            )
+            func relativePathBaseNameExtractionFailsOnWindows(path: String, expected: String) throws {
+                try withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not handled properly") {
+                    try testImplementation(path: path, expected: expected)
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
+            }
+
         }
 
-        @Test(
-            .skipHostOS(.windows),
-            arguments: [
-                (path: "../..", expected:  ".."),
-                (path: "../a", expected:  "a"),
-                (path: "../a/..", expected:  ".."),
-                (path: "a/..", expected:  "."),
-                (path: "./..", expected:  ".."),
-                (path: "a/../////../////./////", expected:  ".."),
-                (path: "abc", expected:  "abc"),
-                (path: "", expected:  "."),
-                (path: ".", expected:  "."),
-            ]
-        )
-        func baseNameExtraction(path: String, expected: String) throws {
-            let actual = RelativePath(path).basename
+        struct RelativePathBasenameWithoutExtAttributeReturnsExpectedValue {
+            private func testImplementation(path: String, expected: String) throws {
+                let actual: String = RelativePath(path).basenameWithoutExt
 
-            #expect(actual == expected, "Actual is not as expected")
+                #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
+            }
+
+            @Test(
+                arguments: [
+                    (path: "../a", expected:  "a"),
+                    (path: "a/..", expected:  "."),
+                    (path: "abc", expected:  "abc"),
+                    (path: "../a.bc", expected:  "a"),
+                    (path: "abc.swift", expected:  "abc"),
+                    (path: "../a.b.c", expected:  "a.b"),
+                    (path: "abc.xyz.123", expected:  "abc.xyz"),
+                ]
+            )
+            func relativePathBaseNameWithoutExt(path: String, expected: String) throws {
+                try testImplementation(path: path, expected: expected)
+            }
+
+            @Test(
+                arguments: [
+                    (path: "../..", expected:  ".."),
+                    (path: "../a/..", expected:  ".."),
+                    (path: "./..", expected:  ".."),
+                    (path: "a/../////../////./////", expected:  ".."),
+                    (path: "", expected:  "."),
+                    (path: ".", expected:  "."),
+                ]
+            )
+            func relativePathBaseNameWithoutExtFailsOnWindows(path: String, expected: String) throws {
+                try withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not properly") {
+                    try testImplementation(path: path, expected: expected)
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
+            }
+
         }
 
-        @Test(
-            .skipHostOS(.windows),
-            arguments: [
-                (path: "../..", expected:  ".."),
-                (path: "../a", expected:  "a"),
-                (path: "../a/..", expected:  ".."),
-                (path: "a/..", expected:  "."),
-                (path: "./..", expected:  ".."),
-                (path: "a/../////../////./////", expected:  ".."),
-                (path: "abc", expected:  "abc"),
-                (path: "", expected:  "."),
-                (path: ".", expected:  "."),
-                (path: "../a.bc", expected:  "a"),
-                (path: "abc.swift", expected:  "abc"),
-                (path: "../a.b.c", expected:  "a.b"),
-                (path: "abc.xyz.123", expected:  "abc.xyz"),
+        struct relativePathSuffixAndExtensionAttributeReturnsExpectedValue {
+            private func testImplementation(path: String, expectedSuffix: String?, expectedExtension: String?) throws {
+                let pathUnderTest = RelativePath(path)
 
-            ]
-        )
-        func baseNameWithoutExt(path: String, expected: String) throws {
-            let actual: String = RelativePath(path).basenameWithoutExt
+                #expect(pathUnderTest.suffix == expectedSuffix, "Actual suffix is not as expected.  Path is: \(path)")
+                #expect(pathUnderTest.extension == expectedExtension, "Actual extension is not as expected.  Path is: \(path)")
+            }
+            @Test(
+                arguments: [
+                    (path: "a", expectedSuffix: nil, expectedExtension: nil),
+                    (path: "a.foo", expectedSuffix: ".foo", expectedExtension: "foo"),
+                    (path: ".a.foo", expectedSuffix: ".foo", expectedExtension: "foo"),
+                    (path: "a.foo.bar", expectedSuffix: ".bar", expectedExtension: "bar"),
+                    (path: ".a.foo.bar", expectedSuffix: ".bar", expectedExtension: "bar"),
+                    (path: ".a.foo.bar.baz", expectedSuffix: ".baz", expectedExtension: "baz"),
+                ]
+            )
+            func suffixExtraction(path: String, expectedSuffix: String?, expectedExtension: String?) throws {
+                try testImplementation(path: path, expectedSuffix: expectedSuffix, expectedExtension: expectedExtension)
+            }
 
-            #expect(actual == expected, "Actual is not as expected")
+            @Test(
+                arguments:[
+                    "a.",
+                    ".a",
+                    "",
+                    ".",
+                    "..",
+                ]
+            )
+            func suffixExtractionFailsOnWindows(path: String) throws {
+                try withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not handled properly") {
+                    try testImplementation(path: path, expectedSuffix: nil, expectedExtension: nil)
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
+            }
+
         }
 
-        @Test(
-            .skipHostOS(.windows, "expected nil is is not the actual"),
-            arguments: [
-                (path: "a", expectedSuffix: nil, expectedExtension: nil),
-                (path: "a.", expectedSuffix: nil, expectedExtension: nil),
-                (path: ".a", expectedSuffix: nil, expectedExtension: nil),
-                (path: "", expectedSuffix: nil, expectedExtension: nil),
-                (path: ".", expectedSuffix: nil, expectedExtension: nil),
-                (path: "..", expectedSuffix: nil, expectedExtension: nil),
-                (path: "a.foo", expectedSuffix: ".foo", expectedExtension: "foo"),
-                (path: ".a.foo", expectedSuffix: ".foo", expectedExtension: "foo"),
-                (path: "a.foo.bar", expectedSuffix: ".bar", expectedExtension: "bar"),
-                (path: ".a.foo.bar", expectedSuffix: ".bar", expectedExtension: "bar"),
-                (path: ".a.foo.bar.baz", expectedSuffix: ".baz", expectedExtension: "baz"),
-            ]
-        )
-        func suffixExtraction(path: String, expectedSuffix: String?, expectedExtension: String?) throws {
-            let pathUnderTest = RelativePath(path)
+        struct componentsAttributeReturnsExpectedValue {
+            private func testImplementation(path: String, expected: [String]) throws {
+                let actual = RelativePath(path).components
 
-            #expect(pathUnderTest.suffix == expectedSuffix, "Actual suffix is not as expected")
-            #expect(pathUnderTest.extension == expectedExtension, "Actual extension is not as expected")
-        }
+                #expect(actual == expected, "Actual is not as expected: \(path)")
+            }
 
-        @Test(
-            .skipHostOS(.windows),
-            arguments: [
-                (path: "", expected: ["."]),
-                (path: ".", expected: ["."]),
-                (path: "..", expected: [".."]),
-                (path: "bar", expected: ["bar"]),
-                (path: "foo/bar/..", expected: ["foo"]),
-                (path: "bar/../foo", expected: ["foo"]),
-                (path: "bar/../foo/..//", expected: ["."]),
-                (path: "bar/../foo/..//yabba/a/b/", expected: ["yabba", "a", "b"]),
-                (path: "../..", expected: ["..", ".."]),
-                (path: ".././/..", expected: ["..", ".."]),
-                (path: "../a", expected: ["..", "a"]),
-                (path: "../a/..", expected: [".."]),
-                (path: "a/..", expected: ["."]),
-                (path: "./..", expected: [".."]),
-                (path: "a/../////../////./////", expected: [".."]),
-                (path: "abc", expected: ["abc"])
-            ] as [(String, [String])]
-        )
-        func componentsAttributeReturnsExpectedValue(path: String, expected: [String]) {
-            let actual = RelativePath(path).components
+            @Test(
+                arguments: [
+                    (path: "", expected: ["."]),
+                    (path: ".", expected: ["."]),
+                    (path: "..", expected: [".."]),
+                    (path: "bar", expected: ["bar"]),
+                    (path: "../..", expected: ["..", ".."]),
+                    (path: "../a", expected: ["..", "a"]),
+                    (path: "abc", expected: ["abc"]),
+                ] as [(String, [String])]
+            )
+            func relativePathComponentsAttributeAllPlatform(path: String, expected: [String]) throws {
+                try testImplementation(path: path, expected: expected)
+            }
 
-            #expect(actual == expected)
+            @Test(
+                arguments: [
+                    (path: "foo/bar/..", expected: ["foo"]),
+                    (path: "bar/../foo", expected: ["foo"]),
+                    (path: "bar/../foo/..//", expected: ["."]),
+                    (path: "bar/../foo/..//yabba/a/b/", expected: ["yabba", "a", "b"]),
+                    (path: ".././/..", expected: ["..", ".."]),
+                    (path: "../a/..", expected: [".."]),
+                    (path: "a/..", expected: ["."]),
+                    (path: "./..", expected: [".."]),
+                    (path: "a/../////../////./////", expected: [".."]),
+                ] as [(String, [String])]
+            )
+            func relativePathComponentsAttributeFailsOnWindows(path: String, expected: [String]) throws {
+                try withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not properly") {
+                    try testImplementation(path: path, expected: expected)
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
+            }
         }
         
-        @Test(
-            .skipHostOS(.windows)
-        )
+        @Test
         func relativePathValidation() throws {
             #expect(throws: Never.self) { 
                 try RelativePath(validating: "a/b/c/d")
             }
 
-            #expect {try RelativePath(validating: "/a/b/d")} throws: { error in
-                ("\(error)" == "invalid relative path '/a/b/d'; relative path should not begin with '/'")
+            withKnownIssue {
+                #expect {try RelativePath(validating: "/a/b/d")} throws: { error in
+                    ("\(error)" == "invalid relative path '/a/b/d'; relative path should not begin with '/'")
+                }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
             }
         }
 
     }
 
-    @Test(
-        .skipHostOS(.windows)
-    )
+    @Test
     @available(*, deprecated)
     func concatenation() throws {
         #expect(AbsolutePath(AbsolutePath("/"), RelativePath("")).pathString == (windows ? #"\"# : "/"))
@@ -495,8 +648,12 @@ struct PathTests {
         #expect(AbsolutePath(AbsolutePath("/"), RelativePath("bar")).pathString == (windows ? #"\bar"# : "/bar"))
         #expect(AbsolutePath(AbsolutePath("/foo/bar"), RelativePath("..")).pathString == (windows ? #"\foo"# : "/foo"))
         #expect(AbsolutePath(AbsolutePath("/bar"), RelativePath("../foo")).pathString == (windows ? #"\foo"# : "/foo"))
-        #expect(AbsolutePath(AbsolutePath("/bar"), RelativePath("../foo/..//")).pathString == (windows ? #"\"# : "/"))
-        #expect(AbsolutePath(AbsolutePath("/bar/../foo/..//yabba/"), RelativePath("a/b")).pathString == (windows ? #"\yabba\a\b"# : "/yabba/a/b"))
+        withKnownIssue {
+            #expect(AbsolutePath(AbsolutePath("/bar"), RelativePath("../foo/..//")).pathString == (windows ? #"\"# : "/"))
+            #expect(AbsolutePath(AbsolutePath("/bar/../foo/..//yabba/"), RelativePath("a/b")).pathString == (windows ? #"\yabba\a\b"# : "/yabba/a/b"))
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
+        }
 
         #expect(AbsolutePath("/").appending(RelativePath("")).pathString == (windows ? #"\"# : "/"))
         #expect(AbsolutePath("/").appending(RelativePath(".")).pathString == (windows ? #"\"# : "/"))
@@ -504,8 +661,12 @@ struct PathTests {
         #expect(AbsolutePath("/").appending(RelativePath("bar")).pathString == (windows ? #"\bar"# : "/bar"))
         #expect(AbsolutePath("/foo/bar").appending(RelativePath("..")).pathString == (windows ? #"\foo"# : "/foo"))
         #expect(AbsolutePath("/bar").appending(RelativePath("../foo")).pathString == (windows ? #"\foo"# : "/foo"))
-        #expect(AbsolutePath("/bar").appending(RelativePath("../foo/..//")).pathString == (windows ? #"\"# : "/"))
-        #expect(AbsolutePath("/bar/../foo/..//yabba/").appending(RelativePath("a/b")).pathString == (windows ? #"\yabba\a\b"# : "/yabba/a/b"))
+        withKnownIssue {
+            #expect(AbsolutePath("/bar").appending(RelativePath("../foo/..//")).pathString == (windows ? #"\"# : "/"))
+            #expect(AbsolutePath("/bar/../foo/..//yabba/").appending(RelativePath("a/b")).pathString == (windows ? #"\yabba\a\b"# : "/yabba/a/b"))
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
+        }
 
         #expect(AbsolutePath("/").appending(component: "a").pathString == (windows ? #"\a"# : "/a"))
         #expect(AbsolutePath("/a").appending(component: "b").pathString == (windows ? #"\a\b"# : "/a/b"))
@@ -525,9 +686,7 @@ struct PathTests {
         #expect(RelativePath("hello").appending(RelativePath("a/b/../c/d")).pathString == (windows ? #"hello\a\c\d"# : "hello/a/c/d"))
     }
 
-    @Test(
-        .skipHostOS(.windows)
-    )
+    @Test
     func relativePathFromAbsolutePaths() throws {
         #expect(AbsolutePath("/").relative(to: AbsolutePath("/")) == RelativePath("."));
         #expect(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/")) == RelativePath("a/b/c/d"));
@@ -538,9 +697,7 @@ struct PathTests {
         #expect(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/b/c/d")) == RelativePath("../../../a/b/c/d"));
     }
 
-    @Test(
-        .skipHostOS(.windows)
-    )
+    @Test
     func codable() throws {
         struct Foo: Codable, Equatable {
             var path: AbsolutePath
@@ -566,8 +723,12 @@ struct PathTests {
             let data = try JSONEncoder().encode(foo)
             let decodedFoo = try JSONDecoder().decode(Foo.self, from: data)
             #expect(foo == decodedFoo)
-            #expect(foo.path.pathString == (windows ? #"\path\to\foo"# : "/path/to/foo"))
-            #expect(decodedFoo.path.pathString == (windows ? #"\path\to\foo"# : "/path/to/foo"))
+            withKnownIssue {
+                #expect(foo.path.pathString == (windows ? #"\path\to\foo"# : "/path/to/foo"))
+                #expect(decodedFoo.path.pathString == (windows ? #"\path\to\foo"# : "/path/to/foo"))
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
         }
 
         do {
@@ -582,8 +743,12 @@ struct PathTests {
             let data = try JSONEncoder().encode(bar)
             let decodedBar = try JSONDecoder().decode(Bar.self, from: data)
             #expect(bar == decodedBar)
-            #expect(bar.path.pathString == "path/to/bar")
-            #expect(decodedBar.path.pathString == "path/to/bar")
+            withKnownIssue {
+                #expect(bar.path.pathString == "path/to/bar")
+                #expect(decodedBar.path.pathString == "path/to/bar")
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
         }
 
         do {
