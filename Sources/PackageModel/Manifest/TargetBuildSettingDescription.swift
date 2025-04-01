@@ -25,6 +25,12 @@ public enum TargetBuildSettingDescription {
         case Cxx
     }
 
+    /// The level at which a compiler warning should be treated.
+    public enum WarningLevel: String, Codable, Hashable, Sendable {
+        case warning
+        case error
+    }
+
     public enum DefaultIsolation: String, Codable, Hashable, Sendable {
         case MainActor
         case nonisolated
@@ -47,6 +53,11 @@ public enum TargetBuildSettingDescription {
 
         case swiftLanguageMode(SwiftLanguageVersion)
 
+        case treatAllWarnings(WarningLevel)
+        case treatWarning(String, WarningLevel)
+        case enableWarning(String)
+        case disableWarning(String)
+
         case defaultIsolation(DefaultIsolation)
 
         public var isUnsafeFlags: Bool {
@@ -56,7 +67,7 @@ public enum TargetBuildSettingDescription {
                 return !flags.isEmpty
             case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode,
                  .enableUpcomingFeature, .enableExperimentalFeature, .strictMemorySafety, .swiftLanguageMode,
-                 .defaultIsolation:
+                 .treatAllWarnings, .treatWarning, .enableWarning, .disableWarning, .defaultIsolation:
                 return false
             }
         }
