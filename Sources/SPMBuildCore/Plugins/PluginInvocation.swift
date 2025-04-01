@@ -909,7 +909,7 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
     ) -> Bool {
         dispatchPrecondition(condition: .onQueue(self.delegateQueue))
         // executable must exist before running prebuild command
-        if self.builtToolNames.contains(executable.basename) {
+        if !fileSystem.exists(executable) {
             self.diagnostics
                 .append(
                     .error(
