@@ -511,8 +511,7 @@ extension PluginModule {
         let delegate = DefaultPluginInvocationDelegate(
             fileSystem: fileSystem,
             delegateQueue: delegateQueue,
-            toolPaths: toolPaths,
-            builtToolNames: accessibleTools.map(\.key)
+            toolPaths: toolPaths
         )
 
         let startTime = DispatchTime.now()
@@ -840,7 +839,6 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
     let fileSystem: FileSystem
     let delegateQueue: DispatchQueue
     let toolPaths: [AbsolutePath]
-    let builtToolNames: [String]
     var outputData = Data()
     var diagnostics = [Basics.Diagnostic]()
     var buildCommands = [BuildToolPluginInvocationResult.BuildCommand]()
@@ -849,13 +847,11 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
     package init(
         fileSystem: FileSystem,
         delegateQueue: DispatchQueue,
-        toolPaths: [AbsolutePath],
-        builtToolNames: [String]
+        toolPaths: [AbsolutePath]
     ) {
         self.fileSystem = fileSystem
         self.delegateQueue = delegateQueue
         self.toolPaths = toolPaths
-        self.builtToolNames = builtToolNames
     }
 
     func pluginCompilationStarted(commandLine: [String], environment: [String: String]) {}
