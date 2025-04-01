@@ -597,7 +597,7 @@ public final class InitPackage {
 
                 @main
                 struct \(typeName) {
-                    static func main() {
+                    static func main() async throws {
                         print("Hello, world!")
                     }
                 }
