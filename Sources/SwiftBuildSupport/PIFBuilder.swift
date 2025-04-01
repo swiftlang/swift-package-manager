@@ -1641,9 +1641,9 @@ private struct PIFBuildSettingAssignment {
     let platforms: [PIF.BuildSettings.Platform]?
 }
 
-extension BuildSettings.AssignmentTable {
-    fileprivate var pifAssignments: [PIF.BuildSettings.MultipleValueSetting: [PIFBuildSettingAssignment]] {
-        var pifAssignments: [PIF.BuildSettings.MultipleValueSetting: [PIFBuildSettingAssignment]] = [:]
+extension PackageModel.BuildSettings.AssignmentTable {
+    fileprivate var pifAssignments: [BuildSettings.MultipleValueSetting: [PIFBuildSettingAssignment]] {
+        var pifAssignments: [BuildSettings.MultipleValueSetting: [PIFBuildSettingAssignment]] = [:]
 
         for (declaration, assignments) in self.assignments {
             for assignment in assignments {
@@ -1679,7 +1679,7 @@ extension BuildSettings.AssignmentTable {
     }
 }
 
-extension BuildSettings.Assignment {
+extension PackageModel.BuildSettings.Assignment {
     fileprivate var configurations: [BuildConfiguration] {
         if let configurationCondition = conditions.lazy.compactMap(\.configurationCondition).first {
             [configurationCondition.configuration]

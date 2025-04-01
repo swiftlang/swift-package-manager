@@ -792,10 +792,10 @@ extension TSCUtility.Version {
 
 // MARK: - Swift Build PIF Helpers
 
-extension SwiftBuild.ProjectModel.BuildSettings {
+extension ProjectModel.BuildSettings {
     subscript(_ setting: MultipleValueSetting, default defaultValue: [String]) -> [String] {
-        get { multipleValueSettings[setting.rawValue] ?? defaultValue }
-        set { multipleValueSettings[setting.rawValue] = newValue }
+        get { self[setting] ?? defaultValue }
+        set { self[setting] = newValue }
     }
 }
 
@@ -830,79 +830,86 @@ extension SwiftBuild.ProjectModel.Project {
     }
 }
 
-extension SwiftBuild.ProjectModel.BuildSettings {
+extension ProjectModel.BuildSettings {
     /// Internal helper function that appends list of string values to a declaration.
     /// If a platform is specified, then the values are appended to the `platformSpecificSettings`,
     /// otherwise they are appended to the platform-neutral settings.
     ///
     /// Note that this restricts the settings that can be set by this function to those that can have platform-specific
-    /// values,
-    /// i.e. those in `PIF.Declaration`. If a platform is specified, it must be one of the known platforms in
-    /// `PIF.Platform`.
+    /// values, i.e. those in `ProjectModel.BuildSettings.Declaration`. If a platform is specified,
+    /// it must be one of the known platforms in `ProjectModel.BuildSettings.Platform`.
     mutating func append(values: [String], to setting: Declaration, platform: Platform? = nil) {
-        // This dichotomy is quite unfortunate but that's currently the underlying model in `PIF.BuildSettings`.
+        // This dichotomy is quite unfortunate but that's currently the underlying model in `ProjectModel.BuildSettings`.
         if let platform {
-            // FIXME: The force unwraps here are pretty bad,
-            // but are the same as in the existing code before it was factored into this function.
-            // We should get rid of the force unwraps. And fix the PIF generation model.
-            // NOTE: Appending implies the setting is resilient to having ["$(inherited)"]
             switch setting {
-            case .FRAMEWORK_SEARCH_PATHS:
+            case .FRAMEWORK_SEARCH_PATHS,
+                 .GCC_PREPROCESSOR_DEFINITIONS,
+                 .HEADER_SEARCH_PATHS,
+                 .OTHER_CFLAGS,
+                 .OTHER_CPLUSPLUSFLAGS,
+                 .OTHER_LDFLAGS,
+                 .OTHER_SWIFT_FLAGS,
+                 .SWIFT_ACTIVE_COMPILATION_CONDITIONS:
+                // Appending implies the setting is resilient to having ["$(inherited)"]
                 self.platformSpecificSettings[platform]![setting]!.append(contentsOf: values)
-            case .GCC_PREPROCESSOR_DEFINITIONS:
-                self.platformSpecificSettings[platform]![setting]!.append(contentsOf: values)
-            case .HEADER_SEARCH_PATHS:
-                self.platformSpecificSettings[platform]![setting]!.append(contentsOf: values)
-            case .OTHER_CFLAGS:
-                self.platformSpecificSettings[platform]![setting]!.append(contentsOf: values)
-            case .OTHER_CPLUSPLUSFLAGS:
-                self.platformSpecificSettings[platform]![setting]!.append(contentsOf: values)
-            case .OTHER_LDFLAGS:
-                self.platformSpecificSettings[platform]![setting]!.append(contentsOf: values)
-            case .OTHER_SWIFT_FLAGS:
-                self.platformSpecificSettings[platform]![setting]!.append(contentsOf: values)
+            
             case .SWIFT_VERSION:
-                self.platformSpecificSettings[platform]![setting] = values // we are not resilient to $(inherited)
-            case .SWIFT_ACTIVE_COMPILATION_CONDITIONS:
-                self.platformSpecificSettings[platform]![setting]!.append(contentsOf: values)
-            default:
-                fatalError("Unsupported PIF.Declaration: \(setting)")
+                self.platformSpecificSettings[platform]![setting] = values // We are not resilient to $(inherited).
+            
+            case .ARCHS, .IPHONEOS_DEPLOYMENT_TARGET, .SPECIALIZATION_SDK_OPTIONS:
+                fatalError("Unexpected BuildSettings.Declaration: \(setting)")
             }
         } else {
-            // FIXME: This is pretty ugly.
-            // The whole point of this helper function is to hide this ugliness from the rest of the logic.
-            // We need to fix the PIF generation model.
             switch setting {
-            case .FRAMEWORK_SEARCH_PATHS:
-                self.FRAMEWORK_SEARCH_PATHS = (self.FRAMEWORK_SEARCH_PATHS ?? ["$(inherited)"]) + values
-            case .GCC_PREPROCESSOR_DEFINITIONS:
-                self.GCC_PREPROCESSOR_DEFINITIONS = (self.GCC_PREPROCESSOR_DEFINITIONS ?? ["$(inherited)"]) + values
-            case .HEADER_SEARCH_PATHS:
-                self.HEADER_SEARCH_PATHS = (self.HEADER_SEARCH_PATHS ?? ["$(inherited)"]) + values
-            case .OTHER_CFLAGS:
-                self.OTHER_CFLAGS = (self.OTHER_CFLAGS ?? ["$(inherited)"]) + values
-            case .OTHER_CPLUSPLUSFLAGS:
-                self.OTHER_CPLUSPLUSFLAGS = (self.OTHER_CPLUSPLUSFLAGS ?? ["$(inherited)"]) + values
-            case .OTHER_LDFLAGS:
-                self.OTHER_LDFLAGS = (self.OTHER_LDFLAGS ?? ["$(inherited)"]) + values
-            case .OTHER_SWIFT_FLAGS:
-                self.OTHER_SWIFT_FLAGS = (self.OTHER_SWIFT_FLAGS ?? ["$(inherited)"]) + values
+            case .FRAMEWORK_SEARCH_PATHS,
+                 .GCC_PREPROCESSOR_DEFINITIONS,
+                 .HEADER_SEARCH_PATHS,
+                 .OTHER_CFLAGS,
+                 .OTHER_CPLUSPLUSFLAGS,
+                 .OTHER_LDFLAGS,
+                 .OTHER_SWIFT_FLAGS,
+                 .SWIFT_ACTIVE_COMPILATION_CONDITIONS:
+                let multipleSetting = MultipleValueSetting(from: setting)!
+                self[multipleSetting, default: ["$(inherited)"]].append(contentsOf: values)
+
             case .SWIFT_VERSION:
-                self.SWIFT_VERSION = values.only.unwrap(orAssert: "Invalid values for 'SWIFT_VERSION': \(values)")
-            case .SWIFT_ACTIVE_COMPILATION_CONDITIONS:
-                self
-                    .SWIFT_ACTIVE_COMPILATION_CONDITIONS = (
-                        self
-                            .SWIFT_ACTIVE_COMPILATION_CONDITIONS ?? ["$(inherited)"]
-                    ) + values
-            default:
-                fatalError("Unsupported PIF.Declaration: \(setting)")
+                self[.SWIFT_VERSION] = values.only.unwrap(orAssert: "Invalid values for 'SWIFT_VERSION': \(values)")
+                
+            case .ARCHS, .IPHONEOS_DEPLOYMENT_TARGET, .SPECIALIZATION_SDK_OPTIONS:
+                fatalError("Unexpected BuildSettings.Declaration: \(setting)")
             }
         }
     }
 }
 
-extension SwiftBuild.ProjectModel.BuildSettings.Platform {
+extension ProjectModel.BuildSettings.MultipleValueSetting {
+    init?(from declaration: ProjectModel.BuildSettings.Declaration) {
+        switch declaration {
+        case .GCC_PREPROCESSOR_DEFINITIONS:
+            self = .GCC_PREPROCESSOR_DEFINITIONS
+        case .FRAMEWORK_SEARCH_PATHS:
+            self = .FRAMEWORK_SEARCH_PATHS
+        case .HEADER_SEARCH_PATHS:
+            self = .HEADER_SEARCH_PATHS
+        case .OTHER_CFLAGS:
+            self = .OTHER_CFLAGS
+        case .OTHER_CPLUSPLUSFLAGS:
+            self = .OTHER_CPLUSPLUSFLAGS
+        case .OTHER_LDFLAGS:
+            self = .OTHER_LDFLAGS
+        case .OTHER_SWIFT_FLAGS:
+            self = .OTHER_SWIFT_FLAGS
+        case .SPECIALIZATION_SDK_OPTIONS:
+            self = .SPECIALIZATION_SDK_OPTIONS
+        case .SWIFT_ACTIVE_COMPILATION_CONDITIONS:
+            self = .SWIFT_ACTIVE_COMPILATION_CONDITIONS
+        case .ARCHS, .IPHONEOS_DEPLOYMENT_TARGET, .SWIFT_VERSION:
+            return nil
+        }
+    }
+}
+
+extension ProjectModel.BuildSettings.Platform {
     init(from platform: PackageModel.Platform) {
         self = switch platform {
         case .macOS: .macOS
@@ -934,34 +941,34 @@ extension SwiftBuild.ProjectModel.BuildSettings {
         installPath: String,
         delegate: PIFPackageBuilder.BuildDelegate
     ) {
-        self.TARGET_NAME = targetName
-        self.PRODUCT_NAME = createDylibForDynamicProducts ? productName : executableName
-        self.PRODUCT_MODULE_NAME = productName
-        self.PRODUCT_BUNDLE_IDENTIFIER = "\(packageIdentity).\(productName)".spm_mangledToBundleIdentifier()
-        self.EXECUTABLE_NAME = executableName
-        self.CLANG_ENABLE_MODULES = "YES"
-        self.SWIFT_PACKAGE_NAME = packageName ?? nil
+        self[.TARGET_NAME] = targetName
+        self[.PRODUCT_NAME] = createDylibForDynamicProducts ? productName : executableName
+        self[.PRODUCT_MODULE_NAME] = productName
+        self[.PRODUCT_BUNDLE_IDENTIFIER] = "\(packageIdentity).\(productName)".spm_mangledToBundleIdentifier()
+        self[.EXECUTABLE_NAME] = executableName
+        self[.CLANG_ENABLE_MODULES] = "YES"
+        self[.SWIFT_PACKAGE_NAME] = packageName ?? nil
 
         if !createDylibForDynamicProducts {
-            self.GENERATE_INFOPLIST_FILE = "YES"
+            self[.GENERATE_INFOPLIST_FILE] = "YES"
             // If the built framework is named same as one of the target in the package,
             // it can be picked up automatically during indexing since the build system always adds a -F flag
             // to the built products dir.
             // To avoid this problem, we build all package frameworks in a subdirectory.
-            self.TARGET_BUILD_DIR = "$(TARGET_BUILD_DIR)/PackageFrameworks"
+            self[.TARGET_BUILD_DIR] = "$(TARGET_BUILD_DIR)/PackageFrameworks"
 
             // Set the project and marketing version for the framework because the app store requires these to be
             // present.
             // The AppStore requires bumping the project version when ingesting new builds but that's for top-level apps
             // and not frameworks embedded inside it.
-            self.MARKETING_VERSION = "1.0" // Version
-            self.CURRENT_PROJECT_VERSION = "1" // Build
+            self[.MARKETING_VERSION] = "1.0" // Version
+            self[.CURRENT_PROJECT_VERSION] = "1" // Build
         }
 
         // Might set install path depending on build delegate.
         if delegate.shouldSetInstallPathForDynamicLib(productName: productName) {
-            self.SKIP_INSTALL = "NO"
-            self.INSTALL_PATH = installPath
+            self[.SKIP_INSTALL] = "NO"
+            self[.INSTALL_PATH] = installPath
         }
     }
 }

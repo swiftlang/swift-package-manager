@@ -33,8 +33,9 @@ import struct PackageGraph.ResolvedPackage
 import enum SwiftBuild.ProjectModel
 
 typealias GUID = SwiftBuild.ProjectModel.GUID
-typealias BuildConfig = SwiftBuild.ProjectModel.BuildConfig
 typealias BuildFile = SwiftBuild.ProjectModel.BuildFile
+typealias BuildConfig = SwiftBuild.ProjectModel.BuildConfig
+typealias BuildSettings = SwiftBuild.ProjectModel.BuildSettings
 
 /// A builder for generating the PIF object from a package.
 public final class PIFPackageBuilder {

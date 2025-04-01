@@ -41,7 +41,7 @@ struct PackagePIFProjectBuilder {
     let packageManifest: PackageModel.Manifest
     let modulesGraph: PackageGraph.ModulesGraph
 
-    var pif: ProjectModel.Project
+    var pif: ProjectModel.Project // TODO: Let's rename to `project` instead?
     let binaryGroup: ProjectModel.Group
     let additionalFilesGroup: ProjectModel.Group
 
@@ -142,7 +142,7 @@ struct PackagePIFProjectBuilder {
 
     mutating func addResourceBundle(
         for module: PackageGraph.ResolvedModule,
-        pifTargetKP: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
+        pifTargetKeyPath pifTargetKP: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
         generatedResourceFiles: [String]
     ) throws -> (PIFPackageBuilder.EmbedResourcesResult, PIFPackageBuilder.ModuleOrProduct?) {
         if module.resources.isEmpty && generatedResourceFiles.isEmpty {
@@ -328,15 +328,10 @@ struct PackagePIFProjectBuilder {
         )
     }
 
-    func resourceBundleTarget(forModuleName name: String) -> ProjectModel.Target? {
+    func resourceBundleTargetKeyPath(forModuleName name: String) -> WritableKeyPath<ProjectModel.Project, ProjectModel.Target>? {
         let resourceBundleGUID = self.pifTargetIdForResourceBundle(name)
-        let target = self.pif.targets.only { $0.id == resourceBundleGUID }
-        guard let target else { return nil }
-
-        return switch target {
-        case .target(let target): target
-        case .aggregate: nil
-        }
+        let targetKP = self.pif.findTarget(id: resourceBundleGUID)
+        return targetKP
     }
 
     func pifTargetIdForResourceBundle(_ name: String) -> GUID {
