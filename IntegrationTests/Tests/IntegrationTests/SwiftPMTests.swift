@@ -14,6 +14,12 @@ import Testing
 import TSCBasic
 import TSCTestSupport
 
+// TODO: This should be replaced with BuildSystem.BuildSystemProvider if 'IntegrationTests' are moved up under the swift-package-manager tests.
+public enum BuildSystemProvider: String, Codable, CaseIterable {
+    case native
+    case swiftbuild
+}
+
 @Suite
 private struct SwiftPMTests {
     @Test(.requireHostOS(.macOS))
@@ -69,46 +75,64 @@ private struct SwiftPMTests {
     }
 
     @Test(
-        .requireThreadSafeWorkingDirectory
+        .requireThreadSafeWorkingDirectory,
+        .bug(
+            "https://github.com/swiftlang/swift-package-manager/issues/8416",
+            "swift run using --build-system swiftbuild fails to run executable"
+        ),
+        arguments: BuildSystemProvider.allCases
     )
-    func packageInitExecutable() throws {
+    func packageInitExecutable(_ buildSystemProvider: BuildSystemProvider) throws {
         // Executable
         do {
             try withTemporaryDirectory { tmpDir in
                 let packagePath = tmpDir.appending(component: "foo")
                 try localFileSystem.createDirectory(packagePath)
                 try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "executable")
-                try sh(swiftBuild, "--package-path", packagePath, "--build-system", "swiftbuild")
-                // SWBINTTODO: Path issues related to swift test of the output from a swiftbuild buildsystem
-                // let (stdout, stderr) = try sh(
-                //     swiftRun, "--package-path", packagePath, "--build-system", "swiftbuild"
-                // )
-                // #expect(!stderr.contains("error:"))
-                // #expect(stdout.contains("Hello, world!"))
+                try sh(swiftBuild, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue)
+
+                try withKnownIssue("Error while loading shared libraries: libswiftCore.so: cannot open shared object file: No such file or directory") {
+                    // The 'native' build system uses 'swiftc' as the linker driver, which adds an RUNPATH to the swift runtime libraries in the SDK.
+                    // 'swiftbuild' directly calls clang, which does not add the extra RUNPATH, so runtime libraries cannot be found.
+                    let (stdout, stderr) = try sh(
+                        swiftRun, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue
+                    )
+                    #expect(!stderr.contains("error:"))
+                    #expect(stdout.contains("Hello, world!"))
+                } when: {
+                    buildSystemProvider == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux
+                }
             }
         }
     }
 
     @Test(
-        .skipHostOS(
-            .windows,
-            "Windows fails to link this library package due to a 'lld-link: error: subsystem must be defined' error. See https://github.com/swiftlang/swift-build/issues/310"
-        ),
-        .requireThreadSafeWorkingDirectory
+        .requireThreadSafeWorkingDirectory,
+        .bug(id: 0, "SWBINTTODO: Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error:"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8380", "lld-link: error: subsystem must be defined"),
+        .bug(id:0, "SWBINTTODO: MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found"),
+        arguments: BuildSystemProvider.allCases
     )
-    func packageInitLibrary() throws {
+    func packageInitLibrary(_ buildSystemProvider: BuildSystemProvider) throws {
         do {
             try withTemporaryDirectory { tmpDir in
                 let packagePath = tmpDir.appending(component: "foo")
                 try localFileSystem.createDirectory(packagePath)
                 try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "library")
-                try sh(swiftBuild, "--package-path", packagePath, "--build-system", "swiftbuild")
-                // SWBINTTODO: Path issues related to swift test of the output from a swiftbuild buildsystem
-                // let (stdout, stderr) = try sh(
-                //     swiftTest, "--package-path", packagePath, "--build-system", "swiftbuild"
-                // )
-                // #expect(!stderr.contains("error:"))
-                // #expect(stdout.contains("Test Suite 'All tests' passed"))
+                try withKnownIssue("""
+                       Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error: undefined reference to 'main'
+                       Windows: lld-link: error: subsystem must be defined
+                       MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found
+                    """) {
+                    try sh(swiftBuild, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue, "--vv")
+                    let (stdout, stderr) = try sh(
+                        swiftTest, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue, "--vv"
+                    )
+                    #expect(!stderr.contains("error:"))
+                    #expect(stdout.contains("Test Suite 'All tests' passed"))
+                } when: {
+                    buildSystemProvider == .swiftbuild
+                }
             }
         }
     }

@@ -37,6 +37,8 @@ public let toolchainPath: AbsolutePath = {
     let swiftcPath = try! AbsolutePath(
         validating: sh("xcrun", "--find", "swift").stdout.spm_chomp()
     )
+    #elseif os(Windows)
+    let swiftcPath = try! AbsolutePath(validating: sh("where.exe", "swift.exe").stdout.spm_chomp())
     #else
     let swiftcPath = try! AbsolutePath(validating: sh("which", "swift").stdout.spm_chomp())
     #endif
