@@ -10,18 +10,21 @@
 //
 //===----------------------------------------------------------------------===//
 
+/// Errors the system can encounter discovering a plugin's context.
 public enum PluginContextError: Error {
-    /// Could not find a tool with the given name. This could be either because
-    /// it doesn't exist, or because the plugin doesn't have a dependency on it.
+    /// The system couldn't find a tool with the given name.
+    ///
+    /// This error can occur because the tool doesn't exist,
+    /// or because the plugin doesn't have a dependency on it.
     case toolNotFound(name: String)
 
-    /// Tool is not supported on the target platform
+    /// The tool isn't supported on the target platform.
     case toolNotSupportedOnTargetPlatform(name: String)
 
-    /// Could not find a target with the given name.
+    /// The system couldn't find a target with the specified name in the package.
     case targetNotFound(name: String, package: Package)
 
-    /// Could not find a product with the given name.
+    /// The system couldn't find a product with the specified name in the package.
     case productNotFound(name: String, package: Package)
 }
 
@@ -40,16 +43,27 @@ extension PluginContextError: CustomStringConvertible {
     }
 }
 
+/// Errors the system can encounter deserializing a plugin.
 public enum PluginDeserializationError: Error {
-    /// The input JSON is malformed in some way; the message provides more details.
+    /// The input JSON is malformed.
+    ///
+    /// The associated message provides more details about the problem.
     case malformedInputJSON(_ message: String)
-    /// The plugin doesn't support Xcode (it doesn't link against XcodeProjectPlugin).
+    /// The plugin doesn't support Xcode.
+    ///
+    /// To support Xcode, a plugin needs to link against `XcodeProjectPlugin`.
     case missingXcodeProjectPluginSupport
-    /// The plugin doesn't conform to an expected specialization of the BuildToolPlugin protocol.
+    /// The package uses a build-tool plugin that doesn't conform to the correct protocol.
+    ///
+    /// To act as a build-tool plugin, the plugin needs to conform to ``BuildToolPlugin``.
     case missingBuildToolPluginProtocolConformance(protocolName: String)
-    /// The plugin doesn't conform to an expected specialization of the CommandPlugin protocol.
+    /// The package uses a command plugin that doesn't conform to the correct protocol.
+    ///
+    /// To act as a command plugin, the plugin needs to conform to ``CommandPlugin``.
     case missingCommandPluginProtocolConformance(protocolName: String)
-    /// An internal error of some kind; the message provides more details.
+    /// An internal error occurred.
+    ///
+    /// The associated message provides more details about the problem.
     case internalError(_ message: String)
 }
 
