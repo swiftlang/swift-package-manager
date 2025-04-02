@@ -30,6 +30,8 @@ import struct PackageGraph.ModulesGraph
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedPackage
 
+#if canImport(SwiftBuild)
+
 import enum SwiftBuild.ProjectModel
 
 typealias GUID = SwiftBuild.ProjectModel.GUID
@@ -683,3 +685,5 @@ public struct SourceLocation: Sendable {
         self.line = line
     }
 }
+
+#endif

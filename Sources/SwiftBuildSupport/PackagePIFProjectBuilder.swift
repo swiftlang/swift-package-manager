@@ -30,6 +30,8 @@ import struct PackageGraph.ResolvedPackage
 import struct PackageLoading.FileRuleDescription
 import struct PackageLoading.TargetSourcesBuilder
 
+#if canImport(SwiftBuild)
+
 import enum SwiftBuild.ProjectModel
 import struct SwiftBuild.SwiftBuildFileType
 import struct SwiftBuild.Pair
@@ -534,3 +536,5 @@ struct PackagePIFProjectBuilder {
         !self.dynamicLibraryProductNames.contains(targetName)
     }
 }
+
+#endif
