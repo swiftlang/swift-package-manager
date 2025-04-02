@@ -486,6 +486,23 @@ public struct SwiftSetting: Sendable {
         return SwiftSetting(
             name: "defaultIsolation", value: [isolationString], condition: condition)
     }
+
+    /// Defines an `-executor-factory` to pass to the
+    /// corresponding build tool.
+    ///
+    /// - Since: First available in PackageDescription 6.2
+    ///
+    /// - Parameters:
+    ///   - factory: The type name of the executor factory that should be used.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func executorFactory(
+      _ factory: String,
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+          name: "swiftExecutorFactory", value: [name], condition: condition)
+    }
 }
 
 /// A linker build setting.

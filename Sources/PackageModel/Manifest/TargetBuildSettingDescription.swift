@@ -49,6 +49,8 @@ public enum TargetBuildSettingDescription {
 
         case defaultIsolation(DefaultIsolation)
 
+        case executorFactory(String)
+
         public var isUnsafeFlags: Bool {
             switch self {
             case .unsafeFlags(let flags):
@@ -56,7 +58,7 @@ public enum TargetBuildSettingDescription {
                 return !flags.isEmpty
             case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode,
                  .enableUpcomingFeature, .enableExperimentalFeature, .strictMemorySafety, .swiftLanguageMode,
-                 .defaultIsolation:
+                 .defaultIsolation, executorFactory:
                 return false
             }
         }
