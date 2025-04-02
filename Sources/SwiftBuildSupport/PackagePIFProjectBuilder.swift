@@ -278,7 +278,7 @@ struct PackagePIFProjectBuilder {
             // CoreData files should also be in the actual target because they
             // can end up generating code during the build.
             // The build system will only perform codegen tasks for the main target in this case.
-            let isCoreDataFile = [SWBProjectModel.SwiftBuildFileType.xcdatamodeld, .xcdatamodel]
+            let isCoreDataFile = [SwiftBuild.SwiftBuildFileType.xcdatamodeld, .xcdatamodel]
                 .contains { $0.fileTypes.contains(resourcePath.pathExtension) }
 
             if isCoreDataFile {
@@ -289,7 +289,7 @@ struct PackagePIFProjectBuilder {
             }
 
             // Core ML files need to be included in the source module as well, because there is code generation.
-            let coreMLFileTypes: [SWBProjectModel.SwiftBuildFileType] = [.mlmodel, .mlpackage]
+            let coreMLFileTypes: [SwiftBuild.SwiftBuildFileType] = [.mlmodel, .mlpackage]
             let isCoreMLFile = coreMLFileTypes.contains { $0.fileTypes.contains(resourcePath.pathExtension) }
 
             if isCoreMLFile {
@@ -300,7 +300,7 @@ struct PackagePIFProjectBuilder {
             }
             
             // Metal source code needs to be added to the source build phase.
-            let isMetalFile = SWBProjectModel.SwiftBuildFileType.metal.fileTypes.contains(resourcePath.pathExtension)
+            let isMetalFile = SwiftBuild.SwiftBuildFileType.metal.fileTypes.contains(resourcePath.pathExtension)
 
             if isMetalFile {
                 self.project[keyPath: pifTargetForResourcesKP].addSourceFile { id in
