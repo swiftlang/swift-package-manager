@@ -934,10 +934,6 @@ def get_swiftpm_flags(args):
         build_flags.extend(["-Xcc", "-I/usr/local/include"])
         build_flags.extend(["-Xlinker", "-L/usr/local/lib"])
 
-    # Don't use GNU strerror_r on Android.
-    if '-android' in args.build_target:
-        build_flags.extend(["-Xswiftc", "-Xcc", "-Xswiftc", "-U_GNU_SOURCE"])
-
     cross_compile_hosts = args.cross_compile_hosts
     if cross_compile_hosts:
         if '-apple-macosx' in args.build_target and cross_compile_hosts.startswith('macosx-'):
