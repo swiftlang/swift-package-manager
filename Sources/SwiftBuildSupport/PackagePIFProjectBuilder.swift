@@ -182,7 +182,7 @@ struct PackagePIFProjectBuilder {
             platformFilters: [],
             linkProduct: false
         )
-        self.log(.debug, ".. added dependency on resource target '\(resourcesTarget.id)'")
+        self.log(.debug, indent: 1, "Added dependency on resource target '\(resourcesTarget.id)'")
 
         for pluginModule in module.pluginsAppliedToModule {
             self.project[keyPath: resourcesTargetKP].common.addDependency(
@@ -194,7 +194,9 @@ struct PackagePIFProjectBuilder {
 
         self.log(
             .debug,
-            ".. created \(type(of: resourcesTarget)) '\(resourcesTarget.id)' of type '\(resourcesTarget.productType)' with name '\(resourcesTarget.name)' and product name '\(resourcesTarget.productName)'"
+            indent: 1,
+            "Created \(type(of: resourcesTarget)) '\(resourcesTarget.id)' of type '\(resourcesTarget.productType)' " +
+            "with name '\(resourcesTarget.name)' and product name '\(resourcesTarget.productName)'"
         )
 
         var settings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
@@ -283,7 +285,7 @@ struct PackagePIFProjectBuilder {
                 self.project[keyPath: sourceModuleTargetKeyPath].addSourceFile { id in
                     BuildFile(id: id, fileRef: ref)
                 }
-                self.log(.debug, ".. .. added core data resource as source file '\(resourcePath)'")
+                self.log(.debug, indent: 2, "Added core data resource as source file '\(resourcePath)'")
             }
 
             // Core ML files need to be included in the source module as well, because there is code generation.
@@ -294,7 +296,7 @@ struct PackagePIFProjectBuilder {
                 self.project[keyPath: sourceModuleTargetKeyPath].addSourceFile { id in
                     BuildFile(id: id, fileRef: ref, generatedCodeVisibility: .public)
                 }
-                self.log(.debug, ".. .. added coreml resource as source file '\(resourcePath)'")
+                self.log(.debug, indent: 2, "Added coreml resource as source file '\(resourcePath)'")
             }
             
             // Metal source code needs to be added to the source build phase.
@@ -322,10 +324,10 @@ struct PackagePIFProjectBuilder {
                 self.project[keyPath: sourceModuleTargetKeyPath].addSourceFile { id in
                     BuildFile(id: id, fileRef: ref)
                 }
-                self.log(.debug, ".. .. added asset catalog as source file '\(resourcePath)'")
+                self.log(.debug, indent: 2, "Added asset catalog as source file '\(resourcePath)'")
             }
 
-            self.log(.debug, ".. .. added resource file '\(resourcePath)'")
+            self.log(.debug, indent: 2, "Added resource file '\(resourcePath)'")
         }
         
         let resourceBundlePifTargetName: String? = if let resourceBundleTargetKeyPath {

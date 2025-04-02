@@ -371,7 +371,7 @@ public final class PackagePIFBuilder {
     /// Build the PIF.
     @discardableResult
     public func build() throws -> [ModuleOrProduct] {
-        self.log(.info, "building PIF for package \(self.package.identity)")
+        self.log(.info, "Building PIF for package \(self.package.identity)")
 
         var builder = PackagePIFProjectBuilder(createForPackage: package, builder: self)
         self.addProjectBuildSettings(&builder)
