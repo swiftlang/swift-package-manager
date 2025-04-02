@@ -19,7 +19,7 @@ import struct Basics.SourceControlURL
 
 import enum SwiftBuild.ProjectModel
 
-extension PIFPackageBuilder {
+extension PackagePIFBuilder {
     /// Contains all of the information resulting from applying a build tool plugin to a package target thats affect how
     /// a target is built.
     ///

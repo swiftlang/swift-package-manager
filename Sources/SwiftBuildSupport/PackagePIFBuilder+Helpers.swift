@@ -76,7 +76,7 @@ extension TargetGUIDSuffix? {
 
 extension PackageModel.Module {
     func pifTargetGUID(suffix: TargetGUIDSuffix? = nil) -> GUID {
-        PIFPackageBuilder.targetGUID(forModuleName: self.name, suffix: suffix)
+        PackagePIFBuilder.targetGUID(forModuleName: self.name, suffix: suffix)
     }
 }
 
@@ -88,7 +88,7 @@ extension PackageGraph.ResolvedModule {
 
 extension PackageModel.Product {
     func pifTargetGUID(suffix: TargetGUIDSuffix? = nil) -> GUID {
-        PIFPackageBuilder.targetGUID(forProductName: self.name, suffix: suffix)
+        PackagePIFBuilder.targetGUID(forProductName: self.name, suffix: suffix)
     }
 }
 
@@ -105,7 +105,7 @@ extension PackageGraph.ResolvedProduct {
     }
 }
 
-extension PIFPackageBuilder {
+extension PackagePIFBuilder {
     /// Helper function to consistently generate a PIF target identifier string for a module in a package.
     ///
     /// This format helps make sure that there is no collision with any other PIF targets,
@@ -140,13 +140,13 @@ extension PackageModel.Package {
     }
 
     var packageBaseBuildSettings: ProjectModel.BuildSettings {
-        var settings = SwiftBuild.ProjectModel.BuildSettings()
-        settings.SDKROOT = "auto"
-        settings.SDK_VARIANT = "auto"
+        var settings = BuildSettings()
+        settings[.SDKROOT] = "auto"
+        settings[.SDK_VARIANT] = "auto"
 
         if self.manifest.toolsVersion >= ToolsVersion.v6_0 {
             if let version = manifest.version, !version.isPrerelease && !version.hasBuildMetadata {
-                settings.SWIFT_USER_MODULE_VERSION = version.stringRepresentation
+                settings[.SWIFT_USER_MODULE_VERSION] = version.stringRepresentation
             }
         }
         return settings
@@ -203,14 +203,14 @@ extension PackageModel.Platform {
 }
 
 extension Sequence<PackageModel.PackageCondition> {
-    func toPlatformFilter(toolsVersion: ToolsVersion) -> Set<SwiftBuild.ProjectModel.PlatformFilter> {
-        let pifPlatforms = self.flatMap { packageCondition -> [SwiftBuild.ProjectModel.BuildSettings.Platform] in
+    func toPlatformFilter(toolsVersion: ToolsVersion) -> Set<ProjectModel.PlatformFilter> {
+        let pifPlatforms = self.flatMap { packageCondition -> [ProjectModel.BuildSettings.Platform] in
             guard let platforms = packageCondition.platformsCondition?.platforms else {
                 return []
             }
 
-            var pifPlatformsForCondition: [SwiftBuild.ProjectModel.BuildSettings.Platform] = platforms
-                .map { SwiftBuild.ProjectModel.BuildSettings.Platform(from: $0) }
+            var pifPlatformsForCondition: [ProjectModel.BuildSettings.Platform] = platforms
+                .map { ProjectModel.BuildSettings.Platform(from: $0) }
 
             // Treat catalyst like macOS for backwards compatibility with older tools versions.
             if pifPlatformsForCondition.contains(.macOS), toolsVersion < ToolsVersion.v5_5 {
@@ -218,7 +218,7 @@ extension Sequence<PackageModel.PackageCondition> {
             }
             return pifPlatformsForCondition
         }
-        return pifPlatforms.toPlatformFilter()
+        return Set(pifPlatforms.flatMap { $0.toPlatformFilter() })
     }
 
     var splitIntoConcreteConditions: (
@@ -290,7 +290,7 @@ extension PackageGraph.ResolvedPackage {
     }
 
     /// The options declared per platform.
-    func sdkOptions(delegate: PIFPackageBuilder.BuildDelegate) -> [PackageModel.Platform: [String]] {
+    func sdkOptions(delegate: PackagePIFBuilder.BuildDelegate) -> [PackageModel.Platform: [String]] {
         let platformDescriptionsByName: [String: PlatformDescription] = Dictionary(
             uniqueKeysWithValues: self.manifest.platforms.map { platformDescription in
                 let key = platformDescription.platformName.lowercased()
@@ -313,7 +313,7 @@ extension PackageGraph.ResolvedPackage {
 }
 
 extension PackageGraph.ResolvedPackage {
-    public var packageBaseBuildSettings: SwiftBuild.ProjectModel.BuildSettings {
+    public var packageBaseBuildSettings: ProjectModel.BuildSettings {
         self.underlying.packageBaseBuildSettings
     }
 }
@@ -337,7 +337,7 @@ extension PackageGraph.ResolvedModule {
     }
 
     /// Minimum deployment targets for particular platforms, as declared in the manifest.
-    func deploymentTargets(using delegate: PIFPackageBuilder.BuildDelegate) -> [PackageModel.Platform: String] {
+    func deploymentTargets(using delegate: PackagePIFBuilder.BuildDelegate) -> [PackageModel.Platform: String] {
         let isUsingXCTest = (self.type == .test)
         let derivedSupportedPlatforms: [SupportedPlatform] = Platform.knownPlatforms.map {
             self.getSupportedPlatform(for: $0, usingXCTest: isUsingXCTest)
@@ -488,8 +488,7 @@ extension PackageGraph.ResolvedModule {
     func productRepresentingDependencyOfBuildPlugin(in mainModuleProducts: [ResolvedProduct]) -> ResolvedProduct? {
         mainModuleProducts.only { (mainModuleProduct: ResolvedProduct) -> Bool in
             // NOTE: We can't use the 'id' here as we need to explicitly ignore the build triple because our build
-            // triple
-            // will be '.tools' while the target we want to depend on will have a build triple of '.destination'.
+            // triple will be '.tools' while the target we want to depend on will have a build triple of '.destination'.
             // See for more details:
             // https://github.com/swiftlang/swift-package-manager/commit/b22168ec41061ddfa3438f314a08ac7a776bef7a.
             return mainModuleProduct.mainModule!.packageIdentity == self.packageIdentity &&
@@ -499,7 +498,7 @@ extension PackageGraph.ResolvedModule {
     }
 
     struct AllBuildSettings {
-        typealias BuildSettingsByPlatform = [PackageModel.Platform?: [BuildSettings.Declaration: [String]]]
+        typealias BuildSettingsByPlatform = [ProjectModel.BuildSettings.Platform?: [BuildSettings.Declaration: [String]]]
 
         /// Target-specific build settings declared in the manifest and that apply to the target itself.
         var targetSettings: [BuildConfiguration: BuildSettingsByPlatform] = [:]
@@ -518,22 +517,22 @@ extension PackageGraph.ResolvedModule {
 
         for (declaration, settingsAssigments) in self.underlying.buildSettings.assignments {
             for settingAssignment in settingsAssigments {
-                // Create a build setting value; in some cases there isn't a direct mapping to Swift Build build
-                // settings.
-                let swbDeclaration: BuildSettings.Declaration
+                // Create a build setting value; in some cases there
+                // isn't a direct mapping to Swift Build build settings.
+                let pifDeclaration: BuildSettings.Declaration
                 let values: [String]
                 switch declaration {
                 case .LINK_FRAMEWORKS:
-                    swbDeclaration = .OTHER_LDFLAGS
+                    pifDeclaration = .OTHER_LDFLAGS
                     values = settingAssignment.values.flatMap { ["-framework", $0] }
                 case .LINK_LIBRARIES:
-                    swbDeclaration = .OTHER_LDFLAGS
+                    pifDeclaration = .OTHER_LDFLAGS
                     values = settingAssignment.values.map { "-l\($0)" }
                 case .HEADER_SEARCH_PATHS:
-                    swbDeclaration = .HEADER_SEARCH_PATHS
+                    pifDeclaration = .HEADER_SEARCH_PATHS
                     values = settingAssignment.values.map { self.sourceDirAbsolutePath.pathString + "/" + $0 }
                 default:
-                    swbDeclaration = declaration
+                    pifDeclaration = ProjectModel.BuildSettings.Declaration(from: declaration)
                     values = settingAssignment.values
                 }
 
@@ -541,24 +540,28 @@ extension PackageGraph.ResolvedModule {
                 let (platforms, configurations, _) = settingAssignment.conditions.splitIntoConcreteConditions
 
                 for platform in platforms {
-                    if swbDeclaration == .OTHER_LDFLAGS {
-                        var settingsByDeclaration: [BuildSettings.Declaration: [String]] = allSettings
-                            .impartedSettings[platform] ?? [:]
-                        settingsByDeclaration[swbDeclaration, default: []].append(contentsOf: values)
+                    let pifPlatform = platform.map { ProjectModel.BuildSettings.Platform(from: $0) }
+                    
+                    if pifDeclaration == .OTHER_LDFLAGS {
+                        var settingsByDeclaration: [ProjectModel.BuildSettings.Declaration: [String]]
 
-                        allSettings.impartedSettings[platform] = settingsByDeclaration
+                        settingsByDeclaration = allSettings.impartedSettings[pifPlatform] ?? [:]
+                        settingsByDeclaration[pifDeclaration, default: []].append(contentsOf: values)
+
+                        allSettings.impartedSettings[pifPlatform] = settingsByDeclaration
                     }
 
                     for configuration in configurations {
-                        var settingsByDeclaration: [BuildSettings.Declaration: [String]] = allSettings
-                            .targetSettings[configuration]?[platform] ?? [:]
-                        if swbDeclaration.allowsMultipleValues {
-                            settingsByDeclaration[swbDeclaration, default: []].append(contentsOf: values)
+                        var settingsByDeclaration: [ProjectModel.BuildSettings.Declaration: [String]]
+                        settingsByDeclaration = allSettings.targetSettings[configuration]?[pifPlatform] ?? [:]
+                        
+                        if declaration.allowsMultipleValues {
+                            settingsByDeclaration[pifDeclaration, default: []].append(contentsOf: values)
                         } else {
-                            settingsByDeclaration[swbDeclaration] = values.only.flatMap { [$0] } ?? []
+                            settingsByDeclaration[pifDeclaration] = values.only.flatMap { [$0] } ?? []
                         }
 
-                        allSettings.targetSettings[configuration, default: [:]][platform] = settingsByDeclaration
+                        allSettings.targetSettings[configuration, default: [:]][pifPlatform] = settingsByDeclaration
                     }
                 }
             }
@@ -799,34 +802,38 @@ extension ProjectModel.BuildSettings {
     }
 }
 
-/// Helpers for building custom PIF targets by `PIFPackageBuilder` clients.
-extension SwiftBuild.ProjectModel.Project {
+/// Helpers for building custom PIF targets by `PackagePIFBuilder` clients.
+extension ProjectModel.Project {
     @discardableResult
-    public func addTarget(
+    public mutating func addTarget(
         packageProductName: String,
-        productType: SwiftBuild.ProjectModel.Target.ProductType
-    ) throws -> SwiftBuild.ProjectModel.Target {
-        let pifTarget = try self.addTargetThrowing(
-            id: PIFPackageBuilder.targetGUID(forProductName: packageProductName),
-            productType: productType,
-            name: packageProductName,
-            productName: packageProductName
-        )
-        return pifTarget
+        productType: ProjectModel.Target.ProductType
+    ) throws -> WritableKeyPath<ProjectModel.Project, ProjectModel.Target> {
+        let targetKeyPath = try self.addTarget { _ in
+            ProjectModel.Target(
+                id: PackagePIFBuilder.targetGUID(forProductName: packageProductName),
+                productType: productType,
+                name: packageProductName,
+                productName: packageProductName
+            )
+        }
+        return targetKeyPath
     }
 
     @discardableResult
-    public func addTarget(
+    public mutating func addTarget(
         packageModuleName: String,
-        productType: SwiftBuild.ProjectModel.Target.ProductType
-    ) throws -> SwiftBuild.ProjectModel.Target {
-        let pifTarget = try self.addTargetThrowing(
-            id: PIFPackageBuilder.targetGUID(forModuleName: packageModuleName),
-            productType: productType,
-            name: packageModuleName,
-            productName: packageModuleName
-        )
-        return pifTarget
+        productType: ProjectModel.Target.ProductType
+    ) throws -> WritableKeyPath<ProjectModel.Project, ProjectModel.Target> {
+        let targetKeyPath = try self.addTarget { _ in
+            ProjectModel.Target(
+                id: PackagePIFBuilder.targetGUID(forModuleName: packageModuleName),
+                productType: productType,
+                name: packageModuleName,
+                productName: packageModuleName
+            )
+        }
+        return targetKeyPath
     }
 }
 
@@ -929,7 +936,7 @@ extension ProjectModel.BuildSettings.Platform {
     }
 }
 
-extension SwiftBuild.ProjectModel.BuildSettings {
+extension ProjectModel.BuildSettings {
     /// Configure necessary settings for a dynamic library/framework.
     mutating func configureDynamicSettings(
         productName: String,
@@ -939,7 +946,7 @@ extension SwiftBuild.ProjectModel.BuildSettings {
         packageName: String?,
         createDylibForDynamicProducts: Bool,
         installPath: String,
-        delegate: PIFPackageBuilder.BuildDelegate
+        delegate: PackagePIFBuilder.BuildDelegate
     ) {
         self[.TARGET_NAME] = targetName
         self[.PRODUCT_NAME] = createDylibForDynamicProducts ? productName : executableName
@@ -973,7 +980,7 @@ extension SwiftBuild.ProjectModel.BuildSettings {
     }
 }
 
-extension SwiftBuild.ProjectModel.BuildSettings.Declaration {
+extension ProjectModel.BuildSettings.Declaration {
     init(from declaration: PackageModel.BuildSettings.Declaration) {
         self = switch declaration {
         // Swift.

@@ -1642,8 +1642,8 @@ private struct PIFBuildSettingAssignment {
 }
 
 extension PackageModel.BuildSettings.AssignmentTable {
-    fileprivate var pifAssignments: [BuildSettings.MultipleValueSetting: [PIFBuildSettingAssignment]] {
-        var pifAssignments: [BuildSettings.MultipleValueSetting: [PIFBuildSettingAssignment]] = [:]
+    fileprivate var pifAssignments: [PIF.BuildSettings.MultipleValueSetting: [PIFBuildSettingAssignment]] {
+        var pifAssignments: [PIF.BuildSettings.MultipleValueSetting: [PIFBuildSettingAssignment]] = [:]
 
         for (declaration, assignments) in self.assignments {
             for assignment in assignments {
@@ -1866,7 +1866,7 @@ extension PIF.BuildSettings {
                 .filter { isSupportedVersion($0) }.map(\.description)
         }
 
-        func computeEffectiveTargetVersion(for assignment: BuildSettings.Assignment) throws -> String {
+        func computeEffectiveTargetVersion(for assignment: PackageModel.BuildSettings.Assignment) throws -> String {
             let versions = assignment.values.compactMap { SwiftLanguageVersion(string: $0) }
             if let effectiveVersion = computeEffectiveSwiftVersions(for: versions).last {
                 return effectiveVersion
