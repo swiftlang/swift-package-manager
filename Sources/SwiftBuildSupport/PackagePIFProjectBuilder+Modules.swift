@@ -235,7 +235,7 @@ extension PackagePIFProjectBuilder {
 
         let pifTargetName: String
         let executableName: String
-        let productType: SwiftBuild.ProjectModel.Target.ProductType
+        let productType: ProjectModel.Target.ProductType
 
         switch desiredModuleType {
         case .dynamicLibrary:
@@ -814,14 +814,14 @@ extension PackagePIFProjectBuilder {
             )
         }
 
-        let settings: SwiftBuild.ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
+        let settings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
         let pkgConfig = try systemLibrary.pkgConfig(
             package: self.package,
             observabilityScope: pifBuilder.observabilityScope
         )
 
         // Impart the header search path to all direct and indirect clients.
-        var impartedSettings = SwiftBuild.ProjectModel.BuildSettings()
+        var impartedSettings = ProjectModel.BuildSettings()
         impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(systemLibrary.modulemapFileAbsolutePath)"] +
             pkgConfig.cFlags.prepending("$(inherited)")
         impartedSettings[.OTHER_LDFLAGS] = pkgConfig.libs.prepending("$(inherited)")

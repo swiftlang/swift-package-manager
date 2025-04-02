@@ -49,7 +49,7 @@ extension PackagePIFProjectBuilder {
         }
 
         // Determine the kind of PIF target *product type* to create for the package product.
-        let pifProductType: SwiftBuild.ProjectModel.Target.ProductType
+        let pifProductType: ProjectModel.Target.ProductType
         let moduleOrProductType: PackagePIFBuilder.ModuleOrProductType
         let synthesizedResourceGeneratingPluginInvocationResults: [PackagePIFBuilder.BuildToolPluginInvocationResult] =
             []
@@ -107,7 +107,7 @@ extension PackagePIFProjectBuilder {
 
         // Configure the target-wide build settings. The details depend on the kind of product we're building,
         // but are in general the ones that are suitable for end-product artifacts such as executables and test bundles.
-        var settings: SwiftBuild.ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
+        var settings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
         settings[.TARGET_NAME] = product.name
         settings[.PACKAGE_RESOURCE_TARGET_KIND] = "regular"
         settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
@@ -444,8 +444,8 @@ extension PackagePIFProjectBuilder {
         // Until this point the build settings for the target have been the same between debug and release
         // configurations.
         // The custom manifest settings might cause them to diverge.
-        var debugSettings: SwiftBuild.ProjectModel.BuildSettings = settings
-        var releaseSettings: SwiftBuild.ProjectModel.BuildSettings = settings
+        var debugSettings: ProjectModel.BuildSettings = settings
+        var releaseSettings: ProjectModel.BuildSettings = settings
 
         // Apply target-specific build settings defined in the manifest.
         for (buildConfig, declarationsByPlatform) in mainModule.allBuildSettings.targetSettings {
@@ -493,7 +493,7 @@ extension PackagePIFProjectBuilder {
         with packageConditions: [PackageModel.PackageCondition],
         isLinkable: Bool,
         targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
-        settings: inout SwiftBuild.ProjectModel.BuildSettings
+        settings: inout ProjectModel.BuildSettings
     ) {
         // Do not add a dependency for binary-only executable products since they are not part of the build.
         if product.isBinaryOnlyExecutableProduct {
@@ -571,7 +571,7 @@ extension PackagePIFProjectBuilder {
 
         let pifTargetProductName: String
         let executableName: String
-        let productType: SwiftBuild.ProjectModel.Target.ProductType
+        let productType: ProjectModel.Target.ProductType
 
         if desiredProductType == .dynamic {
             if pifBuilder.createDylibForDynamicProducts {
@@ -665,7 +665,7 @@ extension PackagePIFProjectBuilder {
             }
         }
 
-        var settings: SwiftBuild.ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
+        var settings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
 
         // Add other build settings when we're building an actual dylib.
         if desiredProductType == .dynamic {
@@ -923,7 +923,7 @@ extension PackagePIFProjectBuilder {
             log(.debug, "Created aggregate target '\(pluginTarget.id)' with name '\(pluginTarget.name)'")
         }
 
-        let buildSettings: SwiftBuild.ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
+        let buildSettings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
         self.project[keyPath: pluginTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(id: id, name: "Debug", settings: buildSettings)
         }

@@ -47,12 +47,12 @@ public final class PackagePIFBuilder {
     let packageManifest: PackageModel.Manifest // FIXME: Can't we just use `package.manifest` instead? —— Paulo
 
     /// The built PIF project object.
-    public var pifProject: SwiftBuild.ProjectModel.Project {
+    public var pifProject: ProjectModel.Project {
         assert(self._pifProject != nil, "Call build() method to build the PIF first")
         return self._pifProject!
     }
 
-    private var _pifProject: SwiftBuild.ProjectModel.Project?
+    private var _pifProject: ProjectModel.Project?
 
     /// Scope for logging informational debug messages (intended for developers, not end users).
     let observabilityScope: ObservabilityScope
@@ -91,7 +91,7 @@ public final class PackagePIFBuilder {
 
         /// For executables — only executables for now — we check to see if there is a custom package product type
         /// provider that can provide this information.
-        func customProductType(forExecutable product: PackageModel.Product) -> SwiftBuild.ProjectModel.Target.ProductType?
+        func customProductType(forExecutable product: PackageModel.Product) -> ProjectModel.Target.ProductType?
 
         /// Returns all *device family* IDs for all SDK variants.
         func deviceFamilyIDs() -> Set<Int>
@@ -103,12 +103,12 @@ public final class PackagePIFBuilder {
         var isPluginExecutionSandboxingDisabled: Bool { get }
 
         /// Hook to customize the project-wide build settings.
-        func configureProjectBuildSettings(_ buildSettings: inout SwiftBuild.ProjectModel.BuildSettings)
+        func configureProjectBuildSettings(_ buildSettings: inout ProjectModel.BuildSettings)
 
         /// Hook to customize source module build settings.
         func configureSourceModuleBuildSettings(
             sourceModule: PackageGraph.ResolvedModule,
-            settings: inout SwiftBuild.ProjectModel.BuildSettings
+            settings: inout ProjectModel.BuildSettings
         )
 
         /// Custom install path for the specified product, if any.
@@ -124,13 +124,13 @@ public final class PackagePIFBuilder {
         func customSDKOptions(forPlatform: PackageModel.Platform) -> [String]
 
         /// Create additional custom PIF targets after all targets have been built.
-        func addCustomTargets(pifProject: SwiftBuild.ProjectModel.Project) throws -> [PackagePIFBuilder.ModuleOrProduct]
+        func addCustomTargets(pifProject: ProjectModel.Project) throws -> [PackagePIFBuilder.ModuleOrProduct]
 
         /// Should we suppresses the specific product dependency, updating the provided build settings if necessary?
         /// The specified product may be in the same package or a different one.
         func shouldSuppressProductDependency(
             product: PackageModel.Product,
-            buildSettings: inout SwiftBuild.ProjectModel.BuildSettings
+            buildSettings: inout ProjectModel.BuildSettings
         ) -> Bool
 
         /// Should we set the install path for a dynamic library/framework?
@@ -212,7 +212,7 @@ public final class PackagePIFBuilder {
 
     /// Build an empty PIF project for the specified `Package`.
 
-    public class func buildEmptyPIF(package: PackageModel.Package) -> SwiftBuild.ProjectModel.Project {
+    public class func buildEmptyPIF(package: PackageModel.Package) -> ProjectModel.Project {
         self.buildEmptyPIF(
             id: "PACKAGE:\(package.identity)",
             path: package.manifest.path.pathString,
@@ -229,7 +229,7 @@ public final class PackagePIFBuilder {
         projectDir: String,
         name: String,
         developmentRegion: String? = nil
-    ) -> SwiftBuild.ProjectModel.Project {
+    ) -> ProjectModel.Project {
         var project = ProjectModel.Project(
             id: GUID(id),
             path: path,
@@ -246,7 +246,7 @@ public final class PackagePIFBuilder {
     }
     
     public func buildPlaceholderPIF(id: String, path: String, projectDir: String, name: String) -> ModuleOrProduct {
-        var project = SwiftBuild.ProjectModel.Project(
+        var project = ProjectModel.Project(
             id: GUID(id),
             path: path,
             projectDir: projectDir,
@@ -261,7 +261,7 @@ public final class PackagePIFBuilder {
         let targetKP = try! project.addAggregateTarget { _ in
             ProjectModel.AggregateTarget(id: "PACKAGE-PLACEHOLDER:\(id)", name: id)
         }
-        let targetSettings: SwiftBuild.ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
+        let targetSettings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
 
         project[keyPath: targetKP].common.addBuildConfig { id in
             ProjectModel.BuildConfig(id: id, name: "Debug", settings: targetSettings)
@@ -350,7 +350,7 @@ public final class PackagePIFBuilder {
 
         public var description: String { rawValue }
 
-        init(from pifProductType: SwiftBuild.ProjectModel.Target.ProductType) {
+        init(from pifProductType: ProjectModel.Target.ProductType) {
             self = switch pifProductType {
             case .application: .application
             case .staticArchive: .staticArchive
@@ -525,7 +525,7 @@ public final class PackagePIFBuilder {
         self.delegate.configureProjectBuildSettings(&settings)
 
         for (platform, platformOptions) in self.package.sdkOptions(delegate: self.delegate) {
-            let pifPlatform = SwiftBuild.ProjectModel.BuildSettings.Platform(from: platform)
+            let pifPlatform = ProjectModel.BuildSettings.Platform(from: platform)
             settings.platformSpecificSettings[pifPlatform]![.SPECIALIZATION_SDK_OPTIONS]!
                 .append(contentsOf: platformOptions)
         }
