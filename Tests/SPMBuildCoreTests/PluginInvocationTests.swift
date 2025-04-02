@@ -808,6 +808,177 @@ final class PluginInvocationTests: XCTestCase {
         }
     }
 
+    func testPrebuildPluginShouldUseBinaryTarget() async throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try await testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target and a plugin.
+            let packageDir = tmpPath.appending(components: "mypkg")
+            try localFileSystem.createDirectory(packageDir, recursive: true)
+            try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string: """
+                // swift-tools-version:5.7
+
+                import PackageDescription
+
+                let package = Package(
+                    name: "mypkg",
+                    products: [
+                        .library(
+                            name: "MyLib",
+                            targets: ["MyLib"])
+                    ],
+                    targets: [
+                        .target(
+                            name: "MyLib",
+                            plugins: [
+                                .plugin(name: "X")
+                            ]),
+                        .plugin(
+                            name: "X",
+                            capability: .buildTool(),
+                            dependencies: [ "Y" ]
+                        ),
+                        .binaryTarget(
+                            name: "Y",
+                            path: "Binaries/Y.\(artifactBundleExtension)"
+                        ),
+                    ]
+                )
+                """)
+
+            let libTargetDir = packageDir.appending(components: "Sources", "MyLib")
+            try localFileSystem.createDirectory(libTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(libTargetDir.appending("file.swift"), string: """
+                public struct MyUtilLib {
+                    public let strings: [String]
+                    public init(args: [String]) {
+                        self.strings = args
+                    }
+                }
+            """)
+
+            let depTargetDir = packageDir.appending(components: "Sources", "Y")
+            try localFileSystem.createDirectory(depTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(depTargetDir.appending("main.swift"), string: """
+                struct Y {
+                    func run() {
+                        print("You passed us two arguments, argumentOne, and argumentTwo")
+                    }
+                }
+                Y.main()
+            """)
+
+            let pluginTargetDir = packageDir.appending(components: "Plugins", "X")
+            try localFileSystem.createDirectory(pluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(pluginTargetDir.appending("plugin.swift"), string: """
+                  import PackagePlugin
+                  @main struct X: BuildToolPlugin {
+                      func createBuildCommands(context: PluginContext, target: Target) async throws -> [Command] {
+                          [
+                              Command.prebuildCommand(
+                                  displayName: "X: Running Y before the build...",
+                                  executable: try context.tool(named: "Y").path,
+                                  arguments: [ "ARGUMENT_ONE", "ARGUMENT_TWO" ],
+                                  outputFilesDirectory: context.pluginWorkDirectory.appending("OUTPUT_FILES_DIRECTORY")
+                              )
+                          ]
+                      }
+                  }
+                  """)
+            
+            let artifactVariants = [try UserToolchain.default.targetTriple].map {
+                """
+                { "path": "Y", "supportedTriples": ["\($0.tripleString)"] }
+                """
+            }
+
+            let bundlePath = packageDir.appending(components: "Binaries", "Y.\(artifactBundleExtension)")
+            let bundleMetadataPath = bundlePath.appending(component: "info.json")
+            try localFileSystem.createDirectory(bundleMetadataPath.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(
+                bundleMetadataPath,
+                string: """
+                {   "schemaVersion": "1.0",
+                    "artifacts": {
+                        "Y": {
+                            "type": "executable",
+                            "version": "1.2.3",
+                            "variants": [
+                                \(artifactVariants.joined(separator: ","))
+                            ]
+                        }
+                    }
+                }
+                """
+            )
+            let binaryPath = bundlePath.appending(component: "Y")
+            try localFileSystem.writeFileContents(binaryPath, string: "")
+
+            // Load a workspace from the package.
+            let observability = ObservabilitySystem.makeForTesting()
+            let workspace = try Workspace(
+                fileSystem: localFileSystem,
+                forRootPackage: packageDir,
+                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                delegate: MockWorkspaceDelegate()
+            )
+
+            // Load the root manifest.
+            let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
+            let rootManifests = try await workspace.loadRootManifests(
+                packages: rootInput.packages,
+                observabilityScope: observability.topScope
+            )
+            XCTAssert(rootManifests.count == 1, "\(rootManifests)")
+
+            // Load the package graph.
+            let packageGraph = try await workspace.loadPackageGraph(
+                rootInput: rootInput,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
+
+            // Find the build tool plugin.
+            let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.modules.map(\.underlying).filter{ $0.name == "X" }.first as? PluginModule)
+            XCTAssertEqual(buildToolPlugin.name, "X")
+            XCTAssertEqual(buildToolPlugin.capability, .buildTool)
+
+            // Create a plugin script runner for the duration of the test.
+            let pluginCacheDir = tmpPath.appending("plugin-cache")
+            let pluginScriptRunner = DefaultPluginScriptRunner(
+                fileSystem: localFileSystem,
+                cacheDir: pluginCacheDir,
+                toolchain: try UserToolchain.default
+            )
+
+            // Invoke build tool plugin
+            do {
+                let outputDir = packageDir.appending(".build")
+                let buildParameters = mockBuildParameters(
+                    destination: .host,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+
+                let result = try await invokeBuildToolPlugins(
+                    graph: packageGraph,
+                    buildParameters: buildParameters,
+                    fileSystem: localFileSystem,
+                    outputDir: outputDir,
+                    pluginScriptRunner: pluginScriptRunner,
+                    observabilityScope: observability.topScope
+                )
+
+                let diags = result.flatMap(\.value.results).flatMap(\.diagnostics)
+                testDiagnostics(diags) { result in
+                    result.checkIsEmpty()
+                }
+            }
+        }
+    }
+
+
     func testPrebuildPluginShouldNotUseExecTarget() async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
@@ -1201,7 +1372,7 @@ final class PluginInvocationTests: XCTestCase {
             try localFileSystem.writeFileContents(myPluginTargetDir.appending("plugin.swift"), string: content)
             let artifactVariants = artifactSupportedTriples.map {
                 """
-                { "path": "LocalBinaryTool\($0.tripleString).sh", "supportedTriples": ["\($0.tripleString)"] }
+                { "path": "\($0.tripleString)/LocalBinaryTool", "supportedTriples": ["\($0.tripleString)"] }
                 """
             }
 
@@ -1337,7 +1508,7 @@ final class PluginInvocationTests: XCTestCase {
             $0.value.forEach {
                 XCTAssertTrue($0.succeeded, "plugin unexpectedly failed")
                 XCTAssertEqual($0.diagnostics.map { $0.message }, [], "plugin produced unexpected diagnostics")
-                XCTAssertEqual($0.buildCommands.first?.configuration.executable.basename, "LocalBinaryTool\(hostTriple.tripleString).sh")
+                XCTAssertEqual($0.buildCommands.first?.configuration.executable.basename, "LocalBinaryTool")
             }
         }
     }
