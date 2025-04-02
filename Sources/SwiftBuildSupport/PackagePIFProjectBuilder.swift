@@ -32,9 +32,9 @@ import struct PackageLoading.TargetSourcesBuilder
 
 #if canImport(SwiftBuild)
 
+import struct SwiftBuild.Pair
 import enum SwiftBuild.ProjectModel
 import struct SwiftBuild.SwiftBuildFileType
-import struct SwiftBuild.Pair
 
 /// Helper type to create PIF **project** and **targets** for a given package.
 struct PackagePIFProjectBuilder {
@@ -47,16 +47,16 @@ struct PackagePIFProjectBuilder {
 
     let binaryGroupKeyPath: WritableKeyPath<ProjectModel.Group, ProjectModel.Group>
     var binaryGroup: ProjectModel.Group {
-        get { self.project.mainGroup[keyPath: binaryGroupKeyPath] }
-        set { self.project.mainGroup[keyPath: binaryGroupKeyPath] = newValue }
+        get { self.project.mainGroup[keyPath: self.binaryGroupKeyPath] }
+        set { self.project.mainGroup[keyPath: self.binaryGroupKeyPath] = newValue }
     }
 
     let additionalFilesGroupKeyPath: WritableKeyPath<ProjectModel.Group, ProjectModel.Group>
     var additionalFilesGroup: ProjectModel.Group {
-        get { self.project.mainGroup[keyPath: additionalFilesGroupKeyPath] }
-        set { self.project.mainGroup[keyPath: additionalFilesGroupKeyPath] = newValue }
+        get { self.project.mainGroup[keyPath: self.additionalFilesGroupKeyPath] }
+        set { self.project.mainGroup[keyPath: self.additionalFilesGroupKeyPath] = newValue }
     }
-    
+
     let declaredPlatforms: [PackageModel.Platform]?
     let deploymentTargets: [PackageModel.Platform: String?]
 
@@ -76,7 +76,7 @@ struct PackagePIFProjectBuilder {
         sourceFile: StaticString = #fileID,
         sourceLine: UInt = #line
     ) {
-        let levelPrefix = String(repeating: "  ", count:         indent)
+        let levelPrefix = String(repeating: "  ", count: indent)
         self.pifBuilder.log(severity, levelPrefix + message, sourceFile: sourceFile, sourceLine: sourceLine)
     }
 
@@ -109,7 +109,7 @@ struct PackagePIFProjectBuilder {
                 name: "Binaries"
             )
         }
-        
+
         // Test modules have a higher minimum deployment target by default,
         // so we favor non-test modules as representative for the package's deployment target.
         let firstModule = package.modules.first { $0.type != .test } ?? package.modules.first
@@ -169,7 +169,7 @@ struct PackagePIFProjectBuilder {
 
         let bundleName = self.resourceBundleName(forModuleName: module.name)
         let resourceBundleGUID = self.pifTargetIdForResourceBundle(module.name)
-        let resourcesTargetKeyPath = try self.project.addTarget { id in
+        let resourcesTargetKeyPath = try self.project.addTarget { _ in
             ProjectModel.Target(
                 id: resourceBundleGUID,
                 productType: .bundle,
@@ -198,7 +198,7 @@ struct PackagePIFProjectBuilder {
             .debug,
             indent: 1,
             "Created \(type(of: resourcesTarget)) '\(resourcesTarget.id)' of type '\(resourcesTarget.productType)' " +
-            "with name '\(resourcesTarget.name)' and product name '\(resourcesTarget.productName)'"
+                "with name '\(resourcesTarget.name)' and product name '\(resourcesTarget.productName)'"
         )
 
         var settings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
@@ -300,7 +300,7 @@ struct PackagePIFProjectBuilder {
                 }
                 self.log(.debug, indent: 2, "Added coreml resource as source file '\(resourcePath)'")
             }
-            
+
             // Metal source code needs to be added to the source build phase.
             let isMetalFile = SwiftBuild.SwiftBuildFileType.metal.fileTypes.contains(resourcePath.pathExtension)
 
@@ -331,7 +331,7 @@ struct PackagePIFProjectBuilder {
 
             self.log(.debug, indent: 2, "Added resource file '\(resourcePath)'")
         }
-        
+
         let resourceBundleTargetName: String? = if let resourceBundleTargetKeyPath {
             self.project[keyPath: resourceBundleTargetKeyPath].name
         } else {
@@ -344,7 +344,9 @@ struct PackagePIFProjectBuilder {
         )
     }
 
-    func resourceBundleTargetKeyPath(forModuleName name: String) -> WritableKeyPath<ProjectModel.Project, ProjectModel.Target>? {
+    func resourceBundleTargetKeyPath(
+        forModuleName name: String
+    ) -> WritableKeyPath<ProjectModel.Project, ProjectModel.Target>? {
         let resourceBundleGUID = self.pifTargetIdForResourceBundle(name)
         let targetKeyPath = self.project.findTarget(id: resourceBundleGUID)
         return targetKeyPath

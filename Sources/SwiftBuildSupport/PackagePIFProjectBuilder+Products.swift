@@ -33,7 +33,6 @@ import enum SwiftBuild.ProjectModel
 
 /// Extension to create PIF **products** for a given package.
 extension PackagePIFProjectBuilder {
-
     // MARK: - Main Module Products
 
     mutating func makeMainModuleProduct(_ product: PackageGraph.ResolvedProduct) throws {
@@ -86,7 +85,7 @@ extension PackagePIFProjectBuilder {
             log(
                 .debug,
                 "Created \(mainModuleTarget.productType)) '\(mainModuleTarget.id)' " +
-                "with name '\(mainModuleTarget.name)' and product name '\(mainModuleTarget.productName)'"
+                    "with name '\(mainModuleTarget.name)' and product name '\(mainModuleTarget.productName)'"
             )
         }
 
@@ -114,14 +113,19 @@ extension PackagePIFProjectBuilder {
         settings[.PACKAGE_RESOURCE_TARGET_KIND] = "regular"
         settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
         settings[.PRODUCT_MODULE_NAME] = product.c99name
-        settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(product.name)".spm_mangledToBundleIdentifier()
+        settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(product.name)"
+            .spm_mangledToBundleIdentifier()
         settings[.EXECUTABLE_NAME] = product.name
         settings[.CLANG_ENABLE_MODULES] = "YES"
         settings[.SWIFT_PACKAGE_NAME] = mainModule.packageName
 
         if mainModule.type == .test {
             // FIXME: we shouldn't always include both the deep and shallow bundle paths here, but for that we'll need rdar://31867023
-            settings[.LD_RUNPATH_SEARCH_PATHS] = ["@loader_path/Frameworks", "@loader_path/../Frameworks", "$(inherited)"]
+            settings[.LD_RUNPATH_SEARCH_PATHS] = [
+                "@loader_path/Frameworks",
+                "@loader_path/../Frameworks",
+                "$(inherited)",
+            ]
             settings[.GENERATE_INFOPLIST_FILE] = "YES"
             settings[.SKIP_INSTALL] = "NO"
             settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitialize { ["$(inherited)"] }
@@ -179,13 +183,14 @@ extension PackagePIFProjectBuilder {
         // Note that the indexer requires them to have any symbolic links resolved.
         var indexableFileURLs: [SourceControlURL] = []
         for sourcePath in mainModule.sourceFileRelativePaths {
-            let sourceFileRef = self.project.mainGroup[keyPath: mainTargetSourceFileGroupKeyPath].addFileReference { id in
-                FileReference(
-                    id: id,
-                    path: sourcePath.pathString,
-                    pathBase: .groupDir
-                )
-            }
+            let sourceFileRef = self.project.mainGroup[keyPath: mainTargetSourceFileGroupKeyPath]
+                .addFileReference { id in
+                    FileReference(
+                        id: id,
+                        path: sourcePath.pathString,
+                        pathBase: .groupDir
+                    )
+                }
             self.project[keyPath: mainModuleTargetKeyPath].addSourceFile { id in
                 BuildFile(id: id, fileRef: sourceFileRef)
             }
@@ -199,13 +204,14 @@ extension PackagePIFProjectBuilder {
 
         // Add any additional source files emitted by custom build commands.
         for path in generatedSourceFiles {
-            let sourceFileRef = self.project.mainGroup[keyPath: mainTargetSourceFileGroupKeyPath].addFileReference { id in
-                FileReference(
-                    id: id,
-                    path: path.pathString,
-                    pathBase: .absolute
-                )
-            }
+            let sourceFileRef = self.project.mainGroup[keyPath: mainTargetSourceFileGroupKeyPath]
+                .addFileReference { id in
+                    FileReference(
+                        id: id,
+                        path: path.pathString,
+                        pathBase: .absolute
+                    )
+                }
             self.project[keyPath: mainModuleTargetKeyPath].addSourceFile { id in
                 BuildFile(id: id, fileRef: sourceFileRef)
             }
@@ -285,7 +291,7 @@ extension PackagePIFProjectBuilder {
                 // Add build tool commands to the resource bundle target.
                 let mainResourceBundleTargetKeyPath = self.resourceBundleTargetKeyPath(forModuleName: mainModule.name)
                 let resourceBundleTargetKeyPath = mainResourceBundleTargetKeyPath ?? mainModuleTargetKeyPath
-                
+
                 addBuildToolCommands(
                     module: mainModule,
                     sourceModuleTargetKeyPath: mainModuleTargetKeyPath,
@@ -357,7 +363,7 @@ extension PackagePIFProjectBuilder {
 
                     // Link with a testable version of the macro if appropriate.
                     if product.type == .test {
-                        self.project[keyPath:mainModuleTargetKeyPath].common.addDependency(
+                        self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                             on: moduleDependency.pifTargetGUID(suffix: .testable),
                             platformFilters: packageConditions
                                 .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
@@ -620,7 +626,7 @@ extension PackagePIFProjectBuilder {
             log(
                 .debug,
                 "Created target '\(librayTarget.id)' of type '\(librayTarget.productType)' with " +
-                "name '\(librayTarget.name)' and product name '\(librayTarget.productName)'"
+                    "name '\(librayTarget.name)' and product name '\(librayTarget.productName)'"
             )
         }
 
@@ -651,7 +657,10 @@ extension PackagePIFProjectBuilder {
         for module in product.modules where module.underlying.isSourceModule && module.resources.hasContent {
             // FIXME: Find a way to determine whether a module has generated resources
             // here so that we can embed resources into dynamic targets.
-            self.project[keyPath: librayUmbrellaTargetKeyPath].common.addDependency(on: pifTargetIdForResourceBundle(module.name), platformFilters: [])
+            self.project[keyPath: librayUmbrellaTargetKeyPath].common.addDependency(
+                on: pifTargetIdForResourceBundle(module.name),
+                platformFilters: []
+            )
 
             let packageName = self.package.name
             let fileRef = self.project.mainGroup.addFileReference { id in
@@ -663,7 +672,11 @@ extension PackagePIFProjectBuilder {
                 }
                 log(.debug, indent: 1, "Added use of resource bundle '\(fileRef.path)'")
             } else {
-                log(.debug, indent: 1, "Ignored resource bundle '\(fileRef.path)' because resource embedding is disabled")
+                log(
+                    .debug,
+                    indent: 1,
+                    "Ignored resource bundle '\(fileRef.path)' because resource embedding is disabled"
+                )
             }
         }
 
@@ -708,7 +721,7 @@ extension PackagePIFProjectBuilder {
                 // This assertion is temporarily disabled since we may see targets from
                 // _other_ packages, but this should be resolved; see rdar://95467710.
                 /* assert(moduleDependency.packageName == self.package.name) */
-                
+
                 if moduleDependency.type == .systemModule {
                     log(.debug, indent: 1, "Noted use of system module '\(moduleDependency.name)'")
                     return
@@ -920,7 +933,7 @@ extension PackagePIFProjectBuilder {
                 name: pluginProduct.name
             )
         }
-        do  {
+        do {
             let pluginTarget = self.project[keyPath: pluginTargetKeyPath]
             log(.debug, "Created aggregate target '\(pluginTarget.id)' with name '\(pluginTarget.name)'")
         }

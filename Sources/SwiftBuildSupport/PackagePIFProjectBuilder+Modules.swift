@@ -31,7 +31,6 @@ import enum SwiftBuild.ProjectModel
 
 /// Extension to create PIF **modules** for a given package.
 extension PackagePIFProjectBuilder {
-    
     // MARK: - Plugin Modules
 
     mutating func makePluginModule(_ pluginModule: PackageGraph.ResolvedModule) throws {
@@ -60,7 +59,7 @@ extension PackagePIFProjectBuilder {
                 // This assertion is temporarily disabled since we may see targets from
                 // _other_ packages, but this should be resolved; see rdar://95467710.
                 /* assert(moduleDependency.packageName == self.package.name) */
-                
+
                 let dependencyPlatformFilters = packageConditions
                     .toPlatformFilter(toolsVersion: self.package.manifest.toolsVersion)
 
@@ -179,7 +178,7 @@ extension PackagePIFProjectBuilder {
             )
             dynamicLibraryVariant.isDynamicLibraryVariant = true
             self.builtModulesAndProducts.append(dynamicLibraryVariant)
-            
+
             guard let pifTarget = staticLibrary.pifTarget,
                   let pifTargetKeyPath = self.project.findTarget(id: pifTarget.id),
                   let dynamicPifTarget = dynamicLibraryVariant.pifTarget
@@ -284,9 +283,10 @@ extension PackagePIFProjectBuilder {
         }
         do {
             let sourceModuleTarget = self.project[keyPath: sourceModuleTargetKeyPath]
-            log(.debug,
+            log(
+                .debug,
                 "Created \(sourceModuleTarget.productType) '\(sourceModuleTarget.id)' " +
-                "with name '\(sourceModuleTarget.name)' and product name '\(sourceModuleTarget.productName)'"
+                    "with name '\(sourceModuleTarget.name)' and product name '\(sourceModuleTarget.productName)'"
             )
         }
 
@@ -324,7 +324,9 @@ extension PackagePIFProjectBuilder {
         }
 
         // Find the PIF target for the resource bundle, if any. Otherwise fall back to the module.
-        let resourceBundleTargetKeyPath = self.resourceBundleTargetKeyPath(forModuleName: sourceModule.name) ?? sourceModuleTargetKeyPath
+        let resourceBundleTargetKeyPath = self.resourceBundleTargetKeyPath(
+            forModuleName: sourceModule.name
+        ) ?? sourceModuleTargetKeyPath
 
         // Add build tool commands to the resource bundle target.
         if desiredModuleType != .executable && desiredModuleType != .macro && addBuildToolPluginCommands {
@@ -512,7 +514,11 @@ extension PackagePIFProjectBuilder {
         }
         impartedSettings[.OTHER_LDFLAGS] = (sourceModule.isCxx ? ["-lc++"] : []) + baselineOTHER_LDFLAGS
         impartedSettings[.OTHER_LDRFLAGS] = []
-        log(.debug, indent: 1, "Added '\(String(describing: impartedSettings[.OTHER_LDFLAGS]))' to imparted OTHER_LDFLAGS")
+        log(
+            .debug,
+            indent: 1,
+            "Added '\(String(describing: impartedSettings[.OTHER_LDFLAGS]))' to imparted OTHER_LDFLAGS"
+        )
 
         // This should be only for dynamic targets, but that isn't possible today.
         // Improvement is tracked by rdar://77403529 (Only impart `PackageFrameworks` search paths to clients of dynamic
@@ -542,7 +548,7 @@ extension PackagePIFProjectBuilder {
                 id: id,
                 path: try! resolveSymlinks(sourceModule.sourceDirAbsolutePath).pathString,
                 pathBase: .absolute
-           )
+            )
         }
         do {
             let targetSourceFileGroup = self.project.mainGroup[keyPath: targetSourceFileGroupKeyPath]
@@ -606,7 +612,7 @@ extension PackagePIFProjectBuilder {
                 // This assertion is temporarily disabled since we may see targets from
                 // _other_ packages, but this should be resolved; see rdar://95467710.
                 /* assert(moduleDependency.packageName == self.package.name) */
-                
+
                 let dependencyPlatformFilters = packageConditions
                     .toPlatformFilter(toolsVersion: self.package.manifest.toolsVersion)
 

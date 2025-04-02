@@ -500,7 +500,8 @@ extension PackageGraph.ResolvedModule {
     }
 
     struct AllBuildSettings {
-        typealias BuildSettingsByPlatform = [ProjectModel.BuildSettings.Platform?: [BuildSettings.Declaration: [String]]]
+        typealias BuildSettingsByPlatform =
+            [ProjectModel.BuildSettings.Platform?: [BuildSettings.Declaration: [String]]]
 
         /// Target-specific build settings declared in the manifest and that apply to the target itself.
         var targetSettings: [BuildConfiguration: BuildSettingsByPlatform] = [:]
@@ -543,7 +544,7 @@ extension PackageGraph.ResolvedModule {
 
                 for platform in platforms {
                     let pifPlatform = platform.map { ProjectModel.BuildSettings.Platform(from: $0) }
-                    
+
                     if pifDeclaration == .OTHER_LDFLAGS {
                         var settingsByDeclaration: [ProjectModel.BuildSettings.Declaration: [String]]
 
@@ -556,7 +557,7 @@ extension PackageGraph.ResolvedModule {
                     for configuration in configurations {
                         var settingsByDeclaration: [ProjectModel.BuildSettings.Declaration: [String]]
                         settingsByDeclaration = allSettings.targetSettings[configuration]?[pifPlatform] ?? [:]
-                        
+
                         if declaration.allowsMultipleValues {
                             settingsByDeclaration[pifDeclaration, default: []].append(contentsOf: values)
                         } else {
@@ -848,7 +849,7 @@ extension ProjectModel.BuildSettings {
     /// values, i.e. those in `ProjectModel.BuildSettings.Declaration`. If a platform is specified,
     /// it must be one of the known platforms in `ProjectModel.BuildSettings.Platform`.
     mutating func append(values: [String], to setting: Declaration, platform: Platform? = nil) {
-        // This dichotomy is quite unfortunate but that's currently the underlying model in `ProjectModel.BuildSettings`.
+        // This dichotomy is quite unfortunate but that's currently the underlying model in ProjectModel.BuildSettings.
         if let platform {
             switch setting {
             case .FRAMEWORK_SEARCH_PATHS,
@@ -861,10 +862,10 @@ extension ProjectModel.BuildSettings {
                  .SWIFT_ACTIVE_COMPILATION_CONDITIONS:
                 // Appending implies the setting is resilient to having ["$(inherited)"]
                 self.platformSpecificSettings[platform]![setting]!.append(contentsOf: values)
-            
+
             case .SWIFT_VERSION:
                 self.platformSpecificSettings[platform]![setting] = values // We are not resilient to $(inherited).
-            
+
             case .ARCHS, .IPHONEOS_DEPLOYMENT_TARGET, .SPECIALIZATION_SDK_OPTIONS:
                 fatalError("Unexpected BuildSettings.Declaration: \(setting)")
             }
@@ -883,7 +884,7 @@ extension ProjectModel.BuildSettings {
 
             case .SWIFT_VERSION:
                 self[.SWIFT_VERSION] = values.only.unwrap(orAssert: "Invalid values for 'SWIFT_VERSION': \(values)")
-                
+
             case .ARCHS, .IPHONEOS_DEPLOYMENT_TARGET, .SPECIALIZATION_SDK_OPTIONS:
                 fatalError("Unexpected BuildSettings.Declaration: \(setting)")
             }

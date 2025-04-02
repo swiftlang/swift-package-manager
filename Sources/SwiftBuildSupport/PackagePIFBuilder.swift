@@ -139,7 +139,7 @@ public final class PackagePIFBuilder {
         func shouldSetInstallPathForDynamicLib(productName: String) -> Bool
 
         // FIXME: Let's try to replace `WritableKeyPath><_, Foo>` with `inout Foo` —— Paulo
-        
+
         /// Provides additional configuration and files for the specified library product.
         func configureLibraryProduct(
             product: PackageModel.Product,
@@ -246,7 +246,7 @@ public final class PackagePIFBuilder {
 
         return project
     }
-    
+
     public func buildPlaceholderPIF(id: String, path: String, projectDir: String, name: String) -> ModuleOrProduct {
         var project = ProjectModel.Project(
             id: GUID(id),
@@ -254,12 +254,12 @@ public final class PackagePIFBuilder {
             projectDir: projectDir,
             name: name
         )
-        
+
         let projectSettings = ProjectModel.BuildSettings()
 
         project.addBuildConfig { id in ProjectModel.BuildConfig(id: id, name: "Debug", settings: projectSettings) }
         project.addBuildConfig { id in ProjectModel.BuildConfig(id: id, name: "Release", settings: projectSettings) }
-        
+
         let targetKeyPath = try! project.addAggregateTarget { _ in
             ProjectModel.AggregateTarget(id: "PACKAGE-PLACEHOLDER:\(id)", name: id)
         }
