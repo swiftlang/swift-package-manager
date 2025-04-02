@@ -258,15 +258,15 @@ public final class PackagePIFBuilder {
         project.addBuildConfig { id in ProjectModel.BuildConfig(id: id, name: "Debug", settings: projectSettings) }
         project.addBuildConfig { id in ProjectModel.BuildConfig(id: id, name: "Release", settings: projectSettings) }
         
-        let targetKP = try! project.addAggregateTarget { _ in
+        let targetKeyPath = try! project.addAggregateTarget { _ in
             ProjectModel.AggregateTarget(id: "PACKAGE-PLACEHOLDER:\(id)", name: id)
         }
         let targetSettings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
 
-        project[keyPath: targetKP].common.addBuildConfig { id in
+        project[keyPath: targetKeyPath].common.addBuildConfig { id in
             ProjectModel.BuildConfig(id: id, name: "Debug", settings: targetSettings)
         }
-        project[keyPath: targetKP].common.addBuildConfig { id in
+        project[keyPath: targetKeyPath].common.addBuildConfig { id in
             ProjectModel.BuildConfig(id: id, name: "Release", settings: targetSettings)
         }
 
@@ -276,7 +276,7 @@ public final class PackagePIFBuilder {
             type: .placeholder,
             name: name,
             moduleName: name,
-            pifTarget: .aggregate(project[keyPath: targetKP]),
+            pifTarget: .aggregate(project[keyPath: targetKeyPath]),
             indexableFileURLs: [],
             headerFiles: [],
             linkedPackageBinaries: [],

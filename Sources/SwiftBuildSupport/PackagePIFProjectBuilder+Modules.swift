@@ -36,7 +36,7 @@ extension PackagePIFProjectBuilder {
         precondition(pluginModule.type == .plugin)
 
         // Create an executable PIF target in order to get specialization.
-        let pluginPifTargetKP = try self.project.addTarget { _ in
+        let pluginTargetKeyPath = try self.project.addTarget { _ in
             ProjectModel.Target(
                 id: pluginModule.pifTargetGUID(),
                 productType: .executable,
@@ -45,8 +45,8 @@ extension PackagePIFProjectBuilder {
             )
         }
         do {
-            let pluginPifTarget = self.project[keyPath: pluginPifTargetKP]
-            log(.debug, "Created \(pluginPifTarget.productType) '\(pluginPifTarget.id)' with name '\(pluginPifTarget.name)'")
+            let pluginTarget = self.project[keyPath: pluginTargetKeyPath]
+            log(.debug, "Created \(pluginTarget.productType) '\(pluginTarget.id)' with name '\(pluginTarget.name)'")
         }
 
         var buildSettings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
@@ -71,7 +71,7 @@ extension PackagePIFProjectBuilder {
                         .productRepresentingDependencyOfBuildPlugin(in: moduleProducts)
 
                     if let productDependency {
-                        self.project[keyPath: pluginPifTargetKP].common.addDependency(
+                        self.project[keyPath: pluginTargetKeyPath].common.addDependency(
                             on: productDependency.pifTargetGUID(),
                             platformFilters: dependencyPlatformFilters
                         )
@@ -86,7 +86,7 @@ extension PackagePIFProjectBuilder {
 
                 case .library, .systemModule, .test, .binary, .plugin, .macro:
                     let dependencyGUID = moduleDependency.pifTargetGUID()
-                    self.project[keyPath: pluginPifTargetKP].common.addDependency(
+                    self.project[keyPath: pluginTargetKeyPath].common.addDependency(
                         on: dependencyGUID,
                         platformFilters: dependencyPlatformFilters
                     )
@@ -107,7 +107,7 @@ extension PackagePIFProjectBuilder {
                     let dependencyPlatformFilters = packageConditions
                         .toPlatformFilter(toolsVersion: self.package.manifest.toolsVersion)
 
-                    self.project[keyPath: pluginPifTargetKP].common.addDependency(
+                    self.project[keyPath: pluginTargetKeyPath].common.addDependency(
                         on: dependencyGUID,
                         platformFilters: dependencyPlatformFilters
                     )
@@ -119,10 +119,10 @@ extension PackagePIFProjectBuilder {
         // Any dependencies of plugin targets need to be built for the host.
         buildSettings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
 
-        self.project[keyPath: pluginPifTargetKP].common.addBuildConfig { id in
+        self.project[keyPath: pluginTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(id: id, name: "Debug", settings: buildSettings)
         }
-        self.project[keyPath: pluginPifTargetKP].common.addBuildConfig { id in
+        self.project[keyPath: pluginTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(id: id, name: "Release", settings: buildSettings)
         }
 
@@ -130,7 +130,7 @@ extension PackagePIFProjectBuilder {
             type: .plugin,
             name: pluginModule.name,
             moduleName: pluginModule.name,
-            pifTarget: .target(self.project[keyPath: pluginPifTargetKP]),
+            pifTarget: .target(self.project[keyPath: pluginTargetKeyPath]),
             indexableFileURLs: [],
             headerFiles: [],
             linkedPackageBinaries: [],
@@ -281,10 +281,10 @@ extension PackagePIFProjectBuilder {
             )
         }
         do {
-            let sourceModulePifTarget = self.project[keyPath: sourceModuleTargetKeyPath]
+            let sourceModuleTarget = self.project[keyPath: sourceModuleTargetKeyPath]
             log(.debug,
-                "Created \(sourceModulePifTarget.productType) '\(sourceModulePifTarget.id)' " +
-                "with name '\(sourceModulePifTarget.name)' and product name '\(sourceModulePifTarget.productName)'"
+                "Created \(sourceModuleTarget.productType) '\(sourceModuleTarget.id)' " +
+                "with name '\(sourceModuleTarget.name)' and product name '\(sourceModuleTarget.productName)'"
             )
         }
 
@@ -322,14 +322,14 @@ extension PackagePIFProjectBuilder {
         }
 
         // Find the PIF target for the resource bundle, if any. Otherwise fall back to the module.
-        let resourceBundlePifTargetKP = self.resourceBundleTargetKeyPath(forModuleName: sourceModule.name) ?? sourceModuleTargetKeyPath
+        let resourceBundleTargetKeyPath = self.resourceBundleTargetKeyPath(forModuleName: sourceModule.name) ?? sourceModuleTargetKeyPath
 
         // Add build tool commands to the resource bundle target.
         if desiredModuleType != .executable && desiredModuleType != .macro && addBuildToolPluginCommands {
             addBuildToolCommands(
                 module: sourceModule,
                 sourceModuleTargetKeyPath: sourceModuleTargetKeyPath,
-                resourceBundleTargetKeyPath: resourceBundlePifTargetKP,
+                resourceBundleTargetKeyPath: resourceBundleTargetKeyPath,
                 sourceFilePaths: generatedSourceFiles,
                 resourceFilePaths: generatedResourceFiles
             )

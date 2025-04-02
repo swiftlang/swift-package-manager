@@ -167,7 +167,7 @@ struct PackagePIFProjectBuilder {
 
         let bundleName = self.resourceBundleName(forModuleName: module.name)
         let resourceBundleGUID = self.pifTargetIdForResourceBundle(module.name)
-        let resourcesTargetKP = try self.project.addTarget { id in
+        let resourcesTargetKeyPath = try self.project.addTarget { id in
             ProjectModel.Target(
                 id: resourceBundleGUID,
                 productType: .bundle,
@@ -175,7 +175,7 @@ struct PackagePIFProjectBuilder {
                 productName: bundleName
             )
         }
-        var resourcesTarget: ProjectModel.Target { self.project[keyPath: resourcesTargetKP] }
+        var resourcesTarget: ProjectModel.Target { self.project[keyPath: resourcesTargetKeyPath] }
 
         self.project[keyPath: targetKeyPath].common.addDependency(
             on: resourcesTarget.id,
@@ -185,7 +185,7 @@ struct PackagePIFProjectBuilder {
         self.log(.debug, indent: 1, "Added dependency on resource target '\(resourcesTarget.id)'")
 
         for pluginModule in module.pluginsAppliedToModule {
-            self.project[keyPath: resourcesTargetKP].common.addDependency(
+            self.project[keyPath: resourcesTargetKeyPath].common.addDependency(
                 on: pluginModule.pifTargetGUID(),
                 platformFilters: [],
                 linkProduct: false
@@ -212,17 +212,17 @@ struct PackagePIFProjectBuilder {
         settings[.COREML_COMPILER_CONTAINER] = "swift-package"
         settings[.COREML_CODEGEN_LANGUAGE] = "None"
 
-        self.project[keyPath: resourcesTargetKP].common.addBuildConfig { id in
+        self.project[keyPath: resourcesTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(id: id, name: "Debug", settings: settings)
         }
-        self.project[keyPath: resourcesTargetKP].common.addBuildConfig { id in
+        self.project[keyPath: resourcesTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(id: id, name: "Release", settings: settings)
         }
 
         let result = self.processResources(
             for: module,
             sourceModuleTargetKeyPath: targetKeyPath,
-            resourceBundleTargetKeyPath: resourcesTargetKP,
+            resourceBundleTargetKeyPath: resourcesTargetKeyPath,
             generatedResourceFiles: generatedResourceFiles
         )
 
@@ -255,8 +255,8 @@ struct PackagePIFProjectBuilder {
                 shouldGenerateEmbedInCodeAccessor: false
             )
         }
-        // If `resourceBundlePifTarget` is nil, we add resources to the `sourceModulePifTarget`.
-        let pifTargetForResourcesKP = resourceBundleTargetKeyPath ?? sourceModuleTargetKeyPath
+        // If resourceBundleTarget is nil, we add resources to the sourceModuleTarget instead.
+        let targetForResourcesKeyPath = resourceBundleTargetKeyPath ?? sourceModuleTargetKeyPath
 
         // Generated resources get a default treatment for rule and localization.
         let generatedResources = generatedResourceFiles.compactMap {
@@ -303,12 +303,12 @@ struct PackagePIFProjectBuilder {
             let isMetalFile = SwiftBuild.SwiftBuildFileType.metal.fileTypes.contains(resourcePath.pathExtension)
 
             if isMetalFile {
-                self.project[keyPath: pifTargetForResourcesKP].addSourceFile { id in
+                self.project[keyPath: targetForResourcesKeyPath].addSourceFile { id in
                     BuildFile(id: id, fileRef: ref)
                 }
             } else {
                 // FIXME: Handle additional rules here (e.g. `.copy`).
-                self.project[keyPath: pifTargetForResourcesKP].addResourceFile { id in
+                self.project[keyPath: targetForResourcesKeyPath].addResourceFile { id in
                     BuildFile(
                         id: id,
                         fileRef: ref,
@@ -330,13 +330,13 @@ struct PackagePIFProjectBuilder {
             self.log(.debug, indent: 2, "Added resource file '\(resourcePath)'")
         }
         
-        let resourceBundlePifTargetName: String? = if let resourceBundleTargetKeyPath {
+        let resourceBundleTargetName: String? = if let resourceBundleTargetKeyPath {
             self.project[keyPath: resourceBundleTargetKeyPath].name
         } else {
             nil
         }
         return PackagePIFBuilder.EmbedResourcesResult(
-            bundleName: resourceBundlePifTargetName,
+            bundleName: resourceBundleTargetName,
             shouldGenerateBundleAccessor: shouldGenerateBundleAccessor,
             shouldGenerateEmbedInCodeAccessor: shouldGenerateEmbedInCodeAccessor
         )
@@ -344,8 +344,8 @@ struct PackagePIFProjectBuilder {
 
     func resourceBundleTargetKeyPath(forModuleName name: String) -> WritableKeyPath<ProjectModel.Project, ProjectModel.Target>? {
         let resourceBundleGUID = self.pifTargetIdForResourceBundle(name)
-        let targetKP = self.project.findTarget(id: resourceBundleGUID)
-        return targetKP
+        let targetKeyPath = self.project.findTarget(id: resourceBundleGUID)
+        return targetKeyPath
     }
 
     func pifTargetIdForResourceBundle(_ name: String) -> GUID {
