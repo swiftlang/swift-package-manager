@@ -1263,6 +1263,17 @@ public final class PackageBuilder {
                 }
 
                 values = ["-default-isolation", isolation.rawValue]
+
+            case .swiftExecutorFactory(let factory):
+                switch setting.tool {
+                case .c, .cxx, .linker:
+                    throw InternalError("only Swift supports executor factory")
+
+                case .swift:
+                  decl = .OTHER_SWIFT_FLAGS
+                }
+
+                values = ["-executor-factory ", factory]
             }
 
             // Create an assignment for this setting.

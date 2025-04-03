@@ -584,6 +584,9 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
+        case .swiftExecutorFactory(let factory):
+            params.append(SourceCodeFragment(string: factory))
+            self.init(enum: setting.kind.name, subnodes: params)
         }
     }
 
