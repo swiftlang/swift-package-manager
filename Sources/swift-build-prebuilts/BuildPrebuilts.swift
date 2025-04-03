@@ -43,7 +43,6 @@ var prebuiltRepos: IdentifiableSet<PrebuiltRepos> = [
     .init(
         url: .init(string: "https://github.com/swiftlang/swift-syntax")!,
         versions: [
-            /*
             .init(
                 tag:"600.0.1",
                 manifest: .init(libraries: [
@@ -77,7 +76,6 @@ var prebuiltRepos: IdentifiableSet<PrebuiltRepos> = [
                     try await shell("swift package add-product \(library.name) --type static-library --targets \(library.products.joined(separator: " "))", cwd: repoDir)
                 }
             ),
-             */
             .init(
                 tag:"601.0.1",
                 manifest: .init(libraries: [
