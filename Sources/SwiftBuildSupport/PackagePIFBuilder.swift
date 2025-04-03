@@ -30,7 +30,6 @@ import struct PackageGraph.ModulesGraph
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedPackage
 
-#if canImport(SwiftBuild)
 import enum SwiftBuild.PIF
 
 /// A builder for generating the PIF object from a package.
@@ -670,4 +669,3 @@ public struct SourceLocation: Sendable {
     }
 }
 
-#endif
