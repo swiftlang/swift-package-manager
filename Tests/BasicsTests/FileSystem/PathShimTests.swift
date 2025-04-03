@@ -12,64 +12,65 @@
 
 import Basics
 import Foundation
-import XCTest
+import Testing
 
-class PathShimTests: XCTestCase {
-    func testRescursiveDirectoryCreation() {
-        // For the tests we'll need a temporary directory.
+struct PathShimTests {
+    @Test
+    func rescursiveDirectoryCreation() {
         try! withTemporaryDirectory(removeTreeOnDeinit: true) { path in
             // Create a directory under several ancestor directories.
             let dirPath = path.appending(components: "abc", "def", "ghi", "mno", "pqr")
             try! makeDirectories(dirPath)
 
             // Check that we were able to actually create the directory.
-            XCTAssertTrue(localFileSystem.isDirectory(dirPath))
+            #expect(localFileSystem.isDirectory(dirPath))
 
             // Check that there's no error if we try to create the directory again.
-            try! makeDirectories(dirPath)
+            #expect(throws: Never.self) {
+                try! makeDirectories(dirPath)
+            }
         }
     }
 }
 
-class WalkTests: XCTestCase {
-    func testNonRecursive() throws {
-        #if os(Android)
+struct WalkTests {
+    @Test
+    func nonRecursive() throws {
+#if os(Android)
         let root = "/system"
         var expected: [AbsolutePath] = [
             "\(root)/usr",
             "\(root)/bin",
             "\(root)/etc",
         ]
-        #elseif os(Windows)
+        let expectedCount = 3
+#elseif os(Windows)
         let root = ProcessInfo.processInfo.environment["SystemRoot"]!
         var expected: [AbsolutePath] = [
             "\(root)/System32",
             "\(root)/SysWOW64",
         ]
-        #else
+        let expectedCount = (root as NSString).pathComponents.count + 2
+#else
         let root = ""
         var expected: [AbsolutePath] = [
             "/usr",
             "/bin",
             "/sbin",
         ]
-        #endif
+        let expectedCount = 2
+#endif
         for x in try walk(AbsolutePath(validating: "\(root)/"), recursively: false) {
             if let i = expected.firstIndex(of: x) {
                 expected.remove(at: i)
             }
-            #if os(Android)
-            XCTAssertEqual(3, x.components.count)
-            #elseif os(Windows)
-            XCTAssertEqual((root as NSString).pathComponents.count + 2, x.components.count)
-            #else
-            XCTAssertEqual(2, x.components.count)
-            #endif
+            #expect(x.components.count == expectedCount, "Actual is not as expected")
         }
-        XCTAssertEqual(expected.count, 0)
+        #expect(expected.count == 0)
     }
 
-    func testRecursive() {
+    @Test
+    func recursive() {
         let root = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory.parentDirectory
             .appending(component: "Sources")
         var expected = [
@@ -82,6 +83,6 @@ class WalkTests: XCTestCase {
                 expected.remove(at: i)
             }
         }
-        XCTAssertEqual(expected, [])
+        #expect(expected == [])
     }
 }
