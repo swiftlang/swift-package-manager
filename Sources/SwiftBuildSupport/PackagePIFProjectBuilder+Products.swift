@@ -27,8 +27,6 @@ import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedPackage
 import struct PackageGraph.ResolvedProduct
 
-#if canImport(SwiftBuild)
-
 import enum SwiftBuild.ProjectModel
 
 /// Extension to create PIF **products** for a given package.
@@ -1000,4 +998,3 @@ private struct PackageRegistrySignature: Encodable {
     let formatVersion = 2
 }
 
-#endif
