@@ -1177,7 +1177,7 @@ public struct SwiftBuildFileType: CaseIterable {
     }
 }
 
-struct StringKey: CodingKey, ExpressibleByStringInterpolation {
+fileprivate struct StringKey: CodingKey, ExpressibleByStringInterpolation {
     var stringValue: String
     var intValue: Int?
 
