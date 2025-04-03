@@ -24,9 +24,7 @@ import func TSCBasic.memoize
 import func TSCBasic.topologicalSort
 import var TSCBasic.stdoutStream
 
-#if canImport(SwiftBuild)
 import enum SwiftBuild.ProjectModel
-#endif
 
 /// The parameters required by `PIFBuilder`.
 struct PIFBuilderParameters {
@@ -102,7 +100,6 @@ public final class PIFBuilder {
         preservePIFModelStructure: Bool = false,
         printPIFManifestGraphviz: Bool = false
     ) throws -> String {
-        #if canImport(SwiftBuild)
         let encoder = prettyPrint ? JSONEncoder.makeWithDefaults() : JSONEncoder()
 
         if !preservePIFModelStructure {
@@ -128,13 +125,8 @@ public final class PIFBuilder {
         }
 
         return pifString
-        #else
-        fatalError("Swift Build support is not linked in.")
-        #endif
     }
-    
-    #if canImport(SwiftBuild)
-    
+
     private var cachedPIF: PIF.TopLevelObject?
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
@@ -188,8 +180,6 @@ public final class PIFBuilder {
             return PIF.TopLevelObject(workspace: workspace)
         }
     }
-    
-    #endif
 
     // Convenience method for generating PIF.
     public static func generatePIF(
@@ -209,8 +199,6 @@ public final class PIFBuilder {
         return try builder.generatePIF(preservePIFModelStructure: preservePIFModelStructure)
     }
 }
-
-#if canImport(SwiftBuild)
 
 fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelegate {
     let package: ResolvedPackage
@@ -406,8 +394,6 @@ fileprivate func buildAggregateProject(
     
     return aggregateProject
 }
-
-#endif
 
 public enum PIFGenerationError: Error {
     case rootPackageNotFound, multipleRootPackagesFound

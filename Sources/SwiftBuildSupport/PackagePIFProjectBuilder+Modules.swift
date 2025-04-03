@@ -26,8 +26,6 @@ import class PackageModel.SystemLibraryModule
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedPackage
 
-#if canImport(SwiftBuild)
-
 import enum SwiftBuild.ProjectModel
 
 /// Extension to create PIF **modules** for a given package.
@@ -869,5 +867,3 @@ extension PackagePIFProjectBuilder {
         self.builtModulesAndProducts.append(systemModule)
     }
 }
-
-#endif
