@@ -61,8 +61,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                         TargetDescription(name: "plugin", type: .plugin, pluginCapability: .buildTool)
                     ]),
             ],
-            observabilityScope: observability.topScope,
-            traitConfiguration: nil
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -149,8 +148,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                     ]
                 ),
             ],
-            observabilityScope: observability.topScope,
-            traitConfiguration: nil
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -221,8 +219,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                     ]
                 ),
             ],
-            observabilityScope: observability.topScope,
-            traitConfiguration: nil
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
