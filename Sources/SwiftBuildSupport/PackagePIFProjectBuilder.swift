@@ -30,8 +30,6 @@ import struct PackageGraph.ResolvedPackage
 import struct PackageLoading.FileRuleDescription
 import struct PackageLoading.TargetSourcesBuilder
 
-#if canImport(SwiftBuild)
-
 import struct SwiftBuild.Pair
 import enum SwiftBuild.ProjectModel
 import struct SwiftBuild.SwiftBuildFileType
@@ -548,4 +546,3 @@ struct PackagePIFProjectBuilder {
     }
 }
 
-#endif
