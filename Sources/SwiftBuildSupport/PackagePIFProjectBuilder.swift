@@ -258,8 +258,9 @@ struct PackagePIFProjectBuilder {
             )
         }
         // If resourceBundleTarget is nil, we add resources to the sourceModuleTarget instead.
-        let targetForResourcesKeyPath = resourceBundleTargetKeyPath ?? sourceModuleTargetKeyPath
-
+        let targetForResourcesKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target> =
+            resourceBundleTargetKeyPath ?? sourceModuleTargetKeyPath
+        
         // Generated resources get a default treatment for rule and localization.
         let generatedResources = generatedResourceFiles.compactMap {
             PackagePIFBuilder.Resource(path: $0, rule: .process(localization: nil))
@@ -332,11 +333,14 @@ struct PackagePIFProjectBuilder {
             self.log(.debug, indent: 2, "Added resource file '\(resourcePath)'")
         }
 
-        let resourceBundleTargetName: String? = if let resourceBundleTargetKeyPath {
-            self.project[keyPath: resourceBundleTargetKeyPath].name
+        let resourceBundleTargetName: String?
+        if let resourceBundleTargetKeyPath {
+            let resourceBundleTarget = self.project[keyPath: resourceBundleTargetKeyPath]
+            resourceBundleTargetName = resourceBundleTarget.name
         } else {
-            nil
+            resourceBundleTargetName = nil
         }
+        
         return PackagePIFBuilder.EmbedResourcesResult(
             bundleName: resourceBundleTargetName,
             shouldGenerateBundleAccessor: shouldGenerateBundleAccessor,
