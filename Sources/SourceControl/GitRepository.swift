@@ -78,6 +78,20 @@ private struct GitShellHelper {
             throw GitShellError(result: result)
         }
     }
+    
+    /// Fetches Git LFS objects for the repository at the given path
+    func fetchLFS(path: AbsolutePath) throws {
+        // Check if git-lfs is installed
+        do {
+            _ = try self.run(["lfs", "version"], environment: .init(Git.environmentBlock))
+        } catch {
+            // Git LFS is not installed, throw a more descriptive error
+            throw GitInterfaceError.missingGitLFS("Git LFS is required but not installed. Please install Git LFS.")
+        }
+        
+        // Fetch all LFS objects
+        _ = try self.run(["-C", path.pathString, "lfs", "fetch", "--all"])
+    }
 }
 
 // MARK: - GitRepositoryProvider
@@ -179,6 +193,18 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             progress: progress
         )
     }
+    
+    // Helper method to check for LFS attributes in a bare repository
+    private func checkForLFSAttributes(in path: AbsolutePath) throws -> Bool {
+        do {
+            // Get the HEAD commit and check its tree for .gitattributes
+            let headOutput = try self.git.run(["-C", path.pathString, "show", "HEAD:.gitattributes"])
+            return headOutput.contains("filter=lfs")
+        } catch {
+            // .gitattributes might not exist at the root, or HEAD might not exist yet
+            return false
+        }
+    }
 
     public func fetch(
         repository: RepositorySpecifier,
@@ -201,6 +227,14 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             ["--mirror"],
             progress: progressHandler
         )
+        
+        // For a bare repository, we need to check differently if it uses Git LFS
+        // Look for .gitattributes in the latest commit
+        let hasLFSAttributes = try self.checkForLFSAttributes(in: path)
+        
+        if hasLFSAttributes {
+            try self.git.fetchLFS(path: path)
+        }
     }
 
     public func isValidDirectory(_ directory: Basics.AbsolutePath) throws -> Bool {
@@ -1179,6 +1213,9 @@ private enum GitInterfaceError: Swift.Error {
 
     /// This indicates that a fatal error was encountered
     case fatalError
+    
+    /// This indicates that Git LFS is required but not installed
+    case missingGitLFS(String)
 }
 
 public struct GitRepositoryError: Error, CustomStringConvertible, DiagnosticLocationProviding {
