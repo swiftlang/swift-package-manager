@@ -33,6 +33,7 @@ struct PrebuiltRepos: Identifiable {
         let tag: String
         let manifest: Workspace.PrebuiltsManifest
         let cModulePaths: [String: [String]]
+        let addProduct: (Workspace.PrebuiltsManifest.Library, AbsolutePath) async throws -> ()
 
         var id: String { tag }
     }
@@ -70,7 +71,53 @@ var prebuiltRepos: IdentifiableSet<PrebuiltRepos> = [
                 ]),
                 cModulePaths: [
                     "_SwiftSyntaxCShims": ["Sources", "_SwiftSyntaxCShims"]
-                ]
+                ],
+                addProduct: { library, repoDir in
+                    try await shell("swift package add-product \(library.name) --type static-library --targets \(library.products.joined(separator: " "))", cwd: repoDir)
+                }
+            ),
+            .init(
+                tag:"601.0.1",
+                manifest: .init(libraries: [
+                    .init(
+                        name: "MacroSupport",
+                        products: [
+                            "SwiftBasicFormat",
+                            "SwiftCompilerPlugin",
+                            "SwiftDiagnostics",
+                            "SwiftIDEUtils",
+                            "SwiftOperators",
+                            "SwiftParser",
+                            "SwiftParserDiagnostics",
+                            "SwiftRefactor",
+                            "SwiftSyntax",
+                            "SwiftSyntaxMacros",
+                            "SwiftSyntaxMacroExpansion",
+                            "SwiftSyntaxMacrosTestSupport",
+                            "SwiftSyntaxMacrosGenericTestSupport",
+                        ],
+                        cModules: [
+                            "_SwiftSyntaxCShims",
+                        ]
+                    ),
+
+                ]),
+                cModulePaths: [
+                    "_SwiftSyntaxCShims": ["Sources", "_SwiftSyntaxCShims"]
+                ],
+                addProduct: { library, repoDir in
+                    // swift package add-product doesn't work here since it's now computed
+                    let packageFile = repoDir.appending(component: "Package.swift")
+                    var package = try String(contentsOf: packageFile.asURL)
+                    package.replace("products: products,", with: """
+                        products: products + [
+                            .library(name: "\(library.name)", type: .static, targets: [
+                                \(library.products.map({ "\"\($0)\"" }).joined(separator: ","))
+                            ])
+                        ],
+                        """)
+                    try package.write(to: packageFile.asURL, atomically: true, encoding: .utf8)
+                }
             ),
         ]
     ),
@@ -183,8 +230,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                 var newLibraries: IdentifiableSet<Workspace.PrebuiltsManifest.Library> = []
 
                 for library in version.manifest.libraries {
-                    // TODO: this is assuming products map to target names which is not always true
-                    try await shell("swift package add-product \(library.name) --type static-library --targets \(library.products.joined(separator: " "))", cwd: repoDir)
+                    try await version.addProduct(library, repoDir)
 
                     for platform in Workspace.PrebuiltsManifest.Platform.allCases {
                         guard canBuild(platform) else {
@@ -386,34 +432,35 @@ struct BuildPrebuilts: AsyncParsableCommand {
             .appending(RelativePath(validating: path))
     }
 
-    func shell(_ command: String, cwd: AbsolutePath) async throws {
-        _ = FileManager.default.changeCurrentDirectoryPath(cwd.pathString)
+}
+
+func shell(_ command: String, cwd: AbsolutePath) async throws {
+    _ = FileManager.default.changeCurrentDirectoryPath(cwd.pathString)
 
 #if os(Windows)
-        let arguments = ["C:\\Windows\\System32\\cmd.exe", "/c", command]
+    let arguments = ["C:\\Windows\\System32\\cmd.exe", "/c", command]
 #else
-        let arguments = ["/bin/bash", "-c", command]
+    let arguments = ["/bin/bash", "-c", command]
 #endif
-        let process = AsyncProcess(
-            arguments: arguments,
-            outputRedirection: .none
-        )
-        print("Running:", command)
-        try process.launch()
-        let result = try await process.waitUntilExit()
-        switch result.exitStatus {
-        case .terminated(code: let code):
-            if code != 0 {
-                throw StringError("Command exited with code \(code): \(command)")
-            }
-#if os(Windows)
-        case .abnormal(exception: let exception):
-            throw StringError("Command threw exception \(exception): \(command)")
-#else
-        case .signalled(signal: let signal):
-            throw StringError("Command exited on signal \(signal): \(command)")
-#endif
+    let process = AsyncProcess(
+        arguments: arguments,
+        outputRedirection: .none
+    )
+    print("Running:", command)
+    try process.launch()
+    let result = try await process.waitUntilExit()
+    switch result.exitStatus {
+    case .terminated(code: let code):
+        if code != 0 {
+            throw StringError("Command exited with code \(code): \(command)")
         }
+#if os(Windows)
+    case .abnormal(exception: let exception):
+        throw StringError("Command threw exception \(exception): \(command)")
+#else
+    case .signalled(signal: let signal):
+        throw StringError("Command exited on signal \(signal): \(command)")
+#endif
     }
 }
 
