@@ -12,8 +12,9 @@
 
 import Basics
 import Dispatch
-import OrderedCollections
 import PackageModel
+
+private import OrderedCollections
 
 import func TSCBasic.findCycle
 import struct TSCBasic.KeyedPair
@@ -1444,7 +1445,7 @@ public final class PackageBuilder {
 
     /// Collects the products defined by a package.
     private func constructProducts(_ modules: [Module]) throws -> [Product] {
-        var products = OrderedCollections.OrderedSet<KeyedPair<Product, String>>()
+        var products = OrderedSet<KeyedPair<Product, String>>()
 
         /// Helper method to append to products array.
         func append(_ product: Product) {

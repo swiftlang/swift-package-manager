@@ -30,6 +30,7 @@ target_link_libraries(PackageLoading PUBLIC
 target_link_libraries(PackageLoading PUBLIC
   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)
 target_link_libraries(PackageLoading PRIVATE
+  SwiftCollections::OrderedCollections
   SourceControl)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(PackageLoading PROPERTIES

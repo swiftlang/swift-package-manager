@@ -19,8 +19,6 @@ import PackageModel
 import PackageLoading
 import PackageGraph
 
-import struct OrderedCollections.OrderedDictionary
-
 import protocol TSCBasic.DiagnosticLocation
 
 public enum PluginAction {

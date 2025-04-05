@@ -15,11 +15,12 @@ import CoreCommands
 import Dispatch
 import class Foundation.NSLock
 import struct Foundation.URL
-import OrderedCollections
 import PackageGraph
 import PackageModel
 import SPMBuildCore
 import Workspace
+
+private import OrderedCollections
 
 import protocol TSCBasic.OutputByteStream
 import struct TSCUtility.Version
@@ -36,11 +37,11 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     }
 
     /// The progress of binary downloads.
-    private var binaryDownloadProgress = OrderedCollections.OrderedDictionary<String, DownloadProgress>()
+    private var binaryDownloadProgress = OrderedDictionary<String, DownloadProgress>()
     private let binaryDownloadProgressLock = NSLock()
 
     /// The progress of package  fetch operations.
-    private var fetchProgress = OrderedCollections.OrderedDictionary<PackageIdentity, FetchProgress>()
+    private var fetchProgress = OrderedDictionary<PackageIdentity, FetchProgress>()
     private let fetchProgressLock = NSLock()
 
     private let observabilityScope: ObservabilityScope

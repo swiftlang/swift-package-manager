@@ -54,7 +54,6 @@ add_library(Commands
   Utilities/TestingSupport.swift
   Utilities/XCTEvents.swift)
 target_link_libraries(Commands PUBLIC
-  SwiftCollections::OrderedCollections
   ArgumentParser
   Basics
   Build
@@ -69,6 +68,7 @@ target_link_libraries(Commands PUBLIC
   XCBuildSupport)
 target_link_libraries(Commands PRIVATE
   DriverSupport
+  SwiftCollections::OrderedCollections
   $<$<NOT:$<PLATFORM_ID:Darwin>>:FoundationXML>)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Commands PROPERTIES
