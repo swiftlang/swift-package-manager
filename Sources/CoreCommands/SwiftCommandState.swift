@@ -24,9 +24,8 @@ import SPMBuildCore
 import Workspace
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly
 @_spi(SwiftPMInternal)
-import DriverSupport
+internal import DriverSupport
 #else
 @_spi(SwiftPMInternal)
 import DriverSupport
