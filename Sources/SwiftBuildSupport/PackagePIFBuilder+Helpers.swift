@@ -55,7 +55,6 @@ import struct PackageGraph.ResolvedProduct
 
 import func PackageLoading.pkgConfigArgs
 
-#if canImport(SwiftBuild)
 import enum SwiftBuild.PIF
 
 // MARK: - PIF GUID Helpers
@@ -1108,4 +1107,3 @@ extension UserDefaults {
     }
 }
 
-#endif
