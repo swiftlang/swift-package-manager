@@ -13,10 +13,11 @@
 import Basics
 import _InternalTestSupport
 import Workspace
-import XCTest
+import Testing
 
-final class MirrorsConfigurationTests: XCTestCase {
-    func testLoadingSchema1() throws {
+fileprivate struct MirrorsConfigurationTests {
+    @Test
+    func loadingSchema1() throws {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/config/mirrors.json")
 
@@ -42,30 +43,33 @@ final class MirrorsConfigurationTests: XCTestCase {
         let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
         let mirrors = try config.get()
 
-        XCTAssertEqual(mirrors.mirror(for: originalURL),mirrorURL)
-        XCTAssertEqual(mirrors.original(for: mirrorURL), originalURL)
+        #expect(mirrors.mirror(for: originalURL) == mirrorURL)
+        #expect(mirrors.original(for: mirrorURL) == originalURL)
     }
 
-    func testThrowsWhenNotFound() throws {
+    @Test
+    func throwsWhenNotFound() throws {
+        let gitUrl = "https://github.com/apple/swift-argument-parser.git"
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/config/mirrors.json")
 
         let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
         let mirrors = try config.get()
 
-        XCTAssertThrows(StringError("Mirror not found for 'https://github.com/apple/swift-argument-parser.git'")) {
-            try mirrors.unset(originalOrMirror: "https://github.com/apple/swift-argument-parser.git")
+        #expect(throws: StringError("Mirror not found for '\(gitUrl)'")) {
+            try mirrors.unset(originalOrMirror: gitUrl)
         }
     }
 
-    func testDeleteWhenEmpty() throws {
+    @Test
+    func deleteWhenEmpty() throws {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/config/mirrors.json")
 
         let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
 
         try config.apply{ _ in }
-        XCTAssertFalse(fs.exists(configFile))
+        #expect(!fs.exists(configFile))
 
         let originalURL = "https://github.com/apple/swift-argument-parser.git"
         let mirrorURL = "https://github.com/mona/swift-argument-parser.git"
@@ -73,22 +77,23 @@ final class MirrorsConfigurationTests: XCTestCase {
         try config.apply{ mirrors in
             try mirrors.set(mirror: mirrorURL, for: originalURL)
         }
-        XCTAssertTrue(fs.exists(configFile))
+        #expect(fs.exists(configFile))
 
         try config.apply{ mirrors in
             try mirrors.unset(originalOrMirror: originalURL)
         }
-        XCTAssertFalse(fs.exists(configFile))
+        #expect(!fs.exists(configFile))
     }
 
-    func testDontDeleteWhenEmpty() throws {
+    @Test
+    func dontDeleteWhenEmpty() throws {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/config/mirrors.json")
 
         let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: false)
 
         try config.apply{ _ in }
-        XCTAssertFalse(fs.exists(configFile))
+        #expect(!fs.exists(configFile))
 
         let originalURL = "https://github.com/apple/swift-argument-parser.git"
         let mirrorURL = "https://github.com/mona/swift-argument-parser.git"
@@ -96,16 +101,17 @@ final class MirrorsConfigurationTests: XCTestCase {
         try config.apply{ mirrors in
             try mirrors.set(mirror: mirrorURL, for: originalURL)
         }
-        XCTAssertTrue(fs.exists(configFile))
+        #expect(fs.exists(configFile))
 
         try config.apply{ mirrors in
             try mirrors.unset(originalOrMirror: originalURL)
         }
-        XCTAssertTrue(fs.exists(configFile))
-        XCTAssertTrue(try config.get().isEmpty)
+        #expect(fs.exists(configFile))
+        #expect(try config.get().isEmpty)
     }
 
-    func testLocalAndShared() throws {
+    @Test
+    func localAndShared() throws {
         let fs = InMemoryFileSystem()
         let localConfigFile = AbsolutePath("/config/local-mirrors.json")
         let sharedConfigFile = AbsolutePath("/config/shared-mirrors.json")
@@ -125,9 +131,9 @@ final class MirrorsConfigurationTests: XCTestCase {
             try mirrors.set(mirror: mirror1URL, for: original1URL)
         }
 
-        XCTAssertEqual(config.mirrors.count, 1)
-        XCTAssertEqual(config.mirrors.mirror(for: original1URL), mirror1URL)
-        XCTAssertEqual(config.mirrors.original(for: mirror1URL), original1URL)
+        #expect(config.mirrors.count == 1)
+        #expect(config.mirrors.mirror(for: original1URL) == mirror1URL)
+        #expect(config.mirrors.original(for: mirror1URL) == original1URL)
 
         // now write to local location
 
@@ -138,12 +144,12 @@ final class MirrorsConfigurationTests: XCTestCase {
             try mirrors.set(mirror: mirror2URL, for: original2URL)
         }
 
-        XCTAssertEqual(config.mirrors.count, 1)
-        XCTAssertEqual(config.mirrors.mirror(for: original2URL), mirror2URL)
-        XCTAssertEqual(config.mirrors.original(for: mirror2URL), original2URL)
+        #expect(config.mirrors.count == 1)
+        #expect(config.mirrors.mirror(for: original2URL) == mirror2URL)
+        #expect(config.mirrors.original(for: mirror2URL) == original2URL)
 
         // should not see the shared any longer
-        XCTAssertEqual(config.mirrors.mirror(for: original1URL), nil)
-        XCTAssertEqual(config.mirrors.original(for: mirror1URL), nil)
+        #expect(config.mirrors.mirror(for: original1URL) == nil)
+        #expect(config.mirrors.original(for: mirror1URL) == nil)
     }
 }
