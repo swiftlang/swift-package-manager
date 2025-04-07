@@ -39,6 +39,8 @@ import enum TSCUtility.Git
 @_exported import func TSCTestSupport.systemQuietly
 @_exported import enum TSCTestSupport.StringPattern
 
+public let isInCiEnvironment = ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil
+
 /// Test helper utility for executing a block with a temporary directory.
 public func testWithTemporaryDirectory(
     function: StaticString = #function,
@@ -294,7 +296,7 @@ public func skipOnWindowsAsTestCurrentlyFails(because reason: String? = nil) thr
     } else {
         failureCause = ""
     }
-    throw XCTSkip("Test fails on windows\(failureCause)")
+    throw XCTSkip("Skipping tests on windows\(failureCause)")
     #endif
 }
 

@@ -185,12 +185,14 @@ public final class MockWorkspace {
 
     private func create() async throws {
         // Remove the sandbox if present.
-        try self.fileSystem.removeFileTree(self.sandbox)
+        if self.fileSystem.exists(self.sandbox) {
+            try self.fileSystem.removeFileTree(self.sandbox)
+        }
 
         // Create directories.
         try self.fileSystem.createDirectory(self.sandbox, recursive: true)
-        try self.fileSystem.createDirectory(self.rootsDir)
-        try self.fileSystem.createDirectory(self.packagesDir)
+        try self.fileSystem.createDirectory(self.rootsDir, recursive: true)
+        try self.fileSystem.createDirectory(self.packagesDir, recursive: true)
 
         var manifests: [MockManifestLoader.Key: Manifest] = [:]
 
