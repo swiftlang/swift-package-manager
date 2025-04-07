@@ -4308,6 +4308,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                         ),
                         .init(tool: .swift, kind: .strictMemorySafety),
                         .init(tool: .swift, kind: .defaultIsolation(.MainActor)),
+                        .init(tool: .swift, kind: .executorFactory("Foo.Bar")),
                     ]
                 ),
                 TargetDescription(

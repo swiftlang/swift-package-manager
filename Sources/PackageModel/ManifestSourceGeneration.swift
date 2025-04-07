@@ -584,7 +584,7 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
-        case .swiftExecutorFactory(let factory):
+        case .executorFactory(let factory):
             params.append(SourceCodeFragment(string: factory))
             self.init(enum: setting.kind.name, subnodes: params)
         }
@@ -1026,6 +1026,8 @@ extension TargetBuildSettingDescription.Kind {
             return "swiftLanguageMode"
         case .defaultIsolation:
             return "defaultIsolation"
+        case .executorFactory:
+            return "executorFactory"
         }
     }
 }

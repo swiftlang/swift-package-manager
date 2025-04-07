@@ -3257,6 +3257,76 @@ final class PackageBuilderTests: XCTestCase {
             }
         }
     }
+
+    func testExecutorFactoryPerTarget() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/a.swift",
+            "/Sources/B/b.swift"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .v6_2,
+            targets: [
+                try TargetDescription(
+                    name: "A",
+                    settings: [
+                        .init(tool: .swift, kind: .executorFactory("Foo.Bar"))
+                    ]
+                ),
+                try TargetDescription(
+                    name: "B",
+                    settings: [
+                        .init(tool: .swift, kind: .executorFactory("Foo.Bar"), condition: .init(platformNames: ["linux"])),
+                        .init(tool: .swift, kind: .executorFactory("Foo.Bar"), condition: .init(platformNames: ["macos"], config: "debug"))
+                    ]
+                ),
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("A") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertMatch(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS),
+                               [.anySequence, "-executor-factory", "Foo.Bar", .anySequence])
+
+                let macosReleaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                XCTAssertMatch(macosReleaseScope.evaluate(.OTHER_SWIFT_FLAGS),
+                               [.anySequence, "-executor-factory", "Foo.Bar", .anySequence])
+
+            }
+
+            package.checkModule("B") { package in
+                let linuxDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .linux, configuration: .debug)
+                )
+                XCTAssertMatch(linuxDebugScope.evaluate(.OTHER_SWIFT_FLAGS),
+                               [.anySequence, "-executor-factory", "Foo.Bar", .anySequence])
+
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertMatch(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS),
+                               [.anySequence, "-executor-factory", "Foo.Bar", .anySequence])
+
+                let macosReleaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                XCTAssertNoMatch(macosReleaseScope.evaluate(.OTHER_SWIFT_FLAGS),
+                                 [.anySequence, "-executor-factory", "Foo.Bar", .anySequence])
+
+            }
+        }
+    }
 }
 
 final class PackageBuilderTester {

@@ -58,7 +58,7 @@ public enum TargetBuildSettingDescription {
                 return !flags.isEmpty
             case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode,
                  .enableUpcomingFeature, .enableExperimentalFeature, .strictMemorySafety, .swiftLanguageMode,
-                 .defaultIsolation, executorFactory:
+                 .defaultIsolation, .executorFactory:
                 return false
             }
         }

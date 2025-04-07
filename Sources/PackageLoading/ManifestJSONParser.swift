@@ -758,11 +758,11 @@ extension TargetBuildSettingDescription.Kind {
             }
 
             return .defaultIsolation(isolation)
-        case "swiftExecutorFactory":
+        case "executorFactory":
             guard let value = values.first else {
                 throw InternalError("invalid (empty) build settings value")
             }
-            return .swiftExecutorFactory(value)
+            return .executorFactory(value)
         default:
             throw InternalError("invalid build setting \(name)")
         }

@@ -898,4 +898,23 @@ final class ManifestSourceGenerationTests: XCTestCase {
         let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
         try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v6_2)
     }
+
+    func testExecutorFactory() async throws {
+        let manifest = Manifest.createRootManifest(
+          displayName: "pkg",
+          path: "/pkg",
+          toolsVersion: .v6_2,
+          dependencies: [],
+          targets: [
+            try TargetDescription(
+              name: "A",
+              type: .executable,
+              settings: [
+                .init(tool: .swift, kind: .executorFactory("Foo.Bar"))
+              ]
+            )
+          ])
+        let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
+        try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v6_2)
+    }
 }

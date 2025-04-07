@@ -3123,6 +3123,91 @@ final class PIFBuilderTests: XCTestCase {
             }
         }
     }
+
+    func testPerTargetExecutorFactory() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Foo/Sources/foo/foo.swift",
+            "/Foo/Sources/bar/bar.swift",
+            "/Foo/Sources/baz/baz.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    toolsVersion: .v6_2,
+                    targets: [
+                        .init(name: "foo", dependencies: [], settings: [
+                            .init(
+                                tool: .swift,
+                                kind: .executorFactory("Foo.Bar")
+                            ),
+                        ]),
+                        .init(name: "baz", dependencies: [], settings: [
+                            .init(
+                                tool: .swift,
+                                kind: .executorFactory("Foo.Bar"),
+                                condition: .init(platformNames: ["linux"])
+                            )
+                        ])
+                    ]
+                ),
+            ],
+            shouldCreateMultipleTestProducts: true,
+            observabilityScope: observability.topScope
+        )
+
+        let builder = PIFBuilder(
+            graph: graph,
+            parameters: .mock(supportedSwiftVersions: [.v6]),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let pif = try builder.construct()
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        try PIFTester(pif) { workspace in
+            try workspace.checkProject("PACKAGE:/Foo") { project in
+                project.checkTarget("PACKAGE-TARGET:foo") { target in
+                    for config in ["Debug", "Release"] {
+                        target.checkBuildConfiguration(config) { configuration in
+                            configuration.checkBuildSettings { settings in
+                                XCTAssertMatch(
+                                    settings[.OTHER_SWIFT_FLAGS] ?? [],
+                                    [.anySequence, "-executor-factory", "Foo.Bar", .anySequence]
+                                )
+                            }
+                        }
+                    }
+                }
+
+                project.checkTarget("PACKAGE-TARGET:baz") { target in
+                    for config in ["Debug", "Release"] {
+                        target.checkBuildConfiguration(config) { configuration in
+                            configuration.checkBuildSettings { settings in
+                                XCTAssertMatch(
+                                    settings[.OTHER_SWIFT_FLAGS, for: .linux] ?? [],
+                                    [.anySequence, "-executor-factory", "Foo.Bar", .anySequence]
+                                )
+                                XCTAssertNoMatch(
+                                    settings[.OTHER_SWIFT_FLAGS, for: .macOS] ?? [],
+                                    [.anySequence, "-executor-factory", "Foo.Bar", .anySequence]
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 extension PIFBuilderParameters {

@@ -501,7 +501,7 @@ public struct SwiftSetting: Sendable {
       _ condition: BuildSettingCondition? = nil
     ) -> SwiftSetting {
         return SwiftSetting(
-          name: "swiftExecutorFactory", value: [name], condition: condition)
+          name: "executorFactory", value: [factory], condition: condition)
     }
 }
 
