@@ -59,13 +59,22 @@ func withService(
 func withSession(
     service: SWBBuildService,
     name: String,
+    toolchainPath: String,
     packageManagerResourcesDirectory: Basics.AbsolutePath?,
     body: @escaping (
         _ session: SWBBuildServiceSession,
         _ diagnostics: [SwiftBuild.SwiftBuildMessage.DiagnosticInfo]
     ) async throws -> Void
 ) async throws {
-    switch await service.createSession(name: name, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil) {
+    switch await service.createSession(
+        name: name,
+        swiftToolchainPath: toolchainPath,
+        resourceSearchPaths: packageManagerResourcesDirectory.map {
+            [$0.pathString]
+        } ?? [],
+        cachePath: nil, inferiorProductsPath: nil,
+        environment: nil
+    ) {
     case (.success(let session), let diagnostics):
         do {
             try await body(session, diagnostics)
@@ -260,7 +269,16 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             )
 
             do {
-                try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
+                let toolchainPath = self.buildParameters.toolchain.swiftCompilerPath
+                    .parentDirectory // remove swift
+                    .parentDirectory // remove bin
+                    .parentDirectory // remove usr
+                try await withSession(
+                    service: service,
+                    name: self.buildParameters.pifManifest.pathString,
+                    toolchainPath: toolchainPath.pathString,
+                    packageManagerResourcesDirectory: self.packageManagerResourcesDirectory
+                ) { session, _ in
                     self.outputStream.send("Building for \(self.buildParameters.configuration == .debug ? "debugging" : "production")...\n")
 
                     // Load the workspace, and set the system information to the default
