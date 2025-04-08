@@ -1156,9 +1156,55 @@ struct SerializedDestinationV3: Decodable {
 
 /// Represents v4 schema of `swift-sdk.json` (previously `destination.json`) files used for cross-compilation.
 struct SwiftSDKMetadataV4: Decodable {
+    /// Base layer metadata for Swift SDKs that declare base layers, on top of which their content is stacked on.
+    struct BaseLayer: Codable {
+        /// Kind of the base layer for SwiftPM to act upon when unpacking/installing this layer.
+        enum Kind: Codable {
+            case macOSToolchainInstaller
+            case tarball
+        }
+
+        /// Host platform that this base layer supports.
+        enum HostPlatform: Codable {
+            case macOS
+            case windows
+            case amazonLinux2
+            case debian12
+            case fedora39
+            case rhel9
+            case ubuntu2004
+            case ubuntu2204
+            case ubuntu2404
+            case staticLinux
+        }
+
+        /// Hash information for verifying layer's integrity.
+        struct Hash: Codable {
+            /// Hashing algorithm used for creating a hash digest.
+            enum Algorithm: Codable {
+                case sha256
+            }
+
+            let algorithm: Algorithm
+            let digest: String
+        }
+
+        // URL where the layer is located.
+        let url: URL
+
+        // Hash digest and algorithm recorded for verifying layer's integrity.
+        let hash: Hash
+
+        // Kind of a given layer, inferred from url extension component when explicit kind is absent.
+        let kind: Kind?
+
+        // Host platform that requires this layer, if not specified the layer is used on all platforms.
+        let platform: HostPlatform?
+    }
+
     struct TripleProperties: Codable {
         /// Path relative to `swift-sdk.json` containing SDK root.
-        var sdkRootPath: String
+        var sdkRootPath: String?
 
         /// Path relative to `swift-sdk.json` containing Swift resources for dynamic linking.
         var swiftResourcesPath: String?
@@ -1174,6 +1220,10 @@ struct SwiftSDKMetadataV4: Decodable {
 
         /// Array of paths relative to `swift-sdk.json` containing toolset files.
         var toolsetPaths: [String]?
+
+        /// Array of base layers required to assemble this Swift SDK. When absent, it's assumed to have only
+        /// a single layer of content directly included in this Swift SDK bundle.
+        var baseLayers: [BaseLayer]?
     }
 
     /// Mapping of triple strings to corresponding properties of such target triple.
