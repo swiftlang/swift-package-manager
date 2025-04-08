@@ -58,22 +58,42 @@ var prebuiltRepos: IdentifiableSet<PrebuiltRepos> = [
                             "SwiftParserDiagnostics",
                             "SwiftRefactor",
                             "SwiftSyntax",
+                            "SwiftSyntaxBuilder",
                             "SwiftSyntaxMacros",
                             "SwiftSyntaxMacroExpansion",
                             "SwiftSyntaxMacrosTestSupport",
                             "SwiftSyntaxMacrosGenericTestSupport",
+                            "_SwiftCompilerPluginMessageHandling",
+                            "_SwiftLibraryPluginProvider",
                         ],
                         cModules: [
                             "_SwiftSyntaxCShims",
                         ]
                     ),
-
                 ]),
                 cModulePaths: [
                     "_SwiftSyntaxCShims": ["Sources", "_SwiftSyntaxCShims"]
                 ],
                 addProduct: { library, repoDir in
-                    try await shell("swift package add-product \(library.name) --type static-library --targets \(library.products.joined(separator: " "))", cwd: repoDir)
+                    let targets = [
+                        "SwiftBasicFormat",
+                        "SwiftCompilerPlugin",
+                        "SwiftDiagnostics",
+                        "SwiftIDEUtils",
+                        "SwiftOperators",
+                        "SwiftParser",
+                        "SwiftParserDiagnostics",
+                        "SwiftRefactor",
+                        "SwiftSyntax",
+                        "SwiftSyntaxBuilder",
+                        "SwiftSyntaxMacros",
+                        "SwiftSyntaxMacroExpansion",
+                        "SwiftSyntaxMacrosTestSupport",
+                        "SwiftSyntaxMacrosGenericTestSupport",
+                        "SwiftCompilerPluginMessageHandling",
+                        "SwiftLibraryPluginProvider",
+                    ]
+                    try await shell("swift package add-product \(library.name) --type static-library --targets \(targets.joined(separator: " "))", cwd: repoDir)
                 }
             ),
             .init(
@@ -86,15 +106,20 @@ var prebuiltRepos: IdentifiableSet<PrebuiltRepos> = [
                             "SwiftCompilerPlugin",
                             "SwiftDiagnostics",
                             "SwiftIDEUtils",
+                            "SwiftIfConfig",
+                            "SwiftLexicalLookup",
                             "SwiftOperators",
                             "SwiftParser",
                             "SwiftParserDiagnostics",
                             "SwiftRefactor",
                             "SwiftSyntax",
+                            "SwiftSyntaxBuilder",
                             "SwiftSyntaxMacros",
                             "SwiftSyntaxMacroExpansion",
                             "SwiftSyntaxMacrosTestSupport",
                             "SwiftSyntaxMacrosGenericTestSupport",
+                            "_SwiftCompilerPluginMessageHandling",
+                            "_SwiftLibraryPluginProvider",
                         ],
                         cModules: [
                             "_SwiftSyntaxCShims",
@@ -106,13 +131,33 @@ var prebuiltRepos: IdentifiableSet<PrebuiltRepos> = [
                     "_SwiftSyntaxCShims": ["Sources", "_SwiftSyntaxCShims"]
                 ],
                 addProduct: { library, repoDir in
+                    let targets = [
+                        "SwiftBasicFormat",
+                        "SwiftCompilerPlugin",
+                        "SwiftDiagnostics",
+                        "SwiftIDEUtils",
+                        "SwiftIfConfig",
+                        "SwiftLexicalLookup",
+                        "SwiftOperators",
+                        "SwiftParser",
+                        "SwiftParserDiagnostics",
+                        "SwiftRefactor",
+                        "SwiftSyntax",
+                        "SwiftSyntaxBuilder",
+                        "SwiftSyntaxMacros",
+                        "SwiftSyntaxMacroExpansion",
+                        "SwiftSyntaxMacrosTestSupport",
+                        "SwiftSyntaxMacrosGenericTestSupport",
+                        "SwiftCompilerPluginMessageHandling",
+                        "SwiftLibraryPluginProvider",
+                    ]
                     // swift package add-product doesn't work here since it's now computed
                     let packageFile = repoDir.appending(component: "Package.swift")
                     var package = try String(contentsOf: packageFile.asURL)
                     package.replace("products: products,", with: """
                         products: products + [
                             .library(name: "\(library.name)", type: .static, targets: [
-                                \(library.products.map({ "\"\($0)\"" }).joined(separator: ","))
+                                \(targets.map({ "\"\($0)\"" }).joined(separator: ","))
                             ])
                         ],
                         """)
