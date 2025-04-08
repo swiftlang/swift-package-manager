@@ -195,8 +195,6 @@ final class LLBuildManifestBuilderTests: XCTestCase {
     
     /// Verifies that two modules with the same name but different triples don't share same build manifest keys.
     func testToolsBuildTriple() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let (graph, fs, scope) = try macrosPackageGraph()
         let productsTriple = Triple.x86_64MacOS
         let toolsTriple = Triple.arm64Linux
@@ -221,6 +219,6 @@ final class LLBuildManifestBuilderTests: XCTestCase {
 
         XCTAssertNotNil(manifest.commands["C.SwiftSyntax-aarch64-unknown-linux-gnu-debug-tool.module"])
         // Ensure that Objects.LinkFileList is -tool suffixed.
-        XCTAssertNotNil(manifest.commands["/path/to/build/aarch64-unknown-linux-gnu/debug/MMIOMacros-tool.product/Objects.LinkFileList"])
+        XCTAssertNotNil(manifest.commands[AbsolutePath("/path/to/build/aarch64-unknown-linux-gnu/debug/MMIOMacros-tool.product/Objects.LinkFileList").pathString])
     }
 }

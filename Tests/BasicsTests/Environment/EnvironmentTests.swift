@@ -15,7 +15,6 @@
 import Basics
 
 import XCTest
-import _InternalTestSupport // for skipOnWindowsAsTestCurrentlyFails()
 
 final class EnvironmentTests: XCTestCase {
     func test_init() {
@@ -103,8 +102,6 @@ final class EnvironmentTests: XCTestCase {
     /// Important: This test is inherently race-prone, if it is proven to be
     /// flaky, it should run in a singled threaded environment/removed entirely.
     func test_current() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: "ProcessInfo.processInfo.environment[pathEnvVarName] return nil in the docker container")
-
         #if os(Windows)
         let pathEnvVarName = "Path"
         #else
