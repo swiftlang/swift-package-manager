@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2025 Apple Inc. and the Swift project authors
+// Copyright (c) 2025-2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -13,6 +13,7 @@
 import Basics
 import PackageLoading
 import PackageModel
+import SourceControl
 import _InternalTestSupport
 import Testing
 
@@ -92,6 +93,45 @@ struct PackageDescription6_2LoadingTests {
         } when: {
             isWindows && !CiEnvironment.runningInSmokeTestPipeline
         }
+    }
+
+    @Test
+    func defaultIsolationPerTarget() async throws {
+        let content = """
+        import PackageDescription
+        let package = Package(
+            name: "Foo",
+            defaultLocalization: "be",
+            products: [],
+            targets: [
+                .target(
+                    name: "Foo",
+                    swiftSettings: [
+                        .defaultIsolation(nil)
+                    ]
+                ),
+                .target(
+                    name: "Bar",
+                    swiftSettings: [
+                        .defaultIsolation(MainActor.self)
+                    ]
+                )
+            ]
+        )
+        """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let (_, validationDiagnostics) = try await PackageDescriptionLoadingTests.loadAndValidateManifest(
+            content,
+            toolsVersion: .v6_2,
+            packageKind: .fileSystem(.root),
+            manifestLoader: ManifestLoader(
+                toolchain: try! UserToolchain.default
+            ),
+            observabilityScope: observability.topScope
+        )
+        expectNoDiagnostics(validationDiagnostics)
+        expectNoDiagnostics(observability.diagnostics)
     }
 }
 
