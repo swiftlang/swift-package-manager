@@ -704,23 +704,23 @@ class TestCommandSwiftBuildTests: TestCommandTestCase {
     }
 
     override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagEnabledXCTest() async throws {
-        throw XCTSkip("Result XML could not be found. The build fails due to a linker error on missing main symbol. https://github.com/swiftlang/swift-package-manager/issues/8439"")
+        throw XCTSkip("Result XML could not be found. The build fails due to a linker error on missing main symbol. https://github.com/swiftlang/swift-package-manager/issues/8439")
     }
 
     override func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagEnabledXCTest() async throws {
-        throw XCTSkip("Result XML could not be found. The build fails due to a linker error on missing main symbol. https://github.com/swiftlang/swift-package-manager/issues/8439"")
+        throw XCTSkip("Result XML could not be found. The build fails due to a linker error on missing main symbol. https://github.com/swiftlang/swift-package-manager/issues/8439")
     }
 
     override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagDisabledXCTest() async throws {
-        throw XCTSkip("Result XML could not be found. The build fails due to a linker error on missing main symbol. https://github.com/swiftlang/swift-package-manager/issues/8439"")
+        throw XCTSkip("Result XML could not be found. The build fails due to a linker error on missing main symbol. https://github.com/swiftlang/swift-package-manager/issues/8439")
     }
 
     override func testSwiftTestSkip() async throws {
-        throw XCTSkip("This fails due to a linker error on Linux. https://github.com/swiftlang/swift-package-manager/issues/8439"")
+        throw XCTSkip("This fails due to a linker error on Linux. https://github.com/swiftlang/swift-package-manager/issues/8439")
     }
 
     override func testSwiftTestXMLOutputWhenEmpty() async throws {
-        throw XCTSkip("This fails due to a linker error on Linux. https://github.com/swiftlang/swift-package-manager/issues/8439"")
+        throw XCTSkip("This fails due to a linker error on Linux. https://github.com/swiftlang/swift-package-manager/issues/8439")
     }
 
     override func testSwiftTestFilter() async throws {
