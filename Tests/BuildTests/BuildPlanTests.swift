@@ -6977,23 +6977,15 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     }
 }
 
-class BuildPlanNativeTests: BuildPlanTestCase {
-    override open var buildSystemProvider: BuildSystemProvider.Kind {
-        return .native
-    }
-
-    override func testDuplicateProductNamesWithNonDefaultLibsThrowError() async throws {
-        try await super.testDuplicateProductNamesWithNonDefaultLibsThrowError()
+final class BuildPlanNativeTests: BuildPlanTestCase {
+    override public var buildSystemProvider: BuildSystemProvider.Kind {
+        .native
     }
 }
 
-class BuildPlanSwiftBuildTests: BuildPlanTestCase {
-    override open var buildSystemProvider: BuildSystemProvider.Kind {
-        return .swiftbuild
-    }
-
-    override func testDuplicateProductNamesWithNonDefaultLibsThrowError() async throws {
-        try await super.testDuplicateProductNamesWithNonDefaultLibsThrowError()
+final class BuildPlanSwiftBuildTests: BuildPlanTestCase {
+    override public var buildSystemProvider: BuildSystemProvider.Kind {
+        .swiftbuild
     }
 
     override func testTargetsWithPackageAccess() async throws {
@@ -7014,8 +7006,6 @@ class BuildPlanSwiftBuildTests: BuildPlanTestCase {
             throw XCTSkip("Skipping SwiftBuild testing on Amazon Linux because of platform issues.")
         }
 #endif
-
         try await super.testPackageNameFlag()
     }
-
 }
