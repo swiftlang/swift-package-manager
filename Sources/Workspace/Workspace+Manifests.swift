@@ -226,10 +226,8 @@ extension Workspace {
 
             let inputNodes: [GraphLoadingNode] = try root.packages.map { identity, package in
                 inputIdentities.append(package.reference)
-                var traits: Set<String>? = []
-                if let enabledTraits = rootEnabledTraitsMap[package.reference.identity] {
-                    traits = enabledTraits//try package.manifest.enabledTraits(using: enabledTraits)
-                }
+                var traits: Set<String>? = rootEnabledTraitsMap[package.reference.identity] ?? []
+
                 let node = try GraphLoadingNode(
                     identity: identity,
                     manifest: package.manifest,
@@ -241,12 +239,8 @@ extension Workspace {
                 let package = dependency.packageRef
                 inputIdentities.append(package)
                 return try manifestsMap[dependency.identity].map { manifest in
-                    var traits: Set<String>? = []
+                    var traits: Set<String>? = rootDependenciesEnabledTraitsMap[dependency.identity] ?? []
 
-                    if let enabledTraits = rootDependenciesEnabledTraitsMap[dependency.identity] {
-                        // Recursively calculate the enabled traits of this package.
-                        traits = enabledTraits//try manifest.enabledTraits(using: enabledTraits)
-                    }
                     return try GraphLoadingNode(
                         identity: dependency.identity,
                         manifest: manifest,
@@ -347,7 +341,6 @@ extension Workspace {
 
                             var allEnabledTraits: Set<String> = []
                             if let explicitlyEnabledTraits
-    //                            let calculatedTraits = try manifest.enabledTraits(using: Set(explicitlyEnabledTraits))
                             {
                                 allEnabledTraits = Set(explicitlyEnabledTraits)
                             }
@@ -636,38 +629,7 @@ extension Workspace {
         let firstLevelDependencies = try topLevelManifests.values.map { manifest in
             try manifest.dependencies.filter { dep in
                 guard configuration.pruneDependencies else { return true }
-                var enabledTraits: Set<String>? = []
-                if manifest.packageKind.isRoot {
-                    enabledTraits = root.enabledTraits[manifest.packageIdentity]
-                }
-//                else {
-//                    let rootManifests = root.manifests.values.filter(\.packageKind.isRoot)
-//
-//                    // find the package dependency in each of the root manifests
-//                    let packageDependencyInRoots = rootManifests
-//                        .compactMap {
-//                            $0.dependencies
-//                                .first(where: { $0.identity.description == manifest.displayName.lowercased() })
-//                        }
-//
-//                    // pluck out the enabled traits defined by the package dependency struct
-//                    let enabledTraitsPerPackageDep = packageDependencyInRoots.map(\.traits)
-//
-//                    // create a union of the sets; if all are nil, then there is no config
-//                    var manifestEnabledTraits: Set<String>?
-//                    for enabledTraits in enabledTraitsPerPackageDep {
-//                        if let enabledTraits = enabledTraits?.map(\.name) {
-//                            if let resultSet = manifestEnabledTraits {
-//                                manifestEnabledTraits = resultSet.union(Set(enabledTraits))
-//                            } else {
-//                                manifestEnabledTraits = Set(enabledTraits)
-//                            }
-//                        }
-//                    }
-////                    manifestEnabledTraits = try manifest.enabledTraits(using: manifestEnabledTraits)
-////                    config = .init(enabledTraits: manifestEnabledTraits)
-//
-//                }
+                var enabledTraits: Set<String>? = root.enabledTraits[manifest.packageIdentity]
                 let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: enabledTraits)
                 return isDepUsed
             }.map(\.packageRef)

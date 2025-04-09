@@ -318,9 +318,8 @@ final class TraitTests: XCTestCase {
             await XCTAssertAsyncThrowsError(try await executeSwiftRun(
                 fixturePath.appending("DisablingEmptyDefaultsExample"),
                 "DisablingEmptyDefaultsExample"
-                //extraArgs: ["--experimental-prune-unused-dependencies"]
             )) { error in
-                guard case SwiftPMError.executionFailure(let underlying, let stdout, let stderr) = error else {
+                guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
                     XCTFail()
                     return
                 }

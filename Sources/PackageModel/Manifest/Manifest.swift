@@ -256,17 +256,7 @@ public final class Manifest: Sendable {
                     }
                 }
 
-//                target.pluginUsages?.forEach {
-//                    guard let dependency = self.packageDependency(referencedBy: $0),
-//                          let guardingTraits = traitGuardedDeps[dependency.identity.description]?[target.name]
-//                    else {
-//                        return
-//                    }
-//                    if let enabledTraits,
-//                       guardingTraits.intersection(enabledTraits) != guardingTraits {
-//                        guardedDependencies.insert(dependency.identity)
-//                    }
-//                }
+                // Since plugins cannot specify traits as a guarding condition, we can skip them.
             }
 
             let dependencies = self.dependencies.filter { guardedDependencies.contains($0.identity) }

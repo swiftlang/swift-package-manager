@@ -113,6 +113,14 @@ public struct PackageGraphRoot {
             // Should only ever have to use trait configuration here for roots.
             let enabledTraits = try manifest.enabledTraits(using: traitConfiguration)
             traitsMap[package.key] = enabledTraits
+
+            // Calculate the enabled traits for each dependency of this root:
+            manifest.dependencies.forEach { dependency in
+                if let traits = dependency.traits {
+                    let traitNames = traits.map(\.name)
+                    traitsMap[dependency.identity, default: []].formUnion(Set(traitNames))
+                }
+            }
         }
 
         self.enabledTraits = enableTraitsMap
