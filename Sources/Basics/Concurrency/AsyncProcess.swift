@@ -388,6 +388,20 @@ package final class AsyncProcess {
     }
 
     package convenience init(
+        args: [String],
+        environment: Environment = .current,
+        outputRedirection: OutputRedirection = .collect,
+        loggingHandler: LoggingHandler? = .none
+    ) {
+        self.init(
+            arguments: args,
+            environment: environment,
+            outputRedirection: outputRedirection,
+            loggingHandler: loggingHandler
+        )
+    }
+
+    package convenience init(
         args: String...,
         environment: Environment = .current,
         outputRedirection: OutputRedirection = .collect,

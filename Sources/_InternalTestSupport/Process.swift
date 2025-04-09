@@ -40,4 +40,10 @@ extension ProcessInfo {
     #else
     public static let exeSuffix = ""
     #endif
+
+    #if os(Windows)
+    public static let batSuffix = ".bat"
+    #else
+    public static let batSuffix = ""
+    #endif
 }

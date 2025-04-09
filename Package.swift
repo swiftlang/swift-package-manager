@@ -795,11 +795,17 @@ let package = Package(
                 "Archiver/Inputs/invalid_archive.tar.gz",
                 "Archiver/Inputs/invalid_archive.zip",
                 "processInputs/long-stdout-stderr",
+                "processInputs/long-stdout-stderr.bat",
                 "processInputs/exit4",
+                "processInputs/exit4.bat",
                 "processInputs/simple-stdout-stderr",
+                "processInputs/simple-stdout-stderr.bat",
                 "processInputs/deadlock-if-blocking-io",
+                "processInputs/deadlock-if-blocking-io.bat",
                 "processInputs/echo",
+                "processInputs/echo.bat",
                 "processInputs/in-to-out",
+                "processInputs/in-to-out.bat",
             ]
         ),
         .testTarget(
