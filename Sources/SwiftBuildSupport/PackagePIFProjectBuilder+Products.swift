@@ -89,13 +89,6 @@ extension PackagePIFProjectBuilder {
             )
         }
 
-        // We're currently *not* handling other module targets (and SwiftPM should never return them) for
-        // a main-module product but, for diagnostic purposes, we warn about any that we do come across.
-        if product.otherModules.hasContent {
-            let otherModuleNames = product.otherModules.map(\.name).joined(separator: ",")
-            log(.debug, ".. warning: ignored unexpected other module targets \(otherModuleNames)")
-        }
-
         // Deal with any generated source files or resource files.
         let (generatedSourceFiles, pluginGeneratedResourceFiles) = computePluginGeneratedFiles(
             module: mainModule,
@@ -316,124 +309,38 @@ extension PackagePIFProjectBuilder {
             }
         }
 
-        // Handle the main target's dependencies (and link against them).
-        mainModule.recursivelyTraverseDependencies { dependency in
+        // We need to track the modules we've already handled to avoid duplicate
+        // dependencies.
+        // This is necessary because modules are handled both directly and via
+        // `recursivelyTraverseDependencies`, so we can't rely on
+        // `recursivelyTraverseDependencies` to track everything for us.
+        //
+        // (This isn't necessary for products because we only handle products
+        // via `recursivelyTraverseDependencies`.)
+        var handledModuleNames: Set<String> = []
+
+        // Handle the other listed modules directly.
+        for module in product.otherModules {
+            if !handledModuleNames.contains(module.name) {
+                handledModuleNames.insert(module.name)
+
+                self.handleModule(module, for: product, with: [], targetKeyPath: mainModuleTargetKeyPath, settings: &settings)
+            }
+        }
+
+        // Handle the listed targets' dependencies (and link against them).
+        ([mainModule] + product.otherModules).recursivelyTraverseDependencies { dependency in
             switch dependency {
             case .module(let moduleDependency, let packageConditions):
-                // This assertion is temporarily disabled since we may see targets from
-                // _other_ packages, but this should be resolved; see rdar://95467710.
-                /* assert(moduleDependency.packageName == self.package.name) */
+                if !handledModuleNames.contains(moduleDependency.name) {
+                    handledModuleNames.insert(moduleDependency.name)
 
-                switch moduleDependency.type {
-                case .binary:
-                    let binaryFileRef = self.binaryGroup.addFileReference { id in
-                        FileReference(id: id, path: moduleDependency.path.pathString)
-                    }
-                    let toolsVersion = self.package.manifest.toolsVersion
-                    self.project[keyPath: mainModuleTargetKeyPath].addLibrary { id in
-                        BuildFile(
-                            id: id,
-                            fileRef: binaryFileRef,
-                            platformFilters: packageConditions.toPlatformFilter(toolsVersion: toolsVersion),
-                            codeSignOnCopy: true,
-                            removeHeadersOnCopy: true
-                        )
-                    }
-                    log(.debug, indent: 1, "Added use of binary library '\(moduleDependency.path)'")
-
-                case .plugin:
-                    let dependencyId = moduleDependency.pifTargetGUID()
-                    self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
-                        on: dependencyId,
-                        platformFilters: packageConditions
-                            .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
-                        linkProduct: false
-                    )
-                    log(.debug, indent: 1, "Added use of plugin target '\(dependencyId)'")
-
-                case .macro:
-                    let dependencyId = moduleDependency.pifTargetGUID()
-                    self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
-                        on: dependencyId,
-                        platformFilters: packageConditions
-                            .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
-                        linkProduct: false
-                    )
-                    log(.debug, indent: 1, "Added dependency on product '\(dependencyId)'")
-
-                    // Link with a testable version of the macro if appropriate.
-                    if product.type == .test {
-                        self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
-                            on: moduleDependency.pifTargetGUID(suffix: .testable),
-                            platformFilters: packageConditions
-                                .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
-                            linkProduct: true
-                        )
-                        log(
-                            .debug,
-                            indent: 1,
-                            "Added linked dependency on target '\(moduleDependency.pifTargetGUID(suffix: .testable))'"
-                        )
-
-                        // FIXME: Manually propagate product dependencies of macros but the build system should really handle this.
-                        moduleDependency.recursivelyTraverseDependencies { dependency in
-                            switch dependency {
-                            case .product(let productDependency, let packageConditions):
-                                let isLinkable = productDependency.isLinkable
-                                self.handleProduct(
-                                    productDependency,
-                                    with: packageConditions,
-                                    isLinkable: isLinkable,
-                                    targetKeyPath: mainModuleTargetKeyPath,
-                                    settings: &settings
-                                )
-                            case .module:
-                                break
-                            }
-                        }
-                    }
-
-                case .executable, .snippet:
-                    // For executable targets, we depend on the *product* instead
-                    // (i.e., we infuse the product's main module target into the one for the product itself).
-                    let productDependency = modulesGraph.allProducts.only { $0.name == moduleDependency.name }
-                    if let productDependency {
-                        let productDependencyGUID = productDependency.pifTargetGUID()
-                        self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
-                            on: productDependencyGUID,
-                            platformFilters: packageConditions
-                                .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
-                            linkProduct: false
-                        )
-                        log(.debug, indent: 1, "Added dependency on product '\(productDependencyGUID)'")
-                    }
-
-                    // If we're linking against an executable and the tools version is new enough,
-                    // we also link against a testable version of the executable.
-                    if product.type == .test, self.package.manifest.toolsVersion >= .v5_5 {
-                        let moduleDependencyGUID = moduleDependency.pifTargetGUID(suffix: .testable)
-                        self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
-                            on: moduleDependencyGUID,
-                            platformFilters: packageConditions
-                                .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
-                            linkProduct: true
-                        )
-                        log(.debug, indent: 1, "Added linked dependency on target '\(moduleDependencyGUID)'")
-                    }
-
-                case .library, .systemModule, .test:
-                    let shouldLinkProduct = moduleDependency.type != .systemModule
-                    let dependencyGUID = moduleDependency.pifTargetGUID()
-                    self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
-                        on: dependencyGUID,
-                        platformFilters: packageConditions
-                            .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
-                        linkProduct: shouldLinkProduct
-                    )
-                    log(
-                        .debug,
-                        indent: 1,
-                        "Added \(shouldLinkProduct ? "linked " : "")dependency on target '\(dependencyGUID)'"
+                    self.handleModule(
+                        moduleDependency,
+                        for: product,
+                        with: packageConditions,
+                        targetKeyPath: mainModuleTargetKeyPath,
+                        settings: &settings
                     )
                 }
 
@@ -494,6 +401,131 @@ extension PackagePIFProjectBuilder {
             deploymentTargets: self.deploymentTargets
         )
         self.builtModulesAndProducts.append(moduleOrProduct)
+    }
+
+    private mutating func handleModule(
+        _ moduleDependency: PackageGraph.ResolvedModule,
+        for product: PackageGraph.ResolvedProduct,
+        with packageConditions: [PackageModel.PackageCondition],
+        targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
+        settings: inout ProjectModel.BuildSettings
+    ) {
+        // This assertion is temporarily disabled since we may see targets from
+        // _other_ packages, but this should be resolved; see rdar://95467710.
+        /* assert(moduleDependency.packageName == self.package.name) */
+
+        switch moduleDependency.type {
+        case .binary:
+            let binaryFileRef = self.binaryGroup.addFileReference { id in
+                FileReference(id: id, path: moduleDependency.path.pathString)
+            }
+            let toolsVersion = self.package.manifest.toolsVersion
+            self.project[keyPath: targetKeyPath].addLibrary { id in
+                BuildFile(
+                    id: id,
+                    fileRef: binaryFileRef,
+                    platformFilters: packageConditions.toPlatformFilter(toolsVersion: toolsVersion),
+                    codeSignOnCopy: true,
+                    removeHeadersOnCopy: true
+                )
+            }
+            log(.debug, indent: 1, "Added use of binary library '\(moduleDependency.path)'")
+
+        case .plugin:
+            let dependencyId = moduleDependency.pifTargetGUID()
+            self.project[keyPath: targetKeyPath].common.addDependency(
+                on: dependencyId,
+                platformFilters: packageConditions
+                    .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                linkProduct: false
+            )
+            log(.debug, indent: 1, "Added use of plugin target '\(dependencyId)'")
+
+        case .macro:
+            let dependencyId = moduleDependency.pifTargetGUID()
+            self.project[keyPath: targetKeyPath].common.addDependency(
+                on: dependencyId,
+                platformFilters: packageConditions
+                    .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                linkProduct: false
+            )
+            log(.debug, indent: 1, "Added dependency on product '\(dependencyId)'")
+
+            // Link with a testable version of the macro if appropriate.
+            if product.type == .test {
+                self.project[keyPath: targetKeyPath].common.addDependency(
+                    on: moduleDependency.pifTargetGUID(suffix: .testable),
+                    platformFilters: packageConditions
+                        .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                    linkProduct: true
+                )
+                log(
+                    .debug,
+                    indent: 1,
+                    "Added linked dependency on target '\(moduleDependency.pifTargetGUID(suffix: .testable))'"
+                )
+
+                // FIXME: Manually propagate product dependencies of macros but the build system should really handle this.
+                moduleDependency.recursivelyTraverseDependencies { dependency in
+                    switch dependency {
+                    case .product(let productDependency, let packageConditions):
+                        let isLinkable = productDependency.isLinkable
+                        self.handleProduct(
+                            productDependency,
+                            with: packageConditions,
+                            isLinkable: isLinkable,
+                            targetKeyPath: targetKeyPath,
+                            settings: &settings
+                        )
+                    case .module:
+                        break
+                    }
+                }
+            }
+
+        case .executable, .snippet:
+            // For executable targets, we depend on the *product* instead
+            // (i.e., we infuse the product's main module target into the one for the product itself).
+            let productDependency = modulesGraph.allProducts.only { $0.name == moduleDependency.name }
+            if let productDependency {
+                let productDependencyGUID = productDependency.pifTargetGUID()
+                self.project[keyPath: targetKeyPath].common.addDependency(
+                    on: productDependencyGUID,
+                    platformFilters: packageConditions
+                        .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                    linkProduct: false
+                )
+                log(.debug, indent: 1, "Added dependency on product '\(productDependencyGUID)'")
+            }
+
+            // If we're linking against an executable and the tools version is new enough,
+            // we also link against a testable version of the executable.
+            if product.type == .test, self.package.manifest.toolsVersion >= .v5_5 {
+                let moduleDependencyGUID = moduleDependency.pifTargetGUID(suffix: .testable)
+                self.project[keyPath: targetKeyPath].common.addDependency(
+                    on: moduleDependencyGUID,
+                    platformFilters: packageConditions
+                        .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                    linkProduct: true
+                )
+                log(.debug, indent: 1, "Added linked dependency on target '\(moduleDependencyGUID)'")
+            }
+
+        case .library, .systemModule, .test:
+            let shouldLinkProduct = moduleDependency.type != .systemModule
+            let dependencyGUID = moduleDependency.pifTargetGUID()
+            self.project[keyPath: targetKeyPath].common.addDependency(
+                on: dependencyGUID,
+                platformFilters: packageConditions
+                    .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                linkProduct: shouldLinkProduct
+            )
+            log(
+                .debug,
+                indent: 1,
+                "Added \(shouldLinkProduct ? "linked " : "")dependency on target '\(dependencyGUID)'"
+            )
+        }
     }
 
     private mutating func handleProduct(
