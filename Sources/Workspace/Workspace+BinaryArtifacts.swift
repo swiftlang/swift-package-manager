@@ -806,6 +806,16 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
+        // Make sure the workspace state is saved exactly once, even if the method exits early.
+        // Files may have been deleted, download, etc. and the state needs to reflect that.
+        defer {
+            Task {
+                await observabilityScope.trap {
+                    try await self.state.save()
+                }
+            }
+        }
+
         var artifactsToRemove: [ManagedArtifact] = []
         var artifactsToAdd: [ManagedArtifact] = []
         var artifactsToDownload: [BinaryArtifactsManager.RemoteArtifact] = []
@@ -935,10 +945,6 @@ extension Workspace {
 
         guard !observabilityScope.errorsReported else {
             throw Diagnostics.fatalError
-        }
-
-        await observabilityScope.trap {
-            try await self.state.save()
         }
 
         func isAtArtifactsDirectory(_ artifact: ManagedArtifact) -> Bool {
