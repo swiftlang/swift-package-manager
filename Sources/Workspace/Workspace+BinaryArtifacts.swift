@@ -801,20 +801,26 @@ extension Workspace {
         addedOrUpdatedPackages: [PackageReference],
         observabilityScope: ObservabilityScope
     ) async throws {
+        try await withAsyncThrowing {
+            try await _updateBinaryArtifacts(manifests: manifests, addedOrUpdatedPackages: addedOrUpdatedPackages, observabilityScope: observabilityScope)
+        } defer: {
+            // Make sure the workspace state is saved exactly once, even if the method exits early.
+            // Files may have been deleted, download, etc. and the state needs to reflect that.
+            await observabilityScope.trap {
+                try await self.state.save()
+            }
+        }
+    }
+
+    private func _updateBinaryArtifacts(
+        manifests: DependencyManifests,
+        addedOrUpdatedPackages: [PackageReference],
+        observabilityScope: ObservabilityScope
+    ) async throws {
         let manifestArtifacts = try self.binaryArtifactsManager.parseArtifacts(
             from: manifests,
             observabilityScope: observabilityScope
         )
-
-        // Make sure the workspace state is saved exactly once, even if the method exits early.
-        // Files may have been deleted, download, etc. and the state needs to reflect that.
-        defer {
-            Task {
-                await observabilityScope.trap {
-                    try await self.state.save()
-                }
-            }
-        }
 
         var artifactsToRemove: [ManagedArtifact] = []
         var artifactsToAdd: [ManagedArtifact] = []
