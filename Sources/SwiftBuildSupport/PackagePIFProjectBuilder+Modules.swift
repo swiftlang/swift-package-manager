@@ -215,7 +215,7 @@ extension PackagePIFProjectBuilder {
 
     // MARK: - Source Modules
 
-    enum SourceModuleType {
+    enum SourceModuleType: String {
         case dynamicLibrary
         case staticLibrary
         case executable
@@ -228,36 +228,36 @@ extension PackagePIFProjectBuilder {
     private mutating func buildSourceModule(
         _ sourceModule: PackageGraph.ResolvedModule,
         type desiredModuleType: SourceModuleType,
-        targetSuffix: TargetGUIDSuffix? = nil,
+        targetSuffix: TargetSuffix? = nil,
         addBuildToolPluginCommands: Bool = true,
         inputResourceBundleName: String? = nil
     ) throws -> (PackagePIFBuilder.ModuleOrProduct, resourceBundleName: String?) {
         precondition(sourceModule.isSourceModule)
 
-        let pifTargetName: String
+        let pifProductName: String
         let executableName: String
         let productType: ProjectModel.Target.ProductType
 
         switch desiredModuleType {
         case .dynamicLibrary:
             if pifBuilder.createDylibForDynamicProducts { // We are re-using this default for dynamic targets as well.
-                pifTargetName = "lib\(sourceModule.name).dylib"
-                executableName = pifTargetName
+                pifProductName = "lib\(sourceModule.name).dylib"
+                executableName = pifProductName
                 productType = .dynamicLibrary
             } else {
-                pifTargetName = sourceModule.name + ".framework"
+                pifProductName = sourceModule.name + ".framework"
                 executableName = sourceModule.name
                 productType = .framework
             }
 
         case .staticLibrary, .executable:
-            pifTargetName = "\(sourceModule.name).o"
-            executableName = pifTargetName
+            pifProductName = "\(sourceModule.name).o"
+            executableName = pifProductName
             productType = .objectFile
 
         case .macro:
-            pifTargetName = sourceModule.name
-            executableName = pifTargetName
+            pifProductName = sourceModule.name
+            executableName = pifProductName
             productType = .hostBuildTool
         }
 
@@ -276,13 +276,13 @@ extension PackagePIFProjectBuilder {
             ProjectModel.Target(
                 id: sourceModule.pifTargetGUID(suffix: targetSuffix),
                 productType: productType,
-                name: sourceModule.name,
-                productName: pifTargetName,
+                name: "\(sourceModule.name)",
+                productName: pifProductName,
                 approvedByUser: approvedByUser
             )
         }
         do {
-            let sourceModuleTarget = self.project[keyPath: sourceModuleTargetKeyPath]
+            let sourceModule = self.project[keyPath: sourceModuleTargetKeyPath]
             log(
                 .debug,
                 "Created \(sourceModuleTarget.productType) '\(sourceModuleTarget.id)' " +
@@ -507,7 +507,7 @@ extension PackagePIFProjectBuilder {
         if enableDuplicateLinkageCulling {
             baselineOTHER_LDFLAGS = [
                 "-Wl,-no_warn_duplicate_libraries",
-                "$(inherited)",
+                "$(inherited)"
             ]
         } else {
             baselineOTHER_LDFLAGS = ["$(inherited)"]
