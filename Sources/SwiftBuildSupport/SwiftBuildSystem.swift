@@ -435,6 +435,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         var settings: [String: String] = [:]
         // An error with determining the override should not be fatal here.
         settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
+        // TODO see if this fixes some of the LD_LIBRARY_PATH problems on Linux
+        settings["LINKER_DRIVER"] = "swiftc"
         // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
         // native build system.
         settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
