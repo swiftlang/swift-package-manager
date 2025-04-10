@@ -71,13 +71,18 @@ struct PackagePIFProjectBuilder {
 
     func log(
         _ severity: Diagnostic.Severity,
-        indent: Int = 0,
+        indent: UInt = 0,
         _ message: String,
         sourceFile: StaticString = #fileID,
         sourceLine: UInt = #line
     ) {
-        let levelPrefix = String(repeating: "  ", count: indent)
-        self.pifBuilder.log(severity, levelPrefix + message, sourceFile: sourceFile, sourceLine: sourceLine)
+        self.pifBuilder.observabilityScope.logPIF(
+            severity,
+            indent: indent,
+            message,
+            sourceFile: sourceFile,
+            sourceLine: sourceLine
+        )
     }
 
     init(createForPackage package: PackageGraph.ResolvedPackage, builder: PackagePIFBuilder) {
@@ -197,8 +202,8 @@ struct PackagePIFProjectBuilder {
         self.log(
             .debug,
             indent: 1,
-            "Created \(type(of: resourcesTarget)) '\(resourcesTarget.id)' of type '\(resourcesTarget.productType)' " +
-                "with name '\(resourcesTarget.name)' and product name '\(resourcesTarget.productName)'"
+            "Created target '\(resourcesTarget.id)' of type '\(resourcesTarget.productType)' " +
+            "with name '\(resourcesTarget.name)' and product name '\(resourcesTarget.productName)'"
         )
 
         var settings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
