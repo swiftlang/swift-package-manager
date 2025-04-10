@@ -61,11 +61,15 @@ import enum SwiftBuild.ProjectModel
 
 // MARK: - PIF GUID Helpers
 
-enum TargetGUIDSuffix: String {
+enum TargetSuffix: String {
     case testable, dynamic
+    
+    func hasSuffix(id: GUID) -> Bool {
+        id.value.hasSuffix("-\(self.rawValue)")
+    }
 }
 
-extension TargetGUIDSuffix? {
+extension TargetSuffix? {
     func description(forName name: String) -> String {
         switch self {
         case .some(let suffix):
@@ -76,34 +80,37 @@ extension TargetGUIDSuffix? {
     }
 }
 
+extension GUID {
+    func hasSuffix(_ suffix: TargetSuffix) -> Bool {
+        self.value.hasSuffix("-\(suffix.rawValue)")
+    }
+}
+
 extension PackageModel.Module {
-    func pifTargetGUID(suffix: TargetGUIDSuffix? = nil) -> GUID {
+    func pifTargetGUID(suffix: TargetSuffix? = nil) -> GUID {
         PackagePIFBuilder.targetGUID(forModuleName: self.name, suffix: suffix)
     }
 }
 
 extension PackageGraph.ResolvedModule {
-    func pifTargetGUID(suffix: TargetGUIDSuffix? = nil) -> GUID {
+    func pifTargetGUID(suffix: TargetSuffix? = nil) -> GUID {
         self.underlying.pifTargetGUID(suffix: suffix)
     }
 }
 
 extension PackageModel.Product {
-    func pifTargetGUID(suffix: TargetGUIDSuffix? = nil) -> GUID {
+    func pifTargetGUID(suffix: TargetSuffix? = nil) -> GUID {
         PackagePIFBuilder.targetGUID(forProductName: self.name, suffix: suffix)
     }
 }
 
 extension PackageGraph.ResolvedProduct {
-    func pifTargetGUID(suffix: TargetGUIDSuffix? = nil) -> GUID {
+    func pifTargetGUID(suffix: TargetSuffix? = nil) -> GUID {
         self.underlying.pifTargetGUID(suffix: suffix)
     }
 
-    /// Helper function to consistently generate a target name string for a product in a package.
-    /// This format helps make sure that targets and products with the same name (as they often have) have different
-    /// target names in the PIF.
-    func targetNameForProduct(suffix: String = "") -> String {
-        "\(name)\(suffix) product"
+    func targetName(suffix: TargetSuffix? = nil) -> String {
+        PackagePIFBuilder.targetName(forProductName: self.name, suffix: suffix)
     }
 }
 
@@ -112,7 +119,7 @@ extension PackagePIFBuilder {
     ///
     /// This format helps make sure that there is no collision with any other PIF targets,
     /// and in particular that a PIF target and a PIF product can have the same name (as they often do).
-    static func targetGUID(forModuleName name: String, suffix: TargetGUIDSuffix? = nil) -> GUID {
+    static func targetGUID(forModuleName name: String, suffix: TargetSuffix? = nil) -> GUID {
         let suffixDescription = suffix.description(forName: name)
         return "PACKAGE-TARGET:\(name)\(suffixDescription)"
     }
@@ -121,9 +128,17 @@ extension PackagePIFBuilder {
     ///
     /// This format helps make sure that there is no collision with any other PIF targets,
     /// and in particular that a PIF target and a PIF product can have the same name (as they often do).
-    static func targetGUID(forProductName name: String, suffix: TargetGUIDSuffix? = nil) -> GUID {
+    static func targetGUID(forProductName name: String, suffix: TargetSuffix? = nil) -> GUID {
         let suffixDescription = suffix.description(forName: name)
         return "PACKAGE-PRODUCT:\(name)\(suffixDescription)"
+    }
+    
+    /// Helper function to consistently generate a target name string for a product in a package.
+    /// This format helps make sure that targets and products with the same name (as they often have) have different
+    /// target names in the PIF.
+    static func targetName(forProductName name: String, suffix: TargetSuffix? = nil) -> String {
+        let suffix = suffix?.rawValue ?? ""
+        return "\(name)\(suffix)-product"
     }
 }
 
@@ -796,7 +811,14 @@ extension TSCUtility.Version {
     }
 }
 
-// MARK: - Swift Build PIF Helpers
+// MARK: - Swift Build ProjectModel Helpers
+
+/// Helpful for logging.
+extension ProjectModel.GUID: @retroactive CustomStringConvertible  {
+    public var description: String {
+        value
+    }
+}
 
 extension ProjectModel.BuildSettings {
     subscript(_ setting: MultipleValueSetting, default defaultValue: [String]) -> [String] {
