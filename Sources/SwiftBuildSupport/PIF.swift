@@ -30,8 +30,8 @@ import enum SwiftBuild.ProjectModel
 /// incrementally updated by clients when something changes.
 public enum PIF {
     /// This is used as part of the signature for the high-level PIF objects, to ensure that changes to the PIF schema
-    /// are represented by the objects which do not use a content-based signature scheme (workspaces and projects,
-    /// currently).
+    /// are represented by the objects which do not use a content-based signature scheme
+    /// (workspaces and projects, currently).
     static let schemaVersion = 11
     
     /// The type used for identifying PIF objects.
@@ -103,13 +103,13 @@ public enum PIF {
         }
         
         public func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            try container.encode(type, forKey: .type)
+            var superContainer = encoder.container(keyedBy: CodingKeys.self)
+            try superContainer.encode(type, forKey: .type)
         }
         
         required public init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            self.type = try container.decode(String.self, forKey: .type)
+            let superContainer = try decoder.container(keyedBy: CodingKeys.self)
+            self.type = try superContainer.decode(String.self, forKey: .type)
             
             guard self.type == Self.type else {
                 throw InternalError("Expected same type for high-level object: \(self.type)")
@@ -148,7 +148,7 @@ public enum PIF {
             var superContainer = encoder.container(keyedBy: HighLevelObject.CodingKeys.self)
             var contents = superContainer.nestedContainer(keyedBy: CodingKeys.self, forKey: .contents)
             
-            try contents.encode("\(guid)@\(schemaVersion)", forKey: .guid)
+            try contents.encode("\(guid)", forKey: .guid)
             try contents.encode(name, forKey: .name)
             try contents.encode(path, forKey: .path)
             try contents.encode(projects.map(\.signature), forKey: .projects)
@@ -165,8 +165,7 @@ public enum PIF {
             let superContainer = try decoder.container(keyedBy: HighLevelObject.CodingKeys.self)
             let contents = try superContainer.nestedContainer(keyedBy: CodingKeys.self, forKey: .contents)
             
-            let guidString = try contents.decode(GUID.self, forKey: .guid)
-            self.guid = String(guidString.dropLast("\(schemaVersion)".count + 1))
+            self.guid = try contents.decode(GUID.self, forKey: .guid)
             self.name = try contents.decode(String.self, forKey: .name)
             self.path = try contents.decode(AbsolutePath.self, forKey: .path)
             self.projects = try contents.decode([Project].self, forKey: .projects)
@@ -247,6 +246,7 @@ public enum PIF {
         }
         
         public required init(from decoder: Decoder) throws {
+            // FIXME: Remove all support for decoding PIF objects in SwiftBuildSupport? rdar://149003797
             fatalError("Decoding not implemented")
             /*
             let superContainer = try decoder.container(keyedBy: HighLevelObject.CodingKeys.self)
