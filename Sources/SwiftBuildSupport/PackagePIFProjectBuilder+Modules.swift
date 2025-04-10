@@ -47,7 +47,11 @@ extension PackagePIFProjectBuilder {
         }
         do {
             let pluginTarget = self.project[keyPath: pluginTargetKeyPath]
-            log(.debug, "Created \(pluginTarget.productType) '\(pluginTarget.id)' with name '\(pluginTarget.name)'")
+            log(
+                .debug,
+                "Created target '\(pluginTarget.id)' of type " +
+                "\(pluginTarget.productType) and name '\(pluginTarget.name)'"
+            )
         }
 
         var buildSettings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
@@ -285,8 +289,8 @@ extension PackagePIFProjectBuilder {
             let sourceModule = self.project[keyPath: sourceModuleTargetKeyPath]
             log(
                 .debug,
-                "Created \(sourceModuleTarget.productType) '\(sourceModuleTarget.id)' " +
-                    "with name '\(sourceModuleTarget.name)' and product name '\(sourceModuleTarget.productName)'"
+                "Created target '\(sourceModule.id)' of type '\(sourceModule.productType)' " +
+                "with name '\(sourceModule.name)' and product name '\(sourceModule.productName)'"
             )
         }
 
@@ -517,7 +521,7 @@ extension PackagePIFProjectBuilder {
         log(
             .debug,
             indent: 1,
-            "Added '\(String(describing: impartedSettings[.OTHER_LDFLAGS]))' to imparted OTHER_LDFLAGS"
+            "Added '\(impartedSettings[.OTHER_LDFLAGS]!)' to imparted OTHER_LDFLAGS"
         )
 
         // This should be only for dynamic targets, but that isn't possible today.
@@ -527,7 +531,7 @@ extension PackagePIFProjectBuilder {
         log(
             .debug,
             indent: 1,
-            "Added '\(String(describing: impartedSettings[.FRAMEWORK_SEARCH_PATHS]))' to imparted FRAMEWORK_SEARCH_PATHS"
+            "Added '\(impartedSettings[.FRAMEWORK_SEARCH_PATHS]!)' to imparted FRAMEWORK_SEARCH_PATHS"
         )
 
         // Set the appropriate language versions.
@@ -818,7 +822,7 @@ extension PackagePIFProjectBuilder {
             let systemLibraryTarget = self.project[keyPath: systemLibraryTargetKeyPath]
             log(
                 .debug,
-                "Created \(type(of: systemLibraryTarget)) '\(systemLibraryTarget.id)' with name '\(systemLibraryTarget.name)'"
+                "Created aggregate target '\(systemLibraryTarget.id)' with name '\(systemLibraryTarget.name)'"
             )
         }
 

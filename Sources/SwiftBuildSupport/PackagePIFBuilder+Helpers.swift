@@ -1035,6 +1035,55 @@ extension ProjectModel.BuildSettings.Declaration {
     }
 }
 
+// MARK: - ObservabilityScope Helpers
+
+extension ObservabilityScope {
+    /// Logs an informational PIF message (intended for developers, not end users).
+    func logPIF(
+        _ severity: Diagnostic.Severity = .debug,
+        indent: UInt = 0,
+        _ message: String,
+        sourceFile: StaticString = #fileID,
+        sourceLine: UInt = #line
+    ) {
+        var metadata = ObservabilityMetadata()
+        metadata.sourceLocation = SourceLocation(sourceFile, sourceLine)
+
+        let indentation = String(repeating: "  ", count: Int(indent))
+        let message = "PIF: \(indentation)\(message)"
+        
+        let diagnostic = Diagnostic(severity: severity, message: message, metadata: metadata)
+        self.emit(diagnostic)
+    }
+}
+
+extension ObservabilityMetadata {
+    public var sourceLocation: SourceLocation? {
+        get {
+            self[SourceLocationKey.self]
+        }
+        set {
+            self[SourceLocationKey.self] = newValue
+        }
+    }
+
+    private enum SourceLocationKey: Key {
+        typealias Value = SourceLocation
+    }
+}
+
+public struct SourceLocation: Sendable {
+    public let file: StaticString
+    public let line: UInt
+
+    public init(_ file: StaticString, _ line: UInt) {
+        precondition(file.description.hasContent)
+        
+        self.file = file
+        self.line = line
+    }
+}
+
 // MARK: - General Helpers
 
 extension SourceControlURL {

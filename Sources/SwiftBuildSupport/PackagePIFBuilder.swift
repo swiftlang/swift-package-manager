@@ -59,18 +59,14 @@ public final class PackagePIFBuilder {
     /// Scope for logging informational debug messages (intended for developers, not end users).
     let observabilityScope: ObservabilityScope
 
-    /// Logs an informational debug message (intended for developers, not end users).
+    /// Logs an informational message (intended for developers, not end users).
     func log(
         _ severity: Diagnostic.Severity,
         _ message: String,
         sourceFile: StaticString = #fileID,
         sourceLine: UInt = #line
     ) {
-        var metadata = ObservabilityMetadata()
-        metadata.sourceLocation = SourceLocation(sourceFile, sourceLine)
-
-        let diagnostic = Diagnostic(severity: severity, message: message, metadata: metadata)
-        self.observabilityScope.emit(diagnostic)
+        self.observabilityScope.logPIF(severity, message, sourceFile: sourceFile, sourceLine: sourceLine)
     }
 
     unowned let delegate: BuildDelegate
@@ -373,10 +369,11 @@ public final class PackagePIFBuilder {
     /// Build the PIF.
     @discardableResult
     public func build() throws -> [ModuleOrProduct] {
-        self.log(.info, "Building PIF for package \(self.package.identity)")
-
-        var builder = PackagePIFProjectBuilder(createForPackage: package, builder: self)
-        self.addProjectBuildSettings(&builder)
+        self.log(
+            .info,
+            "Building PIF project for package '\(self.package.identity)' " +
+            "(\(package.products.count) products, \(package.modules.count) modules)"
+        )
 
         var projectBuilder = PackagePIFProjectBuilder(createForPackage: package, builder: self)
         self.addProjectBuildSettings(&projectBuilder)
@@ -661,31 +658,6 @@ extension PackagePIFBuilder.LinkedPackageBinary {
         case .module(let moduleDependency, _):
             self.init(module: moduleDependency, package: package)
         }
-    }
-}
-
-extension ObservabilityMetadata {
-    public var sourceLocation: SourceLocation? {
-        get {
-            self[SourceLocationKey.self]
-        }
-        set {
-            self[SourceLocationKey.self] = newValue
-        }
-    }
-
-    private enum SourceLocationKey: Key {
-        typealias Value = SourceLocation
-    }
-}
-
-public struct SourceLocation: Sendable {
-    public let file: StaticString
-    public let line: UInt
-
-    public init(_ file: StaticString, _ line: UInt) {
-        self.file = file
-        self.line = line
     }
 }
 

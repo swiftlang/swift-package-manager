@@ -84,8 +84,8 @@ extension PackagePIFProjectBuilder {
             let mainModuleTarget = self.project[keyPath: mainModuleTargetKeyPath]
             log(
                 .debug,
-                "Created \(mainModuleTarget.productType)) '\(mainModuleTarget.id)' " +
-                    "with name '\(mainModuleTarget.name)' and product name '\(mainModuleTarget.productName)'"
+                "Created target '\(mainModuleTarget.id)' of type '\(mainModuleTarget.productType)' " +
+                "with name '\(mainModuleTarget.name)' and product name '\(mainModuleTarget.productName)'"
             )
         }
 
@@ -93,7 +93,7 @@ extension PackagePIFProjectBuilder {
         // a main-module product but, for diagnostic purposes, we warn about any that we do come across.
         if product.otherModules.hasContent {
             let otherModuleNames = product.otherModules.map(\.name).joined(separator: ",")
-            log(.debug, ".. warning: ignored unexpected other module targets \(otherModuleNames)")
+            log(.debug, indent: 1, "Warning: ignored unexpected other module targets \(otherModuleNames)")
         }
 
         // Deal with any generated source files or resource files.
@@ -626,7 +626,7 @@ extension PackagePIFProjectBuilder {
             log(
                 .debug,
                 "Created target '\(librayTarget.id)' of type '\(librayTarget.productType)' with " +
-                    "name '\(librayTarget.name)' and product name '\(librayTarget.productName)'"
+                "name '\(librayTarget.name)' and product name '\(librayTarget.productName)'"
             )
         }
 
@@ -889,7 +889,7 @@ extension PackagePIFProjectBuilder {
             log(
                 .debug,
                 "Created target '\(systemLibraryTarget.id)' of type '\(systemLibraryTarget.productType)' " +
-                    "with name '\(systemLibraryTarget.name)' and product name '\(systemLibraryTarget.productName)'"
+                "with name '\(systemLibraryTarget.name)' and product name '\(systemLibraryTarget.productName)'"
             )
         }
 
