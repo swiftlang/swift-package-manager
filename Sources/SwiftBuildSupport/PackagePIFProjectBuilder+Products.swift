@@ -76,7 +76,7 @@ extension PackagePIFProjectBuilder {
             ProjectModel.Target(
                 id: product.pifTargetGUID(),
                 productType: pifProductType,
-                name: product.name,
+                name: product.targetName(),
                 productName: product.name
             )
         }
@@ -124,7 +124,7 @@ extension PackagePIFProjectBuilder {
             settings[.LD_RUNPATH_SEARCH_PATHS] = [
                 "@loader_path/Frameworks",
                 "@loader_path/../Frameworks",
-                "$(inherited)",
+                "$(inherited)"
             ]
             settings[.GENERATE_INFOPLIST_FILE] = "YES"
             settings[.SKIP_INSTALL] = "NO"
@@ -570,21 +570,21 @@ extension PackagePIFProjectBuilder {
     private mutating func buildLibraryProduct(
         _ product: PackageGraph.ResolvedProduct,
         type desiredProductType: ProductType.LibraryType,
-        targetSuffix: TargetGUIDSuffix? = nil,
+        targetSuffix: TargetSuffix? = nil,
         embedResources: Bool
     ) throws -> PackagePIFBuilder.ModuleOrProduct {
         precondition(product.type.isLibrary)
 
         // FIXME: Cleanup this mess with <rdar://56889224>
 
-        let pifTargetProductName: String
+        let pifProductName: String
         let executableName: String
         let productType: ProjectModel.Target.ProductType
 
         if desiredProductType == .dynamic {
             if pifBuilder.createDylibForDynamicProducts {
-                pifTargetProductName = "lib\(product.name).dylib"
-                executableName = pifTargetProductName
+                pifProductName = "lib\(product.name).dylib"
+                executableName = pifProductName
                 productType = .dynamicLibrary
             } else {
                 // If a product is explicitly declared dynamic, we preserve its name,
@@ -600,12 +600,12 @@ extension PackagePIFProjectBuilder {
                 } else {
                     executableName = PackagePIFBuilder.computePackageProductFrameworkName(productName: product.name)
                 }
-                pifTargetProductName = "\(executableName).framework"
+                pifProductName = "\(executableName).framework"
                 productType = .framework
             }
         } else {
-            pifTargetProductName = "lib\(product.name).a"
-            executableName = pifTargetProductName
+            pifProductName = "lib\(product.name).a"
+            executableName = pifProductName
             productType = .packageProduct
         }
 
@@ -617,8 +617,8 @@ extension PackagePIFProjectBuilder {
             ProjectModel.Target(
                 id: product.pifTargetGUID(suffix: targetSuffix),
                 productType: productType,
-                name: product.name,
-                productName: pifTargetProductName
+                name: product.targetName(suffix: targetSuffix),
+                productName: pifProductName
             )
         }
         do {
@@ -686,7 +686,7 @@ extension PackagePIFProjectBuilder {
         if desiredProductType == .dynamic {
             settings.configureDynamicSettings(
                 productName: product.name,
-                targetName: product.targetNameForProduct(),
+                targetName: product.targetName(),
                 executableName: executableName,
                 packageIdentity: package.identity,
                 packageName: package.identity.c99name,
@@ -880,7 +880,7 @@ extension PackagePIFProjectBuilder {
             ProjectModel.Target(
                 id: product.pifTargetGUID(),
                 productType: .packageProduct,
-                name: product.name,
+                name: product.targetName(),
                 productName: product.name
             )
         }
@@ -930,7 +930,7 @@ extension PackagePIFProjectBuilder {
         let pluginTargetKeyPath = try self.project.addAggregateTarget { _ in
             ProjectModel.AggregateTarget(
                 id: pluginProduct.pifTargetGUID(),
-                name: pluginProduct.name
+                name: pluginProduct.targetName()
             )
         }
         do {

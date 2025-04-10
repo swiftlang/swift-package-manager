@@ -84,15 +84,15 @@ public final class PackagePIFBuilder {
         /// If a pure Swift package is open in the workspace.
         var hostsOnlyPackages: Bool { get }
 
-        /// Returns `true` if the package is managed by the user (i.e., the user is allowed to modify its sources,
-        /// package structure, etc).
+        /// Returns `true` if the package is managed by the user
+        /// (i.e., the user is allowed to modify its sources, package structure, etc).
         var isUserManaged: Bool { get }
 
         /// Whether or not this package is required by *branch* or *revision*.
         var isBranchOrRevisionBased: Bool { get }
 
-        /// For executables — only executables for now — we check to see if there is a custom package product type
-        /// provider that can provide this information.
+        /// For executables — only executables for now — we check to see if there is a
+        /// custom package product type provider that can provide this information.
         func customProductType(forExecutable product: PackageModel.Product) -> ProjectModel.Target.ProductType?
 
         /// Returns all *device family* IDs for all SDK variants.
@@ -378,20 +378,18 @@ public final class PackagePIFBuilder {
         var builder = PackagePIFProjectBuilder(createForPackage: package, builder: self)
         self.addProjectBuildSettings(&builder)
 
-        self._pifProject = builder.project
+        var projectBuilder = PackagePIFProjectBuilder(createForPackage: package, builder: self)
+        self.addProjectBuildSettings(&projectBuilder)
 
         //
-        // Construct PIF *targets* (for modules, products, and test bundles) based on the contents of the parsed
-        // package.
-        // These PIF targets will be sent down to Swift Build.
+        // Construct PIF *targets* (for modules, products, and test bundles) based on the contents
+        // of the parsed package. These PIF targets will be sent down to Swift Build.
         //
         // We also track all constructed objects as `ModuleOrProduct` value for easy introspection by clients.
         // In SwiftPM a product is a codeless entity with a reference to the modules(s) that contains the
-        // implementation.
-        // In order to avoid creating two ModuleOrProducts for each product in the package, the logic below creates a
-        // single
-        // unified ModuleOrProduct from the combination of a product and the single target that contains its
-        // implementation.
+        // implementation. In order to avoid creating two ModuleOrProducts for each product in the package,
+        // the logic below creates a single unified ModuleOrProduct from the combination of a product
+        // and the single target that contains its implementation.
         //
         // Products. SwiftPM considers unit tests to be products, so in this discussion, the term *product*
         // refers to an *executable*, a *library*, or an *unit test*.
@@ -402,54 +400,58 @@ public final class PackagePIFBuilder {
         // the structure of the client(s).
         //
 
+        self.log(.debug, "Processing \(package.products.count) products:")
+        
         // For each of the **products** in the package we create a corresponding `PIFTarget` of the appropriate type.
         for product in self.package.products {
             switch product.type {
             case .library(.static):
                 let libraryType = self.delegate.customLibraryType(product: product.underlying) ?? .static
-                try builder.makeLibraryProduct(product, type: libraryType)
+                try projectBuilder.makeLibraryProduct(product, type: libraryType)
 
             case .library(.dynamic):
                 let libraryType = self.delegate.customLibraryType(product: product.underlying) ?? .dynamic
-                try builder.makeLibraryProduct(product, type: libraryType)
+                try projectBuilder.makeLibraryProduct(product, type: libraryType)
 
             case .library(.automatic):
                 // Check if this is a system library product.
                 if product.isSystemLibraryProduct {
-                    try builder.makeSystemLibraryProduct(product)
+                    try projectBuilder.makeSystemLibraryProduct(product)
                 } else {
                     // Otherwise, it is a regular library product.
                     let libraryType = self.delegate.customLibraryType(product: product.underlying) ?? .automatic
-                    try builder.makeLibraryProduct(product, type: libraryType)
+                    try projectBuilder.makeLibraryProduct(product, type: libraryType)
                 }
 
             case .executable, .test:
-                try builder.makeMainModuleProduct(product)
+                try projectBuilder.makeMainModuleProduct(product)
 
             case .plugin:
-                try builder.makePluginProduct(product)
+                try projectBuilder.makePluginProduct(product)
 
             case .snippet, .macro:
                 break // TODO: Double-check what's going on here as we skip snippet modules too (rdar://147705448)
             }
         }
 
+        self.log(.debug, "Processing \(package.modules.count) modules:")
+
         // For each of the **modules** in the package other than those that are the *main* module of a product
         // —— which we've already dealt with above —— we create a corresponding `PIFTarget` of the appropriate type.
         for module in self.package.modules {
             switch module.type {
             case .executable:
-                try builder.makeTestableExecutableSourceModule(module)
+                try projectBuilder.makeTestableExecutableSourceModule(module)
 
             case .snippet:
                 // Already handled as a product. Note that snippets don't need testable modules.
                 break
 
             case .library:
-                try builder.makeLibraryModule(module)
+                try projectBuilder.makeLibraryModule(module)
 
             case .systemModule:
-                try builder.makeSystemLibraryModule(module)
+                try projectBuilder.makeSystemLibraryModule(module)
 
             case .test:
                 // Skip test module targets.
@@ -461,17 +463,18 @@ public final class PackagePIFBuilder {
                 break
 
             case .plugin:
-                try builder.makePluginModule(module)
+                try projectBuilder.makePluginModule(module)
 
             case .macro:
-                try builder.makeMacroModule(module)
+                try projectBuilder.makeMacroModule(module)
             }
         }
 
-        let customModulesAndProducts = try delegate.addCustomTargets(pifProject: builder.project)
-        builder.builtModulesAndProducts.append(contentsOf: customModulesAndProducts)
+        let customModulesAndProducts = try delegate.addCustomTargets(pifProject: projectBuilder.project)
+        projectBuilder.builtModulesAndProducts.append(contentsOf: customModulesAndProducts)
 
-        return builder.builtModulesAndProducts
+        self._pifProject = projectBuilder.project
+        return projectBuilder.builtModulesAndProducts
     }
 
     /// Configure the project-wide build settings.
