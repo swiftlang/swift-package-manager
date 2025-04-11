@@ -6842,4 +6842,70 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(contents, .regex(#"args: \[.*"-I","/testpackagedep/SomeArtifact.xcframework/macos/Headers".*,"/testpackage/Sources/CLib/lib.c".*]"#))
         XCTAssertMatch(contents, .regex(#"args: \[.*"-module-name","SwiftLib",.*"-I","/testpackagedep/SomeArtifact.xcframework/macos/Headers".*]"#))
     }
+
+    func testMacroPluginDependencyLeakage() async throws {
+        // Make sure the include paths from macro and plugin executables don't leak into dependents
+        let observability = ObservabilitySystem.makeForTesting()
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/LeakTest/Sources/CLib/include/Clib.h",
+            "/LeakTest/Sources/CLib/Clib.c",
+            "/LeakTest/Sources/MyMacro/MyMacro.swift",
+            "/LeakTest/Sources/MyPluginTool/MyPluginTool.swift",
+            "/LeakTest/Plugins/MyPlugin/MyPlugin.swift",
+            "/LeakTest/Sources/MyLib/MyLib.swift",
+            "/LeakLib/Sources/CLib2/include/Clib.h",
+            "/LeakLib/Sources/CLib2/Clib.c",
+            "/LeakLib/Sources/MyMacro2/MyMacro.swift",
+            "/LeakLib/Sources/MyPluginTool2/MyPluginTool.swift",
+            "/LeakLib/Plugins/MyPlugin2/MyPlugin.swift",
+            "/LeakLib/Sources/MyLib2/MyLib.swift"
+        ])
+
+        let graph = try loadModulesGraph(fileSystem: fs, manifests: [
+            Manifest.createFileSystemManifest(
+                displayName: "LeakLib",
+                path: "/LeakLib",
+                products: [
+                    ProductDescription(name: "MyLib2", type: .library(.automatic), targets: ["MyLib2"]),
+                ],
+                targets: [
+                    TargetDescription(name: "CLib2"),
+                    TargetDescription(name: "MyMacro2", dependencies: ["CLib2"], type: .macro),
+                    TargetDescription(name: "MyPluginTool2", dependencies: ["CLib2"], type: .executable),
+                    TargetDescription(name: "MyPlugin2", dependencies: ["MyPluginTool2"], type: .plugin, pluginCapability: .buildTool),
+                    TargetDescription(name: "MyLib2", dependencies: ["CLib2", "MyMacro2"], pluginUsages: [.plugin(name: "MyPlugin2", package: nil)]),
+                ]
+            ),
+            Manifest.createRootManifest(
+                displayName: "LeakTest",
+                path: "/LeakTest",
+                dependencies: [
+                    .fileSystem(path: "/LeakLib")
+                ],
+                targets: [
+                    TargetDescription(name: "CLib"),
+                    TargetDescription(name: "MyMacro", dependencies: ["CLib"], type: .macro),
+                    TargetDescription(name: "MyPluginTool", dependencies: ["CLib"], type: .executable),
+                    TargetDescription(name: "MyPlugin", dependencies: ["MyPluginTool"], type: .plugin, pluginCapability: .buildTool),
+                    TargetDescription(
+                        name: "MyLib",
+                        dependencies: ["CLib", "MyMacro", .product(name: "MyLib2", package: "LeakLib")],
+                        pluginUsages: [.plugin(name: "MyPlugin", package: nil)]
+                    ),
+                ]
+            )
+        ], observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let plan = try await mockBuildPlan(
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let myLib = try XCTUnwrap(plan.targets.first(where: { $0.module.name == "MyLib" })).swift()
+        print(myLib.additionalFlags)
+        XCTAssertFalse(myLib.additionalFlags.contains(where: { $0.contains("-tool/include")}), "flags shouldn't contain tools items")
+    }
 }

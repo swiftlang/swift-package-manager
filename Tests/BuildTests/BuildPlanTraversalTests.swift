@@ -146,8 +146,10 @@ final class BuildPlanTraversalTests: XCTestCase {
             XCTAssertEqual(product.name, "SwiftSyntax")
             XCTAssertEqual(destination, .host)
             XCTAssertNil(description)
+            return .continue
         } onModule: { module, destination, description in
             moduleDependencies.append((module, destination, description))
+            return .continue
         }
 
         XCTAssertEqual(moduleDependencies.count, 2)
