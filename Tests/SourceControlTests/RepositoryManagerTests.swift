@@ -19,10 +19,6 @@ import XCTest
 
 final class RepositoryManagerTests: XCTestCase {
     func testBasics() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-        Test failed with: 0 [main] sh (9736) C:\\Program Files\\Git\\usr\\bin\\sh.exe: *** fatal error - add_item ("\\??\\C:\\Program Files\\Git", "/", ...) failed, errno 1
-        """)
-
         let fs = localFileSystem
         let observability = ObservabilitySystem.makeForTesting()
 

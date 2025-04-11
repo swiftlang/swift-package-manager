@@ -30,13 +30,18 @@ final class BuildSystemDelegateTests: XCTestCase {
     }
 
     func testFilterNonFatalCodesignMessages() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try skipOnWindowsAsTestCurrentlyFails(because: "Package fails to build when the test is being executed")
 
         try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
         // Note: we can re-use the `TestableExe` fixture here since we just need an executable.
+        #if os(Windows)
+        let executableExt = ".exe"
+        #else
+        let executableExt = ""
+        #endif
         try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
             _ = try await executeSwiftBuild(fixturePath)
-            let execPath = fixturePath.appending(components: ".build", "debug", "TestableExe1")
+            let execPath = fixturePath.appending(components: ".build", "debug", "TestableExe1\(executableExt)")
             XCTAssertTrue(localFileSystem.exists(execPath), "executable not found at '\(execPath)'")
             try localFileSystem.removeFileTree(execPath)
             let (fullLog, _) = try await executeSwiftBuild(fixturePath)

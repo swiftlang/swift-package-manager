@@ -691,17 +691,6 @@ public struct SwiftSDK: Equatable {
         hostSDK: SwiftSDK,
         environment: Environment = .current
     ) -> SwiftSDK? {
-        if targetTriple.isWASI() {
-            let wasiSysroot = hostSDK.toolset.rootPaths.first?
-                .parentDirectory // usr
-                .appending(components: "share", "wasi-sysroot")
-            return SwiftSDK(
-                targetTriple: targetTriple,
-                toolset: hostSDK.toolset,
-                pathsConfiguration: .init(sdkRootPath: wasiSysroot)
-            )
-        }
-
         #if os(macOS)
         if let darwinPlatform = targetTriple.darwinPlatform {
             // the Darwin SDKs are trivially available on macOS

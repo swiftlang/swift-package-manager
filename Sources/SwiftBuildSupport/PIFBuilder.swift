@@ -1641,7 +1641,7 @@ private struct PIFBuildSettingAssignment {
     let platforms: [PIF.BuildSettings.Platform]?
 }
 
-extension BuildSettings.AssignmentTable {
+extension PackageModel.BuildSettings.AssignmentTable {
     fileprivate var pifAssignments: [PIF.BuildSettings.MultipleValueSetting: [PIFBuildSettingAssignment]] {
         var pifAssignments: [PIF.BuildSettings.MultipleValueSetting: [PIFBuildSettingAssignment]] = [:]
 
@@ -1679,7 +1679,7 @@ extension BuildSettings.AssignmentTable {
     }
 }
 
-extension BuildSettings.Assignment {
+extension PackageModel.BuildSettings.Assignment {
     fileprivate var configurations: [BuildConfiguration] {
         if let configurationCondition = conditions.lazy.compactMap(\.configurationCondition).first {
             [configurationCondition.configuration]
@@ -1866,7 +1866,7 @@ extension PIF.BuildSettings {
                 .filter { isSupportedVersion($0) }.map(\.description)
         }
 
-        func computeEffectiveTargetVersion(for assignment: BuildSettings.Assignment) throws -> String {
+        func computeEffectiveTargetVersion(for assignment: PackageModel.BuildSettings.Assignment) throws -> String {
             let versions = assignment.values.compactMap { SwiftLanguageVersion(string: $0) }
             if let effectiveVersion = computeEffectiveSwiftVersions(for: versions).last {
                 return effectiveVersion

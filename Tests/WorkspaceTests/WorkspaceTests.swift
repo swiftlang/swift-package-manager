@@ -171,8 +171,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testInterpreterFlags() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let fs = localFileSystem
 
         try testWithTemporaryDirectory { path in
@@ -297,8 +295,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testManifestParseError() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let observability = ObservabilitySystem.makeForTesting()
 
         try await testWithTemporaryDirectory { path in
@@ -15899,8 +15895,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_SignedCorrectly() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let actualMetadata = RegistryReleaseMetadata.createWithSigningEntity(
             .recognized(
                 type: "adp",
@@ -15920,8 +15914,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_SignedIncorrectly() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let actualMetadata = RegistryReleaseMetadata.createWithSigningEntity(
             .recognized(
                 type: "adp",
@@ -15953,8 +15945,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_Unsigned() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let expectedSigningEntity: RegistryReleaseMetadata.SigningEntity = .recognized(
             type: "adp",
             commonName: "Jane Doe",
@@ -15977,8 +15967,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_NotFound() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let expectedSigningEntity: RegistryReleaseMetadata.SigningEntity = .recognized(
             type: "adp",
             commonName: "Jane Doe",
@@ -16001,8 +15989,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_MirroredSignedCorrectly() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let mirrors = try DependencyMirrors()
         try mirrors.set(mirror: "ecorp.bar", for: "org.bar")
 
@@ -16032,8 +16018,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_MirrorSignedIncorrectly() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let mirrors = try DependencyMirrors()
         try mirrors.set(mirror: "ecorp.bar", for: "org.bar")
 
@@ -16071,8 +16055,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_MirroredUnsigned() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let mirrors = try DependencyMirrors()
         try mirrors.set(mirror: "ecorp.bar", for: "org.bar")
 
@@ -16098,8 +16080,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_MirroredToSCM() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let mirrors = try DependencyMirrors()
         try mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "org.bar")
 
@@ -16485,8 +16465,6 @@ final class WorkspaceTests: XCTestCase {
         archiver: Archiver? = .none,
         fileSystem: FileSystem
     ) throws -> RegistryClient {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let jsonEncoder = JSONEncoder.makeWithDefaults()
 
         guard let identity = packageIdentity.registry else {
