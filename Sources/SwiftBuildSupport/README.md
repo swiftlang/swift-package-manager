@@ -15,7 +15,7 @@ Work is continuing in these areas:
 * Conditional target dependencies (i.e. dependencies that are conditional on ".when()" specific platforms)
 * Plugin support
 * Friendly Error and Warning Descriptions and Fixups
-* Cross compiling Swift SDK's (e.g. Static Linux SDK, and WASM)
+* Cross compiling Swift SDK's (e.g. Static Linux SDK, and Wasm with WASI)
 * Improvements to test coverage
 * Task execution reporting
 
