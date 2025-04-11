@@ -120,7 +120,13 @@ public final class PIFBuilder {
     public func construct() throws -> PIF.TopLevelObject {
         #if canImport(SwiftBuild)
         try memoize(to: &self.pif) {
-            let rootPackage = self.graph.rootPackages.first!
+            guard let rootPackage = self.graph.rootPackages.only else {
+                if self.graph.rootPackages.isEmpty {
+                    throw PIFGenerationError.rootPackageNotFound
+                } else {
+                    throw PIFGenerationError.multipleRootPackagesFound
+                }
+            }
 
             let sortedPackages = self.graph.packages
                 .sorted { $0.manifest.displayName < $1.manifest.displayName } // TODO: use identity instead?
@@ -2137,6 +2143,8 @@ extension PIF.BuildSettings.Platform {
  */
 
 public enum PIFGenerationError: Error {
+    case rootPackageNotFound, multipleRootPackagesFound
+    
     case unsupportedSwiftLanguageVersions(
         targetName: String,
         versions: [SwiftLanguageVersion],
@@ -2147,12 +2155,19 @@ public enum PIFGenerationError: Error {
 extension PIFGenerationError: CustomStringConvertible {
     public var description: String {
         switch self {
+        case .rootPackageNotFound:
+            "No root package was found"
+
+        case .multipleRootPackagesFound:
+            "Multiple root packages were found, making the PIF generation (root packages) ordering sensitive"
+
         case .unsupportedSwiftLanguageVersions(
             targetName: let target,
             versions: let given,
             supportedVersions: let supported
         ):
-            "None of the Swift language versions used in target '\(target)' settings are supported. (given: \(given), supported: \(supported))"
+            "None of the Swift language versions used in target '\(target)' settings are supported." +
+            " (given: \(given), supported: \(supported))"
         }
     }
 }
