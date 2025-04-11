@@ -725,7 +725,7 @@ let package = Package(
 
         // MARK: Additional Test Dependencies
 
-            .target(
+            .testTarget(
                 /** SwiftPM internal build test suite support library */
                 name: "_InternalBuildTestSupport",
                 dependencies: [
@@ -734,12 +734,13 @@ let package = Package(
                     "SwiftBuildSupport",
                     "_InternalTestSupport"
                 ],
+                path: "Sources/_InternalBuildTestSupport",
                 swiftSettings: [
                     .unsafeFlags(["-static"]),
                 ]
             ),
 
-        .target(
+        .testTarget(
             /** SwiftPM internal test suite support library */
             name: "_InternalTestSupport",
             dependencies: [
@@ -754,6 +755,7 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 "Workspace",
             ],
+            path: "./Sources/_InternalTestSupport",
             swiftSettings: [
                 .unsafeFlags(["-static"]),
             ]

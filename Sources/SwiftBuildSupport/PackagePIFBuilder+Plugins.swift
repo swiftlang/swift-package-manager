@@ -18,9 +18,10 @@ import enum Basics.Sandbox
 import struct Basics.SourceControlURL
 
 #if canImport(SwiftBuild)
-import enum SwiftBuild.PIF
 
-extension PIFPackageBuilder {
+import enum SwiftBuild.ProjectModel
+
+extension PackagePIFBuilder {
     /// Contains all of the information resulting from applying a build tool plugin to a package target thats affect how
     /// a target is built.
     ///
