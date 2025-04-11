@@ -87,25 +87,33 @@ extension GUID {
 }
 
 extension PackageModel.Module {
-    func pifTargetGUID(suffix: TargetSuffix? = nil) -> GUID {
+    var pifTargetGUID: GUID { pifTargetGUID(suffix: nil) }
+
+    func pifTargetGUID(suffix: TargetSuffix?) -> GUID {
         PackagePIFBuilder.targetGUID(forModuleName: self.name, suffix: suffix)
     }
 }
 
 extension PackageGraph.ResolvedModule {
-    func pifTargetGUID(suffix: TargetSuffix? = nil) -> GUID {
+    var pifTargetGUID: GUID { pifTargetGUID(suffix: nil) }
+
+    func pifTargetGUID(suffix: TargetSuffix?) -> GUID {
         self.underlying.pifTargetGUID(suffix: suffix)
     }
 }
 
 extension PackageModel.Product {
-    func pifTargetGUID(suffix: TargetSuffix? = nil) -> GUID {
+    var pifTargetGUID: GUID { pifTargetGUID(suffix: nil) }
+
+    func pifTargetGUID(suffix: TargetSuffix?) -> GUID {
         PackagePIFBuilder.targetGUID(forProductName: self.name, suffix: suffix)
     }
 }
 
 extension PackageGraph.ResolvedProduct {
-    func pifTargetGUID(suffix: TargetSuffix? = nil) -> GUID {
+    var pifTargetGUID: GUID { pifTargetGUID(suffix: nil) }
+
+    func pifTargetGUID(suffix: TargetSuffix?) -> GUID {
         self.underlying.pifTargetGUID(suffix: suffix)
     }
 

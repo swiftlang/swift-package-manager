@@ -193,7 +193,7 @@ struct PackagePIFProjectBuilder {
 
         for pluginModule in module.pluginsAppliedToModule {
             self.project[keyPath: resourcesTargetKeyPath].common.addDependency(
-                on: pluginModule.pifTargetGUID(),
+                on: pluginModule.pifTargetGUID,
                 platformFilters: [],
                 linkProduct: false
             )

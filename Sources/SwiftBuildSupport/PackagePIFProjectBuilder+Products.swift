@@ -74,7 +74,7 @@ extension PackagePIFProjectBuilder {
         // It's not a library product, so create a regular PIF target of the appropriate product type.
         let mainModuleTargetKeyPath = try self.project.addTarget { _ in
             ProjectModel.Target(
-                id: product.pifTargetGUID(),
+                id: product.pifTargetGUID,
                 productType: pifProductType,
                 name: product.targetName(),
                 productName: product.name
@@ -342,7 +342,7 @@ extension PackagePIFProjectBuilder {
                     log(.debug, indent: 1, "Added use of binary library '\(moduleDependency.path)'")
 
                 case .plugin:
-                    let dependencyId = moduleDependency.pifTargetGUID()
+                    let dependencyId = moduleDependency.pifTargetGUID
                     self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                         on: dependencyId,
                         platformFilters: packageConditions
@@ -352,7 +352,7 @@ extension PackagePIFProjectBuilder {
                     log(.debug, indent: 1, "Added use of plugin target '\(dependencyId)'")
 
                 case .macro:
-                    let dependencyId = moduleDependency.pifTargetGUID()
+                    let dependencyId = moduleDependency.pifTargetGUID
                     self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                         on: dependencyId,
                         platformFilters: packageConditions
@@ -398,7 +398,7 @@ extension PackagePIFProjectBuilder {
                     // (i.e., we infuse the product's main module target into the one for the product itself).
                     let productDependency = modulesGraph.allProducts.only { $0.name == moduleDependency.name }
                     if let productDependency {
-                        let productDependencyGUID = productDependency.pifTargetGUID()
+                        let productDependencyGUID = productDependency.pifTargetGUID
                         self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                             on: productDependencyGUID,
                             platformFilters: packageConditions
@@ -423,7 +423,7 @@ extension PackagePIFProjectBuilder {
 
                 case .library, .systemModule, .test:
                     let shouldLinkProduct = moduleDependency.type != .systemModule
-                    let dependencyGUID = moduleDependency.pifTargetGUID()
+                    let dependencyGUID = moduleDependency.pifTargetGUID
                     self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                         on: dependencyGUID,
                         platformFilters: packageConditions
@@ -511,14 +511,14 @@ extension PackagePIFProjectBuilder {
         if !pifBuilder.delegate.shouldSuppressProductDependency(product: product.underlying, buildSettings: &settings) {
             let shouldLinkProduct = isLinkable
             self.project[keyPath: targetKeyPath].common.addDependency(
-                on: product.pifTargetGUID(),
+                on: product.pifTargetGUID,
                 platformFilters: packageConditions.toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                 linkProduct: shouldLinkProduct
             )
             log(
                 .debug,
                 indent: 1,
-                "Added \(shouldLinkProduct ? "linked " : "")dependency on product '\(product.pifTargetGUID()))'"
+                "Added \(shouldLinkProduct ? "linked " : "")dependency on product '\(product.pifTargetGUID)'"
             )
         }
     }
@@ -647,11 +647,11 @@ extension PackagePIFProjectBuilder {
             // SwiftBuild won't actually link them, but will instead impart linkage to any clients that
             // link against the package product.
             self.project[keyPath: librayUmbrellaTargetKeyPath].common.addDependency(
-                on: module.pifTargetGUID(),
+                on: module.pifTargetGUID,
                 platformFilters: [],
                 linkProduct: true
             )
-            log(.debug, indent: 1, "Added linked dependency on target '\(module.pifTargetGUID())'")
+            log(.debug, indent: 1, "Added linked dependency on target '\(module.pifTargetGUID)'")
         }
 
         for module in product.modules where module.underlying.isSourceModule && module.resources.hasContent {
@@ -746,7 +746,7 @@ extension PackagePIFProjectBuilder {
                 }
 
                 if moduleDependency.type == .plugin {
-                    let dependencyId = moduleDependency.pifTargetGUID()
+                    let dependencyId = moduleDependency.pifTargetGUID
                     self.project[keyPath: librayUmbrellaTargetKeyPath].common.addDependency(
                         on: dependencyId,
                         platformFilters: packageConditions
@@ -769,28 +769,28 @@ extension PackagePIFProjectBuilder {
                         .productRepresentingDependencyOfBuildPlugin(in: mainModuleProducts)
                     {
                         self.project[keyPath: librayUmbrellaTargetKeyPath].common.addDependency(
-                            on: product.pifTargetGUID(),
+                            on: product.pifTargetGUID,
                             platformFilters: packageConditions
                                 .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                             linkProduct: false
                         )
-                        log(.debug, indent: 1, "Added dependency on product '\(product.pifTargetGUID())'")
+                        log(.debug, indent: 1, "Added dependency on product '\(product.pifTargetGUID)'")
                         return
                     } else {
                         log(
                             .debug,
                             indent: 1,
-                            "Could not find a build plugin product to depend on for target '\(product.pifTargetGUID()))'"
+                            "Could not find a build plugin product to depend on for target '\(product.pifTargetGUID)'"
                         )
                     }
                 }
 
                 self.project[keyPath: librayUmbrellaTargetKeyPath].common.addDependency(
-                    on: moduleDependency.pifTargetGUID(),
+                    on: moduleDependency.pifTargetGUID,
                     platformFilters: packageConditions.toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                     linkProduct: true
                 )
-                log(.debug, indent: 1, "Added linked dependency on target '\(moduleDependency.pifTargetGUID()))'")
+                log(.debug, indent: 1, "Added linked dependency on target '\(moduleDependency.pifTargetGUID)'")
 
             case .product(let productDependency, let packageConditions):
                 // Do not add a dependency for binary-only executable products since they are not part of the build.
@@ -804,7 +804,7 @@ extension PackagePIFProjectBuilder {
                 ) {
                     let shouldLinkProduct = productDependency.isLinkable
                     self.project[keyPath: librayUmbrellaTargetKeyPath].common.addDependency(
-                        on: productDependency.pifTargetGUID(),
+                        on: productDependency.pifTargetGUID,
                         platformFilters: packageConditions
                             .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                         linkProduct: shouldLinkProduct
@@ -812,7 +812,7 @@ extension PackagePIFProjectBuilder {
                     log(
                         .debug,
                         indent: 1,
-                        "Added \(shouldLinkProduct ? "linked" : "") dependency on product '\(productDependency.pifTargetGUID()))'"
+                        "Added \(shouldLinkProduct ? "linked" : "") dependency on product '\(productDependency.pifTargetGUID)'"
                     )
                 }
             }
@@ -878,7 +878,7 @@ extension PackagePIFProjectBuilder {
 
         let systemLibraryTargetKeyPath = try self.project.addTarget { _ in
             ProjectModel.Target(
-                id: product.pifTargetGUID(),
+                id: product.pifTargetGUID,
                 productType: .packageProduct,
                 name: product.targetName(),
                 productName: product.name
@@ -902,7 +902,7 @@ extension PackagePIFProjectBuilder {
         }
 
         self.project[keyPath: systemLibraryTargetKeyPath].common.addDependency(
-            on: product.systemModule!.pifTargetGUID(),
+            on: product.systemModule!.pifTargetGUID,
             platformFilters: [],
             linkProduct: false
         )
@@ -929,7 +929,7 @@ extension PackagePIFProjectBuilder {
 
         let pluginTargetKeyPath = try self.project.addAggregateTarget { _ in
             ProjectModel.AggregateTarget(
-                id: pluginProduct.pifTargetGUID(),
+                id: pluginProduct.pifTargetGUID,
                 name: pluginProduct.targetName()
             )
         }
@@ -948,7 +948,7 @@ extension PackagePIFProjectBuilder {
 
         for pluginModule in pluginProduct.pluginModules! {
             self.project[keyPath: pluginTargetKeyPath].common.addDependency(
-                on: pluginModule.pifTargetGUID(),
+                on: pluginModule.pifTargetGUID,
                 platformFilters: []
             )
         }

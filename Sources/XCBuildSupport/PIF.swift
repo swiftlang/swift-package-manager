@@ -27,6 +27,11 @@ import struct TSCBasic.ByteString
 /// between builds which use different schemes or configurations), and can be
 /// incrementally updated by clients when something changes.
 public enum PIF {
+    /// This is used as part of the signature for the high-level PIF objects, to ensure that changes to the PIF schema
+    /// are represented by the objects which do not use a content-based signature scheme (workspaces and projects,
+    /// currently).
+    static let schemaVersion = 11
+
     /// The type used for identifying PIF objects.
     public typealias GUID = String
 
