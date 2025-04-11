@@ -28,7 +28,12 @@ public final class SwiftModule: Module {
         [defaultTestEntryPointName, "LinuxMain.swift"]
     }
 
-    public init(name: String, dependencies: [Module.Dependency], packageAccess: Bool, testDiscoverySrc: Sources) {
+    public init(
+        name: String,
+        dependencies: [Module.Dependency],
+        packageAccess: Bool,
+        testDiscoverySrc: Sources,
+        buildSettings: BuildSettings.AssignmentTable = .init()) {
         self.declaredSwiftVersions = []
 
         super.init(
@@ -38,7 +43,7 @@ public final class SwiftModule: Module {
             sources: testDiscoverySrc,
             dependencies: dependencies,
             packageAccess: packageAccess,
-            buildSettings: .init(),
+            buildSettings: buildSettings,
             buildSettingsDescription: [],
             pluginUsages: [],
             usesUnsafeFlags: false
