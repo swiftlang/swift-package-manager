@@ -29,13 +29,8 @@ import enum SwiftBuild.ProjectModel
 /// between builds which use different schemes or configurations), and can be
 /// incrementally updated by clients when something changes.
 public enum PIF {
-    /// This is used as part of the signature for the high-level PIF objects, to ensure that changes to the PIF schema
-    /// are represented by the objects which do not use a content-based signature scheme
-    /// (workspaces and projects, currently).
-    static let schemaVersion = 11
-    
     /// The type used for identifying PIF objects.
-    public typealias GUID = String
+    public typealias GUID = ProjectModel.GUID
     
     /// The top-level PIF object.
     public struct TopLevelObject: Encodable {
@@ -117,6 +112,7 @@ public enum PIF {
         }
     }
     
+    /// The high-level PIF *workspace* object.
     public final class Workspace: HighLevelObject {
         override class var type: String { "workspace" }
         
@@ -127,7 +123,7 @@ public enum PIF {
         var signature: String?
 
         public init(guid: GUID, name: String, path: AbsolutePath, projects: [ProjectModel.Project]) {
-            precondition(!guid.isEmpty)
+            precondition(!guid.value.isEmpty)
             precondition(!name.isEmpty)
             precondition(Set(projects.map(\.id)).count == projects.count)
             
@@ -174,12 +170,12 @@ public enum PIF {
         }
     }
     
+    /// A high-level PIF *project* object.
     public final class Project: HighLevelObject {
         override class var type: String { "project" }
         
-        public fileprivate(set) var underlying: ProjectModel.Project
+        public var underlying: ProjectModel.Project
         var signature: String?
-
         var id: ProjectModel.GUID { underlying.id }
         
         public init(wrapping underlying: ProjectModel.Project) {
@@ -216,11 +212,11 @@ public enum PIF {
         }
     }
     
+    /// A high-level PIF *target* object.
     private final class Target: HighLevelObject {
         override class var type: String { "target" }
         
-        public fileprivate(set) var underlying: ProjectModel.BaseTarget
-        
+        public var underlying: ProjectModel.BaseTarget
         var id: ProjectModel.GUID { underlying.id }
         
         public init(wrapping underlying: ProjectModel.BaseTarget) {
@@ -257,26 +253,12 @@ public enum PIF {
     }
 }
 
-extension CodingUserInfoKey {
-    public static let encodingPIFSignature: CodingUserInfoKey = CodingUserInfoKey(rawValue: "encodingPIFSignature")!
+// MARK: - PIF Signature Support
 
+extension CodingUserInfoKey {
     /// Perform the encoding for SwiftBuild consumption.
     public static let encodeForSwiftBuild: CodingUserInfoKey = CodingUserInfoKey(rawValue: "encodeForXCBuild")!
 }
-
-// MARK: - PIF Signature Support
-
-protocol PIFSignableObject {
-    var signature: String? { get set }
-    var name: String { get }
-}
-
-extension PIF.Workspace: PIFSignableObject {}
-extension SwiftBuild.ProjectModel.Project: PIFSignableObject {
-    var signature: String? { get { "" } set { } }
-
-}
-extension SwiftBuild.ProjectModel.TargetCommon: PIFSignableObject {}
 
 extension PIF {
     /// Add signature to workspace and its high-level subobjects.
@@ -298,16 +280,5 @@ extension PIF {
             project.signature = try signature(of: project)
         }
         workspace.signature = try signature(of: workspace)
-    }
-    
-    static func ____sign(workspace: PIF.Workspace) throws {
-        for project in workspace.projects {
-            for targetIndex in project.underlying.targets.indices {
-                let targetSignature = project.underlying.targets[targetIndex].id.value
-                project.underlying.targets[targetIndex].common.signature = targetSignature
-            }
-            project.signature = project.id.value
-        }
-        workspace.signature = workspace.guid
     }
 }
