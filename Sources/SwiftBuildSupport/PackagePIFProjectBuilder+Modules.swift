@@ -39,7 +39,7 @@ extension PackagePIFProjectBuilder {
         // Create an executable PIF target in order to get specialization.
         let pluginTargetKeyPath = try self.project.addTarget { _ in
             ProjectModel.Target(
-                id: pluginModule.pifTargetGUID(),
+                id: pluginModule.pifTargetGUID,
                 productType: .executable,
                 name: pluginModule.name,
                 productName: pluginModule.name
@@ -47,7 +47,11 @@ extension PackagePIFProjectBuilder {
         }
         do {
             let pluginTarget = self.project[keyPath: pluginTargetKeyPath]
-            log(.debug, "Created \(pluginTarget.productType) '\(pluginTarget.id)' with name '\(pluginTarget.name)'")
+            log(
+                .debug,
+                "Created target '\(pluginTarget.id)' of type " +
+                "\(pluginTarget.productType) and name '\(pluginTarget.name)'"
+            )
         }
 
         var buildSettings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
@@ -73,20 +77,20 @@ extension PackagePIFProjectBuilder {
 
                     if let productDependency {
                         self.project[keyPath: pluginTargetKeyPath].common.addDependency(
-                            on: productDependency.pifTargetGUID(),
+                            on: productDependency.pifTargetGUID,
                             platformFilters: dependencyPlatformFilters
                         )
-                        log(.debug, indent: 1, "Added dependency on product '\(productDependency.pifTargetGUID())'")
+                        log(.debug, indent: 1, "Added dependency on product '\(productDependency.pifTargetGUID)'")
                     } else {
                         log(
                             .debug,
                             indent: 1,
-                            "Could not find a build plugin product to depend on for target '\(moduleDependency.pifTargetGUID())'"
+                            "Could not find a build plugin product to depend on for target '\(moduleDependency.pifTargetGUID)'"
                         )
                     }
 
                 case .library, .systemModule, .test, .binary, .plugin, .macro:
-                    let dependencyGUID = moduleDependency.pifTargetGUID()
+                    let dependencyGUID = moduleDependency.pifTargetGUID
                     self.project[keyPath: pluginTargetKeyPath].common.addDependency(
                         on: dependencyGUID,
                         platformFilters: dependencyPlatformFilters
@@ -104,7 +108,7 @@ extension PackagePIFProjectBuilder {
                     product: productDependency.underlying,
                     buildSettings: &buildSettings
                 ) {
-                    let dependencyGUID = productDependency.pifTargetGUID()
+                    let dependencyGUID = productDependency.pifTargetGUID
                     let dependencyPlatformFilters = packageConditions
                         .toPlatformFilter(toolsVersion: self.package.manifest.toolsVersion)
 
@@ -215,7 +219,7 @@ extension PackagePIFProjectBuilder {
 
     // MARK: - Source Modules
 
-    enum SourceModuleType {
+    enum SourceModuleType: String {
         case dynamicLibrary
         case staticLibrary
         case executable
@@ -228,36 +232,36 @@ extension PackagePIFProjectBuilder {
     private mutating func buildSourceModule(
         _ sourceModule: PackageGraph.ResolvedModule,
         type desiredModuleType: SourceModuleType,
-        targetSuffix: TargetGUIDSuffix? = nil,
+        targetSuffix: TargetSuffix? = nil,
         addBuildToolPluginCommands: Bool = true,
         inputResourceBundleName: String? = nil
     ) throws -> (PackagePIFBuilder.ModuleOrProduct, resourceBundleName: String?) {
         precondition(sourceModule.isSourceModule)
 
-        let pifTargetName: String
+        let pifProductName: String
         let executableName: String
         let productType: ProjectModel.Target.ProductType
 
         switch desiredModuleType {
         case .dynamicLibrary:
             if pifBuilder.createDylibForDynamicProducts { // We are re-using this default for dynamic targets as well.
-                pifTargetName = "lib\(sourceModule.name).dylib"
-                executableName = pifTargetName
+                pifProductName = "lib\(sourceModule.name).dylib"
+                executableName = pifProductName
                 productType = .dynamicLibrary
             } else {
-                pifTargetName = sourceModule.name + ".framework"
+                pifProductName = sourceModule.name + ".framework"
                 executableName = sourceModule.name
                 productType = .framework
             }
 
         case .staticLibrary, .executable:
-            pifTargetName = "\(sourceModule.name).o"
-            executableName = pifTargetName
+            pifProductName = "\(sourceModule.name).o"
+            executableName = pifProductName
             productType = .objectFile
 
         case .macro:
-            pifTargetName = sourceModule.name
-            executableName = pifTargetName
+            pifProductName = sourceModule.name
+            executableName = pifProductName
             productType = .hostBuildTool
         }
 
@@ -276,17 +280,17 @@ extension PackagePIFProjectBuilder {
             ProjectModel.Target(
                 id: sourceModule.pifTargetGUID(suffix: targetSuffix),
                 productType: productType,
-                name: sourceModule.name,
-                productName: pifTargetName,
+                name: "\(sourceModule.name)",
+                productName: pifProductName,
                 approvedByUser: approvedByUser
             )
         }
         do {
-            let sourceModuleTarget = self.project[keyPath: sourceModuleTargetKeyPath]
+            let sourceModule = self.project[keyPath: sourceModuleTargetKeyPath]
             log(
                 .debug,
-                "Created \(sourceModuleTarget.productType) '\(sourceModuleTarget.id)' " +
-                    "with name '\(sourceModuleTarget.name)' and product name '\(sourceModuleTarget.productName)'"
+                "Created target '\(sourceModule.id)' of type '\(sourceModule.productType)' " +
+                "with name '\(sourceModule.name)' and product name '\(sourceModule.productName)'"
             )
         }
 
@@ -507,7 +511,7 @@ extension PackagePIFProjectBuilder {
         if enableDuplicateLinkageCulling {
             baselineOTHER_LDFLAGS = [
                 "-Wl,-no_warn_duplicate_libraries",
-                "$(inherited)",
+                "$(inherited)"
             ]
         } else {
             baselineOTHER_LDFLAGS = ["$(inherited)"]
@@ -517,7 +521,7 @@ extension PackagePIFProjectBuilder {
         log(
             .debug,
             indent: 1,
-            "Added '\(String(describing: impartedSettings[.OTHER_LDFLAGS]))' to imparted OTHER_LDFLAGS"
+            "Added '\(impartedSettings[.OTHER_LDFLAGS]!)' to imparted OTHER_LDFLAGS"
         )
 
         // This should be only for dynamic targets, but that isn't possible today.
@@ -527,7 +531,7 @@ extension PackagePIFProjectBuilder {
         log(
             .debug,
             indent: 1,
-            "Added '\(String(describing: impartedSettings[.FRAMEWORK_SEARCH_PATHS]))' to imparted FRAMEWORK_SEARCH_PATHS"
+            "Added '\(impartedSettings[.FRAMEWORK_SEARCH_PATHS]!)' to imparted FRAMEWORK_SEARCH_PATHS"
         )
 
         // Set the appropriate language versions.
@@ -625,16 +629,16 @@ extension PackagePIFProjectBuilder {
                         .productRepresentingDependencyOfBuildPlugin(in: moduleMainProducts)
                     {
                         self.project[keyPath: sourceModuleTargetKeyPath].common.addDependency(
-                            on: product.pifTargetGUID(),
+                            on: product.pifTargetGUID,
                             platformFilters: dependencyPlatformFilters,
                             linkProduct: false
                         )
-                        log(.debug, indent: 1, "Added dependency on product '\(product.pifTargetGUID())'")
+                        log(.debug, indent: 1, "Added dependency on product '\(product.pifTargetGUID)'")
                     } else {
                         log(
                             .debug,
                             indent: 1,
-                            "Could not find a build plugin product to depend on for target '\(moduleDependency.pifTargetGUID())'"
+                            "Could not find a build plugin product to depend on for target '\(moduleDependency.pifTargetGUID)'"
                         )
                     }
 
@@ -666,7 +670,7 @@ extension PackagePIFProjectBuilder {
                     log(.debug, indent: 1, "Added use of binary library '\(moduleDependency.path)'")
 
                 case .plugin:
-                    let dependencyGUID = moduleDependency.pifTargetGUID()
+                    let dependencyGUID = moduleDependency.pifTargetGUID
                     self.project[keyPath: sourceModuleTargetKeyPath].common.addDependency(
                         on: dependencyGUID,
                         platformFilters: dependencyPlatformFilters,
@@ -676,14 +680,14 @@ extension PackagePIFProjectBuilder {
 
                 case .library, .test, .macro, .systemModule:
                     self.project[keyPath: sourceModuleTargetKeyPath].common.addDependency(
-                        on: moduleDependency.pifTargetGUID(),
+                        on: moduleDependency.pifTargetGUID,
                         platformFilters: dependencyPlatformFilters,
                         linkProduct: shouldLinkProduct
                     )
                     log(
                         .debug,
                         indent: 1,
-                        "Added \(shouldLinkProduct ? "linked " : "")dependency on target '\(moduleDependency.pifTargetGUID())'"
+                        "Added \(shouldLinkProduct ? "linked " : "")dependency on target '\(moduleDependency.pifTargetGUID)'"
                     )
                 }
 
@@ -702,7 +706,7 @@ extension PackagePIFProjectBuilder {
                     let shouldLinkProduct = shouldLinkProduct && productDependency.isLinkable
 
                     self.project[keyPath: sourceModuleTargetKeyPath].common.addDependency(
-                        on: productDependency.pifTargetGUID(),
+                        on: productDependency.pifTargetGUID,
                         platformFilters: dependencyPlatformFilters,
                         linkProduct: shouldLinkProduct
                     )
@@ -810,7 +814,7 @@ extension PackagePIFProjectBuilder {
         // Create an aggregate PIF target (which doesn't have an actual product).
         let systemLibraryTargetKeyPath = try self.project.addAggregateTarget { _ in
             ProjectModel.AggregateTarget(
-                id: resolvedSystemLibrary.pifTargetGUID(),
+                id: resolvedSystemLibrary.pifTargetGUID,
                 name: resolvedSystemLibrary.name
             )
         }
@@ -818,7 +822,7 @@ extension PackagePIFProjectBuilder {
             let systemLibraryTarget = self.project[keyPath: systemLibraryTargetKeyPath]
             log(
                 .debug,
-                "Created \(type(of: systemLibraryTarget)) '\(systemLibraryTarget.id)' with name '\(systemLibraryTarget.name)'"
+                "Created aggregate target '\(systemLibraryTarget.id)' with name '\(systemLibraryTarget.name)'"
             )
         }
 
