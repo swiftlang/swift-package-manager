@@ -416,6 +416,12 @@ let package = Package(
             ]
         ),
 
+        // MARK: Documentation
+        
+        .target(
+            name: "PackageManagerDocs",
+        ),
+        
         // MARK: Package Manager Functionality
 
         .target(
