@@ -1014,6 +1014,12 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
     ]
 }
 
+if ProcessInfo.processInfo.environment["SWIFTPM_DOCC_ENABLED"] != nil {
+    package.dependencies += [
+        .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.1.0"),
+    ]
+}
+
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
         .package(url: "https://github.com/swiftlang/swift-tools-support-core.git", branch: relatedDependenciesBranch),
