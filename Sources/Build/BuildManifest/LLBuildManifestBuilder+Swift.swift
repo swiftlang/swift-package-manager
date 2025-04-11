@@ -23,8 +23,8 @@ import func TSCBasic.topologicalSort
 import struct Basics.Environment
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import class DriverSupport.SPMSwiftDriverExecutor
-@_implementationOnly import SwiftDriver
+internal import class DriverSupport.SPMSwiftDriverExecutor
+internal import SwiftDriver
 #else
 import class DriverSupport.SPMSwiftDriverExecutor
 import SwiftDriver
