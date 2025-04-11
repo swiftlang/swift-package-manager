@@ -623,8 +623,13 @@ public struct TestLibraryOptions: ParsableArguments {
     @Flag(name: .customLong("xctest"),
           inversion: .prefixedEnableDisable,
           help: "Enable support for XCTest")
-    public var explicitlyEnableXCTestSupport: Bool?
+    public var enableXCTestSupport: Bool = false
 
+    private var didSetEnableXCTestSupport = false
+
+    public var explicitlyEnableXCTestSupport: Bool? {
+        didSetEnableXCTestSupport ? enableXCTestSupport : nil
+    }
     /// Whether to enable support for Swift Testing (as explicitly specified by the user.)
     ///
     /// Callers will generally want to use ``enableSwiftTestingLibrarySupport`` since it will
@@ -632,7 +637,14 @@ public struct TestLibraryOptions: ParsableArguments {
     @Flag(name: .customLong("swift-testing"),
           inversion: .prefixedEnableDisable,
           help: "Enable support for Swift Testing")
-    public var explicitlyEnableSwiftTestingLibrarySupport: Bool?
+    public var enableSwiftTestingLibrarySupport: Bool = true
+    
+    private var didSetEnableSwiftTestingLibrarySupport = false
+
+
+    public var explicitlyEnableSwiftTestingLibrarySupport: Bool? {
+        didSetEnableSwiftTestingLibrarySupport ? enableSwiftTestingLibrarySupport : nil
+    }
 
     /// Legacy experimental equivalent of ``explicitlyEnableSwiftTestingLibrarySupport``.
     ///
@@ -641,6 +653,19 @@ public struct TestLibraryOptions: ParsableArguments {
           inversion: .prefixedEnableDisable,
           help: .private)
     public var explicitlyEnableExperimentalSwiftTestingLibrarySupport: Bool?
+    
+    mutating public func validate() throws {
+        let args = CommandLine.arguments
+
+        didSetEnableXCTestSupport = args.contains {
+            $0 == "--enable-xctest" || $0 == "--disable-xctest"
+        }
+
+        didSetEnableSwiftTestingLibrarySupport = args.contains {
+            $0 == "--enable-swift-testing" || $0 == "--disable-swift-testing"
+        }
+
+    }
 
     /// The common implementation for `isEnabled()` and `isExplicitlyEnabled()`.
     ///
