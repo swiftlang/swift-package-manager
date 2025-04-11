@@ -107,39 +107,24 @@ public final class PIFBuilder {
 
         let topLevelObject = try self.construct()
 
-        // Sign the PIF objects before encoding it for SwiftBuild.
+        // Sign the PIF objects before encoding it for Swift Build.
         try PIF.sign(workspace: topLevelObject.workspace)
 
         let pifData = try encoder.encode(topLevelObject)
         let pifString = String(decoding: pifData, as: UTF8.self)
-        
-        let pifFilePath = "/Users/pmattos/HighLevelTools/SPM_new_pif_builder/SW_PIF.json"
-//        print(">>> Writing to:", pifFilePath)
-        try pifString.write(toFile: pifFilePath, atomically: true, encoding: .utf8)
         
         return pifString
     }
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
     public func construct() throws -> PIF.TopLevelObject {
+        #if canImport(SwiftBuild)
         try memoize(to: &self.pif) {
             let rootPackage = self.graph.rootPackages.first!
 
             let sortedPackages = self.graph.packages
                 .sorted { $0.manifest.displayName < $1.manifest.displayName } // TODO: use identity instead?
             
-            /*
-            var projects: [PIFProjectBuilder] = try sortedPackages.map { package in
-                try _PackagePIFProjectBuilder(
-                    package: package,
-                    parameters: self.parameters,
-                    fileSystem: self.fileSystem,
-                    observabilityScope: self.observabilityScope
-                )
-            }
-            projects.append(AggregatePIFProjectBuilder(projects: projects))
-            */
-
             let packagesAndProjects: [(ResolvedPackage, ProjectModel.Project)] = try sortedPackages.map { package in
                 let packagePIFBuilderDelegate = PackagePIFBuilderDelegate(
                     package: package
@@ -147,7 +132,7 @@ public final class PIFBuilder {
                 let packagePIFBuilder = PackagePIFBuilder(
                     modulesGraph: self.graph,
                     resolvedPackage: package,
-                    packageManifest: package.manifest,  
+                    packageManifest: package.manifest,
                     delegate: packagePIFBuilderDelegate,
                     buildToolPluginResultsByTargetName: [:],
                     createDylibForDynamicProducts: self.parameters.shouldCreateDylibForDynamicProducts,
@@ -176,6 +161,9 @@ public final class PIFBuilder {
 
             return PIF.TopLevelObject(workspace: workspace)
         }
+        #else
+        fatalError("Swift Build support is not linked in.")
+        #endif
     }
 
     // Convenience method for generating PIF.
@@ -196,6 +184,8 @@ public final class PIFBuilder {
         return try builder.generatePIF(preservePIFModelStructure: preservePIFModelStructure)
     }
 }
+
+#if canImport(SwiftBuild)
 
 fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelegate {
     let package: ResolvedPackage
@@ -289,6 +279,8 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
     }
 }
 
+#endif
+
 fileprivate func buildAggregateProject(
     packagesAndProjects: [(package: ResolvedPackage, project: ProjectModel.Project)],
     observabilityScope: ObservabilityScope
@@ -379,13 +371,13 @@ fileprivate func buildAggregateProject(
             .debug,
             indent: 1,
             "Created target '\(allIncludingTests.id)' with name '\(allIncludingTests.name)' " +
-            "and \(allIncludingTests.common.dependencies.count) dependencies"
+            "and \(allIncludingTests.common.dependencies.count) (unlinked) dependencies"
         )
         observabilityScope.logPIF(
             .debug,
             indent: 1,
             "Created target '\(allExcludingTests.id)' with name '\(allExcludingTests.name)' " +
-            "and \(allExcludingTests.common.dependencies.count) dependencies"
+            "and \(allExcludingTests.common.dependencies.count) (unlinked) dependencies"
         )
     }
     
