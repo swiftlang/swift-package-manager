@@ -552,6 +552,8 @@ extension Basics.Diagnostic.Severity {
     }
 }
 
+#if canImport(SwiftBuild)
+
 fileprivate extension SwiftBuild.SwiftBuildMessage.DiagnosticInfo.Location {
     var userDescription: String? {
         switch self {
@@ -578,3 +580,5 @@ fileprivate extension SwiftBuild.SwiftBuildMessage.DiagnosticInfo.Location {
         }
     }
 }
+
+#endif
