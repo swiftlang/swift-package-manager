@@ -241,6 +241,7 @@ let package = Package(
             ],
             exclude: ["CMakeLists.txt", "Vendor/README.md"],
             swiftSettings: [
+                .enableExperimentalFeature("MemberImportVisibility"),
                 .enableExperimentalFeature("StrictConcurrency"),
                 .enableExperimentalFeature("AccessLevelOnImport"),
                 .unsafeFlags(["-static"]),
