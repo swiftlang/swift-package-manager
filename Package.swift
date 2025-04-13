@@ -184,6 +184,7 @@ let package = Package(
             name: "PackagePlugin",
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
+                .enableExperimentalFeature("MemberImportVisibility"),
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
             ],
