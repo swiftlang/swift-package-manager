@@ -309,6 +309,7 @@ let package = Package(
             dependencies: ["Basics"],
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: [
+                .enableExperimentalFeature("MemberImportVisibility"),
                 .unsafeFlags(["-static"]),
             ]
         ),
