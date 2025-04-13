@@ -153,6 +153,7 @@ let package = Package(
             name: "PackageDescription",
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
+                .enableExperimentalFeature("MemberImportVisibility"),
                 .define("USE_IMPL_ONLY_IMPORTS"),
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
