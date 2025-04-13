@@ -324,6 +324,7 @@ let package = Package(
             ] + swiftSyntaxDependencies(["SwiftBasicFormat", "SwiftDiagnostics", "SwiftIDEUtils", "SwiftParser", "SwiftSyntax", "SwiftSyntaxBuilder"]),
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
+                .enableExperimentalFeature("MemberImportVisibility"),
                 .unsafeFlags(["-static"]),
             ]
         ),
