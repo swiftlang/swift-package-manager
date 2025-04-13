@@ -696,15 +696,17 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             fileSystem: localFileSystem
         )
         try await fixture(name: "Miscellaneous/TargetPackageAccess") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(
+            let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath.appending("libPkg"),
                 extraArgs: ["-v"],
                 buildSystem: buildSystemProvider
             )
+            let output = stdout + "\n" + stderr
+            
             if isFlagSupportedInDriver {
-                let moduleFlag1 = stdout.range(of: "-module-name DataModel")
+                let moduleFlag1 = output.range(of: "-module-name DataModel")
                 XCTAssertNotNil(moduleFlag1)
-                let stdoutNext1 = stdout[moduleFlag1!.upperBound...]
+                let stdoutNext1 = output[moduleFlag1!.upperBound...]
                 let packageFlag1 = stdoutNext1.range(of: "-package-name libpkg")
                 XCTAssertNotNil(packageFlag1)
 
@@ -736,9 +738,9 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 let packageFlag5 = stdoutNext5.range(of: "-package-name")
                 XCTAssertNil(packageFlag5)
             } else {
-                XCTAssertNoMatch(stdout, .contains("-package-name"))
+                XCTAssertNoMatch(output, .contains("-package-name"))
             }
-            XCTAssertMatch(stdout, .contains("Build complete!"))
+            XCTAssertMatch(output, .contains("Build complete!"))
         }
     }
 
@@ -7057,14 +7059,6 @@ class BuildPlanSwiftBuildTests: BuildPlanTestCase {
 
     override func testDuplicateProductNamesWithNonDefaultLibsThrowError() async throws {
         try await super.testDuplicateProductNamesWithNonDefaultLibsThrowError()
-    }
-
-    override func testTargetsWithPackageAccess() async throws {
-        throw XCTSkip("Skip until swift build system can support this case.")
-    }
-
-    override func testTestModule() async throws {
-        throw XCTSkip("Skip until swift build system can support this case.")
     }
 
     override func testPackageNameFlag() async throws {
