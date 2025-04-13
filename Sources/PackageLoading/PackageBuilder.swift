@@ -14,6 +14,8 @@ import Basics
 import Dispatch
 import OrderedCollections
 import PackageModel
+import Foundation
+import TSCUtility
 
 import func TSCBasic.findCycle
 import struct TSCBasic.KeyedPair
