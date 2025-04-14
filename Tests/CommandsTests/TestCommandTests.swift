@@ -225,8 +225,8 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
             let xUnitUnderTest = fixturePath.appending("result\(testRunner.fileSuffix).xml")
 
             // WHEN we execute swift-test in parallel while specifying xUnit generation
-            let extraCommandArgs = enableExperimentalFlag ? ["--experimental-xunit-message-failure"]: [],
-            _ = try await execute(
+            let extraCommandArgs = enableExperimentalFlag ? ["--experimental-xunit-message-failure"]: []
+            let (stdout, stderr) = try await execute(
                 [
                     "--parallel",
                     "--verbose",
@@ -238,6 +238,12 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
                 packagePath: fixturePath,
                 throwIfCommandFails: false
             )
+
+            if !FileManager.default.fileExists(atPath: xUnitUnderTest.pathString) {
+                // If the build failed then produce a output dump of what happened during the execution
+                print("\(stdout)")
+                print("\(stderr)")
+            }
 
             // THEN we expect \(xUnitUnderTest) to exists
             XCTAssertFileExists(xUnitUnderTest)
@@ -694,35 +700,35 @@ class TestCommandSwiftBuildTests: TestCommandTestCase {
 
 #if !os(macOS)
     override func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagDisabledXCTest() async throws {
-        throw XCTSkip("SWBINTTODO: Result XML could not be found. This looks to be a build layout issue. Further investigation is needed.")
+        throw XCTSkip("Result XML could not be found. The build fails due to an LD_LIBRARY_PATH issue finding swift core libraries. https://github.com/swiftlang/swift-package-manager/issues/8416")
     }
 
     override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagEnabledXCTest() async throws {
-        throw XCTSkip("SWBINTTODO: Result XML could not be found. This looks to be a build layout issue. Further investigation is needed.")
+        throw XCTSkip("Result XML could not be found. The build fails due to an LD_LIBRARY_PATH issue finding swift core libraries. https://github.com/swiftlang/swift-package-manager/issues/8416")
     }
 
     override func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagEnabledXCTest() async throws {
-        throw XCTSkip("SWBINTTODO: Result XML could not be found. This looks to be a build layout issue. Further investigation is needed.")
+        throw XCTSkip("Result XML could not be found. The build fails due to an LD_LIBRARY_PATH issue finding swift core libraries. https://github.com/swiftlang/swift-package-manager/issues/8416")
     }
 
     override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagDisabledXCTest() async throws {
-        throw XCTSkip("SWBINTTODO: Result XML could not be found. This looks to be a build layout issue. Further investigation is needed.")
+        throw XCTSkip("Result XML could not be found. The build fails due to an LD_LIBRARY_PATH issue finding swift core libraries. https://github.com/swiftlang/swift-package-manager/issues/8416")
     }
 
     override func testSwiftTestSkip() async throws {
-        throw XCTSkip("SWBINTTODO: This fails due to a linker error on Linux. Further investigation is needed.")
+        throw XCTSkip("This fails due to a linker error on Linux. https://github.com/swiftlang/swift-package-manager/issues/8439")
     }
 
     override func testSwiftTestXMLOutputWhenEmpty() async throws {
-        throw XCTSkip("SWBINTTODO: This fails due to a linker error on Linux 'undefined reference to main'. Further investigation is needed.")
+        throw XCTSkip("This fails due to a linker error on Linux. https://github.com/swiftlang/swift-package-manager/issues/8439")
     }
 
     override func testSwiftTestFilter() async throws {
-        throw XCTSkip("SWBINTTODO: This fails due to an unknown linker error on Linux. Further investigation is needed.")
+        throw XCTSkip("This fails due to an unknown linker error on Linux. https://github.com/swiftlang/swift-package-manager/issues/8439")
     }
 
     override func testSwiftTestParallel() async throws {
-        throw XCTSkip("SWBINTTODO: This fails due to the test expecting specific test output that appears to be empty on Linux. Further investigation is needed.")
+        throw XCTSkip("This fails due to an unknown linker error on Linux. https://github.com/swiftlang/swift-package-manager/issues/8439")
     }
 #endif
 }
