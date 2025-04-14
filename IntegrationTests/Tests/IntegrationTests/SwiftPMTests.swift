@@ -119,12 +119,12 @@ private struct SwiftPMTests {
             try localFileSystem.createDirectory(packagePath)
             try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "library")
             try withKnownIssue(
-                    """
-                    Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error: undefined reference to 'main'
-                    Windows: lld-link: error: subsystem must be defined
-                    MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found
-                    """,
-                    isIntermittent: true
+                """
+                Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error: undefined reference to 'main'
+                Windows: lld-link: error: subsystem must be defined
+                MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found
+                """,
+                isIntermittent: true
             ) {
                 try sh(swiftBuild, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue, "--vv")
                 let (stdout, stderr) = try sh(
