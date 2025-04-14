@@ -372,6 +372,7 @@ let package = Package(
                 "Formats/v1.md",
             ],
             swiftSettings: [
+                .enableExperimentalFeature("MemberImportVisibility"),
                 .unsafeFlags(["-static"]),
             ]
         ),
