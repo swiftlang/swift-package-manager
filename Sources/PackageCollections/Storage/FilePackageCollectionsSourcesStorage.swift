@@ -13,6 +13,7 @@
 import _Concurrency
 import Basics
 import Dispatch
+import TSCBasic
 import struct Foundation.Data
 import class Foundation.JSONDecoder
 import class Foundation.JSONEncoder
@@ -20,12 +21,12 @@ import struct Foundation.URL
 
 struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
     let fileSystem: FileSystem
-    let path: AbsolutePath
+    let path: Basics.AbsolutePath
 
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
-    init(fileSystem: FileSystem, path: AbsolutePath? = nil) {
+    init(fileSystem: FileSystem, path: Basics.AbsolutePath? = nil) {
         self.fileSystem = fileSystem
 
         self.path = path ?? (try? fileSystem.swiftPMConfigurationDirectory.appending("collections.json")) ?? .root

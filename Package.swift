@@ -388,6 +388,7 @@ let package = Package(
                 "SourceControl",
             ],
             swiftSettings: [
+                .enableExperimentalFeature("MemberImportVisibility"),
                 .unsafeFlags(["-static"]),
             ]
         ),
