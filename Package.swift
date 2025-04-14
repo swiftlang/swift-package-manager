@@ -402,6 +402,7 @@ let package = Package(
                 "PackageCollectionsModel",
             ],
             swiftSettings: [
+                .enableExperimentalFeature("MemberImportVisibility"),
                 .unsafeFlags(["-static"]),
             ]
         ),
