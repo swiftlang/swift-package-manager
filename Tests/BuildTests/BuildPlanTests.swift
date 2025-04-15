@@ -706,36 +706,36 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             if isFlagSupportedInDriver {
                 let moduleFlag1 = output.range(of: "-module-name DataModel")
                 XCTAssertNotNil(moduleFlag1)
-                let stdoutNext1 = output[moduleFlag1!.upperBound...]
-                let packageFlag1 = stdoutNext1.range(of: "-package-name libpkg")
+                let outNext1 = output[moduleFlag1!.upperBound...]
+                let packageFlag1 = outNext1.range(of: "-package-name libpkg")
                 XCTAssertNotNil(packageFlag1)
 
-                let moduleFlag2 = stdoutNext1.range(of: "-module-name DataManager")
+                let moduleFlag2 = outNext1.range(of: "-module-name DataManager")
                 XCTAssertNotNil(moduleFlag2)
                 XCTAssertTrue(packageFlag1!.upperBound < moduleFlag2!.lowerBound)
-                let stdoutNext2 = stdoutNext1[moduleFlag2!.upperBound...]
-                let packageFlag2 = stdoutNext2.range(of: "-package-name libpkg")
+                let outNext2 = outNext1[moduleFlag2!.upperBound...]
+                let packageFlag2 = outNext2.range(of: "-package-name libpkg")
                 XCTAssertNotNil(packageFlag2)
 
-                let moduleFlag3 = stdoutNext2.range(of: "-module-name Core")
+                let moduleFlag3 = outNext2.range(of: "-module-name Core")
                 XCTAssertNotNil(moduleFlag3)
                 XCTAssertTrue(packageFlag2!.upperBound < moduleFlag3!.lowerBound)
-                let stdoutNext3 = stdoutNext2[moduleFlag3!.upperBound...]
-                let packageFlag3 = stdoutNext3.range(of: "-package-name libpkg")
+                let outNext3 = outNext2[moduleFlag3!.upperBound...]
+                let packageFlag3 = outNext3.range(of: "-package-name libpkg")
                 XCTAssertNotNil(packageFlag3)
 
-                let moduleFlag4 = stdoutNext3.range(of: "-module-name MainLib")
+                let moduleFlag4 = outNext3.range(of: "-module-name MainLib")
                 XCTAssertNotNil(moduleFlag4)
                 XCTAssertTrue(packageFlag3!.upperBound < moduleFlag4!.lowerBound)
-                let stdoutNext4 = stdoutNext3[moduleFlag4!.upperBound...]
-                let packageFlag4 = stdoutNext4.range(of: "-package-name libpkg")
+                let outNext4 = outNext3[moduleFlag4!.upperBound...]
+                let packageFlag4 = outNext4.range(of: "-package-name libpkg")
                 XCTAssertNotNil(packageFlag4)
 
-                let moduleFlag5 = stdoutNext4.range(of: "-module-name ExampleApp")
+                let moduleFlag5 = outNext4.range(of: "-module-name ExampleApp")
                 XCTAssertNotNil(moduleFlag5)
                 XCTAssertTrue(packageFlag4!.upperBound < moduleFlag5!.lowerBound)
-                let stdoutNext5 = stdoutNext4[moduleFlag5!.upperBound...]
-                let packageFlag5 = stdoutNext5.range(of: "-package-name")
+                let outNext5 = ou   tNext4[moduleFlag5!.upperBound...]
+                let packageFlag5 = outNext5.range(of: "-package-name")
                 XCTAssertNil(packageFlag5)
             } else {
                 XCTAssertNoMatch(output, .contains("-package-name"))
