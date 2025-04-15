@@ -88,7 +88,7 @@ $> swift --version
 Apple Swift version 5.3
 ```
 
-Note: Alternatively use tools like [swiftenv](https://github.com/kylef/swiftenv) that help manage toolchains versions.
+Note: Alternatively use tools like [swiftly](https://www.swift.org/swiftly/documentation/swiftlydocs/) that help manage toolchains versions.
 
 ## Local Development
 
