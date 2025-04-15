@@ -22,7 +22,9 @@ import SPMBuildCore
 import func TSCBasic.memoize
 import func TSCBasic.topologicalSort
 
+#if canImport(SwiftBuild)
 import enum SwiftBuild.ProjectModel
+#endif
 
 /// The parameters required by `PIFBuilder`.
 struct PIFBuilderParameters {
@@ -289,8 +291,6 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
     }
 }
 
-#endif
-
 fileprivate func buildAggregateProject(
     packagesAndProjects: [(package: ResolvedPackage, project: ProjectModel.Project)],
     observabilityScope: ObservabilityScope
@@ -393,6 +393,8 @@ fileprivate func buildAggregateProject(
     
     return aggregateProject
 }
+
+#endif
 
 public enum PIFGenerationError: Error {
     case rootPackageNotFound, multipleRootPackagesFound
