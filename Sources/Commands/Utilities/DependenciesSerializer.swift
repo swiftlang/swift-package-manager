@@ -10,8 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import PackageModel
 import PackageGraph
+import TSCUtility
 
 import enum TSCBasic.JSON
 import protocol TSCBasic.OutputByteStream

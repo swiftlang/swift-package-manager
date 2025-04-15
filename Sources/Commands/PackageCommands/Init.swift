@@ -16,6 +16,7 @@ import Basics
 @_spi(SwiftPMInternal)
 import CoreCommands
 
+import PackageModel
 import Workspace
 import SPMBuildCore
 
