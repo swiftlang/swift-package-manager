@@ -1,12 +1,18 @@
-# SwiftPackageCommands
+# swift package
 
-A command-line utility to update and inspect your Swift package.
+Subcommands to update and inspect your Swift package.
+
+@Metadata {
+    @PageImage(purpose: icon, source: command-icon)
+}
 
 ## Overview
 
-<!--@START_MENU_TOKEN@-->Text<!--@END_MENU_TOKEN@-->
+Overview of package manager commands here...
 
 <!-- reference content for the CLI commands `swift package ...` -->
+
+## Topics 
 
 ### Creating packages
 - <doc:PackageInit>
@@ -34,6 +40,7 @@ A command-line utility to update and inspect your Swift package.
 - <doc:PackageShowDependencies>
 - <doc:PackageShowExecutables>
 - <doc:PackageToolsVersion>
+- <doc:PackageDumpPackage>
 - <doc:PackageDumpSymbolGraph>
 
 ### Cleaning builds and caches
@@ -48,8 +55,7 @@ A command-line utility to update and inspect your Swift package.
 ### Integrating Package Manager into your shell
 - <doc:PackageCompletionTool>
 
-### Configuring package manager
-- <doc:PackageConfig>
+### Configuring Mirrors
 - <doc:PackageConfigSetMirror>
 - <doc:PackageConfigUnsetMirror>
 - <doc:PackageConfigGetMirror>

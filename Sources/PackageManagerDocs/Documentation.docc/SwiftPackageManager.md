@@ -14,13 +14,14 @@ The Swift Package Manager leets you share your code as a package, depend on and 
 
 ### Essentials
 
-- <doc:GettingStarted>
-- <doc:IntroducingPackages>
+- <doc:GettingStarted>      <!-- tutorial or article based walk through -->
+- <doc:IntroducingPackages> <!-- content from Documentation/README -->
 
-### Swift Commands
 <!-- reference content for the CLI commands `swift ...` -->
-- <doc:SwiftPackageCommands>
+### Swift Commands
+
 - <doc:SwiftBuild>
 - <doc:SwiftTest>
+- <doc:SwiftPackageCommands>
 - <doc:SwiftRepl>
 - <doc:SwiftRun>
