@@ -539,6 +539,7 @@ let package = Package(
                 "PackageSigning",
             ],
             swiftSettings: [
+                .enableExperimentalFeature("MemberImportVisibility"),
                 .unsafeFlags(["-static"]),
             ]
         ),
