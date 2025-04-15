@@ -7066,6 +7066,7 @@ class BuildPlanSwiftBuildTests: BuildPlanTestCase {
 
     override func testPackageNameFlag() async throws {
         #if os(Windows)
+        // * GitHub issue: https://github.com/swiftlang/swift-package-manager/issues/8380
         throw XCTSkip("Skip until there is a resolution to the partial linking with Windows that results in a 'subsystem must be defined' error.")
         #endif
 
@@ -7074,7 +7075,7 @@ class BuildPlanSwiftBuildTests: BuildPlanTestCase {
             throw XCTSkip("Skipping Swift Build testing on Amazon Linux because of platform issues.")
         }
         // Linking error: "/usr/bin/ld.gold: fatal error: -pie and -static are incompatible".
-        // Tracked by GitHub issue: https://github.com/swiftlang/swift-package-manager/issues/8499
+        // * GitHub issue: https://github.com/swiftlang/swift-package-manager/issues/8499
         throw XCTSkip("Skipping Swift Build testing on Linux because of linking issues.")
         #endif
 
