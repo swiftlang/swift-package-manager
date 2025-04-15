@@ -17,6 +17,7 @@ import PackageModel
 
 import struct TSCBasic.ByteString
 
+#if canImport(SwiftBuild)
 import enum SwiftBuild.ProjectModel
 
 /// The Project Interchange Format (PIF) is a structured representation of the
@@ -282,3 +283,5 @@ extension PIF {
         workspace.signature = try signature(of: workspace)
     }
 }
+
+#endif // SwiftBuild
