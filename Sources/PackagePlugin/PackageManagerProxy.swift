@@ -12,20 +12,26 @@
 
 import Foundation
 
-/// Provides specialized information and services from the Swift Package Manager
-/// or an IDE that supports Swift Packages. Different plugin hosts implement the
-/// functionality in whatever way is appropriate for them, but should preserve
-/// the same semantics described here.
+/// A structure that provides information and services from the Swift Package Manager
+/// or a developer environment that supports Swift Packages.
+///
+/// Implement this structure in a plugin host to provide the facilities of your developer
+/// environment to the package manager.
 public struct PackageManager {
-    /// Performs a build of all or a subset of products and targets in a package.
+    /// Builds the specified products and targets in a package.
     ///
     /// Any errors encountered during the build are reported in the build result,
     /// as is the log of the build commands that were run. This method throws an
-    /// error if the input parameters are invalid or in case the build cannot be
-    /// started.
+    /// error if the input parameters are invalid or if the package manager can't
+    /// start the build.
     ///
-    /// The SwiftPM CLI or any IDE that supports packages may show the progress
-    /// of the build as it happens.
+    /// The SwiftPM CLI or any developer environment that supports packages
+    /// may show the progress of the build as it happens.
+    ///
+    /// - Parameters:
+    ///   - subset: The products and targets to build.
+    ///   - parameters: Parameters that control aspects of the build.
+    /// - Returns: A build result.
     public func build(
         _ subset: BuildSubset,
         parameters: BuildParameters
@@ -38,42 +44,50 @@ public struct PackageManager {
         }
     }
 
-    /// Specifies a subset of products and targets of a package to build.
+    /// An enumeration that specifies a subset of products and targets of a package to build.
     public enum BuildSubset {
-        /// Represents the subset consisting of all products and of either all
-        /// targets or (if `includingTests` is false) just non-test targets.
+        /// Build all products and all targets, optionally including test targets.
+        ///
+        /// If `includingTests` is `true` then this case represents all targets of all products;
+        /// otherwise, it represents all non-test targets.
         case all(includingTests: Bool)
 
-        /// Represents the product with the specified name.
+        /// Build the product with the specified name.
         case product(String)
 
-        /// Represents the target with the specified name.
+        /// Build the target with the specified name.
         case target(String)
     }
 
-    /// Parameters and options to apply during a build.
+    /// Parameters and options for the system to apply during a build.
     public struct BuildParameters {
-        /// Whether to build for debug or release.
+        /// Whether to build the debug or release configuration.
         public var configuration: BuildConfiguration
 
-        /// Controls the amount of detail in the log returned in the build result.
+        /// The amount of detail to include in the log returned in the build result.
         public var logging: BuildLogVerbosity
 
-        /// Whether to print build logs to the console
+        /// Whether to print build logs to the console.
         public var echoLogs: Bool
 
-        /// Additional flags to pass to all C compiler invocations.
+        /// A list of additional flags to pass to all C compiler invocations.
         public var otherCFlags: [String] = []
 
-        /// Additional flags to pass to all C++ compiler invocations.
+        /// A list of additional flags to pass to all C++ compiler invocations.
         public var otherCxxFlags: [String] = []
 
-        /// Additional flags to pass to all Swift compiler invocations.
+        /// A list of additional flags to pass to all Swift compiler invocations.
         public var otherSwiftcFlags: [String] = []
 
-        /// Additional flags to pass to all linker invocations.
+        /// A list of additional flags to pass to all linker invocations.
         public var otherLinkerFlags: [String] = []
 
+        /// Initializes a build parameters structure.
+        ///
+        /// - Parameters:
+        ///   - configuration: Whether to build the debug or release configuration.
+        ///   - logging: The amount of detail to include in the build log.
+        ///   - echoLogs: Whether to display build logs while the build is in progress.
         public init(
             configuration: BuildConfiguration = .debug,
             logging: BuildLogVerbosity = .concise,
@@ -85,62 +99,92 @@ public struct PackageManager {
         }
     }
 
-    /// Represents an overall purpose of the build, which affects such things
-    /// as optimization and generation of debug symbols.
+    /// An enumeration that represents the build's purpose.
+    ///
+    /// The build's purpose affects whether the system
+    /// generates debugging symbols, and enables compiler optimizations..
     public enum BuildConfiguration: String {
-        case debug, release, inherit
+        /// The build is for debugging.
+        case debug
+        /// The build is for release.
+        case release
+        /// The build is a dependency and its purpose is inherited from the build that causes it.
+        case inherit
     }
 
-    /// Represents the amount of detail in a build log.
+    /// An enumeration that represents the amount of detail
+    /// the system includes in a build log.
     public enum BuildLogVerbosity: String {
-        case concise, verbose, debug
+        /// The build log should be concise.
+        case concise
+        /// The build log should be verbose.
+        case verbose
+        /// The build log should include debugging information.
+        case debug
     }
 
-    /// Represents the results of running a build.
+    /// An object that represents the results of running a build.
     public struct BuildResult {
-        /// Whether the build succeeded or failed.
+        /// A Boolean vaule that indicates whether the build succeeded or failed.
         public var succeeded: Bool
 
-        /// Log output (the verbatim text in the initial proposal).
+        /// A string that contains the build's log output.
         public var logText: String
 
-        /// The artifacts built from the products in the package. Intermediates
-        /// such as object files produced from individual targets are not listed.
+        /// A list of the artifacts built from the products in the package.
+        ///
+        /// Intermediate artificacts, such as object files produced from
+        /// individual targets, aren't included in the list.
         public var builtArtifacts: [BuiltArtifact]
 
-        /// Represents a single artifact produced during a build.
+        /// An object that represents an artifact produced during a build.
         public struct BuiltArtifact {
-            /// Full path of the built artifact in the local file system.
+            /// The full path to the built artifact in the local file system.
+            ///
+            /// @DeprecationSummary{Use ``url`` instead.}
             @available(_PackageDescription, deprecated: 6.0, renamed: "url")
             public var path: Path {
                 try! Path(url: self.url)
             }
 
-            /// Full path of the built artifact in the local file system.
+            /// A URL that locates the built artifact in the local file system.
             @available(_PackageDescription, introduced: 6.0)
             public var url: URL
 
-            /// The kind of artifact that was built.
+            /// The build artificact's kind.
             public var kind: Kind
 
-            /// Represents the kind of artifact that was built. The specific file
+            /// An enumeration that represents the kind of a built artifact.
+            ///
+            /// The specific file
             /// formats may vary from platform to platform — for example, on macOS
-            /// a dynamic library may in fact be built as a framework.
+            /// a dynamic library may be built as a framework.
             public enum Kind: String {
-                case executable, dynamicLibrary, staticLibrary
+                /// The artifact is an executable.
+                case executable
+                /// The artifact is a dynamic library.
+                case dynamicLibrary
+                /// The artifact is a static library.
+                case staticLibrary
             }
         }
     }
 
-    /// Runs all or a specified subset of the unit tests of the package, after
-    /// an incremental build if necessary (the same as `swift test` does).
+    /// Runs the tests in the specified subset.
+    ///
+    /// As with the `swift test` command, this method performs
+    /// an incremental build if necessary before it runs the tests.
     ///
     /// Any test failures are reported in the test result. This method throws an
-    /// error if the input parameters are invalid or in case the test cannot be
-    /// started.
+    /// error if the input parameters are invalid, or it can't start the test.
     ///
-    /// The SwiftPM CLI or any IDE that supports packages may show the progress
-    /// of the tests as they happen.
+    /// The SwiftPM command-line program, or an IDE that supports packages,
+    /// may show the progress of the tests as they happen.
+    ///
+    /// - Parameters:
+    ///   - subset: The tests to run.
+    ///   - parameters: Parameters that control how the system runs the tests.
+    /// - Returns: The outcome of running the tests.
     public func test(
         _ subset: TestSubset,
         parameters: TestParameters
@@ -153,79 +197,117 @@ public struct PackageManager {
         }
     }
 
-    /// Specifies what tests in a package to run.
+    /// An enumeration that specifies what tests in a package the system runs.
     public enum TestSubset {
-        /// Represents all tests in the package.
+        /// All tests in the package.
         case all
 
-        /// Represents one or more tests filtered by regular expression, with the
-        /// format <test-target>.<test-case> or <test-target>.<test-case>/<test>.
-        /// This is the same as the `--filter` option of `swift test`.
+        /// One or more tests filtered by regular expression.
+        ///
+        /// Identify tests using the format `<test-target>.<test-case>`,
+        /// or `<test-target>.<test-case>/<test>`.
+        /// The `--filter` option of `swift test` uses the same format.
         case filtered([String])
     }
 
-    /// Parameters that control how the tests are run.
+    /// Parameters that control how the system runs tests.
     public struct TestParameters {
-        /// Whether to collect code coverage information while running the tests.
+        /// A Boolean that tells the system whether to collect code coverage information.
         public var enableCodeCoverage: Bool
 
+        /// Initializes a test parameter structure.
+        /// - Parameter enableCodeCoverage: Whether the system collects code coverage information.
         public init(enableCodeCoverage: Bool = false) {
             self.enableCodeCoverage = enableCodeCoverage
         }
     }
 
-    /// Represents the result of running unit tests.
+    /// A structure that represents the result of running tests.
     public struct TestResult {
-        /// Whether the test run succeeded or failed.
+        /// A Boolean that indicates whether the test run succeeded.
         public var succeeded: Bool
 
-        /// Results for all the test targets that were run (filtered based on
-        /// the input subset passed when running the test).
+        /// A list of results for each of the test targets run.
+        ///
+        /// If the system ran a filtered subset of tests, only results
+        /// for the test targets that include the filtered tests are included.
         public var testTargets: [TestTarget]
 
-        /// Path of a generated `.profdata` file suitable for processing using
-        /// `llvm-cov`, if `enableCodeCoverage` was set in the test parameters.
+        /// The optional path to a code coverage file.
+        ///
+        /// @DeprecationSummary{Use ``codeCoverageDataFileURL`` instead.}
+        ///
+        /// The file is a generated `.profdata` file suitable for processing using
+        /// `llvm-cov`, if ``PackageManager/TestParameters/enableCodeCoverage``
+        /// is `true` in the test parameters. If it's `false`, this value is `nil`.
         @available(_PackageDescription, deprecated: 6.0, renamed: "codeCoverageDataFileURL")
         public var codeCoverageDataFile: Path? {
             self.codeCoverageDataFileURL.map { try! Path(url: $0) }
         }
 
-        /// Path of a generated `.profdata` file suitable for processing using
-        /// `llvm-cov`, if `enableCodeCoverage` was set in the test parameters.
+        /// The optional location of a code coverage file.
+        ///
+        /// The file is a generated `.profdata` file suitable for processing using
+        /// `llvm-cov`, if ``PackageManager/TestParameters/enableCodeCoverage``
+        /// is `true` in the test parameters. If it's `false`, this value is `nil`.
         @available(_PackageDescription, introduced: 6.0)
         public var codeCoverageDataFileURL: URL?
 
-        /// Represents the results of running some or all of the tests in a
-        /// single test target.
+        /// A structure that represents the results of running tests in a single test target.
+        ///
+        /// If you use ``PackageManager/TestSubset/filtered(_:)`` to run a filtered
+        /// subset of tests, this structure contains results only for tests in
+        /// the target that match the filter regex.
         public struct TestTarget {
+            /// The test target's name.
             public var name: String
+            /// A list of results for test cases defined in the test target.
             public var testCases: [TestCase]
 
-            /// Represents the results of running some or all of the tests in
-            /// a single test case.
+            /// A structure that represents the results of running tests in a
+            /// single test case.
+            ///
+            /// If you use ``PackageManager/TestSubset/filtered(_:)`` to run a filtered
+            /// subset of tests, this structure contains results only for tests in
+            /// the test case that match the filter regex.
             public struct TestCase {
+                /// The test case's name.
                 public var name: String
+                /// A list of results for tests defined in the test case.
                 public var tests: [Test]
 
-                /// Represents the results of running a single test.
+                /// A structure that represents the result of running a single test.
                 public struct Test {
+                    /// The test's name.
                     public var name: String
+                    /// The test's outcome.
                     public var result: Result
+                    /// The time taken for the system to run the test.
                     public var duration: Double
 
-                    /// Represents the result of running a single test.
+                    /// An enumeration that represents the result of running a single test.
                     public enum Result: String {
-                        case succeeded, skipped, failed
+                        /// The test succeeded.
+                        case succeeded
+                        /// The system skipped the test.
+                        case skipped
+                        /// The test failed.
+                        case failed
                     }
                 }
             }
         }
     }
 
-    /// Return a directory containing symbol graph files for the given target
-    /// and options. If the symbol graphs need to be created or updated first,
-    /// they will be. SwiftPM or an IDE may generate these symbol graph files
-    /// in any way it sees fit.
+    /// Returns a directory containing symbol graph files for the specified target.
+    ///
+    /// This method directs the package manager or IDE to create or update the
+    /// symbol graphs, if it needs to. How the system creates or updates these
+    /// files depends on the implementation of the package manager or IDE.
+    /// - Parameters:
+    ///   - target: The target for which to generate symbol graphs.
+    ///   - options: Options that control how the system generates the symbol graphs.
+    /// - Returns: The symbol graphs.
     public func getSymbolGraph(
         for target: Target,
         options: SymbolGraphOptions
@@ -238,25 +320,42 @@ public struct PackageManager {
         }
     }
 
-    /// Represents options for symbol graph generation.
+    /// A structure that contains options for controlling how the system generates symbol graphs.
     public struct SymbolGraphOptions {
-        /// The symbol graph will include symbols at this access level and higher.
+        /// The symbol graph includes symbols at this access level and higher.
         public var minimumAccessLevel: AccessLevel
 
-        /// Represents a Swift access level.
+        /// An enumeration that represents a symbol access level in Swift.
         public enum AccessLevel: String, CaseIterable {
-            case `private`, `fileprivate`, `internal`, `package`, `public`, open
+            /// The symbol is private.
+            case `private`
+            /// The symbol is file-private.
+            case `fileprivate`
+            /// The symbol is internal.
+            case `internal`
+            /// The symbol has package-level visibility.
+            case `package`
+            /// The symbol is public.
+            case `public`
+            /// The symbol is open.
+            case open
         }
 
-        /// Whether to include synthesized members.
+        /// A Boolean value that indicates whether the symbol graph includes synthesized members.
         public var includeSynthesized: Bool
 
-        /// Whether to include symbols marked as SPI.
+        /// A Boolean value that indicates whether the symbol graph includes symbols marked as SPI.
         public var includeSPI: Bool
 
-        /// Whether to emit symbols for extensions to external types.
+        /// A Boolean value that indicates whether the symbol graph includes symbols for extensions to external types.
         public var emitExtensionBlocks: Bool
 
+        /// Initializes a symbol graph options structure.
+        /// - Parameters:
+        ///   - minimumAccessLevel: The lowest access level to include in the symbol graph.
+        ///   - includeSynthesized: Whether to include synthesized symbols in the symbol graph.
+        ///   - includeSPI: Whether to include symbols marked as SPI in the symbol graph.
+        ///   - emitExtensionBlocks: Whether to include symbols for extensions to external types in the symbol graph.
         public init(
             minimumAccessLevel: AccessLevel = .public,
             includeSynthesized: Bool = false,
@@ -270,15 +369,17 @@ public struct PackageManager {
         }
     }
 
-    /// Represents the result of symbol graph generation.
+    /// A structure that represents the result of generating a symbol graph.
     public struct SymbolGraphResult {
-        /// The directory that contains the symbol graph files for the target.
+        /// A path to a directory that contains the symbol graph files.
+        ///
+        /// @DeprecationSummary{Use ``directoryURL`` instead.}
         @available(_PackageDescription, deprecated: 6.0, renamed: "directoryURL")
         public var directoryPath: Path {
             try! Path(url: self.directoryURL)
         }
 
-        /// The directory that contains the symbol graph files for the target.
+        /// A URL that locates a directory that contains the symbol graph files.
         @available(_PackageDescription, introduced: 6.0)
         public var directoryURL: URL
     }
@@ -305,11 +406,12 @@ extension PackageManager {
     }
 }
 
+/// Errors the package manager encounters communicating with its host application.
 public enum PackageManagerProxyError: Error {
-    /// Indicates that the functionality isn't implemented in the plugin host.
+    /// The functionality isn't implemented in the plugin host.
     case unimplemented(_ message: String)
 
-    /// An unspecified other kind of error from the Package Manager proxy.
+    /// The package manager proxy encountered an unspecified error.
     case unspecified(_ message: String)
 }
 
