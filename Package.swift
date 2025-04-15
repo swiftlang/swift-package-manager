@@ -751,6 +751,7 @@ let package = Package(
             dependencies: ["PackageDescription"],
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
+                .enableExperimentalFeature("MemberImportVisibility"),
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
             ]
