@@ -642,6 +642,7 @@ let package = Package(
                 "Workspace",
             ],
             swiftSettings: [
+                .enableExperimentalFeature("MemberImportVisibility"),
                 .unsafeFlags(["-static"]),
             ]
         ),
