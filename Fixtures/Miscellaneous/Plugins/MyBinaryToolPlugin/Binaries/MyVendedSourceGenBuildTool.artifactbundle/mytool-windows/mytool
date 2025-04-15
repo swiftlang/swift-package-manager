@@ -1,0 +1,33 @@
+import argparse
+import logging
+import pathlib
+import shutil
+import sys
+
+
+logging.basicConfig(
+    format=f" ".join(
+        [
+            f"[{pathlib.Path(sys.argv[0]).name}-windows]",
+            "%(message)s",
+        ]
+    ),
+    level=logging.INFO,
+)
+
+def main():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("in_item", metavar="in", type=str)
+    parser.add_argument("out_item",metavar="out", type=str)
+    parser.add_argument("--verbose", action="store_true", dest="is_verbose")
+
+    args = parser.parse_args()
+    logging.getLogger().setLevel(logging.DEBUG if args.is_verbose else logging.INFO)
+    logging.debug("Args: %r", args)
+
+    logging.debug("%r %r", args.in_item, args.out_item)
+    # shutil.copy(args.in_item, args.out_item)
+
+if __name__ == "__main__":
+    main()
