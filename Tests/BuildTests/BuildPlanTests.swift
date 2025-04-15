@@ -7012,6 +7012,8 @@ class BuildPlanSwiftBuildTests: BuildPlanTestCase {
         if FileManager.default.contents(atPath: "/etc/system-release").map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false {
             throw XCTSkip("Skipping Swift Build testing on Amazon Linux because of platform issues.")
         }
+        // Linking error: "/usr/bin/ld.gold: fatal error: -pie and -static are incompatible".
+        // Tracked by GitHub issue: https://github.com/swiftlang/swift-package-manager/issues/8499
         throw XCTSkip("Skipping Swift Build testing on Linux because of linking issues.")
 #endif
 
