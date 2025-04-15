@@ -234,24 +234,15 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
 
 }
 
-class RunCommandNativeTests: RunCommandTestCase {
-    override open var buildSystemProvider: BuildSystemProvider.Kind {
-        return .native
-    }
-
-    override func testUsage() async throws {
-        try await super.testUsage()
+final class RunCommandNativeTests: RunCommandTestCase {
+    override public var buildSystemProvider: BuildSystemProvider.Kind {
+        .native
     }
 }
 
-
-class RunCommandSwiftBuildTests: RunCommandTestCase {
-    override open var buildSystemProvider: BuildSystemProvider.Kind {
-        return .swiftbuild
-    }
-
-    override func testUsage() async throws {
-        try await super.testUsage()
+final class RunCommandSwiftBuildTests: RunCommandTestCase {
+    override public var buildSystemProvider: BuildSystemProvider.Kind {
+        .swiftbuild
     }
 
     override func testMultipleExecutableAndExplicitExecutable() async throws {

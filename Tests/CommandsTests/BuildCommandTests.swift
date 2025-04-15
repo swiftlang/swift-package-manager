@@ -782,27 +782,17 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
 
 }
 
-
-class BuildCommandNativeTests: BuildCommandTestCases {
-
-    override open var buildSystemProvider: BuildSystemProvider.Kind {
-        return .native
-    }
-
-    override func testUsage() async throws {
-        try await super.testUsage()
+final class BuildCommandNativeTests: BuildCommandTestCases {
+    override public var buildSystemProvider: BuildSystemProvider.Kind {
+        .native
     }
 }
 
 #if os(macOS)
-// Xcode build system tests can only function on macOS
-class BuildCommandXcodeTests: BuildCommandTestCases {
-    override open var buildSystemProvider: BuildSystemProvider.Kind {
-        return .xcode
-    }
-
-    override func testUsage() async throws {
-        try await super.testUsage()
+/// Xcode build system tests can only function on macOS.
+final class BuildCommandXcodeTests: BuildCommandTestCases {
+    override public var buildSystemProvider: BuildSystemProvider.Kind {
+        .xcode
     }
 
     override func testAutomaticParseableInterfacesWithLibraryEvolution() async throws {
@@ -855,10 +845,9 @@ class BuildCommandXcodeTests: BuildCommandTestCases {
 }
 #endif
 
-class BuildCommandSwiftBuildTests: BuildCommandTestCases {
-
-    override open var buildSystemProvider: BuildSystemProvider.Kind {
-        return .swiftbuild
+final class BuildCommandSwiftBuildTests: BuildCommandTestCases {
+    override public var buildSystemProvider: BuildSystemProvider.Kind {
+        .swiftbuild
     }
 
     override func testNonReachableProductsAndTargetsFunctional() async throws {
@@ -892,7 +881,7 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
     override func testImportOfMissedDepWarning() async throws {
         throw XCTSkip("SWBINTTODO: Test fails because the warning message regarding missing imports is expected to be more verbose and actionable at the SwiftPM level with mention of the involved targets. This needs to be investigated. See case targetDiagnostic(TargetDiagnosticInfo) as a message type that may help.")
     }
-
+        
     override func testProductAndTarget() async throws {
         throw XCTSkip("SWBINTTODO: Test fails because there isn't a clear warning message about the lib1 being an automatic product and that the default product is being built instead. This needs to be investigated")
     }
@@ -946,5 +935,4 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
         try await super.testBuildCompleteMessage()
         #endif
     }
-
 }
