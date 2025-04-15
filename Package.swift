@@ -619,6 +619,7 @@ let package = Package(
                 "PackageModel",
             ],
             swiftSettings: [
+                .enableExperimentalFeature("MemberImportVisibility"),
                 .unsafeFlags(["-static"]),
             ]
         ),
