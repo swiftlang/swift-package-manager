@@ -734,7 +734,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 let moduleFlag5 = outNext4.range(of: "-module-name ExampleApp")
                 XCTAssertNotNil(moduleFlag5)
                 XCTAssertTrue(packageFlag4!.upperBound < moduleFlag5!.lowerBound)
-                let outNext5 = ou   tNext4[moduleFlag5!.upperBound...]
+                let outNext5 = outNext4[moduleFlag5!.upperBound...]
                 let packageFlag5 = outNext5.range(of: "-package-name")
                 XCTAssertNil(packageFlag5)
             } else {
