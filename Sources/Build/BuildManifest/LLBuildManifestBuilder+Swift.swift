@@ -24,10 +24,14 @@ import struct Basics.Environment
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import class DriverSupport.SPMSwiftDriverExecutor
+@_implementationOnly import Foundation
 @_implementationOnly import SwiftDriver
+@_implementationOnly import TSCUtility
 #else
 import class DriverSupport.SPMSwiftDriverExecutor
+import Foundation
 import SwiftDriver
+import TSCUtility
 #endif
 
 import PackageModel
@@ -81,7 +85,8 @@ extension LLBuildManifestBuilder {
             args: commandLine,
             diagnosticsOutput: .handler(self.observabilityScope.makeDiagnosticsHandler()),
             fileSystem: self.fileSystem,
-            executor: executor
+            executor: executor,
+            compilerIntegratedTooling: false
         )
         try driver.checkLDPathOption(commandLine: commandLine)
 
@@ -297,6 +302,7 @@ extension LLBuildManifestBuilder {
             args: commandLine,
             fileSystem: self.fileSystem,
             executor: executor,
+            compilerIntegratedTooling: false,
             externalTargetModuleDetailsMap: dependencyModuleDetailsMap,
             interModuleDependencyOracle: dependencyOracle
         )

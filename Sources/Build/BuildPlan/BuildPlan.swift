@@ -19,6 +19,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
+import TSCBasic
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import SwiftDriver
@@ -90,7 +91,7 @@ extension [String] {
 
 extension BuildParameters {
     /// Returns the directory to be used for module cache.
-    public var moduleCache: AbsolutePath {
+    public var moduleCache: Basics.AbsolutePath {
         get throws {
             // FIXME: We use this hack to let swiftpm's functional test use shared
             // cache so it doesn't become painfully slow.
@@ -168,9 +169,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Return value of `inputs()`
     package enum Input {
         /// Any file in this directory affects the build plan
-        case directoryStructure(AbsolutePath)
+        case directoryStructure(Basics.AbsolutePath)
         /// The file at the given path affects the build plan
-        case file(AbsolutePath)
+        case file(Basics.AbsolutePath)
     }
 
     public enum Error: Swift.Error, CustomStringConvertible, Equatable {
@@ -276,7 +277,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         pluginConfiguration: PluginConfiguration? = nil,
         pluginTools: [ResolvedModule.ID: [String: PluginTool]] = [:],
         additionalFileRules: [FileRuleDescription] = [],
-        pkgConfigDirectories: [AbsolutePath] = [],
+        pkgConfigDirectories: [Basics.AbsolutePath] = [],
         disableSandbox: Bool = false,
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope
@@ -698,7 +699,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 .map { .directoryStructure($0) }
 
             // Add the output paths of any prebuilds that were run, so that we redo the plan if they change.
-            var derivedSourceDirPaths: [AbsolutePath] = []
+            var derivedSourceDirPaths: [Basics.AbsolutePath] = []
             for result in self.prebuildCommandResults.values.flatMap({ $0 }) {
                 derivedSourceDirPaths.append(contentsOf: result.outputDirectories)
             }
@@ -768,7 +769,7 @@ extension BuildPlan {
         modulesGraph: ModulesGraph,
         tools: [ResolvedModule.ID: [String: PluginTool]],
         additionalFileRules: [FileRuleDescription],
-        pkgConfigDirectories: [AbsolutePath],
+        pkgConfigDirectories: [Basics.AbsolutePath],
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope,
         surfaceDiagnostics: Bool = false
@@ -895,8 +896,8 @@ extension BuildPlan {
         try pluginResults.map { pluginResult in
             // As we go we will collect a list of prebuild output directories whose contents should be input to the
             // build, and a list of the files in those directories after running the commands.
-            var derivedFiles: [AbsolutePath] = []
-            var prebuildOutputDirs: [AbsolutePath] = []
+            var derivedFiles: [Basics.AbsolutePath] = []
+            var prebuildOutputDirs: [Basics.AbsolutePath] = []
             for command in pluginResult.prebuildCommands {
                 observabilityScope
                     .emit(
@@ -1248,7 +1249,7 @@ extension Basics.Diagnostic {
 
 extension BuildParameters {
     /// Returns a named bundle's path inside the build directory.
-    func bundlePath(named name: String) -> AbsolutePath {
+    func bundlePath(named name: String) -> Basics.AbsolutePath {
         self.buildPath.appending(component: name + self.triple.nsbundleExtension)
     }
 }
@@ -1257,7 +1258,7 @@ extension BuildParameters {
 func generateResourceInfoPlist(
     fileSystem: FileSystem,
     target: ResolvedModule,
-    path: AbsolutePath
+    path: Basics.AbsolutePath
 ) throws -> Bool {
     guard let defaultLocalization = target.defaultLocalization else {
         return false
