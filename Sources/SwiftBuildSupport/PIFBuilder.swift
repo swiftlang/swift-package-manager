@@ -119,10 +119,12 @@ public final class PIFBuilder {
     }
     
     #if canImport(SwiftBuild)
+    
+    private var cachedPIF: PIF.TopLevelObject?
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
     private func construct() throws -> PIF.TopLevelObject {
-        try memoize(to: &self.pif) {
+        try memoize(to: &self.cachedPIF) {
             guard let rootPackage = self.graph.rootPackages.only else {
                 if self.graph.rootPackages.isEmpty {
                     throw PIFGenerationError.rootPackageNotFound
