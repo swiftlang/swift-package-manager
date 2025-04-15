@@ -8,7 +8,19 @@ Organize, manage, and edit Swift packages.
 
 ## Overview
 
-The Swift Package Manager is a tool for managing distribution of source code, aimed at making it easy to share your code and reuse others’ code. The tool directly addresses the challenges of compiling and linking Swift packages, managing dependencies, versioning, and supporting flexible distribution and collaboration models.
+The Swift Package Manager leets you share your code as a package, depend on and use other share packages, as well as build, test, document, and run your code.
 
 ## Topics
 
+### Essentials
+
+- <doc:GettingStarted>
+- <doc:IntroducingPackages>
+
+### Swift Commands
+<!-- reference content for the CLI commands `swift ...` -->
+- <doc:SwiftPackageCommands>
+- <doc:SwiftBuild>
+- <doc:SwiftTest>
+- <doc:SwiftRepl>
+- <doc:SwiftRun>
