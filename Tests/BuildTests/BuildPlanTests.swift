@@ -2040,8 +2040,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     }
 
     func test_symbolGraphExtract_arguments() async throws {
-        try XCTSkipOnWindows()
-
         // ModuleGraph:
         // .
         // ├── A (Swift)
@@ -2110,33 +2108,38 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         // A
         do {
+            let expectedModuleMap = AbsolutePath("/path/to/build/\(triple)/debug/C.build/module.modulemap").pathString
             try XCTAssertMatchesSubSequences(
                 result.moduleBuildDescription(for: "A").symbolGraphExtractArguments(),
                 // Swift Module dependencies
-                ["-I", "/path/to/build/\(triple)/debug/Modules"],
+                ["-I", .equal(AbsolutePath("/path/to/build/\(triple)/debug/Modules").pathString)],
                 // C Module dependencies
-                ["-Xcc", "-I", "-Xcc", "/Pkg/Sources/C/include"],
-                ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/C.build/module.modulemap"]
+                ["-Xcc", "-I", "-Xcc", .equal(AbsolutePath("/Pkg/Sources/C/include").pathString)],
+                ["-Xcc", "-fmodule-map-file=\(expectedModuleMap)"]
             )
         }
 
         // D
         do {
+            let expectedBModuleMap = AbsolutePath("/path/to/build/\(triple)/debug/B.build/module.modulemap").pathString
+            let expectedCModuleMap = AbsolutePath("/path/to/build/\(triple)/debug/C.build/module.modulemap").pathString
+            let expectedDModuleMap = AbsolutePath("/path/to/build/\(triple)/debug/D.build/module.modulemap").pathString
+            let expectedModuleCache = AbsolutePath("/path/to/build/\(triple)/debug/ModuleCache").pathString
             try XCTAssertMatchesSubSequences(
                 result.moduleBuildDescription(for: "D").symbolGraphExtractArguments(),
                 // Self Module
-                ["-I", "/Pkg/Sources/D/include"],
-                ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/D.build/module.modulemap"],
+                ["-I", .equal(AbsolutePath("/Pkg/Sources/D/include").pathString)],
+                ["-Xcc", "-fmodule-map-file=\(expectedDModuleMap)"],
 
                 // C Module dependencies
-                ["-Xcc", "-I", "-Xcc", "/Pkg/Sources/C/include"],
-                ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/C.build/module.modulemap"],
+                ["-Xcc", "-I", "-Xcc", .equal(AbsolutePath("/Pkg/Sources/C/include").pathString)],
+                ["-Xcc", "-fmodule-map-file=\(expectedCModuleMap)"],
 
                 // General Args
                 [
                     "-Xcc", "-fmodules",
                     "-Xcc", "-fmodule-name=D",
-                    "-Xcc", "-fmodules-cache-path=/path/to/build/\(triple)/debug/ModuleCache",
+                    "-Xcc", "-fmodules-cache-path=\(expectedModuleCache)",
                 ]
             )
 
@@ -2144,7 +2147,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             try XCTAssertMatchesSubSequences(
                 result.moduleBuildDescription(for: "D").symbolGraphExtractArguments(),
                 // Swift Module dependencies
-                ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/B.build/module.modulemap"]
+                ["-Xcc", "-fmodule-map-file=\(expectedBModuleMap)"]
             )
 #endif
         }
@@ -4701,8 +4704,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     }
 
     func testUserToolchainCompileFlags() async throws {
-        try XCTSkipOnWindows()
-
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -4955,8 +4956,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     }
 
     func testUserToolchainWithToolsetCompileFlags() async throws {
-        try XCTSkipOnWindows(because: "Path delimiters donw's work well on Windows")
-
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -5083,7 +5082,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         let exeCompileArguments = try result.moduleBuildDescription(for: "exe").swift().compileArguments()
         let exeCompileArgumentsPattern: [StringPattern] = [
             jsonFlag(tool: .swiftCompiler),
-            "-ld-path=/fake/toolchain/usr/bin/linker",
+            "-ld-path=\(AbsolutePath("/fake/toolchain/usr/bin/linker").pathString)",
             "-g", cliFlag(tool: .swiftCompiler),
             .anySequence,
             "-Xcc", jsonFlag(tool: .cCompiler), "-Xcc", "-g", "-Xcc", cliFlag(tool: .cCompiler),
@@ -5108,7 +5107,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         let exeLinkArguments = try result.buildProduct(for: "exe").linkArguments()
         let exeLinkArgumentsPattern: [StringPattern] = [
             jsonFlag(tool: .swiftCompiler),
-            "-ld-path=/fake/toolchain/usr/bin/linker",
+            "-ld-path=\(AbsolutePath("/fake/toolchain/usr/bin/linker").pathString)",
             "-g", cliFlag(tool: .swiftCompiler),
             .anySequence,
             "-Xlinker", jsonFlag(tool: .linker), "-Xlinker", cliFlag(tool: .linker),
@@ -5125,8 +5124,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     }
 
     func testUserToolchainWithSDKSearchPaths() async throws {
-        try XCTSkipOnWindows()
-
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -7066,6 +7063,7 @@ class BuildPlanNativeTests: BuildPlanTestCase {
     override func testDuplicateProductNamesWithNonDefaultLibsThrowError() async throws {
         try await super.testDuplicateProductNamesWithNonDefaultLibsThrowError()
     }
+
 }
 
 class BuildPlanSwiftBuildTests: BuildPlanTestCase {
