@@ -48,7 +48,10 @@ extension Build.BuildPlan {
 
 class BuildPlanTestCase: BuildSystemProviderTestCase {
     override func setUpWithError() throws {
-        try XCTSkipIf(type(of: self) == BuildPlanTestCase.self, "Skipping this test since it will be run in subclasses that will provide different build systems to test.")
+        try XCTSkipIf(
+            type(of: self) == BuildPlanTestCase.self,
+            "Skipping this test since it will be run in subclasses that will provide different build systems to test."
+        )
     }
 
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
