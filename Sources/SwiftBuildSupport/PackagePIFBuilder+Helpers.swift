@@ -964,7 +964,7 @@ extension ProjectModel.BuildSettings.Platform {
         case .windows: .windows
         case .wasi: .wasi
         case .openbsd: .openbsd
-        case .freebsd: .openbsd // FIXME: Add `freebsd` to Swift Build.
+        case .freebsd: .freebsd
         default: preconditionFailure("Unexpected platform: \(platform.name)")
         }
     }
