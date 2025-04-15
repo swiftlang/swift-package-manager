@@ -806,51 +806,51 @@ class BuildCommandXcodeTests: BuildCommandTestCases {
     }
 
     override func testAutomaticParseableInterfacesWithLibraryEvolution() async throws {
-        try XCTSkip("Test not implemented for xcode build system.")
+        throw XCTSkip("Test not implemented for xcode build system.")
     }
 
     override func testNonReachableProductsAndTargetsFunctional() async throws {
-        try XCTSkip("Test not implemented for xcode build system.")
+        throw XCTSkip("Test not implemented for xcode build system.")
     }
 
     override func testCodeCoverage() async throws {
-        try XCTSkip("Test not implemented for xcode build system.")
+        throw XCTSkip("Test not implemented for xcode build system.")
     }
 
     override func testBuildStartMessage() async throws {
-        try XCTSkip("Test not implemented for xcode build system.")
+        throw XCTSkip("Test not implemented for xcode build system.")
     }
 
     override func testBinSymlink() async throws {
-        try XCTSkip("Test not implemented for xcode build system.")
+        throw XCTSkip("Test not implemented for xcode build system.")
     }
 
     override func testSymlink() async throws {
-        try XCTSkip("Test not implemented for xcode build system.")
+        throw XCTSkip("Test not implemented for xcode build system.")
     }
 
     override func testSwiftGetVersion() async throws {
-        try XCTSkip("Test not implemented for xcode build system.")
+        throw XCTSkip("Test not implemented for xcode build system.")
     }
 
     override func testParseableInterfaces() async throws {
-        try XCTSkip("Test not implemented for xcode build system.")
+        throw XCTSkip("Test not implemented for xcode build system.")
     }
 
     override func testProductAndTarget() async throws {
-        try XCTSkip("Test not implemented for xcode build system.")
+        throw XCTSkip("Test not implemented for xcode build system.")
     }
 
     override func testImportOfMissedDepWarning() async throws {
-        try XCTSkip("Test not implemented for xcode build system.")
+        throw XCTSkip("Test not implemented for xcode build system.")
     }
 
     override func testGetTaskAllowEntitlement() async throws {
-        try XCTSkip("Test not implemented for xcode build system.")
+        throw XCTSkip("Test not implemented for xcode build system.")
     }
 
     override func testBuildCompleteMessage() async throws {
-        try XCTSkip("Test not implemented for xcode build system.")
+        throw XCTSkip("Test not implemented for xcode build system.")
     }
 }
 #endif
