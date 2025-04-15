@@ -70,8 +70,6 @@ public final class PIFBuilder {
     /// The file system to read from.
     let fileSystem: FileSystem
 
-    private var pif: PIF.TopLevelObject?
-
     /// Creates a `PIFBuilder` instance.
     /// - Parameters:
     ///   - graph: The package graph to build from.
@@ -99,6 +97,7 @@ public final class PIFBuilder {
         prettyPrint: Bool = true,
         preservePIFModelStructure: Bool = false
     ) throws -> String {
+        #if canImport(SwiftBuild)
         let encoder = prettyPrint ? JSONEncoder.makeWithDefaults() : JSONEncoder()
 
         if !preservePIFModelStructure {
@@ -114,11 +113,15 @@ public final class PIFBuilder {
         let pifString = String(decoding: pifData, as: UTF8.self)
         
         return pifString
+        #else
+        fatalError("Swift Build support is not linked in.")
+        #endif
     }
+    
+    #if canImport(SwiftBuild)
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
-    public func construct() throws -> PIF.TopLevelObject {
-        #if canImport(SwiftBuild)
+    private func construct() throws -> PIF.TopLevelObject {
         try memoize(to: &self.pif) {
             guard let rootPackage = self.graph.rootPackages.only else {
                 if self.graph.rootPackages.isEmpty {
@@ -167,10 +170,9 @@ public final class PIFBuilder {
 
             return PIF.TopLevelObject(workspace: workspace)
         }
-        #else
-        fatalError("Swift Build support is not linked in.")
-        #endif
     }
+    
+    #endif
 
     // Convenience method for generating PIF.
     public static func generatePIF(
