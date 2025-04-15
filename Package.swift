@@ -419,7 +419,7 @@ let package = Package(
         // MARK: Documentation
         
         .target(
-            name: "PackageManagerDocs",
+            name: "PackageManagerDocs"
         ),
         
         // MARK: Package Manager Functionality
