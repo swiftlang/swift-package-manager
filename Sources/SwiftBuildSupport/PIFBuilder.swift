@@ -15,6 +15,7 @@ import Foundation
 import PackageGraph
 import PackageLoading
 import PackageModel
+import TSCUtility
 
 @_spi(SwiftPMInternal)
 import SPMBuildCore
@@ -24,7 +25,7 @@ import func TSCBasic.topologicalSort
 
 /// The parameters required by `PIFBuilder`.
 struct PIFBuilderParameters {
-    let triple: Triple
+    let triple: Basics.Triple
 
     /// Whether the toolchain supports `-package-name` option.
     let isPackageAccessModifierSupported: Bool

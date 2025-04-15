@@ -503,7 +503,10 @@ let package = Package(
                 "SPMBuildCore",
                 "PackageGraph",
             ],
-            exclude: ["CMakeLists.txt", "README.md"]
+            exclude: ["CMakeLists.txt", "README.md"],
+            swiftSettings: [
+                .enableExperimentalFeature("MemberImportVisibility"),
+            ]
         ),
         .target(
             /** High level functionality */
