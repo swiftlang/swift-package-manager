@@ -55,6 +55,12 @@ import struct PackageGraph.ResolvedProduct
 
 import func PackageLoading.pkgConfigArgs
 
+// TODO: Move this back to `PackagePIFBuilder` once we get rid of `#if canImport(SwiftBuild)`.
+func targetName(forProductName name: String, suffix: TargetSuffix? = nil) -> String {
+    let suffix = suffix?.rawValue ?? ""
+    return "\(name)\(suffix)-product"
+}
+
 #if canImport(SwiftBuild)
 
 import enum SwiftBuild.ProjectModel
@@ -145,8 +151,7 @@ extension PackagePIFBuilder {
     /// This format helps make sure that targets and products with the same name (as they often have) have different
     /// target names in the PIF.
     static func targetName(forProductName name: String, suffix: TargetSuffix? = nil) -> String {
-        let suffix = suffix?.rawValue ?? ""
-        return "\(name)\(suffix)-product"
+        return SwiftBuildSupport.targetName(forProductName: name, suffix: suffix)
     }
 }
 
