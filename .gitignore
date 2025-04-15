@@ -20,3 +20,6 @@ Package.resolved
 .vscode
 Utilities/InstalledSwiftPMConfiguration/config.json
 .devcontainer
+
+# Ignore temp stuff from building artifacts
+.o
