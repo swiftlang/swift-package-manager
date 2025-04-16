@@ -124,6 +124,11 @@ struct TestEventStreamOptions: ParsableArguments {
     @Option(name: .customLong("experimental-attachments-path"),
             help: .private)
     var experimentalAttachmentsPath: AbsolutePath?
+
+    /// Path for writing attachments (Swift Testing only.)
+    @Option(name: .customLong("attachments-path"),
+            help: "Path where attachments should be written (Swift Testing only). This path must be an existing directory the current user can write to. If not specified, any attachments created during testing are discarded.")
+    var attachmentsPath: AbsolutePath?
 }
 
 struct TestCommandOptions: ParsableArguments {
