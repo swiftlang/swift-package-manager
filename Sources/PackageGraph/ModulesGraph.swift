@@ -384,6 +384,8 @@ enum GraphError: Error {
     case unexpectedCycle
 }
 
+// TODO: Rename this back and only import what is required from TSCBasic to omit importing its implementation of topologicalSort
+
 /// Perform a topological sort of an graph.
 ///
 /// This function is optimized for use cases where cycles are unexpected, and

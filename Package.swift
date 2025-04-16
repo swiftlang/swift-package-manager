@@ -876,7 +876,10 @@ let package = Package(
         ),
         .testTarget(
             name: "PackageGraphTests",
-            dependencies: ["PackageGraph", "_InternalTestSupport"]
+            dependencies: ["PackageGraph", "_InternalTestSupport"],
+            swiftSettings: [
+                .enableExperimentalFeature("MemberImportVisibility"),
+            ],
         ),
         .testTarget(
             name: "PackageGraphPerformanceTests",
