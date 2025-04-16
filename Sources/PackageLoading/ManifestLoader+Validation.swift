@@ -310,7 +310,9 @@ extension Basics.Diagnostic {
     }
 
     static func invalidDependencyOnTestTarget(dependency: String, targetName: String) -> Self {
-        return .error("Invalid dependency: '\(targetName)' cannot depend on test target dependency '\(dependency)'. Only test targets can depend on other test targets")
+        .error(
+            "Invalid dependency: '\(targetName)' cannot depend on test target dependency '\(dependency)'. Only test targets can depend on other test targets"
+        )
     }
 
     static func invalidBinaryLocation(targetName: String) -> Self {
