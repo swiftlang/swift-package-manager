@@ -75,10 +75,15 @@ private struct SwiftPMTests {
     }
 
     @Test(
+        .requireHostOS(.windows, when: false),
         .requireThreadSafeWorkingDirectory,
         .bug(
             "https://github.com/swiftlang/swift-package-manager/issues/8416",
-            "swift run using --build-system swiftbuild fails to run executable"
+            "[Linux] swift run using --build-system swiftbuild fails to run executable"
+        ),
+        .bug(
+            "https://github.com/swiftlang/swift-package-manager/issues/8514",
+            "[Windows] Integration test SwiftPMTests.packageInitExecutable with --build-system swiftbuild is skipped"
         ),
         arguments: BuildSystemProvider.allCases
     )
