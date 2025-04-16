@@ -17,11 +17,27 @@ The Swift Package Manager leets you share your code as a package, depend on and 
 - <doc:GettingStarted>      <!-- tutorial or article based walk through -->
 - <doc:IntroducingPackages> <!-- content from Documentation/README -->
 
+<!-- ### Guides -->
+<!-- placeholder location for articles (to be written or copy/updated from existing content -->
+
+<!-- ### Command Plugins -->
+<!-- placeholder for content about swift package manager extensions - command plugins -->
+<!-- - <doc:swift-format> -->
+<!-- - <doc:swift-docc-plugin> -->
+<!-- - <doc:swift-container-plugin> -->
+
+<!-- ### Reference -->
+<!-- link to PackageDescription API reference docc -->
+<!-- link to Command API reference docc - the DocC Plugin API -->
+
 <!-- reference content for the CLI commands `swift ...` -->
 ### Swift Commands
 
 - <doc:SwiftBuild>
 - <doc:SwiftTest>
 - <doc:SwiftPackageCommands>
+- <doc:SwiftSDKCommands>
+- <doc:SwiftPackageRegistryCommands>
+- <doc:SwiftPackageCollectionCommands>
 - <doc:SwiftRepl>
 - <doc:SwiftRun>
