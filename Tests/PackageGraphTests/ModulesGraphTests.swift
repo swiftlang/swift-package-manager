@@ -409,7 +409,73 @@ final class ModulesGraphTests: XCTestCase {
             result.check(modules: "Bar", "Baz", "Foo")
         }
     }
-
+    
+    func testLibraryInvalidDependencyOnTestTarget() throws {
+        
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Foo/Sources/Foo/Foo.swift",
+            "/Foo/Tests/FooTest/FooTest.swift"
+        )
+        
+        let observability = ObservabilitySystem.makeForTesting()
+        
+        let _ = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    toolsVersion: .v6_0,
+                    products: [
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["FooTest"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["FooTest"]),
+                        TargetDescription(name: "FooTest", type: .test)
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope)
+        
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(
+                diagnostic: "Invalid dependency: 'Foo' cannot depend on test target dependency 'FooTest'. Only test targets can depend on other test targets",
+                severity: .error
+            )
+        }
+    }
+    
+    func testValidDependencyOnTestTarget() throws {
+        
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Foo/Tests/Foo/Foo.swift",
+            "/Foo/Tests/FooTest/FooTest.swift"
+        )
+        
+        let observability = ObservabilitySystem.makeForTesting()
+        
+        let _ = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    toolsVersion: .v6_0,
+                    products: [
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["FooTest"], type: .test),
+                        TargetDescription(name: "FooTest", type: .test)
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope)
+        
+        XCTAssertNoDiagnostics(observability.diagnostics)
+    }
+    
     // Make sure there is no error when we reference Test targets in a package and then
     // use it as a dependency to another package. SR-2353
     func testTestTargetDeclInExternalPackage() throws {
