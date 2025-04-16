@@ -478,6 +478,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             settings["ARCHS"] = architectures.joined(separator: " ")
         }
 
+        // support for --enable-parseable-module-interfaces
+        if buildParameters.driverParameters.enableParseableModuleInterfaces {
+            settings["SWIFT_EMIT_MODULE_INTERFACE"] = "YES"
+        }
+
         // Generate the build parameters.
         var params = SwiftBuild.SWBBuildParameters()
         params.configurationName = buildParameters.configuration.swiftbuildName
