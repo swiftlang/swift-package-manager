@@ -341,16 +341,16 @@ extension BuildPlan {
     }
 
     /// Extracts the artifacts  from an artifactsArchive
-    private func parseExecutableArtifactsArchive(for binaryTarget: BinaryModule, triple: Triple) throws -> [ExecutableInfo] {
+    private func parseExecutableArtifactsArchive(for module: BinaryModule, triple: Triple) throws -> [ExecutableInfo] {
         try self.externalExecutablesCache.memoize(key: binaryTarget) {
-            let execInfos = try binaryTarget.parseExecutableArtifactArchives(for: triple, fileSystem: self.fileSystem)
+            let execInfos = try module.parseExecutableArtifactArchives(for: triple, fileSystem: self.fileSystem)
             return execInfos.filter { !$0.supportedTriples.isEmpty }
         }
     }
 
-    private func parseLibraryArtifactsArchive(for target: BinaryModule, triple: Triple) throws -> [LibraryInfo] {
-            try self.externalLibrariesCache.memoize(key: target) {
-                try target.parseLibraryArtifactArchives(for: triple, fileSystem: self.fileSystem)
+    private func parseLibraryArtifactsArchive(for module: BinaryModule, triple: Triple) throws -> [LibraryInfo] {
+            try self.externalLibrariesCache.memoize(key: module) {
+                try module.parseLibraryArtifactArchives(for: triple, fileSystem: self.fileSystem)
             }
         }
 }
