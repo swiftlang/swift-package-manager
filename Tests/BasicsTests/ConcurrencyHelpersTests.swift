@@ -14,14 +14,8 @@
 import TSCTestSupport
 import XCTest
 
-import _InternalTestSupport // for skipOnWindowsAsTestCurrentlyFails
-
 final class ConcurrencyHelpersTest: XCTestCase {
     let queue = DispatchQueue(label: "ConcurrencyHelpersTest", attributes: .concurrent)
-
-    override func setUpWithError() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-    }
 
     func testThreadSafeKeyValueStore() {
         for _ in 0 ..< 100 {

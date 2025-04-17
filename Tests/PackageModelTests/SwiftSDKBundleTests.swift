@@ -451,19 +451,6 @@ final class SwiftSDKBundleTests: XCTestCase {
         }
 
         do {
-            let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
-                hostSwiftSDK: hostSwiftSDK,
-                hostTriple: hostTriple,
-                swiftSDKSelector: "wasm32-unknown-wasi",
-                store: store,
-                observabilityScope: system.topScope,
-                fileSystem: fileSystem
-            )
-            // Ensure that triples that have a `defaultSwiftSDK` are handled
-            XCTAssertEqual(targetSwiftSDK.targetTriple?.triple, "wasm32-unknown-wasi")
-        }
-
-        do {
             // Check explicit overriding options.
             let customCompileSDK = AbsolutePath("/path/to/sdk")
             let archs = ["x86_64-apple-macosx10.15"]

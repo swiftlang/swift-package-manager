@@ -803,7 +803,7 @@ final class RegistryClientTests: XCTestCase {
         let availableManifests = try await registryClient.getAvailableManifests(
             package: identity,
             version: version,
-            observabilityScope: ObservabilitySystem.NOOP,
+            observabilityScope: ObservabilitySystem.NOOP
         )
 
         XCTAssertEqual(availableManifests["Package.swift"]?.toolsVersion, .v5_5)
@@ -3987,7 +3987,7 @@ extension RegistryClient {
             package: package.underlying,
             version: version,
             fileSystem: InMemoryFileSystem(),
-            observabilityScope: ObservabilitySystem.NOOP,
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 

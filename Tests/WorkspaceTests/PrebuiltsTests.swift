@@ -105,10 +105,10 @@ final class PrebuiltsTests: XCTestCase {
     func checkSettings(_ target: Module, usePrebuilt: Bool) throws {
         if usePrebuilt {
             let swiftFlags = try XCTUnwrap(target.buildSettings.assignments[.OTHER_SWIFT_FLAGS]).flatMap({ $0.values })
-            XCTAssertTrue(swiftFlags.contains("-I/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64/Modules".fixwin))
-            XCTAssertTrue(swiftFlags.contains("-I/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64/include/_SwiftSyntaxCShims".fixwin))
+            XCTAssertTrue(swiftFlags.contains("-I\(AbsolutePath("/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64/Modules").pathString)"))
+            XCTAssertTrue(swiftFlags.contains("-I\(AbsolutePath("/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64/include/_SwiftSyntaxCShims").pathString)"))
             let ldFlags = try XCTUnwrap(target.buildSettings.assignments[.OTHER_LDFLAGS]).flatMap({ $0.values })
-            XCTAssertTrue(ldFlags.contains("/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64/lib/libMacroSupport.a".fixwin))
+            XCTAssertTrue(ldFlags.contains(AbsolutePath("/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64/lib/libMacroSupport.a").pathString))
         } else {
             XCTAssertNil(target.buildSettings.assignments[.OTHER_SWIFT_FLAGS])
             XCTAssertNil(target.buildSettings.assignments[.OTHER_LDFLAGS])
@@ -141,8 +141,8 @@ final class PrebuiltsTests: XCTestCase {
         }
 
         let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
-            XCTAssertEqual(archivePath.pathString, "/home/user/caches/org.swift.swiftpm/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip".fixwin)
-            XCTAssertEqual(destination.pathString, "/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64".fixwin)
+            XCTAssertEqual(archivePath.pathString, AbsolutePath("/home/user/caches/org.swift.swiftpm/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip").pathString)
+            XCTAssertEqual(destination.pathString, AbsolutePath("/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64").pathString)
             completion(.success(()))
         })
 
@@ -202,8 +202,8 @@ final class PrebuiltsTests: XCTestCase {
         }
 
         let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
-            XCTAssertEqual(archivePath.pathString, "/home/user/caches/org.swift.swiftpm/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip".fixwin)
-            XCTAssertEqual(destination.pathString, "/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64".fixwin)
+            XCTAssertEqual(archivePath.pathString, AbsolutePath("/home/user/caches/org.swift.swiftpm/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip").pathString)
+            XCTAssertEqual(destination.pathString, AbsolutePath("/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64").pathString)
             completion(.success(()))
         })
 
@@ -468,8 +468,8 @@ final class PrebuiltsTests: XCTestCase {
         }
 
         let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
-            XCTAssertEqual(archivePath.pathString, "/home/user/caches/org.swift.swiftpm/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip".fixwin)
-            XCTAssertEqual(destination.pathString, "/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64".fixwin)
+            XCTAssertEqual(archivePath.pathString, AbsolutePath("/home/user/caches/org.swift.swiftpm/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip").pathString)
+            XCTAssertEqual(destination.pathString, AbsolutePath("/tmp/ws/.build/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport-macos_aarch64").pathString)
             completion(.success(()))
         })
 
@@ -579,15 +579,5 @@ final class PrebuiltsTests: XCTestCase {
             let testTarget = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == "FooTests" }))
             try checkSettings(testTarget, usePrebuilt: false)
         }
-    }
-}
-
-extension String {
-    var fixwin: String {
-        #if os(Windows)
-        return self.replacingOccurrences(of: "/", with: "\\")
-        #else
-        return self
-        #endif
     }
 }

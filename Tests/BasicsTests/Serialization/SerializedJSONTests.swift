@@ -16,8 +16,6 @@ import _InternalTestSupport // for skipOnWindowsAsTestCurrentlyFails
 
 final class SerializedJSONTests: XCTestCase {
     func testPathInterpolation() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         var path = try AbsolutePath(validating: #"/test\backslashes"#)
         var json: SerializedJSON = "\(path)"
 
@@ -28,8 +26,19 @@ final class SerializedJSONTests: XCTestCase {
 #endif
 
         #if os(Windows)
-        path = try AbsolutePath(validating: #"\\?\C:\Users"#)
+        path = try AbsolutePath(validating: #"\??\Volumes{b79de17a-a1ed-4c58-a353-731b7c4885a6}\\"#)
         json = "\(path)"
+
+        XCTAssertEqual(json.underlying, #"\\??\\Volumes{b79de17a-a1ed-4c58-a353-731b7c4885a6}"#)
+        #endif
+    }
+
+    func testPathInterpolationFailsOnWindows() throws {
+        try skipOnWindowsAsTestCurrentlyFails(because: "Expectations are not met")
+
+#if os(Windows)
+        var path = try AbsolutePath(validating: #"\\?\C:\Users"#)
+        var json: SerializedJSON = "\(path)"
 
         XCTAssertEqual(json.underlying, #"C:\\Users"#)
 
@@ -37,11 +46,6 @@ final class SerializedJSONTests: XCTestCase {
         json = "\(path)"
 
         XCTAssertEqual(json.underlying, #"\\.\\UNC\\server\\share"#)
-
-        path = try AbsolutePath(validating: #"\??\Volumes{b79de17a-a1ed-4c58-a353-731b7c4885a6}\\"#)
-        json = "\(path)"
-
-        XCTAssertEqual(json.underlying, #"\\??\\Volumes{b79de17a-a1ed-4c58-a353-731b7c4885a6}"#)
-        #endif
+#endif
     }
 }

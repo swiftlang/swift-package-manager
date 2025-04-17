@@ -94,7 +94,7 @@ private struct BasicTests {
     }
 
     @Test(
-        .skipHostOS(.windows, "'try!' expression unexpectedly raised an error: TSCBasic.Process.Error.missingExecutableProgram(program: \"which\")"),
+        .skipHostOS(.windows, "'try!' expression unexpectedly raised an error: TSCBasic.Process.Error.missingExecutableProgram(program: \"which\")")
     )
     func testSwiftCompiler() throws {
         try withTemporaryDirectory { tempDir in
