@@ -811,7 +811,7 @@ extension Workspace {
         addedOrUpdatedPackages: [PackageReference],
         observabilityScope: ObservabilityScope
     ) async throws {
-        try await Basics.withAsyncThrowing {
+        try await withAsyncThrowing {
             try await self._updateBinaryArtifacts(
                 manifests: manifests,
                 addedOrUpdatedPackages: addedOrUpdatedPackages,
