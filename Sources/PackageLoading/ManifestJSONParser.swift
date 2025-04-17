@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import Foundation
+import Foundation
 import PackageModel
 
 import struct Basics.AbsolutePath
@@ -45,6 +45,7 @@ enum ManifestJSONParser {
         var dependencies: [PackageDependency] = []
         var providers: [SystemPackageProviderDescription]?
         var products: [ProductDescription] = []
+        var traits: Set<TraitDescription> = []
         var cxxLanguageStandard: String?
         var cLanguageStandard: String?
     }
@@ -53,6 +54,7 @@ enum ManifestJSONParser {
         v4 jsonString: String,
         toolsVersion: ToolsVersion,
         packageKind: PackageReference.Kind,
+        packagePath: AbsolutePath,
         identityResolver: IdentityResolver,
         dependencyMapper: DependencyMapper,
         fileSystem: FileSystem
@@ -77,11 +79,26 @@ enum ManifestJSONParser {
             throw ManifestParseError.runtimeManifestErrors(input.errors)
         }
 
+        var packagePath = packagePath
+        switch packageKind {
+        case .localSourceControl(let _packagePath):
+            // we have a more accurate path than the virtual one
+            packagePath = _packagePath
+        case .root(let _packagePath), .fileSystem(let _packagePath):
+            // we dont have a more accurate path, and they should be the same
+            // asserting (debug only) to make sure refactoring is correct 11/2023
+            assert(packagePath == _packagePath, "expecting package path '\(packagePath)' to be the same as '\(_packagePath)'")
+            break
+        case .remoteSourceControl, .registry:
+            // we dont have a more accurate path
+            break
+        }
+
         let dependencies = try input.package.dependencies.map {
             try Self.parseDependency(
                 dependency: $0,
                 toolsVersion: toolsVersion,
-                packageKind: packageKind,
+                parentPackagePath: packagePath,
                 identityResolver: identityResolver,
                 dependencyMapper: dependencyMapper,
                 fileSystem: fileSystem
@@ -98,6 +115,7 @@ enum ManifestJSONParser {
             dependencies: dependencies,
             providers: input.package.providers?.map { .init($0) },
             products: try input.package.products.map { try .init($0) },
+            traits: Set(input.package.traits?.map { TraitDescription($0) } ?? []),
             cxxLanguageStandard: input.package.cxxLanguageStandard?.rawValue,
             cLanguageStandard: input.package.cLanguageStandard?.rawValue
         )
@@ -134,6 +152,7 @@ enum ManifestJSONParser {
             case .v4: languageVersionString = "4"
             case .v4_2: languageVersionString = "4.2"
             case .v5: languageVersionString = "5"
+            case .v6: languageVersionString = "6"
             case .version(let version): languageVersionString = version
             }
             guard let languageVersion = SwiftLanguageVersion(string: languageVersionString) else {
@@ -146,58 +165,24 @@ enum ManifestJSONParser {
     private static func parseDependency(
         dependency: Serialization.PackageDependency,
         toolsVersion: ToolsVersion,
-        packageKind: PackageReference.Kind,
+        parentPackagePath: AbsolutePath,
         identityResolver: IdentityResolver,
         dependencyMapper: DependencyMapper,
         fileSystem: FileSystem
     ) throws -> PackageDependency {
-        switch dependency.kind {
-        case .registry(let identity, let requirement):
-            do {
-                return try dependencyMapper.mappedDependency(
-                    packageKind: .registry(.plain(identity)),
-                    at: identity,
-                    nameForTargetDependencyResolutionOnly: nil,
-                    requirement: .init(requirement),
-                    productFilter: .everything,
-                    fileSystem: fileSystem
-                )
-            } catch let error as TSCBasic.PathValidationError {
-                throw error
-            } catch {
-                throw ManifestParseError.invalidManifestFormat("\(error.interpolationDescription)", diagnosticFile: nil, compilerCommandLine: nil)
-            }
-        case .sourceControl(let name, let location, let requirement):
-            do {
-                return try dependencyMapper.mappedDependency(
-                    packageKind: packageKind,
-                    at: location,
-                    nameForTargetDependencyResolutionOnly: name,
-                    requirement: .init(requirement),
-                    productFilter: .everything,
-                    fileSystem: fileSystem
-                )
-            } catch let error as TSCBasic.PathValidationError {
-                throw error
-            } catch {
-                throw ManifestParseError.invalidManifestFormat("\(error.interpolationDescription)", diagnosticFile: nil, compilerCommandLine: nil)
-            }
-        case .fileSystem(let name, let path):
-            // FIXME: This case should really also be handled by `mappedDependency()` but that is currently impossible because `sanitizeDependencyLocation()` relies on the fact that we're calling it with an incorrect (file-system) `packageKind` for SCM-based dependencies, so we have no ability to distinguish between actual file-system dependencies and SCM-based ones without introducing some secondary package kind or other flag to pick the different behaviors. That seemed much worse than having this extra code path be here and `DefaultIdentityResolver.sanitizeDependencyLocation()` being public, but it should eventually be cleaned up. It seems to me as if that will mostly be a case of fixing the test suite to not rely on these fairly arbitrary behaviors.
-
-            // cleans up variants of path based location
-            let location = try DefaultDependencyMapper.sanitizeDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: path)
-            let path: AbsolutePath
-            do {
-                path = try AbsolutePath(validating: location)
-            } catch PathValidationError.invalidAbsolutePath(let path) {
+        do {
+            return try dependencyMapper.mappedDependency(
+                MappablePackageDependency(dependency, parentPackagePath: parentPackagePath),
+                fileSystem: fileSystem
+            )
+        } catch let error as TSCBasic.PathValidationError {
+            if case .fileSystem(_, let path) = dependency.kind {
                 throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path for path-based dependencies; use relative or absolute path instead.", diagnosticFile: nil, compilerCommandLine: nil)
+            } else {
+                throw error
             }
-            let identity = try identityResolver.resolveIdentity(for: path)
-            return .fileSystem(identity: identity,
-                               nameForTargetDependencyResolutionOnly: name,
-                               path: path,
-                               productFilter: .everything)
+        } catch {
+            throw ManifestParseError.invalidManifestFormat("\(error.interpolationDescription)", diagnosticFile: nil, compilerCommandLine: nil)
         }
     }
 
@@ -317,6 +302,195 @@ extension PackageDependency.Registry.Requirement {
     }
 }
 
+#if ENABLE_APPLE_PRODUCT_TYPES
+extension ProductSetting {
+    init(_ setting: Serialization.ProductSetting) {
+        switch setting {
+        case .bundleIdentifier(let value):
+            self = .bundleIdentifier(value)
+        case .teamIdentifier(let value):
+            self = .teamIdentifier(value)
+        case .displayVersion(let value):
+            self = .displayVersion(value)
+        case .bundleVersion(let value):
+            self = .bundleVersion(value)
+        case .iOSAppInfo(let appInfo):
+            self = .iOSAppInfo(.init(appInfo))
+        }
+    }
+}
+
+extension ProductSetting.IOSAppInfo {
+    init(_ appInfo: Serialization.ProductSetting.IOSAppInfo) {
+        self.init(
+            appIcon: appInfo.appIcon.map { .init($0) },
+            accentColor: appInfo.accentColor.map { .init($0) },
+            supportedDeviceFamilies: appInfo.supportedDeviceFamilies.map { .init($0) },
+            supportedInterfaceOrientations: appInfo.supportedInterfaceOrientations.map { .init($0) },
+            capabilities: appInfo.capabilities.map { .init($0) },
+            appCategory: appInfo.appCategory.map { .init($0) },
+            additionalInfoPlistContentFilePath: appInfo.additionalInfoPlistContentFilePath
+        )
+    }
+}
+
+extension ProductSetting.IOSAppInfo.DeviceFamily {
+    init(_ deviceFamily: Serialization.ProductSetting.IOSAppInfo.DeviceFamily) {
+        switch deviceFamily {
+        case .phone: self = .phone
+        case .pad: self = .pad
+        case .mac: self = .mac
+        }
+    }
+}
+
+extension ProductSetting.IOSAppInfo.DeviceFamilyCondition {
+    init(_ condition: Serialization.ProductSetting.IOSAppInfo.DeviceFamilyCondition) {
+        self.init(deviceFamilies: condition.deviceFamilies.map { .init($0) })
+    }
+}
+
+extension ProductSetting.IOSAppInfo.InterfaceOrientation {
+    init(_ interfaceOrientation: Serialization.ProductSetting.IOSAppInfo.InterfaceOrientation) {
+        switch interfaceOrientation {
+        case .portrait(let condition):
+            self = .portrait(condition: condition.map { .init($0) })
+        case .portraitUpsideDown(let condition):
+            self = .portraitUpsideDown(condition: condition.map { .init($0) })
+        case .landscapeRight(let condition):
+            self = .landscapeRight(condition: condition.map { .init($0) })
+        case .landscapeLeft(let condition):
+            self = .landscapeLeft(condition: condition.map { .init($0) })
+        }
+    }
+}
+
+extension ProductSetting.IOSAppInfo.AppIcon {
+    init(_ icon: Serialization.ProductSetting.IOSAppInfo.AppIcon) {
+        switch icon {
+        case .placeholder(icon: let icon):
+            self = .placeholder(icon: .init(icon))
+        case .asset(let name):
+            self = .asset(name: name)
+        }
+    }
+}
+
+extension ProductSetting.IOSAppInfo.AppIcon.PlaceholderIcon {
+    init(_ icon: Serialization.ProductSetting.IOSAppInfo.AppIcon.PlaceholderIcon) {
+        self.init(rawValue: icon.rawValue)
+    }
+}
+
+extension ProductSetting.IOSAppInfo.AccentColor {
+    init(_ color: Serialization.ProductSetting.IOSAppInfo.AccentColor) {
+        switch color {
+        case .presetColor(let color):
+            self = .presetColor(presetColor: .init(color))
+        case .asset(let name):
+            self = .asset(name: name)
+        }
+    }
+}
+
+extension ProductSetting.IOSAppInfo.AccentColor.PresetColor {
+    init(_ color: Serialization.ProductSetting.IOSAppInfo.AccentColor.PresetColor) {
+        self.init(rawValue: color.rawValue)
+    }
+}
+
+extension ProductSetting.IOSAppInfo.Capability {
+    init(_ capability: Serialization.ProductSetting.IOSAppInfo.Capability) {
+        switch capability {
+        case .appTransportSecurity(configuration: let configuration, let condition):
+            self.init(purpose: "appTransportSecurity", appTransportSecurityConfiguration: .init(configuration), condition: condition.map { .init($0) })
+        case .bluetoothAlways(purposeString: let purposeString, let condition):
+            self.init(purpose: "bluetoothAlways", purposeString: purposeString, condition: condition.map { .init($0) })
+        case .calendars(purposeString: let purposeString, let condition):
+            self.init(purpose: "calendars", purposeString: purposeString, condition: condition.map { .init($0) })
+        case .camera(purposeString: let purposeString, let condition):
+            self.init(purpose: "camera", purposeString: purposeString, condition: condition.map { .init($0) })
+        case .contacts(purposeString: let purposeString, let condition):
+            self.init(purpose: "contacts", purposeString: purposeString, condition: condition.map { .init($0) })
+        case .faceID(purposeString: let purposeString, let condition):
+            self.init(purpose: "faceID", purposeString: purposeString, condition: condition.map { .init($0) })
+        case .fileAccess(let location, mode: let mode, let condition):
+            self.init(purpose: "fileAccess", fileAccessLocation: location.rawValue, fileAccessMode: mode.rawValue, condition: condition.map { .init($0) })
+        case .incomingNetworkConnections(let condition):
+            self.init(purpose: "incomingNetworkConnections", condition: condition.map { .init($0) })
+        case .localNetwork(purposeString: let purposeString, bonjourServiceTypes: let bonjourServiceTypes, let condition):
+            self.init(purpose: "localNetwork", purposeString: purposeString, bonjourServiceTypes: bonjourServiceTypes, condition: condition.map { .init($0) })
+        case .locationAlwaysAndWhenInUse(purposeString: let purposeString, let condition):
+            self.init(purpose: "locationAlwaysAndWhenInUse", purposeString: purposeString, condition: condition.map { .init($0) })
+        case .locationWhenInUse(purposeString: let purposeString, let condition):
+            self.init(purpose: "locationWhenInUse", purposeString: purposeString, condition: condition.map { .init($0) })
+        case .mediaLibrary(purposeString: let purposeString, let condition):
+            self.init(purpose: "mediaLibrary", purposeString: purposeString, condition: condition.map { .init($0) })
+        case .microphone(purposeString: let purposeString, let condition):
+            self.init(purpose: "microphone", purposeString: purposeString, condition: condition.map { .init($0) })
+        case .motion(purposeString: let purposeString, let condition):
+            self.init(purpose: "motion", purposeString: purposeString, condition: condition.map { .init($0) })
+        case .nearbyInteractionAllowOnce(purposeString: let purposeString, let condition):
+            self.init(purpose: "nearbyInteractionAllowOnce", purposeString: purposeString, condition: condition.map { .init($0) })
+        case .outgoingNetworkConnections(let condition):
+            self.init(purpose: "outgoingNetworkConnections", condition: condition.map { .init($0) })
+        case .photoLibrary(purposeString: let purposeString, let condition):
+            self.init(purpose: "photoLibrary", purposeString: purposeString, condition: condition.map { .init($0) })
+        case .photoLibraryAdd(purposeString: let purposeString, let condition):
+            self.init(purpose: "photoLibraryAdd", purposeString: purposeString, condition: condition.map { .init($0) })
+        case .reminders(purposeString: let purposeString, let condition):
+            self.init(purpose: "reminders", purposeString: purposeString, condition: condition.map { .init($0) })
+        case .speechRecognition(purposeString: let purposeString, let condition):
+            self.init(purpose: "speechRecognition", purposeString: purposeString, condition: condition.map { .init($0) })
+        case .userTracking(purposeString: let purposeString, let condition):
+            self.init(purpose: "userTracking", purposeString: purposeString, condition: condition.map { .init($0) })
+        }
+    }
+}
+
+extension ProductSetting.IOSAppInfo.AppTransportSecurityConfiguration {
+    init(_ configuration: Serialization.ProductSetting.IOSAppInfo.AppTransportSecurityConfiguration) {
+        self.init(
+            allowsArbitraryLoadsInWebContent: configuration.allowsArbitraryLoadsInWebContent,
+            allowsArbitraryLoadsForMedia: configuration.allowsArbitraryLoadsForMedia,
+            allowsLocalNetworking: configuration.allowsLocalNetworking,
+            exceptionDomains: configuration.exceptionDomains?.map { .init($0) },
+            pinnedDomains: configuration.pinnedDomains?.map { .init($0) }
+        )
+    }
+}
+
+extension ProductSetting.IOSAppInfo.AppTransportSecurityConfiguration.ExceptionDomain {
+    init(_ exceptionDomain: Serialization.ProductSetting.IOSAppInfo.AppTransportSecurityConfiguration.ExceptionDomain) {
+        self.init(
+            domainName: exceptionDomain.domainName,
+            includesSubdomains: exceptionDomain.includesSubdomains,
+            exceptionAllowsInsecureHTTPLoads: exceptionDomain.exceptionAllowsInsecureHTTPLoads,
+            exceptionMinimumTLSVersion: exceptionDomain.exceptionMinimumTLSVersion,
+            exceptionRequiresForwardSecrecy: exceptionDomain.exceptionRequiresForwardSecrecy,
+            requiresCertificateTransparency: exceptionDomain.requiresCertificateTransparency
+        )
+    }
+}
+
+extension ProductSetting.IOSAppInfo.AppTransportSecurityConfiguration.PinnedDomain {
+    init(_ pinnedDomain: Serialization.ProductSetting.IOSAppInfo.AppTransportSecurityConfiguration.PinnedDomain) {
+        self.init(
+            domainName: pinnedDomain.domainName,
+            includesSubdomains: pinnedDomain.includesSubdomains,
+            pinnedCAIdentities: pinnedDomain.pinnedCAIdentities,
+            pinnedLeafIdentities: pinnedDomain.pinnedLeafIdentities
+        )
+    }
+}
+
+extension ProductSetting.IOSAppInfo.AppCategory {
+    init(_ category: Serialization.ProductSetting.IOSAppInfo.AppCategory) {
+        self.init(rawValue: category.rawValue)
+    }
+}
+#endif
+
 extension ProductDescription {
     init(_ product: Serialization.Product) throws {
         let productType: ProductType
@@ -328,7 +502,11 @@ extension ProductDescription {
         case .library(let type):
             productType = .library(.init(type))
         }
+        #if ENABLE_APPLE_PRODUCT_TYPES
+        try self.init(name: product.name, type: productType, targets: product.targets, settings: product.settings.map { .init($0) })
+        #else
         try self.init(name: product.name, type: productType, targets: product.targets)
+        #endif
     }
 }
 
@@ -364,11 +542,14 @@ extension TargetDescription.Dependency {
 
 extension PackageConditionDescription {
     init(_ condition: Serialization.TargetDependency.Condition) {
-        self.init(platformNames: condition.platforms?.map { $0.name } ?? [])
+        self.init(
+            platformNames: condition.platforms?.map { $0.name } ?? [],
+            traits: condition.traits
+        )
     }
 }
 
-extension TargetDescription.TargetType {
+extension TargetDescription.TargetKind {
     init(_ type: Serialization.TargetType) {
         switch type {
         case .regular:
@@ -549,8 +730,34 @@ extension TargetBuildSettingDescription.Kind {
                 throw InternalError("invalid (empty) build settings value")
             }
             return .enableExperimentalFeature(value)
+        case "strictMemorySafety":
+            return .strictMemorySafety
         case "unsafeFlags":
             return .unsafeFlags(values)
+
+        case "swiftLanguageVersion", "swiftLanguageMode":
+            guard let rawVersion = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+
+            if values.count > 1 {
+                throw InternalError("invalid build settings value")
+            }
+
+            guard let version = SwiftLanguageVersion(string: rawVersion) else {
+                throw InternalError("unknown swift language version: \(rawVersion)")
+            }
+
+            return .swiftLanguageMode(version)
+        case "defaultIsolation":
+            guard let rawValue = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            guard let isolation = TargetBuildSettingDescription.DefaultIsolation(rawValue: rawValue) else {
+                throw InternalError("unknown default isolation: \(rawValue)")
+            }
+
+            return .defaultIsolation(isolation)
         default:
             throw InternalError("invalid build setting \(name)")
         }
@@ -559,7 +766,7 @@ extension TargetBuildSettingDescription.Kind {
 
 extension PackageConditionDescription {
     init(_ condition: Serialization.BuildSettingCondition) {
-        self.init(platformNames: condition.platforms?.map { $0.name } ?? [], config: condition.config?.config)
+        self.init(platformNames: condition.platforms?.map { $0.name } ?? [], config: condition.config?.config, traits: condition.traits)
     }
 }
 
@@ -594,5 +801,69 @@ extension TargetBuildSettingDescription.Setting {
             kind: try .from(setting.data.name, values: setting.data.value),
             condition: setting.data.condition.map { .init($0) }
         )
+    }
+}
+
+extension TraitDescription {
+    init(_ trait: Serialization.Trait) {
+        self.init(
+            name: trait.name,
+            description: trait.description,
+            enabledTraits: trait.enabledTraits
+        )
+    }
+}
+
+extension PackageDependency.Trait {
+    init(_ trait: Serialization.PackageDependency.Trait) {
+        self.init(
+            name: trait.name,
+            condition: trait.condition.flatMap { .init($0) }
+        )
+    }
+}
+
+
+extension PackageDependency.Trait.Condition {
+    init(_ condition: Serialization.PackageDependency.Trait.Condition) {
+        self.init(traits: condition.traits)
+    }
+}
+
+extension MappablePackageDependency {
+    fileprivate init(_ seed: Serialization.PackageDependency, parentPackagePath: AbsolutePath) {
+        switch seed.kind {
+        case .fileSystem(let name, let path):
+            self.init(
+                parentPackagePath: parentPackagePath,
+                kind: .fileSystem(
+                    name: name,
+                    path: path
+                ),
+                productFilter: .everything,
+                traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) }
+            )
+        case .sourceControl(let name, let location, let requirement):
+            self.init(
+                parentPackagePath: parentPackagePath,
+                kind: .sourceControl(
+                    name: name,
+                    location: location,
+                    requirement: .init(requirement)
+                ),
+                productFilter: .everything,
+                traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) }
+            )
+        case .registry(let id, let requirement):
+            self.init(
+                parentPackagePath: parentPackagePath,
+                kind: .registry(
+                    id: id,
+                    requirement: .init(requirement)
+                ),
+                productFilter: .everything,
+                traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) }
+            )
+        }
     }
 }

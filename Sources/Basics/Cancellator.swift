@@ -12,24 +12,20 @@
 
 import Dispatch
 import Foundation
-import class TSCBasic.Process
 import class TSCBasic.Thread
 #if canImport(WinSDK)
 import WinSDK
+#elseif canImport(Android)
+import Android
 #endif
 
-public typealias CancellationHandler = (DispatchTime) throws -> Void
+public typealias CancellationHandler = @Sendable (DispatchTime) async throws -> Void
 
-public final class Cancellator: Cancellable {
+public final class Cancellator: Cancellable, Sendable {
     public typealias RegistrationKey = String
 
     private let observabilityScope: ObservabilityScope?
     private let registry = ThreadSafeKeyValueStore<String, (name: String, handler: CancellationHandler)>()
-    private let cancelationQueue = DispatchQueue(
-        label: "org.swift.swiftpm.cancellator",
-        qos: .userInteractive,
-        attributes: .concurrent
-    )
     private let cancelling = ThreadSafeBox<Bool>(false)
 
     private static let signalHandlerLock = NSLock()
@@ -79,7 +75,7 @@ public final class Cancellator: Cancellable {
 
                 // Install the default signal handler.
                 var action = sigaction()
-                #if canImport(Darwin) || os(OpenBSD)
+                #if canImport(Darwin) || os(OpenBSD) || os(FreeBSD)
                 action.__sigaction_u.__sa_handler = SIG_DFL
                 #elseif canImport(Musl)
                 action.__sa_handler.sa_handler = SIG_DFL
@@ -119,11 +115,16 @@ public final class Cancellator: Cancellable {
     }
 
     @discardableResult
-    public func register(name: String, handler: @escaping () throws -> Void) -> RegistrationKey? {
+    public func register(name: String, handler: AsyncCancellable) -> RegistrationKey? {
+        self.register(name: name, handler: handler.cancel(deadline:))
+    }
+
+    @discardableResult
+    public func register(name: String, handler: @escaping @Sendable () throws -> Void) -> RegistrationKey? {
         self.register(name: name, handler: { _ in try handler() })
     }
 
-    public func register(_ process: TSCBasic.Process) -> RegistrationKey? {
+    package func register(_ process: AsyncProcess) -> RegistrationKey? {
         self.register(name: "\(process.arguments.joined(separator: " "))", handler: process.terminate)
     }
 
@@ -158,10 +159,12 @@ public final class Cancellator: Cancellable {
         let cancelled = ThreadSafeArrayStore<String>()
         let group = DispatchGroup()
         for (_, (name, handler)) in cancellationHandlers {
-            self.cancelationQueue.async(group: group) {
+            group.enter()
+            Task {
+                defer { group.leave() }
                 do {
                     self.observabilityScope?.emit(debug: "cancelling '\(name)'")
-                    try handler(handlersDeadline)
+                    try await handler(handlersDeadline)
                     cancelled.append(name)
                 } catch {
                     self.observabilityScope?.emit(
@@ -191,6 +194,10 @@ public protocol Cancellable {
     func cancel(deadline: DispatchTime) throws -> Void
 }
 
+public protocol AsyncCancellable {
+    func cancel(deadline: DispatchTime) async throws -> Void
+}
+
 public struct CancellationError: Error, CustomStringConvertible {
     public let description: String
 
@@ -202,7 +209,7 @@ public struct CancellationError: Error, CustomStringConvertible {
         self.description = description
     }
 
-    static func failedToRegisterProcess(_ process: TSCBasic.Process) -> Self {
+    static func failedToRegisterProcess(_ process: AsyncProcess) -> Self {
         Self(
             description: """
             failed to register a cancellation handler for this process invocation `\(
@@ -213,7 +220,7 @@ public struct CancellationError: Error, CustomStringConvertible {
     }
 }
 
-extension TSCBasic.Process {
+extension AsyncProcess {
     fileprivate func terminate(timeout: DispatchTime) {
         // send graceful shutdown signal
         self.signal(SIGINT)

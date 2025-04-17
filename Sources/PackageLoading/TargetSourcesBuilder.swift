@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@_implementationOnly import Foundation
+import Foundation
 import PackageModel
 
 /// A utility to compute the source/resource files of a target.
@@ -33,6 +33,9 @@ public struct TargetSourcesBuilder {
 
     /// The list of declared sources in the package manifest.
     public let declaredSources: [AbsolutePath]?
+
+    /// The list of declared resources in the package manifest.
+    public let declaredResources: [(path: AbsolutePath, rule: TargetDescription.Resource.Rule)]
 
     /// The default localization.
     public let defaultLocalization: String?
@@ -87,7 +90,7 @@ public struct TargetSourcesBuilder {
 
         self.observabilityScope = observabilityScope.makeChildScope(description: "TargetSourcesBuilder") {
             var metadata = ObservabilityMetadata.packageMetadata(identity: packageIdentity, kind: packageKind)
-            metadata.targetName = target.name
+            metadata.moduleName = target.name
             return metadata
         }
 
@@ -102,6 +105,10 @@ public struct TargetSourcesBuilder {
             }
         }
         self.declaredSources = declaredSources?.spm_uniqueElements()
+
+        self.declaredResources = (try? target.resources.map {
+            (path: try AbsolutePath(validating: $0.path, relativeTo: path), rule: $0.rule)
+        }) ?? []
 
         self.excludedPaths.forEach { exclude in
             if let message = validTargetPath(at: exclude), self.packageKind.emitAuthorWarnings {
@@ -162,16 +169,43 @@ public struct TargetSourcesBuilder {
         let contents = self.computeContents()
         var pathToRule: [AbsolutePath: FileRuleDescription.Rule] = [:]
 
+        var handledResources = [AbsolutePath]()
         for path in contents {
-            pathToRule[path] = try self.computeRule(for: path)
+            pathToRule[path] = Self.computeRule(
+                for: path,
+                toolsVersion: toolsVersion,
+                rules: rules,
+                declaredResources: declaredResources,
+                declaredSources: declaredSources,
+                matchingResourceRuleHandler: {
+                    handledResources.append($0)
+                },
+                observabilityScope: observabilityScope
+            )
+        }
+
+        let additionalResources: [Resource]
+        if toolsVersion >= .v6_0 {
+            additionalResources = declaredResources.compactMap { resource in
+                if handledResources.contains(resource.path) {
+                    return nil
+                } else {
+                    print("Found unhandled resource at \(resource.path)")
+                    return self.resource(for: resource.path, with: .init(resource.rule))
+                }
+            }
+        } else {
+            additionalResources = []
         }
 
         let headers = pathToRule.lazy.filter { $0.value == .header }.map { $0.key }.sorted()
         let compilePaths = pathToRule.lazy.filter { $0.value == .compile }.map { $0.key }
-        let sources = Sources(paths: Array(compilePaths), root: targetPath)
-        let resources: [Resource] = pathToRule.compactMap { resource(for: $0.key, with: $0.value) }
-        let ignored = pathToRule.filter { $0.value == .ignored }.map { $0.key }
-        let others = pathToRule.filter { $0.value == .none }.map { $0.key }
+        let sources = Sources(paths: Array(compilePaths).sorted(), root: targetPath)
+        let resources: [Resource] = (pathToRule.compactMap { resource(for: $0.key, with: $0.value) } + additionalResources).sorted { a, b in
+            a.path.pathString < b.path.pathString
+        }
+        let ignored = pathToRule.filter { $0.value == .ignored }.map { $0.key }.sorted()
+        let others = pathToRule.filter { $0.value == .none }.map { $0.key }.sorted()
 
         try diagnoseConflictingResources(in: resources)
         diagnoseCopyConflictsWithLocalizationDirectories(in: resources)
@@ -181,7 +215,7 @@ public struct TargetSourcesBuilder {
 
         // It's an error to contain mixed language source files.
         if sources.containsMixedLanguage {
-            throw Target.Error.mixedSources(targetPath)
+            throw Module.Error.mixedSources(targetPath)
         }
 
         return (sources, resources, headers, ignored, others)
@@ -197,7 +231,15 @@ public struct TargetSourcesBuilder {
         return Self.computeRule(for: path, toolsVersion: toolsVersion, rules: rules, declaredResources: [], declaredSources: nil, observabilityScope: observabilityScope)
     }
 
-    private static func computeRule(for path: AbsolutePath, toolsVersion: ToolsVersion, rules: [FileRuleDescription], declaredResources: [(path: AbsolutePath, rule: TargetDescription.Resource.Rule)], declaredSources: [AbsolutePath]?, observabilityScope: ObservabilityScope) -> FileRuleDescription.Rule {
+    private static func computeRule(
+        for path: AbsolutePath, 
+        toolsVersion: ToolsVersion,
+        rules: [FileRuleDescription],
+        declaredResources: [(path: AbsolutePath, rule: TargetDescription.Resource.Rule)],
+        declaredSources: [AbsolutePath]?,
+        matchingResourceRuleHandler: (AbsolutePath) -> () = { _ in },
+        observabilityScope: ObservabilityScope
+    ) -> FileRuleDescription.Rule {
         var matchedRule: FileRuleDescription.Rule = .none
 
         // First match any resources explicitly declared in the manifest file.
@@ -208,6 +250,7 @@ public struct TargetSourcesBuilder {
                     observabilityScope.emit(error: "duplicate resource rule '\(declaredResource.rule)' found for file at '\(path)'")
                 }
                 matchedRule = .init(declaredResource.rule)
+                matchingResourceRuleHandler(declaredResource.path)
             }
         }
 
@@ -257,11 +300,6 @@ public struct TargetSourcesBuilder {
         }
 
         return matchedRule
-    }
-
-    private func computeRule(for path: AbsolutePath) throws -> FileRuleDescription.Rule {
-        let declaredResources = try target.resources.map { (path: try AbsolutePath(validating: $0.path, relativeTo: self.targetPath), rule: $0.rule) }
-        return Self.computeRule(for: path, toolsVersion: toolsVersion, rules: rules, declaredResources: declaredResources, declaredSources: declaredSources, observabilityScope: observabilityScope)
     }
 
     /// Returns the `Resource` file associated with a file and a particular rule, if there is one.
@@ -525,11 +563,11 @@ public struct TargetSourcesBuilder {
 }
 
 /// Describes a rule for including a source or resource file in a target.
-public struct FileRuleDescription {
+public struct FileRuleDescription: Sendable {
     /// A rule semantically describes a file/directory in a target.
     ///
     /// It is up to the build system to translate a rule into a build command.
-    public enum Rule: Equatable {
+    public enum Rule: Equatable, Sendable {
         /// The compile rule for `sources` in a package.
         case compile
 
@@ -553,7 +591,7 @@ public struct FileRuleDescription {
         /// Indicates that the file should be treated as ignored, without causing an unhandled-file warning.
         case ignored
 
-        /// Sentinal to indicate that no rule was chosen for a given file.
+        /// Sentinel to indicate that no rule was chosen for a given file.
         case none
     }
 
@@ -685,6 +723,24 @@ public struct FileRuleDescription {
         )
     }()
 
+    /// File rule to copy `.xcprivacy` (in the Xcode build system).
+    public static let xcprivacyCopied: FileRuleDescription = {
+        .init(
+            rule: .copyResource,
+            toolsVersion: .v6_0,
+            fileTypes: ["xcprivacy"]
+        )
+    }()
+
+    /// File rule to ignore `.xcprivacy` (in the SwiftPM build system).
+    public static let xcprivacyIgnored: FileRuleDescription = {
+        .init(
+            rule: .ignored,
+            toolsVersion: .v6_0,
+            fileTypes: ["xcprivacy"]
+        )
+    }()
+
     /// List of all the builtin rules.
     public static let builtinRules: [FileRuleDescription] = [
         swift,
@@ -701,11 +757,13 @@ public struct FileRuleDescription {
         stringCatalog,
         coredata,
         metal,
+        xcprivacyCopied,
     ]
 
     /// List of file types that apply just to the SwiftPM build system.
     public static let swiftpmFileTypes: [FileRuleDescription] = [
         docc,
+        xcprivacyIgnored,
     ]
 
     /// List of file directory extensions that should be treated as opaque, non source, directories.
@@ -755,16 +813,16 @@ extension Basics.Diagnostic {
 }
 
 extension ObservabilityMetadata {
-    public var targetName: String? {
+    public var moduleName: String? {
         get {
-            self[TargetNameKey.self]
+            self[ModuleNameKey.self]
         }
         set {
-            self[TargetNameKey.self] = newValue
+            self[ModuleNameKey.self] = newValue
         }
     }
 
-    enum TargetNameKey: Key {
+    enum ModuleNameKey: Key {
         typealias Value = String
     }
 }

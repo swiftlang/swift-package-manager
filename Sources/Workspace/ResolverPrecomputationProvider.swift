@@ -96,6 +96,7 @@ private struct LocalPackageContainer: PackageContainer {
     /// The managed dependency if the package is not a root package.
     let dependency: Workspace.ManagedDependency?
     let currentToolsVersion: ToolsVersion
+    let shouldInvalidatePinnedVersions = false
 
     func versionsAscending() throws -> [Version] {
         switch dependency?.state {
@@ -121,28 +122,28 @@ private struct LocalPackageContainer: PackageContainer {
         return currentToolsVersion
     }
 
-    func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
-        return try self.versionsDescending()
+    func toolsVersionsAppropriateVersionsDescending() async throws -> [Version] {
+        try await self.versionsDescending()
     }
 
-    func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+    func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: Set<String>?) throws -> [PackageContainerConstraint] {
         // Because of the implementation of `reversedVersions`, we should only get the exact same version.
         switch dependency?.state {
         case .sourceControlCheckout(.version(version, revision: _)):
-            return try manifest.dependencyConstraints(productFilter: productFilter)
+            return try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits)
         case .registryDownload(version: version):
-            return try manifest.dependencyConstraints(productFilter: productFilter)
+            return try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits)
         default:
             throw InternalError("expected version based state, but state was \(String(describing: dependency?.state))")
         }
     }
 
-    func getDependencies(at revisionString: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+    func getDependencies(at revisionString: String, productFilter: ProductFilter, _ enabledTraits: Set<String>?) throws -> [PackageContainerConstraint] {
         let revision = Revision(identifier: revisionString)
         switch dependency?.state {
         case .sourceControlCheckout(.branch(_, revision: revision)), .sourceControlCheckout(.revision(revision)):
             // Return the dependencies if the checkout state matches the revision.
-            return try manifest.dependencyConstraints(productFilter: productFilter)
+            return try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits)
         default:
             // Throw an error when the dependency is not revision based to fail resolution.
             throw ResolverPrecomputationError.differentRequirement(
@@ -153,10 +154,10 @@ private struct LocalPackageContainer: PackageContainer {
         }
     }
 
-    func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+    func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: Set<String>?) throws -> [PackageContainerConstraint] {
         switch dependency?.state {
         case .none, .fileSystem, .edited:
-            return try manifest.dependencyConstraints(productFilter: productFilter)
+            return try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits)
         default:
             // Throw an error when the dependency is not unversioned to fail resolution.
             throw ResolverPrecomputationError.differentRequirement(
@@ -173,6 +174,28 @@ private struct LocalPackageContainer: PackageContainer {
             return packageRef
         } else {
             return .root(identity: self.package.identity, path: self.manifest.path)
+        }
+    }
+
+    func getEnabledTraits(traitConfiguration: TraitConfiguration?, at version: Version? = nil) async throws -> Set<String> {
+        guard manifest.packageKind.isRoot else {
+            return []
+        }
+
+        let configurationEnabledTraits = traitConfiguration?.enabledTraits
+        let enableAllTraits = traitConfiguration?.enableAllTraits ?? false
+
+        if let version {
+            switch dependency?.state {
+            case .sourceControlCheckout(.version(version, revision: _)):
+                return try manifest.enabledTraits(using: configurationEnabledTraits, enableAllTraits: enableAllTraits) ?? []
+            case .registryDownload(version: version):
+                return try manifest.enabledTraits(using: configurationEnabledTraits, enableAllTraits: enableAllTraits) ?? []
+            default:
+                throw InternalError("expected version based state, but state was \(String(describing: dependency?.state))")
+            }
+        } else {
+            return try manifest.enabledTraits(using: configurationEnabledTraits, enableAllTraits: enableAllTraits) ?? []
         }
     }
 }

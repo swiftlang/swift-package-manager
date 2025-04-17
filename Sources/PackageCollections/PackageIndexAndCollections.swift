@@ -71,97 +71,87 @@ public struct PackageIndexAndCollections: Closable {
     
     // MARK: - Package collection specific APIs
     
-    /// - SeeAlso: `PackageCollectionsProtocol.listCollections`
     public func listCollections(
-        identifiers: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
-        callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void
-    ) {
-        self.collections.listCollections(identifiers: identifiers, callback: callback)
+        identifiers: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
+    ) async throws -> [PackageCollectionsModel.Collection] {
+        try await self.collections.listCollections(identifiers: identifiers)
     }
 
-    /// - SeeAlso: `PackageCollectionsProtocol.refreshCollections`
-    public func refreshCollections(callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void) {
-        self.collections.refreshCollections(callback: callback)
+    
+    public func refreshCollections() async throws -> [PackageCollectionsModel.CollectionSource] {
+        try await self.collections.refreshCollections()
     }
 
-    /// - SeeAlso: `PackageCollectionsProtocol.refreshCollection`
-    public func refreshCollection(
-        _ source: PackageCollectionsModel.CollectionSource,
-        callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
-    ) {
-        self.collections.refreshCollection(source, callback: callback)
+    public func refreshCollection(_ source: PackageCollectionsModel.CollectionSource) async throws -> PackageCollectionsModel.Collection {
+        try await self.collections.refreshCollection(source)
     }
 
-    /// - SeeAlso: `PackageCollectionsProtocol.addCollection`
     public func addCollection(
         _ source: PackageCollectionsModel.CollectionSource,
         order: Int? = nil,
-        trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)? = nil,
-        callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
-    ) {
-        self.collections.addCollection(source, order: order, trustConfirmationProvider: trustConfirmationProvider, callback: callback)
-    }
-
-    /// - SeeAlso: `PackageCollectionsProtocol.removeCollection`
-    public func removeCollection(
-        _ source: PackageCollectionsModel.CollectionSource,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
-        self.collections.removeCollection(source, callback: callback)
-    }
-
-    /// - SeeAlso: `PackageCollectionsProtocol.getCollection`
-    public func getCollection(
-        _ source: PackageCollectionsModel.CollectionSource,
-        callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
-    ) {
-        self.collections.getCollection(source, callback: callback)
-    }
-
-    /// - SeeAlso: `PackageCollectionsProtocol.listPackages`
-    public func listPackages(
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
-        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
-    ) {
-        self.collections.listPackages(collections: collections, callback: callback)
-    }
-
-    /// - SeeAlso: `PackageCollectionsProtocol.listTargets`
-    public func listTargets(
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
-        callback: @escaping (Result<PackageCollectionsModel.TargetListResult, Error>) -> Void
-    ) {
-        self.collections.listTargets(collections: collections, callback: callback)
+        trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)? = nil
+    ) async throws -> PackageCollectionsModel.Collection {
+        try await self.collections.addCollection(
+            source,
+            order: order,
+            trustConfirmationProvider: trustConfirmationProvider
+        )
     }
     
-    /// - SeeAlso: `PackageCollectionsProtocol.findTargets`
+    public func removeCollection(
+        _ source: PackageCollectionsModel.CollectionSource
+    ) async throws {
+        try await self.collections.removeCollection(source)
+    }
+
+    public func getCollection(
+        _ source: PackageCollectionsModel.CollectionSource
+    ) async throws -> PackageCollectionsModel.Collection {
+        try await self.collections.getCollection(source)
+    }
+
+    public func listPackages(
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
+    ) async throws -> PackageCollectionsModel.PackageSearchResult {
+        try await self.collections.listPackages(collections: collections)
+    }
+    
+    public func listTargets(
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
+    ) async throws -> PackageCollectionsModel.TargetListResult {
+        try await self.collections.listTargets(collections: collections)
+    }
+
     public func findTargets(
         _ query: String,
         searchType: PackageCollectionsModel.TargetSearchType? = nil,
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
-        callback: @escaping (Result<PackageCollectionsModel.TargetSearchResult, Error>) -> Void
-    ) {
-        self.collections.findTargets(query, searchType: searchType, collections: collections, callback: callback)
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
+    ) async throws -> PackageCollectionsModel.TargetSearchResult {
+        try await self.collections.findTargets(
+            query,
+            searchType: searchType,
+            collections: collections
+        )
     }
-    
+
+
     // MARK: - Package index specific APIs
 
     /// Indicates if package index is configured.
     public func isIndexEnabled() -> Bool {
         self.index.isEnabled
     }
-
-    /// - SeeAlso: `PackageIndexProtocol.listPackages`
+    
     public func listPackagesInIndex(
         offset: Int,
-        limit: Int,
-        callback: @escaping (Result<PackageCollectionsModel.PaginatedPackageList, Error>) -> Void
-    ) {
-        self.index.listPackages(offset: offset, limit: limit, callback: callback)
+        limit: Int
+    ) async throws -> PackageCollectionsModel.PaginatedPackageList {
+        try await self.index.listPackages(offset: offset, limit: limit)
     }
-    
+
+
     // MARK: - APIs that make use of both package index and collections
-    
+
     /// Returns metadata for the package identified by the given `PackageIdentity`, using package index (if configured)
     /// and collections data.
     ///
@@ -171,119 +161,79 @@ public struct PackageIndexAndCollections: Closable {
     ///   - identity: The package identity
     ///   - location: The package location (optional for deduplication)
     ///   - collections: Optional. If specified, only these collections are used to construct the result.
-    ///   - callback: The closure to invoke when result becomes available
     public func getPackageMetadata(
         identity: PackageIdentity,
         location: String? = nil,
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
-        callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
-    ) {
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
+    ) async throws -> PackageCollectionsModel.PackageMetadata {
         // Package index not available - fallback to collections
         guard self.index.isEnabled else {
-            return self.collections.getPackageMetadata(identity: identity, location: location, collections: collections, callback: callback)
+            return try await self.collections.getPackageMetadata(identity: identity, location: location, collections: collections)
         }
-                
-        // Get metadata using both package index and collections
-        let sync = DispatchGroup()
-        let results = ThreadSafeKeyValueStore<Source, Result<PackageCollectionsModel.PackageMetadata, Error>>()
 
-        sync.enter()
         // This uses package index only
-        self.index.getPackageMetadata(identity: identity, location: location) { result in
-            defer { sync.leave() }
-            results[.index] = result
-        }
+        async let indexResult = self.index.getPackageMetadata(identity: identity, location: location)
 
-        sync.enter()
         // This uses either package index or "alternative" (e.g., GitHub) as metadata provider,
         // then merge the supplementary metadata with data coming from collections. The package
         // must belong to at least one collection.
-        self.collections.getPackageMetadata(identity: identity, location: location, collections: collections) { result in
-            defer { sync.leave() }
-            results[.collections] = result
-        }
-        
-        sync.notify(queue: .sharedConcurrent) {
-            guard let indexResult = results[.index], let collectionsResult = results[.collections] else {
-                return callback(.failure(InternalError("Should contain results from package index and collections")))
-            }
+        async let collectionsResult = self.collections.getPackageMetadata(identity: identity, location: location, collections: collections)
 
-            switch (indexResult, collectionsResult) {
-            case (.success(let metadataResult), _):
-                // Metadata from `PackageIndex`
-                callback(.success(
-                    PackageCollectionsModel.PackageMetadata(
-                        package: metadataResult.package,
-                        collections: collectionsResult.success?.collections ?? [],
-                        provider: metadataResult.provider
-                    )
-                ))
-            case (.failure(let indexError), .success(let metadataResult)):
-                self.observabilityScope.emit(warning: "PackageIndex.getPackageMetadata failed: \(indexError)")
-                // Metadata from `PackageCollections`, which is a combination of
-                // package index/alternative (e.g., GitHub) and collection data.
-                callback(.success(metadataResult))
-            case (.failure(let indexError), .failure(let collectionsError)):
-                // Failed to get metadata through `PackageIndex` and `PackageCollections`.
-                // Return index's error.
+
+        do {
+            let indexPackageMetadata = try await indexResult
+            return PackageCollectionsModel.PackageMetadata(
+                package: indexPackageMetadata.package,
+                collections: (try? await collectionsResult)?.collections ?? [],
+                provider: indexPackageMetadata.provider
+            )
+        } catch {
+            self.observabilityScope.emit(warning: "PackageIndex.getPackageMetadata failed: \(error)")
+            do {
+                return try await collectionsResult
+            } catch let collectionsError {
                 self.observabilityScope.emit(warning: "PackageCollections.getPackageMetadata failed: \(collectionsError)")
-                callback(.failure(indexError))
             }
+            throw error
         }
     }
-    
+
     /// Finds and returns packages that match the query.
     ///
     /// - Parameters:
     ///   - query: The search query
     ///   - in: Indicates whether to search in the index only, collections only, or both.
     ///         The optional `Set<CollectionIdentifier>` in some enum cases restricts search within those collections only.
-    ///   - callback: The closure to invoke when result becomes available
     public func findPackages(
         _ query: String,
-        in searchIn: SearchIn = .both(collections: nil),
-        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
-    ) {
+        in searchIn: SearchIn = .both(collections: nil)
+    ) async throws -> PackageCollectionsModel.PackageSearchResult {
         switch searchIn {
         case .index:
             guard self.index.isEnabled else {
                 self.observabilityScope.emit(debug: "Package index is not enabled. Returning empty result.")
-                return callback(.success(.init(items: [])))
+                return PackageCollectionsModel.PackageSearchResult(items: [])
             }
-            self.index.findPackages(query, callback: callback)
+            return try await self.index.findPackages(query)
         case .collections(let collections):
-            self.collections.findPackages(query, collections: collections, callback: callback)
+            return try await self.collections.findPackages(query, collections: collections)
         case .both(let collections):
             // Find packages in both package index and collections
-            let sync = DispatchGroup()
-            let results = ThreadSafeKeyValueStore<Source, Result<PackageCollectionsModel.PackageSearchResult, Error>>()
+            async let pendingIndexPackages = self.index.findPackages(query)
+            async let pendingcollectionPackages = self.collections.findPackages(query, collections: collections)
 
-            sync.enter()
-            self.index.findPackages(query) { result in
-                defer { sync.leave() }
-                results[.index] = result
-            }
+            do {
+                let indexSearchResult = try await pendingIndexPackages
+                do {
+                    let collectionsSearchResult = try await pendingcollectionPackages
 
-            sync.enter()
-            self.collections.findPackages(query, collections: collections) { result in
-                defer { sync.leave() }
-                results[.collections] = result
-            }
-            
-            sync.notify(queue: .sharedConcurrent) {
-                guard let indexResult = results[.index], let collectionsResult = results[.collections] else {
-                    return callback(.failure(InternalError("Should contain results from package index and collections")))
-                }
-
-                switch (indexResult, collectionsResult) {
-                case (.success(let indexSearchResult), .success(let collectionsSearchResult)):
                     let indexItems = Dictionary(uniqueKeysWithValues: indexSearchResult.items.map {
                         (SearchResultItemKey(identity: $0.package.identity, location: $0.package.location), $0)
                     })
                     let collectionItems = Dictionary(uniqueKeysWithValues: collectionsSearchResult.items.map {
                         (SearchResultItemKey(identity: $0.package.identity, location: $0.package.location), $0)
                     })
-                    
+
                     // An array of combined results, with index items listed first.
                     var items = [PackageCollectionsModel.PackageSearchResult.Item]()
                     // Iterating through the dictionary would simplify the code, but we want to keep the ordering of the search result.
@@ -304,36 +254,37 @@ public struct PackageIndexAndCollections: Closable {
                         }
                         items.append($0)
                     }
-                    
-                    callback(.success(PackageCollectionsModel.PackageSearchResult(items: items)))
-                case (.success(let indexSearchResult), .failure(let collectionsError)):
+                    return PackageCollectionsModel.PackageSearchResult(items: items)
+
+                } catch let collectionsError {
                     self.observabilityScope.emit(warning: "PackageCollections.findPackages failed: \(collectionsError)")
+
                     // Collections query failed, try another way to find the collections that an item belongs to.
-                    self.collections.listPackages(collections: collections) { collectionsResult in
-                        switch collectionsResult {
-                        case .failure:
-                            callback(.success(indexSearchResult))
-                        case .success(let collectionsSearchResult):
-                            let items = indexSearchResult.items.map { item in
-                                PackageCollectionsModel.PackageSearchResult.Item(
-                                    package: item.package,
-                                    collections: collectionsSearchResult.items.first(where: {
-                                        item.package.identity == $0.package.identity && item.package.location == $0.package.location
-                                    })?.collections ?? [],
-                                    indexes: item.indexes
-                                )
-                            }
-                            callback(.success(PackageCollectionsModel.PackageSearchResult(items: items)))
+                    do {
+                        let collectionsSearchResult = try await self.collections.listPackages(collections: collections)
+                        let items = indexSearchResult.items.map { item in
+                            PackageCollectionsModel.PackageSearchResult.Item(
+                                package: item.package,
+                                collections: collectionsSearchResult.items.first(where: {
+                                    item.package.identity == $0.package.identity && item.package.location == $0.package.location
+                                })?.collections ?? [],
+                                indexes: item.indexes
+                            )
                         }
+                        return PackageCollectionsModel.PackageSearchResult(items: items)
+                    } catch {
+                        return indexSearchResult
                     }
-                case (.failure(let indexError), .success(let searchResult)):
-                    self.observabilityScope.emit(warning: "PackageIndex.findPackages failed: \(indexError)")
-                    callback(.success(searchResult))
-                case (.failure(let indexError), .failure(let collectionsError)):
+                }
+            } catch let indexError {
+                self.observabilityScope.emit(warning: "PackageIndex.findPackages failed: \(indexError)")
+                do {
+                    return try await pendingcollectionPackages
+                } catch let collectionsError {
                     // Failed to find packages through `PackageIndex` and `PackageCollections`.
                     // Return index's error.
                     self.observabilityScope.emit(warning: "PackageCollections.findPackages failed: \(collectionsError)")
-                    callback(.failure(indexError))
+                    throw indexError
                 }
             }
 
@@ -362,13 +313,12 @@ struct PackageIndexMetadataProvider: PackageMetadataProvider, Closable {
 
     func get(
         identity: PackageIdentity,
-        location: String,
-        callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) -> Void
-    ) {
+        location: String
+    ) async -> (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) {
         if self.index.isEnabled {
-            self.index.get(identity: identity, location: location, callback: callback)
+            return await self.index.get(identity: identity, location: location)
         } else {
-            self.alternative.get(identity: identity, location: location, callback: callback)
+            return await self.alternative.get(identity: identity, location: location)
         }
     }
     

@@ -24,24 +24,34 @@ public struct BuiltTestProduct: Codable {
     public let packagePath: AbsolutePath
 
     /// The path of the test bundle.
+    ///
+    /// When the test product is not bundled (for instance, when using XCTest on
+    /// non-Darwin targets), this path is equal to ``binaryPath``.
     public var bundlePath: AbsolutePath {
         // Go up the folder hierarchy until we find the .xctest bundle.
+        let pathExtension = ".xctest"
         let hierarchySequence = sequence(first: binaryPath, next: { $0.isRoot ? nil : $0.parentDirectory })
-        guard let bundlePath = hierarchySequence.first(where: { $0.basename.hasSuffix(".xctest") }) else {
+        guard let bundlePath = hierarchySequence.first(where: { $0.basename.hasSuffix(pathExtension) }) else {
             fatalError("could not find test bundle path from '\(binaryPath)'")
         }
         
         return bundlePath
     }
 
+    /// The path to the entry point source file (XCTMain.swift, LinuxMain.swift,
+    /// etc.) used, if any.
+    public let testEntryPointPath: AbsolutePath?
+
     /// Creates a new instance.
     /// - Parameters:
     ///   - productName: The test product name.
     ///   - binaryPath: The path of the test binary.
     ///   - packagePath: The path to the package this product was declared in.
-    public init(productName: String, binaryPath: AbsolutePath, packagePath: AbsolutePath) {
+    ///   - mainSourceFilePath: The path to the main source file used, if any.
+    public init(productName: String, binaryPath: AbsolutePath, packagePath: AbsolutePath, testEntryPointPath: AbsolutePath?) {
         self.productName = productName
         self.binaryPath = binaryPath
         self.packagePath = packagePath
+        self.testEntryPointPath = testEntryPointPath
     }
 }

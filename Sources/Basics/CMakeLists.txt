@@ -12,8 +12,12 @@ add_library(Basics
   Archiver/ZipArchiver.swift
   Archiver/UniversalArchiver.swift
   AuthorizationProvider.swift
-  ByteString+Extensions.swift
   Cancellator.swift
+  Collections/ByteString+Extensions.swift
+  Collections/Dictionary+Extensions.swift
+  Collections/IdentifiableSet.swift
+  Collections/String+Extensions.swift
+  Concurrency/AsyncProcess.swift
   Concurrency/ConcurrencyHelpers.swift
   Concurrency/NSLock+Extensions.swift
   Concurrency/SendableBox.swift
@@ -21,17 +25,23 @@ add_library(Basics
   Concurrency/ThreadSafeBox.swift
   Concurrency/ThreadSafeKeyValueStore.swift
   Concurrency/TokenBucket.swift
-  Dictionary+Extensions.swift
   DispatchTimeInterval+Extensions.swift
-  EnvironmentVariables.swift
+  Environment/Environment.swift
+  Environment/EnvironmentKey.swift
+  Environment/EnvironmentShims.swift
   Errors.swift
   FileSystem/AbsolutePath.swift
   FileSystem/FileSystem+Extensions.swift
+  FileSystem/InMemoryFileSystem.swift
   FileSystem/NativePathExtensions.swift
   FileSystem/RelativePath.swift
   FileSystem/TemporaryFile.swift
   FileSystem/TSCAdapters.swift
   FileSystem/VFSOverlay.swift
+  Graph/AdjacencyMatrix.swift
+  Graph/DirectedGraph.swift
+  Graph/GraphAlgorithms.swift
+  Graph/UndirectedGraph.swift
   SourceControlURL.swift
   HTTPClient/HTTPClient.swift
   HTTPClient/HTTPClientConfiguration.swift
@@ -49,37 +59,42 @@ add_library(Basics
   Netrc.swift
   Observability.swift
   OSSignpost.swift
+  ProgressAnimation/NinjaProgressAnimation.swift
+  ProgressAnimation/PercentProgressAnimation.swift
+  ProgressAnimation/ProgressAnimationProtocol.swift
+  ProgressAnimation/SingleLinePercentProgressAnimation.swift
+  ProgressAnimation/ThrottledProgressAnimation.swift
   SQLite.swift
   Sandbox.swift
   SendableTimeInterval.swift
   Serialization/SerializedJSON.swift
-  String+Extensions.swift
   SwiftVersion.swift
   SQLiteBackedCache.swift
+  TestingLibrary.swift
   Triple+Basics.swift
+  URL.swift
   Version+Extensions.swift
   WritableByteStream+Extensions.swift
   Vendor/Triple.swift
   Vendor/Triple+Platforms.swift)
 target_link_libraries(Basics PUBLIC
-  SwiftCollections::DequeModule
+  _AsyncFileSystem
   SwiftCollections::OrderedCollections
-  SwiftSystem::SystemPackage
   TSCBasic
   TSCUtility)
 target_link_libraries(Basics PRIVATE
+  SwiftCollections::DequeModule
   SPMSQLite3
   TSCclibc)
+
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Basics PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 target_link_options(Basics PRIVATE
     "$<$<PLATFORM_ID:Darwin>:SHELL:-Xlinker -framework -Xlinker Security>")
 
-if(USE_CMAKE_INSTALL)
 install(TARGETS Basics
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
-endif()
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS Basics)

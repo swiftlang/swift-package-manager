@@ -10,7 +10,87 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
+
 import class Foundation.NSLock
+
+/// Thread-safe dictionary with async memoization
+public actor ThrowingAsyncKeyValueMemoizer<Key: Hashable & Sendable, Value: Sendable> {
+    var stored: [Key: Task<Value, Error>] = [:]
+
+    public init() {
+        self.stored = [:]
+    }
+
+    public func memoize(_ key: Key, body: @Sendable @escaping () async throws -> Value) async throws -> Value {
+        guard let existingTask = self.stored[key] else {
+            let newTask = Task {
+                try await body()
+            }
+            self.stored[key] = newTask
+            return try await newTask.value
+        }
+        return try await existingTask.value
+    }
+}
+
+public actor AsyncKeyValueMemoizer<Key: Hashable & Sendable, Value: Sendable> {
+    var stored: [Key: Task<Value, Never>] = [:]
+
+    public init() {
+        self.stored = [:]
+    }
+
+    public func memoize(_ key: Key, body: @Sendable @escaping () async -> Value) async -> Value {
+        guard let existingTask = self.stored[key] else {
+            let newTask = Task {
+                await body()
+            }
+            self.stored[key] = newTask
+            return await newTask.value
+        }
+        return await existingTask.value
+    }
+}
+
+public actor AsyncThrowingValueMemoizer<Value: Sendable> {
+    var stored: ValueStorage?
+
+    enum ValueStorage {
+    case inProgress([CheckedContinuation<Value, Error>])
+    case complete(Result<Value, Error>)
+    }
+
+    public init() {}
+
+    public func memoize(body: @Sendable () async throws -> Value) async throws -> Value {
+        guard let stored else {
+            self.stored = .inProgress([])
+            let result: Result<Value, Error>
+            do {
+                result = try await .success(body())
+            } catch {
+                result = .failure(error)
+            }
+            if case .inProgress(let array) = self.stored {
+                self.stored = .complete(result)
+                array.forEach { $0.resume(with: result)}
+            }
+            return try result.get()
+        }
+        switch stored {
+
+        case .inProgress(let existing):
+            return try await withCheckedThrowingContinuation {
+                self.stored = .inProgress(existing + [$0])
+            }
+        case .complete(let result):
+            return try result.get()
+        }
+    }
+}
+
+
 
 /// Thread-safe dictionary like structure
 public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {

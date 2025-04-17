@@ -19,7 +19,7 @@ We’ve designed the system to make it really easy to share packages on services
 * [Package manifest specification](PackageDescription.md)
 * [Getting Started with Plugins](Plugins.md)
 * [Package discovery with Package Collections](PackageCollections.md)
-* [Package Registry service specification](Registry.md)
+* [Package Registry service specification](PackageRegistry/Registry.md)
 * [Using SwiftPM as a library](libSwiftPM.md)
 * [Using Module Aliasing](ModuleAliasing.md)
 

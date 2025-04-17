@@ -17,7 +17,7 @@ import struct TSCBasic.RegEx
 import struct TSCUtility.Version
 
 /// Represents a Swift language version.
-public struct SwiftLanguageVersion: Sendable {
+public struct SwiftLanguageVersion: Hashable, Sendable {
 
     /// Swift language version 3.
     public static let v3 = SwiftLanguageVersion(uncheckedString: "3")
@@ -31,9 +31,17 @@ public struct SwiftLanguageVersion: Sendable {
     /// Swift language version 5.
     public static let v5 = SwiftLanguageVersion(uncheckedString: "5")
 
+    /// Swift language version 6.
+    public static let v6 = SwiftLanguageVersion(uncheckedString: "6")
+
     /// The list of known Swift language versions.
     public static let knownSwiftLanguageVersions = [
-        v3, v4, v4_2, v5,
+        v3, v4, v4_2, v5, v6
+    ]
+
+    /// The list of supported Swift language versions for this toolchain.
+    public static let supportedSwiftLanguageVersions = [
+        v4, v4_2, v5, v6
     ]
 
     /// The raw value of the language version.

@@ -10,9 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import Foundation
+import Foundation
 #if os(Windows)
 @_implementationOnly import ucrt
+@_implementationOnly import WinSDK
 
 internal func dup(_ fd: CInt) -> CInt {
     return _dup(fd)
@@ -26,6 +27,18 @@ internal func close(_ fd: CInt) -> CInt {
 internal func fileno(_ fh: UnsafeMutablePointer<FILE>?) -> CInt {
     return _fileno(fh)
 }
+
+internal func strerror(_ errno: CInt) -> String? {
+    // MSDN indicates that the returned string can have a maximum of 94
+    // characters, so allocate 95 characters.
+    return withUnsafeTemporaryAllocation(of: wchar_t.self, capacity: 95) {
+        let result = _wcserror_s($0.baseAddress, $0.count, errno)
+        guard result == 0, let baseAddress = $0.baseAddress else { return nil }
+        return String(decodingCString: baseAddress, as: UTF16.self)
+    }
+}
+#elseif canImport(Android)
+import Android
 #endif
 
 //
@@ -48,7 +61,7 @@ internal func fileno(_ fh: UnsafeMutablePointer<FILE>?) -> CInt {
 //
 // Within the plugin process, `stdout` is redirected to `stderr` so that print
 // statements from the plugin are treated as plain-text output, and `stdin` is
-// closed so that any attemps by the plugin logic to read from console result
+// closed so that any attempts by the plugin logic to read from console result
 // in errors instead of blocking the process. The original `stdin` and `stdout`
 // are duplicated for use as messaging pipes, and are not directly used by the
 // plugin logic.
@@ -131,7 +144,7 @@ extension Plugin {
     fileprivate static func handleMessage(_ message: HostToPluginMessage) async throws {
         switch message {
             
-        case .createBuildToolCommands(let wireInput, let rootPackageId, let targetId):
+        case .createBuildToolCommands(let wireInput, let rootPackageId, let targetId, let generatedSources, let generatedResources):
             // Deserialize the context from the wire input structures. The root
             // package is the one we'll set the context's `package` property to.
             let context: PluginContext
@@ -139,21 +152,30 @@ extension Plugin {
             do {
                 var deserializer = PluginContextDeserializer(wireInput)
                 let package = try deserializer.package(for: rootPackageId)
-                let pluginWorkDirectory = try deserializer.path(for: wireInput.pluginWorkDirId)
+                let pluginWorkDirectory = try deserializer.url(for: wireInput.pluginWorkDirId)
                 let toolSearchDirectories = try wireInput.toolSearchDirIds.map {
-                    try deserializer.path(for: $0)
+                    try deserializer.url(for: $0)
                 }
-                let accessibleTools = try wireInput.accessibleTools.mapValues { (tool: HostToPluginMessage.InputContext.Tool) -> (Path, [String]?) in
-                    let path = try deserializer.path(for: tool.path)
+                let accessibleTools = try wireInput.accessibleTools.mapValues { (tool: HostToPluginMessage.InputContext.Tool) -> (URL, [String]?) in
+                    let path = try deserializer.url(for: tool.path)
                     return (path, tool.triples)
                 }
 
-                context = PluginContext(
+                context = try PluginContext(
                     package: package,
-                    pluginWorkDirectory: pluginWorkDirectory,
+                    pluginWorkDirectory: Path(url: pluginWorkDirectory),
+                    pluginWorkDirectoryURL: pluginWorkDirectory,
                     accessibleTools: accessibleTools,
-                    toolSearchDirectories: toolSearchDirectories)
-                target = try deserializer.target(for: targetId)
+                    toolSearchDirectories: toolSearchDirectories.map { try Path(url: $0) },
+                    toolSearchDirectoryURLs: toolSearchDirectories)
+
+                let pluginGeneratedSources = try generatedSources.map { try deserializer.url(for: $0) }
+                let pluginGeneratedResources = try generatedResources.map { try deserializer.url(for: $0) }
+                target = try deserializer.target(
+                    for: targetId,
+                    pluginGeneratedSources: pluginGeneratedSources,
+                    pluginGeneratedResources: pluginGeneratedResources
+                )
             }
             catch {
                 internalError("Couldn’t deserialize input from host: \(error).")
@@ -171,8 +193,7 @@ extension Plugin {
             // Check that the plugin implements the appropriate protocol
             // for its declared `.buildTool` capability.
             guard let plugin = plugin as? BuildToolPlugin else {
-                throw PluginDeserializationError.malformedInputJSON(
-                    "Plugin declared with `buildTool` capability but doesn't conform to `BuildToolPlugin` protocol")
+                throw PluginDeserializationError.missingBuildToolPluginProtocolConformance(protocolName: "BuildToolPlugin")
             }
             
             // Invoke the plugin to create build commands for the target.
@@ -181,30 +202,109 @@ extension Plugin {
             // Send each of the generated commands to the host.
             for command in generatedCommands {
                 switch command {
-                    
-                case let ._buildCommand(name, exec, args, env, workdir, inputs, outputs):
+
+                case .buildCommand(let displayName, let executable, let arguments, let environment, let inputFiles, let outputFiles):
                     let command = PluginToHostMessage.CommandConfiguration(
-                        displayName: name,
-                        executable: exec.string,
-                        arguments: args,
-                        environment: env,
-                        workingDirectory: workdir?.string)
+                        displayName: displayName,
+                        executable: executable,
+                        arguments: arguments,
+                        environment: environment
+                    )
                     let message = PluginToHostMessage.defineBuildCommand(
                         configuration: command,
-                        inputFiles: inputs.map{ $0.string },
-                        outputFiles: outputs.map{ $0.string })
+                        inputFiles: inputFiles,
+                        outputFiles: outputFiles
+                    )
                     try pluginHostConnection.sendMessage(message)
-                    
-                case let ._prebuildCommand(name, exec, args, env, workdir, outdir):
+
+                case .prebuildCommand(let displayName, let executable, let arguments, let environment, let outputFilesDirectory):
                     let command = PluginToHostMessage.CommandConfiguration(
-                        displayName: name,
-                        executable: exec.string,
-                        arguments: args,
-                        environment: env,
-                        workingDirectory: workdir?.string)
+                        displayName: displayName,
+                        executable: executable,
+                        arguments: arguments,
+                        environment: environment
+                    )
                     let message = PluginToHostMessage.definePrebuildCommand(
                         configuration: command,
-                        outputFilesDirectory: outdir.string)
+                        outputFilesDirectory: outputFilesDirectory
+                    )
+                    try pluginHostConnection.sendMessage(message)
+                }
+            }
+            
+            // Exit with a zero exit code to indicate success.
+            exit(0)
+
+        case .createXcodeProjectBuildToolCommands(let wireInput, let rootProjectId, let targetId, let generatedSources, let generatedResources):
+            // Instantiate the plugin (for now without parameters, as described
+            // above).
+            let plugin = self.init()
+
+            // Check that the plugin implements the appropriate protocol
+            // for its declared `.buildTool` capability.
+            guard let plugin = plugin as? BuildToolPlugin else {
+                throw PluginDeserializationError.missingBuildToolPluginProtocolConformance(protocolName: "BuildToolPlugin")
+            }
+            
+            // Deserialize the context from the wire input structures, and create a record for us to pass to the XcodeProjectPlugin library.
+            let record: XcodeProjectPluginInvocationRecord
+            do {
+                var deserializer = PluginContextDeserializer(wireInput)
+                let xcodeProject = try deserializer.xcodeProject(for: rootProjectId)
+                let xcodeTarget = try deserializer.xcodeTarget(
+                    for: targetId,
+                    pluginGeneratedSources: try generatedSources.map { try deserializer.url(for: $0) },
+                    pluginGeneratedResources: try generatedResources.map { try deserializer.url(for: $0) }
+                )
+                let pluginWorkDirectory = try deserializer.url(for: wireInput.pluginWorkDirId)
+                let toolSearchDirectories = try wireInput.toolSearchDirIds.map {
+                    try deserializer.url(for: $0)
+                }
+                let accessibleTools = try wireInput.accessibleTools.mapValues { (tool: HostToPluginMessage.InputContext.Tool) -> (URL, [String]?) in
+                    let path = try deserializer.url(for: tool.path)
+                    return (path, tool.triples)
+                }
+                record = XcodeProjectPluginInvocationRecord(
+                    plugin: plugin,
+                    xcodeProject: xcodeProject,
+                    xcodeTarget: xcodeTarget,
+                    pluginWorkDirectory: pluginWorkDirectory,
+                    accessibleTools: accessibleTools,
+                    toolSearchDirectories: toolSearchDirectories)
+            }
+            catch {
+                internalError("Couldn’t deserialize input from host: \(error).")
+            }
+
+            try callEntryPoint(record, "call_XcodeProjectPlugin_build_command_creation_entry_point")
+
+            // Send each of the generated commands to the host.
+            for command in record.generatedCommands {
+                switch command {
+
+                case let .buildCommand(name, exec, args, env, inputs, outputs):
+                    let command = PluginToHostMessage.CommandConfiguration(
+                        displayName: name,
+                        executable: exec,
+                        arguments: args,
+                        environment: env,
+                        workingDirectory: nil)
+                    let message = PluginToHostMessage.defineBuildCommand(
+                        configuration: command,
+                        inputFiles: inputs,
+                        outputFiles: outputs)
+                    try pluginHostConnection.sendMessage(message)
+                    
+                case let .prebuildCommand(name, exec, args, env, outdir):
+                    let command = PluginToHostMessage.CommandConfiguration(
+                        displayName: name,
+                        executable: exec,
+                        arguments: args,
+                        environment: env,
+                        workingDirectory: nil)
+                    let message = PluginToHostMessage.definePrebuildCommand(
+                        configuration: command,
+                        outputFilesDirectory: outdir)
                     try pluginHostConnection.sendMessage(message)
                 }
             }
@@ -219,19 +319,21 @@ extension Plugin {
             do {
                 var deserializer = PluginContextDeserializer(wireInput)
                 let package = try deserializer.package(for: rootPackageId)
-                let pluginWorkDirectory = try deserializer.path(for: wireInput.pluginWorkDirId)
+                let pluginWorkDirectory = try deserializer.url(for: wireInput.pluginWorkDirId)
                 let toolSearchDirectories = try wireInput.toolSearchDirIds.map {
-                    try deserializer.path(for: $0)
+                    try deserializer.url(for: $0)
                 }
-                let accessibleTools = try wireInput.accessibleTools.mapValues { (tool: HostToPluginMessage.InputContext.Tool) -> (Path, [String]?) in
-                    let path = try deserializer.path(for: tool.path)
+                let accessibleTools = try wireInput.accessibleTools.mapValues { (tool: HostToPluginMessage.InputContext.Tool) -> (URL, [String]?) in
+                    let path = try deserializer.url(for: tool.path)
                     return (path, tool.triples)
                 }
-                context = PluginContext(
+                context = try PluginContext(
                     package: package,
-                    pluginWorkDirectory: pluginWorkDirectory,
+                    pluginWorkDirectory: Path(url: pluginWorkDirectory),
+                    pluginWorkDirectoryURL: pluginWorkDirectory,
                     accessibleTools: accessibleTools,
-                    toolSearchDirectories: toolSearchDirectories)
+                    toolSearchDirectories: toolSearchDirectories.map { try Path(url: $0) },
+                    toolSearchDirectoryURLs: toolSearchDirectories)
             }
             catch {
                 internalError("Couldn’t deserialize input from host: \(error).")
@@ -244,8 +346,7 @@ extension Plugin {
             // Check that the plugin implements the appropriate protocol
             // for its declared `.command` capability.
             guard let plugin = plugin as? CommandPlugin else {
-                throw PluginDeserializationError.malformedInputJSON(
-                    "Plugin declared with `command` capability but doesn't conform to `CommandPlugin` protocol")
+                throw PluginDeserializationError.missingCommandPluginProtocolConformance(protocolName: "CommandPlugin")
             }
             
             // Invoke the plugin to perform its custom logic.
@@ -253,7 +354,48 @@ extension Plugin {
             
             // Exit with a zero exit code to indicate success.
             exit(0)
+
+        case .performXcodeProjectCommand(let wireInput, let rootProjectId, let arguments):
+            // Instantiate the plugin (for now without parameters, as described
+            // above).
+            let plugin = self.init()
+
+            // Check that the plugin implements the appropriate protocol
+            // for its declared `.command` capability.
+            guard let plugin = plugin as? CommandPlugin else {
+                throw PluginDeserializationError.missingCommandPluginProtocolConformance(protocolName: "CommandPlugin")
+            }
             
+            // Deserialize the context from the wire input structures, and create a record for us to pass to the XcodeProjectPlugin library.
+            let record: XcodeProjectPluginInvocationRecord
+            do {
+                var deserializer = PluginContextDeserializer(wireInput)
+                let xcodeProject = try deserializer.xcodeProject(for: rootProjectId)
+                let pluginWorkDirectory = try deserializer.url(for: wireInput.pluginWorkDirId)
+                let toolSearchDirectories = try wireInput.toolSearchDirIds.map {
+                    try deserializer.url(for: $0)
+                }
+                let accessibleTools = try wireInput.accessibleTools.mapValues { (tool: HostToPluginMessage.InputContext.Tool) -> (URL, [String]?) in
+                    let path = try deserializer.url(for: tool.path)
+                    return (path, tool.triples)
+                }
+                record = XcodeProjectPluginInvocationRecord(
+                    plugin: plugin,
+                    xcodeProject: xcodeProject,
+                    pluginWorkDirectory: pluginWorkDirectory,
+                    accessibleTools: accessibleTools,
+                    toolSearchDirectories: toolSearchDirectories,
+                    arguments: arguments)
+            }
+            catch {
+                internalError("Couldn’t deserialize input from host: \(error).")
+            }
+
+            try callEntryPoint(record, "call_XcodeProjectPlugin_custom_command_entry_point")
+
+            // Exit with a zero exit code to indicate success.
+            exit(0)
+
         default:
             internalError("unexpected top-level message \(message)")
         }
@@ -267,8 +409,99 @@ extension Plugin {
     
     // Private function to construct an error message from an `errno` code.
     fileprivate static func describe(errno: Int32) -> String {
+#if os(Windows)
+        return strerror(errno) ?? String(errno)
+#else
         if let cStr = strerror(errno) { return String(cString: cStr) }
         return String(describing: errno)
+#endif
+    }
+}
+
+@_spi(PackagePluginInternal) public class XcodeProjectPluginInvocationRecord {
+    public let plugin: Plugin
+    public let xcodeProject: XcodeProject
+    public let xcodeTarget: XcodeTarget?
+    @available(_PackageDescription, introduced: 5.11)
+    public let pluginWorkDirectoryURL: URL
+    @available(_PackageDescription, introduced: 5.11)
+    public let accessibleToolsByURL: [String: (path: URL, triples: [String]?)]
+    @available(_PackageDescription, introduced: 5.11)
+    public let toolSearchDirectoryURLs: [URL]
+    public let arguments: [String]
+    public var generatedCommands: [Command] = []
+
+    @available(_PackageDescription, deprecated: 5.11)
+    public var pluginWorkDirectory: Path {
+        return try! Path(url: self.pluginWorkDirectoryURL)
+    }
+    @available(_PackageDescription, deprecated: 5.11)
+    public var accessibleTools: [String: (path: Path, triples: [String]?)] {
+        var result = [String: (path: Path, triples: [String]?)]()
+        self.accessibleToolsByURL.forEach {
+            result[$0.key] = (try! Path(url: $0.value.path), $0.value.triples)
+        }
+        return result
+    }
+    @available(_PackageDescription, deprecated: 5.11)
+    public var toolSearchDirectories: [Path] {
+        return self.toolSearchDirectoryURLs.map { try! Path(url: $0) }
+    }
+
+    internal init(
+        plugin: Plugin,
+        xcodeProject: XcodeProject,
+        xcodeTarget: XcodeTarget? = .none,
+        pluginWorkDirectory: URL,
+        accessibleTools: [String: (path: URL, triples: [String]?)],
+        toolSearchDirectories: [URL],
+        arguments: [String] = []
+    ) {
+        self.plugin = plugin
+        self.xcodeProject = xcodeProject
+        self.xcodeTarget = xcodeTarget
+        self.pluginWorkDirectoryURL = pluginWorkDirectory
+        self.accessibleToolsByURL = accessibleTools
+        self.toolSearchDirectoryURLs = toolSearchDirectories
+        self.arguments = arguments
+        self.generatedCommands = []
+    }
+    public struct XcodeProject {
+        public var id: String
+        public var displayName: String
+        @available(_PackageDescription, deprecated: 5.11)
+        public var directoryPath: Path {
+            return try! Path(url: directoryPathURL)
+        }
+        @available(_PackageDescription, introduced: 5.11)
+        public var directoryPathURL: URL
+        public var filePaths: PathList
+        public var targets: [XcodeTarget]
+    }
+    public struct XcodeTarget {
+        public var id: String
+        public var displayName: String
+        public var product: Product?
+        public var inputFiles: FileList
+        public struct Product {
+            public var name: String
+            public var kind: Kind
+            public enum Kind {
+                case application
+                case executable
+                case framework
+                case library
+                case other(String)
+            }
+        }
+
+        /// Paths of any sources generated by other plugins that have been applied to the given target before the plugin currently being executed.
+        @available(_PackageDescription, introduced: 5.11)
+        public let pluginGeneratedSources: [URL]
+
+        /// Paths of any resources generated by other plugins that have been applied to the given target before the plugin currently being executed.
+        @available(_PackageDescription, introduced: 5.11)
+        public let pluginGeneratedResources: [URL]
     }
 }
 
@@ -321,5 +554,87 @@ internal struct MessageConnection<TX,RX> where TX: Encodable, RX: Decodable {
         case truncatedHeader
         case invalidPayloadSize
         case truncatedPayload
+    }
+}
+
+fileprivate func callEntryPoint(_ record: XcodeProjectPluginInvocationRecord, _ functionName: String) throws {
+    #if !canImport(Darwin)
+    // Workaround for a compiler crash presumably related to Objective-C bridging on non-Darwin platforms (rdar://130826719&136043295)
+    typealias CallerFuncType = @convention(c) (UnsafeRawPointer) -> Any
+    #else
+    typealias CallerFuncType = @convention(c) (UnsafeRawPointer) -> (any Error)?
+    #endif
+
+    // Find the trampoline for the type of custom command (it's expected to be in the add-on library).
+    guard let callerFunc: CallerFuncType = try Library.lookup(Library.open(), functionName) else {
+        throw PluginDeserializationError.missingXcodeProjectPluginSupport
+    }
+
+    // The caller function is expected to take a pointer to a XcodeProjectPluginInvocationRecord. It is expected to return nil on success or an error on failure, as there is no way of throwing form a C function.
+    let recordPtr = UnsafeRawPointer(Unmanaged.passUnretained(record).toOpaque())
+    #if !canImport(Darwin)
+    // Workaround for a compiler crash presumably related to Objective-C bridging on non-Darwin platforms (rdar://130826719&136043295)
+    /*if let error = callerFunc(recordPtr) as! (any Error)? {
+        throw error
+    }*/
+    fatalError("FIXME: Compiler crashes when trying to compile a call to callerFunc")
+    #else
+    if let error = callerFunc(recordPtr) {
+        throw error
+    }
+    #endif
+}
+
+fileprivate enum Library: Sendable {
+    @_alwaysEmitIntoClient
+    public static func open() throws -> LibraryHandle {
+        #if os(Windows)
+        guard let handle = GetModuleHandleW(nil) else {
+            throw LibraryOpenError(message: "GetModuleHandleW returned \(GetLastError())")
+        }
+        return LibraryHandle(rawValue: handle)
+        #else
+        guard let handle = dlopen(nil, RTLD_NOW | RTLD_LOCAL) else {
+            throw LibraryOpenError(message: String(cString: dlerror()!))
+        }
+        return LibraryHandle(rawValue: handle)
+        #endif
+    }
+
+    public static func lookup<T>(_ handle: LibraryHandle, _ symbol: String) -> T? {
+        #if os(Windows)
+        guard let ptr = GetProcAddress(handle.rawValue, symbol) else { return nil }
+        #else
+        guard let ptr = dlsym(handle.rawValue, symbol) else { return nil }
+        #endif
+        return unsafeBitCast(ptr, to: T.self)
+    }
+}
+
+fileprivate struct LibraryOpenError: Error, CustomStringConvertible, Sendable {
+    public let message: String
+
+    public var description: String {
+        message
+    }
+
+    @usableFromInline
+    internal init(message: String) {
+        self.message = message
+    }
+}
+
+fileprivate struct LibraryHandle: @unchecked Sendable {
+    #if os(Windows)
+    @usableFromInline typealias PlatformHandle = HMODULE
+    #else
+    @usableFromInline typealias PlatformHandle = UnsafeMutableRawPointer
+    #endif
+
+    fileprivate let rawValue: PlatformHandle
+
+    @usableFromInline
+    internal init(rawValue: PlatformHandle) {
+        self.rawValue = rawValue
     }
 }

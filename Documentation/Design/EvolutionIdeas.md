@@ -13,7 +13,7 @@ If you're interested in participating in a particular evolution idea, please
 familiarize yourself with the existing discussion on that topic and start
 participating in the discussion thread of that idea. If a thread doesn't exist
 for that idea, please start one with a [draft
-proposal](https://github.com/apple/swift-evolution/blob/master/proposal-templates/0000-swiftpm-template.md)
+proposal](https://github.com/swiftlang/swift-evolution/blob/master/proposal-templates/0000-swiftpm-template.md)
 that can be used as a starting point.
 
 **Important Note**: This list is not in any particular order. I plan to keep
@@ -190,7 +190,7 @@ Bug: N/A
 We need an easy way to edit the Package.swift manifest from automated tools, for
 cases where you don't want users to have to update the Swift code directly. We
 think that it's possible to provide an API to allow this, probably using
-[`SwiftSyntax`](https://github.com/apple/swift/tree/master/tools/SwiftSyntax).
+[`SwiftSyntax`](https://github.com/swiftlang/swift-syntax).
 
 Thread: N/A
 Bug: N/A

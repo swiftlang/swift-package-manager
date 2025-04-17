@@ -18,7 +18,7 @@ import Foundation
 /// This represents a reference to a package containing its identity and location.
 public struct PackageReference {
     /// The kind of package reference.
-    public enum Kind: Equatable, CustomStringConvertible, Sendable {
+    public enum Kind: Hashable, CustomStringConvertible, Sendable {
         /// A root package.
         case root(AbsolutePath)
 
@@ -161,7 +161,24 @@ extension PackageReference: Equatable {
 
     // TODO: consider rolling into Equatable
     public func equalsIncludingLocation(_ other: PackageReference) -> Bool {
-        return self.identity == other.identity && self.canonicalLocation == other.canonicalLocation
+        if self.identity != other.identity {
+            return false
+        }
+        if self.canonicalLocation != other.canonicalLocation {
+            return false
+        }
+        switch (self.kind, other.kind) {
+        case (.remoteSourceControl(let lurl), .remoteSourceControl(let rurl)):
+            return lurl.canonicalURL == rurl.canonicalURL
+        default:
+            return true
+        }
+    }
+}
+
+extension SourceControlURL {
+    var canonicalURL: CanonicalPackageURL {
+        CanonicalPackageURL(self.absoluteString)
     }
 }
 

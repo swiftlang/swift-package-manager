@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import Foundation
+import Foundation
 
 /// Provides information about the package for which the plugin is invoked,
 /// as well as contextual information based on the plugin's stated intent
@@ -31,7 +31,23 @@ public struct PluginContext {
     /// write its outputs to that directory. The plugin may also create other
     /// directories for cache files and other file system content that either
     /// it or the command will need.
+    @available(_PackageDescription, deprecated: 6.0, renamed: "pluginWorkDirectoryURL")
     public let pluginWorkDirectory: Path
+
+    /// The path of a writable directory into which the plugin or the build
+    /// commands it constructs can write anything it wants. This could include
+    /// any generated source files that should be processed further, and it
+    /// could include any caches used by the build tool or the plugin itself.
+    /// The plugin is in complete control of what is written under this di-
+    /// rectory, and the contents are preserved between builds.
+    ///
+    /// A plugin would usually create a separate subdirectory of this directory
+    /// for each command it creates, and the command would be configured to
+    /// write its outputs to that directory. The plugin may also create other
+    /// directories for cache files and other file system content that either
+    /// it or the command will need.
+    @available(_PackageDescription, introduced: 6.0)
+    public let pluginWorkDirectoryURL: URL
 
     /// Looks up and returns the path of a named command line executable tool.
     /// The executable must be provided by an executable target or a binary
@@ -47,17 +63,18 @@ public struct PluginContext {
             if let triples = tool.triples, triples.isEmpty {
                 throw PluginContextError.toolNotSupportedOnTargetPlatform(name: name)
             }
-            return Tool(name: name, path: tool.path)
+            return try Tool(name: name, path: Path(url: tool.path), url: tool.path)
         } else {
-            for dir in toolSearchDirectories {
-#if os(Windows)
+            for dir in self.toolSearchDirectoryURLs {
+                #if os(Windows)
                 let hostExecutableSuffix = ".exe"
-#else
+                #else
                 let hostExecutableSuffix = ""
-#endif
-                let path = dir.appending(name + hostExecutableSuffix)
-                if FileManager.default.isExecutableFile(atPath: path.string) {
-                    return Tool(name: name, path: path)
+                #endif
+                let pathURL = dir.appendingPathComponent(name + hostExecutableSuffix)
+                let path = try Path(url: pathURL)
+                if FileManager.default.isExecutableFile(atPath: path.stringValue) {
+                    return Tool(name: name, path: path, url: pathURL)
                 }
             }
         }
@@ -66,11 +83,17 @@ public struct PluginContext {
 
     /// A mapping from tool names to their paths and triples. Not directly available
     /// to the plugin, but used by the `tool(named:)` API.
-    let accessibleTools: [String: (path: Path, triples: [String]?)]
+    let accessibleTools: [String: (path: URL, triples: [String]?)]
 
     /// The paths of directories of in which to search for tools that aren't in
     /// the `toolNamesToPaths` map.
+    @available(_PackageDescription, deprecated: 6.0, renamed: "toolSearchDirectoryURLs")
     let toolSearchDirectories: [Path]
+
+    /// The paths of directories of in which to search for tools that aren't in
+    /// the `toolNamesToPaths` map.
+    @available(_PackageDescription, introduced: 6.0)
+    let toolSearchDirectoryURLs: [URL]
 
     /// Information about a particular tool that is available to a plugin.
     public struct Tool {
@@ -78,6 +101,21 @@ public struct PluginContext {
         public let name: String
 
         /// Full path of the built or provided tool in the file system.
-        public let path: Path
+        @available(_PackageDescription, deprecated: 6.0, renamed: "url")
+        public var path: Path {
+            get { _path }
+        }
+
+        /// Full path of the built or provided tool in the file system.
+        @available(_PackageDescription, introduced: 6.0)
+        public let url: URL
+
+        private let _path: Path
+
+        @_spi(PackagePluginInternal) public init(name: String, path: Path, url: URL) {
+            self.name = name
+            self.url = url
+            self._path = path
+        }
     }
 }

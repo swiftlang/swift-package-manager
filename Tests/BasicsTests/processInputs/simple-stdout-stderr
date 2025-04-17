@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+
+import sys
+
+sys.stderr.write("simple error\n")
+sys.stderr.flush()
+sys.stdout.write("simple output\n")
+sys.stdout.flush()

@@ -39,7 +39,7 @@ public struct ExecutableInfo: Equatable {
     public let supportedTriples: [Triple]
 }
 
-extension BinaryTarget {
+extension BinaryModule {
     public func parseXCFrameworks(for triple: Triple, fileSystem: FileSystem) throws -> [LibraryInfo] {
         // At the moment we return at most a single library.
         let metadata = try XCFrameworkMetadata.parse(fileSystem: fileSystem, rootPath: self.artifactPath)
@@ -76,7 +76,10 @@ extension BinaryTarget {
             // Filter supported triples with versionLessTriple and pass into
             // ExecutableInfo; empty if non matching triples found.
             try entry.value.variants.map {
-                let filteredSupportedTriples = try $0.supportedTriples
+                guard let supportedTriples = $0.supportedTriples else {
+                    throw StringError("No \"supportedTriples\" found in the artifact metadata for \(entry.key) in \(self.artifactPath)")
+                }
+                let filteredSupportedTriples = try supportedTriples
                     .filter { try $0.withoutVersion() == versionLessTriple }
                 return ExecutableInfo(
                     name: entry.key,
@@ -118,7 +121,7 @@ extension Triple.OS {
     /// Returns a representation of the receiver that can be compared with platform strings declared in an XCFramework.
     fileprivate var asXCFrameworkPlatformString: String? {
         switch self {
-        case .darwin, .linux, .wasi, .win32, .openbsd, .noneOS:
+        case .darwin, .linux, .wasi, .win32, .openbsd, .freebsd, .noneOS:
             return nil // XCFrameworks do not support any of these platforms today.
         case .macosx:
             return "macos"

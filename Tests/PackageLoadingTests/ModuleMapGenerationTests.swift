@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -13,13 +13,10 @@
 import Basics
 import PackageLoading
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
-import class TSCBasic.InMemoryFileSystem
-
-class ModuleMapGeneration: XCTestCase {
-
+final class ModuleMapGeneration: XCTestCase {
     func testModuleNameHeaderInInclude() throws {
         let root: AbsolutePath = .root
 
@@ -118,7 +115,7 @@ class ModuleMapGeneration: XCTestCase {
                     diagnostic: "no include directory found for target \'Foo\'; libraries cannot be imported without public headers",
                     severity: .warning
                 )
-                XCTAssertEqual(diagnostic?.metadata?.targetName, "Foo")
+                XCTAssertEqual(diagnostic?.metadata?.moduleName, "Foo")
             }
         }
 
@@ -139,7 +136,7 @@ class ModuleMapGeneration: XCTestCase {
                     diagnostic: "\(root.appending(components: "include", "F-o-o.h")) should be renamed to \(root.appending(components: "include", "F_o_o.h")) to be used as an umbrella header",
                     severity: .warning
                 )
-                XCTAssertEqual(diagnostic?.metadata?.targetName, "F-o-o")
+                XCTAssertEqual(diagnostic?.metadata?.moduleName, "F-o-o")
             }
         }
     }
@@ -158,7 +155,7 @@ class ModuleMapGeneration: XCTestCase {
                     diagnostic: "target 'Foo' has invalid header layout: umbrella header found at '\(include.appending(components: "Foo", "Foo.h"))', but more than one directory exists next to its parent directory: \(include.appending(components: "Bar")); consider reducing them to one",
                     severity: .error
                 )
-                XCTAssertEqual(diagnostic?.metadata?.targetName, "Foo")
+                XCTAssertEqual(diagnostic?.metadata?.moduleName, "Foo")
             }
         }
 
@@ -173,7 +170,7 @@ class ModuleMapGeneration: XCTestCase {
                     diagnostic: "target 'Foo' has invalid header layout: umbrella header found at '\(include.appending(components: "Foo.h"))', but directories exist next to it: \(include.appending(components: "Bar")); consider removing them",
                     severity: .error
                 )
-                XCTAssertEqual(diagnostic?.metadata?.targetName, "Foo")
+                XCTAssertEqual(diagnostic?.metadata?.moduleName, "Foo")
             }
         }
     }

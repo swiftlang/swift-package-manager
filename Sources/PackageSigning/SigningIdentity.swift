@@ -10,13 +10,23 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if USE_IMPL_ONLY_IMPORTS
 #if canImport(Security)
 @_implementationOnly import Security
 #endif
 
-import Basics
 @_implementationOnly import Crypto
 @_implementationOnly import X509
+#else
+#if canImport(Security)
+import Security
+#endif
+
+import Crypto
+import X509
+#endif
+
+import Basics
 
 public protocol SigningIdentity {}
 

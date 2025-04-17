@@ -1,5 +1,11 @@
 import PackagePlugin
 
+#if os(Android)
+let touchExe = "/system/bin/touch"
+#else
+let touchExe = "/usr/bin/touch"
+#endif
+
 @main
 struct MyPlugin: BuildToolPlugin {
     
@@ -15,7 +21,7 @@ struct MyPlugin: BuildToolPlugin {
                 displayName:
                     "Running prebuild command for target \(target.name)",
                 executable:
-                    Path("/usr/bin/touch"),
+                    Path(touchExe),
                 arguments: 
                     outputPaths.map{ $0.string },
                 outputFilesDirectory:

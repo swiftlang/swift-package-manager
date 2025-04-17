@@ -43,7 +43,7 @@
 ///
 /// This is a port of https://github.com/apple/swift-llvm/blob/stable/include/llvm/ADT/Triple.h
 @dynamicMemberLookup
-public struct Triple {
+public struct Triple: Sendable {
   /// `Triple` proxies predicates from `Triple.OS`, returning `false` for an unknown OS.
   public subscript(dynamicMember predicate: KeyPath<OS, Bool>) -> Bool {
     os?[keyPath: predicate] ?? false
@@ -71,7 +71,7 @@ public struct Triple {
   public let objectFormat: ObjectFormat?
 
   /// Represents a version that may be present in the target triple.
-  public struct Version: Equatable, Comparable, CustomStringConvertible {
+    public struct Version: Equatable, Comparable, CustomStringConvertible, Sendable {
     public static let zero = Version(0, 0, 0)
 
     public var major: Int
@@ -426,7 +426,7 @@ extension Triple {
     }
   }
 
-  public enum Arch: String, CaseIterable {
+public enum Arch: String, CaseIterable, Decodable, Sendable {
     /// ARM (little endian): arm, armv.*, xscale
     case arm
     // ARM (big endian): armeb
@@ -439,7 +439,7 @@ extension Triple {
     case aarch64_be
     // AArch64 (little endian) ILP32: aarch64_32
     case aarch64_32
-    /// ARC: Synopsys ARC
+    /// ARC: Synopsis ARC
     case arc
     /// AVR: Atmel AVR microcontroller
     case avr
@@ -844,9 +844,9 @@ extension Triple {
 // MARK: - Parse SubArch
 
 extension Triple {
-  public enum SubArch: Hashable {
+    public enum SubArch: Hashable, Sendable {
 
-    public enum ARM {
+    public enum ARM: Sendable {
 
       public enum Profile {
         case a, r, m
@@ -916,13 +916,13 @@ extension Triple {
       }
     }
 
-    public enum Kalimba {
+    public enum Kalimba: Sendable {
       case v3
       case v4
       case v5
     }
 
-    public enum MIPS {
+    public enum MIPS: Sendable {
       case r6
     }
 
@@ -1022,7 +1022,7 @@ extension Triple {
 // MARK: - Parse Vendor
 
 extension Triple {
-  public enum Vendor: String, CaseIterable, TripleComponent {
+    public enum Vendor: String, CaseIterable, TripleComponent, Sendable {
     case apple
     case pc
     case scei
@@ -1084,12 +1084,12 @@ extension Triple {
 // MARK: - Parse OS
 
 extension Triple {
-  public enum OS: String, CaseIterable, TripleComponent {
+  public enum OS: String, CaseIterable, TripleComponent, Sendable {
     case ananas
     case cloudABI = "cloudabi"
     case darwin
     case dragonFly = "dragonfly"
-    case freeBSD = "freebsd"
+    case freebsd = "freebsd"
     case fuchsia
     case ios
     case kfreebsd
@@ -1137,7 +1137,7 @@ extension Triple {
       case _ where os.hasPrefix("dragonfly"):
         return .dragonFly
       case _ where os.hasPrefix("freebsd"):
-        return .freeBSD
+        return .freebsd
       case _ where os.hasPrefix("fuchsia"):
         return .fuchsia
       case _ where os.hasPrefix("ios"):
@@ -1258,7 +1258,7 @@ extension Triple {
     }
   }
 
-  public enum Environment: String, CaseIterable, Equatable {
+  public enum Environment: String, CaseIterable, Equatable, Sendable {
     case eabihf
     case eabi
     case elfv1
@@ -1354,7 +1354,7 @@ extension Triple {
 // MARK: - Parse Object Format
 
 extension Triple {
-  public enum ObjectFormat {
+  public enum ObjectFormat: Sendable {
     case coff
     case elf
     case macho

@@ -19,7 +19,6 @@ import PackageModel
 import PackageRegistry
 
 import struct TSCBasic.ByteString
-import enum TSCBasic.ProcessEnv
 
 import protocol TSCUtility.SimplePersistanceProtocol
 import class TSCUtility.SimplePersistence
@@ -78,6 +77,11 @@ extension Workspace {
             self.scratchDirectory.appending("artifacts")
         }
 
+        /// Path to the downloaded prebuilts directory
+        public var prebuiltsDirectory: AbsolutePath {
+            self.scratchDirectory.appending("prebuilts")
+        }
+
         // Path to temporary files related to running plugins in the workspace
         public var pluginWorkingDirectory: AbsolutePath {
             self.scratchDirectory.appending("plugins")
@@ -89,7 +93,7 @@ extension Workspace {
         public var localMirrorsConfigurationFile: AbsolutePath {
             get throws {
                 // backwards compatibility
-                if let customPath = ProcessEnv.vars["SWIFTPM_MIRROR_CONFIG"] {
+                if let customPath = Environment.current["SWIFTPM_MIRROR_CONFIG"] {
                     return try AbsolutePath(validating: customPath)
                 }
                 return DefaultLocations.mirrorsConfigurationFile(at: self.localConfigurationDirectory)
@@ -145,6 +149,16 @@ extension Workspace {
             self.sharedCacheDirectory.map { $0.appending(components: "registry", "downloads") }
         }
 
+        /// Path to the shared repositories cache.
+        public var sharedBinaryArtifactsCacheDirectory: AbsolutePath? {
+            self.sharedCacheDirectory.map { $0.appending("artifacts") }
+        }
+
+        /// Path to the shared prebuilts cache
+        public var sharedPrebuiltsCacheDirectory: AbsolutePath? {
+            self.sharedCacheDirectory.map { $0.appending("prebuilts")}
+        }
+
         /// Create a new workspace location.
         ///
         /// - Parameters:
@@ -179,14 +193,14 @@ extension Workspace {
         /// - Parameters:
         ///   - rootPath: Path to the root of the package, from which other locations can be derived.
         public init(forRootPackage rootPath: AbsolutePath, fileSystem: FileSystem) throws {
-            self.init(
+            try self.init(
                 scratchDirectory: DefaultLocations.scratchDirectory(forRootPackage: rootPath),
                 editsDirectory: DefaultLocations.editsDirectory(forRootPackage: rootPath),
                 resolvedVersionsFile: DefaultLocations.resolvedVersionsFile(forRootPackage: rootPath),
                 localConfigurationDirectory: DefaultLocations.configurationDirectory(forRootPackage: rootPath),
-                sharedConfigurationDirectory: try fileSystem.swiftPMConfigurationDirectory,
-                sharedSecurityDirectory: try fileSystem.swiftPMSecurityDirectory,
-                sharedCacheDirectory: try fileSystem.swiftPMCacheDirectory
+                sharedConfigurationDirectory: fileSystem.swiftPMConfigurationDirectory,
+                sharedSecurityDirectory: fileSystem.swiftPMSecurityDirectory,
+                sharedCacheDirectory: fileSystem.swiftPMCacheDirectory
             )
         }
     }
@@ -208,7 +222,7 @@ extension Workspace {
         }
 
         public static func resolvedVersionsFile(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
-            rootPath.appending(Self.resolvedFileName)
+            rootPath.appending(self.resolvedFileName)
         }
 
         public static func configurationDirectory(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
@@ -300,7 +314,7 @@ extension Workspace.Configuration {
                 guard fileSystem.exists(path) else {
                     throw StringError("Did not find netrc file at \(path).")
                 }
-                providers.append(try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem))
+                try providers.append(NetrcAuthorizationProvider(path: path, fileSystem: fileSystem))
             case .user:
                 // user .netrc file (most typical)
                 let userHomePath = try fileSystem.homeDirectory.appending(".netrc")
@@ -360,7 +374,7 @@ extension Workspace.Configuration {
                 guard fileSystem.exists(path) else {
                     throw StringError("did not find netrc file at \(path)")
                 }
-                providers.append(try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem))
+                try providers.append(NetrcAuthorizationProvider(path: path, fileSystem: fileSystem))
             case .user:
                 let userHomePath = try fileSystem.homeDirectory.appending(".netrc")
                 // Add user .netrc file unless we don't have access
@@ -523,7 +537,7 @@ extension Workspace.Configuration {
                 return try DependencyMirrors()
             }
             return try self.fileSystem.withLock(on: self.path.parentDirectory, type: .shared) {
-                return try DependencyMirrors(try Self.load(self.path, fileSystem: self.fileSystem))
+                try DependencyMirrors(Self.load(self.path, fileSystem: self.fileSystem))
             }
         }
 
@@ -534,7 +548,7 @@ extension Workspace.Configuration {
                 try self.fileSystem.createDirectory(self.path.parentDirectory, recursive: true)
             }
             return try self.fileSystem.withLock(on: self.path.parentDirectory, type: .exclusive) {
-                let mirrors = try DependencyMirrors(try Self.load(self.path, fileSystem: self.fileSystem))
+                let mirrors = try DependencyMirrors(Self.load(self.path, fileSystem: self.fileSystem))
                 var updatedMirrors = try DependencyMirrors(mirrors.mapping)
                 try handler(&updatedMirrors)
                 if updatedMirrors != mirrors {
@@ -775,6 +789,15 @@ public struct WorkspaceConfiguration {
     /// Whether or not there should be import restrictions applied when loading manifests
     public var manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
 
+    /// Whether or not to use prebuilt swift-syntax for macros
+    public var usePrebuilts: Bool
+
+    /// Whether to omit unused dependencies.
+    public var pruneDependencies: Bool
+
+    /// The trait configuration for the root.
+    public var traitConfiguration: TraitConfiguration?
+
     public init(
         skipDependenciesUpdates: Bool,
         prefetchBasedOnResolvedFile: Bool,
@@ -787,7 +810,10 @@ public struct WorkspaceConfiguration {
         skipSignatureValidation: Bool,
         sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation,
         defaultRegistry: Registry?,
-        manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
+        manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?,
+        usePrebuilts: Bool,
+        pruneDependencies: Bool,
+        traitConfiguration: TraitConfiguration?
     ) {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
@@ -801,6 +827,9 @@ public struct WorkspaceConfiguration {
         self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
         self.defaultRegistry = defaultRegistry
         self.manifestImportRestrictions = manifestImportRestrictions
+        self.usePrebuilts = usePrebuilts
+        self.pruneDependencies = pruneDependencies
+        self.traitConfiguration = traitConfiguration
     }
 
     /// Default instance of WorkspaceConfiguration
@@ -817,7 +846,10 @@ public struct WorkspaceConfiguration {
             skipSignatureValidation: false,
             sourceControlToRegistryDependencyTransformation: .disabled,
             defaultRegistry: .none,
-            manifestImportRestrictions: .none
+            manifestImportRestrictions: .none,
+            usePrebuilts: false,
+            pruneDependencies: false,
+            traitConfiguration: nil
         )
     }
 

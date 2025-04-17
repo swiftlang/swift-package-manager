@@ -31,7 +31,7 @@ extension SerializedJSON: ExpressibleByStringInterpolation {
         fileprivate var value: String = ""
 
         private func escape(_ string: String) -> String {
-            string.replacingOccurrences(of: #"\"#, with: #"\\"#)
+            string.replacing(#"\"#, with: #"\\"#)
         }
 
         public init(literalCapacity: Int, interpolationCount: Int) {

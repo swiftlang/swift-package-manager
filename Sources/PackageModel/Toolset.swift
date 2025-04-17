@@ -137,7 +137,7 @@ extension Toolset {
     /// of replacing them.
     /// - Parameter newToolset: new toolset to merge into the existing `self` toolset.
     public mutating func merge(with newToolset: Toolset) {
-        self.rootPaths.append(contentsOf: newToolset.rootPaths)
+        self.rootPaths.insert(contentsOf: newToolset.rootPaths, at: 0)
 
         for (newTool, newProperties) in newToolset.knownTools {
             if newProperties.path != nil {
@@ -157,7 +157,11 @@ extension Toolset {
         }
     }
 
-    init(toolchainBinDir: AbsolutePath, buildFlags: BuildFlags) {
+    /// Initialize a new ad-hoc toolset that wasn't previously serialized, but created in memory.
+    /// - Parameters:
+    ///   - toolchainBinDir: absolute path to the toolchain binaries directory, which are used in this toolset.
+    ///   - buildFlags: flags provided to each tool as CLI options.
+    public init(toolchainBinDir: AbsolutePath, buildFlags: BuildFlags = .init()) {
         self.rootPaths = [toolchainBinDir]
         self.knownTools = [
             .cCompiler: .init(extraCLIOptions: buildFlags.cCompilerFlags),

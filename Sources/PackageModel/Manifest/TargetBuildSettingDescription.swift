@@ -12,22 +12,26 @@
 
 /// A namespace for target-specific build settings.
 public enum TargetBuildSettingDescription {
-
     /// The tool for which a build setting is declared.
-    public enum Tool: String, Codable, Equatable, CaseIterable, Sendable {
+    public enum Tool: String, Codable, Hashable, CaseIterable, Sendable {
         case c
         case cxx
         case swift
         case linker
     }
 
-    public enum InteroperabilityMode: String, Codable, Equatable, Sendable {
+    public enum InteroperabilityMode: String, Codable, Hashable, Sendable {
         case C
         case Cxx
     }
 
+    public enum DefaultIsolation: String, Codable, Hashable, Sendable {
+        case MainActor
+        case nonisolated
+    }
+
     /// The kind of the build setting, with associate configuration
-    public enum Kind: Codable, Equatable, Sendable {
+    public enum Kind: Codable, Hashable, Sendable {
         case headerSearchPath(String)
         case define(String)
         case linkedLibrary(String)
@@ -37,23 +41,29 @@ public enum TargetBuildSettingDescription {
 
         case enableUpcomingFeature(String)
         case enableExperimentalFeature(String)
+        case strictMemorySafety
 
         case unsafeFlags([String])
+
+        case swiftLanguageMode(SwiftLanguageVersion)
+
+        case defaultIsolation(DefaultIsolation)
 
         public var isUnsafeFlags: Bool {
             switch self {
             case .unsafeFlags(let flags):
                 // If `.unsafeFlags` is used, but doesn't specify any flags, we treat it the same way as not specifying it.
                 return !flags.isEmpty
-            case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode, .enableUpcomingFeature, .enableExperimentalFeature:
+            case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode,
+                 .enableUpcomingFeature, .enableExperimentalFeature, .strictMemorySafety, .swiftLanguageMode,
+                 .defaultIsolation:
                 return false
             }
         }
     }
 
     /// An individual build setting.
-    public struct Setting: Codable, Equatable, Sendable {
-
+    public struct Setting: Codable, Hashable, Sendable {
         /// The tool associated with this setting.
         public let tool: Tool
 

@@ -13,15 +13,15 @@
 import Basics
 import PackageLoading
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
-class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
+final class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
         .v5_6
     }
 
-    func testSourceControlDependencies() throws {
+    func testSourceControlDependencies() async throws {
         let content = """
             import PackageDescription
             let package = Package(
@@ -53,7 +53,7 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
         XCTAssertFalse(observability.diagnostics.hasErrors)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
@@ -75,7 +75,7 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertEqual(deps["quuz3"], .remoteSourceControl(identity: .plain("quuz3"), url: "http://localhost/quuz3", requirement: .revision("abcdefg")))
     }
 
-    func testBuildToolPluginTarget() throws {
+    func testBuildToolPluginTarget() async throws {
         let content = """
             import PackageDescription
             let package = Package(
@@ -90,7 +90,7 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
@@ -98,7 +98,7 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertEqual(manifest.targets[0].pluginCapability, .buildTool)
     }
 
-    func testPluginTargetCustomization() throws {
+    func testPluginTargetCustomization() async throws {
         let content = """
             import PackageDescription
             let package = Package(
@@ -116,7 +116,7 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
@@ -127,7 +127,7 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertEqual(manifest.targets[0].sources, ["CountMeIn.swift"])
     }
 
-    func testCustomPlatforms() throws {
+    func testCustomPlatforms() async throws {
         // One custom platform.
         do {
             let content = """
@@ -141,7 +141,7 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             let observability = ObservabilitySystem.makeForTesting()
-            let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertNoDiagnostics(validationDiagnostics)
 
@@ -164,7 +164,7 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             let observability = ObservabilitySystem.makeForTesting()
-            let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertNoDiagnostics(validationDiagnostics)
 
@@ -188,32 +188,34 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
 
             let observability = ObservabilitySystem.makeForTesting()
             do {
-                _  = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+                _  = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
                 XCTFail("manifest loading unexpectedly did not throw an error")
             } catch ManifestParseError.runtimeManifestErrors(let errors) {
                 XCTAssertEqual(errors, ["invalid custom platform version xx; xx should be a positive integer"])
             }
         }
     }
-    
+
     /// Tests use of Context.current.packageDirectory
-    func testPackageContextName() throws {
+    func testPackageContextName() async throws {
         let content = """
             import PackageDescription
             let package = Package(name: Context.packageDirectory)
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let name = parsedManifest.parentDirectory?.pathString ?? ""
+        XCTAssertNotNil(parsedManifest)
+        XCTAssertNotNil(parsedManifest.parentDirectory)
+        let name = try XCTUnwrap(parsedManifest.parentDirectory).pathString
         XCTAssertEqual(manifest.displayName, name)
     }
 
     /// Tests access to the package's directory contents.
-    func testPackageContextDirectory() throws {
+    func testPackageContextDirectory() async throws {
         #if os(Windows)
         throw XCTSkip("Skipping since this tests does not fully work without the VFS overlay which is currently disabled on Windows")
         #endif
@@ -221,15 +223,15 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         let content = """
             import PackageDescription
             import Foundation
-            
+
             let fileManager = FileManager.default
             let contents = (try? fileManager.contentsOfDirectory(atPath: Context.packageDirectory)) ?? []
-            
+
             let package = Package(name: contents.joined(separator: ","))
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
         // FIXME: temporary filter a diagnostic that shows up on macOS 14.0
         XCTAssertNoDiagnostics(observability.diagnostics.filter { !$0.message.contains("coreservicesd") })
         XCTAssertNoDiagnostics(validationDiagnostics)
@@ -240,7 +242,7 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertEqual(files, expectedFiles)
     }
 
-    func testCommandPluginTarget() throws {
+    func testCommandPluginTarget() async throws {
         let content = """
             import PackageDescription
             let package = Package(
@@ -258,7 +260,7 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 

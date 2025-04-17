@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import PackageLoading
 import XCTest
 
@@ -41,5 +42,13 @@ final class PkgConfigAllowlistTests: XCTestCase {
 
         XCTAssertEqual(result.0, ["-I", "/usr/include/Cellar/gtk+3/3.18.9/include/gtk-3.0", "-L/hello"])
         XCTAssertEqual(result.1, ["-L/usr/lib/Cellar/gtk+3/3.18.9/lib", "-lgtk-3", "-module-name", "-lcool", "ok", "name"])
+    }
+
+    func testPathSDKPaths() throws {
+        let flags = ["-I/opt/homebrew/Cellar/cairo/1.16.0_5/include/cairo", "-I/Library/Developer/CommandLineTools/SDKs/MacOSX13.sdk/usr/include/ffi"]
+        let sdk = AbsolutePath("/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk")
+        let result = try patchSDKPaths(in: flags, to: sdk)
+
+        XCTAssertEqual(result, ["-I/opt/homebrew/Cellar/cairo/1.16.0_5/include/cairo", "-I\(sdk)/usr/include/ffi"])
     }
 }

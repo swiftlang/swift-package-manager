@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import Dispatch
 import PackageModel
 
@@ -40,26 +41,28 @@ public protocol PackageContainer {
     /// The identifier for the package.
     var package: PackageReference { get }
 
+    var shouldInvalidatePinnedVersions: Bool { get }
+
     /// Returns true if the tools version is compatible at the given version.
-    func isToolsVersionCompatible(at version: Version) -> Bool
+    func isToolsVersionCompatible(at version: Version) async -> Bool
 
     /// Returns the tools version for the given version
-    func toolsVersion(for version: Version) throws -> ToolsVersion
+    func toolsVersion(for version: Version) async throws -> ToolsVersion
 
     /// Get the list of versions which are available for the package.
     ///
     /// The list will be returned in sorted order, with the latest version *first*.
     /// All versions will not be requested at once. Resolver will request the next one only
     /// if the previous one did not satisfy all constraints.
-    func toolsVersionsAppropriateVersionsDescending() throws -> [Version]
+    func toolsVersionsAppropriateVersionsDescending() async throws -> [Version]
 
     /// Get the list of versions in the repository sorted in the ascending order, that is the earliest
     /// version appears first.
-    func versionsAscending() throws -> [Version]
+    func versionsAscending() async throws -> [Version]
 
     /// Get the list of versions in the repository sorted in the descending order, that is the latest
     /// version appears first.
-    func versionsDescending() throws -> [Version]
+    func versionsDescending() async throws -> [Version]
 
     // FIXME: We should perhaps define some particularly useful error codes
     // here, so the resolver can handle errors more meaningfully.
@@ -72,7 +75,7 @@ public protocol PackageContainer {
     /// - Precondition: `versions.contains(version)`
     /// - Throws: If the version could not be resolved; this will abort
     ///   dependency resolution completely.
-    func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint]
+    func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: Set<String>?) async throws -> [PackageContainerConstraint]
 
     /// Fetch the declared dependencies for a particular revision.
     ///
@@ -81,28 +84,42 @@ public protocol PackageContainer {
     ///
     /// - Throws: If the revision could not be resolved; this will abort
     ///   dependency resolution completely.
-    func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint]
+    func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String>?) async throws -> [PackageContainerConstraint]
 
     /// Fetch the dependencies of an unversioned package container.
     ///
     /// NOTE: This method should not be called on a versioned container.
-    func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint]
+    func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: Set<String>?) async throws -> [PackageContainerConstraint]
 
     /// Get the updated identifier at a bound version.
     ///
     /// This can be used by the containers to fill in the missing information that is obtained
     /// after the container is available. The updated identifier is returned in result of the
     /// dependency resolution.
-    func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference
+    func loadPackageReference(at boundVersion: BoundVersion) async throws -> PackageReference
+
+
+    /// Fetch the enabled traits of a package container.
+    ///
+    /// NOTE: This method should only be called on root packages.
+    func getEnabledTraits(traitConfiguration: TraitConfiguration?, version: Version?) async throws -> Set<String>
 }
 
 extension PackageContainer {
-    public func reversedVersions() throws -> [Version] {
-        try self.versionsDescending()
+    public func reversedVersions() async throws -> [Version] {
+        try await self.versionsDescending()
     }
 
-    public func versionsDescending() throws -> [Version] {
-        try self.versionsAscending().reversed()
+    public func versionsDescending() async throws -> [Version] {
+        try await self.versionsAscending().reversed()
+    }
+
+    public var shouldInvalidatePinnedVersions: Bool {
+        return true
+    }
+
+    public func getEnabledTraits(traitConfiguration: TraitConfiguration?, version: Version? = nil) async throws -> Set<String> {
+        return []
     }
 }
 
@@ -138,24 +155,40 @@ public struct PackageContainerConstraint: Equatable, Hashable {
     /// The required products.
     public let products: ProductFilter
 
+    /// The traits that have been enabled for the package.
+    public let enabledTraits: Set<String>?
+
     /// Create a constraint requiring the given `container` satisfying the
     /// `requirement`.
-    public init(package: PackageReference, requirement: PackageRequirement, products: ProductFilter) {
+    public init(package: PackageReference, requirement: PackageRequirement, products: ProductFilter, enabledTraits: Set<String>? = nil) {
         self.package = package
         self.requirement = requirement
         self.products = products
+        self.enabledTraits = enabledTraits
     }
 
     /// Create a constraint requiring the given `container` satisfying the
     /// `versionRequirement`.
-    public init(package: PackageReference, versionRequirement: VersionSetSpecifier, products: ProductFilter) {
-        self.init(package: package, requirement: .versionSet(versionRequirement), products: products)
+    public init(package: PackageReference, versionRequirement: VersionSetSpecifier, products: ProductFilter, enabledTraits: Set<String>? = nil) {
+        self.init(package: package, requirement: .versionSet(versionRequirement), products: products, enabledTraits: enabledTraits)
+    }
+
+    /// Custom implementation for the hash method due to interference of traits in its computation.
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(package)
+        hasher.combine(requirement)
+        hasher.combine(products)
+    }
+
+    /// Custom implementation to check equality due to interference of traits in its computation.
+    static public func == (lhs: PackageContainerConstraint, rhs: PackageContainerConstraint) -> Bool {
+        return lhs.package == rhs.package && lhs.requirement == rhs.requirement && lhs.products == rhs.products
     }
 }
 
 extension PackageContainerConstraint: CustomStringConvertible {
     public var description: String {
-        return "Constraint(\(self.package), \(requirement), \(products)"
+        return "Constraint(\(self.package), \(requirement), \(products), \(enabledTraits ?? [])"
     }
 }
 
@@ -164,6 +197,8 @@ extension PackageContainerConstraint: CustomStringConvertible {
 /// An interface for resolving package containers.
 public protocol PackageContainerProvider {
     /// Get the container for a particular identifier asynchronously.
+
+    @available(*, noasync, message: "Use the async alternative")
     func getContainer(
         for package: PackageReference,
         updateStrategy: ContainerUpdateStrategy,
@@ -171,6 +206,27 @@ public protocol PackageContainerProvider {
         on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Error>) -> Void
     )
+}
+
+public extension PackageContainerProvider {
+    func getContainer(
+        for package: PackageReference,
+        updateStrategy: ContainerUpdateStrategy,
+        observabilityScope: ObservabilityScope,
+        on queue: DispatchQueue
+    ) async throws -> PackageContainer {
+        try await withCheckedThrowingContinuation { continuation in
+            self.getContainer(
+                for: package,
+                updateStrategy: updateStrategy,
+                observabilityScope: observabilityScope,
+                on: queue,
+                completion: {
+                    continuation.resume(with: $0)
+                }
+            )
+        }
+    }
 }
 
 /// Only used for source control containers and as such a mirror of RepositoryUpdateStrategy

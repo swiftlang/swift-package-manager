@@ -21,9 +21,28 @@ public struct InternalError: Error {
     private let description: String
     public init(_ description: String) {
         assertionFailure(description)
-        self
-            .description =
-            "Internal error. Please file a bug at https://github.com/apple/swift-package-manager/issues with this info. \(description)"
+        self.description =
+            "Internal error. Please file a bug at https://github.com/swiftlang/swift-package-manager/issues with this info. \(description)"
+    }
+}
+
+/// Wraps another error and provides additional context when printed.
+/// This is useful for user facing errors that need to provide a user friendly message
+/// explaning why an error might have occured, while still showing the detailed underlying error.
+public struct ErrorWithContext<E: Error>: Error {
+    public let error: E
+    public let context: String
+    public init(_ error: E, _ context: String) {
+        self.error = error
+        self.context = context
+    }
+}
+
+extension ErrorWithContext: LocalizedError {
+    public var errorDescription: String? {
+        return (context.split(separator: "\n") + [error.interpolationDescription])
+            .map { "\t\($0)" }
+            .joined(separator: "\n")
     }
 }
 

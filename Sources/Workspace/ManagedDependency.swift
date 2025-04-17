@@ -172,11 +172,17 @@ extension Workspace.ManagedDependency: CustomStringConvertible {
 
 extension Workspace {
     /// A collection of managed dependencies.
-    final public class ManagedDependencies {
+    public struct ManagedDependencies {
         private var dependencies: [PackageIdentity: ManagedDependency]
 
         init() {
             self.dependencies = [:]
+        }
+        
+        private init(
+            _ dependencies: [PackageIdentity: ManagedDependency]
+        ) {
+            self.dependencies = dependencies
         }
 
         init(_ dependencies: [ManagedDependency]) throws {
@@ -196,7 +202,7 @@ extension Workspace {
 
         // When loading manifests in Workspace, there are cases where we must also compare the location
         // as it may attempt to load manifests for dependencies that have the same identity but from a different location
-        // (e.g. dependency is changed to  a fork with the same identity)
+        // (e.g. dependency is changed to a fork with the same identity)
         public subscript(comparingLocation package: PackageReference) -> ManagedDependency? {
             if let dependency = self.dependencies[package.identity], dependency.packageRef.equalsIncludingLocation(package) {
                 return dependency
@@ -204,12 +210,16 @@ extension Workspace {
             return .none
         }
 
-        public func add(_ dependency: ManagedDependency) {
-            self.dependencies[dependency.packageRef.identity] = dependency
+        public func add(_ dependency: ManagedDependency) -> Self {
+            var dependencies = dependencies
+            dependencies[dependency.packageRef.identity] = dependency
+            return ManagedDependencies(dependencies)
         }
 
-        public func remove(_ identity: PackageIdentity) {
-            self.dependencies[identity] = nil
+        public func remove(_ identity: PackageIdentity) -> Self {
+            var dependencies = dependencies
+            dependencies[identity] = nil
+            return ManagedDependencies(dependencies)
         }
     }
 }

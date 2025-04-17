@@ -13,6 +13,7 @@
 import struct Foundation.URL
 
 import Basics
+import _Concurrency
 import Dispatch
 import PackageModel
 
@@ -22,10 +23,8 @@ public protocol PackageSigningEntityStorage {
     /// For a given package, return the signing entities and the package versions that each of them signed.
     func get(
         package: PackageIdentity,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<PackageSigners, Error>) -> Void
-    )
+        observabilityScope: ObservabilityScope
+    ) throws -> PackageSigners
 
     /// Record signer for a given package version.
     ///
@@ -36,10 +35,8 @@ public protocol PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    )
+        observabilityScope: ObservabilityScope
+    ) throws
 
     /// Add signer for a given package version.
     ///
@@ -51,10 +48,8 @@ public protocol PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    )
+        observabilityScope: ObservabilityScope
+    ) throws
 
     /// Make `signingEntity` the package's expected signer starting from the given version.
     func changeSigningEntityFromVersion(
@@ -62,10 +57,8 @@ public protocol PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    )
+        observabilityScope: ObservabilityScope
+    ) throws
 
     /// Make `signingEntity` the only signer for a given package.
     ///
@@ -76,10 +69,8 @@ public protocol PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    )
+        observabilityScope: ObservabilityScope
+    ) throws
 }
 
 // MARK: - Models

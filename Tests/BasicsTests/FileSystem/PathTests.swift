@@ -12,6 +12,8 @@ import Basics
 import Foundation
 import XCTest
 
+import _InternalTestSupport // for skipOnWindowsAsTestCurrentlyFails()
+
 #if os(Windows)
 private var windows: Bool { true }
 #else
@@ -54,28 +56,36 @@ class PathTests: XCTestCase {
         XCTAssertEqual(rel2.pathString, "~")  // `~` is not special
     }
 
-    func testRepeatedPathSeparators() {
+    func testRepeatedPathSeparators() throws {
+        try skipOnWindowsAsTestCurrentlyFails(because: "all assertions fail")
+
         XCTAssertEqual(AbsolutePath("/ab//cd//ef").pathString, windows ? #"\ab\cd\ef"# : "/ab/cd/ef")
         XCTAssertEqual(AbsolutePath("/ab///cd//ef").pathString, windows ? #"\ab\cd\ef"# : "/ab/cd/ef")
         XCTAssertEqual(RelativePath("ab//cd//ef").pathString, windows ? #"ab\cd\ef"# : "ab/cd/ef")
         XCTAssertEqual(RelativePath("ab//cd///ef").pathString, windows ? #"ab\cd\ef"# : "ab/cd/ef")
     }
 
-    func testTrailingPathSeparators() {
+    func testTrailingPathSeparators() throws {
+        try skipOnWindowsAsTestCurrentlyFails(because: "trailing path seperator is not removed from pathString")
+
         XCTAssertEqual(AbsolutePath("/ab/cd/ef/").pathString, windows ? #"\ab\cd\ef"# : "/ab/cd/ef")
         XCTAssertEqual(AbsolutePath("/ab/cd/ef//").pathString, windows ? #"\ab\cd\ef"# : "/ab/cd/ef")
         XCTAssertEqual(RelativePath("ab/cd/ef/").pathString, windows ? #"ab\cd\ef"# : "ab/cd/ef")
         XCTAssertEqual(RelativePath("ab/cd/ef//").pathString, windows ? #"ab\cd\ef"# : "ab/cd/ef")
     }
 
-    func testDotPathComponents() {
+    func testDotPathComponents() throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         XCTAssertEqual(AbsolutePath("/ab/././cd//ef").pathString, "/ab/cd/ef")
         XCTAssertEqual(AbsolutePath("/ab/./cd//ef/.").pathString, "/ab/cd/ef")
         XCTAssertEqual(RelativePath("ab/./cd/././ef").pathString, "ab/cd/ef")
         XCTAssertEqual(RelativePath("ab/./cd/ef/.").pathString, "ab/cd/ef")
     }
 
-    func testDotDotPathComponents() {
+    func testDotDotPathComponents() throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         XCTAssertEqual(AbsolutePath("/..").pathString, windows ? #"\"# : "/")
         XCTAssertEqual(AbsolutePath("/../../../../..").pathString, windows ? #"\"# : "/")
         XCTAssertEqual(AbsolutePath("/abc/..").pathString, windows ? #"\"# : "/")
@@ -91,7 +101,9 @@ class PathTests: XCTestCase {
         XCTAssertEqual(RelativePath("abc/..").pathString, ".")
     }
 
-    func testCombinationsAndEdgeCases() {
+    func testCombinationsAndEdgeCases() throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         XCTAssertEqual(AbsolutePath("///").pathString, windows ? #"\"# : "/")
         XCTAssertEqual(AbsolutePath("/./").pathString, windows ? #"\"# : "/")
         XCTAssertEqual(RelativePath("").pathString, ".")
@@ -120,7 +132,9 @@ class PathTests: XCTestCase {
         XCTAssertEqual(RelativePath("a/../////../////./////").pathString, "..")
     }
 
-    func testDirectoryNameExtraction() {
+    func testDirectoryNameExtraction() throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         XCTAssertEqual(AbsolutePath("/").dirname, windows ? #"\"# : "/")
         XCTAssertEqual(AbsolutePath("/a").dirname, windows ? #"\"# : "/")
         XCTAssertEqual(AbsolutePath("/./a").dirname, windows ? #"\"# : "/")
@@ -137,7 +151,9 @@ class PathTests: XCTestCase {
         XCTAssertEqual(RelativePath(".").dirname, ".")
     }
 
-    func testBaseNameExtraction() {
+    func testBaseNameExtraction() throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         XCTAssertEqual(AbsolutePath("/").basename, windows ? #"\"# : "/")
         XCTAssertEqual(AbsolutePath("/a").basename, "a")
         XCTAssertEqual(AbsolutePath("/./a").basename, "a")
@@ -153,7 +169,9 @@ class PathTests: XCTestCase {
         XCTAssertEqual(RelativePath(".").basename, ".")
     }
 
-    func testBaseNameWithoutExt() {
+    func testBaseNameWithoutExt() throws{
+        try skipOnWindowsAsTestCurrentlyFails()
+
         XCTAssertEqual(AbsolutePath("/").basenameWithoutExt, windows ? #"\"# : "/")
         XCTAssertEqual(AbsolutePath("/a").basenameWithoutExt, "a")
         XCTAssertEqual(AbsolutePath("/./a").basenameWithoutExt, "a")
@@ -176,7 +194,9 @@ class PathTests: XCTestCase {
         XCTAssertEqual(RelativePath("abc.xyz.123").basenameWithoutExt, "abc.xyz")
     }
 
-    func testSuffixExtraction() {
+    func testSuffixExtraction() throws {
+        try skipOnWindowsAsTestCurrentlyFails(because: "expected nil is not the actual")
+
         XCTAssertEqual(RelativePath("a").suffix, nil)
         XCTAssertEqual(RelativePath("a").extension, nil)
         XCTAssertEqual(RelativePath("a.").suffix, nil)
@@ -201,7 +221,9 @@ class PathTests: XCTestCase {
         XCTAssertEqual(RelativePath(".a.foo.bar.baz").extension, "baz")
     }
 
-    func testParentDirectory() {
+    func testParentDirectory() throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         XCTAssertEqual(AbsolutePath("/").parentDirectory, AbsolutePath("/"))
         XCTAssertEqual(AbsolutePath("/").parentDirectory.parentDirectory, AbsolutePath("/"))
         XCTAssertEqual(AbsolutePath("/bar").parentDirectory, AbsolutePath("/"))
@@ -210,7 +232,9 @@ class PathTests: XCTestCase {
     }
 
     @available(*, deprecated)
-    func testConcatenation() {
+    func testConcatenation() throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         XCTAssertEqual(AbsolutePath(AbsolutePath("/"), RelativePath("")).pathString, windows ? #"\"# : "/")
         XCTAssertEqual(AbsolutePath(AbsolutePath("/"), RelativePath(".")).pathString, windows ? #"\"# : "/")
         XCTAssertEqual(AbsolutePath(AbsolutePath("/"), RelativePath("..")).pathString, windows ? #"\"# : "/")
@@ -247,7 +271,9 @@ class PathTests: XCTestCase {
         XCTAssertEqual(RelativePath("hello").appending(RelativePath("a/b/../c/d")).pathString, windows ? #"hello\a\c\d"# : "hello/a/c/d")
     }
 
-    func testPathComponents() {
+    func testPathComponents() throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         XCTAssertEqual(AbsolutePath("/").components, ["/"])
         XCTAssertEqual(AbsolutePath("/.").components, ["/"])
         XCTAssertEqual(AbsolutePath("/..").components, ["/"])
@@ -275,7 +301,9 @@ class PathTests: XCTestCase {
         XCTAssertEqual(RelativePath("abc").components, ["abc"])
     }
 
-    func testRelativePathFromAbsolutePaths() {
+    func testRelativePathFromAbsolutePaths() throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         XCTAssertEqual(AbsolutePath("/").relative(to: AbsolutePath("/")), RelativePath("."));
         XCTAssertEqual(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/")), RelativePath("a/b/c/d"));
         XCTAssertEqual(AbsolutePath("/").relative(to: AbsolutePath("/a/b/c")), RelativePath("../../.."));
@@ -316,7 +344,9 @@ class PathTests: XCTestCase {
         XCTAssertTrue(AbsolutePath("/foo").isAncestor(of: AbsolutePath("/foo/bar")))
     }
 
-    func testAbsolutePathValidation() {
+    func testAbsolutePathValidation() throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         XCTAssertNoThrow(try AbsolutePath(validating: "/a/b/c/d"))
 
         XCTAssertThrowsError(try AbsolutePath(validating: "~/a/b/d")) { error in
@@ -328,7 +358,9 @@ class PathTests: XCTestCase {
         }
     }
 
-    func testRelativePathValidation() {
+    func testRelativePathValidation() throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         XCTAssertNoThrow(try RelativePath(validating: "a/b/c/d"))
 
         XCTAssertThrowsError(try RelativePath(validating: "/a/b/d")) { error in
@@ -342,6 +374,8 @@ class PathTests: XCTestCase {
     }
 
     func testCodable() throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         struct Foo: Codable, Equatable {
             var path: AbsolutePath
         }

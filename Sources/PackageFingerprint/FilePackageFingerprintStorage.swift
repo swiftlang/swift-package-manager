@@ -35,17 +35,12 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
     public func get(
         package: PackageIdentity,
         version: Version,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<[Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]], Error>)
-            -> Void
-    ) {
-        self.get(
+        observabilityScope: ObservabilityScope
+    ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
+        try self.get(
             reference: package,
             version: version,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue,
-            callback: callback
+            observabilityScope: observabilityScope
         )
     }
 
@@ -53,34 +48,25 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
         package: PackageIdentity,
         version: Version,
         fingerprint: Fingerprint,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
-        self.put(
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.put(
             reference: package,
             version: version,
             fingerprint: fingerprint,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue,
-            callback: callback
+            observabilityScope: observabilityScope
         )
     }
 
     public func get(
         package: PackageReference,
         version: Version,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<[Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]], Error>)
-            -> Void
-    ) {
-        self.get(
+        observabilityScope: ObservabilityScope
+    ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
+        try self.get(
             reference: package,
             version: version,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue,
-            callback: callback
+            observabilityScope: observabilityScope
         )
     }
 
@@ -88,79 +74,56 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
         package: PackageReference,
         version: Version,
         fingerprint: Fingerprint,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
-        self.put(
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.put(
             reference: package,
             version: version,
             fingerprint: fingerprint,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue,
-            callback: callback
+            observabilityScope: observabilityScope
         )
     }
 
     private func get(
         reference: FingerprintReference,
         version: Version,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<[Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]], Error>)
-            -> Void
-    ) {
-        let callback = self.makeAsync(callback, on: callbackQueue)
-
-        do {
-            let packageFingerprints = try self.withLock {
-                try self.loadFromDisk(reference: reference)
-            }
-
-            guard let fingerprints = packageFingerprints[version] else {
-                throw PackageFingerprintStorageError.notFound
-            }
-
-            callback(.success(fingerprints))
-        } catch {
-            callback(.failure(error))
+        observabilityScope: ObservabilityScope
+    ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
+        let packageFingerprints = try self.withLock {
+            try self.loadFromDisk(reference: reference)
         }
+
+        guard let fingerprints = packageFingerprints[version] else {
+            throw PackageFingerprintStorageError.notFound
+        }
+        return fingerprints
     }
 
     private func put(
         reference: FingerprintReference,
         version: Version,
         fingerprint: Fingerprint,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
-        let callback = self.makeAsync(callback, on: callbackQueue)
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.withLock {
+            var packageFingerprints = try self.loadFromDisk(reference: reference)
 
-        do {
-            try self.withLock {
-                var packageFingerprints = try self.loadFromDisk(reference: reference)
-
-                if let existing = packageFingerprints[version]?[fingerprint.origin.kind]?[fingerprint.contentType] {
-                    // Error if we try to write a different fingerprint
-                    guard fingerprint == existing else {
-                        throw PackageFingerprintStorageError.conflict(given: fingerprint, existing: existing)
-                    }
-                    // Don't need to do anything if fingerprints are the same
-                    return
+            if let existing = packageFingerprints[version]?[fingerprint.origin.kind]?[fingerprint.contentType] {
+                // Error if we try to write a different fingerprint
+                guard fingerprint == existing else {
+                    throw PackageFingerprintStorageError.conflict(given: fingerprint, existing: existing)
                 }
-
-                var fingerprintsForVersion = packageFingerprints.removeValue(forKey: version) ?? [:]
-                var fingerprintsForKind = fingerprintsForVersion.removeValue(forKey: fingerprint.origin.kind) ?? [:]
-                fingerprintsForKind[fingerprint.contentType] = fingerprint
-                fingerprintsForVersion[fingerprint.origin.kind] = fingerprintsForKind
-                packageFingerprints[version] = fingerprintsForVersion
-
-                try self.saveToDisk(reference: reference, fingerprints: packageFingerprints)
+                // Don't need to do anything if fingerprints are the same
+                return
             }
-            callback(.success(()))
-        } catch {
-            callback(.failure(error))
+
+            var fingerprintsForVersion = packageFingerprints.removeValue(forKey: version) ?? [:]
+            var fingerprintsForKind = fingerprintsForVersion.removeValue(forKey: fingerprint.origin.kind) ?? [:]
+            fingerprintsForKind[fingerprint.contentType] = fingerprint
+            fingerprintsForVersion[fingerprint.origin.kind] = fingerprintsForKind
+            packageFingerprints[version] = fingerprintsForVersion
+
+            try self.saveToDisk(reference: reference, fingerprints: packageFingerprints)
         }
     }
 

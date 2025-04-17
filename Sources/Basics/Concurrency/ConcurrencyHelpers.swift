@@ -10,43 +10,53 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import Dispatch
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import struct Foundation.URL
-import enum TSCBasic.ProcessEnv
 import func TSCBasic.tsc_await
 
 public enum Concurrency {
     public static var maxOperations: Int {
-        ProcessEnv.vars["SWIFTPM_MAX_CONCURRENT_OPERATIONS"].flatMap(Int.init) ?? ProcessInfo.processInfo
+        Environment.current["SWIFTPM_MAX_CONCURRENT_OPERATIONS"].flatMap(Int.init) ?? ProcessInfo.processInfo
             .activeProcessorCount
     }
 }
 
-// FIXME: mark as deprecated once async/await is available
-// @available(*, deprecated, message: "replace with async/await when available")
-@inlinable
-public func temp_await<T, ErrorType>(_ body: (@escaping (Result<T, ErrorType>) -> Void) -> Void) throws -> T {
-    try tsc_await(body)
+@available(*, noasync, message: "This method blocks the current thread indefinitely. Calling it from the concurrency pool can cause deadlocks")
+public func unsafe_await<T>(_ body: @Sendable @escaping () async -> T) -> T {
+    let semaphore = DispatchSemaphore(value: 0)
+
+    let box = ThreadSafeBox<T>()
+    Task {
+        let localValue: T = await body()
+        box.mutate { _ in localValue }
+        semaphore.signal()
+    }
+    semaphore.wait()
+    return box.get()!
 }
 
-// FIXME: mark as deprecated once async/await is available
-// @available(*, deprecated, message: "replace with async/await when available")
-@inlinable
-public func temp_await<T>(_ body: (@escaping (T) -> Void) -> Void) -> T {
-    tsc_await(body)
-}
 
 extension DispatchQueue {
     // a shared concurrent queue for running concurrent asynchronous operations
-    public static var sharedConcurrent = DispatchQueue(
+    public static let sharedConcurrent = DispatchQueue(
         label: "swift.org.swiftpm.shared.concurrent",
         attributes: .concurrent
     )
 }
 
-#if !canImport(Darwin)
-// As of Swift 5.7 and 5.8 swift-corelibs-foundation doesn't have `Sendable` annotations yet.
-extension URL: @unchecked Sendable {}
-#endif
+extension DispatchQueue {
+    package func scheduleOnQueue<T>(work: @escaping @Sendable () throws -> T) async throws -> T {
+        try await withCheckedThrowingContinuation { continuation in
+            self.async {
+                do {
+                    continuation.resume(returning: try work())
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+}

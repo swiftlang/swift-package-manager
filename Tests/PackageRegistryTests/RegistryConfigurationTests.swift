@@ -13,7 +13,7 @@
 import Foundation
 import PackageModel
 import PackageRegistry
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 private let defaultRegistryBaseURL = URL("https://packages.example.com/")
@@ -138,7 +138,7 @@ final class RegistryConfigurationTests: XCTestCase {
                 },
                 "bar": {
                     "url": "\#(customRegistryBaseURL)"
-                },
+                }
             },
             "authentication": {
                 "packages.example.com": {

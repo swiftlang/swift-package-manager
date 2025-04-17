@@ -84,5 +84,3 @@ extension XCFrameworkMetadata.Library: Decodable {
         case variant = "SupportedPlatformVariant"
     }
 }
-
-extension Triple.Arch: Decodable {}

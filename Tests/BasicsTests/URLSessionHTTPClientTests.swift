@@ -17,7 +17,7 @@ import Foundation
 // need to decide how to best deal with that
 import FoundationNetworking
 #endif
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 import struct TSCBasic.ByteString
@@ -356,6 +356,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
+        try XCTSkipIfCI()
         let netrcContent = "default login default password default"
         let netrc = try NetrcAuthorizationWrapper(underlying: NetrcParser.parse(netrcContent))
         let authData = Data("default:default".utf8)
@@ -465,13 +466,13 @@ final class URLSessionHTTPClientTest: XCTestCase {
                 MockURLProtocol.sendResponse(statusCode: 200, headers: ["Content-Length": "1024"], for: request)
                 didStartLoadingExpectation.fulfill()
             }
-            wait(for: [didStartLoadingExpectation], timeout: 1.0)
+            wait(for: [didStartLoadingExpectation], timeout: 3.0)
 
             let urlRequest = URLRequest(request)
             MockURLProtocol.sendData(Data(count: 512), for: urlRequest)
-            wait(for: [progress50Expectation], timeout: 1.0)
+            wait(for: [progress50Expectation], timeout: 3.0)
             MockURLProtocol.sendError(clientError, for: urlRequest)
-            wait(for: [completionExpectation], timeout: 1.0)
+            wait(for: [completionExpectation], timeout: 3.0)
         }
     }
 

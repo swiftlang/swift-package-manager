@@ -17,10 +17,8 @@ target_link_libraries(DriverSupport PUBLIC
   PackageModel
   SwiftDriver)
 
-if(USE_CMAKE_INSTALL)
 install(TARGETS DriverSupport
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
-endif()
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS DriverSupport)

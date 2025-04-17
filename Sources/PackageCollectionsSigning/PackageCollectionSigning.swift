@@ -10,13 +10,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import _CryptoExtras
+
 import Basics
-@_implementationOnly import Crypto
 import Dispatch
 import Foundation
 import PackageCollectionsModel
+
+#if USE_IMPL_ONLY_IMPORTS
+@_implementationOnly import _CryptoExtras
+@_implementationOnly import Crypto
 @_implementationOnly import X509
+#else
+import _CryptoExtras
+import Crypto
+import X509
+#endif
 
 public protocol PackageCollectionSigner {
     /// Signs package collection using the given certificate and key.

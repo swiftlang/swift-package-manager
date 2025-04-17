@@ -49,4 +49,9 @@ public struct Diagnostics {
     public static func remark(_ message: String, file: String? = #file, line: Int? = #line) {
         self.emit(.remark, message, file: file, line: line)
     }
+
+    /// Emits a progress message
+    public static func progress(_ message: String) {
+        try? pluginHostConnection.sendMessage(.emitProgress(message: message))
+    }
 }

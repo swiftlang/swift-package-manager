@@ -10,11 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// The description of an individual target.
-public struct TargetDescription: Equatable, Encodable, Sendable {
+/// The description of an individual module.
+public struct TargetDescription: Hashable, Encodable, Sendable {
+    @available(*, deprecated, renamed: "TargetKind")
+    public typealias TargetType = TargetKind
 
-    /// The target type.
-    public enum TargetType: String, Equatable, Encodable, Sendable {
+    /// The target kind.
+    public enum TargetKind: String, Hashable, Encodable, Sendable {
         case regular
         case executable
         case test
@@ -25,10 +27,42 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
     }
 
     /// Represents a target's dependency on another entity.
-    public enum Dependency: Equatable, Sendable {
+    public enum Dependency: Hashable, Sendable {
         case target(name: String, condition: PackageConditionDescription?)
         case product(name: String, package: String?, moduleAliases: [String: String]? = nil, condition: PackageConditionDescription?)
         case byName(name: String, condition: PackageConditionDescription?)
+
+        public var condition: PackageConditionDescription? {
+            switch self {
+            case .target(_, let condition):
+                return condition
+            case .product(_, _, _, let condition):
+                return condition
+            case .byName(_, let condition):
+                return condition
+            }
+        }
+
+        public var name: String {
+            switch self {
+            case .target(let name, _):
+                return name
+            case .product(let name, _, _, _):
+                return name
+            case .byName(let name, _):
+                return name
+            }
+        }
+
+        public var package: String? {
+            switch self {
+            case .product(_, let name?, _, _),
+                  .byName(let name, _): // Note: byName can either refer to a product or target dependency
+                return name
+            default:
+                return nil
+            }
+        }
 
         public static func target(name: String) -> Dependency {
             return .target(name: name, condition: nil)
@@ -39,8 +73,8 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
         }
     }
 
-    public struct Resource: Encodable, Equatable, Sendable {
-        public enum Rule: Encodable, Equatable, Sendable {
+    public struct Resource: Encodable, Hashable, Sendable {
+        public enum Rule: Encodable, Hashable, Sendable {
             case process(localization: Localization?)
             case copy
             case embedInCode
@@ -93,13 +127,13 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
     }
 
     /// The declared target dependencies.
-    public let dependencies: [Dependency]
+    public package(set) var dependencies: [Dependency]
 
     /// The custom public headers path.
     public let publicHeadersPath: String?
 
     /// The type of target.
-    public let type: TargetType
+    public let type: TargetKind
 
     /// The pkg-config name of a system library target.
     public let pkgConfig: String?
@@ -111,18 +145,18 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
     public let pluginCapability: PluginCapability?
     
     /// Represents the declared capability of a package plugin.
-    public enum PluginCapability: Equatable, Sendable {
+    public enum PluginCapability: Hashable, Sendable {
         case buildTool
         case command(intent: PluginCommandIntent, permissions: [PluginPermission])
     }
     
-    public enum PluginCommandIntent: Equatable, Codable, Sendable {
+    public enum PluginCommandIntent: Hashable, Codable, Sendable {
         case documentationGeneration
         case sourceCodeFormatting
         case custom(verb: String, description: String)
     }
 
-    public enum PluginNetworkPermissionScope: Equatable, Codable, Sendable {
+    public enum PluginNetworkPermissionScope: Hashable, Codable, Sendable {
         case none
         case local(ports: [Int])
         case all(ports: [Int])
@@ -141,7 +175,7 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
         }
     }
 
-    public enum PluginPermission: Equatable, Codable, Sendable {
+    public enum PluginPermission: Hashable, Codable, Sendable {
         case allowNetworkConnections(scope: PluginNetworkPermissionScope, reason: String)
         case writeToPackageDirectory(reason: String)
     }
@@ -156,7 +190,7 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
     public let pluginUsages: [PluginUsage]?
 
     /// Represents a target's usage of a plugin target or product.
-    public enum PluginUsage: Equatable, Sendable {
+    public enum PluginUsage: Hashable, Sendable {
         case plugin(name: String, package: String?)
     }
 
@@ -169,7 +203,7 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
         sources: [String]? = nil,
         resources: [Resource] = [],
         publicHeadersPath: String? = nil,
-        type: TargetType = .regular,
+        type: TargetKind = .regular,
         packageAccess: Bool = true,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,

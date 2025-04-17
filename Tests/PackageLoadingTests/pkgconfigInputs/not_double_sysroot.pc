@@ -1,0 +1,6 @@
+prefix=/usr
+datarootdir=${prefix}/share
+pkgdatadir=${pc_sysrootdir}/filler/${datarootdir}/pkgdata
+
+Name: double_sysroot
+Description: Demonstrate pc_sysrootdir appearing elsewhere in a path - this is not a double prefix and should not be removed

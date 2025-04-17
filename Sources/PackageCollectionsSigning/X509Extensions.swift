@@ -10,8 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import SwiftASN1
 @_implementationOnly import X509
+#else
+import SwiftASN1
+import X509
+#endif
 
 extension Certificate {
     func hasExtension(oid: ASN1ObjectIdentifier) -> Bool {
@@ -59,29 +64,9 @@ extension DistinguishedName {
     private func stringAttribute(oid: ASN1ObjectIdentifier) -> String? {
         for relativeDistinguishedName in self {
             for attribute in relativeDistinguishedName where attribute.type == oid {
-                if let stringValue = attribute.stringValue {
-                    return stringValue
-                }
+                return attribute.value.description
             }
         }
         return nil
-    }
-}
-
-extension RelativeDistinguishedName.Attribute {
-    fileprivate var stringValue: String? {
-        let asn1StringBytes: ArraySlice<UInt8>?
-        do {
-            asn1StringBytes = try ASN1PrintableString(asn1Any: self.value).bytes
-        } catch {
-            asn1StringBytes = try? ASN1UTF8String(asn1Any: self.value).bytes
-        }
-
-        guard let asn1StringBytes,
-              let stringValue = String(bytes: asn1StringBytes, encoding: .utf8)
-        else {
-            return nil
-        }
-        return stringValue
     }
 }

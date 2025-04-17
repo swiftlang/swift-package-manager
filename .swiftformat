@@ -1,6 +1,6 @@
 ## File options
 
---swiftversion 5.7
+--swiftversion 5.9
 --exclude .build
 
 ## Formatting options

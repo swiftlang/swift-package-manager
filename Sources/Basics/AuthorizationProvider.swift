@@ -17,8 +17,7 @@ import struct Foundation.URL
 import Security
 #endif
 
-public protocol AuthorizationProvider {
-    @Sendable
+public protocol AuthorizationProvider: Sendable {
     func authentication(for url: URL) -> (user: String, password: String)?
 }
 
@@ -27,11 +26,10 @@ public protocol AuthorizationWriter {
         for url: URL,
         user: String,
         password: String,
-        persist: Bool,
-        callback: @escaping (Result<Void, Error>) -> Void
-    )
+        persist: Bool
+    ) async throws
 
-    func remove(for url: URL, callback: @escaping (Result<Void, Error>) -> Void)
+    func remove(for url: URL) async throws
 }
 
 public enum AuthorizationProviderError: Error {
@@ -54,7 +52,7 @@ extension AuthorizationProvider {
 
 // MARK: - netrc
 
-public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWriter {
+public final class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWriter {
     // marked internal for testing
     internal let path: AbsolutePath
     private let fileSystem: FileSystem
@@ -72,16 +70,15 @@ public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWri
         for url: URL,
         user: String,
         password: String,
-        persist: Bool = true,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
+        persist: Bool = true
+    ) async throws {
         guard let machine = Self.machine(for: url) else {
-            return callback(.failure(AuthorizationProviderError.invalidURLHost))
+            throw AuthorizationProviderError.invalidURLHost
         }
 
         if !persist {
             self.cache[machine] = (user, password)
-            return callback(.success(()))
+            return
         }
 
         // Same entry already exists, no need to add or update
@@ -89,7 +86,7 @@ public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWri
         guard netrc?.machines
             .first(where: { $0.name.lowercased() == machine && $0.login == user && $0.password == password }) == nil
         else {
-            return callback(.success(()))
+            return
         }
 
         do {
@@ -106,21 +103,15 @@ public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWri
                     stream.write("\n")
                 }
             }
-
-            callback(.success(()))
         } catch {
-            callback(.failure(
-                AuthorizationProviderError
-                    .other("Failed to update netrc file at \(self.path): \(error.interpolationDescription)")
-            ))
+            throw AuthorizationProviderError
+                .other("Failed to update netrc file at \(self.path): \(error.interpolationDescription)")
         }
     }
 
-    public func remove(for url: URL, callback: @escaping (Result<Void, Error>) -> Void) {
-        callback(.failure(
-            AuthorizationProviderError
-                .other("User must edit netrc file at \(self.path) manually to remove entries")
-        ))
+    public func remove(for url: URL) async throws {
+        throw AuthorizationProviderError
+            .other("User must edit netrc file at \(self.path) manually to remove entries")
     }
 
     public func authentication(for url: URL) -> (user: String, password: String)? {
@@ -176,7 +167,7 @@ public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWri
 // MARK: - Keychain
 
 #if canImport(Security)
-public class KeychainAuthorizationProvider: AuthorizationProvider, AuthorizationWriter {
+public final class KeychainAuthorizationProvider: AuthorizationProvider, AuthorizationWriter {
     private let observabilityScope: ObservabilityScope
 
     private let cache = ThreadSafeKeyValueStore<String, (user: String, password: String)>()
@@ -189,11 +180,10 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
         for url: URL,
         user: String,
         password: String,
-        persist: Bool = true,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
+        persist: Bool = true
+    ) async throws {
         guard let protocolHostPort = ProtocolHostPort(from: url) else {
-            return callback(.failure(AuthorizationProviderError.invalidURLHost))
+            throw AuthorizationProviderError.invalidURLHost
         }
 
         self.observabilityScope
@@ -201,35 +191,25 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
 
         if !persist {
             self.cache[protocolHostPort.description] = (user, password)
-            return callback(.success(()))
+            return
         }
 
         let passwordData = Data(password.utf8)
 
-        do {
-            if !(try self.update(protocolHostPort: protocolHostPort, account: user, password: passwordData)) {
-                try self.create(protocolHostPort: protocolHostPort, account: user, password: passwordData)
-            }
-            callback(.success(()))
-        } catch {
-            callback(.failure(error))
+        if !(try self.update(protocolHostPort: protocolHostPort, account: user, password: passwordData)) {
+            try self.create(protocolHostPort: protocolHostPort, account: user, password: passwordData)
         }
     }
 
-    public func remove(for url: URL, callback: @escaping (Result<Void, Error>) -> Void) {
+    public func remove(for url: URL) async throws {
         guard let protocolHostPort = ProtocolHostPort(from: url) else {
-            return callback(.failure(AuthorizationProviderError.invalidURLHost))
+            throw AuthorizationProviderError.invalidURLHost
         }
 
         self.observabilityScope
             .emit(debug: "remove credentials for '\(protocolHostPort)' [\(url.absoluteString)] from keychain")
 
-        do {
-            try self.delete(protocolHostPort: protocolHostPort)
-            callback(.success(()))
-        } catch {
-            callback(.failure(error))
-        }
+        try self.delete(protocolHostPort: protocolHostPort)
     }
 
     public func authentication(for url: URL) -> (user: String, password: String)? {

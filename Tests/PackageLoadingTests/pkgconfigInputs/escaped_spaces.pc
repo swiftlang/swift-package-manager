@@ -2,6 +2,9 @@ prefix=/usr/local/bin
 exec_prefix=${prefix}
 my_dep=atk
 #some comment
+Name: escaped_spaces
+Version: 1
+Description: Demonstrate use of escape characters in flag values
 
 Requires: gdk-3.0 >= 1.0.0 ${my_dep}
 Libs: -L"${prefix}" -l"gtk 3" -wantareal\\here -one\\ -two

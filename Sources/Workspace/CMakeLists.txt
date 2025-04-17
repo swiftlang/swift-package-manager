@@ -8,26 +8,38 @@
 
 add_library(Workspace
   CheckoutState.swift
-  DefaultPluginScriptRunner.swift
   Diagnostics.swift
-  FileSystemPackageContainer.swift
   InitPackage.swift
+  LoadableResult.swift
   ManagedArtifact.swift
   ManagedDependency.swift
-  RegistryPackageContainer.swift
+  ManagedPrebuilt.swift
+  PackageContainer/FileSystemPackageContainer.swift
+  PackageContainer/RegistryPackageContainer.swift
+  PackageContainer/SourceControlPackageContainer.swift
   ResolvedFileWatcher.swift
   ResolverPrecomputationProvider.swift
-  SourceControlPackageContainer.swift
   ToolsVersionSpecificationRewriter.swift
   Workspace.swift
   Workspace+BinaryArtifacts.swift
   Workspace+Configuration.swift
+  Workspace+Delegation.swift
+  Workspace+Dependencies.swift
+  Workspace+Editing.swift
+  Workspace+Manifests.swift
+  Workspace+PackageContainer.swift
+  Workspace+Prebuilts.swift
+  Workspace+Registry.swift
+  Workspace+ResolvedPackages.swift
+  Workspace+Signing.swift
+  Workspace+SourceControl.swift
   Workspace+State.swift)
 target_link_libraries(Workspace PUBLIC
   TSCBasic
   TSCUtility
   Basics
   SPMBuildCore
+  SwiftCollections::OrderedCollections
   PackageFingerprint
   PackageGraph
   PackageLoading
@@ -41,9 +53,7 @@ target_link_libraries(Workspace PUBLIC
 set_target_properties(Workspace PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
-if(USE_CMAKE_INSTALL)
 install(TARGETS Workspace
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
-endif()

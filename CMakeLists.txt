@@ -6,41 +6,29 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-cmake_minimum_required(VERSION 3.15.1)
+if(POLICY CMP0091)
+  cmake_policy(SET CMP0091 NEW)
+endif()
+
+cmake_minimum_required(VERSION 3.24)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 
 project(SwiftPM LANGUAGES C Swift)
 
-set(SWIFT_VERSION 5)
-set(CMAKE_Swift_LANGUAGE_VERSION ${SWIFT_VERSION})
-if(CMAKE_VERSION VERSION_LESS 3.16)
-    add_compile_options($<$<COMPILE_LANGUAGE:Swift>:-swift-version$<SEMICOLON>${SWIFT_VERSION}>)
-    set(CMAKE_LINK_LIBRARY_FLAG "-l")
-endif()
-
-set(CMAKE_Swift_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/swift)
-
-if(CMAKE_VERSION VERSION_LESS 3.16 AND CMAKE_SYSTEM_NAME STREQUAL Windows)
-  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-else()
-  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-endif()
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
 option(BUILD_SHARED_LIBS "Build shared libraries by default" YES)
 option(FIND_PM_DEPS "Search for all external Package Manager dependencies" YES)
 
-string(COMPARE EQUAL ${CMAKE_SYSTEM_NAME} Windows CMAKE_INSTALL_DEFAULT)
-option(USE_CMAKE_INSTALL
-  "Install build products using cmake's install() instead of the bootstrap script's install()"
-  ${CMAKE_INSTALL_DEFAULT})
+set(CMAKE_Swift_LANGUAGE_VERSION 5)
+set(CMAKE_Swift_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/swift)
+set(CMAKE_Swift_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
 
-if(BUILD_SHARED_LIBS)
-  set(CMAKE_POSITION_INDEPENDENT_CODE YES)
-endif()
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
+set(CMAKE_POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS})
 
 if(FIND_PM_DEPS)
   find_package(SwiftSystem CONFIG REQUIRED)
@@ -63,5 +51,13 @@ find_package(dispatch QUIET)
 find_package(Foundation QUIET)
 find_package(SQLite3 REQUIRED)
 
+# Enable `package` modifier for the whole package.
+if(CMAKE_SYSTEM_NAME STREQUAL FreeBSD)
+  add_compile_options("$<$<COMPILE_LANGUAGE:Swift>:-package-name;SwiftPM>" -L/usr/local/lib)
+else()
+  add_compile_options("$<$<COMPILE_LANGUAGE:Swift>:-package-name;SwiftPM>")
+endif()
+
+add_subdirectory(BuildSupport/SwiftSyntax)
 add_subdirectory(Sources)
 add_subdirectory(cmake/modules)

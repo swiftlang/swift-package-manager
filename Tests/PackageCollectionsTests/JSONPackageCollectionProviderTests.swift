@@ -18,11 +18,11 @@ import Basics
 import PackageCollectionsSigning
 import PackageModel
 import SourceControl
-import SPMTestSupport
+import _InternalTestSupport
 
 class JSONPackageCollectionProviderTests: XCTestCase {
-    func testGood() throws {
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+    func testGood() async throws {
+        try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good.json")
             let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
@@ -47,7 +47,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             httpClient.configuration.retryStrategy = .none
             let provider = JSONPackageCollectionProvider(httpClient: httpClient)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
-            let collection = try temp_await { callback in provider.get(source, callback: callback) }
+            let collection = try await provider.get(source)
 
             XCTAssertEqual(collection.name, "Sample Package Collection")
             XCTAssertEqual(collection.overview, "This is a sample package collection listing made-up packages.")
@@ -87,8 +87,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         }
     }
 
-    func testLocalFile() throws {
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+    func testLocalFile() async throws {
+        try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good.json")
 
             let httpClient = LegacyHTTPClient(handler: { (_, _, _) -> Void in fatalError("should not be called") })
@@ -96,7 +96,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             httpClient.configuration.retryStrategy = .none
             let provider = JSONPackageCollectionProvider(httpClient: httpClient)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: path.asURL)
-            let collection = try temp_await { callback in provider.get(source, callback: callback) }
+            let collection = try await provider.get(source)
 
             XCTAssertEqual(collection.name, "Sample Package Collection")
             XCTAssertEqual(collection.overview, "This is a sample package collection listing made-up packages.")
@@ -135,14 +135,14 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         }
     }
 
-    func testInvalidURL() throws {
+    func testInvalidURL() async throws {
         let url = URL("ftp://www.test.com/collection.json")
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
         let httpClient = LegacyHTTPClient(handler: { (_, _, _) -> Void in fatalError("should not be called") })
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
-        XCTAssertThrowsError(try temp_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
+        await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
             guard case .invalidSource(let errorMessage) = error as? JSONPackageCollectionProviderError else {
                 return XCTFail("invalid error \(error)")
             }
@@ -150,7 +150,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         })
     }
 
-    func testExceedsDownloadSizeLimitHead() throws {
+    func testExceedsDownloadSizeLimitHead() async throws {
         let maxSize: Int64 = 50
         let url = URL("https://www.test.com/collection.json")
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
@@ -167,12 +167,12 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(try temp_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
+        await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
             XCTAssertEqual(error as? JSONPackageCollectionProviderError, .responseTooLarge(url, maxSize * 2))
         })
     }
 
-    func testExceedsDownloadSizeLimitGet() throws {
+    func testExceedsDownloadSizeLimitGet() async throws {
         let maxSize: Int64 = 50
         let url = URL("https://www.test.com/collection.json")
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
@@ -196,12 +196,12 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(try temp_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
+        await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
             XCTAssertEqual(error as? JSONPackageCollectionProviderError, .responseTooLarge(url, maxSize * 2))
         })
     }
 
-    func testNoContentLengthOnGet() throws {
+    func testNoContentLengthOnGet() async throws {
         let url = URL("https://www.test.com/collection.json")
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
@@ -216,12 +216,12 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(try temp_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
+        await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
             XCTAssertEqual(error as? JSONPackageCollectionProviderError, .invalidResponse(url, "Missing Content-Length header"))
         })
     }
 
-    func testExceedsDownloadSizeLimitProgress() throws {
+    func testExceedsDownloadSizeLimitProgress() async throws {
         let maxSize: Int64 = 50
         let url = URL("https://www.test.com/collection.json")
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
@@ -248,12 +248,12 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(try temp_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
+        await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
             XCTAssertEqual(error as? HTTPClientError, .responseTooLarge(maxSize * 2))
         })
     }
 
-    func testUnsuccessfulHead_unavailable() throws {
+    func testUnsuccessfulHead_unavailable() async throws {
         let url = URL("https://www.test.com/collection.json")
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
         let statusCode = Int.random(in: 500 ... 550) // Don't use 404 because it leads to a different error message
@@ -268,12 +268,12 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
-        XCTAssertThrowsError(try temp_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
+        await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
             XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionUnavailable(url, statusCode))
         })
     }
 
-    func testUnsuccessfulGet_unavailable() throws {
+    func testUnsuccessfulGet_unavailable() async throws {
         let url = URL("https://www.test.com/collection.json")
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
         let statusCode = Int.random(in: 500 ... 550) // Don't use 404 because it leads to a different error message
@@ -294,12 +294,12 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
-        XCTAssertThrowsError(try temp_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
+        await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
             XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionUnavailable(url, statusCode))
         })
     }
 
-    func testUnsuccessfulHead_notFound() throws {
+    func testUnsuccessfulHead_notFound() async throws {
         let url = URL("https://www.test.com/collection.json")
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
@@ -313,12 +313,12 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
-        XCTAssertThrowsError(try temp_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
+        await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
             XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionNotFound(url))
         })
     }
 
-    func testUnsuccessfulGet_notFound() throws {
+    func testUnsuccessfulGet_notFound() async throws {
         let url = URL("https://www.test.com/collection.json")
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
@@ -338,12 +338,12 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
-        XCTAssertThrowsError(try temp_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
+        await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
             XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionNotFound(url))
         })
     }
 
-    func testBadJSON() throws {
+    func testBadJSON() async throws {
         let url = URL("https://www.test.com/collection.json")
         let data = Data("blah".utf8)
 
@@ -366,15 +366,15 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
-        XCTAssertThrowsError(try temp_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
+        await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
             XCTAssertEqual(error as? JSONPackageCollectionProviderError, .invalidJSON(url))
         })
     }
 
-    func testSignedGood() throws {
+    func testSignedGood() async throws {
         try skipIfSignatureCheckNotSupported()
 
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
             let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
@@ -402,7 +402,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let signatureValidator = MockCollectionSignatureValidator(["Sample Package Collection"])
             let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
-            let collection = try temp_await { callback in provider.get(source, callback: callback) }
+            let collection = try await provider.get(source)
 
             XCTAssertEqual(collection.name, "Sample Package Collection")
             XCTAssertEqual(collection.overview, "This is a sample package collection listing made-up packages.")
@@ -446,8 +446,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         }
     }
 
-    func testSigned_skipSignatureCheck() throws {
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+    func testSigned_skipSignatureCheck() async throws {
+        try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
             let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
@@ -475,7 +475,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator)
             // Skip signature check
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url, skipSignatureCheck: true)
-            let collection = try temp_await { callback in provider.get(source, callback: callback) }
+            let collection = try await provider.get(source)
 
             XCTAssertEqual(collection.name, "Sample Package Collection")
             XCTAssertEqual(collection.overview, "This is a sample package collection listing made-up packages.")
@@ -515,10 +515,10 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         }
     }
 
-    func testSigned_noTrustedRootCertsConfigured() throws {
+    func testSigned_noTrustedRootCertsConfigured() async throws {
         try skipIfSignatureCheckNotSupported()
 
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
             let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
@@ -546,7 +546,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
-            XCTAssertThrowsError(try temp_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
+            await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
                 switch error {
                 case PackageCollectionError.cannotVerifySignature:
                     break
@@ -557,10 +557,10 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         }
     }
 
-    func testSignedBad() throws {
+    func testSignedBad() async throws {
         try skipIfSignatureCheckNotSupported()
 
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
             let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
@@ -589,7 +589,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
-            XCTAssertThrowsError(try temp_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
+            await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
                 switch error {
                 case PackageCollectionError.invalidSignature:
                     break
@@ -600,10 +600,10 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         }
     }
 
-    func testSignedLocalFile() throws {
+    func testSignedLocalFile() async throws {
         try skipIfSignatureCheckNotSupported()
 
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
 
             let httpClient = LegacyHTTPClient(handler: { (_, _, _) -> Void in fatalError("should not be called") })
@@ -615,7 +615,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
 
             let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: path.asURL)
-            let collection = try temp_await { callback in provider.get(source, callback: callback) }
+            let collection = try await provider.get(source)
 
             XCTAssertEqual(collection.name, "Sample Package Collection")
             XCTAssertEqual(collection.overview, "This is a sample package collection listing made-up packages.")
@@ -654,8 +654,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         }
     }
 
-    func testRequiredSigningGood() throws {
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+    func testRequiredSigningGood() async throws {
+        try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
             let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
@@ -688,7 +688,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator,
                                                          sourceCertPolicy: sourceCertPolicy)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
-            let collection = try temp_await { callback in provider.get(source, callback: callback) }
+            let collection = try await provider.get(source)
 
             XCTAssertEqual(collection.name, "Sample Package Collection")
             XCTAssertEqual(collection.overview, "This is a sample package collection listing made-up packages.")
@@ -728,8 +728,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         }
     }
 
-    func testRequiredSigningMultiplePoliciesGood() throws {
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+    func testRequiredSigningMultiplePoliciesGood() async throws {
+        try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
             let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
@@ -767,7 +767,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator,
                                                          sourceCertPolicy: sourceCertPolicy)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
-            let collection = try temp_await { callback in provider.get(source, callback: callback) }
+            let collection = try await provider.get(source)
 
             XCTAssertEqual(collection.name, "Sample Package Collection")
             XCTAssertEqual(collection.overview, "This is a sample package collection listing made-up packages.")
@@ -807,8 +807,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         }
     }
 
-    func testMissingRequiredSignature() throws {
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+    func testMissingRequiredSignature() async throws {
+        try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good.json")
             let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
@@ -842,7 +842,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                                                          sourceCertPolicy: sourceCertPolicy)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
-            XCTAssertThrowsError(try temp_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
+            await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
                 switch error {
                 case PackageCollectionError.missingSignature:
                     break

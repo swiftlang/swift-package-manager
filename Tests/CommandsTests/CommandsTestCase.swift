@@ -12,12 +12,16 @@
 
 import Basics
 import XCTest
+import _InternalTestSupport
 
 class CommandsTestCase: XCTestCase {
     
     /// Original working directory before the test ran (if known).
     private var originalWorkingDirectory: AbsolutePath? = .none
-    
+    public let duplicateSymbolRegex = StringPattern.regex(
+        #"objc[83768]: (.*) is implemented in both .* \(.*\) and .* \(.*\) . One of the two will be used. Which one is undefined."#
+    )
+
     override func setUp() {
         originalWorkingDirectory = localFileSystem.currentWorkingDirectory
     }
@@ -28,5 +32,23 @@ class CommandsTestCase: XCTestCase {
         }
     }
     
+    // FIXME: We should also hoist the `execute()` helper function that the various test suites implement, but right now they all seem to have slightly different implementations, so that's a later project.
+}
+
+class CommandsBuildProviderTestCase: BuildSystemProviderTestCase {
+    /// Original working directory before the test ran (if known).
+    private var originalWorkingDirectory: AbsolutePath? = .none
+    let duplicateSymbolRegex = StringPattern.regex(".*One of the duplicates must be removed or renamed.")
+
+    override func setUp() {
+        originalWorkingDirectory = localFileSystem.currentWorkingDirectory
+    }
+
+    override func tearDown() {
+        if let originalWorkingDirectory {
+            try? localFileSystem.changeCurrentWorkingDirectory(to: originalWorkingDirectory)
+        }
+    }
+
     // FIXME: We should also hoist the `execute()` helper function that the various test suites implement, but right now they all seem to have slightly different implementations, so that's a later project.
 }

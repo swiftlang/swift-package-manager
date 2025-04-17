@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -12,7 +12,10 @@
 
 import Dispatch
 import struct TSCBasic.FileSystemError
-import class TSCBasic.Process
+
+#if os(Windows)
+import WinSDK
+#endif
 
 /// An `Archiver` that handles ZIP archives using the command-line `zip` and `unzip` tools.
 public struct ZipArchiver: Archiver, Cancellable {
@@ -24,6 +27,11 @@ public struct ZipArchiver: Archiver, Cancellable {
     /// Helper for cancelling in-flight requests
     private let cancellator: Cancellator
 
+    /// Absolute path to the Windows tar in the system folder
+    #if os(Windows)
+    private let windowsTar: String
+    #endif
+
     /// Creates a `ZipArchiver`.
     ///
     /// - Parameters:
@@ -32,12 +40,25 @@ public struct ZipArchiver: Archiver, Cancellable {
     public init(fileSystem: FileSystem, cancellator: Cancellator? = .none) {
         self.fileSystem = fileSystem
         self.cancellator = cancellator ?? Cancellator(observabilityScope: .none)
+
+        #if os(Windows)
+        var tarPath: PWSTR?
+        defer { CoTaskMemFree(tarPath) }
+        let hr = withUnsafePointer(to: FOLDERID_System) { id in
+            SHGetKnownFolderPath(id, DWORD(KF_FLAG_DEFAULT.rawValue), nil, &tarPath)
+        }
+        if hr == S_OK, let tarPath {
+            windowsTar = String(decodingCString: tarPath, as: UTF16.self) + "\\tar.exe"
+        } else {
+            windowsTar = "tar.exe"
+        }
+        #endif
     }
 
     public func extract(
         from archivePath: AbsolutePath,
         to destinationPath: AbsolutePath,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         do {
             guard self.fileSystem.exists(archivePath) else {
@@ -49,11 +70,11 @@ public struct ZipArchiver: Archiver, Cancellable {
             }
 
             #if os(Windows)
-            let process = TSCBasic
-                .Process(arguments: ["tar.exe", "xf", archivePath.pathString, "-C", destinationPath.pathString])
+            // FileManager lost the ability to detect tar.exe as executable.
+            // It's part of system32 anyway so use the absolute path.
+            let process = AsyncProcess(arguments: [windowsTar, "xf", archivePath.pathString, "-C", destinationPath.pathString])
             #else
-            let process = TSCBasic
-                .Process(arguments: ["unzip", archivePath.pathString, "-d", destinationPath.pathString])
+            let process = AsyncProcess(arguments: ["unzip", archivePath.pathString, "-d", destinationPath.pathString])
             #endif
             guard let registrationKey = self.cancellator.register(process) else {
                 throw CancellationError.failedToRegisterProcess(process)
@@ -76,56 +97,64 @@ public struct ZipArchiver: Archiver, Cancellable {
 
     public func compress(
         directory: AbsolutePath,
-        to destinationPath: AbsolutePath,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
-        do {
-            guard self.fileSystem.isDirectory(directory) else {
-                throw FileSystemError(.notDirectory, directory.underlying)
-            }
+        to destinationPath: AbsolutePath
+    ) async throws {
+        guard self.fileSystem.isDirectory(directory) else {
+            throw FileSystemError(.notDirectory, directory.underlying)
+        }
 
-            #if os(Windows)
-            let process = TSCBasic.Process(
-                // FIXME: are these the right arguments?
-                arguments: ["tar.exe", "-a", "-c", "-f", destinationPath.pathString, directory.basename],
-                workingDirectory: directory.parentDirectory.underlying
-            )
-            #else
-            let process = TSCBasic.Process(
-                arguments: ["zip", "-r", destinationPath.pathString, directory.basename],
-                workingDirectory: directory.parentDirectory.underlying
-            )
-            #endif
+        #if os(Windows)
+        let process = AsyncProcess(
+            // FIXME: are these the right arguments?
+            arguments: [windowsTar, "-a", "-c", "-f", destinationPath.pathString, directory.basename],
+            workingDirectory: directory.parentDirectory
+        )
+        #elseif os(FreeBSD)
+        // On FreeBSD, the unzip command is available in base but not the zip command.
+        // Therefore; we use libarchive(bsdtar) to produce the ZIP archive instead.
+        let process = AsyncProcess(
+          arguments: ["tar", "-c", "--format", "zip", "-f", destinationPath.pathString, directory.basename],
+          workingDirectory: directory.parentDirectory
+        )
+        #else
+        // This is to work around `swift package-registry publish` tool failing on
+        // Amazon Linux 2 due to it having an earlier Glibc version (rdar://116370323)
+        // and therefore posix_spawn_file_actions_addchdir_np is unavailable.
+        // Instead of passing `workingDirectory` param to TSC.Process, which will trigger
+        // SPM_posix_spawn_file_actions_addchdir_np_supported check, we shell out and
+        // do `cd` explicitly before `zip`.
+        let process = AsyncProcess(
+            arguments: [
+                "/bin/sh",
+                "-c",
+                "cd \(directory.parentDirectory.underlying.pathString) && zip -ry \(destinationPath.pathString) \(directory.basename)",
+            ]
+        )
+        #endif
 
-            guard let registrationKey = self.cancellator.register(process) else {
-                throw CancellationError.failedToRegisterProcess(process)
-            }
+        guard let registrationKey = self.cancellator.register(process) else {
+            throw CancellationError.failedToRegisterProcess(process)
+        }
 
-            DispatchQueue.sharedConcurrent.async {
-                defer { self.cancellator.deregister(registrationKey) }
-                completion(.init(catching: {
-                    try process.launch()
-                    let processResult = try process.waitUntilExit()
-                    guard processResult.exitStatus == .terminated(code: 0) else {
-                        throw try StringError(processResult.utf8stderrOutput())
-                    }
-                }))
-            }
-        } catch {
-            return completion(.failure(error))
+        defer { self.cancellator.deregister(registrationKey) }
+
+        try process.launch()
+        let processResult = try await process.waitUntilExit()
+        guard processResult.exitStatus == .terminated(code: 0) else {
+            throw try StringError(processResult.utf8stderrOutput())
         }
     }
 
-    public func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {
+    public func validate(path: AbsolutePath, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         do {
             guard self.fileSystem.exists(path) else {
                 throw FileSystemError(.noEntry, path.underlying)
             }
 
             #if os(Windows)
-            let process = TSCBasic.Process(arguments: ["tar.exe", "tf", path.pathString])
+            let process = AsyncProcess(arguments: [windowsTar, "tf", path.pathString])
             #else
-            let process = TSCBasic.Process(arguments: ["unzip", "-t", path.pathString])
+            let process = AsyncProcess(arguments: ["unzip", "-t", path.pathString])
             #endif
             guard let registrationKey = self.cancellator.register(process) else {
                 throw CancellationError.failedToRegisterProcess(process)

@@ -14,8 +14,8 @@ import Basics
 import CoreCommands
 import PackageModel
 
-import enum TSCBasic.ProcessEnv
 import func TSCBasic.exec
+import enum TSCBasic.ProcessEnv
 
 /// A card displaying a ``Snippet`` at the terminal.
 struct SnippetCard: Card {
@@ -29,6 +29,7 @@ struct SnippetCard: Card {
             }
         }
     }
+
     /// The snippet to display in the terminal.
     var snippet: Snippet
 
@@ -36,23 +37,38 @@ struct SnippetCard: Card {
     var number: Int
 
     /// The tool used for eventually building and running a chosen snippet.
-    var swiftTool: SwiftTool
+    var swiftCommandState: SwiftCommandState
 
     func render() -> String {
-        var rendered = colorized {
+        let isColorized: Bool = swiftCommandState.options.logging.colorDiagnostics
+        var rendered = isColorized ? colorized {
             brightYellow {
                 "# "
                 snippet.name
             }
             "\n\n"
         }.terminalString()
+            :
+            plain {
+                plain {
+                    "# "
+                    snippet.name
+                }
+                "\n\n"
+            }.terminalString()
 
         if !snippet.explanation.isEmpty {
-            rendered += brightBlack {
+            rendered += isColorized ? brightBlack {
                 snippet.explanation
-                .split(separator: "\n", omittingEmptySubsequences: false)
-                .map { "// " + $0 }
-                .joined(separator: "\n")
+                    .split(separator: "\n", omittingEmptySubsequences: false)
+                    .map { "// " + $0 }
+                    .joined(separator: "\n")
+            }.terminalString()
+            : plain {
+                snippet.explanation
+                    .split(separator: "\n", omittingEmptySubsequences: false)
+                    .map { "// " + $0 }
+                    .joined(separator: "\n")
             }.terminalString()
 
             rendered += "\n\n"
@@ -67,7 +83,7 @@ struct SnippetCard: Card {
         return "\nRun this snippet? [R: run, or press Enter to return]"
     }
 
-    func acceptLineInput<S>(_ line: S) -> CardEvent? where S : StringProtocol {
+    func acceptLineInput<S>(_ line: S) async -> CardEvent? where S : StringProtocol {
         let trimmed = line.drop { $0.isWhitespace }.prefix { !$0.isWhitespace }.lowercased()
         guard !trimmed.isEmpty else {
             return .pop()
@@ -76,7 +92,7 @@ struct SnippetCard: Card {
         switch trimmed {
         case "r", "run":
             do {
-                try runExample()
+                try await runExample()
             } catch {
                 return .pop(SnippetCard.Error.cantRunSnippet(reason: error.localizedDescription))
             }
@@ -91,12 +107,12 @@ struct SnippetCard: Card {
         return .pop()
     }
 
-    func runExample() throws {
+    func runExample() async throws {
         print("Building '\(snippet.path)'\n")
-        let buildSystem = try swiftTool.createBuildSystem(explicitProduct: snippet.name)
-        try buildSystem.build(subset: .product(snippet.name))
-        let executablePath = try swiftTool.buildParameters().buildPath.appending(component: snippet.name)
-        if let exampleTarget = try buildSystem.getPackageGraph().allTargets.first(where: { $0.name == snippet.name }) {
+        let buildSystem = try await swiftCommandState.createBuildSystem(explicitProduct: snippet.name, traitConfiguration: .init())
+        try await buildSystem.build(subset: .product(snippet.name))
+        let executablePath = try swiftCommandState.productsBuildParameters.buildPath.appending(component: snippet.name)
+        if let exampleTarget = try await buildSystem.getPackageGraph().module(for: snippet.name) {
             try ProcessEnv.chdir(exampleTarget.sources.paths[0].parentDirectory)
         }
         try exec(path: executablePath.pathString, args: [])

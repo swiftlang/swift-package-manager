@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
-import SPMTestSupport
+import _InternalTestSupport
 import tsan_utils
 import XCTest
 
@@ -179,6 +179,24 @@ final class SQLiteBackedCacheTests: XCTestCase {
             do {
                 let result = try cache.get(key: keys.last!)
                 XCTAssertEqual(mockData[keys.last!], result)
+            }
+        }
+    }
+
+    func testInitialFileCreation() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let paths = [
+                tmpPath.appending("foo", "test.db"),
+                // Ensure it works recursively.
+                tmpPath.appending("bar", "baz", "test.db"),
+            ]
+
+            for path in paths {
+                let cache = SQLiteBackedCache<String>(tableName: "SQLiteBackedCacheTest", path: path)
+                // Put an entry to ensure the file is created.
+                XCTAssertNoThrow(try cache.put(key: "foo", value: "bar"))
+                XCTAssertNoThrow(try cache.close())
+                XCTAssertTrue(localFileSystem.exists(path), "expected file to be created at \(path)")
             }
         }
     }

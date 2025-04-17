@@ -34,17 +34,17 @@ struct CardStack {
     var cards = [Card]()
 
     /// The tool used for eventually building and running a chosen snippet.
-    var swiftTool: SwiftTool
+    var swiftCommandState: SwiftCommandState
 
     /// When true, the escape sequence for clearing the terminal should be
     /// printed first.
     private var needsToClearScreen = true
 
-    init(package: ResolvedPackage, snippetGroups: [SnippetGroup], swiftTool: SwiftTool) {
+    init(package: ResolvedPackage, snippetGroups: [SnippetGroup], swiftCommandState: SwiftCommandState) {
         // this interaction is done on stdout
         self.terminal = TerminalController(stream: TSCBasic.stdoutStream)!
-        self.cards = [TopCard(package: package, snippetGroups: snippetGroups, swiftTool: swiftTool)]
-        self.swiftTool = swiftTool
+        self.cards = [TopCard(package: package, snippetGroups: snippetGroups, swiftCommandState: swiftCommandState)]
+        self.swiftCommandState = swiftCommandState
     }
 
     mutating func push(_ card: Card) {
@@ -60,14 +60,21 @@ struct CardStack {
     }
 
     func askForLineInput(prompt: String?) -> String? {
+        let isColorized: Bool = swiftCommandState.options.logging.colorDiagnostics
+
         if let prompt {
-            print(brightBlack { prompt }.terminalString())
+            isColorized ?
+                print(brightBlack { prompt }.terminalString()) :
+                print(plain { prompt }.terminalString())
         }
-        terminal.write(">>> ", inColor: .green, bold: true)
+        isColorized ?
+            terminal.write(">>> ", inColor: .green, bold: true)
+            : terminal.write(">>> ", inColor: .noColor, bold: false)
+
         return readLine(strippingNewline: true)
     }
 
-    mutating func run() {
+    mutating func run() async {
         var inputFinished = false
         while !inputFinished {
             guard let top = cards.last else {
@@ -87,11 +94,13 @@ struct CardStack {
 
             askForLine: while let line = askForLineInput(prompt: top.inputPrompt) {
                 inputFinished = false
-                let trimmedLine = String(line.drop { $0.isWhitespace }
-                                            .reversed()
-                                            .drop { $0.isWhitespace }
-                                            .reversed())
-                let response = top.acceptLineInput(trimmedLine)
+                let trimmedLine = String(
+                    line.drop { $0.isWhitespace }
+                        .reversed()
+                        .drop { $0.isWhitespace }
+                        .reversed()
+                )
+                let response = await top.acceptLineInput(trimmedLine)
                 switch response {
                 case .none:
                     continue askForLine
@@ -102,7 +111,7 @@ struct CardStack {
                 case let .pop(error):
                     cards.removeLast()
                     if let error {
-                        self.swiftTool.observabilityScope.emit(error)
+                        self.swiftCommandState.observabilityScope.emit(error)
                         needsToClearScreen = false
                     } else {
                         needsToClearScreen = !cards.isEmpty

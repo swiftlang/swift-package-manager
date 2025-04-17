@@ -10,36 +10,58 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
+
 /// A message that the host can send to the plugin, including definitions of the corresponding serializable data structures.
 enum HostToPluginMessage: Codable {
     
     /// The host requests that the plugin create build commands (corresponding to a `.buildTool` capability) for a target in the package graph.
-    case createBuildToolCommands(context: InputContext, rootPackageId: InputContext.Package.Id, targetId: InputContext.Target.Id)
-    
+    case createBuildToolCommands(
+        context: InputContext,
+        rootPackageId: InputContext.Package.Id,
+        targetId: InputContext.Target.Id,
+        pluginGeneratedSources: [InputContext.URL.Id],
+        pluginGeneratedResources: [InputContext.URL.Id]
+    )
+
+    /// The host requests that the plugin create build commands (corresponding to a `.buildTool` capability) for a target in the package graph.
+    case createXcodeProjectBuildToolCommands(
+        context: InputContext,
+        rootProjectId: InputContext.XcodeProject.Id,
+        targetId: InputContext.XcodeTarget.Id,
+        pluginGeneratedSources: [InputContext.URL.Id],
+        pluginGeneratedResources: [InputContext.URL.Id]
+    )
+
     /// The host requests that the plugin perform a user command (corresponding to a `.command` capability) on a package in the graph.
     case performCommand(context: InputContext, rootPackageId: InputContext.Package.Id, arguments: [String])
 
+    /// The host requests that the plugin perform a user command (corresponding to a `.command` capability) on a package in the graph.
+    case performXcodeProjectCommand(context: InputContext, rootProjectId: InputContext.XcodeProject.Id, arguments: [String])
+
         struct InputContext: Codable {
-            let paths: [Path]
+            let paths: [URL]
             let targets: [Target]
             let products: [Product]
             let packages: [Package]
-            let pluginWorkDirId: Path.Id
-            let toolSearchDirIds: [Path.Id]
+            let xcodeTargets: [XcodeTarget]
+            let xcodeProjects: [XcodeProject]
+            let pluginWorkDirId: URL.Id
+            let toolSearchDirIds: [URL.Id]
             let accessibleTools: [String: Tool]
 
             // Wrapper struct for encoding information about a tool that's accessible to the plugin.
             struct Tool: Codable {
-                let path: Path.Id
+                let path: URL.Id
                 let triples: [String]?
             }
 
             /// A single absolute path in the wire structure, represented as a tuple
             /// consisting of the ID of the base path and subpath off of that path.
             /// This avoids repetition of path components in the wire representation.
-            struct Path: Codable {
+            struct URL: Codable {
                 typealias Id = Int
-                let basePathId: Path.Id?
+                let baseURLId: URL.Id?
                 let subpath: String
             }
 
@@ -49,7 +71,7 @@ enum HostToPluginMessage: Codable {
                 typealias Id = Int
                 let identity: String
                 let displayName: String
-                let directoryId: Path.Id
+                let directoryId: URL.Id
                 let origin: Origin
                 let toolsVersion: ToolsVersion
                 let dependencies: [Dependency]
@@ -59,7 +81,7 @@ enum HostToPluginMessage: Codable {
                 enum Origin: Codable {
                     case root
                     case local(
-                        path: Path.Id)
+                        path: URL.Id)
                     case repository(
                         url: String,
                         displayVersion: String,
@@ -111,7 +133,7 @@ enum HostToPluginMessage: Codable {
             struct Target: Codable {
                 typealias Id = Int
                 let name: String
-                let directoryId: Path.Id
+                let directoryId: URL.Id
                 let dependencies: [Dependency]
                 let info: TargetInfo
 
@@ -141,32 +163,19 @@ enum HostToPluginMessage: Codable {
                         sourceFiles: [File],
                         preprocessorDefinitions: [String],
                         headerSearchPaths: [String],
-                        publicHeadersDirId: Path.Id?,
+                        publicHeadersDirId: URL.Id?,
                         linkedLibraries: [String],
                         linkedFrameworks: [String])
                     
                     case binaryArtifactInfo(
                         kind: BinaryArtifactKind,
                         origin: BinaryArtifactOrigin,
-                        artifactId: Path.Id)
-                    
+                        artifactId: URL.Id)
+
                     case systemLibraryInfo(
                         pkgConfig: String?,
                         compilerFlags: [String],
                         linkerFlags: [String])
-
-                    struct File: Codable {
-                        let basePathId: Path.Id
-                        let name: String
-                        let type: FileType
-
-                        enum FileType: String, Codable {
-                            case source
-                            case header
-                            case resource
-                            case unknown
-                        }
-                    }
 
                     enum SourceModuleKind: String, Codable {
                         case generic
@@ -188,6 +197,70 @@ enum HostToPluginMessage: Codable {
                     }
                 }
             }
+            
+            /// A typed file in the wire structure. All references to other entities are
+            /// their ID numbers.
+            struct File: Codable {
+                let basePathId: URL.Id
+                let name: String
+                let type: FileType
+
+                enum FileType: String, Codable {
+                    case source
+                    case header
+                    case resource
+                    case unknown
+                }
+            }
+
+            /// An Xcode project in the wire structure. All references to other entities are their ID numbers.
+            struct XcodeProject: Codable {
+                typealias Id = Int
+                let displayName: String
+                let directoryPathId: URL.Id
+                let dependencies: [Dependency]
+                let urlIds: [URL.Id]
+                let targetIds: [XcodeTarget.Id]
+
+                /// A dependency on a package or project in the wire structure. All references to
+                /// other entities are ID numbers.
+                enum Dependency: Codable {
+                    case package(Package.Id)
+                    case xcodeProject(XcodeProject.Id)
+                }
+            }
+
+            /// A target in the wire structure. All references to other entities are
+            /// their ID numbers.
+            struct XcodeTarget: Codable {
+                typealias Id = Int
+                let displayName: String
+                let product: XcodeProduct?
+                let dependencies: [Dependency]
+                let inputFiles: [File]
+
+                /// A product in the wire structure.
+                struct XcodeProduct: Codable {
+                    let name: String
+                    let kind: Kind
+                    public enum Kind: Codable {
+                        case application
+                        case executable
+                        case framework
+                        case library
+                        case other(String)
+                    }
+                }
+
+                /// A dependency on either a target or a product in the wire structure.
+                /// All references to other entities are ID their numbers.
+                enum Dependency: Codable {
+                    case target(
+                        targetId: XcodeTarget.Id)
+                    case product(
+                        productId: Product.Id)
+                }
+            }
         }
     
     /// A response to a request to run a build operation.
@@ -199,7 +272,7 @@ enum HostToPluginMessage: Codable {
             var builtArtifacts: [BuiltArtifact]
             
             struct BuiltArtifact: Codable {
-                var path: String
+                var path: URL
                 var kind: Kind
                 
                 enum Kind: String, Codable {
@@ -245,7 +318,7 @@ enum HostToPluginMessage: Codable {
     case symbolGraphResponse(result: SymbolGraphResult)
     
         struct SymbolGraphResult: Codable {
-            var directoryPath: String
+            var directoryPath: URL
         }
     
     /// A response of an error while trying to complete a request.
@@ -262,19 +335,23 @@ enum PluginToHostMessage: Codable {
         enum DiagnosticSeverity: String, Codable {
             case error, warning, remark
         }
-    
+
+    /// The plugin emits a progress message.
+    case emitProgress(message: String)
+
     /// The plugin defines a build command.
-    case defineBuildCommand(configuration: CommandConfiguration, inputFiles: [String], outputFiles: [String])
-    
+    case defineBuildCommand(configuration: CommandConfiguration, inputFiles: [URL], outputFiles: [URL])
+
     /// The plugin defines a prebuild command.
-    case definePrebuildCommand(configuration: CommandConfiguration, outputFilesDirectory: String)
+    case definePrebuildCommand(configuration: CommandConfiguration, outputFilesDirectory: URL)
     
         struct CommandConfiguration: Codable {
+            var version = 2
             var displayName: String?
-            var executable: String
+            var executable: URL
             var arguments: [String]
             var environment: [String: String]
-            var workingDirectory: String?
+            var workingDirectory: URL?
         }
     
     /// The plugin is requesting that a build operation be run.
@@ -289,12 +366,13 @@ enum PluginToHostMessage: Codable {
         struct BuildParameters: Codable {
             var configuration: Configuration
             enum Configuration: String, Codable {
-                case debug, release
+                case debug, release, inherit
             }
             var logging: LogVerbosity
             enum LogVerbosity: String, Codable {
                 case concise, verbose, debug
             }
+            var echoLogs: Bool
             var otherCFlags: [String]
             var otherCxxFlags: [String]
             var otherSwiftcFlags: [String]
@@ -319,7 +397,7 @@ enum PluginToHostMessage: Codable {
         struct SymbolGraphOptions: Codable {
             var minimumAccessLevel: AccessLevel
             enum AccessLevel: String, Codable {
-                case `private`, `fileprivate`, `internal`, `public`, `open`
+                case `private`, `fileprivate`, `internal`, `package`, `public`, `open`
             }
             var includeSynthesized: Bool
             var includeSPI: Bool

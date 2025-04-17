@@ -10,8 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import SwiftASN1
 @_implementationOnly import X509
+#else
+import SwiftASN1
+import X509
+#endif
 
 // MARK: - SigningEntity is the entity that generated the signature
 

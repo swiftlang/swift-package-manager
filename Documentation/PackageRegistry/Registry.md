@@ -1273,7 +1273,7 @@ JSON schema below.
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md",
+  "$id": "https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md",
   "title": "Package Release Metadata",
   "description": "Metadata of a package release.",
   "type": "object",
@@ -1368,7 +1368,7 @@ JSON schema below.
 | `licenseURL`              | String | URL of the package release's license document. | |
 | `originalPublicationTime` | String | Original publication time of the package release in [ISO 8601] format. This can be set if the package release was previously published elsewhere.<br>A registry should record the publication time independently and include it as `publishedAt` in the [package release metadata response](#42-fetch-information-about-a-package-release). <br>In case both `originalPublicationTime` and `publishedAt` are set, `originalPublicationTime` should be used. | |
 | `readmeURL`       | String | URL of the README specifically for the package release or broadly for the package. | |
-| `repositoryURLs`  | Array | Code repository URL(s) of the package. It is recommended to include all URL variations (e.g., SSH, HTTPS) for the same repository. This can be an empty array if the package does not have source control representation.<br/>Setting this property is one way through which a registry can obtain repository URL to package identifier mappings for the ["lookup package identifiers registered for a URL" API](https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md#45-lookup-package-identifiers-registered-for-a-url). A registry may choose other mechanism(s) for package authors to specify such mappings. | |
+| `repositoryURLs`  | Array | Code repository URL(s) of the package. It is recommended to include all URL variations (e.g., SSH, HTTPS) for the same repository. This can be an empty array if the package does not have source control representation.<br/>Setting this property is one way through which a registry can obtain repository URL to package identifier mappings for the ["lookup package identifiers registered for a URL" API](Registry.md#45-lookup-package-identifiers-registered-for-a-url). A registry may choose other mechanism(s) for package authors to specify such mappings. | |
 
 ##### `Author` type
 
@@ -1427,6 +1427,6 @@ JSON schema below.
 [thundering herd effect]: https://en.wikipedia.org/wiki/Thundering_herd_problem "Thundering herd problem"
 [offline cache]: https://yarnpkg.com/features/offline-cache "Offline Cache | Yarn - Package Manager"
 [XCFramework]: https://developer.apple.com/videos/play/wwdc2019/416/ "WWDC 2019 Session 416: Binary Frameworks in Swift"
-[SE-0272]: https://github.com/apple/swift-evolution/blob/master/proposals/0272-swiftpm-binary-dependencies.md "Package Manager Binary Dependencies"
-[Swift tools version]: https://github.com/apple/swift-package-manager/blob/9b9bed7eaf0f38eeccd0d8ca06ae08f6689d1c3f/Documentation/Usage.md#swift-tools-version-specification "Swift Tools Version Specification"
+[SE-0272]: https://github.com/swiftlang/swift-evolution/blob/master/proposals/0272-swiftpm-binary-dependencies.md "Package Manager Binary Dependencies"
+[Swift tools version]: https://github.com/swiftlang/swift-package-manager/blob/9b9bed7eaf0f38eeccd0d8ca06ae08f6689d1c3f/Documentation/Usage.md#swift-tools-version-specification "Swift Tools Version Specification"
 [ISO 8601]: https://www.iso.org/iso-8601-date-and-time-format.html "ISO 8601 Date and Time Format"

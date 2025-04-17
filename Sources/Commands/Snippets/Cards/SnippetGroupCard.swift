@@ -19,7 +19,7 @@ struct SnippetGroupCard: Card {
     var snippetGroup: SnippetGroup
 
     /// The tool used for eventually building and running a chosen snippet.
-    var swiftTool: SwiftTool
+    var swiftCommandState: SwiftCommandState
 
     var inputPrompt: String? {
         return """
@@ -29,7 +29,7 @@ struct SnippetGroupCard: Card {
             To exit, enter `q`.
             """
     }
-    
+
     func acceptLineInput<S>(_ line: S) -> CardEvent? where S : StringProtocol {
         if line.isEmpty || line.allSatisfy({ $0.isWhitespace }) {
             return .pop()
@@ -39,9 +39,9 @@ struct SnippetGroupCard: Card {
         }
         if let index = Int(line),
            snippetGroup.snippets.indices.contains(index) {
-            return .push(SnippetCard(snippet: snippetGroup.snippets[index], number: index, swiftTool: swiftTool))
+            return .push(SnippetCard(snippet: snippetGroup.snippets[index], number: index, swiftCommandState: swiftCommandState))
         } else if let foundSnippetIndex = snippetGroup.snippets.firstIndex(where: { $0.name == line }) {
-            return .push(SnippetCard(snippet: snippetGroup.snippets[foundSnippetIndex], number: foundSnippetIndex, swiftTool: swiftTool))
+            return .push(SnippetCard(snippet: snippetGroup.snippets[foundSnippetIndex], number: foundSnippetIndex, swiftCommandState: swiftCommandState))
         } else {
             print(red { "There is not a snippet by that name or index." })
             return nil
@@ -49,15 +49,23 @@ struct SnippetGroupCard: Card {
     }
 
     func render() -> String {
+        let isColorized = swiftCommandState.options.logging.colorDiagnostics
         precondition(!snippetGroup.snippets.isEmpty)
 
-        var rendered = brightYellow {
+        var rendered = isColorized ? brightYellow {
             """
             # \(snippetGroup.name)
 
-            
+
             """
-        }.terminalString()
+        }.terminalString() :
+            plain {
+                """
+                # \(snippetGroup.name)
+
+
+                """
+            }.terminalString()
 
         if !snippetGroup.explanation.isEmpty {
             rendered += snippetGroup.explanation
@@ -68,12 +76,18 @@ struct SnippetGroupCard: Card {
             .enumerated()
             .map { pair -> String in
                 let (number, snippet) = pair
-                return brightCyan {
+                return isColorized ? brightCyan {
                     "\(number). \(snippet.name)\n"
                     plain {
-                      snippet.explanation.spm_multilineIndent(count: 3)
+                        snippet.explanation.spm_multilineIndent(count: 3)
                     }
-                }.terminalString()
+                }.terminalString() :
+                    plain {
+                        "\(number). \(snippet.name)\n"
+                        plain {
+                            snippet.explanation.spm_multilineIndent(count: 3)
+                        }
+                    }.terminalString()
             }
             .joined(separator: "\n\n")
 

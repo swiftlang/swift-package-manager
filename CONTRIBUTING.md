@@ -2,7 +2,7 @@
 
 There are several types of contributions one can make. Bug fixes, documentation and enhancements that do not materially change the user facing semantics of Swift Package Manager should be submitted directly as PR.
 
-Larger changes that do materially change the semantics of Swift Package Manager (e.g. changes to the manifest format or behavior) are required to go through [Swift Evolution Process](https://github.com/apple/swift-evolution/blob/master/process.md).
+Larger changes that do materially change the semantics of Swift Package Manager (e.g. changes to the manifest format or behavior) are required to go through [Swift Evolution Process](https://github.com/swiftlang/swift-evolution/blob/master/process.md).
 
 To see how previous evolution decisions for SwiftPM have been made and have some direction for the development of future features please check out the [Community Proposals](https://forums.swift.org/tag/packagemanager).
 
@@ -10,7 +10,7 @@ For more information about making contributions to the Swift project in general 
 
 ## Reporting issues
 
-Issues are tracked using [SwiftPM GitHub Issue Tracker](https://github.com/apple/swift-package-manager/issues).
+Issues are tracked using [SwiftPM GitHub Issue Tracker](https://github.com/swiftlang/swift-package-manager/issues).
 
 Fill the following fields:
 
@@ -37,7 +37,7 @@ generated and the Xcode build log.
 
 ## Setting up the development environment
 
-First, clone a copy of SwiftPM code from https://github.com/apple/swift-package-manager.
+First, clone a copy of SwiftPM code from https://github.com/swiftlang/swift-package-manager.
 
 If you are preparing to make a contribution you should fork the repository first and clone the fork which will make opening Pull Requests easier. See "Creating Pull Requests" section below.
 
@@ -88,7 +88,7 @@ $> swift --version
 Apple Swift version 5.3
 ```
 
-Note: Alternatively use tools like [swiftenv](https://github.com/kylef/swiftenv) that help manage toolchains versions.
+Note: Alternatively use tools like [swiftly](https://www.swift.org/swiftly/documentation/swiftlydocs/) that help manage toolchains versions.
 
 ## Local Development
 
@@ -174,26 +174,19 @@ Clone the following repositories beside the SwiftPM directory:
    $> git clone https://github.com/apple/swift-tools-support-core
    ```
 
-4. [Yams] and checkout tag with the [latest version](https://github.com/jpsim/Yams.git/tags) before 5.0.0.
-
-   For example, if the latest tag is 4.0.6:
-   ```sh
-   $> git clone https://github.com/jpsim/yams --branch 4.0.6
-   ```
-
-5. [swift-driver]
+4. [swift-driver]
    ```sh
    $> git clone https://github.com/apple/swift-driver
    ```
 
-6. [swift-system] and check out tag with the [latest version](https://github.com/apple/swift-system/tags).
+5. [swift-system] and check out tag with the [latest version](https://github.com/apple/swift-system/tags).
 
     For example, if the latest tag is 1.0.0:
     ```sh
     $> git clone https://github.com/apple/swift-system --branch 1.0.0
     ```
 
-7. [swift-collections] and check out tag with the [latest version](https://github.com/apple/swift-collections/tags).
+6. [swift-collections] and check out tag with the [latest version](https://github.com/apple/swift-collections/tags).
 
     For example, if the latest tag is 1.0.1:
     ```sh
@@ -217,6 +210,16 @@ Clone the following repositories beside the SwiftPM directory:
    $> git clone https://github.com/apple/swift-certificates
    ```
 
+10. [swift-syntax]
+   ```sh
+   $> git clone https://github.com/swiftlang/swift-syntax
+   ```
+
+11. [swift-toolchain-sqlite]
+   ```sh
+   $> git clone https://github.com/swiftlang/swift-toolchain-sqlite
+   ```
+
 [swift-argument-parser]: https://github.com/apple/swift-argument-parser
 [swift-collections]: https://github.com/apple/swift-collections
 [swift-driver]: https://github.com/apple/swift-driver
@@ -226,7 +229,8 @@ Clone the following repositories beside the SwiftPM directory:
 [swift-crypto]: https://github.com/apple/swift-crypto
 [swift-asn1]: https://github.com/apple/swift-asn1
 [swift-certificates]: https://github.com/apple/swift-certificates
-[Yams]: https://github.com/jpsim/yams
+[swift-toolchain-sqlite]: https://github.com/swiftlang/swift-toolchain-sqlite
+[swift-syntax]: https://github.com/swiftlang/swift-syntax
 
 
 #### Building
@@ -314,12 +318,12 @@ Note there are several Linux and Swift versions options to choose from, e.g.:
 
 ## Creating Pull Requests
 
-1. Fork: https://github.com/apple/swift-package-manager
+1. Fork: https://github.com/swiftlang/swift-package-manager
 2. Clone a working copy of your fork
 3. Create a new branch
 4. Make your code changes
 5. Try to keep your changes (when possible) below 200 lines of code.
-6. We use [SwiftFormat](https://www.github.com/nicklockwood/SwiftFormat) to enforce code style. Please install and run SwiftFormat before submitting your PR.
+6. We use [SwiftFormat](https://www.github.com/nicklockwood/SwiftFormat) to enforce code style. Please install and run SwiftFormat before submitting your PR, ideally isolating formatting changes only to code changed for the original goal of the PR. This will keep the PR diff smaller.
 7. Commit (include the Radar link or GitHub issue id in the commit message if possible and a description your changes). Try to have only 1 commit in your PR (but, of course, if you add changes that can be helpful to be kept aside from the previous commit, make a new commit for them).
 8. Push the commit / branch to your fork
 9. Make a PR from your fork / branch to `apple: main`
@@ -336,11 +340,6 @@ license](https://swift.org/LICENSE.txt).
 
 SwiftPM uses [swift-ci](https://ci.swift.org) infrastructure for its continuous integration testing. The bots can be triggered on pull-requests if you have commit access. Otherwise, ask one of the code owners to trigger them for you.
 
-To run smoke test suite with the trunk compiler and other projects use:
-
-```
-@swift-ci please smoke test
-```
 
 This is **required** before a pull-request can be merged.
 
@@ -348,9 +347,14 @@ This is **required** before a pull-request can be merged.
 To run just the self-hosted test suite (faster turnaround times so it can be used to get quick feedback) use:
 
 ```
-@swift-ci please smoke test self hosted
+@swift-ci please test self hosted
 ```
 
+To run the windows self-hosted suite, use:
+
+```
+@swift-ci please test self hosted windows
+```
 
 To run the swift toolchain test suite including SwiftPM use:
 
@@ -358,12 +362,20 @@ To run the swift toolchain test suite including SwiftPM use:
 @swift-ci please test
 ```
 
+To run the swift toolchain test suite against a specific platform use one of the following:
+
+```
+@swift-ci please test macos
+@swift-ci please test linux
+@swift-ci please test windows
+```
 
 To run package compatibility test suite (validates we do not break 3rd party packages) use:
 
 ```
 @swift-ci please test package compatibility
 ```
+
 
 ## Generating Documentation
 
@@ -421,7 +433,7 @@ SwiftPM uses [Tools Support Core](https://github.com/apple/swift-tools-support-c
 
 If you want to connect with the Swift community you can:
 * Use Swift Forums: [https://forums.swift.org/c/development/SwiftPM](https://forums.swift.org/c/development/SwiftPM)
-* Contact the CODEOWNERS: https://github.com/apple/swift-package-manager/blob/main/CODEOWNERS
+* Contact the CODEOWNERS: https://github.com/swiftlang/swift-package-manager/blob/main/CODEOWNERS
 
 ## Additional resources
 

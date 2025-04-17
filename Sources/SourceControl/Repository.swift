@@ -89,9 +89,6 @@ public protocol RepositoryProvider: Cancellable {
     /// - Throws: If there is any error fetching the repository.
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler?) throws
 
-    /// Returns true if a  repository exists at `path`
-    func repositoryExists(at path: AbsolutePath) throws -> Bool
-
     /// Open the given repository.
     ///
     /// - Parameters:
@@ -143,10 +140,10 @@ public protocol RepositoryProvider: Cancellable {
     func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws
 
     /// Returns true if the directory is valid git location.
-    func isValidDirectory(_ directory: AbsolutePath) -> Bool
+    func isValidDirectory(_ directory: AbsolutePath) throws -> Bool
 
-    /// Returns true if the git reference name is well formed.
-    func isValidRefFormat(_ ref: String) -> Bool
+    /// Returns true if the directory is valid git location for the specified repository
+    func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool
 }
 
 /// Abstract repository operations.
@@ -254,7 +251,7 @@ public protocol WorkingCheckout {
     func hasUnpushedCommits() throws -> Bool
 
     /// This check for any modified state of the repository and returns true
-    /// if there are uncommited changes.
+    /// if there are uncommitted changes.
     func hasUncommittedChanges() -> Bool
 
     /// Check out the given tag.

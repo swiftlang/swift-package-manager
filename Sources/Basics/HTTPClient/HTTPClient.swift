@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-import DequeModule
 import Foundation
 
 /// `async`-friendly wrapper for HTTP clients. It allows a specific client implementation (either Foundation or
@@ -40,6 +39,9 @@ public actor HTTPClient {
 
     /// Array of `HostErrors` values, which is used for applying a circuit-breaking strategy.
     private var hostsErrors = [String: HostErrors]()
+
+    /// Tracks all active network request tasks.
+    private var activeTasks: Set<Task<HTTPClient.Response, Error>> = []
 
     public init(configuration: HTTPClientConfiguration = .init(), implementation: Implementation? = nil) {
         self.configuration = configuration
@@ -93,6 +95,21 @@ public actor HTTPClient {
         return try await self.executeWithStrategies(request: request, requestNumber: 0, observabilityScope, progress)
     }
 
+    /// Cancel all in flight network reqeusts.
+    public func cancel(deadline: DispatchTime) async {
+        for task in activeTasks {
+            task.cancel()
+        }
+
+        // Wait for tasks to complete or timeout
+        while !activeTasks.isEmpty && (deadline.distance(to: .now()).nanoseconds() ?? 0) > 0 {
+            await Task.yield()
+        }
+
+        // Clear out the active task list regardless of whether they completed or not
+        activeTasks.removeAll()
+    }
+
     private func executeWithStrategies(
         request: Request,
         requestNumber: Int,
@@ -105,46 +122,57 @@ public actor HTTPClient {
             throw HTTPClientError.circuitBreakerTriggered
         }
 
-        let response = try await self.tokenBucket.withToken {
-            try await self.implementation(request) { received, expected in
-                if let max = request.options.maximumResponseSizeInBytes {
-                    guard received < max else {
-                        // It's a responsibility of the underlying client implementation to cancel the request
-                        // when this closure throws an error
-                        throw HTTPClientError.responseTooLarge(received)
-                    }
-                }
+        let task = Task {
+            let response = try await self.tokenBucket.withToken {
+                try Task.checkCancellation()
 
-                try progress?(received, expected)
+                return try await self.implementation(request) { received, expected in
+                    if let max = request.options.maximumResponseSizeInBytes {
+                        guard received < max else {
+                            // It's a responsibility of the underlying client implementation to cancel the request
+                            // when this closure throws an error
+                            throw HTTPClientError.responseTooLarge(received)
+                        }
+                    }
+
+                    try progress?(received, expected)
+                }
+            }
+
+            self.recordErrorIfNecessary(response: response, request: request)
+
+            // handle retry strategy
+            if let retryDelay = self.calculateRetry(
+                response: response,
+                request: request,
+                requestNumber: requestNumber
+            ), let retryDelayInNanoseconds = retryDelay.nanoseconds() {
+                try Task.checkCancellation()
+
+                observabilityScope?.emit(warning: "\(request.url) failed, retrying in \(retryDelay)")
+                try await Task.sleep(nanoseconds: UInt64(retryDelayInNanoseconds))
+
+                return try await self.executeWithStrategies(
+                    request: request,
+                    requestNumber: requestNumber + 1,
+                    observabilityScope,
+                    progress
+                )
+            }
+            // check for valid response codes
+            if let validResponseCodes = request.options.validResponseCodes,
+            !validResponseCodes.contains(response.statusCode)
+            {
+                throw HTTPClientError.badResponseStatusCode(response.statusCode)
+            } else {
+                return response
             }
         }
 
-        self.recordErrorIfNecessary(response: response, request: request)
+        activeTasks.insert(task)
+        defer { activeTasks.remove(task) }
 
-        // handle retry strategy
-        if let retryDelay = self.calculateRetry(
-            response: response,
-            request: request,
-            requestNumber: requestNumber
-        ), let retryDelayInNanoseconds = retryDelay.nanoseconds() {
-            observabilityScope?.emit(warning: "\(request.url) failed, retrying in \(retryDelay)")
-            try await Task.sleep(nanoseconds: UInt64(retryDelayInNanoseconds))
-
-            return try await self.executeWithStrategies(
-                request: request,
-                requestNumber: requestNumber + 1,
-                observabilityScope,
-                progress
-            )
-        }
-        // check for valid response codes
-        if let validResponseCodes = request.options.validResponseCodes,
-           !validResponseCodes.contains(response.statusCode)
-        {
-            throw HTTPClientError.badResponseStatusCode(response.statusCode)
-        } else {
-            return response
-        }
+        return try await task.value
     }
 
     private func calculateRetry(response: Response, request: Request, requestNumber: Int) -> SendableTimeInterval? {
@@ -257,6 +285,28 @@ extension HTTPClient {
     ) async throws -> Response {
         try await self.execute(
             Request(method: .delete, url: url, headers: headers, body: nil, options: options)
+        )
+    }
+
+    public func download(
+        _ url: URL,
+        headers: HTTPClientHeaders = .init(),
+        options: Request.Options = .init(),
+        progressHandler: ProgressHandler? = nil,
+        fileSystem: FileSystem,
+        destination: AbsolutePath,
+        observabilityScope: ObservabilityScope? = .none
+    ) async throws -> Response {
+        try await self.execute(
+            Request(
+                kind: .download(fileSystem: fileSystem, destination: destination),
+                url: url,
+                headers: headers,
+                body: nil,
+                options: options
+            ),
+            observabilityScope: observabilityScope,
+            progress: progressHandler
         )
     }
 }

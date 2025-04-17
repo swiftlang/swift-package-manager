@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@_implementationOnly import struct Foundation.Data
+import struct Foundation.Data
 
 public enum ManifestSignatureParser {
     public static func parse(manifestPath: AbsolutePath, fileSystem: FileSystem) throws -> ManifestSignature? {

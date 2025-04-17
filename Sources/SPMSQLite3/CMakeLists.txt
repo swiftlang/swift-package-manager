@@ -11,3 +11,6 @@ target_include_directories(SPMSQLite3 INTERFACE
   ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(SPMSQLite3 INTERFACE
   SQLite::SQLite3)
+if(CMAKE_SYSTEM_NAME STREQUAL OpenBSD)
+  target_link_options(SPMSQLite3 INTERFACE "-L/usr/local/lib")
+endif()

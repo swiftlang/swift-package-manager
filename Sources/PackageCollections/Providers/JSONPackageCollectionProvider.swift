@@ -32,7 +32,7 @@ private typealias JSONModel = PackageCollectionModel.V1
 struct JSONPackageCollectionProvider: PackageCollectionProvider {
     // TODO: This can be removed when the `Security` framework APIs that the `PackageCollectionsSigning`
     // module depends on are available on all Apple platforms.
-    #if os(macOS) || os(Linux) || os(Windows) || os(Android)
+    #if os(macOS) || os(Linux) || os(Windows) || os(Android) || os(FreeBSD)
     static let isSignatureCheckSupported = true
     #else
     static let isSignatureCheckSupported = false
@@ -72,201 +72,165 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         self.decoder = JSONDecoder.makeWithDefaults()
     }
 
-    func get(_ source: Model.CollectionSource, callback: @escaping (Result<Model.Collection, Error>) -> Void) {
+    func get(_ source: Model.CollectionSource) async throws -> Model.Collection {
         guard case .json = source.type else {
-            return callback(
-                .failure(
-                    InternalError(
-                        "JSONPackageCollectionProvider can only be used for fetching 'json' package collections"
-                    )
-                )
+            throw InternalError(
+                "JSONPackageCollectionProvider can only be used for fetching 'json' package collections"
             )
         }
 
         if let errors = source.validate(fileSystem: fileSystem)?.errors() {
-            return callback(.failure(JSONPackageCollectionProviderError.invalidSource("\(errors)")))
+            throw JSONPackageCollectionProviderError.invalidSource("\(errors)")
         }
 
         // Source is a local file
         if let absolutePath = source.absolutePath {
-            do {
-                let data: Data = try self.fileSystem.readFileContents(absolutePath)
-                return self.decodeAndRunSignatureCheck(
-                    source: source,
-                    data: data,
-                    certPolicyKeys: Self.defaultCertPolicyKeys,
-                    callback: callback
-                )
-            } catch {
-                return callback(.failure(error))
-            }
+            let data: Data = try self.fileSystem.readFileContents(absolutePath)
+            return try await self.decodeAndRunSignatureCheck(
+                source: source,
+                data: data,
+                certPolicyKeys: Self.defaultCertPolicyKeys
+            )
         }
 
         // first do a head request to check content size compared to the maximumSizeInBytes constraint
         let headOptions = self.makeRequestOptions(validResponseCodes: [200])
         let headers = self.makeRequestHeaders()
-        self.httpClient.head(source.url, headers: headers, options: headOptions) { result in
-            switch result {
-            case .failure(HTTPClientError.badResponseStatusCode(let statusCode)):
-                if statusCode == 404 {
-                    return callback(.failure(JSONPackageCollectionProviderError.collectionNotFound(source.url)))
-                } else {
-                    return callback(.failure(
-                        JSONPackageCollectionProviderError
-                            .collectionUnavailable(source.url, statusCode)
-                    ))
-                }
-            case .failure(let error):
-                return callback(.failure(error))
-            case .success(let response):
-                guard let contentLength = response.headers.get("Content-Length").first.flatMap(Int64.init) else {
-                    return callback(.failure(
-                        JSONPackageCollectionProviderError
-                            .invalidResponse(source.url, "Missing Content-Length header")
-                    ))
-                }
-                guard contentLength <= self.configuration.maximumSizeInBytes else {
-                    return callback(.failure(
-                        JSONPackageCollectionProviderError
-                            .responseTooLarge(source.url, contentLength)
-                    ))
-                }
-                // next do a get request to get the actual content
-                var getOptions = self.makeRequestOptions(validResponseCodes: [200])
-                getOptions.maximumResponseSizeInBytes = self.configuration.maximumSizeInBytes
-                self.httpClient.get(source.url, headers: headers, options: getOptions) { result in
-                    switch result {
-                    case .failure(HTTPClientError.badResponseStatusCode(let statusCode)):
-                        if statusCode == 404 {
-                            return callback(.failure(JSONPackageCollectionProviderError.collectionNotFound(source.url)))
-                        } else {
-                            return callback(.failure(
-                                JSONPackageCollectionProviderError
-                                    .collectionUnavailable(source.url, statusCode)
-                            ))
-                        }
-                    case .failure(let error):
-                        return callback(.failure(error))
-                    case .success(let response):
-                        // check content length again so we can record this as a bad actor
-                        // if not returning head and exceeding size
-                        // TODO: store bad actors to prevent server DoS
-                        guard let contentLength = response.headers.get("Content-Length").first.flatMap(Int64.init)
-                        else {
-                            return callback(.failure(
-                                JSONPackageCollectionProviderError
-                                    .invalidResponse(source.url, "Missing Content-Length header")
-                            ))
-                        }
-                        guard contentLength < self.configuration.maximumSizeInBytes else {
-                            return callback(.failure(
-                                JSONPackageCollectionProviderError
-                                    .responseTooLarge(source.url, contentLength)
-                            ))
-                        }
-                        guard let body = response.body else {
-                            return callback(.failure(
-                                JSONPackageCollectionProviderError
-                                    .invalidResponse(source.url, "Body is empty")
-                            ))
-                        }
-
-                        let certPolicyKeys = self.sourceCertPolicy.certificatePolicyKeys(for: source) ?? Self
-                            .defaultCertPolicyKeys
-                        self.decodeAndRunSignatureCheck(
-                            source: source,
-                            data: body,
-                            certPolicyKeys: certPolicyKeys,
-                            callback: callback
-                        )
-                    }
-                }
+        let response: LegacyHTTPClient.Response
+        do {
+            response = try await self.httpClient.head(source.url, headers: headers, options: headOptions)
+        } catch HTTPClientError.badResponseStatusCode(let statusCode) {
+            if statusCode == 404 {
+                throw JSONPackageCollectionProviderError
+                    .collectionNotFound(source.url)
             }
+            throw JSONPackageCollectionProviderError
+                .collectionUnavailable(source.url, statusCode)
         }
+        guard let contentLength = response.headers.get("Content-Length").first.flatMap(Int64.init) else {
+            throw JSONPackageCollectionProviderError
+                .invalidResponse(source.url, "Missing Content-Length header")
+        }
+        guard contentLength <= self.configuration.maximumSizeInBytes else {
+            throw JSONPackageCollectionProviderError
+                .responseTooLarge(source.url, contentLength)
+        }
+        // next do a get request to get the actual content
+        var getOptions = self.makeRequestOptions(validResponseCodes: [200])
+        getOptions.maximumResponseSizeInBytes = self.configuration.maximumSizeInBytes
+
+        let getResponse: LegacyHTTPClient.Response
+        do {
+            getResponse = try await self.httpClient.get(source.url, headers: headers, options: getOptions)
+        } catch HTTPClientError.badResponseStatusCode(let statusCode) {
+            if statusCode == 404 {
+                throw JSONPackageCollectionProviderError
+                    .collectionNotFound(source.url)
+            }
+            throw JSONPackageCollectionProviderError
+                .collectionUnavailable(source.url, statusCode)
+        }
+
+        // check content length again so we can record this as a bad actor
+        // if not returning head and exceeding size
+        // TODO: store bad actors to prevent server DoS
+        guard let contentLength = getResponse.headers.get("Content-Length").first.flatMap(Int64.init)
+        else {
+            throw JSONPackageCollectionProviderError
+                .invalidResponse(source.url, "Missing Content-Length header")
+        }
+        guard contentLength < self.configuration.maximumSizeInBytes else {
+            throw JSONPackageCollectionProviderError
+                .responseTooLarge(source.url, contentLength)
+        }
+        guard let body = getResponse.body else {
+            throw JSONPackageCollectionProviderError
+                .invalidResponse(source.url, "Body is empty")
+        }
+
+        let certPolicyKeys = self.sourceCertPolicy.certificatePolicyKeys(for: source) ?? Self
+            .defaultCertPolicyKeys
+        return try await self.decodeAndRunSignatureCheck(
+            source: source,
+            data: body,
+            certPolicyKeys: certPolicyKeys
+        )
     }
 
     private func decodeAndRunSignatureCheck(
         source: Model.CollectionSource,
         data: Data,
-        certPolicyKeys: [CertificatePolicyKey],
-        callback: @escaping (Result<Model.Collection, Error>) -> Void
-    ) {
+        certPolicyKeys: [CertificatePolicyKey]
+    ) async throws -> Model.Collection {
+        let signedCollection: JSONModel.SignedCollection
         do {
             // This fails if collection is not signed (i.e., no "signature")
-            let signedCollection = try self.decoder.decode(JSONModel.SignedCollection.self, from: data)
-
-            if source.skipSignatureCheck {
-                // Don't validate signature; set isVerified=false
-                callback(self.makeCollection(
-                    from: signedCollection.collection,
-                    source: source,
-                    signature: Model.SignatureData(from: signedCollection.signature, isVerified: false)
-                ))
-            } else if !Self.isSignatureCheckSupported {
-                callback(.failure(StringError("Unsupported platform")))
-            } else {
-                // Check the signature
-                Task {
-                    let signatureResults = await withTaskGroup(of: Result<Void, Error>.self) { group in
-                        for certPolicyKey in certPolicyKeys {
-                            group.addTask {
-                                do {
-                                    try await self.signatureValidator.validate(
-                                        signedCollection: signedCollection,
-                                        certPolicyKey: certPolicyKey
-                                    )
-                                    return .success(())
-                                } catch {
-                                    return .failure(error)
-                                }
-                            }
-                        }
-                        return await group.reduce(into: []) { partialResult, validateResult in
-                            partialResult.append(validateResult)
-                        }
-                    }
-                    
-                    if signatureResults.compactMap(\.success).first != nil {
-                        callback(self.makeCollection(
-                            from: signedCollection.collection,
-                            source: source,
-                            signature: Model.SignatureData(from: signedCollection.signature, isVerified: true)
-                        ))
-                    } else {
-                        guard let error = signatureResults.compactMap(\.failure).first else {
-                            return callback(
-                                .failure(
-                                    InternalError(
-                                        "Expected at least one package collection signature validation failure but got none"
-                                    )
-                                )
-                            )
-                        }
-
-                        self.observabilityScope.emit(
-                            warning: "The signature of package collection [\(source)] is invalid",
-                            underlyingError: error
-                        )
-                        if PackageCollectionSigningError
-                            .noTrustedRootCertsConfigured == error as? PackageCollectionSigningError
-                        {
-                            callback(.failure(PackageCollectionError.cannotVerifySignature))
-                        } else {
-                            callback(.failure(PackageCollectionError.invalidSignature))
-                        }
-                    }
-                }
-            }
+            signedCollection = try self.decoder.decode(JSONModel.SignedCollection.self, from: data)
         } catch {
             // Bad: collection is supposed to be signed but it isn't
             guard !self.sourceCertPolicy.mustBeSigned(source: source) else {
-                return callback(.failure(PackageCollectionError.missingSignature))
+                throw PackageCollectionError.missingSignature
             }
             // Collection is unsigned
             guard let collection = try? self.decoder.decode(JSONModel.Collection.self, from: data) else {
-                return callback(.failure(JSONPackageCollectionProviderError.invalidJSON(source.url)))
+                throw JSONPackageCollectionProviderError.invalidJSON(source.url)
             }
-            callback(self.makeCollection(from: collection, source: source, signature: nil))
+            return try self.makeCollection(from: collection, source: source, signature: nil)
+        }
+        if source.skipSignatureCheck {
+            // Don't validate signature; set isVerified=false
+            return try self.makeCollection(
+                from: signedCollection.collection,
+                source: source,
+                signature: Model.SignatureData(from: signedCollection.signature, isVerified: false)
+            )
+        } else if !Self.isSignatureCheckSupported {
+            throw StringError("Unsupported platform")
+        }
+        // Check the signature
+        do {
+            return try await withThrowingTaskGroup(of: Void.self) { group in
+                for certPolicyKey in certPolicyKeys {
+                    group.addTask {
+                        try await self.signatureValidator.validate(
+                            signedCollection: signedCollection,
+                            certPolicyKey: certPolicyKey
+                        )
+                    }
+                }
+
+                // if there is one valid key return the validated collection
+                // otherwise throw the error for the last key
+                var results = 0
+                while results < certPolicyKeys.count {
+                    results += 1
+                    do {
+                        try await group.next()
+                        break
+                    } catch {
+                        if results == certPolicyKeys.count {
+                            throw error
+                        }
+                    }
+                }
+                return try self.makeCollection(
+                    from: signedCollection.collection,
+                    source: source,
+                    signature: Model.SignatureData(from: signedCollection.signature, isVerified: true)
+                )
+            }
+        } catch {
+            self.observabilityScope.emit(
+                warning: "The signature of package collection [\(source)] is invalid",
+                underlyingError: error
+            )
+            if PackageCollectionSigningError
+                .noTrustedRootCertsConfigured == error as? PackageCollectionSigningError
+            {
+                throw PackageCollectionError.cannotVerifySignature
+            } else {
+                throw PackageCollectionError.invalidSignature
+            }
         }
     }
 
@@ -274,137 +238,133 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         from collection: JSONModel.Collection,
         source: Model.CollectionSource,
         signature: Model.SignatureData?
-    ) -> Result<Model.Collection, Error> {
-        do {
-            if let errors = self.validator.validate(collection: collection)?.errors() {
-                throw JSONPackageCollectionProviderError
-                    .invalidCollection("\(errors.map(\.message).joined(separator: " "))")
-            }
+    ) throws -> Model.Collection {
+        if let errors = self.validator.validate(collection: collection)?.errors() {
+            throw JSONPackageCollectionProviderError
+                .invalidCollection("\(errors.map(\.message).joined(separator: " "))")
+        }
 
-            var serializationOkay = true
-            let packages = try collection.packages.map { package -> Model.Package in
-                let versions = try package.versions.compactMap { version -> Model.Package.Version? in
-                    // note this filters out / ignores missing / bad data in attempt to make the most out of the
-                    // provided set
-                    guard let parsedVersion = TSCUtility.Version(tag: version.version) else {
-                        return nil
-                    }
-
-                    let manifests: [ToolsVersion: Model.Package.Version.Manifest] =
-                        try Dictionary(throwingUniqueKeysWithValues: version.manifests.compactMap { key, value in
-                            guard let keyToolsVersion = ToolsVersion(string: key),
-                                  let manifestToolsVersion = ToolsVersion(string: value.toolsVersion)
-                            else {
-                                return nil
-                            }
-
-                            let targets = value.targets.map { Model.Target(name: $0.name, moduleName: $0.moduleName) }
-                            if targets.count != value.targets.count {
-                                serializationOkay = false
-                            }
-                            let products = value.products
-                                .compactMap { Model.Product(from: $0, packageTargets: targets) }
-                            if products.count != value.products.count {
-                                serializationOkay = false
-                            }
-                            let minimumPlatformVersions: [PackageModel.SupportedPlatform]? = value
-                                .minimumPlatformVersions?
-                                .compactMap { PackageModel.SupportedPlatform(from: $0) }
-                            if minimumPlatformVersions?.count != value.minimumPlatformVersions?.count {
-                                serializationOkay = false
-                            }
-
-                            let manifest = Model.Package.Version.Manifest(
-                                toolsVersion: manifestToolsVersion,
-                                packageName: value.packageName,
-                                targets: targets,
-                                products: products,
-                                minimumPlatformVersions: minimumPlatformVersions
-                            )
-                            return (keyToolsVersion, manifest)
-                        })
-                    if manifests.count != version.manifests.count {
-                        serializationOkay = false
-                    }
-
-                    guard let defaultToolsVersion = ToolsVersion(string: version.defaultToolsVersion) else {
-                        return nil
-                    }
-
-                    let verifiedCompatibility = version.verifiedCompatibility?
-                        .compactMap { Model.Compatibility(from: $0) }
-                    if verifiedCompatibility?.count != version.verifiedCompatibility?.count {
-                        serializationOkay = false
-                    }
-                    let license = version.license.flatMap { Model.License(from: $0) }
-
-                    let signer: Model.Signer?
-                    if let versionSigner = version.signer,
-                       let signerType = Model.SignerType(rawValue: versionSigner.type.lowercased())
-                    {
-                        signer = .init(
-                            type: signerType,
-                            commonName: versionSigner.commonName,
-                            organizationalUnitName: versionSigner.organizationalUnitName,
-                            organizationName: versionSigner.organizationName
-                        )
-                    } else {
-                        signer = nil
-                    }
-
-                    return .init(
-                        version: parsedVersion,
-                        title: nil,
-                        summary: version.summary,
-                        manifests: manifests,
-                        defaultToolsVersion: defaultToolsVersion,
-                        verifiedCompatibility: verifiedCompatibility,
-                        license: license,
-                        author: version.author.map { .init(username: $0.name, url: nil, service: nil) },
-                        signer: signer,
-                        createdAt: version.createdAt
-                    )
+        var serializationOkay = true
+        let packages = try collection.packages.map { package -> Model.Package in
+            let versions = try package.versions.compactMap { version -> Model.Package.Version? in
+                // note this filters out / ignores missing / bad data in attempt to make the most out of the
+                // provided set
+                guard let parsedVersion = TSCUtility.Version(tag: version.version) else {
+                    return nil
                 }
-                if versions.count != package.versions.count {
+
+                let manifests: [ToolsVersion: Model.Package.Version.Manifest] =
+                try Dictionary(throwingUniqueKeysWithValues: version.manifests.compactMap { key, value in
+                    guard let keyToolsVersion = ToolsVersion(string: key),
+                          let manifestToolsVersion = ToolsVersion(string: value.toolsVersion)
+                    else {
+                        return nil
+                    }
+
+                    let targets = value.targets.map { Model.Target(name: $0.name, moduleName: $0.moduleName) }
+                    if targets.count != value.targets.count {
+                        serializationOkay = false
+                    }
+                    let products = value.products
+                        .compactMap { Model.Product(from: $0, packageTargets: targets) }
+                    if products.count != value.products.count {
+                        serializationOkay = false
+                    }
+                    let minimumPlatformVersions: [PackageModel.SupportedPlatform]? = value
+                        .minimumPlatformVersions?
+                        .compactMap { PackageModel.SupportedPlatform(from: $0) }
+                    if minimumPlatformVersions?.count != value.minimumPlatformVersions?.count {
+                        serializationOkay = false
+                    }
+
+                    let manifest = Model.Package.Version.Manifest(
+                        toolsVersion: manifestToolsVersion,
+                        packageName: value.packageName,
+                        targets: targets,
+                        products: products,
+                        minimumPlatformVersions: minimumPlatformVersions
+                    )
+                    return (keyToolsVersion, manifest)
+                })
+                if manifests.count != version.manifests.count {
                     serializationOkay = false
                 }
 
-                // If package identity is set, use that. Otherwise create one from URL.
+                guard let defaultToolsVersion = ToolsVersion(string: version.defaultToolsVersion) else {
+                    return nil
+                }
+
+                let verifiedCompatibility = version.verifiedCompatibility?
+                    .compactMap { Model.Compatibility(from: $0) }
+                if verifiedCompatibility?.count != version.verifiedCompatibility?.count {
+                    serializationOkay = false
+                }
+                let license = version.license.flatMap { Model.License(from: $0) }
+
+                let signer: Model.Signer?
+                if let versionSigner = version.signer,
+                   let signerType = Model.SignerType(rawValue: versionSigner.type.lowercased())
+                {
+                    signer = .init(
+                        type: signerType,
+                        commonName: versionSigner.commonName,
+                        organizationalUnitName: versionSigner.organizationalUnitName,
+                        organizationName: versionSigner.organizationName
+                    )
+                } else {
+                    signer = nil
+                }
+
                 return .init(
-                    identity: package.identity.map { PackageIdentity.plain($0) } ?? PackageIdentity(url: SourceControlURL(package.url)),
-                    location: package.url.absoluteString,
-                    summary: package.summary,
-                    keywords: package.keywords,
-                    versions: versions,
-                    watchersCount: nil,
-                    readmeURL: package.readmeURL,
-                    license: package.license.flatMap { Model.License(from: $0) },
-                    authors: nil,
-                    languages: nil
+                    version: parsedVersion,
+                    title: nil,
+                    summary: version.summary,
+                    manifests: manifests,
+                    defaultToolsVersion: defaultToolsVersion,
+                    verifiedCompatibility: verifiedCompatibility,
+                    license: license,
+                    author: version.author.map { .init(username: $0.name, url: nil, service: nil) },
+                    signer: signer,
+                    createdAt: version.createdAt
                 )
             }
-
-            if !serializationOkay {
-                self.observabilityScope
-                    .emit(
-                        warning: "Some of the information from \(collection.name) could not be deserialized correctly, likely due to invalid format. Contact the collection's author (\(collection.generatedBy?.name ?? "n/a")) to address this issue."
-                    )
+            if versions.count != package.versions.count {
+                serializationOkay = false
             }
 
-            return .success(.init(
-                source: source,
-                name: collection.name,
-                overview: collection.overview,
-                keywords: collection.keywords,
-                packages: packages,
-                createdAt: collection.generatedAt,
-                createdBy: collection.generatedBy.flatMap { Model.Collection.Author(name: $0.name) },
-                signature: signature,
-                lastProcessedAt: Date()
-            ))
-        } catch {
-            return .failure(error)
+            // If package identity is set, use that. Otherwise create one from URL.
+            return .init(
+                identity: package.identity.map { PackageIdentity.plain($0) } ?? PackageIdentity(url: SourceControlURL(package.url)),
+                location: package.url.absoluteString,
+                summary: package.summary,
+                keywords: package.keywords,
+                versions: versions,
+                watchersCount: nil,
+                readmeURL: package.readmeURL,
+                license: package.license.flatMap { Model.License(from: $0) },
+                authors: nil,
+                languages: nil
+            )
         }
+
+        if !serializationOkay {
+            self.observabilityScope
+                .emit(
+                    warning: "Some of the information from \(collection.name) could not be deserialized correctly, likely due to invalid format. Contact the collection's author (\(collection.generatedBy?.name ?? "n/a")) to address this issue."
+                )
+        }
+
+        return .init(
+            source: source,
+            name: collection.name,
+            overview: collection.overview,
+            keywords: collection.keywords,
+            packages: packages,
+            createdAt: collection.generatedAt,
+            createdBy: collection.generatedBy.flatMap { Model.Collection.Author(name: $0.name) },
+            signature: signature,
+            lastProcessedAt: Date()
+        )
     }
 
     private func makeRequestOptions(validResponseCodes: [Int]) -> LegacyHTTPClientRequest.Options {
@@ -591,6 +551,8 @@ extension PackageModel.Platform {
             self = PackageModel.Platform.wasi
         case let name where name.contains("openbsd"):
             self = PackageModel.Platform.openbsd
+        case let name where name.contains("freebsd"):
+            self = PackageModel.Platform.freebsd
         default:
             return nil
         }

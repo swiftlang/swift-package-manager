@@ -15,6 +15,8 @@ import Foundation
 
 import struct TSCUtility.Version
 
+public let artifactBundleExtension = "artifactbundle"
+
 public struct ArtifactsArchiveMetadata: Equatable {
     public let schemaVersion: String
     public let artifacts: [String: Artifact]
@@ -51,10 +53,10 @@ public struct ArtifactsArchiveMetadata: Equatable {
 
     public struct Variant: Equatable {
         public let path: RelativePath
-        public let supportedTriples: [Triple]
+        public let supportedTriples: [Triple]?
         public let libraryMetadata: LibraryMetadata?
 
-        public init(path: RelativePath, supportedTriples: [Triple], libraryMetadata: LibraryMetadata? = nil) {
+        public init(path: RelativePath, supportedTriples: [Triple]?, libraryMetadata: LibraryMetadata? = nil) {
             self.path = path
             self.supportedTriples = supportedTriples
             self.libraryMetadata = libraryMetadata
@@ -130,7 +132,7 @@ extension ArtifactsArchiveMetadata.Variant: Decodable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.supportedTriples = try container.decode([String].self, forKey: .supportedTriples).map { try Triple($0) }
+        self.supportedTriples = try container.decodeIfPresent([String].self, forKey: .supportedTriples)?.map { try Triple($0) }
         self.path = try RelativePath(validating: container.decode(String.self, forKey: .path))
         self.libraryMetadata = try container.decode(
             ArtifactsArchiveMetadata.LibraryMetadata.self,

@@ -237,12 +237,12 @@ extension TestErrorInfo {
 extension TestIssue {
     init(_ issue: XCTIssue) {
         self.init(
-            type: .init(issue.type),
+            type: .init(defaultBuildParameters: issue.type),
             compactDescription: issue.compactDescription,
             detailedDescription: issue.detailedDescription,
-            associatedError: issue.associatedError.map { .init($0) },
-            sourceCodeContext: .init(issue.sourceCodeContext),
-            attachments: issue.attachments.map { .init($0) }
+            associatedError: issue.associatedError.map { .init(defaultBuildParameters: $0) },
+            sourceCodeContext: .init(defaultBuildParameters: issue.sourceCodeContext),
+            attachments: issue.attachments.map { .init(defaultBuildParameters: $0) }
         )
     }
 }
@@ -275,8 +275,8 @@ extension TestLocation {
 extension TestSourceCodeContext {
     init(_ context: XCTSourceCodeContext) {
         self.init(
-            callStack: context.callStack.map { .init($0) },
-            location: context.location.map { .init($0) }
+            callStack: context.callStack.map { .init(defaultBuildParameters: $0) },
+            location: context.location.map { .init(defaultBuildParameters: $0) }
         )
     }
 }
@@ -285,8 +285,8 @@ extension TestSourceCodeFrame {
     init(_ frame: XCTSourceCodeFrame) {
         self.init(
             address: frame.address,
-            symbolInfo: (try? frame.symbolInfo()).map { .init($0) },
-            symbolicationError: frame.symbolicationError.map { .init($0) }
+            symbolInfo: (try? frame.symbolInfo()).map { .init(defaultBuildParameters: $0) },
+            symbolicationError: frame.symbolicationError.map { .init(defaultBuildParameters: $0) }
         )
     }
 }
@@ -296,7 +296,7 @@ extension TestSourceCodeSymbolInfo {
         self.init(
             imageName: symbolInfo.imageName,
             symbolName: symbolInfo.symbolName,
-            location: symbolInfo.location.map { .init($0) }
+            location: symbolInfo.location.map { .init(defaultBuildParameters: $0) }
         )
     }
 }

@@ -17,7 +17,7 @@ import SourceControl
 
 import struct TSCUtility.Version
 
-import SPMTestSupport
+import _InternalTestSupport
 
 import PackageModel
 
@@ -41,12 +41,6 @@ private let v1_0Range: VersionSetSpecifier = .range("1.0.0" ..< "1.1.0")
 private let v1_1Range: VersionSetSpecifier = .range("1.1.0" ..< "1.2.0")
 private let v1_1_0Range: VersionSetSpecifier = .range("1.1.0" ..< "1.1.1")
 private let v2_0_0Range: VersionSetSpecifier = .range("2.0.0" ..< "2.0.1")
-
-extension PackageReference: Comparable {
-    public static func < (lhs: PackageReference, rhs: PackageReference) -> Bool {
-        return lhs.identity < rhs.identity
-    }
-}
 
 class DependencyResolverTests: XCTestCase {
     func testVersionSetSpecifier() {

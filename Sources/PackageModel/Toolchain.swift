@@ -25,12 +25,6 @@ public protocol Toolchain {
     /// Path to `lib/swift_static`
     var swiftStaticResourcesPath: AbsolutePath? { get }
 
-    /// Whether the used compiler is from a open source development toolchain.
-    var isSwiftDevelopmentToolchain: Bool { get }
-
-    /// Path to the Swift plugin server utility.
-    var swiftPluginServerPath: AbsolutePath? { get throws }
-
     /// Path containing the macOS Swift stdlib.
     var macosSwiftStdlib: AbsolutePath { get throws }
 
@@ -42,6 +36,12 @@ public protocol Toolchain {
 
     /// Configuration from the used toolchain.
     var installedSwiftPMConfiguration: InstalledSwiftPMConfiguration { get }
+
+    /// The root path to the Swift SDK used by this toolchain.
+    var sdkRootPath: AbsolutePath? { get }
+
+    /// The manifest and library locations used by this toolchain.
+    var swiftPMLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation { get }
 
     /// Path of the `clang` compiler.
     func getClangCompiler() throws -> AbsolutePath
@@ -74,20 +74,24 @@ extension Toolchain {
 
     public var hostLibDir: AbsolutePath {
         get throws {
-            return try toolchainLibDir.appending(components: ["swift", "host"])
+            try Self.toolchainLibDir(swiftCompilerPath: self.swiftCompilerPath).appending(
+                components: ["swift", "host"]
+            )
         }
     }
 
     public var macosSwiftStdlib: AbsolutePath {
         get throws {
-            return try AbsolutePath(validating: "../../lib/swift/macosx", relativeTo: resolveSymlinks(swiftCompilerPath))
+            try Self.toolchainLibDir(swiftCompilerPath: self.swiftCompilerPath).appending(
+                components: ["swift", "macosx"]
+            )
         }
     }
 
     public var toolchainLibDir: AbsolutePath {
         get throws {
             // FIXME: Not sure if it's better to base this off of Swift compiler or our own binary.
-            return try AbsolutePath(validating: "../../lib", relativeTo: resolveSymlinks(swiftCompilerPath))
+            try Self.toolchainLibDir(swiftCompilerPath: self.swiftCompilerPath)
         }
     }
 
@@ -109,5 +113,9 @@ extension Toolchain {
     
     public var extraSwiftCFlags: [String] {
         extraFlags.swiftCompilerFlags
+    }
+
+    package static func toolchainLibDir(swiftCompilerPath: AbsolutePath) throws -> AbsolutePath {
+        try AbsolutePath(validating: "../../lib", relativeTo: resolveSymlinks(swiftCompilerPath))
     }
 }

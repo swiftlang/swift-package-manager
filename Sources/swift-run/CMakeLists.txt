@@ -7,11 +7,12 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_executable(swift-run
-  main.swift)
+  Entrypoint.swift)
 target_link_libraries(swift-run PRIVATE
   Commands)
 
-if(USE_CMAKE_INSTALL)
+target_compile_options(swift-run PRIVATE
+  -parse-as-library)
+
 install(TARGETS swift-run
   RUNTIME DESTINATION bin)
-endif()

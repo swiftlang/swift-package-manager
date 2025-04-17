@@ -413,56 +413,78 @@ struct PackageIdentityParser {
 ///   ```
 ///   file:///Users/mona/LinkedList → /Users/mona/LinkedList
 ///   ```
-public struct CanonicalPackageLocation: Equatable, CustomStringConvertible {
+public struct CanonicalPackageLocation: Equatable, CustomStringConvertible, Hashable {
     /// A textual representation of this instance.
     public let description: String
 
     /// Instantiates an instance of the conforming type from a string representation.
     public init(_ string: String) {
-        var description = string.precomposedStringWithCanonicalMapping.lowercased()
-
-        // Remove the scheme component, if present.
-        let detectedScheme = description.dropSchemeComponentPrefixIfPresent()
-
-        // Remove the userinfo subcomponent (user / password), if present.
-        if case (let user, _)? = description.dropUserinfoSubcomponentPrefixIfPresent() {
-            // If a user was provided, perform tilde expansion, if applicable.
-            description.replaceFirstOccurenceIfPresent(of: "/~/", with: "/~\(user)/")
-        }
-
-        // Remove the port subcomponent, if present.
-        description.removePortComponentIfPresent()
-
-        // Remove the fragment component, if present.
-        description.removeFragmentComponentIfPresent()
-
-        // Remove the query component, if present.
-        description.removeQueryComponentIfPresent()
-
-        // Accomodate "`scp`-style" SSH URLs
-        if detectedScheme == nil || detectedScheme == "ssh" {
-            description.replaceFirstOccurenceIfPresent(of: ":", before: description.firstIndex(of: "/"), with: "/")
-        }
-
-        // Split the remaining string into path components,
-        // filtering out empty path components and removing valid percent encodings.
-        var components = description.split(omittingEmptySubsequences: true, whereSeparator: isSeparator)
-            .compactMap { $0.removingPercentEncoding ?? String($0) }
-
-        // Remove the `.git` suffix from the last path component.
-        var lastPathComponent = components.popLast() ?? ""
-        lastPathComponent.removeSuffixIfPresent(".git")
-        components.append(lastPathComponent)
-
-        description = components.joined(separator: "/")
-
-        // Prepend a leading slash for file URLs and paths
-        if detectedScheme == "file" || string.first.flatMap(isSeparator) ?? false {
-            description.insert("/", at: description.startIndex)
-        }
-
-        self.description = description
+        self.description = computeCanonicalLocation(string).description
     }
+}
+
+/// Similar to `CanonicalPackageLocation` but differentiates based on the scheme.
+public struct CanonicalPackageURL: Equatable, CustomStringConvertible {
+    public let description: String
+    public let scheme: String?
+
+    public init(_ string: String) {
+        let location = computeCanonicalLocation(string)
+        self.description = location.description
+        self.scheme = location.scheme
+    }
+}
+
+private func computeCanonicalLocation(_ string: String) -> (description: String, scheme: String?) {
+    var description = string.precomposedStringWithCanonicalMapping.lowercased()
+
+    // Remove the scheme component, if present.
+    let detectedScheme = description.dropSchemeComponentPrefixIfPresent()
+    var scheme = detectedScheme
+
+    // Remove the userinfo subcomponent (user / password), if present.
+    if case (let user, _)? = description.dropUserinfoSubcomponentPrefixIfPresent() {
+        // If a user was provided, perform tilde expansion, if applicable.
+        description.replaceFirstOccurrenceIfPresent(of: "/~/", with: "/~\(user)/")
+
+        if user == "git", scheme == nil {
+            scheme = "ssh"
+        }
+    }
+
+    // Remove the port subcomponent, if present.
+    description.removePortComponentIfPresent()
+
+    // Remove the fragment component, if present.
+    description.removeFragmentComponentIfPresent()
+
+    // Remove the query component, if present.
+    description.removeQueryComponentIfPresent()
+
+    // Accommodate "`scp`-style" SSH URLs
+    if detectedScheme == nil || detectedScheme == "ssh" {
+        description.replaceFirstOccurrenceIfPresent(of: ":", before: description.firstIndex(of: "/"), with: "/")
+    }
+
+    // Split the remaining string into path components,
+    // filtering out empty path components and removing valid percent encodings.
+    var components = description.split(omittingEmptySubsequences: true, whereSeparator: isSeparator)
+        .compactMap { $0.removingPercentEncoding ?? String($0) }
+
+    // Remove the `.git` suffix from the last path component.
+    var lastPathComponent = components.popLast() ?? ""
+    lastPathComponent.removeSuffixIfPresent(".git")
+    components.append(lastPathComponent)
+
+    description = components.joined(separator: "/")
+
+    // Prepend a leading slash for file URLs and paths
+    if detectedScheme == "file" || string.first.flatMap(isSeparator) ?? false {
+        scheme = "file"
+        description.insert("/", at: description.startIndex)
+    }
+
+    return (description, scheme)
 }
 
 #if os(Windows)
@@ -569,7 +591,7 @@ extension String {
     }
 
     @discardableResult
-    fileprivate mutating func replaceFirstOccurenceIfPresent<T: StringProtocol, U: StringProtocol>(
+    fileprivate mutating func replaceFirstOccurrenceIfPresent<T: StringProtocol, U: StringProtocol>(
         of string: T,
         before index: Index? = nil,
         with replacement: U

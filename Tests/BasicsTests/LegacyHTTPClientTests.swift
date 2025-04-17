@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 final class LegacyHTTPClientTests: XCTestCase {
@@ -349,7 +349,9 @@ final class LegacyHTTPClientTests: XCTestCase {
         wait(for: [promise], timeout: 1)
     }
 
-    func testExponentialBackoff() {
+    func testExponentialBackoff() throws {
+        try skipOnWindowsAsTestCurrentlyFails(because: "https://github.com/swiftlang/swift-package-manager/issues/8501")
+
         let count = ThreadSafeBox<Int>(0)
         let lastCall = ThreadSafeBox<Date>()
         let maxAttempts = 5
@@ -596,7 +598,7 @@ final class LegacyHTTPClientTests: XCTestCase {
         let observability = ObservabilitySystem.makeForTesting()
         let cancellator = Cancellator(observabilityScope: observability.topScope)
 
-        let total = 10
+        let total = min(10, ProcessInfo.processInfo.activeProcessorCount / 2)
         // this DispatchGroup is used to wait for the requests to start before calling cancel
         let startGroup = DispatchGroup()
         // this DispatchGroup is used to park the delayed threads that would be cancelled

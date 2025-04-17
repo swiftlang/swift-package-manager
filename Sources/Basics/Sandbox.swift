@@ -45,7 +45,7 @@ public enum Sandbox {
     /// - Parameters:
     ///   - command: The command line to sandbox (including executable as first argument)
     ///   - fileSystem: The file system instance to use.
-    ///   - strictness: The basic strictness level of the standbox.
+    ///   - strictness: The basic strictness level of the sandbox.
     ///   - writableDirectories: Paths under which writing should be allowed, even if they would otherwise be read-only based on the strictness or paths in `readOnlyDirectories`.
     ///   - readOnlyDirectories: Paths under which writing should be denied, even if they would have otherwise been allowed by the rules implied by the strictness level.
     public static func apply(
@@ -217,9 +217,19 @@ fileprivate func macOSSandboxProfile(
     // Emit rules for paths under which writing is allowed, even if they are descendants directories that are otherwise read-only.
     if writableDirectories.count > 0 {
         contents += "(allow file-write*\n"
-        // For any explicit writable directories, also include the relevant item replacement directories so that Foundation APIs using atomic writes are not blocked by the sandbox.
-        for path in writableDirectories + Set(writableDirectories.compactMap { try? fileSystem.itemReplacementDirectories(for: $0) }.flatMap { $0}) {
+        for path in writableDirectories {
             contents += "    (subpath \(try resolveSymlinks(path).quotedAsSubpathForSandboxProfile))\n"
+            
+            // `itemReplacementDirectories` may return a combination of stable directory paths, and subdirectories which are unique on every call. Avoid including unnecessary subdirectories in the Sandbox profile which may lead to nondeterminism in its construction.
+            if let itemReplacementDirectories = try? fileSystem.itemReplacementDirectories(for: path).sorted(by: { $0.pathString.count < $1.pathString.count }) {
+                var stableItemReplacementDirectories: [AbsolutePath] = []
+                for directory in itemReplacementDirectories {
+                    if !stableItemReplacementDirectories.contains(where: { $0.isAncestorOfOrEqual(to: directory) }) {
+                        stableItemReplacementDirectories.append(directory)
+                        contents += "    (subpath \(try resolveSymlinks(directory).quotedAsSubpathForSandboxProfile))\n"
+                    }
+                }
+            }
         }
         contents += ")\n"
     }
@@ -231,8 +241,8 @@ extension AbsolutePath {
     /// Private computed property that returns a version of the path as a string quoted for use as a subpath in a .sb sandbox profile.
     fileprivate var quotedAsSubpathForSandboxProfile: String {
         "\"" + self.pathString
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacing("\\", with: "\\\\")
+            .replacing("\"", with: "\\\"")
             + "\""
     }
 }

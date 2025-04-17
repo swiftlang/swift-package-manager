@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -12,8 +12,9 @@
 
 import ArgumentParser
 
-import var Basics.localFileSystem
 import struct Basics.AbsolutePath
+import var Basics.localFileSystem
+import enum Basics.TestingLibrary
 import struct Basics.Triple
 
 import struct Foundation.URL
@@ -21,39 +22,46 @@ import struct Foundation.URL
 import enum PackageModel.BuildConfiguration
 import struct PackageModel.BuildFlags
 import struct PackageModel.EnabledSanitizers
+import class PackageModel.Manifest
 import struct PackageModel.PackageIdentity
 import enum PackageModel.Sanitizer
+@_spi(SwiftPMInternal) import struct PackageModel.SwiftSDK
 
+import struct PackageGraph.TraitConfiguration
+
+import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildSystemProvider
 
 import struct TSCBasic.StringError
 
 import struct TSCUtility.Version
 
+import Foundation
+import class Workspace.Workspace
 import struct Workspace.WorkspaceConfiguration
 
 public struct GlobalOptions: ParsableArguments {
     public init() {}
 
-    @OptionGroup()
+    @OptionGroup(title: "Paths & Locations")
     public var locations: LocationOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Caching")
     public var caching: CachingOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Logging")
     public var logging: LoggingOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Security")
     public var security: SecurityOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Resolution")
     public var resolver: ResolverOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Build Options")
     public var build: BuildOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Build Options")
     public var linker: LinkerOptions
 }
 
@@ -107,9 +115,27 @@ public struct LocationOptions: ParsableArguments {
     @Option(name: .customLong("destination"), help: .hidden, completion: .directory)
     public var customCompileDestination: AbsolutePath?
 
-    /// Path to the directory containing installed Swift SDKs.
     @Option(name: .customLong("experimental-swift-sdks-path"), help: .hidden, completion: .directory)
+    public var deprecatedSwiftSDKsDirectory: AbsolutePath?
+
+    /// Path to the directory containing installed Swift SDKs.
+    @Option(
+        name: .customLong("swift-sdks-path"),
+        help: "Path to the directory containing installed Swift SDKs",
+        completion: .directory
+    )
     public var swiftSDKsDirectory: AbsolutePath?
+
+    @Option(
+        name: .customLong("toolset"),
+        help: """
+            Specify a toolset JSON file to use when building for the target platform. \
+            Use the option multiple times to specify more than one toolset. Toolsets will be merged in the order \
+            they're specified into a single final toolset for the current build.
+            """,
+        completion: .file(extensions: [".json"])
+    )
+    public var toolsetPaths: [AbsolutePath] = []
 
     @Option(
         name: .customLong("pkg-config-path"),
@@ -121,6 +147,15 @@ public struct LocationOptions: ParsableArguments {
         completion: .directory
     )
     public var pkgConfigDirectories: [AbsolutePath] = []
+    
+    @Option(
+        help: .init("Specify alternate path to search for resources required for SwiftPM to operate. (default: <Toolchain Directory>/usr/share/pm)", visibility: .hidden),
+        completion: .directory
+    )
+    public var packageManagerResourcesDirectory: AbsolutePath?
+
+    @Flag(name: .customLong("ignore-lock"), help: .hidden)
+    public var ignoreLock: Bool = false
 }
 
 public struct CachingOptions: ParsableArguments {
@@ -145,7 +180,7 @@ public struct CachingOptions: ParsableArguments {
     /// Disables manifest caching.
     @Option(
         name: .customLong("manifest-cache"),
-        help: "Caching mode of Package.swift manifests (shared: shared cache, local: package's build directory, none: disabled"
+        help: "Caching mode of Package.swift manifests (shared: shared cache, local: package's build directory, none: disabled)"
     )
     public var manifestCachingMode: ManifestCachingMode = .shared
 
@@ -158,6 +193,12 @@ public struct CachingOptions: ParsableArguments {
             self.init(rawValue: argument)
         }
     }
+
+    /// Whether to use macro prebuilts or not
+    @Flag(name: .customLong("experimental-prebuilts"),
+          inversion: .prefixedEnableDisable,
+          help: "Whether to use prebuilt swift-syntax libraries for macros")
+    public var usePrebuilts: Bool = false
 }
 
 public struct LoggingOptions: ParsableArguments {
@@ -174,6 +215,15 @@ public struct LoggingOptions: ParsableArguments {
     /// Whether logging output should be limited to `.error`.
     @Flag(name: .shortAndLong, help: "Decrease verbosity to only include error output.")
     public var quiet: Bool = false
+
+    @Flag(name: .customLong("color-diagnostics"),
+          inversion: .prefixedNo,
+          help:
+            """
+            Enables or disables color diagnostics when printing to a TTY. 
+            By default, color diagnostics are enabled when connected to a TTY and disabled otherwise.
+            """)
+    public var colorDiagnostics: Bool = ProcessInfo.processInfo.environment["NO_COLOR"] == nil
 }
 
 public struct SecurityOptions: ParsableArguments {
@@ -260,6 +310,17 @@ public struct ResolverOptions: ParsableArguments {
     public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation =
         .disabled
 
+    /// Enables pruning unused dependencies to omit redundant calculations during resolution, and each phase thereafter.
+    /// Hidden from the generated help text as this feature is only currently being considered for traits.
+    @Flag(
+        name: .customLong("experimental-prune-unused-dependencies"),
+        help: ArgumentHelp(
+            "Enables the ability to prune unused dependencies of the package to avoid redundant loads during resolution",
+            visibility: .hidden
+        )
+    )
+    public var pruneDependencies: Bool = false
+
     @Option(help: "Default registry URL to use, instead of the registries.json configuration file")
     public var defaultRegistryURL: URL?
 
@@ -297,7 +358,7 @@ public struct BuildOptions: ParsableArguments {
 
     /// Build configuration.
     @Option(name: .shortAndLong, help: "Build with configuration")
-    public var configuration: BuildConfiguration = .debug
+    public var configuration: BuildConfiguration?
 
     @Option(
         name: .customLong("Xcc", withSingleDash: true),
@@ -399,8 +460,14 @@ public struct BuildOptions: ParsableArguments {
     )
     public var architectures: [String] = []
 
-    /// Filter for selecting a specific Swift SDK to build with.
     @Option(name: .customLong("experimental-swift-sdk"), help: .hidden)
+    public var deprecatedSwiftSDKSelector: String?
+
+    /// Filter for selecting a specific Swift SDK to build with.
+    @Option(
+        name: .customLong("swift-sdk"),
+        help: "Filter for selecting a specific Swift SDK to build with"
+    )
     public var swiftSDKSelector: String?
 
     /// Which compile-time sanitizers should be enabled.
@@ -417,6 +484,21 @@ public struct BuildOptions: ParsableArguments {
     @Flag(help: "Enable or disable indexing-while-building feature")
     public var indexStoreMode: StoreMode = .autoIndexStore
 
+    /// Instead of building the target, perform the minimal amount of work to prepare it for indexing.
+    ///
+    /// This builds Swift module files for all dependencies but skips generation of object files. It also continues
+    /// building modules in the presence of compilation errors.
+    @Flag(name: .customLong("experimental-prepare-for-indexing"), help: .hidden)
+    var prepareForIndexing: Bool = false
+
+    /// Don't pass `-experimental-lazy-typecheck` during preparation.
+    ///
+    /// This is intended as a workaround if lazy type checking is causing compiler crashes.
+    ///
+    /// Only applicable in conjunction with `--experimental-prepare-for-indexing`
+    @Flag(name: .customLong("experimental-prepare-for-indexing-no-lazy"), help: .hidden)
+    var prepareForIndexingNoLazy: Bool = false
+
     /// Whether to enable generation of `.swiftinterface`s alongside `.swiftmodule`s.
     @Flag(name: .customLong("enable-parseable-module-interfaces"))
     public var shouldEnableParseableModuleInterfaces: Bool = false
@@ -432,7 +514,7 @@ public struct BuildOptions: ParsableArguments {
 
     /// A flag that indicates this build should check whether targets only import
     /// their explicitly-declared dependencies
-    @Option()
+    @Option(help: "A flag that indicates this build should check whether targets only import their explicitly-declared dependencies")
     public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
 
     /// Whether to use the explicit module build flow (with the integrated driver)
@@ -444,17 +526,12 @@ public struct BuildOptions: ParsableArguments {
     var _buildSystem: BuildSystemProvider.Kind = .native
 
     /// The Debug Information Format to use.
-    @Option(name: .customLong("debug-info-format", withSingleDash: true))
+    @Option(name: .customLong("debug-info-format", withSingleDash: true), help: "The Debug Information Format to use")
     public var debugInfoFormat: DebugInfoFormat = .dwarf
 
     public var buildSystem: BuildSystemProvider.Kind {
-        #if os(macOS)
         // Force the Xcode build system if we want to build more than one arch.
         return self.architectures.count > 1 ? .xcode : self._buildSystem
-        #else
-        // Force building with the native build system on other platforms than macOS.
-        return .native
-        #endif
     }
 
     /// Whether to enable test discovery on platforms without Objective-C runtime.
@@ -477,6 +554,14 @@ public struct BuildOptions: ParsableArguments {
     )
     public var linkTimeOptimizationMode: LinkTimeOptimizationMode?
 
+    @Flag(inversion: .prefixedEnableDisable, help: .hidden)
+    public var getTaskAllowEntitlement: Bool? = nil
+
+    // Whether to omit frame pointers
+    // this can be removed once the backtracer uses DWARF instead of frame pointers
+    @Flag(inversion: .prefixedNo, help: .hidden)
+    public var omitFramePointers: Bool? = nil
+
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed
     // nil should not be the goto. Instead create an enum
@@ -486,7 +571,7 @@ public struct BuildOptions: ParsableArguments {
         case disableIndexStore
     }
 
-    public enum TargetDependencyImportCheckingMode: String, Codable, ExpressibleByArgument {
+    public enum TargetDependencyImportCheckingMode: String, Codable, ExpressibleByArgument, CaseIterable {
         case none
         case warn
         case error
@@ -501,7 +586,7 @@ public struct BuildOptions: ParsableArguments {
     }
 
     /// See `BuildParameters.DebugInfoFormat` for details.
-    public enum DebugInfoFormat: String, Codable, ExpressibleByArgument {
+    public enum DebugInfoFormat: String, Codable, ExpressibleByArgument, CaseIterable {
         /// See `BuildParameters.DebugInfoFormat.dwarf` for details.
         case dwarf
         /// See `BuildParameters.DebugInfoFormat.codeview` for details.
@@ -521,20 +606,129 @@ public struct LinkerOptions: ParsableArguments {
     )
     public var linkerDeadStrip: Bool = true
 
-    /// If should link the Swift stdlib statically.
-    @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically")
-    public var shouldLinkStaticSwiftStdlib: Bool = false
+    /// Disables adding $ORIGIN/@loader_path to the rpath, useful when deploying
+    @Flag(name: .customLong("disable-local-rpath"), help: "Disable adding $ORIGIN/@loader_path to the rpath by default")
+    public var shouldDisableLocalRpath: Bool = false
+}
+
+/// Which testing libraries to use (and any related options.)
+@_spi(SwiftPMInternal)
+public struct TestLibraryOptions: ParsableArguments {
+    public init() {}
+
+    /// Whether to enable support for XCTest (as explicitly specified by the user.)
+    ///
+    /// Callers will generally want to use ``enableXCTestSupport`` since it will
+    /// have the correct default value if the user didn't specify one.
+    @Flag(name: .customLong("xctest"),
+          inversion: .prefixedEnableDisable,
+          help: "Enable support for XCTest")
+    public var explicitlyEnableXCTestSupport: Bool?
+
+    /// Whether to enable support for Swift Testing (as explicitly specified by the user.)
+    ///
+    /// Callers will generally want to use ``enableSwiftTestingLibrarySupport`` since it will
+    /// have the correct default value if the user didn't specify one.
+    @Flag(name: .customLong("swift-testing"),
+          inversion: .prefixedEnableDisable,
+          help: "Enable support for Swift Testing")
+    public var explicitlyEnableSwiftTestingLibrarySupport: Bool?
+
+    /// Legacy experimental equivalent of ``explicitlyEnableSwiftTestingLibrarySupport``.
+    ///
+    /// This option will be removed in a future update.
+    @Flag(name: .customLong("experimental-swift-testing"),
+          inversion: .prefixedEnableDisable,
+          help: .private)
+    public var explicitlyEnableExperimentalSwiftTestingLibrarySupport: Bool?
+
+    /// The common implementation for `isEnabled()` and `isExplicitlyEnabled()`.
+    ///
+    /// It is intentional that `isEnabled()` is not simply this function with a
+    /// default value for the `default` argument. There's no "true" default
+    /// value to use; it depends on the semantics the caller is interested in.
+    private func isEnabled(_ library: TestingLibrary, `default`: Bool, swiftCommandState: SwiftCommandState) -> Bool {
+        switch library {
+        case .xctest:
+            if let explicitlyEnableXCTestSupport {
+                return explicitlyEnableXCTestSupport
+            }
+            if let toolchain = try? swiftCommandState.getHostToolchain(),
+               toolchain.swiftSDK.xctestSupport == .supported {
+                return `default`
+            }
+            return false
+        case .swiftTesting:
+            return explicitlyEnableSwiftTestingLibrarySupport ?? explicitlyEnableExperimentalSwiftTestingLibrarySupport ?? `default`
+        }
+    }
+
+    /// Test whether or not a given library is enabled.
+    public func isEnabled(_ library: TestingLibrary, swiftCommandState: SwiftCommandState) -> Bool {
+        isEnabled(library, default: true, swiftCommandState: swiftCommandState)
+    }
+
+    /// Test whether or not a given library was explicitly enabled by the developer.
+    public func isExplicitlyEnabled(_ library: TestingLibrary, swiftCommandState: SwiftCommandState) -> Bool {
+        isEnabled(library, default: false, swiftCommandState: swiftCommandState)
+    }
+}
+
+package struct TraitOptions: ParsableArguments {
+    package init() {}
+
+    /// The traits to enable for the package.
+    @Option(
+        name: .customLong("traits"),
+        help: "Enables the passed traits of the package. Multiple traits can be specified by providing a comma separated list e.g. `--traits Trait1,Trait2`. When enabling specific traits the defaults traits need to explictily enabled as well by passing `defaults` to this command."
+    )
+    package var _enabledTraits: String?
+
+    /// The set of enabled traits for the package.
+    package var enabledTraits: Set<String>? {
+        self._enabledTraits.flatMap { Set($0.components(separatedBy: ",")) }
+    }
+
+    /// Enables all traits of the package.
+    @Flag(
+        name: .customLong("enable-all-traits"),
+        help: "Enables all traits of the package."
+    )
+    package var enableAllTraits: Bool = false
+
+    /// Disables all default traits of the package.
+    @Flag(
+        name: .customLong("disable-default-traits"),
+        help: "Disables all default traits of the package."
+    )
+    public var disableDefaultTraits: Bool = false
+}
+
+extension TraitConfiguration {
+    package init(traitOptions: TraitOptions) {
+        var enabledTraits = traitOptions.enabledTraits
+        if traitOptions.disableDefaultTraits {
+            // If there are no enabled traits specified we can disable the
+            // default trait by passing in an empty set. Otherwise the enabling specific traits
+            // requires the user to pass the default as well.
+            enabledTraits = enabledTraits ?? []
+        }
+        self.init(
+            enabledTraits: enabledTraits,
+            enableAllTraits: traitOptions.enableAllTraits
+        )
+    }
 }
 
 // MARK: - Extensions
 
-extension BuildConfiguration: ExpressibleByArgument {
+extension BuildConfiguration {
     public init?(argument: String) {
         self.init(rawValue: argument)
     }
 }
 
-extension AbsolutePath: ExpressibleByArgument {
+extension AbsolutePath {
     public init?(argument: String) {
         if let cwd = localFileSystem.currentWorkingDirectory {
             guard let path = try? AbsolutePath(validating: argument, relativeTo: cwd) else {
@@ -556,13 +750,13 @@ extension AbsolutePath: ExpressibleByArgument {
     }
 }
 
-extension WorkspaceConfiguration.CheckingMode: ExpressibleByArgument {
+extension WorkspaceConfiguration.CheckingMode {
     public init?(argument: String) {
         self.init(rawValue: argument)
     }
 }
 
-extension Sanitizer: ExpressibleByArgument {
+extension Sanitizer {
     public init?(argument: String) {
         if let sanitizer = Sanitizer(rawValue: argument) {
             self = sanitizer
@@ -583,18 +777,23 @@ extension Sanitizer: ExpressibleByArgument {
     }
 }
 
-extension BuildSystemProvider.Kind: ExpressibleByArgument {}
-
-extension Version: ExpressibleByArgument {}
-
-extension PackageIdentity: ExpressibleByArgument {
+extension PackageIdentity {
     public init?(argument: String) {
         self = .plain(argument)
     }
 }
 
-extension URL: ExpressibleByArgument {
+extension URL {
     public init?(argument: String) {
         self.init(string: argument)
     }
 }
+
+extension BuildConfiguration: ExpressibleByArgument {}
+extension AbsolutePath: ExpressibleByArgument {}
+extension WorkspaceConfiguration.CheckingMode: ExpressibleByArgument {}
+extension Sanitizer: ExpressibleByArgument {}
+extension BuildSystemProvider.Kind: ExpressibleByArgument {}
+extension Version: @retroactive ExpressibleByArgument {}
+extension PackageIdentity: ExpressibleByArgument {}
+extension URL: @retroactive ExpressibleByArgument {}

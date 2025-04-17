@@ -2,6 +2,9 @@ prefix=/usr/local/bin
 exec_prefix=${prefix}
 
 #some comment
+Name: dummy_dependency
+Version: 1
+Description: Demonstrate a blank dependency entry
 
 Requires: pango, , fontconfig >=  2.13.0
 Libs:-L${prefix} -lpangoft2-1.0

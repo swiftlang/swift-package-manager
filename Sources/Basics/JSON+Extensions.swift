@@ -114,13 +114,7 @@ extension JSONEncoder {
             outputFormatting.insert(.prettyPrinted)
         }
         if !escapeSlashes {
-            #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) {
-                outputFormatting.insert(.withoutEscapingSlashes)
-            }
-            #elseif compiler(>=5.3)
             outputFormatting.insert(.withoutEscapingSlashes)
-            #endif
         }
 
         encoder.outputFormatting = outputFormatting

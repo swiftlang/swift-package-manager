@@ -24,8 +24,15 @@ add_library(PackageModel
   Manifest/SystemPackageProviderDescription.swift
   Manifest/TargetBuildSettingDescription.swift
   Manifest/TargetDescription.swift
+  Manifest/TraitDescription.swift
   ManifestSourceGeneration.swift
   MinimumDeploymentTarget.swift
+  Module/BinaryModule.swift
+  Module/ClangModule.swift
+  Module/PluginModule.swift
+  Module/SwiftModule.swift
+  Module/SystemLibraryModule.swift
+  Module/Module.swift
   ModuleMapType.swift
   PackageModel.swift
   PackageIdentity.swift
@@ -43,10 +50,10 @@ add_library(PackageModel
   Sources.swift
   SupportedLanguageExtension.swift
   SwiftLanguageVersion.swift
-  SwiftSDK.swift
-  SwiftSDKConfigurationStore.swift
-  SwiftSDKBundle.swift
-  Target.swift
+  SwiftSDKs/SwiftSDK.swift
+  SwiftSDKs/SwiftSDKConfigurationStore.swift
+  SwiftSDKs/SwiftSDKBundle.swift
+  SwiftSDKs/SwiftSDKBundleStore.swift
   Toolchain.swift
   ToolchainConfiguration.swift
   Toolset.swift
@@ -62,10 +69,8 @@ target_link_libraries(PackageModel PUBLIC
 set_target_properties(PackageModel PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
-if(USE_CMAKE_INSTALL)
 install(TARGETS PackageModel
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
-endif()
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS PackageModel)

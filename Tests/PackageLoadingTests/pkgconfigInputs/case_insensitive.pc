@@ -2,6 +2,9 @@ prefix=/usr/local/bin
 exec_prefix=${prefix}
 
 #some comment
+Name: case_insensitive
+Version: 1
+Description: Demonstrate that pkgconfig keys are case-insensitive
 
 # upstream pkg-config parser allows Cflags & CFlags as key
 CFlags: -I/usr/local/include

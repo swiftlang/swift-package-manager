@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import Basics
 import Dispatch
 import struct Foundation.Data
@@ -32,101 +33,52 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
         self.decoder = JSONDecoder.makeWithDefaults()
     }
 
-    func list(callback: @escaping (Result<[Model.CollectionSource], Error>) -> Void) {
-        DispatchQueue.sharedConcurrent.async {
-            do {
-                let sources = try self.withLock {
-                    try self.loadFromDisk()
-                }
-                callback(.success(sources))
-            } catch {
-                callback(.failure(error))
-            }
+    func list() async throws -> [PackageCollectionsModel.CollectionSource] {
+        try self.withLock {
+            try self.loadFromDisk()
         }
     }
 
-    func add(source: Model.CollectionSource,
-             order: Int?,
-             callback: @escaping (Result<Void, Error>) -> Void) {
-        DispatchQueue.sharedConcurrent.async {
-            do {
-                try self.withLock {
-                    var sources = try self.loadFromDisk()
-                    sources = sources.filter { $0 != source }
-                    let order = order.flatMap { $0 >= 0 && $0 < sources.endIndex ? order : sources.endIndex } ?? sources.endIndex
-                    sources.insert(source, at: order)
-                    try self.saveToDisk(sources)
-                }
-                callback(.success(()))
-            } catch {
-                callback(.failure(error))
-            }
+    func add(source: PackageCollectionsModel.CollectionSource, order: Int? = nil) async throws {
+        try self.withLock {
+            var sources = try self.loadFromDisk()
+            sources = sources.filter { $0 != source }
+            let order = order.flatMap { $0 >= 0 && $0 < sources.endIndex ? order : sources.endIndex } ?? sources.endIndex
+            sources.insert(source, at: order)
+            try self.saveToDisk(sources)
         }
     }
 
-    func remove(source: Model.CollectionSource,
-                callback: @escaping (Result<Void, Error>) -> Void) {
-        DispatchQueue.sharedConcurrent.async {
-            do {
-                try self.withLock {
-                    var sources = try self.loadFromDisk()
-                    sources = sources.filter { $0 != source }
-                    try self.saveToDisk(sources)
-                }
-                callback(.success(()))
-            } catch {
-                callback(.failure(error))
-            }
+    func remove(source: PackageCollectionsModel.CollectionSource) async throws {
+        try self.withLock {
+            var sources = try self.loadFromDisk()
+            sources = sources.filter { $0 != source }
+            try self.saveToDisk(sources)
         }
     }
 
-    func move(source: Model.CollectionSource,
-              to order: Int,
-              callback: @escaping (Result<Void, Error>) -> Void) {
-        DispatchQueue.sharedConcurrent.async {
-            do {
-                try self.withLock {
-                    var sources = try self.loadFromDisk()
-                    sources = sources.filter { $0 != source }
-                    let order = order >= 0 && order < sources.endIndex ? order : sources.endIndex
-                    sources.insert(source, at: order)
-                    try self.saveToDisk(sources)
-                }
-                callback(.success(()))
-            } catch {
-                callback(.failure(error))
-            }
+    func move(source: PackageCollectionsModel.CollectionSource, to order: Int) async throws {
+        try self.withLock {
+            var sources = try self.loadFromDisk()
+            sources = sources.filter { $0 != source }
+            let order = order >= 0 && order < sources.endIndex ? order : sources.endIndex
+            sources.insert(source, at: order)
+            try self.saveToDisk(sources)
         }
     }
 
-    func exists(source: Model.CollectionSource,
-                callback: @escaping (Result<Bool, Error>) -> Void) {
-        DispatchQueue.sharedConcurrent.async {
-            do {
-                let sources = try self.withLock {
-                    try self.loadFromDisk()
-                }
-                callback(.success(sources.contains(source)))
-            } catch {
-                callback(.failure(error))
-            }
-        }
+    func exists(source: PackageCollectionsModel.CollectionSource) async throws -> Bool {
+        try self.withLock {
+            try self.loadFromDisk()
+        }.contains(source)
     }
 
-    func update(source: PackageCollectionsModel.CollectionSource,
-                callback: @escaping (Result<Void, Error>) -> Void) {
-        DispatchQueue.sharedConcurrent.async {
-            do {
-                try self.withLock {
-                    var sources = try self.loadFromDisk()
-                    if let index = sources.firstIndex(where: { $0 == source }) {
-                        sources[index] = source
-                        try self.saveToDisk(sources)
-                    }
-                }
-                callback(.success(()))
-            } catch {
-                callback(.failure(error))
+    func update(source: PackageCollectionsModel.CollectionSource) async throws {
+        try self.withLock {
+            var sources = try self.loadFromDisk()
+            if let index = sources.firstIndex(where: { $0 == source }) {
+                sources[index] = source
+                try self.saveToDisk(sources)
             }
         }
     }

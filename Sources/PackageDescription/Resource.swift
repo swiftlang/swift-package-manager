@@ -33,10 +33,10 @@
 /// To learn more about package resources, see
 /// <doc:bundling-resources-with-a-swift-package>.
 @available(_PackageDescription, introduced: 5.3)
-public struct Resource {
+public struct Resource: Sendable {
 
     /// Defines the explicit type of localization for resources.
-    public enum Localization: String {
+    public enum Localization: String, Sendable {
 
         /// A constant that represents default localization.
         case `default`

@@ -13,7 +13,8 @@
 import Basics
 import PackageModel
 
-import class TSCBasic.Process
+import class Basics.AsyncProcess
+import struct TSCBasic.RegEx
 
 import enum TSCUtility.Platform
 
@@ -61,8 +62,9 @@ public struct PkgConfigResult {
 
 /// Get pkgConfig result for a system library target.
 public func pkgConfigArgs(
-    for target: SystemLibraryTarget,
+    for target: SystemLibraryModule,
     pkgConfigDirectories: [AbsolutePath],
+    sdkRootPath: AbsolutePath? = nil,
     brewPrefix: AbsolutePath? = .none,
     fileSystem: FileSystem,
     observabilityScope: ObservabilityScope
@@ -98,7 +100,14 @@ public func pkgConfigArgs(
             let filtered = try allowlist(pcFile: pkgConfigName, flags: (pkgConfig.cFlags, pkgConfig.libs))
 
             // Remove any default flags which compiler adds automatically.
-            let (cFlags, libs) = try removeDefaultFlags(cFlags: filtered.cFlags, libs: filtered.libs)
+            var (cFlags, libs) = try removeDefaultFlags(cFlags: filtered.cFlags, libs: filtered.libs)
+
+            // Patch any paths containing an SDK to the current SDK
+            // See https://github.com/swiftlang/swift-package-manager/issues/6439
+            if let sdkRootPath = sdkRootPath {
+                cFlags = try patchSDKPaths(in: cFlags, to: sdkRootPath)
+                libs = try patchSDKPaths(in: libs, to: sdkRootPath)
+            }
 
             // Set the error if there are any disallowed flags.
             var error: Swift.Error?
@@ -145,6 +154,8 @@ extension SystemPackageProviderDescription {
             return "    yum install \(packages.joined(separator: " "))\n"
         case .nuget(let packages):
             return "    nuget install \(packages.joined(separator: " "))\n"
+        case .pkg(let packages):
+            return "    pkg install \(packages.joined(separator: " "))\n"
         }
     }
 
@@ -171,8 +182,12 @@ extension SystemPackageProviderDescription {
             switch platform {
             case .darwin, .windows, .linux:
                 return true
-            case .android:
+            case .android, .freebsd:
                 return false
+            }
+        case .pkg:
+            if case .freebsd = platform {
+                return true
             }
         }
         return false
@@ -191,7 +206,7 @@ extension SystemPackageProviderDescription {
                 // to the latest version. Instead use the version as symlinked
                 // in /usr/local/opt/(NAME)/lib/pkgconfig.
                 struct Static {
-                    static let value = { try? TSCBasic.Process.checkNonZeroExit(args: "brew", "--prefix").spm_chomp() }()
+                    static let value = { try? AsyncProcess.checkNonZeroExit(args: "brew", "--prefix").spm_chomp() }()
                 }
                 if let value = Static.value {
                     brewPrefix = value
@@ -205,6 +220,8 @@ extension SystemPackageProviderDescription {
         case .yum:
             return []
         case .nuget:
+            return []
+        case .pkg:
             return []
         }
     }
@@ -261,50 +278,71 @@ public func allowlist(
     return (filteredCFlags.allowed, filteredLibs.allowed, filteredCFlags.disallowed + filteredLibs.disallowed)
 }
 
+/// Maps values of the given flag with the given transform, removing those where the transform returns `nil`.
+private func patch(flag: String, in flags: [String], transform: (String) -> String?) throws -> [String] {
+    var result = [String]()
+    var it = flags.makeIterator()
+    while let current = it.next() {
+        if current == flag {
+            // Handle <flag><space><value> style.
+            guard let value = it.next() else {
+                throw InternalError("Expected associated value")
+            }
+            if let newValue = transform(value) {
+                result.append(flag)
+                result.append(newValue)
+            }
+        } else if current.starts(with: flag) {
+            // Handle <flag><value> style
+            let value = String(current.dropFirst(flag.count))
+            if let newValue = transform(value) {
+                result.append(flag + newValue)
+            }
+        } else {
+            // Leave other flags as-is
+            result.append(current)
+        }
+    }
+    return result
+}
+
+/// Removes the given flag from the given flags.
+private func remove(flag: String, with expectedValue: String, from flags: [String]) throws -> [String] {
+    try patch(flag: flag, in: flags) { value in value == expectedValue ? nil : value }
+}
+
 /// Remove the default flags which are already added by the compiler.
 ///
 /// This behavior is similar to pkg-config cli tool and helps avoid conflicts between
 /// sdk and default search paths in macOS.
 public func removeDefaultFlags(cFlags: [String], libs: [String]) throws -> ([String], [String]) {
-    /// removes a flag from given array of flags.
-    func remove(flag: (String, String), from flags: [String]) throws -> [String] {
-        var result = [String]()
-        var it = flags.makeIterator()
-        while let curr = it.next() {
-            switch curr {
-            case flag.0:
-                // Check for <flag><space><value> style.
-                guard let val = it.next() else {
-                    throw InternalError("Expected associated value")
-                }
-                // If we found a match, don't add these flags and just skip.
-                if val == flag.1 { continue }
-                // Otherwise add both the flags.
-                result.append(curr)
-                result.append(val)
-
-            case flag.0 + flag.1:
-                // Check for <flag><value> style.
-                continue
-
-            default:
-                // Otherwise just append this flag.
-                result.append(curr)
-            }
-        }
-        return result
-    }
     return (
-        try remove(flag: ("-I", "/usr/include"), from: cFlags),
-        try remove(flag: ("-L", "/usr/lib"), from: libs)
+        try remove(flag: "-I", with: "/usr/include", from: cFlags),
+        try remove(flag: "-L", with: "/usr/lib", from: libs)
     )
+}
+
+/// Replaces any path containing *.sdk with the current SDK to avoid conflicts.
+///
+/// See https://github.com/swiftlang/swift-package-manager/issues/6439 for details.
+public func patchSDKPaths(in flags: [String], to sdkRootPath: AbsolutePath) throws -> [String] {
+    let sdkRegex = try! RegEx(pattern: #"^.*\.sdk(\/.*|$)"#)
+
+    return try ["-I", "-L"].reduce(flags) { (flags, flag) in
+        try patch(flag: flag, in: flags) { value in
+            guard let groups = sdkRegex.matchGroups(in: value).first else {
+                return value
+            }
+            return sdkRootPath.pathString + groups[0]
+        }
+    }
 }
 
 extension ObservabilityMetadata {
     public static func pkgConfig(pcFile: String, targetName: String) -> Self {
         var metadata = ObservabilityMetadata()
         metadata.pcFile = "\(pcFile).pc"
-        metadata.targetName = targetName
+        metadata.moduleName = targetName
         return metadata
     }
 }

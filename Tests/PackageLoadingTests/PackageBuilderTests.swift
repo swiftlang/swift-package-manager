@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -13,14 +13,11 @@
 import Basics
 import PackageLoading
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
-import class TSCBasic.InMemoryFileSystem
-
 /// Tests for the handling of source layout conventions.
-class PackageBuilderTests: XCTestCase {
-
+final class PackageBuilderTests: XCTestCase {
     func testDotFilesAreIgnored() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/foo/.Bar.swift",
@@ -37,6 +34,27 @@ class PackageBuilderTests: XCTestCase {
             package.checkModule("foo") { module in
                 module.check(c99name: "foo", type: .library)
                 module.checkSources(root: "/Sources/foo", paths: "Foo.swift")
+            }
+        }
+    }
+
+    func testXCPrivacyIgnored() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/foo/PrivacyInfo.xcprivacy",
+            "/Sources/foo/Foo.swift")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            path: .root,
+            targets: [
+                try TargetDescription(name: "foo"),
+            ]
+        )
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { module in
+                module.check(c99name: "foo", type: .library)
+                module.checkSources(root: "/Sources/foo", paths: "Foo.swift")
+                module.checkResources(resources: [])
             }
         }
     }
@@ -500,7 +518,7 @@ class PackageBuilderTests: XCTestCase {
         )
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
             diagnostics.check(
-                diagnostic: "'exec2' was identified as an executable target given the presence of a 'main.swift' file. Starting with tools version 5.4.0 executable targets should be declared as 'executableTarget()'",
+                diagnostic: "'exec2' was identified as an executable target given the presence of a 'main' file. Starting with tools version 5.4.0 executable targets should be declared as 'executableTarget()'",
                 severity: .warning
             )
             package.checkModule("lib") { _ in }
@@ -512,7 +530,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testTestEntryPointFound() throws {
-        try SwiftTarget.testEntryPointNames.forEach { name in
+        try SwiftModule.testEntryPointNames.forEach { name in
             let fs = InMemoryFileSystem(emptyFiles:
                 "/swift/exe/foo.swift",
                 "/\(name)",
@@ -546,6 +564,8 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testTestManifestSearch() throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+
         let fs = InMemoryFileSystem(emptyFiles:
             "/pkg/foo.swift",
             "/pkg/footests.swift"
@@ -597,7 +617,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testMultipleTestEntryPointsError() throws {
-        let name = SwiftTarget.defaultTestEntryPointName
+        let name = SwiftModule.defaultTestEntryPointName
         let swift: AbsolutePath = "/swift"
 
         let fs = InMemoryFileSystem(emptyFiles:
@@ -770,7 +790,7 @@ class PackageBuilderTests: XCTestCase {
             package.checkPredefinedPaths(target: Sources, testTarget: Tests)
 
             package.checkModule("Foo") { module in
-                let clangTarget = module.target as? ClangTarget
+                let clangTarget = module.target as? ClangModule
                 XCTAssertEqual(clangTarget?.headers.map{ $0.pathString }, [Sources.appending(components: "Foo", "Foo_private.h").pathString, Sources.appending(components: "Foo", "inc", "Foo.h").pathString])
                 module.check(c99name: "Foo", type: .library)
                 module.checkSources(root: Sources.appending(components: "Foo").pathString, paths: "Foo.c")
@@ -1677,7 +1697,8 @@ class PackageBuilderTests: XCTestCase {
                 displayName: "pkg",
                 targets: [
                     try TargetDescription(name: "pkg", dependencies: [.target(name: "pkg")]),
-                ]
+                ],
+                traits: []
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
                 diagnostics.check(diagnostic: "cyclic dependency declaration found: pkg -> pkg", severity: .error)
@@ -1964,15 +1985,36 @@ class PackageBuilderTests: XCTestCase {
             package.checkProduct("foo") { _ in }
         }
 
-        manifest = try createManifest(swiftVersions: [])
+        manifest = try createManifest(swiftVersions: [SwiftLanguageVersion(string: "5")!])
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
-            diagnostics.check(diagnostic: "package '\(package.packageIdentity)' supported Swift language versions is empty", severity: .error)
+            package.checkModule("foo") { module in
+                module.check(swiftVersion: "5")
+            }
+            package.checkProduct("foo") { _ in }
         }
 
-        manifest = try createManifest(
-            swiftVersions: [SwiftLanguageVersion(string: "6")!, SwiftLanguageVersion(string: "7")!])
+        manifest = try createManifest(swiftVersions: [SwiftLanguageVersion(string: "6")!])
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
-            diagnostics.check(diagnostic: "package '\(package.packageIdentity)' requires minimum Swift language version 6 which is not supported by the current tools version (\(ToolsVersion.current))", severity: .error)
+            package.checkModule("foo") { module in
+                module.check(swiftVersion: "6")
+            }
+            package.checkProduct("foo") { _ in }
+        }
+
+        manifest = try createManifest(swiftVersions: [])
+        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            diagnostics.check(
+                diagnostic: "package '\(package.packageIdentity)' supported Swift language versions is empty",
+                severity: .error
+            )
+        }
+
+        manifest = try createManifest(swiftVersions: [SwiftLanguageVersion(string: "7")!])
+        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            diagnostics.check(
+                diagnostic: "package '\(package.packageIdentity)' requires minimum Swift language version 7 which is not supported by the current tools version (\(ToolsVersion.current))",
+                severity: .error
+            )
         }
     }
 
@@ -2746,7 +2788,8 @@ class PackageBuilderTests: XCTestCase {
                 try TargetDescription(name: "Foo2"),
                 try TargetDescription(name: "Foo3"),
                 try TargetDescription(name: "Qux")
-            ]
+            ],
+            traits: []
         )
 
         PackageBuilderTester(manifest, path: "/Foo", in: fs) { package, diagnostics in
@@ -2806,7 +2849,8 @@ class PackageBuilderTests: XCTestCase {
                 ),
                 try TargetDescription(name: "Bar"),
                 try TargetDescription(name: "Baz"),
-            ]
+            ],
+            traits: []
         )
 
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -2931,7 +2975,81 @@ class PackageBuilderTests: XCTestCase {
             }
         }
     }
-    
+
+    func testXcodeResources6_0AndLater() throws {
+        // In SwiftTools 6.0 and later, xcprivacy file types are only supported when explicitly passed via additionalFileRules.
+
+        let root: AbsolutePath = "/Foo"
+        let foo = root.appending(components: "Sources", "Foo")
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            foo.appending(components: "foo.swift").pathString,
+            foo.appending(components: "Foo.xcassets").pathString,
+            foo.appending(components: "Foo.xcstrings").pathString,
+            foo.appending(components: "Foo.xib").pathString,
+            foo.appending(components: "Foo.xcdatamodel").pathString,
+            foo.appending(components: "Foo.metal").pathString,
+            foo.appending(components: "PrivacyInfo.xcprivacy").pathString
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "Foo",
+            toolsVersion: .v6_0,
+            targets: [
+                try TargetDescription(name: "Foo"),
+            ]
+        )
+
+        PackageBuilderTester(manifest, path: root, supportXCBuildTypes: true, in: fs) { result, diagnostics in
+            result.checkModule("Foo") { result in
+                result.checkSources(sources: ["foo.swift"])
+                result.checkResources(resources: [
+                    foo.appending(components: "Foo.xib").pathString,
+                    foo.appending(components: "Foo.xcdatamodel").pathString,
+                    foo.appending(components: "Foo.xcassets").pathString,
+                    foo.appending(components: "Foo.xcstrings").pathString,
+                    foo.appending(components: "Foo.metal").pathString,
+                    foo.appending(components: "PrivacyInfo.xcprivacy").pathString,
+                ])
+            }
+        }
+    }
+
+    func testXCPrivacyNoDiagnostics() throws {
+        // In SwiftTools 6.0 and later, xcprivacy file types should not produce diagnostics messages when included
+        // as resources and built with `swift build`.
+
+        let root: AbsolutePath = "/Foo"
+        let foo = root.appending(components: "Sources", "Foo")
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            foo.appending(components: "foo.swift").pathString,
+            foo.appending(components: "PrivacyInfo.xcprivacy").pathString
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "Foo",
+            toolsVersion: .v6_0,
+            targets: [
+                try TargetDescription(
+                    name: "Foo",
+                    resources: [.init(rule: .copy, path: "PrivacyInfo.xcprivacy")]
+                ),
+            ]
+        )
+
+        PackageBuilderTester(manifest, path: root, supportXCBuildTypes: false, in: fs) { result, diagnostics in
+            result.checkModule("Foo") { result in
+                result.checkSources(sources: ["foo.swift"])
+                result.checkResources(resources: [
+                    foo.appending(components: "PrivacyInfo.xcprivacy").pathString,
+                ])
+            }
+
+            diagnostics.checkIsEmpty()
+        }
+    }
+
     func testSnippetsLinkProductLibraries() throws {
         let root = AbsolutePath("/Foo")
         let internalSourcesDir = root.appending(components: "Sources", "Internal")
@@ -2990,15 +3108,152 @@ class PackageBuilderTests: XCTestCase {
 
         var assignment = BuildSettings.Assignment()
         assignment.values = ["YOLO"]
-        assignment.conditions = [PlatformsCondition(platforms: [PackageModel.Platform.custom(name: "bestOS", oldestSupportedVersion: .unknown)])]
+        assignment.conditions = [PackageCondition(platforms: [.custom(name: "bestOS", oldestSupportedVersion: .unknown)])]
+
+        var versionAssignment = BuildSettings.Assignment(default: true)
+        versionAssignment.values = ["4"]
 
         var settings = BuildSettings.AssignmentTable()
         settings.add(assignment, for: .SWIFT_ACTIVE_COMPILATION_CONDITIONS)
+        settings.add(versionAssignment, for: .SWIFT_VERSION)
 
         PackageBuilderTester(manifest, in: fs) { package, _ in
             package.checkModule("Foo") { module in
                 module.check(c99name: "Foo", type: .library)
                 module.check(buildSettings: settings)
+            }
+        }
+    }
+
+    func testSwiftLanguageVersionPerTarget() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/foo/foo.swift",
+            "/Sources/bar/bar.swift"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .v5,
+            targets: [
+                try TargetDescription(
+                    name: "foo",
+                    settings: [
+                        .init(tool: .swift, kind: .swiftLanguageMode(.v5))
+                    ]
+                ),
+                try TargetDescription(
+                    name: "bar",
+                    settings: [
+                        .init(tool: .swift, kind: .swiftLanguageMode(.v3), condition: .init(platformNames: ["linux"])),
+                        .init(tool: .swift, kind: .swiftLanguageMode(.v4), condition: .init(platformNames: ["macos"], config: "debug"))
+                    ]
+                ),
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertEqual(macosDebugScope.evaluate(.SWIFT_VERSION), ["5"])
+
+                let macosReleaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                XCTAssertEqual(macosReleaseScope.evaluate(.SWIFT_VERSION), ["5"])
+            }
+
+            package.checkModule("bar") { package in
+                let linuxDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .linux, configuration: .debug)
+                )
+                XCTAssertEqual(linuxDebugScope.evaluate(.SWIFT_VERSION), ["3"])
+
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertEqual(macosDebugScope.evaluate(.SWIFT_VERSION), ["4"])
+
+                let macosReleaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                XCTAssertEqual(macosReleaseScope.evaluate(.SWIFT_VERSION), ["5"])
+            }
+        }
+    }
+
+    func testDefaultIsolationPerTarget() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/a.swift",
+            "/Sources/B/b.swift"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .v6_2,
+            targets: [
+                try TargetDescription(
+                    name: "A",
+                    settings: [
+                        .init(tool: .swift, kind: .defaultIsolation(.MainActor))
+                    ]
+                ),
+                try TargetDescription(
+                    name: "B",
+                    settings: [
+                        .init(tool: .swift, kind: .defaultIsolation(.nonisolated), condition: .init(platformNames: ["linux"])),
+                        .init(tool: .swift, kind: .defaultIsolation(.MainActor), condition: .init(platformNames: ["macos"], config: "debug"))
+                    ]
+                ),
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("A") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertMatch(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS),
+                               [.anySequence, "-default-isolation", "MainActor", .anySequence])
+
+                let macosReleaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                XCTAssertMatch(macosReleaseScope.evaluate(.OTHER_SWIFT_FLAGS),
+                               [.anySequence, "-default-isolation", "MainActor", .anySequence])
+
+            }
+
+            package.checkModule("B") { package in
+                let linuxDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .linux, configuration: .debug)
+                )
+                XCTAssertMatch(linuxDebugScope.evaluate(.OTHER_SWIFT_FLAGS),
+                               [.anySequence, "-default-isolation", "nonisolated", .anySequence])
+
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertMatch(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS),
+                               [.anySequence, "-default-isolation", "MainActor", .anySequence])
+
+                let macosReleaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                XCTAssertNoMatch(macosReleaseScope.evaluate(.OTHER_SWIFT_FLAGS),
+                                 [.anySequence, "-default-isolation", "MainActor", .anySequence])
+
             }
         }
     }
@@ -3017,7 +3272,7 @@ final class PackageBuilderTester {
     private let result: Result
 
     /// Contains the targets which have not been checked yet.
-    private var uncheckedModules: Set<PackageModel.Target> = []
+    private var uncheckedModules: Set<PackageModel.Module> = []
 
     /// Contains the products which have not been checked yet.
     private var uncheckedProducts: Set<PackageModel.Product> = []
@@ -3027,6 +3282,7 @@ final class PackageBuilderTester {
         _ manifest: Manifest,
         path: AbsolutePath = .root,
         binaryArtifacts: [String: BinaryArtifact] = [:],
+        prebuilts: [PackageIdentity: [String: PrebuiltLibrary]] = [:],
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         supportXCBuildTypes: Bool = false,
@@ -3046,15 +3302,17 @@ final class PackageBuilderTester {
                 path: path,
                 additionalFileRules: supportXCBuildTypes ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
                 binaryArtifacts: binaryArtifacts,
+                prebuilts: prebuilts,
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                 warnAboutImplicitExecutableTargets: true,
                 createREPLProduct: createREPLProduct,
                 fileSystem: fs,
-                observabilityScope: observability.topScope
+                observabilityScope: observability.topScope,
+                enabledTraits: []
             )
             let loadedPackage = try builder.construct()
             self.result = .package(loadedPackage)
-            uncheckedModules = Set(loadedPackage.targets)
+            uncheckedModules = Set(loadedPackage.modules)
             uncheckedProducts = Set(loadedPackage.products)
         } catch {
             let errorString = String(describing: error)
@@ -3091,7 +3349,7 @@ final class PackageBuilderTester {
         guard case .package(let package) = result else {
             return XCTFail("Expected package did not load \(self)", file: file, line: line)
         }
-        guard let target = package.targets.first(where: {$0.name == name}) else {
+        guard let target = package.modules.first(where: {$0.name == name}) else {
             return XCTFail("Module: \(name) not found", file: file, line: line)
         }
         uncheckedModules.remove(target)
@@ -3119,7 +3377,7 @@ final class PackageBuilderTester {
 
         func check(type: PackageModel.ProductType, targets: [String], file: StaticString = #file, line: UInt = #line) {
             XCTAssertEqual(product.type, type, file: file, line: line)
-            XCTAssertEqual(product.targets.map{$0.name}.sorted(), targets.sorted(), file: file, line: line)
+            XCTAssertEqual(product.modules.map{$0.name}.sorted(), targets.sorted(), file: file, line: line)
         }
 
         func check(testEntryPointPath: String?, file: StaticString = #file, line: UInt = #line) {
@@ -3128,27 +3386,27 @@ final class PackageBuilderTester {
     }
 
     final class ModuleResult {
-        let target: PackageModel.Target
+        let target: PackageModel.Module
 
-        fileprivate init(_ target: PackageModel.Target) {
+        fileprivate init(_ target: PackageModel.Module) {
             self.target = target
         }
 
         func check(includeDir: String, file: StaticString = #file, line: UInt = #line) {
-            guard case let target as ClangTarget = target else {
+            guard case let target as ClangModule = target else {
                 return XCTFail("Include directory is being checked on a non clang target", file: file, line: line)
             }
             XCTAssertEqual(target.includeDir.pathString, includeDir, file: file, line: line)
         }
 
         func check(moduleMapType: ModuleMapType, file: StaticString = #file, line: UInt = #line) {
-            guard case let target as ClangTarget = target else {
+            guard case let target as ClangModule = target else {
                 return XCTFail("Module map type is being checked on a non-Clang target", file: file, line: line)
             }
             XCTAssertEqual(target.moduleMapType, moduleMapType, file: file, line: line)
         }
 
-        func check(c99name: String? = nil, type: PackageModel.Target.Kind? = nil, file: StaticString = #file, line: UInt = #line) {
+        func check(c99name: String? = nil, type: PackageModel.Module.Kind? = nil, file: StaticString = #file, line: UInt = #line) {
             if let c99name {
                 XCTAssertEqual(target.c99name, c99name, file: file, line: line)
             }
@@ -3174,11 +3432,11 @@ final class PackageBuilderTester {
         }
 
         func check(targetDependencies depsToCheck: [String], file: StaticString = #file, line: UInt = #line) {
-            XCTAssertEqual(Set(depsToCheck), Set(target.dependencies.compactMap { $0.target?.name }), "unexpected dependencies in \(target.name)", file: file, line: line)
+            XCTAssertEqual(Set(depsToCheck), Set(target.dependencies.compactMap { $0.module?.name }), "unexpected dependencies in \(target.name)", file: file, line: line)
         }
 
         func check(
-            productDependencies depsToCheck: [Target.ProductReference],
+            productDependencies depsToCheck: [Module.ProductReference],
             file: StaticString = #file,
             line: UInt = #line
         ) {
@@ -3217,14 +3475,16 @@ final class PackageBuilderTester {
         }
 
         func check(swiftVersion: String, file: StaticString = #file, line: UInt = #line) {
-            guard case let swiftTarget as SwiftTarget = target else {
+            guard case let swiftTarget as SwiftModule = target else {
                 return XCTFail("\(target) is not a swift target", file: file, line: line)
             }
-            XCTAssertEqual(SwiftLanguageVersion(string: swiftVersion)!, swiftTarget.swiftVersion, file: file, line: line)
+            let versionAssignments = swiftTarget.buildSettings.assignments[.SWIFT_VERSION]?
+                .filter { $0.conditions.isEmpty }.flatMap(\.values)
+            XCTAssertNotNil(versionAssignments?.contains(swiftVersion), file: file, line: line)
         }
 
         func check(pluginCapability: PluginCapability, file: StaticString = #file, line: UInt = #line) {
-            guard case let target as PluginTarget = target else {
+            guard case let target as PluginModule = target else {
                 return XCTFail("Plugin capability is being checked on a target", file: file, line: line)
             }
             XCTAssertEqual(target.capability, pluginCapability, file: file, line: line)
@@ -3236,9 +3496,9 @@ final class PackageBuilderTester {
     }
 
     final class ModuleDependencyResult {
-        let dependency: PackageModel.Target.Dependency
+        let dependency: PackageModel.Module.Dependency
 
-        fileprivate init(_ dependency: PackageModel.Target.Dependency) {
+        fileprivate init(_ dependency: PackageModel.Module.Dependency) {
             self.dependency = dependency
         }
 

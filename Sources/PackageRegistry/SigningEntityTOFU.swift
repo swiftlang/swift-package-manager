@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import Dispatch
 
 import Basics
@@ -35,55 +36,63 @@ struct PackageSigningEntityTOFU {
         package: PackageIdentity.RegistryIdentity,
         version: Version,
         signingEntity: SigningEntity?,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) async throws {
         guard let signingEntityStorage else {
-            return completion(.success(()))
+            return
         }
 
-        signingEntityStorage.get(
-            package: package.underlying,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
-        ) { result in
-            switch result {
-            case .success(let packageSigners):
-                self.validateSigningEntity(
-                    registry: registry,
-                    package: package,
-                    version: version,
-                    signingEntity: signingEntity,
-                    packageSigners: packageSigners,
-                    observabilityScope: observabilityScope
-                ) { validateResult in
-                    switch validateResult {
-                    case .success(let shouldWrite):
-                        // We only use certain type(s) of signing entity for TOFU
-                        guard shouldWrite, let signingEntity = signingEntity, case .recognized = signingEntity else {
-                            return completion(.success(()))
-                        }
-                        self.writeToStorage(
-                            registry: registry,
-                            package: package,
-                            version: version,
-                            signingEntity: signingEntity,
-                            observabilityScope: observabilityScope,
-                            callbackQueue: callbackQueue,
-                            completion: completion
-                        )
-                    case .failure(let error):
-                        completion(.failure(error))
-                    }
-                }
-            case .failure(let error):
-                observabilityScope.emit(
-                    error: "Failed to get signing entity for \(package) from storage",
-                    underlyingError: error
-                )
-                completion(.failure(error))
-            }
+        let packageSigners: PackageSigners
+        do {
+            packageSigners = try signingEntityStorage.get(package: package.underlying, observabilityScope: observabilityScope)
+        } catch {
+            observabilityScope.emit(
+                error: "Failed to get signing entity for \(package) from storage",
+                underlyingError: error
+            )
+            throw error
+        }
+
+        let shouldWrite = try await self.validateSigningEntity(
+            registry: registry,
+            package: package,
+            version: version,
+            signingEntity: signingEntity,
+            packageSigners: packageSigners,
+            observabilityScope: observabilityScope
+        )
+
+        // We only use certain type(s) of signing entity for TOFU
+        guard shouldWrite, let signingEntity = signingEntity, case .recognized = signingEntity else {
+            return
+        }
+
+        try self.writeToStorage(
+            registry: registry,
+            package: package,
+            version: version,
+            signingEntity: signingEntity,
+            observabilityScope: observabilityScope
+        )
+    }
+
+    @available(*, noasync, message: "Use the async alternative")
+    func validate(
+        registry: Registry,
+        package: PackageIdentity.RegistryIdentity,
+        version: Version,
+        signingEntity: SigningEntity?,
+        observabilityScope: ObservabilityScope,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        DispatchQueue.sharedConcurrent.asyncResult(completion) {
+            try await self.validate(
+                registry: registry,
+                package: package,
+                version: version,
+                signingEntity: signingEntity,
+                observabilityScope: observabilityScope
+            )
         }
     }
 
@@ -93,19 +102,18 @@ struct PackageSigningEntityTOFU {
         version: Version,
         signingEntity: SigningEntity?,
         packageSigners: PackageSigners,
-        observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<Bool, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) async throws -> Bool {
         // Package is never signed.
         // If signingEntity is nil, it means package remains unsigned, which is OK. (none -> none)
         // Otherwise, package has gained a signer, which is also OK. (none -> some)
         if packageSigners.isEmpty {
-            return completion(.success(true))
+            return true
         }
 
         // If we get to this point, it means we have seen a signed version of the package.
-
         let signingEntitiesForVersion = packageSigners.signingEntities(of: version)
+
         // We recorded the version's signer(s) previously
         if !signingEntitiesForVersion.isEmpty {
             guard let signingEntityToCheck = signingEntity,
@@ -116,19 +124,18 @@ struct PackageSigningEntityTOFU {
                 //   - If signingEntity is nil, it could mean the package author has stopped signing the package.
                 //   - If signingEntity is non-nil, it could mean the package has changed ownership and the new owner
                 //     is re-signing all of the package versions.
-                return self.handleSigningEntityForPackageVersionChanged(
+                try self.handleSigningEntityForPackageVersionChanged(
                     registry: registry,
                     package: package,
                     version: version,
                     latest: signingEntity,
                     existing: signingEntitiesForVersion.first!, // !-safe since signingEntitiesForVersion is non-empty
                     observabilityScope: observabilityScope
-                ) { result in
-                    completion(result.tryMap { false })
-                }
+                )
+                return false
             }
             // Signer remains the same for the version
-            return completion(.success(false))
+            return false
         }
 
         // Check signer(s) of other version(s)
@@ -141,7 +148,7 @@ struct PackageSigningEntityTOFU {
             {
                 // Signer is as expected
                 if signingEntity == expectedSigner.signingEntity {
-                    return completion(.success(true))
+                    return true
                 }
                 // If the signer is different from expected but has been seen before,
                 // we allow versions before its highest known version to be signed
@@ -155,10 +162,10 @@ struct PackageSigningEntityTOFU {
                    let highestKnownVersion = knownSigner.versions.sorted(by: >).first,
                    version < highestKnownVersion
                 {
-                    return completion(.success(true))
+                    return true
                 }
                 // Different signer than expected
-                self.handleSigningEntityForPackageChanged(
+                try self.handleSigningEntityForPackageChanged(
                     registry: registry,
                     package: package,
                     version: version,
@@ -166,13 +173,12 @@ struct PackageSigningEntityTOFU {
                     existing: expectedSigner.signingEntity,
                     existingVersion: expectedSigner.fromVersion,
                     observabilityScope: observabilityScope
-                ) { result in
-                    completion(result.tryMap { false })
-                }
+                )
+                return false
             } else {
                 // There might be other signers, but if we have seen this signer before, allow it.
                 if packageSigners.signers[signingEntity] != nil {
-                    return completion(.success(true))
+                    return true
                 }
 
                 let otherSigningEntities = packageSigners.signers.keys.filter { $0 != signingEntity }
@@ -180,7 +186,7 @@ struct PackageSigningEntityTOFU {
                     // We have not seen this signer before, and there is at least one other signer already.
                     // TODO: This could indicate a legitimate change in package ownership
                     if let existingVersion = packageSigners.signers[otherSigningEntity]?.versions.sorted(by: >).first {
-                        return self.handleSigningEntityForPackageChanged(
+                        try self.handleSigningEntityForPackageChanged(
                             registry: registry,
                             package: package,
                             version: version,
@@ -188,14 +194,13 @@ struct PackageSigningEntityTOFU {
                             existing: otherSigningEntity,
                             existingVersion: existingVersion,
                             observabilityScope: observabilityScope
-                        ) { result in
-                            completion(result.tryMap { false })
-                        }
+                        )
+                        return false
                     }
                 }
 
                 // Package doesn't have any other signer besides the given one, which is good.
-                completion(.success(true))
+                return true
             }
         // Or is the package going from having a signer to .none?
         case .none:
@@ -222,7 +227,7 @@ struct PackageSigningEntityTOFU {
                 .sorted(by: >)
             for olderSignedVersion in olderSignedVersions {
                 if let olderVersionSigner = versionSigningEntities[olderSignedVersion]?.first {
-                    return self.handleSigningEntityForPackageChanged(
+                    try self.handleSigningEntityForPackageChanged(
                         registry: registry,
                         package: package,
                         version: version,
@@ -230,13 +235,12 @@ struct PackageSigningEntityTOFU {
                         existing: olderVersionSigner,
                         existingVersion: olderSignedVersion,
                         observabilityScope: observabilityScope
-                    ) { result in
-                        completion(result.tryMap { false })
-                    }
+                    )
+                    return false
                 }
             }
             // Assume the given version is an older version before package started getting signed
-            completion(.success(false))
+            return false
         }
     }
 
@@ -245,38 +249,29 @@ struct PackageSigningEntityTOFU {
         package: PackageIdentity.RegistryIdentity,
         version: Version,
         signingEntity: SigningEntity,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) throws {
         guard let signingEntityStorage else {
-            return completion(.success(()))
+            return
         }
 
-        signingEntityStorage.put(
-            package: package.underlying,
-            version: version,
-            signingEntity: signingEntity,
-            origin: .registry(registry.url),
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
-        ) { result in
-            switch result {
-            case .success:
-                completion(.success(()))
-            case .failure(PackageSigningEntityStorageError.conflict(_, _, _, let existing)):
-                self.handleSigningEntityForPackageVersionChanged(
-                    registry: registry,
-                    package: package,
-                    version: version,
-                    latest: signingEntity,
-                    existing: existing,
-                    observabilityScope: observabilityScope,
-                    completion: completion
-                )
-            case .failure(let error):
-                completion(.failure(error))
-            }
+        do {
+            try signingEntityStorage.put(
+                package: package.underlying,
+                version: version,
+                signingEntity: signingEntity,
+                origin: .registry(registry.url),
+                observabilityScope: observabilityScope
+            )
+        } catch PackageSigningEntityStorageError.conflict(_, _, _, let existing) {
+            try self.handleSigningEntityForPackageVersionChanged(
+                registry: registry,
+                package: package,
+                version: version,
+                latest: signingEntity,
+                existing: existing,
+                observabilityScope: observabilityScope
+            )
         }
     }
 
@@ -286,24 +281,22 @@ struct PackageSigningEntityTOFU {
         version: Version,
         latest: SigningEntity?,
         existing: SigningEntity,
-        observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) throws {
         switch self.signingEntityCheckingMode {
         case .strict:
-            completion(.failure(RegistryError.signingEntityForReleaseChanged(
+            throw RegistryError.signingEntityForReleaseChanged(
                 registry: registry,
                 package: package.underlying,
                 version: version,
                 latest: latest,
                 previous: existing
-            )))
+            )
         case .warn:
             observabilityScope
                 .emit(
                     warning: "the signing entity '\(String(describing: latest))' from \(registry) for \(package) version \(version) is different from the previously recorded value '\(existing)'"
                 )
-            completion(.success(()))
         }
     }
 
@@ -314,25 +307,23 @@ struct PackageSigningEntityTOFU {
         latest: SigningEntity?,
         existing: SigningEntity,
         existingVersion: Version,
-        observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) throws {
         switch self.signingEntityCheckingMode {
         case .strict:
-            completion(.failure(RegistryError.signingEntityForPackageChanged(
+            throw RegistryError.signingEntityForPackageChanged(
                 registry: registry,
                 package: package.underlying,
                 version: version,
                 latest: latest,
                 previous: existing,
                 previousVersion: existingVersion
-            )))
+            )
         case .warn:
             observabilityScope
                 .emit(
                     warning: "the signing entity '\(String(describing: latest))' from \(registry) for \(package) version \(version) is different from the previously recorded value '\(existing)' for version \(existingVersion)"
                 )
-            completion(.success(()))
         }
     }
 }
