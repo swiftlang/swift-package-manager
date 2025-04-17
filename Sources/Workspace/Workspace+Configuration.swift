@@ -796,7 +796,7 @@ public struct WorkspaceConfiguration {
     public var pruneDependencies: Bool
 
     /// The trait configuration for the root.
-    public var traitConfiguration: TraitConfiguration?
+    public var traitConfiguration: TraitConfiguration
 
     public init(
         skipDependenciesUpdates: Bool,
@@ -813,7 +813,7 @@ public struct WorkspaceConfiguration {
         manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?,
         usePrebuilts: Bool,
         pruneDependencies: Bool,
-        traitConfiguration: TraitConfiguration?
+        traitConfiguration: TraitConfiguration
     ) {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
@@ -849,7 +849,7 @@ public struct WorkspaceConfiguration {
             manifestImportRestrictions: .none,
             usePrebuilts: false,
             pruneDependencies: false,
-            traitConfiguration: nil
+            traitConfiguration: .default
         )
     }
 
