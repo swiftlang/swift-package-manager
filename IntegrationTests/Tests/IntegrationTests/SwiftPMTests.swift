@@ -28,7 +28,7 @@ private struct SwiftPMTests {
             try binaryTargetsFixture { fixturePath in
                 do {
                     withKnownIssue("error: local binary target ... does not contain a binary artifact") {
-                        let (stdout, stderr) = try sh(swiftRun, "--package-path", fixturePath, "exe")
+                        let (stdout, stderr, exitCode) = try sh(swiftRun, "--package-path", fixturePath, "exe")
                         #expect(!stderr.contains("error:"))
                         #expect(
                             stdout == """
@@ -37,12 +37,13 @@ private struct SwiftPMTests {
 
                             """
                         )
+                        #expect(exitCode == .terminated(code: 0))
                     }
                 }
 
                 do {
                     withKnownIssue("error: local binary target ... does not contain a binary artifact") {
-                        let (stdout, stderr) = try sh(swiftRun, "--package-path", fixturePath, "cexe")
+                        let (stdout, stderr, _) = try sh(swiftRun, "--package-path", fixturePath, "cexe")
                         #expect(!stderr.contains("error:"))
                         #expect(stdout.contains("<CLibrary: "))
                     }
@@ -50,7 +51,7 @@ private struct SwiftPMTests {
 
                 do {
                     let invalidPath = fixturePath.appending(component: "SwiftFramework.xcframework")
-                    let (_, stderr) = try shFails(
+                    let (_, stderr, _) = try shFails(
                         swiftPackage, "--package-path", fixturePath, "compute-checksum", invalidPath
                     )
                     #expect(
@@ -62,7 +63,7 @@ private struct SwiftPMTests {
                     )
 
                     let validPath = fixturePath.appending(component: "SwiftFramework.zip")
-                    let (stdout, _) = try sh(
+                    let (stdout, _, _) = try sh(
                         swiftPackage, "--package-path", fixturePath, "compute-checksum", validPath
                     )
                     #expect(
@@ -99,11 +100,12 @@ private struct SwiftPMTests {
                 try withKnownIssue("Error while loading shared libraries: libswiftCore.so: cannot open shared object file: No such file or directory") {
                     // The 'native' build system uses 'swiftc' as the linker driver, which adds an RUNPATH to the swift runtime libraries in the SDK.
                     // 'swiftbuild' directly calls clang, which does not add the extra RUNPATH, so runtime libraries cannot be found.
-                    let (stdout, stderr) = try sh(
+                    let (stdout, stderr, exitCode) = try sh(
                         swiftRun, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue
                     )
                     #expect(!stderr.contains("error:"))
                     #expect(stdout.contains("Hello, world!"))
+                    #expect(exitCode == .terminated(code: 0))
                 } when: {
                     buildSystemProvider == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux
                 }
@@ -132,11 +134,13 @@ private struct SwiftPMTests {
                 isIntermittent: true
             ) {
                 try sh(swiftBuild, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue, "--vv")
-                let (stdout, stderr) = try sh(
+                let (stdout, stderr, exitCode) = try sh(
                     swiftTest, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue, "--vv"
                 )
                 #expect(!stderr.contains("error:"))
+                #expect(!stdout.contains("error:"))
                 #expect(stdout.contains("Test Suite 'All tests' passed"))
+                #expect(exitCode == .terminated(code: 0))
             } when: {
                 buildSystemProvider == .swiftbuild
             }

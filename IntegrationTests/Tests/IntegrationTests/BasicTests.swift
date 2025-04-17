@@ -192,7 +192,7 @@ private struct BasicTests {
             let packagePath = tempDir.appending(component: "Project")
             try localFileSystem.createDirectory(packagePath)
             try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "library")
-            let testOutput = try sh(swiftTest, "--package-path", packagePath).stdout
+            let (testOutput, stderr, exitCode) = try sh(swiftTest, "--package-path", packagePath)
 
             // Check the test log.
             let checker = StringChecker(string: testOutput)
@@ -200,9 +200,14 @@ private struct BasicTests {
             #expect(checker.check(.contains("Test example() passed after")))
             #expect(checker.checkNext(.contains("Test run with 1 test passed after")))
 
+            // Check the return code
+            #expect(exitCode == .terminated(code: 0))
+
             // Check there were no compile errors or warnings.
-            #expect(testOutput.contains("error") == false)
-            #expect(testOutput.contains("warning") == false)
+            #expect(!testOutput.contains("error"))
+            #expect(!testOutput.contains("warning"))
+            #expect(!stderr.contains("error"))
+            #expect(!stderr.contains("warning"))
         }
     }
 
@@ -281,7 +286,7 @@ private struct BasicTests {
                     """
                 )
             )
-            let (runOutput, runError) = try sh(
+            let (runOutput, runError, exitCode) = try sh(
                 swiftRun, "--package-path", packagePath, "secho", "1", #""two""#
             )
 
@@ -292,6 +297,7 @@ private struct BasicTests {
             #expect(checker.check(.contains("Build of product 'secho' complete")))
 
             #expect(runOutput == "1 \"two\"\(ProcessInfo.EOL)")
+            #expect(exitCode == .terminated(code: 0))
         }
     }
 
