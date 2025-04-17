@@ -2036,8 +2036,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     }
 
     func test_symbolGraphExtract_arguments() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         // ModuleGraph:
         // .
         // ├── A (Swift)
@@ -4691,8 +4689,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     }
 
     func testUserToolchainCompileFlags() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -4945,8 +4941,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     }
 
     func testUserToolchainWithToolsetCompileFlags() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: "Path delimiters donw's work well on Windows")
-
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -5115,8 +5109,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     }
 
     func testUserToolchainWithSDKSearchPaths() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift",
