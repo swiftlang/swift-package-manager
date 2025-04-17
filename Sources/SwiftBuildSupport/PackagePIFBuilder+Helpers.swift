@@ -55,17 +55,27 @@ import struct PackageGraph.ResolvedProduct
 
 import func PackageLoading.pkgConfigArgs
 
+// TODO: Move this back to `PackagePIFBuilder` once we get rid of `#if canImport(SwiftBuild)`.
+func targetName(forProductName name: String, suffix: String? = nil) -> String {
+    let suffix = suffix ?? ""
+    return "\(name)\(suffix)-product"
+}
+
 #if canImport(SwiftBuild)
 
 import enum SwiftBuild.ProjectModel
 
 // MARK: - PIF GUID Helpers
 
-enum TargetGUIDSuffix: String {
+enum TargetSuffix: String {
     case testable, dynamic
+    
+    func hasSuffix(id: GUID) -> Bool {
+        id.value.hasSuffix("-\(self.rawValue)")
+    }
 }
 
-extension TargetGUIDSuffix? {
+extension TargetSuffix? {
     func description(forName name: String) -> String {
         switch self {
         case .some(let suffix):
@@ -76,34 +86,45 @@ extension TargetGUIDSuffix? {
     }
 }
 
+extension GUID {
+    func hasSuffix(_ suffix: TargetSuffix) -> Bool {
+        self.value.hasSuffix("-\(suffix.rawValue)")
+    }
+}
+
 extension PackageModel.Module {
-    func pifTargetGUID(suffix: TargetGUIDSuffix? = nil) -> GUID {
+    var pifTargetGUID: GUID { pifTargetGUID(suffix: nil) }
+
+    func pifTargetGUID(suffix: TargetSuffix?) -> GUID {
         PackagePIFBuilder.targetGUID(forModuleName: self.name, suffix: suffix)
     }
 }
 
 extension PackageGraph.ResolvedModule {
-    func pifTargetGUID(suffix: TargetGUIDSuffix? = nil) -> GUID {
+    var pifTargetGUID: GUID { pifTargetGUID(suffix: nil) }
+
+    func pifTargetGUID(suffix: TargetSuffix?) -> GUID {
         self.underlying.pifTargetGUID(suffix: suffix)
     }
 }
 
 extension PackageModel.Product {
-    func pifTargetGUID(suffix: TargetGUIDSuffix? = nil) -> GUID {
+    var pifTargetGUID: GUID { pifTargetGUID(suffix: nil) }
+
+    func pifTargetGUID(suffix: TargetSuffix?) -> GUID {
         PackagePIFBuilder.targetGUID(forProductName: self.name, suffix: suffix)
     }
 }
 
 extension PackageGraph.ResolvedProduct {
-    func pifTargetGUID(suffix: TargetGUIDSuffix? = nil) -> GUID {
+    var pifTargetGUID: GUID { pifTargetGUID(suffix: nil) }
+
+    func pifTargetGUID(suffix: TargetSuffix?) -> GUID {
         self.underlying.pifTargetGUID(suffix: suffix)
     }
 
-    /// Helper function to consistently generate a target name string for a product in a package.
-    /// This format helps make sure that targets and products with the same name (as they often have) have different
-    /// target names in the PIF.
-    func targetNameForProduct(suffix: String = "") -> String {
-        "\(name)\(suffix) product"
+    func targetName(suffix: TargetSuffix? = nil) -> String {
+        PackagePIFBuilder.targetName(forProductName: self.name, suffix: suffix)
     }
 }
 
@@ -112,7 +133,7 @@ extension PackagePIFBuilder {
     ///
     /// This format helps make sure that there is no collision with any other PIF targets,
     /// and in particular that a PIF target and a PIF product can have the same name (as they often do).
-    static func targetGUID(forModuleName name: String, suffix: TargetGUIDSuffix? = nil) -> GUID {
+    static func targetGUID(forModuleName name: String, suffix: TargetSuffix? = nil) -> GUID {
         let suffixDescription = suffix.description(forName: name)
         return "PACKAGE-TARGET:\(name)\(suffixDescription)"
     }
@@ -121,9 +142,16 @@ extension PackagePIFBuilder {
     ///
     /// This format helps make sure that there is no collision with any other PIF targets,
     /// and in particular that a PIF target and a PIF product can have the same name (as they often do).
-    static func targetGUID(forProductName name: String, suffix: TargetGUIDSuffix? = nil) -> GUID {
+    static func targetGUID(forProductName name: String, suffix: TargetSuffix? = nil) -> GUID {
         let suffixDescription = suffix.description(forName: name)
         return "PACKAGE-PRODUCT:\(name)\(suffixDescription)"
+    }
+    
+    /// Helper function to consistently generate a target name string for a product in a package.
+    /// This format helps make sure that targets and products with the same name (as they often have) have different
+    /// target names in the PIF.
+    static func targetName(forProductName name: String, suffix: TargetSuffix? = nil) -> String {
+        return SwiftBuildSupport.targetName(forProductName: name, suffix: suffix?.rawValue)
     }
 }
 
@@ -796,7 +824,14 @@ extension TSCUtility.Version {
     }
 }
 
-// MARK: - Swift Build PIF Helpers
+// MARK: - Swift Build ProjectModel Helpers
+
+/// Helpful for logging.
+extension ProjectModel.GUID: @retroactive CustomStringConvertible  {
+    public var description: String {
+        value
+    }
+}
 
 extension ProjectModel.BuildSettings {
     subscript(_ setting: MultipleValueSetting, default defaultValue: [String]) -> [String] {
@@ -1010,6 +1045,55 @@ extension ProjectModel.BuildSettings.Declaration {
         default:
             preconditionFailure("Unexpected BuildSettings.Declaration: \(declaration.name)")
         }
+    }
+}
+
+// MARK: - ObservabilityScope Helpers
+
+extension ObservabilityScope {
+    /// Logs an informational PIF message (intended for developers, not end users).
+    func logPIF(
+        _ severity: Diagnostic.Severity = .debug,
+        indent: UInt = 0,
+        _ message: String,
+        sourceFile: StaticString = #fileID,
+        sourceLine: UInt = #line
+    ) {
+        var metadata = ObservabilityMetadata()
+        metadata.sourceLocation = SourceLocation(sourceFile, sourceLine)
+
+        let indentation = String(repeating: "  ", count: Int(indent))
+        let message = "PIF: \(indentation)\(message)"
+        
+        let diagnostic = Diagnostic(severity: severity, message: message, metadata: metadata)
+        self.emit(diagnostic)
+    }
+}
+
+extension ObservabilityMetadata {
+    public var sourceLocation: SourceLocation? {
+        get {
+            self[SourceLocationKey.self]
+        }
+        set {
+            self[SourceLocationKey.self] = newValue
+        }
+    }
+
+    private enum SourceLocationKey: Key {
+        typealias Value = SourceLocation
+    }
+}
+
+public struct SourceLocation: Sendable {
+    public let file: StaticString
+    public let line: UInt
+
+    public init(_ file: StaticString, _ line: UInt) {
+        precondition(file.description.hasContent)
+        
+        self.file = file
+        self.line = line
     }
 }
 

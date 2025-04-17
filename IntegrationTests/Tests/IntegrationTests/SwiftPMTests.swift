@@ -75,10 +75,15 @@ private struct SwiftPMTests {
     }
 
     @Test(
+        .requireHostOS(.windows, when: false),
         .requireThreadSafeWorkingDirectory,
         .bug(
             "https://github.com/swiftlang/swift-package-manager/issues/8416",
-            "swift run using --build-system swiftbuild fails to run executable"
+            "[Linux] swift run using --build-system swiftbuild fails to run executable"
+        ),
+        .bug(
+            "https://github.com/swiftlang/swift-package-manager/issues/8514",
+            "[Windows] Integration test SwiftPMTests.packageInitExecutable with --build-system swiftbuild is skipped"
         ),
         arguments: BuildSystemProvider.allCases
     )
@@ -119,12 +124,12 @@ private struct SwiftPMTests {
             try localFileSystem.createDirectory(packagePath)
             try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "library")
             try withKnownIssue(
-                    """
-                    Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error: undefined reference to 'main'
-                    Windows: lld-link: error: subsystem must be defined
-                    MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found
-                    """,
-                    isIntermittent: true
+                """
+                Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error: undefined reference to 'main'
+                Windows: lld-link: error: subsystem must be defined
+                MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found
+                """,
+                isIntermittent: true
             ) {
                 try sh(swiftBuild, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue, "--vv")
                 let (stdout, stderr) = try sh(
