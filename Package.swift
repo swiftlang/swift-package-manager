@@ -55,6 +55,15 @@ let swiftPMDataModelProduct = (
     ]
 )
 
+let usePackageDependencies = ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil
+
+let swiftTestingDeps: [Target.Dependency]
+if usePackageDependencies {
+    swiftTestingDeps = []
+} else {
+    swiftTestingDeps = [.product(name: "Testing", package: "swift-testing")]
+}
+
 /** The `libSwiftPM` set of interfaces to programmatically work with Swift
  packages.  `libSwiftPM` includes all of the SwiftPM code except the
  command line tools, while `libSwiftPMDataModel` includes only the data model.
@@ -733,7 +742,7 @@ let package = Package(
                     "XCBuildSupport",
                     "SwiftBuildSupport",
                     "_InternalTestSupport"
-                ],
+                ] + swiftTestingDeps,
                 swiftSettings: [
                     .unsafeFlags(["-static"]),
                 ]
@@ -753,7 +762,7 @@ let package = Package(
                 .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 "Workspace",
-            ],
+            ] + swiftTestingDeps,
             swiftSettings: [
                 .unsafeFlags(["-static"]),
             ]
@@ -998,7 +1007,7 @@ func swiftSyntaxDependencies(_ names: [String]) -> [Target.Dependency] {
 let relatedDependenciesBranch = "main"
 
 if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
-    if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
+    if usePackageDependencies {
         package.dependencies += [
             .package(url: "https://github.com/swiftlang/swift-llbuild.git", branch: relatedDependenciesBranch),
         ]
@@ -1014,7 +1023,7 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
     ]
 }
 
-if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
+if usePackageDependencies {
     package.dependencies += [
         .package(url: "https://github.com/swiftlang/swift-tools-support-core.git", branch: relatedDependenciesBranch),
         // The 'swift-argument-parser' version declared here must match that
@@ -1040,6 +1049,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-collections"),
         .package(path: "../swift-certificates"),
         .package(path: "../swift-toolchain-sqlite"),
+        .package(path: "../swift-testing"),
     ]
 }
 
@@ -1063,7 +1073,7 @@ if ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] == nil &&
         .product(name: "SWBBuildService", package: "swift-build"),
     ]
 
-    if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
+    if usePackageDependencies {
         package.dependencies += [
             .package(url: "https://github.com/swiftlang/swift-build.git", branch: relatedDependenciesBranch),
         ]
