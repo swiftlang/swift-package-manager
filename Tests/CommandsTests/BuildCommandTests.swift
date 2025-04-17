@@ -209,8 +209,8 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
     func testSymlink() async throws {
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             let fullPath = try resolveSymlinks(fixturePath)
-            let targetPath = try fullPath.appending(
-                components: ".build",
+            let targetPath = try fullPath.appending(components:
+                ".build",
                 UserToolchain.default.targetTriple.platformBuildPathComponent
             )
             // Test symlink.
