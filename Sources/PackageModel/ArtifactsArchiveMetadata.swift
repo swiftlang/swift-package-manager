@@ -134,7 +134,7 @@ extension ArtifactsArchiveMetadata.Variant: Decodable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.supportedTriples = try container.decodeIfPresent([String].self, forKey: .supportedTriples)?.map { try Triple($0) }
         self.path = try RelativePath(validating: container.decode(String.self, forKey: .path))
-        self.libraryMetadata = try container.decode(
+        self.libraryMetadata = try container.decodeIfPresent(
             ArtifactsArchiveMetadata.LibraryMetadata.self,
             forKey: .libraryMetadata
         )
