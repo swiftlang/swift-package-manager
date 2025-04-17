@@ -28,7 +28,7 @@ public struct ArtifactsArchiveMetadata: Equatable {
 
     public struct Artifact: Equatable {
         public let type: ArtifactType
-        let version: String
+        public let version: String
         public let variants: [Variant]
 
         public init(type: ArtifactsArchiveMetadata.ArtifactType, version: String, variants: [Variant]) {
@@ -39,11 +39,12 @@ public struct ArtifactsArchiveMetadata: Equatable {
     }
 
     // In the future we are likely to extend the ArtifactsArchive file format to carry other types of artifacts beyond
-    // executables and Swift SDKs. Additional fields may be required to support these new artifact
+    // executables, libraries, and Swift SDKs. Additional fields may be required to support these new artifact
     // types e.g. headers path for libraries. This can also support resource-only artifacts as well. For example,
-    // 3d models along with associated textures, or fonts, etc.
+    // 3D models along with associated textures, or fonts, etc.
     public enum ArtifactType: String, RawRepresentable, Decodable {
         case executable
+        case library
         case swiftSDK
 
         // Can't be marked as formally deprecated as we still need to use this value for warning users.
@@ -53,11 +54,18 @@ public struct ArtifactsArchiveMetadata: Equatable {
     public struct Variant: Equatable {
         public let path: RelativePath
         public let supportedTriples: [Triple]?
+        public let libraryMetadata: LibraryMetadata?
 
-        public init(path: RelativePath, supportedTriples: [Triple]?) {
+        public init(path: RelativePath, supportedTriples: [Triple]?, libraryMetadata: LibraryMetadata? = nil) {
             self.path = path
             self.supportedTriples = supportedTriples
+            self.libraryMetadata = libraryMetadata
         }
+    }
+
+    public struct LibraryMetadata: Equatable, Decodable {
+        public let headerPaths: [RelativePath]
+        public let moduleMapPath: RelativePath?
     }
 }
 
@@ -78,7 +86,7 @@ extension ArtifactsArchiveMetadata {
             )
 
             switch (version.major, version.minor) {
-            case (1, 1), (1, 0):
+            case (1, 2), (1, 1), (1, 0):
                 return decodedMetadata
             default:
                 throw StringError(
@@ -86,7 +94,9 @@ extension ArtifactsArchiveMetadata {
                 )
             }
         } catch {
-            throw StringError("failed parsing ArtifactsArchive info.json at '\(path)': \(error.interpolationDescription)")
+            throw StringError(
+                "failed parsing ArtifactsArchive info.json at '\(path)': \(error.interpolationDescription)"
+            )
         }
     }
 }
@@ -117,11 +127,16 @@ extension ArtifactsArchiveMetadata.Variant: Decodable {
     enum CodingKeys: String, CodingKey {
         case path
         case supportedTriples
+        case libraryMetadata
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.supportedTriples = try container.decodeIfPresent([String].self, forKey: .supportedTriples)?.map { try Triple($0) }
         self.path = try RelativePath(validating: container.decode(String.self, forKey: .path))
+        self.libraryMetadata = try container.decodeIfPresent(
+            ArtifactsArchiveMetadata.LibraryMetadata.self,
+            forKey: .libraryMetadata
+        )
     }
 }
