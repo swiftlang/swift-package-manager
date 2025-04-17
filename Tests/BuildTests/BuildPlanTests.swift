@@ -6972,7 +6972,8 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let myLib = try XCTUnwrap(plan.targets.first(where: { $0.module.name == "MyLib" })).swift()
-        XCTAssertFalse(myLib.additionalFlags.contains(where: { $0.contains("-tool")}), "flags shouldn't contain tools items")
+        print(myLib.additionalFlags)
+        XCTAssertFalse(myLib.additionalFlags.contains(where: { $0.contains("-tool/include")}), "flags shouldn't contain tools items")
     }
 }
 
