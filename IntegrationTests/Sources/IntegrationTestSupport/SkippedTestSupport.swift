@@ -67,4 +67,12 @@ extension Trait where Self == Testing.ConditionTrait {
                 .map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false
         }
     }
+
+    /// Skip test based on the presence of an environment variable set that matches a prefix and issue
+    /// suffix.  i.e. SWIFTCI_EXHIBITS_GH_8520=1
+    public static func skipCIExhibitsIssue(_ issueSuffix: String, _ comment: Comment? = nil) -> Self {
+        disabled(comment ?? "SWIFTCI_EXHIBITS_\(issueSuffix) environment variable is set") {
+            ProcessInfo.processInfo.environment["SWIFTCI_EXHIBITS_\(issueSuffix)"] != nil
+        }
+    }
 }
