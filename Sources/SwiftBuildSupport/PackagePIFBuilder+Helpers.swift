@@ -61,8 +61,6 @@ func targetName(forProductName name: String, suffix: String? = nil) -> String {
     return "\(name)\(suffix)-product"
 }
 
-#if canImport(SwiftBuild)
-
 import enum SwiftBuild.ProjectModel
 
 // MARK: - PIF GUID Helpers
@@ -1215,4 +1213,3 @@ extension UserDefaults {
     }
 }
 
-#endif

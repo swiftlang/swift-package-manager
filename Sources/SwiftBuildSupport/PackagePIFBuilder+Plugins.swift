@@ -17,8 +17,6 @@ import let Basics.localFileSystem
 import enum Basics.Sandbox
 import struct Basics.SourceControlURL
 
-#if canImport(SwiftBuild)
-
 import enum SwiftBuild.ProjectModel
 
 extension PackagePIFBuilder {
@@ -135,4 +133,3 @@ extension PackagePIFBuilder {
     }
 }
 
-#endif
