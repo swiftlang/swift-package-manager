@@ -151,10 +151,30 @@ extension BuildParameters {
             args = ["-alias", "_\(target.c99name)_main", "_main"]
         case .elf:
             args = ["--defsym", "main=\(target.c99name)_main"]
+        case .coff:
+            // If the user is specifying a custom entry point name that isn't "main", assume they may be setting WinMain or wWinMain
+            // and don't do any modifications ourselves. In that case the linker will infer the WINDOWS subsystem and call WinMainCRTStartup,
+            // which will then call the custom entry point. And WinMain/wWinMain != main, so this still won't run into duplicate symbol
+            // issues when called from a test target, which always uses main.
+            if let customEntryPointFunctionName = findCustomEntryPointFunctionName(of: target), customEntryPointFunctionName != "main" {
+                return nil
+            }
+            args = ["/ALTERNATENAME:main=\(target.c99name)_main", "/SUBSYSTEM:CONSOLE"]
         default:
             return nil
         }
         return args.asSwiftcLinkerFlags()
+    }
+
+    private func findCustomEntryPointFunctionName(of target: ResolvedModule) -> String? {
+        let flags = createScope(for: target).evaluate(.OTHER_SWIFT_FLAGS)
+        var it = flags.makeIterator()
+        while let value = it.next() {
+            if value == "-Xfrontend" && it.next() == "-entry-point-function-name" && it.next() == "-Xfrontend" {
+                return it.next()
+            }
+        }
+        return nil
     }
 
     /// Returns the scoped view of build settings for a given target.
