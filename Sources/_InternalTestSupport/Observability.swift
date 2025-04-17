@@ -56,15 +56,14 @@ public struct TestingObservability {
         self.collector.hasWarnings
     }
 
-    final class Collector: ObservabilityHandlerProvider, DiagnosticsHandler, CustomStringConvertible {
+    fileprivate final class Collector: ObservabilityHandlerProvider, DiagnosticsHandler, CustomStringConvertible {
         var diagnosticsHandler: DiagnosticsHandler { self }
 
-        let diagnostics: ThreadSafeArrayStore<Basics.Diagnostic>
         private let verbose: Bool
+        let diagnostics = ThreadSafeArrayStore<Basics.Diagnostic>()
 
         init(verbose: Bool) {
             self.verbose = verbose
-            self.diagnostics = .init()
         }
 
         // TODO: do something useful with scope
@@ -98,6 +97,7 @@ public func XCTAssertNoDiagnostics(
 ) {
     let diagnostics = problemsOnly ? diagnostics.filter { $0.severity >= .warning } : diagnostics
     if diagnostics.isEmpty { return }
+    
     let description = diagnostics.map { "- " + $0.description }.joined(separator: "\n")
     XCTFail("Found unexpected diagnostics: \n\(description)", file: file, line: line)
 }

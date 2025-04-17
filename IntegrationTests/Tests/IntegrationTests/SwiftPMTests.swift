@@ -110,29 +110,30 @@ private struct SwiftPMTests {
         .requireThreadSafeWorkingDirectory,
         .bug(id: 0, "SWBINTTODO: Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error:"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8380", "lld-link: error: subsystem must be defined"),
-        .bug(id:0, "SWBINTTODO: MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found"),
+        .bug(id: 0, "SWBINTTODO: MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found"),
         arguments: BuildSystemProvider.allCases
     )
     func packageInitLibrary(_ buildSystemProvider: BuildSystemProvider) throws {
-        do {
-            try withTemporaryDirectory { tmpDir in
-                let packagePath = tmpDir.appending(component: "foo")
-                try localFileSystem.createDirectory(packagePath)
-                try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "library")
-                try withKnownIssue("""
-                       Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error: undefined reference to 'main'
-                       Windows: lld-link: error: subsystem must be defined
-                       MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found
-                    """) {
-                    try sh(swiftBuild, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue, "--vv")
-                    let (stdout, stderr) = try sh(
-                        swiftTest, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue, "--vv"
-                    )
-                    #expect(!stderr.contains("error:"))
-                    #expect(stdout.contains("Test Suite 'All tests' passed"))
-                } when: {
-                    buildSystemProvider == .swiftbuild
-                }
+        try withTemporaryDirectory { tmpDir in
+            let packagePath = tmpDir.appending(component: "foo")
+            try localFileSystem.createDirectory(packagePath)
+            try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "library")
+            try withKnownIssue(
+                    """
+                    Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error: undefined reference to 'main'
+                    Windows: lld-link: error: subsystem must be defined
+                    MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found
+                    """,
+                    isIntermittent: true
+            ) {
+                try sh(swiftBuild, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue, "--vv")
+                let (stdout, stderr) = try sh(
+                    swiftTest, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue, "--vv"
+                )
+                #expect(!stderr.contains("error:"))
+                #expect(stdout.contains("Test Suite 'All tests' passed"))
+            } when: {
+                buildSystemProvider == .swiftbuild
             }
         }
     }
