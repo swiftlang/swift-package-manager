@@ -112,6 +112,7 @@ private struct SwiftPMTests {
     }
 
     @Test(
+        .skipCIExhibitsIssue("GH_8520", "Fails in specific CI environments"),
         .requireThreadSafeWorkingDirectory,
         .bug(id: 0, "SWBINTTODO: Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error:"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8380", "lld-link: error: subsystem must be defined"),

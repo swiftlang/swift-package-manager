@@ -185,7 +185,9 @@ private struct BasicTests {
         }
     }
 
-    @Test
+    @Test(
+        .skipCIExhibitsIssue("GH_8520", "Fails in specific CI environments")
+    )
     func testSwiftPackageLibsTests() throws {
         try withTemporaryDirectory { tempDir in
             // Create a new package with an executable target.
