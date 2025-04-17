@@ -55,14 +55,23 @@ public final class BinaryModule: Module {
 
     public enum Kind: String, RawRepresentable, CaseIterable {
         case xcframework
-        case artifactsArchive
+
+        /// Artifact bundles containing libraries.
+        case libraryArchive
+
+        /// Artifact bundles containing executables.
+        case executableArchive
+
         case unknown // for non-downloaded artifacts
+
+        @available(*, deprecated, renamed: "executableArchive", message: "Renamed to clearly distinguish from `case libraryArchive`")
+        public static let artifactsArchive = Self.executableArchive
 
         public var fileExtension: String {
             switch self {
             case .xcframework:
                 return "xcframework"
-            case .artifactsArchive:
+            case .executableArchive, .libraryArchive:
                 return "artifactbundle"
             case .unknown:
                 return "unknown"
@@ -71,8 +80,7 @@ public final class BinaryModule: Module {
     }
 
     public var containsExecutable: Bool {
-        // FIXME: needs to be revisited once libraries are supported in artifact bundles
-        return self.kind == .artifactsArchive
+        return self.kind == .executableArchive
     }
 
     public enum Origin: Equatable {

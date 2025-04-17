@@ -152,7 +152,7 @@ internal struct PluginContextSerializer {
         case let target as BinaryModule:
             let artifactKind: WireInput.Target.TargetInfo.BinaryArtifactKind
             switch target.kind {
-            case .artifactsArchive:
+            case .executableArchive:
                 artifactKind = .artifactsArchive
             case .libraryArchive:
                 artifactKind = .libraryArchive
