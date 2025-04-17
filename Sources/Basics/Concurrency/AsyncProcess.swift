@@ -20,11 +20,8 @@ import Android
 
 #if os(Linux)
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly
-import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
-
-@_implementationOnly
-import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
+package import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
+package import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
 #else
 private import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
 private import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np

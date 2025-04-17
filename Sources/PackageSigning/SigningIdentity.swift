@@ -12,11 +12,11 @@
 
 #if USE_IMPL_ONLY_IMPORTS
 #if canImport(Security)
-@_implementationOnly import Security
+internal import Security
 #endif
 
-@_implementationOnly import Crypto
-@_implementationOnly import X509
+internal import Crypto
+internal import X509
 #else
 #if canImport(Security)
 import Security

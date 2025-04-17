@@ -12,8 +12,8 @@
 
 import Foundation
 #if os(Windows)
-@_implementationOnly import ucrt
-@_implementationOnly import WinSDK
+internal import ucrt
+internal import WinSDK
 
 internal func dup(_ fd: CInt) -> CInt {
     return _dup(fd)
