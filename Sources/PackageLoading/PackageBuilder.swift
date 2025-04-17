@@ -955,7 +955,7 @@ public final class PackageBuilder {
             for dependency in dependencies {
                 if let depTarget = dependency.module, depTarget.type == .test {
                     self.observabilityScope.emit(.invalidDependencyOnTestTarget(
-                        dependency: dependency.name,
+                        dependency: dependency,
                         targetName: potentialModule.name
                     ))
                 }

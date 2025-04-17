@@ -309,9 +309,9 @@ extension Basics.Diagnostic {
         return .error("\(messagePrefix) in dependencies of target '\(targetName)'; valid packages are: \(validPackages.map{ "\($0.descriptionForValidation)" }.joined(separator: ", "))")
     }
 
-    static func invalidDependencyOnTestTarget(dependency: String, targetName: String) -> Self {
+    static func invalidDependencyOnTestTarget(dependency: Module.Dependency, targetName: String) -> Self {
         .error(
-            "Invalid dependency: '\(targetName)' cannot depend on test target dependency '\(dependency)'. Only test targets can depend on other test targets"
+            "Invalid dependency: '\(targetName)' cannot depend on test target dependency '\(dependency.name)'. Only test targets can depend on other test targets"
         )
     }
 
