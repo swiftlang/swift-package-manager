@@ -571,6 +571,22 @@ public final class UserToolchain: Toolchain {
             fileSystem: self.fileSystem
         )
     }
+
+    public func getSwiftPlaygroundHelper() throws -> AbsolutePath {
+        // The helper would be located in `.build/<config>` directory when
+        // SwiftPM is built locally and `usr/libexec/swift/pm` directory in
+        // an installed version.
+        let binDirectories = self.swiftSDK.toolset.rootPaths +
+            self.swiftSDK.toolset.rootPaths.map {
+                $0.parentDirectory.appending(components: ["libexec", "swift", "pm"])
+            }
+
+        return try UserToolchain.getTool(
+            "swiftpm-playground-helper",
+            binDirectories: binDirectories,
+            fileSystem: self.fileSystem
+        )
+    }
 #endif
 
     internal static func deriveSwiftCFlags(

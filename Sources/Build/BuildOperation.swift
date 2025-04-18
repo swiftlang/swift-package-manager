@@ -1065,6 +1065,7 @@ extension BuildDescription {
         let swiftFrontendCommands = llbuild.manifest.getCmdToolMap(kind: SwiftFrontendTool.self)
         let testDiscoveryCommands = llbuild.manifest.getCmdToolMap(kind: TestDiscoveryTool.self)
         let testEntryPointCommands = llbuild.manifest.getCmdToolMap(kind: TestEntryPointTool.self)
+        let playgroundEntryPointCommands = llbuild.manifest.getCmdToolMap(kind: PlaygroundEntryPointTool.self)
         let copyCommands = llbuild.manifest.getCmdToolMap(kind: CopyTool.self)
         let writeCommands = llbuild.manifest.getCmdToolMap(kind: WriteAuxiliaryFile.self)
 
@@ -1075,6 +1076,7 @@ extension BuildDescription {
             swiftFrontendCommands: swiftFrontendCommands,
             testDiscoveryCommands: testDiscoveryCommands,
             testEntryPointCommands: testEntryPointCommands,
+            playgroundEntryPointCommands: playgroundEntryPointCommands,
             copyCommands: copyCommands,
             writeCommands: writeCommands,
             pluginDescriptions: plan.pluginDescriptions,

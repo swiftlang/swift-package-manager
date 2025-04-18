@@ -347,6 +347,13 @@ extension BuildPlan {
             })
         }
 
+        // Add derived playground targets, if necessary
+        if case .library(_) = product.type, let derivedPlaygroundTargets = derivedPlaygroundTargetsMap[product.id] {
+            staticTargets.append(contentsOf: derivedPlaygroundTargets.compactMap {
+                self.description(for: $0, context: productDescription.destination)
+            })
+        }
+
         return (linkLibraries, staticTargets, systemModules, libraryBinaryPaths, availableTools)
     }
 

@@ -743,6 +743,12 @@ let package = Package(
             exclude: ["CMakeLists.txt"]
         ),
         .executableTarget(
+            /** For listing and running #Playground blocks */
+            name: "swift-play",
+            dependencies: ["Commands"],
+            exclude: ["CMakeLists.txt"]
+        ),
+        .executableTarget(
             /** Interacts with package collections */
             name: "swift-package-collection",
             dependencies: ["Commands", "PackageCollectionsCommand"]
@@ -1041,6 +1047,10 @@ let package = Package(
 package.targets.append(contentsOf: [
     .executableTarget(
         name: "swiftpm-testing-helper"
+    ),
+    .executableTarget(
+        /** Helper tool to host #Playground execution */
+        name: "swiftpm-playground-helper"
     )
 ])
 #endif
