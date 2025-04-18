@@ -481,3 +481,68 @@ final class CopyCommand: CustomLLBuildCommand {
         return true
     }
 }
+
+extension PlaygroundEntryPointTool {
+    public static var mainFileName: String {
+        "playground_runner.swift"
+    }
+}
+
+final class PlaygroundEntryPointCommand: CustomLLBuildCommand {
+    private func execute(fileSystem: Basics.FileSystem, tool: PlaygroundEntryPointTool) throws {
+        let outputs = tool.outputs.compactMap { try? AbsolutePath(validating: $0.name) }
+
+        // Find the main output file
+        let mainFileName = PlaygroundEntryPointTool.mainFileName
+        guard let mainFile = outputs.first(where: { path in
+            path.basename == mainFileName
+        }) else {
+            throw InternalError("main file output (\(mainFileName)) not found")
+        }
+
+        // Write the main file.
+        let stream = try LocalFileOutputByteStream(mainFile)
+
+        stream.send(
+            #"""
+            import Playgrounds
+
+            @_cdecl("_playground_main")
+            public func _playground_main(_ argc: CInt, _ argv: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>) -> CInt {
+                let count = Int(argc)
+                var args: [String]  = []
+                for i in 0..<count {
+                    let cStringPtr = argv[i]
+                    if let cStringPtr {
+                        args.append(String(cString: cStringPtr))
+                    }
+                }
+
+                return __swiftPMEntryPoint(args)
+            }
+            """#
+        )
+
+        stream.flush()
+    }
+
+    override func execute(
+        _ command: SPMLLBuild.Command,
+        _: SPMLLBuild.BuildSystemCommandInterface
+    ) -> Bool {
+        do {
+            // This tool will never run without the build description.
+            guard let buildDescription = self.context.buildDescription else {
+                throw InternalError("unknown build description")
+            }
+            guard let tool = buildDescription.playgroundEntryPointCommands[command.name] else {
+                throw InternalError("command \(command.name) not registered")
+            }
+            try self.execute(fileSystem: self.context.fileSystem, tool: tool)
+            return true
+        } catch {
+            self.context.observabilityScope.emit(error)
+            return false
+        }
+    }
+}
