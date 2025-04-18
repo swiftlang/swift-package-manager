@@ -73,6 +73,18 @@ public struct TestEntryPointTool: ToolProtocol {
     }
 }
 
+public struct PlaygroundEntryPointTool: ToolProtocol {
+    public static let name: String = "playground-entry-point-tool"
+
+    public var inputs: [Node]
+    public var outputs: [Node]
+
+    init(inputs: [Node], outputs: [Node]) {
+        self.inputs = inputs
+        self.outputs = outputs
+    }
+}
+
 public struct CopyTool: ToolProtocol {
     public static let name: String = "copy-tool"
 
