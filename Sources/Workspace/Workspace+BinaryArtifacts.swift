@@ -155,7 +155,7 @@ extension Workspace {
             if !indexFiles.isEmpty {
                 let errors = ThreadSafeArrayStore<Error>()
 
-                zipArtifacts.append(contentsOf: try await withThrowingTaskGroup(
+                try await zipArtifacts.append(contentsOf: withThrowingTaskGroup(
                     of: RemoteArtifact?.self,
                     returning: [RemoteArtifact].self
                 ) { group in
@@ -164,7 +164,8 @@ extension Workspace {
                         group.addTask {
                             var request = HTTPClient.Request(method: .get, url: indexFile.url)
                             request.options.validResponseCodes = [200]
-                            request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
+                            request.options.authorizationProvider = self.authorizationProvider?
+                                .httpAuthorizationHeader(for:)
                             do {
                                 let response = try await self.httpClient.execute(request)
                                 guard let body = response.body else {
@@ -227,7 +228,10 @@ extension Workspace {
                     group.addTask { () -> ManagedArtifact? in
                         let destinationDirectory = artifactsDirectory
                             .appending(components: [artifact.packageRef.identity.description, artifact.targetName])
-                        guard observabilityScope.trap({ try fileSystem.createDirectory(destinationDirectory, recursive: true) })
+                        guard observabilityScope.trap({ try fileSystem.createDirectory(
+                            destinationDirectory,
+                            recursive: true
+                        ) })
                         else {
                             return nil
                         }
@@ -295,7 +299,8 @@ extension Workspace {
                                     return nil
                                 }
 
-                                observabilityScope.emit(debug: "extracting \(archivePath) to \(tempExtractionDirectory)")
+                                observabilityScope
+                                    .emit(debug: "extracting \(archivePath) to \(tempExtractionDirectory)")
                                 do {
                                     try await self.archiver.extract(
                                         from: archivePath,
@@ -326,7 +331,8 @@ extension Workspace {
                                                     debug: "no first level component stripping needed for \(tempExtractionDirectory)"
                                                 )
                                             }
-                                            let content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
+                                            let content = try self.fileSystem
+                                                .getDirectoryContents(tempExtractionDirectory)
                                             // copy from temp location to actual location
                                             for file in content {
                                                 let source = tempExtractionDirectory
@@ -350,8 +356,8 @@ extension Workspace {
                                         observabilityScope: observabilityScope
                                     ) else {
                                         observabilityScope.emit(BinaryArtifactsManagerError.remoteArtifactNotFound(
-                                                artifactURL: artifact.url,
-                                                targetName: artifact.targetName
+                                            artifactURL: artifact.url,
+                                            targetName: artifact.targetName
                                         ))
                                         return nil
                                     }
@@ -432,7 +438,7 @@ extension Workspace {
             artifactsDirectory: AbsolutePath,
             observabilityScope: ObservabilityScope
         ) async throws -> [ManagedArtifact] {
-            return try await withThrowingTaskGroup(of: ManagedArtifact?.self) { group in
+            try await withThrowingTaskGroup(of: ManagedArtifact?.self) { group in
                 for artifact in artifacts {
                     group.addTask { () -> ManagedArtifact? in
                         let destinationDirectory = artifactsDirectory
@@ -458,7 +464,9 @@ extension Workspace {
                                         acceptableExtensions: BinaryModule.Kind.allCases.map(\.fileExtension)
                                     ) {
                                         observabilityScope
-                                            .emit(debug: "stripping first level component from  \(tempExtractionDirectory)")
+                                            .emit(
+                                                debug: "stripping first level component from  \(tempExtractionDirectory)"
+                                            )
                                         try self.fileSystem.stripFirstLevel(of: tempExtractionDirectory)
                                     } else {
                                         observabilityScope.emit(
@@ -564,7 +572,7 @@ extension Workspace {
             artifact: RemoteArtifact,
             destination: AbsolutePath,
             observabilityScope: ObservabilityScope,
-            progress: @escaping @Sendable (Int64, Optional<Int64>) -> Void
+            progress: @escaping @Sendable (Int64, Int64?) -> Void
         ) async throws -> Bool {
             // not using cache, download directly
             guard let cachePath = self.cachePath else {
@@ -591,7 +599,8 @@ extension Workspace {
             let cachedArtifactPath = cachePath.appending(cacheKey)
 
             if self.fileSystem.exists(cachedArtifactPath) {
-                observabilityScope.emit(debug: "copying cached binary artifact for \(artifact.url) from \(cachedArtifactPath)")
+                observabilityScope
+                    .emit(debug: "copying cached binary artifact for \(artifact.url) from \(cachedArtifactPath)")
                 self.delegate?.willDownloadBinaryArtifact(from: artifact.url.absoluteString, fromCache: true)
 
                 // copy from cache to destination
@@ -600,7 +609,8 @@ extension Workspace {
             }
 
             // download to the cache
-            observabilityScope.emit(debug: "downloading binary artifact for \(artifact.url) to cache at \(cachedArtifactPath)")
+            observabilityScope
+                .emit(debug: "downloading binary artifact for \(artifact.url) to cache at \(cachedArtifactPath)")
 
             self.delegate?.willDownloadBinaryArtifact(from: artifact.url.absoluteString, fromCache: false)
 
@@ -623,7 +633,7 @@ extension Workspace {
             artifact: RemoteArtifact,
             destination: AbsolutePath,
             observabilityScope: ObservabilityScope,
-            progress: @escaping @Sendable (Int64, Optional<Int64>) -> Void
+            progress: @escaping @Sendable (Int64, Int64?) -> Void
         ) async throws {
             observabilityScope.emit(debug: "downloading \(artifact.url) to \(destination)")
 
@@ -801,6 +811,26 @@ extension Workspace {
         addedOrUpdatedPackages: [PackageReference],
         observabilityScope: ObservabilityScope
     ) async throws {
+        try await withAsyncThrowing {
+            try await self._updateBinaryArtifacts(
+                manifests: manifests,
+                addedOrUpdatedPackages: addedOrUpdatedPackages,
+                observabilityScope: observabilityScope
+            )
+        } defer: {
+            // Make sure the workspace state is saved exactly once, even if the method exits early.
+            // Files may have been deleted, download, etc. and the state needs to reflect that.
+            await observabilityScope.trap {
+                try await self.state.save()
+            }
+        }
+    }
+
+    private func _updateBinaryArtifacts(
+        manifests: DependencyManifests,
+        addedOrUpdatedPackages: [PackageReference],
+        observabilityScope: ObservabilityScope
+    ) async throws {
         let manifestArtifacts = try self.binaryArtifactsManager.parseArtifacts(
             from: manifests,
             observabilityScope: observabilityScope
@@ -893,7 +923,10 @@ extension Workspace {
         // Remove the artifacts and directories which are not needed anymore.
         await observabilityScope.trap {
             for artifact in artifactsToRemove {
-                await state.artifacts.remove(packageIdentity: artifact.packageRef.identity, targetName: artifact.targetName)
+                await state.artifacts.remove(
+                    packageIdentity: artifact.packageRef.identity,
+                    targetName: artifact.targetName
+                )
 
                 if isAtArtifactsDirectory(artifact) {
                     try fileSystem.removeFileTree(artifact.path)
@@ -935,10 +968,6 @@ extension Workspace {
 
         guard !observabilityScope.errorsReported else {
             throw Diagnostics.fatalError
-        }
-
-        await observabilityScope.trap {
-            try await self.state.save()
         }
 
         func isAtArtifactsDirectory(_ artifact: ManagedArtifact) -> Bool {
