@@ -198,6 +198,8 @@ public final class SwiftModuleBuildDescription {
     public var isTestTarget: Bool {
         self.testTargetRole != nil
     }
+    
+    public let isPlaygroundTarget: Bool
 
     /// True if this module needs to be parsed as a library based on the target type and the configuration
     /// of the source code
@@ -272,7 +274,8 @@ public final class SwiftModuleBuildDescription {
         shouldGenerateTestObservation: Bool = false,
         shouldDisableSandbox: Bool,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        isPlaygroundTarget: Bool = false
     ) throws {
         guard let swiftTarget = target.underlying as? SwiftModule else {
             throw InternalError("underlying target type mismatch \(target)")
@@ -293,6 +296,8 @@ public final class SwiftModuleBuildDescription {
         } else {
             self.testTargetRole = nil
         }
+
+        self.isPlaygroundTarget = isPlaygroundTarget
 
         self.tempsPath = target.tempsPath(self.buildParameters)
         self.derivedSources = Sources(paths: [], root: self.tempsPath.appending("DerivedSources"))
