@@ -27,6 +27,7 @@ public enum SwiftPM {
     case Registry
     case Test
     case Run
+    case Play
     case experimentalSDK
     case sdk
 }
@@ -45,6 +46,8 @@ extension SwiftPM {
             return "swift-test"
         case .Run:
             return "swift-run"
+        case .Play:
+            return "swift-play"
         case .experimentalSDK:
             return "swift-experimental-sdk"
         case .sdk:
