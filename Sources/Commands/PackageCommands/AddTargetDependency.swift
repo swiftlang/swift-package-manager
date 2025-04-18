@@ -13,6 +13,8 @@
 import ArgumentParser
 import Basics
 import CoreCommands
+import Foundation
+import PackageGraph
 import PackageModel
 import PackageModelSyntax
 import SwiftParser

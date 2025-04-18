@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import TSCBasic
 import struct Foundation.Data
 import struct Foundation.Date
 import struct Foundation.URL

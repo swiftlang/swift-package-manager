@@ -28,6 +28,7 @@ import PackageGraph
 import PackageModel
 
 import SPMBuildCore
+import TSCUtility
 
 import func TSCLibc.exit
 import Workspace

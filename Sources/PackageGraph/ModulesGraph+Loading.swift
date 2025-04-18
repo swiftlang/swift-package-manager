@@ -14,6 +14,7 @@ import Basics
 import OrderedCollections
 import PackageLoading
 import PackageModel
+import Foundation
 
 import func TSCBasic.bestMatch
 import func TSCBasic.findCycle

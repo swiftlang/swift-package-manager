@@ -15,6 +15,10 @@ import Basics
 import CoreCommands
 import Foundation
 import PackageModel
+import PackageGraph
+import SPMBuildCore
+import TSCBasic
+import Workspace
 import XCBuildSupport
 
 struct DumpSymbolGraph: AsyncSwiftCommand {

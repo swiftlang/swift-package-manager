@@ -12,6 +12,7 @@
 
 import struct Basics.AbsolutePath
 import struct Basics.StringError
+import TSCBasic
 
 @available(*, deprecated, renamed: "ClangModule")
 public typealias ClangTarget = ClangModule
@@ -24,7 +25,7 @@ public final class ClangModule: Module {
     public static let defaultPublicHeadersComponent = "include"
 
     /// The path to include directory.
-    public let includeDir: AbsolutePath
+    public let includeDir: Basics.AbsolutePath
 
     /// The target's module map type, which determines whether this target vends a custom module map, a generated module map, or no module map at all.
     public let moduleMapType: ModuleMapType
@@ -32,7 +33,7 @@ public final class ClangModule: Module {
     /// The headers present in the target.
     ///
     /// Note that this contains both public and non-public headers.
-    public let headers: [AbsolutePath]
+    public let headers: [Basics.AbsolutePath]
 
     /// True if this is a C++ target.
     public let isCXX: Bool
@@ -48,15 +49,15 @@ public final class ClangModule: Module {
         potentialBundleName: String? = nil,
         cLanguageStandard: String?,
         cxxLanguageStandard: String?,
-        includeDir: AbsolutePath,
+        includeDir: Basics.AbsolutePath,
         moduleMapType: ModuleMapType,
-        headers: [AbsolutePath] = [],
+        headers: [Basics.AbsolutePath] = [],
         type: Kind,
-        path: AbsolutePath,
+        path: Basics.AbsolutePath,
         sources: Sources,
         resources: [Resource] = [],
-        ignored: [AbsolutePath] = [],
-        others: [AbsolutePath] = [],
+        ignored: [Basics.AbsolutePath] = [],
+        others: [Basics.AbsolutePath] = [],
         dependencies: [Module.Dependency] = [],
         buildSettings: BuildSettings.AssignmentTable = .init(),
         buildSettingsDescription: [TargetBuildSettingDescription.Setting] = [],

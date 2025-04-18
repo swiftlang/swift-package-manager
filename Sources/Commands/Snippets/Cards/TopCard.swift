@@ -14,6 +14,7 @@ import CoreCommands
 import Foundation
 import PackageGraph
 import PackageModel
+import TSCUtility
 
 /// The top menu card for a package's help contents, including snippets.
 struct TopCard: Card {

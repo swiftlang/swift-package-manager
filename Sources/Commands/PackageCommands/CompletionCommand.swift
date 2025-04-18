@@ -11,7 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import Basics
 import CoreCommands
+import PackageModel
+import PackageGraph
 
 import var TSCBasic.stdoutStream
 

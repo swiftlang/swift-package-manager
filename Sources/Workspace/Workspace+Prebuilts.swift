@@ -12,6 +12,7 @@
 
 import Basics
 import Foundation
+import OrderedCollections
 import PackageModel
 
 import protocol TSCBasic.HashAlgorithm

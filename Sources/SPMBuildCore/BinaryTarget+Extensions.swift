@@ -14,14 +14,15 @@ import Basics
 import Foundation
 import PackageGraph
 import PackageModel
+import TSCBasic
 
 /// Information about a library from a binary dependency.
 public struct LibraryInfo: Equatable {
     /// The path to the binary.
-    public let libraryPath: AbsolutePath
+    public let libraryPath: Basics.AbsolutePath
 
     /// The paths to the headers directories.
-    public let headersPaths: [AbsolutePath]
+    public let headersPaths: [Basics.AbsolutePath]
 }
 
 /// Information about an executable from a binary dependency.
@@ -30,7 +31,7 @@ public struct ExecutableInfo: Equatable {
     public let name: String
 
     /// The path to the executable.
-    public let executablePath: AbsolutePath
+    public let executablePath: Basics.AbsolutePath
 
     /// Supported triples, e.g. `x86_64-apple-macosx`
     public let supportedTriples: [Triple]

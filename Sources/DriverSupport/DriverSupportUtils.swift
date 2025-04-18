@@ -12,7 +12,7 @@
 
 @_spi(SwiftPMInternal)
 import Basics
-
+import Foundation
 import PackageModel
 import SwiftDriver
 import class TSCBasic.Process
@@ -42,6 +42,7 @@ public enum DriverSupport {
             let driver = try Driver(
                 args: ["swiftc"],
                 executor: executor,
+                compilerIntegratedTooling: false,
                 compilerExecutableDir: TSCAbsolutePath(toolchain.swiftCompilerPath.parentDirectory)
             )
             let supportedFlagSet = Set(driver.supportedFrontendFlags.map { $0.trimmingCharacters(in: ["-"]) })

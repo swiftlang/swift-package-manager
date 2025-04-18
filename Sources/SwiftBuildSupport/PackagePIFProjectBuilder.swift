@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
+import TSCUtility
 
 import struct Basics.AbsolutePath
 import struct Basics.Diagnostic

@@ -13,6 +13,7 @@
 import Basics
 import Dispatch
 import PackageModel
+import TSCBasic
 
 import struct TSCUtility.Version
 

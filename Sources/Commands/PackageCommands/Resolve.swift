@@ -11,8 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import Basics
 import CoreCommands
 import TSCUtility
+import Workspace
 
 import struct PackageGraph.TraitConfiguration
 

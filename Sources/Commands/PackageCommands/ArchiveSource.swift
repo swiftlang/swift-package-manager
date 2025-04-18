@@ -13,6 +13,8 @@
 import ArgumentParser
 import Basics
 import CoreCommands
+import PackageGraph
+import PackageModel
 import SourceControl
 
 extension SwiftPackageCommand {

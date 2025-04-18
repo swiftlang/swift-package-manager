@@ -10,6 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
+import PackageModel
+import TSCUtility
+
 struct DiagnosticReportBuilder {
     let rootNode: DependencyResolutionNode
     let incompatibilities: [DependencyResolutionNode: [Incompatibility]]

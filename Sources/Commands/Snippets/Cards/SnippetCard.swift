@@ -12,7 +12,10 @@
 
 import Basics
 import CoreCommands
+import Foundation
 import PackageModel
+import PackageGraph
+import SPMBuildCore
 
 import func TSCBasic.exec
 import enum TSCBasic.ProcessEnv

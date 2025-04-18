@@ -15,6 +15,7 @@ import PackageModel
 import SwiftBasicFormat
 import SwiftSyntax
 import SwiftParser
+import SwiftSyntaxBuilder
 
 /// Default indent when we have to introduce indentation but have no context
 /// to get it right.

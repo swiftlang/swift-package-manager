@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import TSCUtility
 
 @available(*, deprecated, renamed: "Module")
 public typealias Target = Module

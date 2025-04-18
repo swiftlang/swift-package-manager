@@ -15,6 +15,8 @@ import Foundation
 import PackageGraph
 import PackageLoading
 import PackageModel
+import TSCBasic
+import TSCUtility
 
 typealias WireInput = HostToPluginMessage.InputContext
 
@@ -24,10 +26,10 @@ internal struct PluginContextSerializer {
     let fileSystem: FileSystem
     let modulesGraph: ModulesGraph
     let buildEnvironment: BuildEnvironment
-    let pkgConfigDirectories: [AbsolutePath]
-    let sdkRootPath: AbsolutePath?
+    let pkgConfigDirectories: [Basics.AbsolutePath]
+    let sdkRootPath: Basics.AbsolutePath?
     var paths: [WireInput.URL] = []
-    var pathsToIds: [AbsolutePath: WireInput.URL.Id] = [:]
+    var pathsToIds: [Basics.AbsolutePath: WireInput.URL.Id] = [:]
     var targets: [WireInput.Target] = []
     var targetsToWireIDs: [ResolvedModule.ID: WireInput.Target.Id] = [:]
     var products: [WireInput.Product] = []
@@ -42,7 +44,7 @@ internal struct PluginContextSerializer {
     
     /// Adds a path to the serialized structure, if it isn't already there.
     /// Either way, this function returns the path's wire ID.
-    mutating func serialize(path: AbsolutePath) throws -> WireInput.URL.Id {
+    mutating func serialize(path: Basics.AbsolutePath) throws -> WireInput.URL.Id {
         // If we've already seen the path, just return the wire ID we already assigned to it.
         if let id = pathsToIds[path] { return id }
         

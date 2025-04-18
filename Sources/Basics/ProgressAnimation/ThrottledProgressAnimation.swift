@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
+import TSCUtility
 
 /// A progress animation wrapper that throttles updates to a given interval.
 final class ThrottledProgressAnimation: ProgressAnimationProtocol {

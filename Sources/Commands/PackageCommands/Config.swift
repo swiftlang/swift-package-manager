@@ -13,6 +13,7 @@
 import ArgumentParser
 import Basics
 import CoreCommands
+import PackageGraph
 import Workspace
 
 import var TSCBasic.stderrStream

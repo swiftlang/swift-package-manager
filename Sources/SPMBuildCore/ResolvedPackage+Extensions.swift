@@ -10,6 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+import PackageModel
+import TSCUtility
+
 import struct PackageGraph.ResolvedPackage
 import struct PackageGraph.ResolvedModule
 

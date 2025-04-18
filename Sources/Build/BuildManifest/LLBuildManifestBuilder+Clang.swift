@@ -16,6 +16,7 @@ import struct Basics.InternalError
 import class Basics.ObservabilityScope
 import struct PackageGraph.ResolvedModule
 import PackageModel
+import SPMBuildCore
 
 extension LLBuildManifestBuilder {
     /// Create a llbuild target for a Clang target description.

@@ -14,17 +14,18 @@ import Basics
 import Dispatch
 import Foundation
 import PackageModel
+import TSCBasic
 
 import struct TSCUtility.Version
 
 public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
     let fileSystem: FileSystem
-    let directoryPath: AbsolutePath
+    let directoryPath: Basics.AbsolutePath
 
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
-    public init(fileSystem: FileSystem, directoryPath: AbsolutePath) {
+    public init(fileSystem: FileSystem, directoryPath: Basics.AbsolutePath) {
         self.fileSystem = fileSystem
         self.directoryPath = directoryPath
 

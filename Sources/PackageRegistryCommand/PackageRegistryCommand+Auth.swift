@@ -15,8 +15,11 @@ import Basics
 import Commands
 import CoreCommands
 import Foundation
+import PackageFingerprint
 import PackageModel
 import PackageRegistry
+import PackageSigning
+import Workspace
 
 import struct TSCBasic.SHA256
 

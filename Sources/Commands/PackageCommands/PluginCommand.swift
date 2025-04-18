@@ -15,10 +15,12 @@ import Basics
 import _Concurrency
 import CoreCommands
 import Dispatch
-
+import SPMBuildCore
 import PackageGraph
-
 import PackageModel
+import TSCBasic
+import TSCUtility
+import Workspace
 
 struct PluginCommand: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(

@@ -14,6 +14,7 @@ import ArgumentParser
 import Basics
 import CoreCommands
 import SourceControl
+import Workspace
 
 extension SwiftPackageCommand {
     struct Edit: AsyncSwiftCommand {

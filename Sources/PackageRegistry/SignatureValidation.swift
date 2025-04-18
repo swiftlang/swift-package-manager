@@ -18,6 +18,7 @@ import Basics
 import PackageLoading
 import PackageModel
 import PackageSigning
+import TSCBasic
 
 import struct TSCUtility.Version
 
@@ -590,7 +591,7 @@ extension VerifierConfiguration {
 
         // Load trusted roots from configured directory
         if let trustedRootsDirectoryPath = configuration.trustedRootCertificatesPath {
-            let trustedRootsDirectory: AbsolutePath
+            let trustedRootsDirectory: Basics.AbsolutePath
             do {
                 trustedRootsDirectory = try AbsolutePath(validating: trustedRootsDirectoryPath)
             } catch {

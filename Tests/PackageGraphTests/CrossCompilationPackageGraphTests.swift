@@ -17,6 +17,7 @@ import _InternalTestSupport
 @testable
 import PackageGraph
 
+import PackageModel
 import XCTest
 
 final class CrossCompilationPackageGraphTests: XCTestCase {

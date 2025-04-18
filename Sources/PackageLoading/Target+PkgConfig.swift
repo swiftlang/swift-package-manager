@@ -12,6 +12,7 @@
 
 import Basics
 import PackageModel
+import Foundation
 
 import class Basics.AsyncProcess
 import struct TSCBasic.RegEx

@@ -24,6 +24,7 @@ import PackageCollectionsModel
 import PackageCollectionsSigning
 import PackageModel
 import SourceControl
+import TSCBasic
 
 import struct TSCUtility.Version
 
@@ -64,7 +65,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         self.httpClient = customHTTPClient ?? Self.makeDefaultHTTPClient()
         self.signatureValidator = customSignatureValidator ?? PackageCollectionSigning(
             trustedRootCertsDir: configuration.trustedRootCertsDir ??
-                (try? fileSystem.swiftPMConfigurationDirectory.appending("trust-root-certs").asURL) ?? AbsolutePath.root.asURL,
+                (try? fileSystem.swiftPMConfigurationDirectory.appending("trust-root-certs").asURL) ?? Basics.AbsolutePath.root.asURL,
             additionalTrustedRootCerts: sourceCertPolicy.allRootCerts.map { Array($0) },
             observabilityScope: observabilityScope
         )

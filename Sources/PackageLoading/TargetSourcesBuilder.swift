@@ -13,6 +13,7 @@
 import Basics
 import Foundation
 import PackageModel
+import TSCBasic
 
 /// A utility to compute the source/resource files of a target.
 public struct TargetSourcesBuilder {
@@ -23,19 +24,19 @@ public struct TargetSourcesBuilder {
     public let packageKind: PackageReference.Kind
 
     /// The package path.
-    public let packagePath: AbsolutePath
+    public let packagePath: Basics.AbsolutePath
 
     /// The target for which we're computing source/resource files.
     public let target: TargetDescription
 
     /// The path of the target.
-    public let targetPath: AbsolutePath
+    public let targetPath: Basics.AbsolutePath
 
     /// The list of declared sources in the package manifest.
-    public let declaredSources: [AbsolutePath]?
+    public let declaredSources: [Basics.AbsolutePath]?
 
     /// The list of declared resources in the package manifest.
-    public let declaredResources: [(path: AbsolutePath, rule: TargetDescription.Resource.Rule)]
+    public let declaredResources: [(path: Basics.AbsolutePath, rule: TargetDescription.Resource.Rule)]
 
     /// The default localization.
     public let defaultLocalization: String?
@@ -47,7 +48,7 @@ public struct TargetSourcesBuilder {
     public let toolsVersion: ToolsVersion
 
     /// The set of paths that should be excluded from any consideration.
-    public let excludedPaths: Set<AbsolutePath>
+    public let excludedPaths: Set<Basics.AbsolutePath>
 
     /// The set of opaque directories extensions (should not be treated as source)
     private let opaqueDirectoriesExtensions: Set<String>
@@ -62,9 +63,9 @@ public struct TargetSourcesBuilder {
     public init(
         packageIdentity: PackageIdentity,
         packageKind: PackageReference.Kind,
-        packagePath: AbsolutePath,
+        packagePath: Basics.AbsolutePath,
         target: TargetDescription,
-        path: AbsolutePath,
+        path: Basics.AbsolutePath,
         defaultLocalization: String?,
         additionalFileRules: [FileRuleDescription],
         toolsVersion: ToolsVersion,
@@ -136,7 +137,7 @@ public struct TargetSourcesBuilder {
     }
 
     @discardableResult
-    private func validTargetPath(at: AbsolutePath) -> Error? {
+    private func validTargetPath(at: Basics.AbsolutePath) -> Error? {
         // Check if paths that are enumerated in targets: [] exist
         guard self.fileSystem.exists(at) else {
             return StringError("File not found")
@@ -165,11 +166,11 @@ public struct TargetSourcesBuilder {
     }
 
     /// Run the builder to produce the sources of the target.
-    public func run() throws -> (sources: Sources, resources: [Resource], headers: [AbsolutePath], ignored: [AbsolutePath], others: [AbsolutePath]) {
+    public func run() throws -> (sources: Sources, resources: [Resource], headers: [Basics.AbsolutePath], ignored: [Basics.AbsolutePath], others: [Basics.AbsolutePath]) {
         let contents = self.computeContents()
-        var pathToRule: [AbsolutePath: FileRuleDescription.Rule] = [:]
+        var pathToRule: [Basics.AbsolutePath: FileRuleDescription.Rule] = [:]
 
-        var handledResources = [AbsolutePath]()
+        var handledResources = [Basics.AbsolutePath]()
         for path in contents {
             pathToRule[path] = Self.computeRule(
                 for: path,
@@ -222,7 +223,7 @@ public struct TargetSourcesBuilder {
     }
 
     /// Compute the rule for the given path.
-    private static func computeRule(for path: AbsolutePath,
+    private static func computeRule(for path: Basics.AbsolutePath,
                                     toolsVersion: ToolsVersion,
                                     additionalFileRules: [FileRuleDescription],
                                     observabilityScope: ObservabilityScope) -> FileRuleDescription.Rule {
@@ -232,12 +233,12 @@ public struct TargetSourcesBuilder {
     }
 
     private static func computeRule(
-        for path: AbsolutePath, 
+        for path: Basics.AbsolutePath, 
         toolsVersion: ToolsVersion,
         rules: [FileRuleDescription],
-        declaredResources: [(path: AbsolutePath, rule: TargetDescription.Resource.Rule)],
-        declaredSources: [AbsolutePath]?,
-        matchingResourceRuleHandler: (AbsolutePath) -> () = { _ in },
+        declaredResources: [(path: Basics.AbsolutePath, rule: TargetDescription.Resource.Rule)],
+        declaredSources: [Basics.AbsolutePath]?,
+        matchingResourceRuleHandler: (Basics.AbsolutePath) -> () = { _ in },
         observabilityScope: ObservabilityScope
     ) -> FileRuleDescription.Rule {
         var matchedRule: FileRuleDescription.Rule = .none
@@ -303,7 +304,7 @@ public struct TargetSourcesBuilder {
     }
 
     /// Returns the `Resource` file associated with a file and a particular rule, if there is one.
-    private static func resource(for path: AbsolutePath, with rule: FileRuleDescription.Rule, defaultLocalization: String?, targetName: String, targetPath: AbsolutePath, observabilityScope: ObservabilityScope) -> Resource? {
+    private static func resource(for path: Basics.AbsolutePath, with rule: FileRuleDescription.Rule, defaultLocalization: String?, targetName: String, targetPath: Basics.AbsolutePath, observabilityScope: ObservabilityScope) -> Resource? {
         switch rule {
         case .compile, .header, .none, .modulemap, .ignored:
             return nil
@@ -342,7 +343,7 @@ public struct TargetSourcesBuilder {
         }
     }
 
-    private func resource(for path: AbsolutePath, with rule: FileRuleDescription.Rule) -> Resource? {
+    private func resource(for path: Basics.AbsolutePath, with rule: FileRuleDescription.Rule) -> Resource? {
         return Self.resource(for: path, with: rule, defaultLocalization: defaultLocalization, targetName: target.name, targetPath: targetPath, observabilityScope: observabilityScope)
     }
 
@@ -406,7 +407,7 @@ public struct TargetSourcesBuilder {
     }
 
     /// Returns true if the given path is a declared source.
-    func isDeclaredSource(_ path: AbsolutePath) -> Bool {
+    func isDeclaredSource(_ path: Basics.AbsolutePath) -> Bool {
         return path == targetPath || declaredSources?.contains(path) == true
     }
 
@@ -414,9 +415,9 @@ public struct TargetSourcesBuilder {
     ///
     /// This avoids recursing into certain directories like exclude or the
     /// ones that should be copied as-is.
-    public func computeContents() -> [AbsolutePath] {
-        var contents: [AbsolutePath] = []
-        var queue: [AbsolutePath] = [targetPath]
+    public func computeContents() -> [Basics.AbsolutePath] {
+        var contents: [Basics.AbsolutePath] = []
+        var queue: [Basics.AbsolutePath] = [targetPath]
 
         // Ignore xcodeproj and playground directories.
         var ignoredDirectoryExtensions = ["xcodeproj", "playground", "xcworkspace"]
@@ -518,8 +519,8 @@ public struct TargetSourcesBuilder {
         return contents
     }
 
-    public static func computeContents(for generatedFiles: [AbsolutePath], toolsVersion: ToolsVersion, additionalFileRules: [FileRuleDescription], defaultLocalization: String?, targetName: String, targetPath: AbsolutePath, observabilityScope: ObservabilityScope) -> (sources: [AbsolutePath], resources: [Resource]) {
-        var sources = [AbsolutePath]()
+    public static func computeContents(for generatedFiles: [Basics.AbsolutePath], toolsVersion: ToolsVersion, additionalFileRules: [FileRuleDescription], defaultLocalization: String?, targetName: String, targetPath: Basics.AbsolutePath, observabilityScope: ObservabilityScope) -> (sources: [Basics.AbsolutePath], resources: [Resource]) {
+        var sources = [Basics.AbsolutePath]()
         var resources = [Resource]()
 
         generatedFiles.forEach { absPath in
@@ -613,7 +614,7 @@ public struct FileRuleDescription: Sendable {
     }
 
     /// Match the given path to the rule.
-    public func match(path: AbsolutePath, toolsVersion: ToolsVersion) -> Bool {
+    public func match(path: Basics.AbsolutePath, toolsVersion: ToolsVersion) -> Bool {
         if toolsVersion < self.toolsVersion {
             return false
         }
@@ -800,12 +801,12 @@ extension Resource {
 }
 
 extension Basics.Diagnostic {
-    static func symlinkInSources(symlink: RelativePath, targetName: String) -> Self {
+    static func symlinkInSources(symlink: Basics.RelativePath, targetName: String) -> Self {
         .warning("ignoring symlink at '\(symlink)' in target '\(targetName)'")
     }
 
     static func localizationDirectoryContainsSubDirectories(
-        localizationDirectory: RelativePath,
+        localizationDirectory: Basics.RelativePath,
         targetName: String
     ) -> Self {
         .error("localization directory '\(localizationDirectory)' in target '\(targetName)' contains sub-directories, which is forbidden")
@@ -839,7 +840,7 @@ extension PackageReference.Kind {
 }
 
 extension PackageModel.Resource {
-    fileprivate var destinationForGrouping: RelativePath? {
+    fileprivate var destinationForGrouping: Basics.RelativePath? {
         do {
             return try self.destination
         } catch {

@@ -12,6 +12,7 @@
 
 import Basics
 import PackageModel
+import TSCBasic
 
 extension Workspace {
     /// A downloaded prebuilt managed by the workspace.
@@ -23,7 +24,7 @@ extension Workspace {
         public let libraryName: String
 
         /// The path to the extracted prebuilt artifacts
-        public let path: AbsolutePath
+        public let path: Basics.AbsolutePath
 
         /// The products in the library
         public let products: [String]

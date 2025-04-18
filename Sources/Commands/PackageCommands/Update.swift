@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import Basics
 import CoreCommands
 import Dispatch
 import PackageModel

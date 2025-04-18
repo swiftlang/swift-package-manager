@@ -10,6 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
+import PackageGraph
+import PackageLoading
+import SPMBuildCore
+
 import class PackageModel.BinaryModule
 import class PackageModel.ClangModule
 import class PackageModel.SwiftModule

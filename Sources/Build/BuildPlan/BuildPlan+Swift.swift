@@ -16,6 +16,10 @@ import class PackageModel.BinaryModule
 import class PackageModel.ClangModule
 import class PackageModel.SystemLibraryModule
 
+import PackageGraph
+import PackageLoading
+import SPMBuildCore
+
 extension BuildPlan {
     func plan(swiftTarget: SwiftModuleBuildDescription) throws {
         // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target

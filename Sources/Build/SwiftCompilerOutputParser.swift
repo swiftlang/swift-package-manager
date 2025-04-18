@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Foundation
 
 import class TSCUtility.JSONMessageStreamingParser

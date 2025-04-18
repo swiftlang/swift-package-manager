@@ -12,6 +12,7 @@
 
 import Basics
 import SwiftSyntax
+import SwiftSyntaxBuilder
 
 /// Describes an entity in the package model that can be represented as
 /// a syntax node.

@@ -14,6 +14,7 @@ import Basics
 import PackageModel
 import SwiftParser
 import SwiftSyntax
+import SwiftSyntaxBuilder
 import struct TSCUtility.Version
 
 extension MappablePackageDependency.Kind: ManifestSyntaxRepresentable {

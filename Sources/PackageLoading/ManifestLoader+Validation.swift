@@ -13,6 +13,8 @@
 import Basics
 import Foundation
 import PackageModel
+import TSCBasic
+import TSCUtility
 
 public struct ManifestValidator {
     static var supportedLocalBinaryDependencyExtensions: [String] {
@@ -160,7 +162,7 @@ public struct ManifestValidator {
                     continue
                 }
 
-                guard let relativePath = try? RelativePath(validating: path) else {
+                guard let relativePath = try? Basics.RelativePath(validating: path) else {
                     diagnostics.append(.invalidLocalBinaryPath(path: path, targetName: target.name))
                     continue
                 }
@@ -274,7 +276,7 @@ public struct ManifestValidator {
 }
 
 public protocol ManifestSourceControlValidator {
-    func isValidDirectory(_ path: AbsolutePath) throws -> Bool
+    func isValidDirectory(_ path: Basics.AbsolutePath) throws -> Bool
 }
 
 extension Basics.Diagnostic {
@@ -344,7 +346,7 @@ extension Basics.Diagnostic {
         }
     }
 
-    static func invalidSourceControlDirectory(_ path: AbsolutePath, underlyingError: Error? = nil) -> Self {
+    static func invalidSourceControlDirectory(_ path: Basics.AbsolutePath, underlyingError: Error? = nil) -> Self {
         .error("cannot clone from local directory \(path)\nPlease git init or use \"path:\" for \(path)\(errorSuffix(underlyingError))")
     }
 

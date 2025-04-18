@@ -13,6 +13,7 @@
 import Basics
 import Foundation
 import PackageLoading
+import PackageGraph
 import PackageModel
 import SPMBuildCore
 

@@ -16,6 +16,7 @@ import Dispatch
 import Basics
 import PackageFingerprint
 import PackageModel
+import Foundation
 
 import struct TSCUtility.Version
 

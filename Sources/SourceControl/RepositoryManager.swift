@@ -15,16 +15,17 @@ import _Concurrency
 import Dispatch
 import Foundation
 import PackageModel
+import TSCBasic
 
 /// Manages a collection of bare repositories.
 public class RepositoryManager: Cancellable {
     public typealias Delegate = RepositoryManagerDelegate
 
     /// The path under which repositories are stored.
-    public let path: AbsolutePath
+    public let path: Basics.AbsolutePath
 
     /// The path to the directory where all cached git repositories are stored.
-    private let cachePath: AbsolutePath?
+    private let cachePath: Basics.AbsolutePath?
 
     // used in tests to disable skipping of local packages.
     private let cacheLocalPackages: Bool
@@ -67,9 +68,9 @@ public class RepositoryManager: Cancellable {
     ///   - delegate: The repository manager delegate.
     public init(
         fileSystem: FileSystem,
-        path: AbsolutePath,
+        path: Basics.AbsolutePath,
         provider: RepositoryProvider,
-        cachePath: AbsolutePath? =  .none,
+        cachePath: Basics.AbsolutePath? =  .none,
         cacheLocalPackages: Bool = false,
         maxConcurrentOperations: Int? = .none,
         initializationWarningHandler: (String) -> Void,
@@ -306,7 +307,7 @@ public class RepositoryManager: Cancellable {
     private func fetchAndPopulateCache(
         package: PackageIdentity,
         handle: RepositoryHandle,
-        repositoryPath: AbsolutePath,
+        repositoryPath: Basics.AbsolutePath,
         updateStrategy: RepositoryUpdateStrategy,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue
@@ -408,7 +409,7 @@ public class RepositoryManager: Cancellable {
     }
 
     /// Open a working copy checkout at a path
-    public func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
+    public func openWorkingCopy(at path: Basics.AbsolutePath) throws -> WorkingCheckout {
         try self.provider.openWorkingCopy(at: path)
     }
 
@@ -430,7 +431,7 @@ public class RepositoryManager: Cancellable {
     /// Create a working copy of the repository from a handle.
     private func createWorkingCopy(
         _ handle: RepositoryHandle,
-        at destinationPath: AbsolutePath,
+        at destinationPath: Basics.AbsolutePath,
         editable: Bool
     ) throws -> WorkingCheckout {
         try self.provider.createWorkingCopy(
@@ -448,12 +449,12 @@ public class RepositoryManager: Cancellable {
     }
 
     /// Returns true if the directory is valid git location.
-    public func isValidDirectory(_ directory: AbsolutePath) throws -> Bool {
+    public func isValidDirectory(_ directory: Basics.AbsolutePath) throws -> Bool {
         try self.provider.isValidDirectory(directory)
     }
 
     /// Returns true if the directory is valid git location for the specified repository
-    public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
+    public func isValidDirectory(_ directory: Basics.AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
         try self.provider.isValidDirectory(directory, for: repository)
     }
 
@@ -472,7 +473,7 @@ public class RepositoryManager: Cancellable {
     }
 
     /// Sets up the cache directories if they don't already exist.
-    private func initializeCacheIfNeeded(cachePath: AbsolutePath) throws {
+    private func initializeCacheIfNeeded(cachePath: Basics.AbsolutePath) throws {
         // Create the supplied cache directory.
         if !self.fileSystem.exists(cachePath) {
             try self.fileSystem.createDirectory(cachePath, recursive: true)
@@ -526,10 +527,10 @@ extension RepositoryManager {
         ///
         /// This is intentionally hidden from the clients so that the manager is
         /// allowed to move repositories transparently.
-        fileprivate let subpath: RelativePath
+        fileprivate let subpath: Basics.RelativePath
 
         /// Create a handle.
-        fileprivate init(manager: RepositoryManager, repository: RepositorySpecifier, subpath: RelativePath) {
+        fileprivate init(manager: RepositoryManager, repository: RepositorySpecifier, subpath: Basics.RelativePath) {
             self.manager = manager
             self.repository = repository
             self.subpath = subpath
@@ -547,7 +548,7 @@ extension RepositoryManager {
         ///           expected to be non-existent when called.
         ///
         ///   - editable: The clone is expected to be edited by user.
-        public func createWorkingCopy(at path: AbsolutePath, editable: Bool) throws -> WorkingCheckout {
+        public func createWorkingCopy(at path: Basics.AbsolutePath, editable: Bool) throws -> WorkingCheckout {
             return try self.manager.createWorkingCopy(self, at: path, editable: editable)
         }
     }
@@ -596,7 +597,7 @@ extension RepositoryManager.RepositoryHandle: CustomStringConvertible {
 
 extension RepositorySpecifier {
     // relative path where the repository should be stored
-    internal func storagePath() throws -> RelativePath {
+    internal func storagePath() throws -> Basics.RelativePath {
         return try RelativePath(validating: self.fileSystemIdentifier)
     }
 

@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
+
 @available(*, deprecated, renamed: "PluginModule")
 public typealias PluginTarget = PluginModule
 

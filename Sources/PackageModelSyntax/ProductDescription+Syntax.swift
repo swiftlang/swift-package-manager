@@ -13,6 +13,7 @@
 import Basics
 import PackageModel
 import SwiftSyntax
+import SwiftSyntaxBuilder
 import SwiftParser
 
 extension ProductDescription: ManifestSyntaxRepresentable {

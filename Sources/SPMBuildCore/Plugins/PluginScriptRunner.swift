@@ -16,6 +16,8 @@ import Foundation
 import PackageModel
 import PackageLoading
 import PackageGraph
+import TSCBasic
+import TSCUtility
 
 /// Implements the mechanics of running and communicating with a plugin (implemented as a set of Swift source files). In most environments this is done by compiling the code to an executable, invoking it as a sandboxed subprocess, and communicating with it using pipes. Specific implementations are free to implement things differently, however.
 public protocol PluginScriptRunner {
@@ -23,7 +25,7 @@ public protocol PluginScriptRunner {
     /// Public protocol function that starts compiling the plugin script to an executable. The name is used as the basename for the executable and auxiliary files. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callback queue when compilation ends.
     @available(*, noasync, message: "Use the async alternative")
     func compilePluginScript(
-        sourceFiles: [AbsolutePath],
+        sourceFiles: [Basics.AbsolutePath],
         pluginName: String,
         toolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope,
@@ -43,13 +45,13 @@ public protocol PluginScriptRunner {
     ///
     /// Every concrete implementation should cache any intermediates as necessary to avoid redundant work.
     func runPluginScript(
-        sourceFiles: [AbsolutePath],
+        sourceFiles: [Basics.AbsolutePath],
         pluginName: String,
         initialMessage: Data,
         toolsVersion: ToolsVersion,
-        workingDirectory: AbsolutePath,
-        writableDirectories: [AbsolutePath],
-        readOnlyDirectories: [AbsolutePath],
+        workingDirectory: Basics.AbsolutePath,
+        writableDirectories: [Basics.AbsolutePath],
+        readOnlyDirectories: [Basics.AbsolutePath],
         allowNetworkConnections: [SandboxNetworkPermission],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -60,12 +62,12 @@ public protocol PluginScriptRunner {
 
     /// Returns the Triple that represents the host for which plugin script tools should be built, or for which binary
     /// tools should be selected.
-    var hostTriple: Triple { get throws }
+    var hostTriple: Basics.Triple { get throws }
 }
 
 public extension PluginScriptRunner {
     func compilePluginScript(
-        sourceFiles: [AbsolutePath],
+        sourceFiles: [Basics.AbsolutePath],
         pluginName: String,
         toolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope,
@@ -118,10 +120,10 @@ public struct PluginCompilationResult: Equatable {
     public var commandLine: [String]
     
     /// Path of the compiled executable.
-    public var executableFile: AbsolutePath
+    public var executableFile: Basics.AbsolutePath
 
     /// Path of the libClang diagnostics file emitted by the compiler.
-    public var diagnosticsFile: AbsolutePath
+    public var diagnosticsFile: Basics.AbsolutePath
     
     /// Any output emitted by the compiler (stdout and stderr combined).
     public var rawCompilerOutput: String
@@ -132,8 +134,8 @@ public struct PluginCompilationResult: Equatable {
     public init(
         succeeded: Bool,
         commandLine: [String],
-        executableFile: AbsolutePath,
-        diagnosticsFile: AbsolutePath,
+        executableFile: Basics.AbsolutePath,
+        diagnosticsFile: Basics.AbsolutePath,
         compilerOutput rawCompilerOutput: String,
         cached: Bool
     ) {

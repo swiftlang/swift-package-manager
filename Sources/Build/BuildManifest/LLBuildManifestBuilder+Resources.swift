@@ -13,6 +13,8 @@
 import struct LLBuildManifest.Node
 import struct Basics.RelativePath
 
+import PackageModel
+
 extension LLBuildManifestBuilder {
     /// Adds command for creating the resources bundle of the given target.
     ///
