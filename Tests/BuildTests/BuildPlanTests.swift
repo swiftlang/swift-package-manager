@@ -3875,7 +3875,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 observabilityScope: observability.topScope
             ))
         }
-        let supportingTriples: [Basics.Triple] = [.x86_64Linux, .x86_64MacOS]
+        let supportingTriples: [Basics.Triple] = [.x86_64Linux, .x86_64MacOS, .x86_64Windows]
         for triple in supportingTriples {
             let result = try await createResult(for: triple)
             let exe = try result.moduleBuildDescription(for: "exe").swift().compileArguments()
@@ -3884,7 +3884,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             XCTAssertMatch(linkExe, [.contains("exe_main")])
         }
 
-        let unsupportingTriples: [Basics.Triple] = [.wasi, .windows]
+        let unsupportingTriples: [Basics.Triple] = [.wasi]
         for triple in unsupportingTriples {
             let result = try await createResult(for: triple)
             let exe = try result.moduleBuildDescription(for: "exe").swift().compileArguments()
