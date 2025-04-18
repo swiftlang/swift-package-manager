@@ -199,6 +199,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     @_spi(SwiftPMInternal)
     public private(set) var derivedTestTargetsMap: [ResolvedProduct.ID: [ResolvedModule]] = [:]
 
+    @_spi(SwiftPMInternal)
+    public private(set) var derivedPlaygroundTargetsMap: [ResolvedProduct.ID: [ResolvedModule]] = [:]
+
     /// Cache for pkgConfig flags.
     private var pkgConfigCache = [SystemLibraryModule: (cFlags: [String], libs: [String])]()
 
@@ -456,6 +459,25 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             }
 
             self.derivedTestTargetsMap[item.product.id] = derivedTestTargets
+        }
+
+        // Plan the derived playground targets, if necessary.
+        let derivedPlaygroundTargets = try Self.makeDerivedPlaygroundTargets(
+            playgroundProducts: productMap.filter {
+                $0.product.name.hasSuffix(Product.replProductSuffix)
+            },
+            destinationBuildParameters: destinationBuildParameters,
+            toolsBuildParameters: toolsBuildParameters,
+            shouldDisableSandbox: self.shouldDisableSandbox,
+            self.fileSystem,
+            self.observabilityScope
+        )
+        for item in derivedPlaygroundTargets {
+            targetMap.insert(.swift(
+                item.entryPointTargetBuildDescription
+            ))
+
+            self.derivedPlaygroundTargetsMap[item.product.id] = [item.entryPointTargetBuildDescription.target]
         }
 
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
