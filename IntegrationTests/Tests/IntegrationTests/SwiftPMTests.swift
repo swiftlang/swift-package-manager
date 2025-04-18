@@ -75,7 +75,15 @@ private struct SwiftPMTests {
     }
 
     @Test(
-        .requireHostOS(.windows, when: false),
+        .requireThreadSafeWorkingDirectory,
+        arguments: [BuildSystemProvider.native]
+    )
+    func packageInitExecutable(_ buildSystemProvider: BuildSystemProvider) throws {
+        try _packageInitExecutable(buildSystemProvider)
+    }
+
+    @Test(
+        .skipHostOS(.windows),
         .requireThreadSafeWorkingDirectory,
         .bug(
             "https://github.com/swiftlang/swift-package-manager/issues/8416",
@@ -85,30 +93,31 @@ private struct SwiftPMTests {
             "https://github.com/swiftlang/swift-package-manager/issues/8514",
             "[Windows] Integration test SwiftPMTests.packageInitExecutable with --build-system swiftbuild is skipped"
         ),
-        arguments: BuildSystemProvider.allCases
+        arguments: [BuildSystemProvider.swiftbuild]
     )
-    func packageInitExecutable(_ buildSystemProvider: BuildSystemProvider) throws {
-        // Executable
-        do {
-            try withTemporaryDirectory { tmpDir in
-                let packagePath = tmpDir.appending(component: "foo")
-                try localFileSystem.createDirectory(packagePath)
-                try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "executable")
-                try sh(swiftBuild, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue)
+    func packageInitExecutablSkipWindows(_ buildSystemProvider: BuildSystemProvider) throws {
+        try _packageInitExecutable(buildSystemProvider)
+    }
 
-                try withKnownIssue("Error while loading shared libraries: libswiftCore.so: cannot open shared object file: No such file or directory") {
-                    // The 'native' build system uses 'swiftc' as the linker driver, which adds an RUNPATH to the swift runtime libraries in the SDK.
-                    // 'swiftbuild' directly calls clang, which does not add the extra RUNPATH, so runtime libraries cannot be found.
-                    let (stdout, stderr) = try sh(
-                        swiftRun, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue
-                    )
-                    #expect(!stderr.contains("error:"))
-                    #expect(stdout.contains("Hello, world!"))
-                } when: {
-                    buildSystemProvider == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux
-                }
+    private func _packageInitExecutable(_ buildSystemProvider: BuildSystemProvider) throws {
+        try withTemporaryDirectory { tmpDir in
+            let packagePath = tmpDir.appending(component: "foo")
+            try localFileSystem.createDirectory(packagePath)
+            try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "executable")
+            try sh(swiftBuild, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue)
+
+            try withKnownIssue("Error while loading shared libraries: libswiftCore.so: cannot open shared object file: No such file or directory") {
+                // The 'native' build system uses 'swiftc' as the linker driver, which adds an RUNPATH to the swift runtime libraries in the SDK.
+                // 'swiftbuild' directly calls clang, which does not add the extra RUNPATH, so runtime libraries cannot be found.
+                let (stdout, stderr) = try sh(
+                    swiftRun, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue
+                )
+                #expect(!stderr.contains("error:"))
+                #expect(stdout.contains("Hello, world!"))
+            } when: {
+                buildSystemProvider == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux
             }
-        }
+            }
     }
 
     @Test(
