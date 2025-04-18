@@ -35,6 +35,19 @@ if let resourceDirPath = ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RP
     packageLibraryLinkSettings = []
 }
 
+// Common experimental flags to be added to all targets.
+let commonExperimentalFeatures: [SwiftSetting] = [
+    .enableExperimentalFeature("MemberImportVisibility"),
+]
+
+// Certain targets fail to compile with MemberImportVisibility enabled on 6.0.3
+// but work with >=6.1. These targets opt in to using `swift6CompatibleExperimentalFeatures`.
+#if swift(>=6.1)
+let swift6CompatibleExperimentalFeatures = commonExperimentalFeatures
+#else
+let swift6CompatibleExperimentalFeatures: [SwiftSetting] = []
+#endif
+
 /** SwiftPMDataModel is the subset of SwiftPM product that includes just its data model.
  This allows some clients (such as IDEs) that use SwiftPM's data model but not its build system
  to not have to depend on SwiftDriver, SwiftLLBuild, etc. We should probably have better names here,
@@ -152,8 +165,7 @@ let package = Package(
         .target(
             name: "PackageDescription",
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .define("USE_IMPL_ONLY_IMPORTS"),
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
@@ -170,8 +182,7 @@ let package = Package(
             // AppleProductTypes library when they import it without further
             // messing with the manifest loader.
             dependencies: ["PackageDescription"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"], .when(platforms: [.macOS])),
                 .unsafeFlags(["-Xfrontend", "-module-link-name", "-Xfrontend", "AppleProductTypes"])
@@ -183,8 +194,7 @@ let package = Package(
         .target(
             name: "PackagePlugin",
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
             ],
@@ -202,8 +212,7 @@ let package = Package(
                 "SPMBuildCore",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .enableExperimentalFeature("AccessLevelOnImport"),
                 .unsafeFlags(["-static"]),
             ]
@@ -219,8 +228,7 @@ let package = Package(
                 .product(name: "SystemPackage", package: "swift-system"),
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .enableExperimentalFeature("StrictConcurrency"),
                 .enableExperimentalFeature("AccessLevelOnImport"),
                 .enableExperimentalFeature("InternalImportsByDefault"),
@@ -240,8 +248,7 @@ let package = Package(
                 .product(name: "SystemPackage", package: "swift-system"),
             ],
             exclude: ["CMakeLists.txt", "Vendor/README.md"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: swift6CompatibleExperimentalFeatures + [
                 .enableExperimentalFeature("StrictConcurrency"),
                 .enableExperimentalFeature("AccessLevelOnImport"),
                 .unsafeFlags(["-static"]),
@@ -253,8 +260,7 @@ let package = Package(
             name: "LLBuildManifest",
             dependencies: ["Basics"],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -270,8 +276,7 @@ let package = Package(
                 "PackageSigning",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -284,8 +289,7 @@ let package = Package(
                 "PackageModel",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -295,8 +299,7 @@ let package = Package(
             name: "SPMLLBuild",
             dependencies: ["Basics"],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -308,8 +311,7 @@ let package = Package(
             name: "PackageModel",
             dependencies: ["Basics"],
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: swift6CompatibleExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -323,8 +325,7 @@ let package = Package(
                 "PackageModel",
             ] + swiftSyntaxDependencies(["SwiftBasicFormat", "SwiftDiagnostics", "SwiftIDEUtils", "SwiftParser", "SwiftSyntax", "SwiftSyntaxBuilder"]),
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -338,8 +339,7 @@ let package = Package(
                 "SourceControl",
             ],
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -356,8 +356,7 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -371,8 +370,7 @@ let package = Package(
             exclude: [
                 "Formats/v1.md",
             ],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -387,8 +385,7 @@ let package = Package(
                 "PackageModel",
                 "SourceControl",
             ],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: swift6CompatibleExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -401,8 +398,7 @@ let package = Package(
                 "Basics",
                 "PackageCollectionsModel",
             ],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -414,8 +410,7 @@ let package = Package(
                 "PackageModel",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -429,8 +424,7 @@ let package = Package(
                 "PackageModel",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -446,8 +440,7 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -465,8 +458,7 @@ let package = Package(
                 "DriverSupport",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -478,8 +470,7 @@ let package = Package(
                 .product(name: "SwiftDriver", package: "swift-driver"),
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -492,8 +483,7 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -504,9 +494,7 @@ let package = Package(
                 "PackageGraph",
             ],
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
         .target(
             /** High level functionality */
@@ -523,8 +511,7 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -538,8 +525,7 @@ let package = Package(
                 "PackageRegistry",
                 "PackageSigning",
             ],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -561,8 +547,7 @@ let package = Package(
                 "SwiftBuildSupport",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -584,8 +569,7 @@ let package = Package(
                 "SwiftBuildSupport",
             ] + swiftSyntaxDependencies(["SwiftIDEUtils"]),
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: swift6CompatibleExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -601,8 +585,7 @@ let package = Package(
                 "PackageModel",
             ],
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -618,8 +601,7 @@ let package = Package(
                 "PackageCollections",
                 "PackageModel",
             ],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -641,8 +623,7 @@ let package = Package(
                 "SPMBuildCore",
                 "Workspace",
             ],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -750,8 +731,7 @@ let package = Package(
             name: "CompilerPluginSupport",
             dependencies: ["PackageDescription"],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
             ]
@@ -877,9 +857,7 @@ let package = Package(
         .testTarget(
             name: "PackageGraphTests",
             dependencies: ["PackageGraph", "_InternalTestSupport"],
-            swiftSettings: [
-                .enableExperimentalFeature("MemberImportVisibility"),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
         .testTarget(
             name: "PackageGraphPerformanceTests",
