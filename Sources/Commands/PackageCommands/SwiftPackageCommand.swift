@@ -37,6 +37,7 @@ public struct SwiftPackageCommand: AsyncParsableCommand {
             AddProduct.self,
             AddTarget.self,
             AddTargetDependency.self,
+            AddTargetPlugin.self,
             Clean.self,
             PurgeCache.self,
             Reset.self,
