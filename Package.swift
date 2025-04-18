@@ -416,6 +416,12 @@ let package = Package(
             ]
         ),
 
+        // MARK: Documentation
+        
+        .target(
+            name: "PackageManagerDocs"
+        ),
+        
         // MARK: Package Manager Functionality
 
         .target(
@@ -1011,6 +1017,12 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
     }
     package.targets.first(where: { $0.name == "SPMLLBuild" })!.dependencies += [
         .product(name: "llbuildSwift", package: "swift-llbuild"),
+    ]
+}
+
+if ProcessInfo.processInfo.environment["SWIFTPM_DOCC_ENABLED"] != nil {
+    package.dependencies += [
+        .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.1.0"),
     ]
 }
 
