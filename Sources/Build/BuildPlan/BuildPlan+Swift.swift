@@ -39,7 +39,22 @@ extension BuildPlan {
                 swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.pathString)"]
                 swiftTarget.additionalFlags += try pkgConfig(for: target).cFlags
             case let target as BinaryModule:
-                if case .xcframework = target.kind {
+                switch target.kind {
+                case .artifactsArchive:
+                    let libraries = try self.parseLibraries(in: target, triple: swiftTarget.buildParameters.triple)
+                    for library in libraries {
+                        library.headersPaths.forEach {
+                            swiftTarget.additionalFlags += ["-I", $0.pathString]
+                        }
+                        // This is not strictly necessary to build the target, but it tells the
+                        // build system to copy the library to the build directory, which
+                        // makes executables that depend on it runnable by default instead of
+                        // requiring the user to configure LD_LIBRARY_PATH (as they would in
+                        // production)
+                        swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
+                    }
+
+                case .xcframework:
                     let libraries = try self.parseXCFramework(for: target, triple: swiftTarget.buildParameters.triple)
                     for library in libraries {
                         library.headersPaths.forEach {
@@ -47,6 +62,9 @@ extension BuildPlan {
                         }
                         swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
                     }
+
+                default:
+                    break
                 }
             default:
                 break
