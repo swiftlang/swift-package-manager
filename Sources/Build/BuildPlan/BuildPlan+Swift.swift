@@ -20,7 +20,7 @@ extension BuildPlan {
     func plan(swiftTarget: SwiftModuleBuildDescription) throws {
         // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target
         // builds against
-        for case .module(let dependency, let description) in swiftTarget.recursiveDependencies(using: self) {
+        for case .module(let dependency, let description) in swiftTarget.recursiveLinkDependencies(using: self) {
             switch dependency.underlying {
             case let underlyingTarget as ClangModule where underlyingTarget.type == .library:
                 guard case let .clang(target)? = description else {
