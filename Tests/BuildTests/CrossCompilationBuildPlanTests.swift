@@ -178,7 +178,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         XCTAssertMatch(
             exe,
             [
-                "-enable-batch-mode", "-Onone", "-enable-testing",
+                "-enable-batch-mode", "-serialize-diagnostics", "-Onone", "-enable-testing",
                 "-j3", "-DSWIFT_PACKAGE", "-DDEBUG", "-Xcc",
                 "-fmodule-map-file=\(buildPath.appending(components: "lib.build", "module.modulemap"))",
                 "-Xcc", "-I", "-Xcc", "\(pkgPath.appending(components: "Sources", "lib", "include"))",
