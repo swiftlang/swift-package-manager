@@ -33,6 +33,7 @@ import Workspace
 import XCTest
 
 import struct TSCBasic.ByteString
+import func TSCBasic.withTemporaryFile
 
 import enum TSCUtility.Diagnostics
 
@@ -785,6 +786,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             exe,
             [
                 "-enable-batch-mode",
+                "-serialize-diagnostics",
                 "-Onone",
                 "-enable-testing",
                 .equal(self.j),
@@ -803,6 +805,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             lib,
             [
                 "-enable-batch-mode",
+                "-serialize-diagnostics",
                 "-Onone",
                 "-enable-testing",
                 .equal(self.j),
@@ -1854,6 +1857,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             [
                 .anySequence,
                 "-enable-batch-mode",
+                "-serialize-diagnostics",
                 "-Onone",
                 "-enable-testing",
                 .equal(self.j),
@@ -2355,6 +2359,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             [
                 .anySequence,
                 "-enable-batch-mode",
+                "-serialize-diagnostics",
                 "-Onone",
                 "-enable-testing",
                 .equal(self.j),
@@ -2374,6 +2379,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             [
                 .anySequence,
                 "-enable-batch-mode",
+                "-serialize-diagnostics",
                 "-Onone",
                 "-enable-testing",
                 "-Xfrontend",
@@ -2852,6 +2858,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         let matchText = try result.moduleBuildDescription(for: "exe").swift().compileArguments()
         let assertionText: [StringPattern] = [
             "-enable-batch-mode",
+            "-serialize-diagnostics",
             "-Onone",
             "-enable-testing",
             .equal(self.j),
@@ -3153,6 +3160,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             exe,
             [
                 "-enable-batch-mode",
+                "-serialize-diagnostics",
                 "-Onone",
                 "-enable-testing",
                 .equal(self.j),
@@ -3171,6 +3179,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             lib,
             [
                 "-enable-batch-mode",
+                "-serialize-diagnostics",
                 "-Onone",
                 "-enable-testing",
                 .equal(self.j),
@@ -3811,6 +3820,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         let exe = try result.moduleBuildDescription(for: "exe").swift().compileArguments()
         XCTAssertMatch(exe, [
             "-enable-batch-mode",
+            "-serialize-diagnostics",
             "-Onone",
             "-enable-testing",
             .equal(self.j),
@@ -6974,6 +6984,59 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         let myLib = try XCTUnwrap(plan.targets.first(where: { $0.module.name == "MyLib" })).swift()
         print(myLib.additionalFlags)
         XCTAssertFalse(myLib.additionalFlags.contains(where: { $0.contains("-tool/include")}), "flags shouldn't contain tools items")
+    }
+
+    func testDiagnosticsAreMentionedInOutputsFileMap() async throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/exe/aux.swift",
+            "/Pkg/Sources/lib/lib.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["lib"]),
+                        TargetDescription(name: "lib", dependencies: []),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let plan = try await mockBuildPlan(
+            graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let result = try BuildPlanResult(plan: plan)
+
+        result.checkProductsCount(1)
+        result.checkTargetsCount(2)
+
+        for module in result.targetMap {
+            let buildDescription = try module.swift()
+
+            try withTemporaryFile { file in
+                try buildDescription.writeOutputFileMap(to: .init(file.path.pathString))
+
+                let fileMap = try String(bytes: fs.readFileContents(file.path).contents, encoding: .utf8)
+
+                for diagnosticFile in buildDescription.diagnosticFiles {
+                    XCTAssertMatch(fileMap, .contains(diagnosticFile.pathString))
+                }
+            }
+        }
     }
 }
 
