@@ -414,13 +414,13 @@ private struct XCBuildTests {
             let fooPath = path.appending(component: "Foo")
 
             do {
-                let (_, stderr) = try sh(swiftTest, "--package-path", fooPath, "--build-system", "xcode")
+                let (_, stderr, _) = try sh(swiftTest, "--package-path", fooPath, "--build-system", "xcode")
                 #expect(stderr.contains("Test Suite 'FooTests.xctest'"))
                 #expect(stderr.contains("Test Suite 'CFooTests.xctest'"))
             }
 
             do {
-                let (_, stderr) = try sh(
+                let (_, stderr, _) = try sh(
                     swiftTest,
                     "--package-path",
                     fooPath,
@@ -434,7 +434,7 @@ private struct XCBuildTests {
             }
 
             do {
-                let (stdout, _) = try sh(swiftTest, "--package-path", fooPath, "--build-system", "xcode", "--parallel")
+                let (stdout, _, _) = try sh(swiftTest, "--package-path", fooPath, "--build-system", "xcode", "--parallel")
                 #expect(stdout.contains("Testing FooTests"))
                 #expect(stdout.contains("Testing CFooTests"))
             }
