@@ -21,7 +21,8 @@ package enum ManifestEditError: Error {
     case cannotFindTargets
     case cannotFindTarget(targetName: String)
     case cannotFindArrayLiteralArgument(argumentName: String, node: Syntax)
-    case oldManifest(ToolsVersion)
+    case oldManifest(ToolsVersion, expected: ToolsVersion)
+    case cannotAddSettingsToPluginTarget
 }
 
 extension ToolsVersion {
@@ -41,8 +42,10 @@ extension ManifestEditError: CustomStringConvertible {
             "unable to find target named '\(name)' in package"
         case .cannotFindArrayLiteralArgument(argumentName: let name, node: _):
             "unable to find array literal for '\(name)' argument"
-        case .oldManifest(let version):
-            "package manifest version \(version) is too old: please update to manifest version \(ToolsVersion.minimumManifestEditVersion) or newer"
+        case .oldManifest(let version, let expectedVersion):
+            "package manifest version \(version) is too old: please update to manifest version \(expectedVersion) or newer"
+        case .cannotAddSettingsToPluginTarget:
+            "plugin targets do not support settings"
         }
     }
 }
@@ -53,7 +56,14 @@ extension SourceFileSyntax {
     func checkEditManifestToolsVersion() throws {
         let toolsVersion = try ToolsVersionParser.parse(utf8String: description)
         if toolsVersion < ToolsVersion.minimumManifestEditVersion {
-            throw ManifestEditError.oldManifest(toolsVersion)
+            throw ManifestEditError.oldManifest(toolsVersion, expected: ToolsVersion.minimumManifestEditVersion)
+        }
+    }
+
+    func checkManifestAtLeast(_ version: ToolsVersion) throws {
+        let toolsVersion = try ToolsVersionParser.parse(utf8String: description)
+        if toolsVersion < version {
+            throw ManifestEditError.oldManifest(toolsVersion, expected: version)
         }
     }
 }
