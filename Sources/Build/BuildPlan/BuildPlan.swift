@@ -941,16 +941,16 @@ extension BuildPlan {
 
 extension BuildPlan {
     fileprivate typealias Destination = BuildParameters.Destination
-    
+
     enum TraversalNode: Hashable {
         case package(ResolvedPackage)
         case product(ResolvedProduct, BuildParameters.Destination)
         case module(ResolvedModule, BuildParameters.Destination)
-        
+
         var destination: BuildParameters.Destination {
             switch self {
             case .package:
-                    .target
+                .target
             case .product(_, let destination):
                 destination
             case .module(_, let destination):
@@ -971,7 +971,7 @@ extension BuildPlan {
                 self = .product(product, destination)
             }
         }
-        
+
         init(
             module: ResolvedModule,
             context destination: BuildParameters.Destination
@@ -990,7 +990,7 @@ extension BuildPlan {
             }
         }
     }
-    
+
     /// Traverse the modules graph and find a destination for every product and module.
     /// All non-macro/plugin products and modules have `target` destination with one
     /// notable exception - test products/modules with direct macro dependency.
@@ -1007,23 +1007,23 @@ extension BuildPlan {
                 {
                     continue
                 }
-                
+
                 successors.append(.init(product: product, context: .target))
             }
-            
+
             for module in package.modules {
                 // Tests are discovered through an aggregate product which also
                 // informs their destination.
                 if case .test = module.underlying.type {
                     continue
                 }
-                
+
                 successors.append(.init(module: module, context: .target))
             }
-            
+
             return successors
         }
-        
+
         func successors(
             for product: ResolvedProduct,
             destination: Destination
@@ -1031,12 +1031,12 @@ extension BuildPlan {
             guard destination == .host || product.underlying.type == .test else {
                 return []
             }
-            
+
             return product.modules.map { module in
                 TraversalNode(module: module, context: destination)
             }
         }
-        
+
         func successors(
             for module: ResolvedModule,
             destination: Destination
@@ -1044,7 +1044,7 @@ extension BuildPlan {
             guard destination == .host else {
                 return []
             }
-            
+
             return module.dependencies.reduce(into: [TraversalNode]()) { partial, dependency in
                 switch dependency {
                 case .product(let product, conditions: _):
@@ -1054,7 +1054,7 @@ extension BuildPlan {
                 }
             }
         }
-        
+
         try await depthFirstSearch(graph.packages.map { TraversalNode.package($0) }) { node in
             switch node {
             case .package(let package):
@@ -1078,7 +1078,7 @@ extension BuildPlan {
             // No de-duplication is necessary we only want unique nodes.
         }
     }
-    
+
     /// Traverses the modules graph, computes destination of every module reference and
     /// provides the data to the caller by means of `onModule` callback. The products
     /// are completely transparent to this method and are represented by their module dependencies.
@@ -1089,7 +1089,7 @@ extension BuildPlan {
         ) -> Void
     ) {
         var visited = Set<TraversalNode>()
-        
+
         func successors(for package: ResolvedPackage) -> [TraversalNode] {
             guard visited.insert(.package(package)).inserted else {
                 return []
@@ -1103,7 +1103,7 @@ extension BuildPlan {
                 return .init(module: $0, context: .target)
             }
         }
-        
+
         func successors(
             for module: ResolvedModule,
             destination: Destination
@@ -1123,7 +1123,7 @@ extension BuildPlan {
                 }
             }
         }
-        
+
         depthFirstSearch(self.graph.packages.map { TraversalNode.package($0) }) {
             switch $0 {
             case .package(let package):
@@ -1140,17 +1140,17 @@ extension BuildPlan {
             case .module(let module, let destination):
                 (module, destination)
             }
-            
+
             switch current {
             case .package, .product:
                 break
-                
+
             case .module(let module, let destination):
                 onModule((module, destination), parentModule)
             }
         }
     }
-    
+
     package func traverseDependencies(
         of description: ModuleBuildDescription,
         onProduct: (ResolvedProduct, BuildParameters.Destination, ProductBuildDescription?) -> Void,
@@ -1167,7 +1167,7 @@ extension BuildPlan {
                 visited.insert($0).inserted
             }
         }
-        
+
         func successors(
             for module: ResolvedModule,
             destination: Destination
@@ -1185,7 +1185,7 @@ extension BuildPlan {
                     visited.insert($0).inserted
                 }
         }
-        
+
         depthFirstSearch(successors(for: description.module, destination: description.destination)) {
             switch $0 {
             case .module(let module, let destination):
@@ -1208,7 +1208,7 @@ extension BuildPlan {
             }
         }
     }
-    
+
     // Only follow link time dependencies, i.e. skip dependencies on macros and plugins
     // except for testTargets that depend on macros.
     package func traverseLinkDependencies(
