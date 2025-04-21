@@ -957,7 +957,7 @@ extension BuildPlan {
                 destination
             }
         }
-        
+
         init(
             product: ResolvedProduct,
             context destination: BuildParameters.Destination
@@ -1070,7 +1070,7 @@ extension BuildPlan {
                 break
             case .product(let product, let destination):
                 try onProduct(product, destination)
-                
+
             case .module(let module, let destination):
                 try await onModule(module, destination)
             }
