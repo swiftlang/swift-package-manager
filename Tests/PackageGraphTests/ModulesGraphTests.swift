@@ -23,7 +23,7 @@ import struct TSCBasic.ByteString
 
 final class ModulesGraphTests: XCTestCase {
     func testBasic() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try skipOnWindowsAsTestCurrentlyFails(because: "Possibly related to: https://github.com/swiftlang/swift-package-manager/issues/8511")
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Foo/Sources/Foo/source.swift",
