@@ -86,8 +86,13 @@ struct BuildCommandOptions: ParsableArguments {
 
     /// Whether to output a graphviz file visualization of the combined job graph for all targets
     @Flag(name: .customLong("print-manifest-job-graph"),
-          help: "Write the command graph for the build manifest as a graphviz file")
+          help: "Write the command graph for the build manifest as a Graphviz file")
     var printManifestGraphviz: Bool = false
+
+    /// Whether to output a graphviz file visualization of the PIF JSON sent to Swift Build.
+    @Flag(name: .customLong("print-pif-manifest-graph"),
+          help: "Write the PIF JSON sent to Swift Build as a Graphviz file")
+    var printPIFManifestGraphviz: Bool = false
 
     /// Specific target to build.
     @Option(help: "Build the specified target")
@@ -144,7 +149,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             }
             let buildManifest = try await buildOperation.getBuildManifest()
             var serializer = DOTManifestSerializer(manifest: buildManifest)
-            // print to stdout
+            // Print to stdout.
             let outputStream = stdoutStream
             serializer.writeDOT(to: outputStream)
             outputStream.flush()
@@ -162,7 +167,12 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             productsBuildParameters.testingParameters.enableCodeCoverage = true
             toolsBuildParameters.testingParameters.enableCodeCoverage = true
         }
-
+
+        if self.options.printPIFManifestGraphviz {
+            productsBuildParameters.printPIFManifestGraphviz = true
+            toolsBuildParameters.printPIFManifestGraphviz = true
+        }
+
         try await build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
     }
 
