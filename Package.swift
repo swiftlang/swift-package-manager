@@ -84,6 +84,8 @@ let swiftPMProduct = (
     ]
 )
 
+let usePackageDependencies = ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil
+
 #if os(Windows)
 let includeDynamicLibrary: Bool = false
 let systemSQLitePkgConfig: String? = nil
@@ -767,7 +769,7 @@ let package = Package(
                     "Build",
                     "XCBuildSupport",
                     "SwiftBuildSupport",
-                    "_InternalTestSupport"
+                    "_InternalTestSupport",
                 ],
                 swiftSettings: [
                     .unsafeFlags(["-static"]),
@@ -787,6 +789,7 @@ let package = Package(
                 "SourceControl",
                 .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
+                .product(name: "Testing", package: "swift-testing"),
                 "Workspace",
             ],
             swiftSettings: [
@@ -1044,7 +1047,7 @@ func swiftSyntaxDependencies(_ names: [String]) -> [Target.Dependency] {
 let relatedDependenciesBranch = "main"
 
 if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
-    if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
+    if usePackageDependencies {
         package.dependencies += [
             .package(url: "https://github.com/swiftlang/swift-llbuild.git", branch: relatedDependenciesBranch),
         ]
@@ -1060,7 +1063,7 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
     ]
 }
 
-if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
+if usePackageDependencies {
     package.dependencies += [
         .package(url: "https://github.com/swiftlang/swift-tools-support-core.git", branch: relatedDependenciesBranch),
         // The 'swift-argument-parser' version declared here must match that
@@ -1070,6 +1073,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/swiftlang/swift-driver.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),
+        .package(url: "https://github.com/swiftlang/swift-testing.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-system.git", from: "1.1.1"),
         .package(url: "https://github.com/apple/swift-collections.git", "1.0.1" ..< "1.2.0"),
         .package(url: "https://github.com/apple/swift-certificates.git", "1.0.1" ..< "1.6.0"),
@@ -1087,6 +1091,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-system"),
         .package(path: "../swift-collections"),
         .package(path: "../swift-certificates"),
+        .package(path: "../swift-testing"),
         .package(path: "../swift-toolchain-sqlite"),
     ]
 }
@@ -1111,7 +1116,7 @@ if ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] == nil &&
         .product(name: "SWBBuildService", package: "swift-build"),
     ]
 
-    if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
+    if usePackageDependencies {
         package.dependencies += [
             .package(url: "https://github.com/swiftlang/swift-build.git", branch: relatedDependenciesBranch),
         ]
