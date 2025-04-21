@@ -353,15 +353,23 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                             }
                             progressAnimation.update(step: step, total: 100, text: message)
                         case .diagnostic(let info):
-                            if info.kind == .error {
-                                self.observabilityScope.emit(error: "\(info.location) \(info.message) \(info.fixIts)")
-                            } else if info.kind == .warning {
-                                self.observabilityScope.emit(warning: "\(info.location) \(info.message) \(info.fixIts)")
-                            } else if info.kind == .note {
-                                self.observabilityScope.emit(info: "\(info.location) \(info.message) \(info.fixIts)")
-                            } else if info.kind == .remark {
-                                self.observabilityScope.emit(debug: "\(info.location) \(info.message) \(info.fixIts)")
+                            let fixItsDescription = if info.fixIts.hasContent {
+                                ": " + info.fixIts.map { String(describing: $0) }.joined(separator: ", ")
+                            } else {
+                                ""
                             }
+                            let message = if let locationDescription = info.location.userDescription {
+                                "\(locationDescription) \(info.message)\(fixItsDescription)"
+                            } else {
+                                "\(info.message)\(fixItsDescription)"
+                            }
+                            let severity: Diagnostic.Severity = switch info.kind {
+                            case .error: .error
+                            case .warning: .warning
+                            case .note: .info
+                            case .remark: .debug
+                            }
+                            self.observabilityScope.emit(severity: severity, message: message)
                         case .taskOutput(let info):
                             self.observabilityScope.emit(info: "\(info.data)")
                         case .taskStarted(let info):
@@ -472,6 +480,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             settings["ARCHS"] = architectures.joined(separator: " ")
         }
 
+        // support for --enable-parseable-module-interfaces
+        if buildParameters.driverParameters.enableParseableModuleInterfaces {
+            settings["SWIFT_EMIT_MODULE_INTERFACE"] = "YES"
+        }
+
         // Generate the build parameters.
         var params = SwiftBuild.SWBBuildParameters()
         params.configurationName = buildParameters.configuration.swiftbuildName
@@ -511,6 +524,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 }
 
+// MARK: - Helpers
+
 extension String {
     /// Escape the usual shell related things, such as quoting, but also handle Windows
     /// back-slashes.
@@ -543,3 +558,34 @@ extension Basics.Diagnostic.Severity {
         self <= .info
     }
 }
+
+#if canImport(SwiftBuild)
+
+fileprivate extension SwiftBuild.SwiftBuildMessage.DiagnosticInfo.Location {
+    var userDescription: String? {
+        switch self {
+        case .path(let path, let fileLocation):
+            switch fileLocation {
+            case .textual(let line, let column):
+                var description = "\(path):\(line)"
+                if let column { description += ":\(column)" }
+                return description
+            case .object(let identifier):
+                return "\(path):\(identifier)"
+            case .none:
+                return path
+            }
+        
+        case .buildSettings(let names):
+            return names.joined(separator: ", ")
+        
+        case .buildFiles(let buildFiles, let targetGUID):
+            return "\(targetGUID): " + buildFiles.map { String(describing: $0) }.joined(separator: ", ")
+            
+        case .unknown:
+            return nil
+        }
+    }
+}
+
+#endif

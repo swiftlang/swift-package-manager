@@ -173,13 +173,22 @@ fileprivate func verifyFixtureExists(at fixtureSubpath: RelativePath, file: Stat
     return fixtureDir
 }
 
-fileprivate func setup(fixtureDir: AbsolutePath, in tmpDirPath: AbsolutePath, copyName: String, createGitRepo: Bool = true) throws -> AbsolutePath {
+fileprivate func setup(
+    fixtureDir: AbsolutePath,
+    in tmpDirPath: AbsolutePath,
+    copyName: String,
+    createGitRepo: Bool = true
+) throws -> AbsolutePath {
     func copy(from srcDir: AbsolutePath, to dstDir: AbsolutePath) throws {
-#if os(Windows)
+        #if os(Windows)
         try localFileSystem.copy(from: srcDir, to: dstDir)
-#else
+        #else
         try systemQuietly("cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
-#endif
+        #endif
+        
+        // Ensure we get a clean test fixture.
+        try localFileSystem.removeFileTree(dstDir.appending(component: ".build"))
+        try localFileSystem.removeFileTree(dstDir.appending(component: ".swiftpm"))
     }
 
     // The fixture contains either a checkout or just a Git directory.
