@@ -810,7 +810,7 @@ def call_swiftpm(args, cmd, cwd=None):
     full_cmd = get_swiftpm_env_cmd(args) + cmd + get_swiftpm_flags(args)
     if cwd is None:
         cwd = args.project_root
-    call_output(full_cmd, cwd=cwd, stderr=True, verbose=True)
+    call(full_cmd, cwd=cwd)
 
 # -----------------------------------------------------------
 # Build-related helper functions
