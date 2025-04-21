@@ -78,7 +78,7 @@ fileprivate struct DotPIFSerializer {
         func write(_ object: String) { outputStream.write("\(object)\n") }
 
         write("digraph PIF {")
-        write("dpi=260;") // i.e., MacBook Pro 16" is 226 pixels per inch (3072 x 1920).
+        write("dpi=400;") // i.e., MacBook Pro 16" is 226 pixels per inch (3072 x 1920).
         for object in objects {
             write("  \(object);")
         }
