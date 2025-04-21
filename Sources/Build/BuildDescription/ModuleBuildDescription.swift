@@ -187,30 +187,18 @@ extension ModuleBuildDescription {
         var dependencies: [Dependency] = []
         plan.traverseDependencies(of: self) { product, _, description in
             dependencies.append(.product(product, description))
-            return .continue
         } onModule: { module, _, description in
             dependencies.append(.module(module, description))
-            return .continue
         }
         return dependencies
     }
 
     package func recursiveLinkDependencies(using plan: BuildPlan) -> [Dependency] {
         var dependencies: [Dependency] = []
-        plan.traverseDependencies(of: self) { product, _, description in
-            guard product.type != .macro && product.type != .plugin else {
-                return .abort
-            }
-
+        plan.traverseLinkDependencies(of: self) { product, _, description in
             dependencies.append(.product(product, description))
-            return .continue
         } onModule: { module, _, description in
-            guard module.type != .macro && module.type != .plugin else {
-                return .abort
-            }
-
             dependencies.append(.module(module, description))
-            return .continue
         }
         return dependencies
     }
