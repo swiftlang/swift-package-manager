@@ -78,7 +78,7 @@ fileprivate struct DotPIFSerializer {
         func write(_ object: String) { outputStream.write("\(object)\n") }
 
         write("digraph PIF {")
-        write("dpi=400;") // i.e., MacBook Pro 16" is 226 pixels per inch (3072 x 1920).
+        write("  dpi=400;") // i.e., MacBook Pro 16" is 226 pixels per inch (3072 x 1920).
         for object in objects {
             write("  \(object);")
         }
@@ -107,7 +107,7 @@ fileprivate struct DotPIFSerializer {
         if let style { attributes.append("style=\(style)") }
         if let margin { attributes.append("margin=\(margin)") }
 
-        var node = "  \(id.quote)"
+        var node = "\(id.quote)"
         if !attributes.isEmpty {
             let attributesList = attributes.joined(separator: ", ")
             node += " [\(attributesList)]"
@@ -126,7 +126,7 @@ fileprivate struct DotPIFSerializer {
         if let color { attributes.append("color=\(color)") }
         if let style { attributes.append("style=\(style)") }
 
-        var edge = "  \(left.quote) -> \(right.quote)"
+        var edge = "\(left.quote) -> \(right.quote)"
         if !attributes.isEmpty {
             let attributesList = attributes.joined(separator: ", ")
             edge += " [\(attributesList)]"
