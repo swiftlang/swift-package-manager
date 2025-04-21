@@ -36,10 +36,19 @@ public enum PluginAction {
 public struct PluginTool {
     public let path: AbsolutePath
     public let triples: [String]?
+    public let source: Source
 
-    public init(path: AbsolutePath, triples: [String]? = nil) {
+    public enum Source {
+        // Built from an executable target
+        case built
+        // Brought in from a binary target
+        case vended
+    }
+
+    public init(path: AbsolutePath, triples: [String]? = nil, source: Source) {
         self.path = path
         self.triples = triples
+        self.source = source
     }
 }
 
@@ -453,12 +462,14 @@ extension PluginModule {
         // Determine additional input dependencies for any plugin commands,
         // based on any executables the plugin target depends on.
         let toolPaths = accessibleTools.values.map(\.path).sorted()
+        
+        let builtToolPaths = accessibleTools.values.filter({ $0.source == .built }).map((\.path)).sorted()
 
         let delegate = DefaultPluginInvocationDelegate(
             fileSystem: fileSystem,
             delegateQueue: delegateQueue,
             toolPaths: toolPaths,
-            builtToolNames: accessibleTools.map(\.key)
+            builtToolPaths: builtToolPaths
         )
 
         let startTime = DispatchTime.now()
@@ -654,7 +665,7 @@ public extension ResolvedModule {
             switch tool {
             case .builtTool(let name, let path):
                 if let path = try await builtToolHandler(name, path) {
-                    tools[name] = PluginTool(path: path)
+                    tools[name] = PluginTool(path: path, source: .built)
                 }
             case .vendedTool(let name, let path, let triples):
                 // Avoid having the path of an unsupported tool overwrite a supported one.
@@ -662,7 +673,7 @@ public extension ResolvedModule {
                     continue
                 }
                 let priorTriples = tools[name]?.triples ?? []
-                tools[name] = PluginTool(path: path, triples: priorTriples + triples)
+                tools[name] = PluginTool(path: path, triples: priorTriples + triples, source: .vended)
             }
         }
 
@@ -786,7 +797,7 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
     let fileSystem: FileSystem
     let delegateQueue: DispatchQueue
     let toolPaths: [AbsolutePath]
-    let builtToolNames: [String]
+    let builtToolPaths: [AbsolutePath]
     var outputData = Data()
     var diagnostics = [Basics.Diagnostic]()
     var buildCommands = [BuildToolPluginInvocationResult.BuildCommand]()
@@ -796,12 +807,12 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
         fileSystem: FileSystem,
         delegateQueue: DispatchQueue,
         toolPaths: [AbsolutePath],
-        builtToolNames: [String]
+        builtToolPaths: [AbsolutePath]
     ) {
         self.fileSystem = fileSystem
         self.delegateQueue = delegateQueue
         self.toolPaths = toolPaths
-        self.builtToolNames = builtToolNames
+        self.builtToolPaths = builtToolPaths
     }
 
     func pluginCompilationStarted(commandLine: [String], environment: [String: String]) {}
@@ -855,7 +866,7 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
     ) -> Bool {
         dispatchPrecondition(condition: .onQueue(self.delegateQueue))
         // executable must exist before running prebuild command
-        if self.builtToolNames.contains(executable.basename) {
+        if builtToolPaths.contains(executable) {
             self.diagnostics
                 .append(
                     .error(
