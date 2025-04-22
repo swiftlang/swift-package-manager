@@ -133,6 +133,7 @@ def run_bootstrap(swiftpm_bin_dir: pathlib.Path) -> None:
 
 def main() -> None:
     args = get_arguments()
+    ignore = "-Xlinker /ignore:4217" if os.name == "nt" else ""
     logging.getLogger().setLevel(logging.DEBUG if args.is_verbose else logging.INFO)
     logging.debug("Args: %r", args)
 
@@ -144,20 +145,24 @@ def main() -> None:
             shlex.split("swift --version"),
         )
 
-        # call(
-        #     shlex.split("swift package reset"),
-        # )
         call(
             shlex.split("swift package update"),
         )
         call(
-            shlex.split(f"swift build --configuration {args.config} --product swift-test"),
+            shlex.split(f"swift build --configuration {args.config} --product swift-test {ignore}"),
         )
+        call(
+            shlex.split(f"swift build --configuration {args.config} --product swiftpm-testing-helper {ignore}"),
+        )
+        call(
+            shlex.split(f"swift build --configuration {args.config} --product swift-package {ignore}"),
+        )
+
         swift_testing_arg= "--enable-swift-testing" if args.enable_swift_testing else ""
         xctest_arg= "--enable-xctest" if args.enable_swift_testing else ""
         call(
             shlex.split(
-                f"{swiftpm_bin_dir / 'swift-test'} --configuration {args.config} --parallel {swift_testing_arg} {xctest_arg} --scratch-path .test",
+                f"{swiftpm_bin_dir / 'swift-test'} --configuration {args.config} --parallel {swift_testing_arg} {xctest_arg} --scratch-path .test {ignore}",
                 posix=(os.name == "posix")
             ),
         )
@@ -168,7 +173,7 @@ def main() -> None:
         )
         call(
             shlex.split(
-                f"{swiftpm_bin_dir / 'swift-test'} --parallel",
+                f"{swiftpm_bin_dir / 'swift-test'} --parallel {ignore}",
                 posix=(os.name == "posix"), # must be set correctly, otherwhsie shlex.split("C:\\Foo\\bar") become ['CFoobar']
             ),
         )
