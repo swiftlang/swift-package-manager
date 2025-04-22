@@ -745,6 +745,10 @@ extension PackagePIFProjectBuilder {
             }
         }
 
+        if !sourceModule.isCxx {
+            impartedSettings[.LINKER_DRIVER] = "swiftc"
+        }
+
         // Impart the linker flags.
         for (platform, settingsByDeclaration) in sourceModule.allBuildSettings.impartedSettings {
             // Note: A `nil` platform means that the declaration applies to *all* platforms.

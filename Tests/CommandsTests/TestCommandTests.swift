@@ -699,10 +699,6 @@ class TestCommandSwiftBuildTests: TestCommandTestCase {
 #endif
 
 #if !os(macOS)
-    override func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagDisabledXCTest() async throws {
-        throw XCTSkip("Result XML could not be found. The build fails due to an LD_LIBRARY_PATH issue finding swift core libraries. https://github.com/swiftlang/swift-package-manager/issues/8416")
-    }
-
     override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagEnabledXCTest() async throws {
         throw XCTSkip("Result XML could not be found. The build fails due to an LD_LIBRARY_PATH issue finding swift core libraries. https://github.com/swiftlang/swift-package-manager/issues/8416")
     }
