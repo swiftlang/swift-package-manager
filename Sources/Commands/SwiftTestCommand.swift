@@ -1011,7 +1011,7 @@ final class TestRunner {
                 stdout: outputHandler,
                 stderr: outputHandler
             )
-            let process = AsyncProcess(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: .none)
+            let process = AsyncProcess(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection)
             guard let terminationKey = self.cancellator.register(process) else {
                 return .failure // terminating
             }

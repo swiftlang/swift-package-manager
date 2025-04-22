@@ -500,10 +500,11 @@ package final class AsyncProcess {
         if self.outputRedirection.redirectsOutput {
             let stdoutPipe = Pipe()
             let stderrPipe = Pipe()
+            let maxCount = 4096
 
             group.enter()
             stdoutPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
-                let data = (try? fh.read(upToCount: Int.max)) ?? Data()
+                let data = (try? fh.read(upToCount: maxCount)) ?? Data()
                 if data.count == 0 {
                     stdoutPipe.fileHandleForReading.readabilityHandler = nil
                     group.leave()
@@ -518,7 +519,7 @@ package final class AsyncProcess {
 
             group.enter()
             stderrPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
-                let data = (try? fh.read(upToCount: Int.max)) ?? Data()
+                let data = (try? fh.read(upToCount: maxCount)) ?? Data()
                 if data.count == 0 {
                     stderrPipe.fileHandleForReading.readabilityHandler = nil
                     group.leave()
