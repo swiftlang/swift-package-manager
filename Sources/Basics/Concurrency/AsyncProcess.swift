@@ -500,7 +500,7 @@ package final class AsyncProcess {
         if self.outputRedirection.redirectsOutput {
             let stdoutPipe = Pipe()
             let stderrPipe = Pipe()
-            let maxCount = 4096
+            let maxCount = 120
 
             group.enter()
             stdoutPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
