@@ -509,7 +509,7 @@ extension PackagePIFProjectBuilder {
             defaultValue: true
         )
         if enableDuplicateLinkageCulling {
-            baselineOTHER_LDFLAGS = []
+            baselineOTHER_LDFLAGS = ["$(inherited)"]
             // The following linker option is specific to the macOS linker
             /*[
                 "-Wl,-no_warn_duplicate_libraries",
