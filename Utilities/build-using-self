@@ -160,7 +160,7 @@ def main() -> None:
 
         integration_test_dir = REPO_ROOT_PATH / "IntegrationTests"
         call(
-            shlex.split("swift package --package-path {integration_test_dir} update"),
+            shlex.split(f"swift package --package-path {integration_test_dir} update"),
         )
         call(
             shlex.split(f"swift run swift-test --package-path {integration_test_dir} --parallel {ignore}"),
