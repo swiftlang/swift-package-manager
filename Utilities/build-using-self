@@ -149,16 +149,8 @@ def main() -> None:
             shlex.split("swift package update"),
         )
         call(
-            shlex.split(f"swift build --configuration {args.config} --product swift-test {ignore}"),
+            shlex.split(f"swift build --configuration {args.config} {ignore}"),
         )
-        call(
-            shlex.split(f"swift build --configuration {args.config} --product swift-package {ignore}"),
-        )
-
-        if is_on_darwin():
-            call(
-                shlex.split(f"swift build --configuration {args.config} --product swiftpm-testing-helper {ignore}"),
-            )
 
         swift_testing_arg= "--enable-swift-testing" if args.enable_swift_testing else ""
         xctest_arg= "--enable-xctest" if args.enable_swift_testing else ""
