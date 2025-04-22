@@ -418,7 +418,7 @@ public enum PIFGenerationError: Error {
         supportedVersions: [SwiftLanguageVersion]
     )
 
-    /// Early exit from a method when using `--print-pif-manifest-graph`.
+    /// Early build termination when using `--print-pif-manifest-graph`.
     case printedPIFManifestGraphviz
 }
 
