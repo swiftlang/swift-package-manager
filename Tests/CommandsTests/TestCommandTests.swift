@@ -716,19 +716,19 @@ class TestCommandSwiftBuildTests: TestCommandTestCase {
     }
 
     override func testSwiftTestSkip() async throws {
-        throw XCTSkip("This fails due to a linker error on Linux. https://github.com/swiftlang/swift-package-manager/issues/8439")
+        throw XCTSkip("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms: https://github.com/swiftlang/swift-package-manager/issues/8479")
     }
 
     override func testSwiftTestXMLOutputWhenEmpty() async throws {
-        throw XCTSkip("This fails due to a linker error on Linux. https://github.com/swiftlang/swift-package-manager/issues/8439")
+        throw XCTSkip("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms: https://github.com/swiftlang/swift-package-manager/issues/8479")
     }
 
     override func testSwiftTestFilter() async throws {
-        throw XCTSkip("This fails due to an unknown linker error on Linux. https://github.com/swiftlang/swift-package-manager/issues/8439")
+        throw XCTSkip("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms: https://github.com/swiftlang/swift-package-manager/issues/8479")
     }
 
     override func testSwiftTestParallel() async throws {
-        throw XCTSkip("This fails due to an unknown linker error on Linux. https://github.com/swiftlang/swift-package-manager/issues/8439")
+        throw XCTSkip("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms: https://github.com/swiftlang/swift-package-manager/issues/8479")
     }
 #endif
 }
