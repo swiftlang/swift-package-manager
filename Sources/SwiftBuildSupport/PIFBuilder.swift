@@ -23,7 +23,6 @@ import SPMBuildCore
 import func TSCBasic.memoize
 import func TSCBasic.topologicalSort
 import var TSCBasic.stdoutStream
-import struct ArgumentParser.ExitCode
 
 #if canImport(SwiftBuild)
 import enum SwiftBuild.ProjectModel
@@ -125,7 +124,7 @@ public final class PIFBuilder {
 
             // Abort the build process, ensuring we don't add
             // further noise to stdout (and break `dot` graph parsing).
-            throw ExitCode.success
+            throw PIFGenerationError.printedPIFManifestGraphviz
         }
 
         return pifString
@@ -418,6 +417,9 @@ public enum PIFGenerationError: Error {
         versions: [SwiftLanguageVersion],
         supportedVersions: [SwiftLanguageVersion]
     )
+
+    /// Early exit from a method when using `--print-pif-manifest-graph`.
+    case printedPIFManifestGraphviz
 }
 
 extension PIFGenerationError: CustomStringConvertible {
@@ -436,6 +438,9 @@ extension PIFGenerationError: CustomStringConvertible {
         ):
             "None of the Swift language versions used in target '\(target)' settings are supported." +
             " (given: \(given), supported: \(supported))"
+
+        case .printedPIFManifestGraphviz:
+            "Printed PIF manifest as graphviz"
         }
     }
 }

@@ -22,6 +22,7 @@ import PackageGraph
 
 import SPMBuildCore
 import XCBuildSupport
+import SwiftBuildSupport
 
 import class Basics.AsyncProcess
 import var TSCBasic.stdoutStream
@@ -173,7 +174,16 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             toolsBuildParameters.printPIFManifestGraphviz = true
         }
 
-        try await build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
+        do {
+            try await build(
+                swiftCommandState,
+                subset: subset,
+                productsBuildParameters: productsBuildParameters,
+                toolsBuildParameters: toolsBuildParameters
+            )
+        } catch SwiftBuildSupport.PIFGenerationError.printedPIFManifestGraphviz {
+            throw ExitCode.success
+        }
     }
 
     private func build(
