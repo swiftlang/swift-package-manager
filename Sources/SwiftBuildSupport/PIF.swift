@@ -158,7 +158,7 @@ public enum PIF {
             }
         }
         
-        // FIXME: Delete this (rdar://149003797).
+        // FIXME: Delete this (https://github.com/swiftlang/swift-package-manager/issues/8552).
         public required init(from decoder: Decoder) throws {
             let superContainer = try decoder.container(keyedBy: HighLevelObject.CodingKeys.self)
             let contents = try superContainer.nestedContainer(keyedBy: CodingKeys.self, forKey: .contents)
@@ -206,7 +206,7 @@ public enum PIF {
             }
         }
         
-        // FIXME: Delete this (rdar://149003797).
+        // FIXME: Delete this (https://github.com/swiftlang/swift-package-manager/issues/8552).
         public required init(from decoder: Decoder) throws {
             let superContainer = try decoder.container(keyedBy: HighLevelObject.CodingKeys.self)
             self.underlying = try superContainer.decode(ProjectModel.Project.self, forKey: .contents)
@@ -244,7 +244,8 @@ public enum PIF {
         }
         
         public required init(from decoder: Decoder) throws {
-            // FIXME: Remove all support for decoding PIF objects in SwiftBuildSupport? rdar://149003797
+            // FIXME: Remove all support for decoding PIF objects in SwiftBuildSupport?
+            // (https://github.com/swiftlang/swift-package-manager/issues/8552)
             fatalError("Decoding not implemented")
             /*
             let superContainer = try decoder.container(keyedBy: HighLevelObject.CodingKeys.self)
