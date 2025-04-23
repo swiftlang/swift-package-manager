@@ -172,9 +172,6 @@ package final class AsyncProcess {
 
         /// The stdin could not be opened.
         case stdinUnavailable
-
-        /// General win32 error
-        case win32Error(message: String)
     }
 
     package typealias ReadableStream = AsyncStream<[UInt8]>
@@ -514,7 +511,6 @@ package final class AsyncProcess {
             if self.outputRedirection.redirectsOutput {
                 let stdoutPipe = Pipe()
                 let stderrPipe = Pipe()
-                let maxCount = 4096
 
                 group.enter()
                 let stdoutThread = Thread { [weak self] in
