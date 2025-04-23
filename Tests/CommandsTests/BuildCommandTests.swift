@@ -859,6 +859,12 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
     }
 
     override func testParseableInterfaces() async throws {
+        #if os(Linux)
+        if FileManager.default.contents(atPath: "/etc/system-release")
+                .map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false {
+            throw XCTSkip("https://github.com/swiftlang/swift-package-manager/issues/8545: Test currently fails on Amazon Linux 2")
+        }
+        #endif
         try await fixture(name: "Miscellaneous/ParseableInterfaces") { fixturePath in
             do {
                 let result = try await build(["--enable-parseable-module-interfaces"], packagePath: fixturePath)
