@@ -15,8 +15,120 @@ import _InternalTestSupport
 import PackageModel
 import Workspace
 import XCTest
+import struct SPMBuildCore.BuildSystemProvider
 
-final class InitTests: XCTestCase {
+final class InitSwiftBuildDebugConfigurationTests: InitTestCase {
+    override public var buildSystemProvider: BuildSystemProvider.Kind {
+        return .swiftbuild
+    }
+
+    override public var binPathSuffixes: [String] {
+        ["Products" , "Debug"]
+    }
+
+    override public var buildConfig: BuildConfiguration {
+        .debug
+    }
+
+    override func testInitPackageEmpty() throws {
+        try super.testInitPackageEmpty()
+    }
+}
+
+final class InitSwiftBuildReleaseConfigurationTests: InitTestCase {
+    override public var buildSystemProvider: BuildSystemProvider.Kind {
+        return .swiftbuild
+    }
+
+    override public var binPathSuffixes: [String] {
+        ["Products" , "Release"]
+    }
+
+    override public var buildConfig: BuildConfiguration {
+        .release
+    }
+
+    override func testInitPackageEmpty() throws {
+        try super.testInitPackageEmpty()
+    }
+
+    override func testInitPackageExecutableCalledMain() async throws {
+        #if os(Linux)
+        try XCTSkipSwiftBuildTodo(because: "Test package fails to build with release configuration")
+        #else
+        try await super.testInitPackageExecutableCalledMain()
+        #endif
+    }
+
+    override func testInitPackageExecutable() async throws {
+        #if os(Linux)
+        try XCTSkipSwiftBuildTodo(because: "Test package fails to build with release configuration")
+        #else
+        try await super.testInitPackageExecutable()
+        #endif
+    }
+
+   override func testInitPackageLibraryWithXCTestOnly() async throws {
+        #if os(Linux)
+        try XCTSkipSwiftBuildTodo(because: "Test package fails to build with release configuration")
+        #else
+        try await super.testInitPackageLibraryWithXCTestOnly()
+        #endif
+    }
+
+   override func testInitPackageNonc99Directory() async throws {
+        #if os(Linux)
+        try XCTSkipSwiftBuildTodo(because: "Test package fails to build with release configuration")
+        #else
+        try await super.testInitPackageNonc99Directory()
+        #endif
+    }
+
+
+}
+
+final class InitDebugConfigNativeTests: InitTestCase {
+    override public var buildSystemProvider: BuildSystemProvider.Kind {
+        return .native
+    }
+
+    override public var binPathSuffixes: [String] {
+        ["debug"]
+    }
+
+    override public var buildConfig: BuildConfiguration {
+        .debug
+    }
+
+    override func testInitPackageEmpty() throws {
+        try super.testInitPackageEmpty()
+    }
+
+}
+
+final class InitReleaseConfigNativeTests: InitTestCase {
+    override public var buildSystemProvider: BuildSystemProvider.Kind {
+        return .native
+    }
+
+    override public var binPathSuffixes: [String] {
+        ["release"]
+    }
+
+    override public var buildConfig: BuildConfiguration {
+        .release
+    }
+
+    override func testInitPackageEmpty() throws {
+        try super.testInitPackageEmpty()
+    }
+
+}
+
+class InitTestCase: BuildConfigurationTestCase {
+    override func setUpWithError() throws {
+        try XCTSkipIf(type(of: self) == InitTestCase.self, "Skipping this test since it will be run in subclasses that will provide different build systems to test.")
+    }
 
     // MARK: TSCBasic package creation for each package type.
     
@@ -55,6 +167,7 @@ final class InitTests: XCTestCase {
     }
 
     func testInitPackageExecutable() async throws  {
+
         try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
@@ -86,9 +199,9 @@ final class InitTests: XCTestCase {
             XCTAssertMatch(manifestContents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending("Foo")), ["Foo.swift"])
-            await XCTAssertBuilds(path)
+            await XCTAssertBuilds(path, configurations: [self.buildConfig], buildSystem: self.buildSystemProvider)
             let triple = try UserToolchain.default.targetTriple
-            let binPath = path.appending(components: ".build", triple.platformBuildPathComponent, "debug")
+            let binPath = path.appending(components: [".build", triple.platformBuildPathComponent] + self.binPathSuffixes)
 #if os(Windows)
             XCTAssertFileExists(binPath.appending("Foo.exe"))
 #else
@@ -115,7 +228,7 @@ final class InitTests: XCTestCase {
             try initPackage.writePackageStructure()
 
             XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending("main")), ["MainEntrypoint.swift"])
-            await XCTAssertBuilds(path)
+            await XCTAssertBuilds(path, configurations: [self.buildConfig], buildSystem: self.buildSystemProvider)
         }
     }
 
@@ -165,9 +278,9 @@ final class InitTests: XCTestCase {
             XCTAssertMatch(testFileContents, .contains("func testExample() throws"))
 
             // Try building it
-            await XCTAssertBuilds(path)
+            await XCTAssertBuilds(path, configurations: [self.buildConfig], buildSystem: self.buildSystemProvider)
             let triple = try UserToolchain.default.targetTriple
-            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+            XCTAssertFileExists(path.appending(components: [".build", triple.platformBuildPathComponent] + self.binPathSuffixes + ["Modules", "Foo.swiftmodule"]))
         }
     }
 
@@ -201,9 +314,9 @@ final class InitTests: XCTestCase {
 
 #if canImport(TestingDisabled)
             // Try building it
-            await XCTAssertBuilds(path)
+            await XCTAssertBuilds(path, configurations: [self.buildConfig], buildSystem: self.buildSystemProvider)
             let triple = try UserToolchain.default.targetTriple
-            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+            XCTAssertFileExists(path.appending(components: [".build", triple.platformBuildPathComponent] + self.binPathSuffixes + ["Modules", "Foo.swiftmodule"]))
 #endif
         }
     }
@@ -238,9 +351,9 @@ final class InitTests: XCTestCase {
 
 #if canImport(TestingDisabled)
             // Try building it
-            await XCTAssertBuilds(path)
+            await XCTAssertBuilds(path, configurations: [self.buildConfig], buildSystem: self.buildSystemProvider)
             let triple = try UserToolchain.default.targetTriple
-            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+            XCTAssertFileExists(path.appending(components: [".build", triple.platformBuildPathComponent] + self.binPathSuffixes + ["Modules", "Foo.swiftmodule"]))
 #endif
         }
     }
@@ -272,9 +385,9 @@ final class InitTests: XCTestCase {
 
 #if canImport(TestingDisabled)
             // Try building it
-            await XCTAssertBuilds(path)
+            await XCTAssertBuilds(path, configurations: [self.buildConfig], buildSystem: self.buildSystemProvider)
             let triple = try UserToolchain.default.targetTriple
-            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+            XCTAssertFileExists(path.appending(components: [".build", triple.platformBuildPathComponent] + self.binPathSuffixes + ["Modules", "Foo.swiftmodule"]))
 #endif
         }
     }
@@ -371,9 +484,9 @@ final class InitTests: XCTestCase {
             try initPackage.writePackageStructure()
 
             // Try building it.
-            await XCTAssertBuilds(packageRoot)
+            await XCTAssertBuilds(packageRoot, configurations: [self.buildConfig], buildSystem: self.buildSystemProvider)
             let triple = try UserToolchain.default.targetTriple
-            XCTAssertFileExists(packageRoot.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "some_package.swiftmodule"))
+            XCTAssertFileExists(packageRoot.appending(components: [".build", triple.platformBuildPathComponent] + self.binPathSuffixes + ["Modules", "some_package.swiftmodule"]))
         }
     }
     
@@ -394,7 +507,7 @@ final class InitTests: XCTestCase {
             )
             try initPackage.writePackageStructure()
             
-            await XCTAssertBuilds(packageRoot)
+            await XCTAssertBuilds(packageRoot, configurations: [self.buildConfig], buildSystem: self.buildSystemProvider)
         }
     }
 
