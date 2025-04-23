@@ -133,7 +133,7 @@ def run_bootstrap(swiftpm_bin_dir: pathlib.Path) -> None:
 
 def main() -> None:
     args = get_arguments()
-    parallel = "--parallel" #if os.name != "nt" else ""
+    parallel = "--parallel" if os.name != "nt" else ""
     ignore = "-Xlinker /ignore:4217" if os.name == "nt" else ""
     logging.getLogger().setLevel(logging.DEBUG if args.is_verbose else logging.INFO)
     logging.debug("Args: %r", args)
