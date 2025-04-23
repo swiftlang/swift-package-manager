@@ -44,7 +44,7 @@ public enum AddPackageDependency {
             throw ManifestEditError.cannotFindPackage
         }
 
-        guard try checkExistingDependency(
+        guard try !dependencyAlreadyAdded(
             dependency,
             in: packageCall
         ) else {
@@ -62,17 +62,15 @@ public enum AddPackageDependency {
         )
     }
 
-    /// Check that the given package dependency doesn't already exist in the manifest.
-    /// If the exact same dependency already exists, `false` is returned to indicate
-    /// that no edits are needed. If a different dependency with the same id or url
-    /// with different arguments exists, an error is thrown.
-    private static func checkExistingDependency(
+    /// Return `true` if the dependency already exists in the manifest, otherwise return `false`.
+    /// Throws an error if a dependency already exists with the same id or url, but different arguments.
+    private static func dependencyAlreadyAdded(
         _ dependency: MappablePackageDependency.Kind,
         in packageCall: FunctionCallExprSyntax
     ) throws -> Bool {
         let dependencySyntax = dependency.asSyntax()
         guard let dependenctFnSyntax = dependencySyntax.as(FunctionCallExprSyntax.self) else {
-            throw ManifestEditError.cannotFindPackage // TODO: Fix error
+            throw ManifestEditError.cannotFindPackage
         }
 
         guard let id = dependenctFnSyntax.arguments.first(where: {
@@ -92,20 +90,20 @@ public enum AddPackageDependency {
                             $0.trimmedDescription == id.trimmedDescription
                         }
                     }
-                    return false
+                    return true
                 }
 
                 if let existingArgument {
                     let normalizedExistingArgument = existingArgument.detached.with(\.trailingComma, nil)
                     // This exact dependency already exists, return false to indicate we should do nothing.
                     if normalizedExistingArgument.trimmedDescription == dependencySyntax.trimmedDescription {
-                        return false
+                        return true
                     }
                     throw ManifestEditError.existingDependency(dependencyName: dependency.identifier)
                 }
             }
         }
-        return true
+        return false
     }
 
     /// Implementation of adding a package dependency to an existing call.

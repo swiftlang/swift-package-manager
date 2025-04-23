@@ -963,7 +963,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             try await executeAddURLDependencyAndAssert(
                 packagePath: path,
                 initialManifest: manifest,
-                url: "https://github.com/swiftlang/swift-syntax.git",
+                url: url,
                 requirementArgs: ["--exact", "601.0.1"],
                 expectedManifestString: expected
             )
