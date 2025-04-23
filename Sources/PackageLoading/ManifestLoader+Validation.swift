@@ -16,10 +16,10 @@ import PackageModel
 
 public struct ManifestValidator {
     static var supportedLocalBinaryDependencyExtensions: [String] {
-        ["zip"] + BinaryModule.Kind.allCases.filter{ $0 != .unknown }.map { $0.fileExtension }
+        Set(["zip"] + BinaryModule.Kind.allCases.filter { $0 != .unknown }.map { $0.fileExtension }).sorted()
     }
     static var supportedRemoteBinaryDependencyExtensions: [String] {
-        ["zip", "artifactbundleindex"]
+        ["artifactbundleindex", "zip"]
     }
 
     private let manifest: Manifest

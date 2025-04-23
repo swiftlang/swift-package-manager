@@ -427,14 +427,17 @@ extension WorkspaceStateStorage {
             enum Kind: String, Codable {
                 case xcframework
                 case artifactsArchive
+                case libraryArchive
                 case unknown
 
                 init(_ underlying: BinaryModule.Kind) {
                     switch underlying {
                     case .xcframework:
                         self = .xcframework
-                    case .artifactsArchive:
+                    case .executableArchive:
                         self = .artifactsArchive
+                    case .libraryArchive:
+                        self = .libraryArchive
                     case .unknown:
                         self = .unknown
                     }
@@ -445,7 +448,9 @@ extension WorkspaceStateStorage {
                     case .xcframework:
                         return .xcframework
                     case .artifactsArchive:
-                        return .artifactsArchive
+                        return .executableArchive
+                    case .libraryArchive:
+                        return .libraryArchive
                     case .unknown:
                         return .unknown
                     }
@@ -811,14 +816,17 @@ extension WorkspaceStateStorage {
             enum Kind: String, Codable {
                 case xcframework
                 case artifactsArchive
+                case libraryArchive
                 case unknown
 
                 init(_ underlying: BinaryModule.Kind) {
                     switch underlying {
                     case .xcframework:
                         self = .xcframework
-                    case .artifactsArchive:
+                    case .executableArchive:
                         self = .artifactsArchive
+                    case .libraryArchive:
+                        self = .libraryArchive
                     case .unknown:
                         self = .unknown
                     }
@@ -829,7 +837,9 @@ extension WorkspaceStateStorage {
                     case .xcframework:
                         return .xcframework
                     case .artifactsArchive:
-                        return .artifactsArchive
+                        return .executableArchive
+                    case .libraryArchive:
+                        return .libraryArchive
                     case .unknown:
                         return .unknown
                     }
