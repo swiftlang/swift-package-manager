@@ -99,7 +99,7 @@ let lldb: AbsolutePath = {
 }()
 
 let swiftpmBinaryDirectory: AbsolutePath = {
-    if let environmentPath = ProcessInfo.processInfo.environment["SWIFTPM_BIN_DIR"] {
+    if let environmentPath = ProcessInfo.processInfo.environment["SWIFTPM_CUSTOM_BIN_DIR"] {
         return try! AbsolutePath(validating: environmentPath)
     }
 

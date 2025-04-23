@@ -4571,6 +4571,100 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
+    func testPrebuiltsFlags() async throws {
+        // Make sure the include path for the prebuilts get passed to the
+        // generated test entry point and discover targets on Linux/Windows
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let prebuiltLibrary = PrebuiltLibrary(
+            identity: .plain("swift-syntax"),
+            libraryName: "MacroSupport",
+            path: "/MyPackage/.build/prebuilts/swift-syntax/600.0.1/6.1-MacroSupport-macos_aarch64",
+            products: [
+                "SwiftBasicFormat",
+                "SwiftCompilerPlugin",
+                "SwiftDiagnostics",
+                "SwiftIDEUtils",
+                "SwiftOperators",
+                "SwiftParser",
+                "SwiftParserDiagnostics",
+                "SwiftRefactor",
+                "SwiftSyntax",
+                "SwiftSyntaxBuilder",
+                "SwiftSyntaxMacros",
+                "SwiftSyntaxMacroExpansion",
+                "SwiftSyntaxMacrosTestSupport",
+                "SwiftSyntaxMacrosGenericTestSupport",
+                "_SwiftCompilerPluginMessageHandling",
+                "_SwiftLibraryPluginProvider"
+            ],
+            cModules: ["_SwiftSyntaxCShims"]
+        )
+
+        let fs = InMemoryFileSystem(
+            emptyFiles: [
+                "/MyPackage/Sources/MyMacroMacros/MyMacroMacros.swift",
+                "/MyPackage/Sources/MyMacros/MyMacros.swift",
+                "/MyPackage/Sources/MyMacroTests/MyMacroTests.swift"
+            ]
+        )
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "MyPackage",
+                    path: "/MyPackage",
+                    targets: [
+                        TargetDescription(name: "MyMacroMacros", type: .macro),
+                        TargetDescription(
+                            name: "MyMacros",
+                            dependencies: [
+                                "MyMacroMacros",
+                                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "MyMacroTests",
+                            dependencies: [
+                                "MyMacroMacros",
+                                .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+                            ],
+                            type: .test
+                        )
+                    ]
+                )
+            ],
+            prebuilts: [prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
+                $0[$1] = prebuiltLibrary
+            }],
+            observabilityScope: observability.topScope
+        )
+
+        func checkTriple(triple: Basics.Triple) async throws {
+            let result = try await BuildPlanResult(
+                plan: mockBuildPlan(
+                    triple: triple,
+                    graph: graph,
+                    fileSystem: fs,
+                    observabilityScope: observability.topScope
+                )
+            )
+
+            let modulesDir = "-I\(prebuiltLibrary.path.pathString)/Modules"
+            let mytest = try XCTUnwrap(result.allTargets(named: "MyMacroTests").first)
+            XCTAssert(try mytest.swift().compileArguments().contains(modulesDir))
+            let entryPoint = try XCTUnwrap(result.allTargets(named: "MyPackagePackageTests").first)
+            XCTAssert(try entryPoint.swift().compileArguments().contains(modulesDir))
+            let discovery = try XCTUnwrap(result.allTargets(named: "MyPackagePackageDiscoveredTests").first)
+            XCTAssert(try discovery.swift().compileArguments().contains(modulesDir))
+        }
+
+        try await checkTriple(triple: .x86_64Linux)
+        try await checkTriple(triple: .x86_64Windows)
+    }
+
     func testExtraBuildFlags() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
