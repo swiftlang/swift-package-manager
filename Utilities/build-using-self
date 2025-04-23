@@ -133,6 +133,7 @@ def run_bootstrap(swiftpm_bin_dir: pathlib.Path) -> None:
 
 def main() -> None:
     args = get_arguments()
+    parallel = "--parallel" if os.name != "nt" else ""
     ignore = "-Xlinker /ignore:4217" if os.name == "nt" else ""
     logging.getLogger().setLevel(logging.DEBUG if args.is_verbose else logging.INFO)
     logging.debug("Args: %r", args)
@@ -155,7 +156,7 @@ def main() -> None:
         swift_testing_arg= "--enable-swift-testing" if args.enable_swift_testing else ""
         xctest_arg= "--enable-xctest" if args.enable_swift_testing else ""
         call(
-            shlex.split(f"swift run swift-test --configuration {args.config} --parallel {swift_testing_arg} {xctest_arg} --scratch-path .test {ignore}"),
+            shlex.split(f"swift run swift-test --configuration {args.config} {parallel} {swift_testing_arg} {xctest_arg} --scratch-path .test {ignore}"),
         )
 
         integration_test_dir = REPO_ROOT_PATH / "IntegrationTests"
@@ -163,7 +164,7 @@ def main() -> None:
             shlex.split(f"swift package --package-path {integration_test_dir} update"),
         )
         call(
-            shlex.split(f"swift run swift-test --package-path {integration_test_dir} --parallel {ignore}"),
+            shlex.split(f"swift run swift-test --package-path {integration_test_dir} {parallel} {ignore}"),
         )
 
     if is_on_darwin():
