@@ -8,34 +8,33 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import _Concurrency
 import Dispatch
 import Foundation
-
-#if os(Windows)
-import TSCLibc
-#elseif canImport(Android)
-import Android
-#endif
-
-#if os(Linux)
-#if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly
-import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
-
-@_implementationOnly
-import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
-#else
-private import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
-private import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
-#endif // #if USE_IMPL_ONLY_IMPORTS
-#endif // #if os(Linux)
+import _Concurrency
 
 import class TSCBasic.CStringArray
 import class TSCBasic.LocalFileOutputByteStream
 import enum TSCBasic.SystemError
 import class TSCBasic.Thread
 import protocol TSCBasic.WritableByteStream
+
+#if os(Windows)
+    import TSCLibc
+    import WinSDK
+#elseif canImport(Android)
+    import Android
+#endif
+
+#if os(Linux)
+    #if USE_IMPL_ONLY_IMPORTS
+        @_implementationOnly import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
+
+        @_implementationOnly import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
+    #else
+        private import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
+        private import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
+    #endif  // #if USE_IMPL_ONLY_IMPORTS
+#endif  // #if os(Linux)
 
 /// Process result data which is available after process termination.
 package struct AsyncProcessResult: CustomStringConvertible, Sendable {
@@ -55,11 +54,11 @@ package struct AsyncProcessResult: CustomStringConvertible, Sendable {
         /// The process was terminated normally with a exit code.
         case terminated(code: Int32)
         #if os(Windows)
-        /// The process was terminated abnormally.
-        case abnormal(exception: UInt32)
+            /// The process was terminated abnormally.
+            case abnormal(exception: UInt32)
         #else
-        /// The process was terminated due to a signal.
-        case signalled(signal: Int32)
+            /// The process was terminated due to a signal.
+            case signalled(signal: Int32)
         #endif
     }
 
@@ -93,18 +92,18 @@ package struct AsyncProcessResult: CustomStringConvertible, Sendable {
     ) {
         let exitStatus: ExitStatus
         #if os(Windows)
-        if normal {
-            exitStatus = .terminated(code: exitStatusCode)
-        } else {
-            exitStatus = .abnormal(exception: UInt32(exitStatusCode))
-        }
+            if normal {
+                exitStatus = .terminated(code: exitStatusCode)
+            } else {
+                exitStatus = .abnormal(exception: UInt32(exitStatusCode))
+            }
         #else
-        if WIFSIGNALED(exitStatusCode) {
-            exitStatus = .signalled(signal: WTERMSIG(exitStatusCode))
-        } else {
-            precondition(WIFEXITED(exitStatusCode), "unexpected exit status \(exitStatusCode)")
-            exitStatus = .terminated(code: WEXITSTATUS(exitStatusCode))
-        }
+            if WIFSIGNALED(exitStatusCode) {
+                exitStatus = .signalled(signal: WTERMSIG(exitStatusCode))
+            } else {
+                precondition(WIFEXITED(exitStatusCode), "unexpected exit status \(exitStatusCode)")
+                exitStatus = .terminated(code: WEXITSTATUS(exitStatusCode))
+            }
         #endif
         self.init(
             arguments: arguments,
@@ -173,6 +172,9 @@ package final class AsyncProcess {
 
         /// The stdin could not be opened.
         case stdinUnavailable
+
+        /// General win32 error
+        case win32Error(message: String)
     }
 
     package typealias ReadableStream = AsyncStream<[UInt8]>
@@ -202,7 +204,9 @@ package final class AsyncProcess {
         package static let collect: Self = .collect(redirectStderr: false)
 
         /// Default stream OutputRedirection that defaults to not redirect stderr. Provided for API compatibility.
-        package static func stream(stdout: @escaping OutputClosure, stderr: @escaping OutputClosure) -> Self {
+        package static func stream(stdout: @escaping OutputClosure, stderr: @escaping OutputClosure)
+            -> Self
+        {
             .stream(stdout: stdout, stderr: stderr, redirectStderr: false)
         }
 
@@ -221,7 +225,10 @@ package final class AsyncProcess {
                 (stdoutClosure: stdoutClosure, stderrClosure: stderrClosure)
 
             case let .asyncStream(_, stdoutContinuation, _, stderrContinuation):
-                (stdoutClosure: { stdoutContinuation.yield($0) }, stderrClosure: { stderrContinuation.yield($0) })
+                (
+                    stdoutClosure: { stdoutContinuation.yield($0) },
+                    stderrClosure: { stderrContinuation.yield($0) }
+                )
 
             case .collect, .none:
                 nil
@@ -251,9 +258,9 @@ package final class AsyncProcess {
 
     /// Typealias for process id type.
     #if !os(Windows)
-    package typealias ProcessID = pid_t
+        package typealias ProcessID = pid_t
     #else
-    package typealias ProcessID = DWORD
+        package typealias ProcessID = DWORD
     #endif
 
     /// Typealias for stdout/stderr output closure.
@@ -269,14 +276,16 @@ package final class AsyncProcess {
     @available(
         *,
         deprecated,
-        message: "use instance level `loggingHandler` passed via `init` instead of setting one globally."
+        message:
+            "use instance level `loggingHandler` passed via `init` instead of setting one globally."
     )
     package static var loggingHandler: LoggingHandler? {
         get {
             Self.loggingHandlerLock.withLock {
                 self._loggingHandler
             }
-        } set {
+        }
+        set {
             Self.loggingHandlerLock.withLock {
                 self._loggingHandler = newValue
             }
@@ -295,19 +304,20 @@ package final class AsyncProcess {
 
     /// The process id of the spawned process, available after the process is launched.
     #if os(Windows)
-    private var _process: Foundation.Process?
-    package var processID: ProcessID {
-        DWORD(self._process?.processIdentifier ?? 0)
-    }
+        private var _process: Foundation.Process?
+        package var processID: ProcessID {
+            DWORD(self._process?.processIdentifier ?? 0)
+        }
     #else
-    package private(set) var processID = ProcessID()
+        package private(set) var processID = ProcessID()
     #endif
 
     // process execution mutable state
     private var state: State = .idle
     private let stateLock = NSLock()
 
-    private static let sharedCompletionQueue = DispatchQueue(label: "org.swift.tools-support-core.process-completion")
+    private static let sharedCompletionQueue = DispatchQueue(
+        label: "org.swift.tools-support-core.process-completion")
     private var completionQueue = AsyncProcess.sharedCompletionQueue
 
     // ideally we would use the state for this, but we need to access it while the waitForExit is locking state
@@ -461,7 +471,8 @@ package final class AsyncProcess {
         )
 
         self.launchedLock.withLock {
-            precondition(!self._launched, "It is not allowed to launch the same process object again.")
+            precondition(
+                !self._launched, "It is not allowed to launch the same process object again.")
             self._launched = true
         }
 
@@ -472,316 +483,334 @@ package final class AsyncProcess {
 
         // Look for executable.
         let executable = self.arguments[0]
-        guard let executablePath = AsyncProcess.findExecutable(executable, workingDirectory: workingDirectory) else {
+        guard
+            let executablePath = AsyncProcess.findExecutable(
+                executable, workingDirectory: workingDirectory)
+        else {
             throw AsyncProcess.Error.missingExecutableProgram(program: executable)
         }
 
         #if os(Windows)
-        let process = Foundation.Process()
-        self._process = process
-        process.arguments = Array(self.arguments.dropFirst()) // Avoid including the executable URL twice.
-        if let workingDirectory {
-            process.currentDirectoryURL = workingDirectory.asURL
-        }
-        process.executableURL = executablePath.asURL
-        process.environment = .init(self.environment)
-
-        let stdinPipe = Pipe()
-        process.standardInput = stdinPipe
-
-        let group = DispatchGroup()
-
-        var stdout: [UInt8] = []
-        let stdoutLock = NSLock()
-
-        var stderr: [UInt8] = []
-        let stderrLock = NSLock()
-
-        if self.outputRedirection.redirectsOutput {
-            let stdoutPipe = Pipe()
-            let stderrPipe = Pipe()
-
-            group.enter()
-            stdoutPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
-                let data = (try? fh.read(upToCount: Int.max)) ?? Data()
-                if data.count == 0 {
-                    stdoutPipe.fileHandleForReading.readabilityHandler = nil
-                    group.leave()
-                } else {
-                    let contents = data.withUnsafeBytes { [UInt8]($0) }
-                    self.outputRedirection.outputClosures?.stdoutClosure(contents)
-                    stdoutLock.withLock {
-                        stdout += contents
-                    }
-                }
+            let process = Foundation.Process()
+            self._process = process
+            process.arguments = Array(self.arguments.dropFirst())  // Avoid including the executable URL twice.
+            if let workingDirectory {
+                process.currentDirectoryURL = workingDirectory.asURL
             }
+            process.executableURL = executablePath.asURL
+            process.environment = .init(self.environment)
 
-            group.enter()
-            stderrPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
-                let data = (try? fh.read(upToCount: Int.max)) ?? Data()
-                if data.count == 0 {
-                    stderrPipe.fileHandleForReading.readabilityHandler = nil
-                    group.leave()
-                } else {
-                    let contents = data.withUnsafeBytes { [UInt8]($0) }
-                    self.outputRedirection.outputClosures?.stderrClosure(contents)
-                    stderrLock.withLock {
-                        stderr += contents
-                    }
-                }
-            }
+            let stdinPipe = Pipe()
+            process.standardInput = stdinPipe
 
-            process.standardOutput = stdoutPipe
-            process.standardError = stderrPipe
-        }
+            var stdout: [UInt8] = []
+            let stdoutLock = NSLock()
 
-        // first set state then start reading threads
-        let sync = DispatchGroup()
-        sync.enter()
-        self.stateLock.withLock {
-            self.state = .readingOutput(sync: sync)
-        }
-
-        group.notify(queue: self.completionQueue) {
-            self.stateLock.withLock {
-                self.state = .outputReady(stdout: .success(stdout), stderr: .success(stderr))
-            }
-            sync.leave()
-        }
-
-        try process.run()
-        return stdinPipe.fileHandleForWriting
-        #elseif(!canImport(Darwin) || os(macOS))
-        // Initialize the spawn attributes.
-        #if canImport(Darwin) || os(Android) || os(OpenBSD) || os(FreeBSD)
-        var attributes: posix_spawnattr_t? = nil
-        #else
-        var attributes = posix_spawnattr_t()
-        #endif
-        posix_spawnattr_init(&attributes)
-        defer { posix_spawnattr_destroy(&attributes) }
-
-        // Unmask all signals.
-        var noSignals = sigset_t()
-        sigemptyset(&noSignals)
-        posix_spawnattr_setsigmask(&attributes, &noSignals)
-
-        // Reset all signals to default behavior.
-        #if canImport(Darwin)
-        var mostSignals = sigset_t()
-        sigfillset(&mostSignals)
-        sigdelset(&mostSignals, SIGKILL)
-        sigdelset(&mostSignals, SIGSTOP)
-        posix_spawnattr_setsigdefault(&attributes, &mostSignals)
-        #else
-        // On Linux, this can only be used to reset signals that are legal to
-        // modify, so we have to take care about the set we use.
-        var mostSignals = sigset_t()
-        sigemptyset(&mostSignals)
-        for i in 1 ..< SIGSYS {
-            if i == SIGKILL || i == SIGSTOP {
-                continue
-            }
-            sigaddset(&mostSignals, i)
-        }
-        posix_spawnattr_setsigdefault(&attributes, &mostSignals)
-        #endif
-
-        // Set the attribute flags.
-        var flags = POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSIGDEF
-        if self.startNewProcessGroup {
-            // Establish a separate process group.
-            flags |= POSIX_SPAWN_SETPGROUP
-            posix_spawnattr_setpgroup(&attributes, 0)
-        }
-
-        posix_spawnattr_setflags(&attributes, Int16(flags))
-
-        // Setup the file actions.
-        #if canImport(Darwin) || os(Android) || os(OpenBSD) || os(FreeBSD)
-        var fileActions: posix_spawn_file_actions_t? = nil
-        #else
-        var fileActions = posix_spawn_file_actions_t()
-        #endif
-        posix_spawn_file_actions_init(&fileActions)
-        defer { posix_spawn_file_actions_destroy(&fileActions) }
-
-        if let workingDirectory = workingDirectory?.pathString {
-            #if canImport(Darwin)
-            // The only way to set a workingDirectory is using an availability-gated initializer, so we don't need
-            // to handle the case where the posix_spawn_file_actions_addchdir_np method is unavailable. This check only
-            // exists here to make the compiler happy.
-            if #available(macOS 10.15, *) {
-                posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
-            }
-            #elseif os(FreeBSD)
-            posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
-            #elseif os(Linux)
-            guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
-                throw AsyncProcess.Error.workingDirectoryNotSupported
-            }
-
-            SPM_posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
-            #else
-            throw AsyncProcess.Error.workingDirectoryNotSupported
-            #endif
-        }
-
-        var stdinPipe: [Int32] = [-1, -1]
-        try open(pipe: &stdinPipe)
-
-        guard let fp = fdopen(stdinPipe[1], "wb") else {
-            throw AsyncProcess.Error.stdinUnavailable
-        }
-        let stdinStream = try LocalFileOutputByteStream(filePointer: fp, closeOnDeinit: true)
-
-        // Dupe the read portion of the remote to 0.
-        posix_spawn_file_actions_adddup2(&fileActions, stdinPipe[0], 0)
-
-        // Close the other side's pipe since it was dupped to 0.
-        posix_spawn_file_actions_addclose(&fileActions, stdinPipe[0])
-        posix_spawn_file_actions_addclose(&fileActions, stdinPipe[1])
-
-        var outputPipe: [Int32] = [-1, -1]
-        var stderrPipe: [Int32] = [-1, -1]
-        if self.outputRedirection.redirectsOutput {
-            // Open the pipe.
-            try open(pipe: &outputPipe)
-
-            // Open the write end of the pipe.
-            posix_spawn_file_actions_adddup2(&fileActions, outputPipe[1], 1)
-
-            // Close the other ends of the pipe since they were dupped to 1.
-            posix_spawn_file_actions_addclose(&fileActions, outputPipe[0])
-            posix_spawn_file_actions_addclose(&fileActions, outputPipe[1])
-
-            if self.outputRedirection.redirectStderr {
-                // If merged was requested, send stderr to stdout.
-                posix_spawn_file_actions_adddup2(&fileActions, 1, 2)
-            } else {
-                // If no redirect was requested, open the pipe for stderr.
-                try open(pipe: &stderrPipe)
-                posix_spawn_file_actions_adddup2(&fileActions, stderrPipe[1], 2)
-
-                // Close the other ends of the pipe since they were dupped to 2.
-                posix_spawn_file_actions_addclose(&fileActions, stderrPipe[0])
-                posix_spawn_file_actions_addclose(&fileActions, stderrPipe[1])
-            }
-        } else {
-            posix_spawn_file_actions_adddup2(&fileActions, 1, 1)
-            posix_spawn_file_actions_adddup2(&fileActions, 2, 2)
-        }
-
-        var resolvedArgs = self.arguments
-        if workingDirectory != nil {
-            resolvedArgs[0] = executablePath.pathString
-        }
-        let argv = CStringArray(resolvedArgs)
-        let env = CStringArray(environment.map { "\($0.0)=\($0.1)" })
-        let rv = posix_spawnp(&self.processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray)
-
-        guard rv == 0 else {
-            throw SystemError.posix_spawn(rv, self.arguments)
-        }
-
-        do {
-            // Close the local read end of the input pipe.
-            try close(fd: stdinPipe[0])
+            var stderr: [UInt8] = []
+            let stderrLock = NSLock()
 
             let group = DispatchGroup()
-            if !self.outputRedirection.redirectsOutput {
-                // no stdout or stderr in this case
-                self.stateLock.withLock {
-                    self.state = .outputReady(stdout: .success([]), stderr: .success([]))
-                }
-            } else {
-                var pending: Result<[UInt8], Swift.Error>?
-                let pendingLock = NSLock()
 
-                let outputClosures = self.outputRedirection.outputClosures
+            if self.outputRedirection.redirectsOutput {
+                let stdoutPipe = Pipe()
+                let stderrPipe = Pipe()
+                let maxCount = 4096
 
-                // Close the local write end of the output pipe.
-                try close(fd: outputPipe[1])
-
-                // Create a thread and start reading the output on it.
                 group.enter()
                 let stdoutThread = Thread { [weak self] in
-                    if let readResult = self?.readOutput(
-                        onFD: outputPipe[0],
-                        outputClosure: outputClosures?.stdoutClosure
-                    ) {
-                        pendingLock.withLock {
-                            if let stderrResult = pending {
-                                self?.stateLock.withLock {
-                                    self?.state = .outputReady(stdout: readResult, stderr: stderrResult)
-                                }
-                            } else {
-                                pending = readResult
+                    while true {
+                        let data = stdoutPipe.fileHandleForReading.availableData
+                        if data.count == 0 {
+                            group.leave()
+                            break
+                        } else {
+                            let contents = data.withUnsafeBytes { [UInt8]($0) }
+                            self?.outputRedirection.outputClosures?.stdoutClosure(contents)
+                            stdoutLock.withLock {
+                                stdout += contents
                             }
                         }
-                        group.leave()
-                    } else if let stderrResult = (pendingLock.withLock { pending }) {
-                        // TODO: this is more of an error
-                        self?.stateLock.withLock {
-                            self?.state = .outputReady(stdout: .success([]), stderr: stderrResult)
-                        }
-                        group.leave()
                     }
                 }
 
-                // Only schedule a thread for stderr if no redirect was requested.
-                var stderrThread: Thread? = nil
-                if !self.outputRedirection.redirectStderr {
-                    // Close the local write end of the stderr pipe.
-                    try close(fd: stderrPipe[1])
+                group.enter()
+                let stderrThread = Thread { [weak self] in
+                    while true {
+                        let data = stderrPipe.fileHandleForReading.availableData
+                        if data.count == 0 {
+                            group.leave()
+                            break
+                        } else {
+                            let contents = data.withUnsafeBytes { [UInt8]($0) }
+                            self?.outputRedirection.outputClosures?.stderrClosure(contents)
+                            stderrLock.withLock {
+                                stderr += contents
+                            }
+                        }
+                    }
+                }
 
-                    // Create a thread and start reading the stderr output on it.
+                process.standardOutput = stdoutPipe
+                process.standardError = stderrPipe
+
+                stdoutThread.start()
+                stderrThread.start()
+            }
+
+            // first set state then start reading threads
+            let sync = DispatchGroup()
+            sync.enter()
+            self.stateLock.withLock {
+                self.state = .readingOutput(sync: sync)
+            }
+
+            group.notify(queue: self.completionQueue) {
+                self.stateLock.withLock {
+                    self.state = .outputReady(stdout: .success(stdout), stderr: .success(stderr))
+                }
+                sync.leave()
+            }
+
+            try process.run()
+            return stdinPipe.fileHandleForWriting
+        #elseif (!canImport(Darwin) || os(macOS))
+            // Initialize the spawn attributes.
+            #if canImport(Darwin) || os(Android) || os(OpenBSD) || os(FreeBSD)
+                var attributes: posix_spawnattr_t? = nil
+            #else
+                var attributes = posix_spawnattr_t()
+            #endif
+            posix_spawnattr_init(&attributes)
+            defer { posix_spawnattr_destroy(&attributes) }
+
+            // Unmask all signals.
+            var noSignals = sigset_t()
+            sigemptyset(&noSignals)
+            posix_spawnattr_setsigmask(&attributes, &noSignals)
+
+            // Reset all signals to default behavior.
+            #if canImport(Darwin)
+                var mostSignals = sigset_t()
+                sigfillset(&mostSignals)
+                sigdelset(&mostSignals, SIGKILL)
+                sigdelset(&mostSignals, SIGSTOP)
+                posix_spawnattr_setsigdefault(&attributes, &mostSignals)
+            #else
+                // On Linux, this can only be used to reset signals that are legal to
+                // modify, so we have to take care about the set we use.
+                var mostSignals = sigset_t()
+                sigemptyset(&mostSignals)
+                for i in 1..<SIGSYS {
+                    if i == SIGKILL || i == SIGSTOP {
+                        continue
+                    }
+                    sigaddset(&mostSignals, i)
+                }
+                posix_spawnattr_setsigdefault(&attributes, &mostSignals)
+            #endif
+
+            // Set the attribute flags.
+            var flags = POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSIGDEF
+            if self.startNewProcessGroup {
+                // Establish a separate process group.
+                flags |= POSIX_SPAWN_SETPGROUP
+                posix_spawnattr_setpgroup(&attributes, 0)
+            }
+
+            posix_spawnattr_setflags(&attributes, Int16(flags))
+
+            // Setup the file actions.
+            #if canImport(Darwin) || os(Android) || os(OpenBSD) || os(FreeBSD)
+                var fileActions: posix_spawn_file_actions_t? = nil
+            #else
+                var fileActions = posix_spawn_file_actions_t()
+            #endif
+            posix_spawn_file_actions_init(&fileActions)
+            defer { posix_spawn_file_actions_destroy(&fileActions) }
+
+            if let workingDirectory = workingDirectory?.pathString {
+                #if canImport(Darwin)
+                    // The only way to set a workingDirectory is using an availability-gated initializer, so we don't need
+                    // to handle the case where the posix_spawn_file_actions_addchdir_np method is unavailable. This check only
+                    // exists here to make the compiler happy.
+                    if #available(macOS 10.15, *) {
+                        posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
+                    }
+                #elseif os(FreeBSD)
+                    posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
+                #elseif os(Linux)
+                    guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
+                        throw AsyncProcess.Error.workingDirectoryNotSupported
+                    }
+
+                    SPM_posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
+                #else
+                    throw AsyncProcess.Error.workingDirectoryNotSupported
+                #endif
+            }
+
+            var stdinPipe: [Int32] = [-1, -1]
+            try open(pipe: &stdinPipe)
+
+            guard let fp = fdopen(stdinPipe[1], "wb") else {
+                throw AsyncProcess.Error.stdinUnavailable
+            }
+            let stdinStream = try LocalFileOutputByteStream(filePointer: fp, closeOnDeinit: true)
+
+            // Dupe the read portion of the remote to 0.
+            posix_spawn_file_actions_adddup2(&fileActions, stdinPipe[0], 0)
+
+            // Close the other side's pipe since it was dupped to 0.
+            posix_spawn_file_actions_addclose(&fileActions, stdinPipe[0])
+            posix_spawn_file_actions_addclose(&fileActions, stdinPipe[1])
+
+            var outputPipe: [Int32] = [-1, -1]
+            var stderrPipe: [Int32] = [-1, -1]
+            if self.outputRedirection.redirectsOutput {
+                // Open the pipe.
+                try open(pipe: &outputPipe)
+
+                // Open the write end of the pipe.
+                posix_spawn_file_actions_adddup2(&fileActions, outputPipe[1], 1)
+
+                // Close the other ends of the pipe since they were dupped to 1.
+                posix_spawn_file_actions_addclose(&fileActions, outputPipe[0])
+                posix_spawn_file_actions_addclose(&fileActions, outputPipe[1])
+
+                if self.outputRedirection.redirectStderr {
+                    // If merged was requested, send stderr to stdout.
+                    posix_spawn_file_actions_adddup2(&fileActions, 1, 2)
+                } else {
+                    // If no redirect was requested, open the pipe for stderr.
+                    try open(pipe: &stderrPipe)
+                    posix_spawn_file_actions_adddup2(&fileActions, stderrPipe[1], 2)
+
+                    // Close the other ends of the pipe since they were dupped to 2.
+                    posix_spawn_file_actions_addclose(&fileActions, stderrPipe[0])
+                    posix_spawn_file_actions_addclose(&fileActions, stderrPipe[1])
+                }
+            } else {
+                posix_spawn_file_actions_adddup2(&fileActions, 1, 1)
+                posix_spawn_file_actions_adddup2(&fileActions, 2, 2)
+            }
+
+            var resolvedArgs = self.arguments
+            if workingDirectory != nil {
+                resolvedArgs[0] = executablePath.pathString
+            }
+            let argv = CStringArray(resolvedArgs)
+            let env = CStringArray(environment.map { "\($0.0)=\($0.1)" })
+            let rv = posix_spawnp(
+                &self.processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray
+            )
+
+            guard rv == 0 else {
+                throw SystemError.posix_spawn(rv, self.arguments)
+            }
+
+            do {
+                // Close the local read end of the input pipe.
+                try close(fd: stdinPipe[0])
+
+                let group = DispatchGroup()
+                if !self.outputRedirection.redirectsOutput {
+                    // no stdout or stderr in this case
+                    self.stateLock.withLock {
+                        self.state = .outputReady(stdout: .success([]), stderr: .success([]))
+                    }
+                } else {
+                    var pending: Result<[UInt8], Swift.Error>?
+                    let pendingLock = NSLock()
+
+                    let outputClosures = self.outputRedirection.outputClosures
+
+                    // Close the local write end of the output pipe.
+                    try close(fd: outputPipe[1])
+
+                    // Create a thread and start reading the output on it.
                     group.enter()
-                    stderrThread = Thread { [weak self] in
+                    let stdoutThread = Thread { [weak self] in
                         if let readResult = self?.readOutput(
-                            onFD: stderrPipe[0],
-                            outputClosure: outputClosures?.stderrClosure
+                            onFD: outputPipe[0],
+                            outputClosure: outputClosures?.stdoutClosure
                         ) {
                             pendingLock.withLock {
-                                if let stdoutResult = pending {
+                                if let stderrResult = pending {
                                     self?.stateLock.withLock {
-                                        self?.state = .outputReady(stdout: stdoutResult, stderr: readResult)
+                                        self?.state = .outputReady(
+                                            stdout: readResult, stderr: stderrResult)
                                     }
                                 } else {
                                     pending = readResult
                                 }
                             }
                             group.leave()
-                        } else if let stdoutResult = (pendingLock.withLock { pending }) {
+                        } else if let stderrResult = (pendingLock.withLock { pending }) {
                             // TODO: this is more of an error
                             self?.stateLock.withLock {
-                                self?.state = .outputReady(stdout: stdoutResult, stderr: .success([]))
+                                self?.state = .outputReady(
+                                    stdout: .success([]), stderr: stderrResult)
                             }
                             group.leave()
                         }
                     }
-                } else {
-                    pendingLock.withLock {
-                        pending = .success([]) // no stderr in this case
+
+                    // Only schedule a thread for stderr if no redirect was requested.
+                    var stderrThread: Thread? = nil
+                    if !self.outputRedirection.redirectStderr {
+                        // Close the local write end of the stderr pipe.
+                        try close(fd: stderrPipe[1])
+
+                        // Create a thread and start reading the stderr output on it.
+                        group.enter()
+                        stderrThread = Thread { [weak self] in
+                            if let readResult = self?.readOutput(
+                                onFD: stderrPipe[0],
+                                outputClosure: outputClosures?.stderrClosure
+                            ) {
+                                pendingLock.withLock {
+                                    if let stdoutResult = pending {
+                                        self?.stateLock.withLock {
+                                            self?.state = .outputReady(
+                                                stdout: stdoutResult, stderr: readResult)
+                                        }
+                                    } else {
+                                        pending = readResult
+                                    }
+                                }
+                                group.leave()
+                            } else if let stdoutResult = (pendingLock.withLock { pending }) {
+                                // TODO: this is more of an error
+                                self?.stateLock.withLock {
+                                    self?.state = .outputReady(
+                                        stdout: stdoutResult, stderr: .success([]))
+                                }
+                                group.leave()
+                            }
+                        }
+                    } else {
+                        pendingLock.withLock {
+                            pending = .success([])  // no stderr in this case
+                        }
                     }
+
+                    // first set state then start reading threads
+                    self.stateLock.withLock {
+                        self.state = .readingOutput(sync: group)
+                    }
+
+                    stdoutThread.start()
+                    stderrThread?.start()
                 }
 
-                // first set state then start reading threads
-                self.stateLock.withLock {
-                    self.state = .readingOutput(sync: group)
-                }
-
-                stdoutThread.start()
-                stderrThread?.start()
+                return stdinStream
+            } catch {
+                throw AsyncProcessResult.Error.systemError(
+                    arguments: self.arguments, underlyingError: error)
             }
-
-            return stdinStream
-        } catch {
-            throw AsyncProcessResult.Error.systemError(arguments: self.arguments, underlyingError: error)
-        }
         #else
-        preconditionFailure("Process spawning is not available")
-        #endif // POSIX implementation
+            preconditionFailure("Process spawning is not available")
+        #endif  // POSIX implementation
     }
 
     /// Executes the process I/O state machine, returning the result when finished.
@@ -813,7 +842,9 @@ package final class AsyncProcess {
     }
 
     /// Executes the process I/O state machine, calling completion block when finished.
-    private func waitUntilExit(_ completion: @escaping (Result<AsyncProcessResult, Swift.Error>) -> Void) {
+    private func waitUntilExit(
+        _ completion: @escaping (Result<AsyncProcessResult, Swift.Error>) -> Void
+    ) {
         self.stateLock.lock()
         switch self.state {
         case .idle:
@@ -834,21 +865,21 @@ package final class AsyncProcess {
             defer { self.stateLock.unlock() }
             // Wait until process finishes execution.
             #if os(Windows)
-            precondition(self._process != nil, "The process is not yet launched.")
-            let p = self._process!
-            p.waitUntilExit()
-            let exitStatusCode = p.terminationStatus
-            let normalExit = p.terminationReason == .exit
+                precondition(self._process != nil, "The process is not yet launched.")
+                let p = self._process!
+                p.waitUntilExit()
+                let exitStatusCode = p.terminationStatus
+                let normalExit = p.terminationReason == .exit
             #else
-            var exitStatusCode: Int32 = 0
-            var result = waitpid(processID, &exitStatusCode, 0)
-            while result == -1 && errno == EINTR {
-                result = waitpid(self.processID, &exitStatusCode, 0)
-            }
-            if result == -1 {
-                self.state = .failed(SystemError.waitpid(errno))
-            }
-            let normalExit = !WIFSIGNALED(result)
+                var exitStatusCode: Int32 = 0
+                var result = waitpid(processID, &exitStatusCode, 0)
+                while result == -1 && errno == EINTR {
+                    result = waitpid(self.processID, &exitStatusCode, 0)
+                }
+                if result == -1 {
+                    self.state = .failed(SystemError.waitpid(errno))
+                }
+                let normalExit = !WIFSIGNALED(result)
             #endif
 
             // Construct the result.
@@ -868,48 +899,50 @@ package final class AsyncProcess {
     }
 
     #if !os(Windows)
-    /// Reads the given fd and returns its result.
-    ///
-    /// Closes the fd before returning.
-    private func readOutput(onFD fd: Int32, outputClosure: OutputClosure?) -> Result<[UInt8], Swift.Error> {
-        // Read all of the data from the output pipe.
-        let N = 4096
-        var buf = [UInt8](repeating: 0, count: N + 1)
+        /// Reads the given fd and returns its result.
+        ///
+        /// Closes the fd before returning.
+        private func readOutput(onFD fd: Int32, outputClosure: OutputClosure?) -> Result<
+            [UInt8], Swift.Error
+        > {
+            // Read all of the data from the output pipe.
+            let N = 4096
+            var buf = [UInt8](repeating: 0, count: N + 1)
 
-        var out = [UInt8]()
-        var error: Swift.Error? = nil
-        loop: while true {
-            let n = read(fd, &buf, N)
-            switch n {
-            case -1:
-                if errno == EINTR {
-                    continue
-                } else {
-                    error = SystemError.read(errno)
+            var out = [UInt8]()
+            var error: Swift.Error? = nil
+            loop: while true {
+                let n = read(fd, &buf, N)
+                switch n {
+                case -1:
+                    if errno == EINTR {
+                        continue
+                    } else {
+                        error = SystemError.read(errno)
+                        break loop
+                    }
+                case 0:
+                    // Close the read end of the output pipe.
+                    // We should avoid closing the read end of the pipe in case
+                    // -1 because the child process may still have content to be
+                    // flushed into the write end of the pipe. If the read end of the
+                    // pipe is closed, then a write will cause a SIGPIPE signal to
+                    // be generated for the calling process.  If the calling process is
+                    // ignoring this signal, then write fails with the error EPIPE.
+                    close(fd)
                     break loop
-                }
-            case 0:
-                // Close the read end of the output pipe.
-                // We should avoid closing the read end of the pipe in case
-                // -1 because the child process may still have content to be
-                // flushed into the write end of the pipe. If the read end of the
-                // pipe is closed, then a write will cause a SIGPIPE signal to
-                // be generated for the calling process.  If the calling process is
-                // ignoring this signal, then write fails with the error EPIPE.
-                close(fd)
-                break loop
-            default:
-                let data = buf[0 ..< n]
-                if let outputClosure {
-                    outputClosure(Array(data))
-                } else {
-                    out += data
+                default:
+                    let data = buf[0..<n]
+                    if let outputClosure {
+                        outputClosure(Array(data))
+                    } else {
+                        out += data
+                    }
                 }
             }
+            // Construct the output result.
+            return error.map(Result.failure) ?? .success(out)
         }
-        // Construct the output result.
-        return error.map(Result.failure) ?? .success(out)
-    }
     #endif
 
     /// Send a signal to the process.
@@ -917,14 +950,14 @@ package final class AsyncProcess {
     /// Note: This will signal all processes in the process group.
     package func signal(_ signal: Int32) {
         #if os(Windows)
-        if signal == SIGINT {
-            self._process?.interrupt()
-        } else {
-            self._process?.terminate()
-        }
+            if signal == SIGINT {
+                self._process?.interrupt()
+            } else {
+                self._process?.terminate()
+            }
         #else
-        assert(self.launched, "The process is not yet launched.")
-        kill(self.startNewProcessGroup ? -self.processID : self.processID, signal)
+            assert(self.launched, "The process is not yet launched.")
+            kill(self.startNewProcessGroup ? -self.processID : self.processID, signal)
         #endif
     }
 }
@@ -964,13 +997,15 @@ extension AsyncProcess {
         environment: Environment = .current,
         loggingHandler: LoggingHandler? = .none
     ) async throws -> AsyncProcessResult {
-        try await self.popen(arguments: args, environment: environment, loggingHandler: loggingHandler)
+        try await self.popen(
+            arguments: args, environment: environment, loggingHandler: loggingHandler)
     }
 
     package typealias DuplexStreamHandler =
-        @Sendable (_ stdinStream: WritableByteStream, _ stdoutStream: ReadableStream) async throws -> ()
+        @Sendable (_ stdinStream: WritableByteStream, _ stdoutStream: ReadableStream) async throws
+        -> Void
     package typealias ReadableStreamHandler =
-        @Sendable (_ stderrStream: ReadableStream) async throws -> ()
+        @Sendable (_ stderrStream: ReadableStream) async throws -> Void
 
     /// Launches a new `AsyncProcess` instances, allowing the caller to consume `stdout` and `stderr` output
     /// with handlers that support structured concurrency.
@@ -1151,7 +1186,8 @@ extension AsyncProcess {
         environment: Environment = .current,
         loggingHandler: LoggingHandler? = .none
     ) throws -> AsyncProcessResult {
-        try AsyncProcess.popen(arguments: args, environment: environment, loggingHandler: loggingHandler)
+        try AsyncProcess.popen(
+            arguments: args, environment: environment, loggingHandler: loggingHandler)
     }
 
     /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
@@ -1199,7 +1235,8 @@ extension AsyncProcess {
         environment: Environment = .current,
         loggingHandler: LoggingHandler? = .none
     ) throws -> String {
-        try self.checkNonZeroExit(arguments: args, environment: environment, loggingHandler: loggingHandler)
+        try self.checkNonZeroExit(
+            arguments: args, environment: environment, loggingHandler: loggingHandler)
     }
 }
 
@@ -1216,70 +1253,70 @@ extension AsyncProcess: Hashable {
 // MARK: - Private helpers
 
 #if !os(Windows)
-#if canImport(Darwin)
-private typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t?
-#else
-private typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t
-#endif
+    #if canImport(Darwin)
+        private typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t?
+    #else
+        private typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t
+    #endif
 
-private func WIFEXITED(_ status: Int32) -> Bool {
-    _WSTATUS(status) == 0
-}
-
-private func _WSTATUS(_ status: Int32) -> Int32 {
-    status & 0x7F
-}
-
-private func WIFSIGNALED(_ status: Int32) -> Bool {
-    (_WSTATUS(status) != 0) && (_WSTATUS(status) != 0x7F)
-}
-
-private func WEXITSTATUS(_ status: Int32) -> Int32 {
-    (status >> 8) & 0xFF
-}
-
-private func WTERMSIG(_ status: Int32) -> Int32 {
-    status & 0x7F
-}
-
-/// Open the given pipe.
-private func open(pipe buffer: inout [Int32]) throws {
-    let rv = pipe(&buffer)
-    guard rv == 0 else {
-        throw SystemError.pipe(rv)
+    private func WIFEXITED(_ status: Int32) -> Bool {
+        _WSTATUS(status) == 0
     }
-}
 
-/// Close the given fd.
-private func close(fd: Int32) throws {
-    func innerClose(_ fd: inout Int32) throws {
-        let rv = close(fd)
+    private func _WSTATUS(_ status: Int32) -> Int32 {
+        status & 0x7F
+    }
+
+    private func WIFSIGNALED(_ status: Int32) -> Bool {
+        (_WSTATUS(status) != 0) && (_WSTATUS(status) != 0x7F)
+    }
+
+    private func WEXITSTATUS(_ status: Int32) -> Int32 {
+        (status >> 8) & 0xFF
+    }
+
+    private func WTERMSIG(_ status: Int32) -> Int32 {
+        status & 0x7F
+    }
+
+    /// Open the given pipe.
+    private func open(pipe buffer: inout [Int32]) throws {
+        let rv = pipe(&buffer)
         guard rv == 0 else {
-            throw SystemError.close(rv)
+            throw SystemError.pipe(rv)
         }
     }
-    var innerFd = fd
-    try innerClose(&innerFd)
-}
 
-extension AsyncProcess.Error: CustomStringConvertible {
-    package var description: String {
-        switch self {
-        case .missingExecutableProgram(let program):
-            "could not find executable for '\(program)'"
-        case .workingDirectoryNotSupported:
-            "workingDirectory is not supported in this platform"
-        case .stdinUnavailable:
-            "could not open stdin on this platform"
+    /// Close the given fd.
+    private func close(fd: Int32) throws {
+        func innerClose(_ fd: inout Int32) throws {
+            let rv = close(fd)
+            guard rv == 0 else {
+                throw SystemError.close(rv)
+            }
+        }
+        var innerFd = fd
+        try innerClose(&innerFd)
+    }
+
+    extension AsyncProcess.Error: CustomStringConvertible {
+        package var description: String {
+            switch self {
+            case .missingExecutableProgram(let program):
+                "could not find executable for '\(program)'"
+            case .workingDirectoryNotSupported:
+                "workingDirectory is not supported in this platform"
+            case .stdinUnavailable:
+                "could not open stdin on this platform"
+            }
         }
     }
-}
 
-extension AsyncProcess.Error: CustomNSError {
-    package var errorUserInfo: [String: Any] {
-        [NSLocalizedDescriptionKey: self.description]
+    extension AsyncProcess.Error: CustomNSError {
+        package var errorUserInfo: [String: Any] {
+            [NSLocalizedDescriptionKey: self.description]
+        }
     }
-}
 
 #endif
 
@@ -1296,11 +1333,11 @@ extension AsyncProcessResult.Error: CustomStringConvertible {
             case .terminated(let code):
                 str.append(contentsOf: "terminated(\(code)): ")
             #if os(Windows)
-            case .abnormal(let exception):
-                str.append(contentsOf: "abnormal(\(exception)): ")
+                case .abnormal(let exception):
+                    str.append(contentsOf: "abnormal(\(exception)): ")
             #else
-            case .signalled(let signal):
-                str.append(contentsOf: "signalled(\(signal)): ")
+                case .signalled(let signal):
+                    str.append(contentsOf: "signalled(\(signal)): ")
             #endif
             }
 
@@ -1318,8 +1355,9 @@ extension AsyncProcessResult.Error: CustomStringConvertible {
                 let indentation = "    "
                 str.append(contentsOf: " output:\n")
                 str.append(contentsOf: indentation)
-                str.append(contentsOf: output.split(whereSeparator: { $0.isNewline })
-                                             .joined(separator: "\n\(indentation)"))
+                str.append(
+                    contentsOf: output.split(whereSeparator: { $0.isNewline })
+                        .joined(separator: "\n\(indentation)"))
                 if !output.hasSuffix("\n") {
                     str.append(contentsOf: "\n")
                 }
@@ -1331,21 +1369,21 @@ extension AsyncProcessResult.Error: CustomStringConvertible {
 }
 
 #if os(Windows)
-extension FileHandle: WritableByteStream {
-    package var position: Int {
-        Int(offsetInFile)
-    }
+    extension FileHandle: WritableByteStream {
+        package var position: Int {
+            Int(offsetInFile)
+        }
 
-    package func write(_ byte: UInt8) {
-        self.write(Data([byte]))
-    }
+        package func write(_ byte: UInt8) {
+            self.write(Data([byte]))
+        }
 
-    package func write(_ bytes: some Collection<UInt8>) {
-        self.write(Data(bytes))
-    }
+        package func write(_ bytes: some Collection<UInt8>) {
+            self.write(Data(bytes))
+        }
 
-    package func flush() {
-        synchronizeFile()
+        package func flush() {
+            synchronizeFile()
+        }
     }
-}
 #endif
