@@ -102,8 +102,8 @@ def is_on_darwin() -> bool:
 def set_environment(*, swiftpm_bin_dir: pathlib.Path,) -> None:
     os.environ["SWIFTCI_IS_SELF_HOSTED"] = "1"
 
-    # Set the SWIFTPM_BIN_DIR path
-    os.environ["SWIFTPM_BIN_DIR"] = str(swiftpm_bin_dir)
+    # Set the SWIFTPM_CUSTOM_BIN_DIR path
+    os.environ["SWIFTPM_CUSTOM_BIN_DIR"] = str(swiftpm_bin_dir)
 
     # Ensure SDKROOT is configure
     if is_on_darwin():
