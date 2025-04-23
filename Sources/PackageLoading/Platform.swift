@@ -12,12 +12,13 @@
 
 import Basics
 import Foundation
+import TSCBasic
 
 import class Basics.AsyncProcess
 
 private func isAndroid() -> Bool {
-    (try? localFileSystem.isFile(AbsolutePath(validating: "/system/bin/toolchain"))) ?? false ||
-        (try? localFileSystem.isFile(AbsolutePath(validating: "/system/bin/toybox"))) ?? false
+    (try? Basics.localFileSystem.isFile(AbsolutePath(validating: "/system/bin/toolchain"))) ?? false ||
+        (try? Basics.localFileSystem.isFile(AbsolutePath(validating: "/system/bin/toybox"))) ?? false
 }
 
 public enum Platform: Equatable, Sendable {
@@ -48,7 +49,7 @@ extension Platform {
         case "freebsd"?:
             return .freebsd
         case "linux"?:
-            return Platform.findCurrentPlatformLinux(localFileSystem)
+            return Platform.findCurrentPlatformLinux(Basics.localFileSystem)
         default:
             return nil
         }

@@ -15,6 +15,7 @@ import Basics
 import Foundation
 import PackageGraph
 import PackageLoading
+import TSCUtility
 
 @_spi(SwiftPMInternal)
 import PackageModel

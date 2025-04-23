@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
+
 extension Package {
     /// The list of targets matching the given names. Throws an error if any of
     /// the targets cannot be found.

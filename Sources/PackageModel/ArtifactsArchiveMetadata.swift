@@ -12,6 +12,7 @@
 
 import Basics
 import Foundation
+import TSCBasic
 
 import struct TSCUtility.Version
 
@@ -51,10 +52,10 @@ public struct ArtifactsArchiveMetadata: Equatable {
     }
 
     public struct Variant: Equatable {
-        public let path: RelativePath
+        public let path: Basics.RelativePath
         public let supportedTriples: [Triple]?
 
-        public init(path: RelativePath, supportedTriples: [Triple]?) {
+        public init(path: Basics.RelativePath, supportedTriples: [Triple]?) {
             self.path = path
             self.supportedTriples = supportedTriples
         }
@@ -62,7 +63,7 @@ public struct ArtifactsArchiveMetadata: Equatable {
 }
 
 extension ArtifactsArchiveMetadata {
-    public static func parse(fileSystem: FileSystem, rootPath: AbsolutePath) throws -> ArtifactsArchiveMetadata {
+    public static func parse(fileSystem: FileSystem, rootPath: Basics.AbsolutePath) throws -> ArtifactsArchiveMetadata {
         let path = rootPath.appending("info.json")
         guard fileSystem.exists(path) else {
             throw StringError("ArtifactsArchive info.json not found at '\(rootPath)'")

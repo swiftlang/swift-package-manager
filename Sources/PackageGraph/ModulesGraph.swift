@@ -10,12 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-import protocol Basics.FileSystem
-import class Basics.ObservabilityScope
-import struct Basics.IdentifiableSet
 import OrderedCollections
 import PackageLoading
 import PackageModel
+import TSCBasic
+
+import protocol Basics.FileSystem
+import class Basics.ObservabilityScope
+import struct Basics.IdentifiableSet
 
 enum PackageGraphError: Swift.Error {
     /// Indicates a non-root package with no modules.
@@ -268,7 +270,7 @@ public struct ModulesGraph {
 
         for module in rootModules where module.type == .executable {
             // Find all dependencies of this module within its package. Note that we do not traverse plugin usages.
-            let dependencies = try topologicalSort(module.dependencies, successors: {
+            let dependencies = try topologicalSortIdentifiable(module.dependencies, successors: {
                 $0.dependencies.compactMap{ $0.module }.filter{ $0.type != .plugin }.map{ .module($0, conditions: []) }
             }).compactMap({ $0.module })
 
@@ -399,12 +401,12 @@ enum GraphError: Error {
 ///
 /// - Complexity: O(v + e) where (v, e) are the number of vertices and edges
 /// reachable from the input nodes via the relation.
-func topologicalSort<T: Identifiable>(
+func topologicalSortIdentifiable<T: Identifiable>(
     _ nodes: [T], successors: (T) throws -> [T]
 ) throws -> [T] {
     // Implements a topological sort via recursion and reverse postorder DFS.
     func visit(_ node: T,
-               _ stack: inout OrderedSet<T.ID>, _ visited: inout Set<T.ID>, _ result: inout [T],
+               _ stack: inout OrderedCollections.OrderedSet<T.ID>, _ visited: inout Set<T.ID>, _ result: inout [T],
                _ successors: (T) throws -> [T]) throws {
         // Mark this node as visited -- we are done if it already was.
         if !visited.insert(node.id).inserted {
@@ -431,7 +433,7 @@ func topologicalSort<T: Identifiable>(
     // FIXME: This should use a stack not recursion.
     var visited = Set<T.ID>()
     var result = [T]()
-    var stack = OrderedSet<T.ID>()
+    var stack = OrderedCollections.OrderedSet<T.ID>()
     for node in nodes {
         precondition(stack.isEmpty)
         stack.append(node.id)

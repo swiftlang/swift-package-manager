@@ -12,6 +12,7 @@
 
 import ArgumentParser
 import Basics
+import Foundation
 import PackageGraph
 import PackageModel
 import SPMBuildCore

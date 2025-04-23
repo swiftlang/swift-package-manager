@@ -13,6 +13,7 @@
 @_spi(SwiftPMInternal)
 import Basics
 import Dispatch
+import PackageModel
 
 import protocol TSCBasic.OutputByteStream
 import class TSCBasic.TerminalController
