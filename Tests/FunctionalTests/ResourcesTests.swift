@@ -14,8 +14,87 @@ import Basics
 import PackageModel
 import _InternalTestSupport
 import XCTest
+import struct SPMBuildCore.BuildSystemProvider
 
-final class ResourcesTests: XCTestCase {
+class ResourcesNativeDebugConfigTests: ResourcesTestCase {
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .native
+    }
+
+    override public var binPathSuffixes: [String] {
+        ["debug"]
+    }
+
+    override public var buildConfig: BuildConfiguration {
+        .debug
+    }
+}
+
+class ResourcesNativeReleaseConfigTests: ResourcesTestCase {
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .native
+    }
+
+    override public var binPathSuffixes: [String] {
+        ["release"]
+    }
+
+    override public var buildConfig: BuildConfiguration {
+        .release
+    }
+}
+
+class ResourcesSwiftBuildDebugConfigTests: ResourcesTestCase {
+
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .swiftbuild
+    }
+
+    override public var binPathSuffixes: [String] {
+        ["Products" , "Debug"]
+    }
+
+    override public var buildConfig: BuildConfiguration {
+        .debug
+    }
+
+    override func testResourcesInMixedClangPackage() async throws {
+        #if os(macOS)
+        try XCTSkipSwiftBuildTodo(because: "Fails to build: Found multiple targets named 'MixedClangResource'")
+        #else
+        try await super.testResourcesInMixedClangPackage()
+        #endif
+    }
+
+    override func testResourcesEmbeddedInCode() async throws {
+        #if os(macOS)
+        try XCTSkipSwiftBuildTodo(because: "Fails to build: cannot find 'PackageResources' in scope")
+        #else
+        try await super.testResourcesEmbeddedInCode()()
+        #endif
+    }
+}
+
+class ResourcesSwiftBuildReleaseConfigTests: ResourcesTestCase {
+
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .swiftbuild
+    }
+
+    override public var binPathSuffixes: [String] {
+        ["Products" , "Release"]
+    }
+
+    override public var buildConfig: BuildConfiguration {
+        .release
+    }
+}
+
+class ResourcesTestCase: BuildConfigurationTestCase {
+    override func setUpWithError() throws {
+        try XCTSkipIf(type(of: self) == ResourcesTestCase.self, "Pay no attention to the class behind the curtain.")
+    }
+
     func testSimpleResources() async throws {
         try await fixture(name: "Resources/Simple") { fixturePath in
             var executables = ["SwiftyResource"]
@@ -27,7 +106,7 @@ final class ResourcesTests: XCTestCase {
             #endif
 
             for execName in executables {
-                let (output, _) = try await executeSwiftRun(fixturePath, execName)
+                let (output, _) = try await executeSwiftRun(fixturePath, execName, buildSystem: self.buildSystemProvider)
                 XCTAssertTrue(output.contains("foo"), output)
             }
         }
@@ -35,7 +114,7 @@ final class ResourcesTests: XCTestCase {
 
     func testLocalizedResources() async throws {
         try await fixture(name: "Resources/Localized") { fixturePath in
-            try await executeSwiftBuild(fixturePath)
+            try await executeSwiftBuild(fixturePath, configuration: self.buildConfig, buildSystem: self.buildSystemProvider)
 
             let exec = AbsolutePath(".build/debug/exe", relativeTo: fixturePath)
             // Note: <rdar://problem/59738569> Source from LANG and -AppleLanguages on command line for Linux resources
@@ -50,13 +129,13 @@ final class ResourcesTests: XCTestCase {
     }
 
     func testResourcesInMixedClangPackage() async throws {
-        #if !os(macOS)
-        // Running swift-test fixtures on linux is not yet possible.
-        try XCTSkipIf(true, "test is only supported on macOS")
-        #endif
+        // #if !os(macOS)
+        // // Running swift-test fixtures on linux is not yet possible.
+        // try XCTSkipIf(true, "test is only supported on macOS")
+        // #endif
 
         try await fixture(name: "Resources/Simple") { fixturePath in
-            await XCTAssertBuilds(fixturePath, extraArgs: ["--target", "MixedClangResource"])
+            await XCTAssertBuilds(fixturePath, configurations: [self.buildConfig], extraArgs: ["--target", "MixedClangResource"], buildSystem: self.buildSystemProvider)
         }
     }
 
@@ -70,12 +149,12 @@ final class ResourcesTests: XCTestCase {
             #endif
 
             let binPath = try AbsolutePath(validating:
-                await executeSwiftBuild(fixturePath, configuration: .Release, extraArgs: ["--show-bin-path"]).stdout
+                await executeSwiftBuild(fixturePath, configuration: .release, extraArgs: ["--show-bin-path"], buildSystem: self.buildSystemProvider).stdout
                     .trimmingCharacters(in: .whitespacesAndNewlines)
             )
 
             for execName in executables {
-                _ = try await executeSwiftBuild(fixturePath, configuration: .Release, extraArgs: ["--product", execName])
+                _ = try await executeSwiftBuild(fixturePath, configuration: .release, extraArgs: ["--product", execName], buildSystem: self.buildSystemProvider)
 
                 try await withTemporaryDirectory(prefix: execName) { tmpDirPath in
                     defer {
@@ -105,7 +184,9 @@ final class ResourcesTests: XCTestCase {
         try await fixture(name: "Resources/FoundationlessClient/UtilsWithFoundationPkg") { fixturePath in
             await XCTAssertBuilds(
                 fixturePath,
-                Xswiftc: ["-warnings-as-errors"]
+                configurations: [self.buildConfig],
+                Xswiftc: ["-warnings-as-errors"],
+                buildSystem: self.buildSystemProvider
             )
         }
     }
@@ -123,8 +204,8 @@ final class ResourcesTests: XCTestCase {
 
     func testResourcesEmbeddedInCode() async throws {
         try await fixture(name: "Resources/EmbedInCodeSimple") { fixturePath in
-            let execPath = fixturePath.appending(components: ".build", "debug", "EmbedInCodeSimple")
-            try await executeSwiftBuild(fixturePath)
+            let execPath = fixturePath.appending(components: [".build"] + self.binPathSuffixes + ["EmbedInCodeSimple"])
+            try await executeSwiftBuild(fixturePath, configuration: self.buildConfig, buildSystem: self.buildSystemProvider)
             let result = try await AsyncProcess.checkNonZeroExit(args: execPath.pathString)
             XCTAssertMatch(result, .contains("hello world"))
             let resourcePath = fixturePath.appending(
@@ -135,7 +216,7 @@ final class ResourcesTests: XCTestCase {
               let content = "Hi there \(i)!"
               // Update the resource file.
               try localFileSystem.writeFileContents(resourcePath, string: content)
-              try await executeSwiftBuild(fixturePath)
+              try await executeSwiftBuild(fixturePath, configuration: self.buildConfig, buildSystem: self.buildSystemProvider)
               // Run the executable again.
               let result2 = try await AsyncProcess.checkNonZeroExit(args: execPath.pathString)
               XCTAssertMatch(result2, .contains("\(content)"))
@@ -174,13 +255,13 @@ final class ResourcesTests: XCTestCase {
             try localFileSystem.createDirectory(resource.parentDirectory, recursive: true)
             try localFileSystem.writeFileContents(resource, string: "best")
 
-            let (_, stderr) = try await executeSwiftBuild(packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
+            let (_, stderr) = try await executeSwiftBuild(packageDir, configuration: self.buildConfig, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"], buildSystem: self.buildSystemProvider)
             // Filter some unrelated output that could show up on stderr.
             let filteredStderr = stderr.components(separatedBy: "\n").filter { !$0.contains("[logging]") }
                                                                      .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
             XCTAssertEqual(filteredStderr, "", "unexpectedly received error output: \(stderr)")
 
-            let builtProductsDir = packageDir.appending(components: [".build", "debug"])
+            let builtProductsDir = packageDir.appending(components: [".build"] + self.binPathSuffixes)
             // On Apple platforms, it's going to be `.bundle` and elsewhere `.resources`.
             let potentialResourceBundleName = try XCTUnwrap(localFileSystem.getDirectoryContents(builtProductsDir).filter { $0.hasPrefix("MyPackage_exec.") }.first)
             let resourcePath = builtProductsDir.appending(components: [potentialResourceBundleName, "resources", "best.txt"])

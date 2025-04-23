@@ -259,18 +259,18 @@ class RunCommandSwiftBuildTests: RunCommandTestCase {
     }
 
     override func testMultipleExecutableAndExplicitExecutable() async throws {
-        throw XCTSkip("SWBINTTODO: https://github.com/swiftlang/swift-package-manager/issues/8279: Swift run using Swift Build does not output executable content to the terminal")
+        try XCTSkipSwiftBuildTodo(because: "https://github.com/swiftlang/swift-package-manager/issues/8279: Swift run using Swift Build does not output executable content to the terminal")
     }
 
     override func testUnknownProductAndArgumentPassing() async throws {
-        throw XCTSkip("SWBINTTODO: https://github.com/swiftlang/swift-package-manager/issues/8279: Swift run using Swift Build does not output executable content to the terminal")
+        try XCTSkipSwiftBuildTodo(because: "https://github.com/swiftlang/swift-package-manager/issues/8279: Swift run using Swift Build does not output executable content to the terminal")
     }
 
     override func testToolsetDebugger() async throws {
-        throw XCTSkip("SWBINTTODO: Test fixture fails to build")
+        try XCTSkipSwiftBuildTodo(because: "Test fixture fails to build")
     }
 
     override func testUnreachableExecutable() async throws {
-        throw XCTSkip("SWBINTTODO: Test fails because of build layout differences.")
+        try XCTSkipSwiftBuildTodo(because: "Test fails because of build layout differences.")
     }
 }

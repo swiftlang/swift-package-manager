@@ -14,8 +14,36 @@ import Basics
 import SourceControl
 import _InternalTestSupport
 import XCTest
+import struct SPMBuildCore.BuildSystemProvider
 
-final class VersionSpecificTests: XCTestCase {
+final class VersionSpecificNativeTests: VersionSpecificTestCase {
+
+    override public var buildSystemProvider: BuildSystemProvider.Kind {
+        return .native
+    }
+
+    override func testEndToEndResolution() async throws {
+        try await super.testEndToEndResolution()
+    }
+}
+
+final class VersionSpecificSwiftBuildTests: VersionSpecificTestCase {
+
+    override public var buildSystemProvider: BuildSystemProvider.Kind {
+        return .swiftbuild
+    }
+
+    override func testEndToEndResolution() async throws {
+        throw XCTSkip("")
+        try await super.testEndToEndResolution()
+    }
+}
+
+class VersionSpecificTestCase: BuildSystemProviderTestCase {
+    override func setUpWithError() throws {
+        try XCTSkipIf(type(of: self) == VersionSpecificTestCase.self, "Skipping this test since it will be run in subclasses that will provide different build systems to test.")
+    }
+
     /// Functional tests of end-to-end support for version specific dependency resolution.
     func testEndToEndResolution() async throws {
         try await testWithTemporaryDirectory{ path in
@@ -90,7 +118,7 @@ final class VersionSpecificTests: XCTestCase {
                     """
             )
             // This build should fail, because of the invalid package.
-            await XCTAssertBuildFails(primaryPath)
+            await XCTAssertBuildFails(primaryPath, buildSystem: self.buildSystemProvider)
 
             // Create a file which requires a version 1.1.0 resolution.
             try fs.writeFileContents(
@@ -124,7 +152,7 @@ final class VersionSpecificTests: XCTestCase {
 
             // The build should work now.
             _ = try await SwiftPM.Package.execute(["reset"], packagePath: primaryPath)
-            await XCTAssertBuilds(primaryPath)
+            await XCTAssertBuilds(primaryPath, buildSystem: self.buildSystemProvider)
         }
     }
 }
