@@ -17,7 +17,6 @@ import _InternalTestSupport
 import XCTest
 
 class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
-    lazy var manifestLoader = ManifestLoader(toolchain: try! UserToolchain.default, delegate: self)
     var parsedManifest = ThreadSafeBox<AbsolutePath>()
 
     func willLoad(packageIdentity: PackageModel.PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
@@ -69,7 +68,7 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
             content,
             toolsVersion: toolsVersion ?? self.toolsVersion,
             packageKind: packageKind ?? .fileSystem(.root),
-            manifestLoader: customManifestLoader ?? self.manifestLoader,
+            manifestLoader: customManifestLoader ?? ManifestLoader(toolchain: try UserToolchain.default, delegate: self),
             observabilityScope: observabilityScope,
             file: file,
             line: line

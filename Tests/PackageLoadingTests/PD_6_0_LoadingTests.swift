@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import PackageLoading
 import PackageModel
 import SourceControl
 import _InternalTestSupport
@@ -109,6 +110,7 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
             try repo.commit(message: "best")
             try repo.tag(name: "lunch")
 
+            let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, delegate: self)
             let manifest = try await manifestLoader.load(
                 manifestPath: manifestPath,
                 packageKind: .root(tmpdir),

@@ -403,6 +403,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 )
             }
             // Check we can load the repository.
+            let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, delegate: self)
             let manifest = try await manifestLoader.load(
                 packagePath: root,
                 packageKind: .root(.root),
@@ -432,6 +433,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             string: manifestContents
         )
         // Check we can load the manifest.
+        let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, delegate: self)
         let manifest = try await manifestLoader.load(packagePath: packageDir, packageKind: .root(packageDir), currentToolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertEqual(manifest.displayName, "Trivial")

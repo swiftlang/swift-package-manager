@@ -352,6 +352,7 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
 
         try fs.writeFileContents(manifestPath, string: content)
 
+        let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, delegate: self)
         let observability = ObservabilitySystem.makeForTesting()
         let manifest = try await manifestLoader.load(
             manifestPath: manifestPath,
