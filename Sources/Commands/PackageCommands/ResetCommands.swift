@@ -27,15 +27,15 @@ extension SwiftPackageCommand {
         }
     }
 
-    struct PurgeCache: SwiftCommand {
+    struct PurgeCache: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Purge the global repository cache.")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
-            try swiftCommandState.getActiveWorkspace().purgeCache(observabilityScope: swiftCommandState.observabilityScope)
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
+            try await swiftCommandState.getActiveWorkspace().purgeCache(observabilityScope: swiftCommandState.observabilityScope)
         }
     }
 

@@ -66,19 +66,13 @@ extension Workspace {
         // If there is something present at the destination, we confirm it has
         // a valid manifest with name canonical location as the package we are trying to edit.
         if fileSystem.exists(destination) {
-            // FIXME: this should not block
-            let manifest = try await withCheckedThrowingContinuation { continuation in
-                self.loadManifest(
-                    packageIdentity: dependency.packageRef.identity,
-                    packageKind: .fileSystem(destination),
-                    packagePath: destination,
-                    packageLocation: dependency.packageRef.locationString,
-                    observabilityScope: observabilityScope,
-                    completion: {
-                      continuation.resume(with: $0)
-                    }
-                )
-            }
+            let manifest = try await self.loadManifest(
+                packageIdentity: dependency.packageRef.identity,
+                packageKind: .fileSystem(destination),
+                packagePath: destination,
+                packageLocation: dependency.packageRef.locationString,
+                observabilityScope: observabilityScope
+            )
 
             guard dependency.packageRef.canonicalLocation == manifest.canonicalPackageLocation else {
                 return observabilityScope

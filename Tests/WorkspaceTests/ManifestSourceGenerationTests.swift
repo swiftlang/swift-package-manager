@@ -63,8 +63,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 dependencyMapper: dependencyMapper,
                 fileSystem: fs,
                 observabilityScope: observability.topScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent
+                delegateQueue: .sharedConcurrent
             )
 
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -92,8 +91,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 dependencyMapper: dependencyMapper,
                 fileSystem: fs,
                 observabilityScope: observability.topScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent
+                delegateQueue: .sharedConcurrent
             )
 
             XCTAssertNoDiagnostics(observability.diagnostics)

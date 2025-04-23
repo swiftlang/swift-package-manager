@@ -262,30 +262,28 @@ final class RegistryPackageContainerTests: XCTestCase {
             )
 
             struct MockManifestLoader: ManifestLoaderProtocol {
-                func load(manifestPath: AbsolutePath,
-                          manifestToolsVersion: ToolsVersion,
-                          packageIdentity: PackageIdentity,
-                          packageKind: PackageReference.Kind,
-                          packageLocation: String,
-                          packageVersion: (version: Version?, revision: String?)?,
-                          identityResolver: IdentityResolver,
-                          dependencyMapper: DependencyMapper,
-                          fileSystem: FileSystem,
-                          observabilityScope: ObservabilityScope,
-                          delegateQueue: DispatchQueue,
-                          callbackQueue: DispatchQueue,
-                          completion: @escaping (Result<Manifest, Error>) -> Void) {
-                    completion(.success(
-                        Manifest.createManifest(
-                            displayName: packageIdentity.description,
-                            path: manifestPath,
-                            packageKind: packageKind,
-                            packageIdentity: packageIdentity,
-                            packageLocation: packageLocation,
-                            platforms: [],
-                            toolsVersion: manifestToolsVersion
-                        )
-                    ))
+                func load(
+                    manifestPath: AbsolutePath,
+                    manifestToolsVersion: ToolsVersion,
+                    packageIdentity: PackageIdentity,
+                    packageKind: PackageReference.Kind,
+                    packageLocation: String,
+                    packageVersion: (version: Version?, revision: String?)?,
+                    identityResolver: IdentityResolver,
+                    dependencyMapper: DependencyMapper,
+                    fileSystem: FileSystem,
+                    observabilityScope: ObservabilityScope,
+                    delegateQueue: DispatchQueue
+                ) async throws -> Manifest {
+                    Manifest.createManifest(
+                        displayName: packageIdentity.description,
+                        path: manifestPath,
+                        packageKind: packageKind,
+                        packageIdentity: packageIdentity,
+                        packageLocation: packageLocation,
+                        platforms: [],
+                        toolsVersion: manifestToolsVersion
+                    )
                 }
 
                 func resetCache(observabilityScope: ObservabilityScope) {}
