@@ -651,9 +651,9 @@ extension PackagePIFBuilder.LinkedPackageBinary {
 
     init?(dependency: ResolvedModule.Dependency, package: ResolvedPackage) {
         switch dependency {
-        case .product(let producutDependency, _):
-            guard producutDependency.hasSourceTargets else { return nil }
-            self.init(name: producutDependency.name, packageName: package.name, type: .product)
+        case .product(let productDependency, _):
+            guard productDependency.hasSourceTargets else { return nil }
+            self.init(name: productDependency.name, packageName: package.name, type: .product)
 
         case .module(let moduleDependency, _):
             self.init(module: moduleDependency, package: package)
