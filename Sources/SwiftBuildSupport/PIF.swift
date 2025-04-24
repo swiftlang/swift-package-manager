@@ -117,18 +117,18 @@ public enum PIF {
     public final class Workspace: HighLevelObject {
         override class var type: String { "workspace" }
         
-        public let guid: GUID
+        public let id: GUID
         public var name: String
         public var path: AbsolutePath
         public var projects: [Project]
         var signature: String?
 
-        public init(guid: GUID, name: String, path: AbsolutePath, projects: [ProjectModel.Project]) {
-            precondition(!guid.value.isEmpty)
+        public init(id: GUID, name: String, path: AbsolutePath, projects: [ProjectModel.Project]) {
+            precondition(!id.value.isEmpty)
             precondition(!name.isEmpty)
             precondition(Set(projects.map(\.id)).count == projects.count)
             
-            self.guid = guid
+            self.id = id
             self.name = name
             self.path = path
             self.projects = projects.map { Project(wrapping: $0) }
@@ -145,7 +145,7 @@ public enum PIF {
             var superContainer = encoder.container(keyedBy: HighLevelObject.CodingKeys.self)
             var contents = superContainer.nestedContainer(keyedBy: CodingKeys.self, forKey: .contents)
             
-            try contents.encode("\(guid)", forKey: .guid)
+            try contents.encode("\(id)", forKey: .guid)
             try contents.encode(name, forKey: .name)
             try contents.encode(path, forKey: .path)
             try contents.encode(projects.map(\.signature), forKey: .projects)
@@ -158,11 +158,12 @@ public enum PIF {
             }
         }
         
+        // FIXME: Delete this (https://github.com/swiftlang/swift-package-manager/issues/8552).
         public required init(from decoder: Decoder) throws {
             let superContainer = try decoder.container(keyedBy: HighLevelObject.CodingKeys.self)
             let contents = try superContainer.nestedContainer(keyedBy: CodingKeys.self, forKey: .contents)
             
-            self.guid = try contents.decode(GUID.self, forKey: .guid)
+            self.id = try contents.decode(GUID.self, forKey: .guid)
             self.name = try contents.decode(String.self, forKey: .name)
             self.path = try contents.decode(AbsolutePath.self, forKey: .path)
             self.projects = try contents.decode([Project].self, forKey: .projects)
@@ -205,6 +206,7 @@ public enum PIF {
             }
         }
         
+        // FIXME: Delete this (https://github.com/swiftlang/swift-package-manager/issues/8552).
         public required init(from decoder: Decoder) throws {
             let superContainer = try decoder.container(keyedBy: HighLevelObject.CodingKeys.self)
             self.underlying = try superContainer.decode(ProjectModel.Project.self, forKey: .contents)
@@ -242,7 +244,8 @@ public enum PIF {
         }
         
         public required init(from decoder: Decoder) throws {
-            // FIXME: Remove all support for decoding PIF objects in SwiftBuildSupport? rdar://149003797
+            // FIXME: Remove all support for decoding PIF objects in SwiftBuildSupport?
+            // (https://github.com/swiftlang/swift-package-manager/issues/8552)
             fatalError("Decoding not implemented")
             /*
             let superContainer = try decoder.container(keyedBy: HighLevelObject.CodingKeys.self)

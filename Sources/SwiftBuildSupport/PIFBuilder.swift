@@ -22,6 +22,7 @@ import SPMBuildCore
 
 import func TSCBasic.memoize
 import func TSCBasic.topologicalSort
+import var TSCBasic.stdoutStream
 
 #if canImport(SwiftBuild)
 import enum SwiftBuild.ProjectModel
@@ -98,7 +99,8 @@ public final class PIFBuilder {
     /// - Returns: The package graph in the JSON PIF format.
     func generatePIF(
         prettyPrint: Bool = true,
-        preservePIFModelStructure: Bool = false
+        preservePIFModelStructure: Bool = false,
+        printPIFManifestGraphviz: Bool = false
     ) throws -> String {
         #if canImport(SwiftBuild)
         let encoder = prettyPrint ? JSONEncoder.makeWithDefaults() : JSONEncoder()
@@ -114,7 +116,17 @@ public final class PIFBuilder {
 
         let pifData = try encoder.encode(topLevelObject)
         let pifString = String(decoding: pifData, as: UTF8.self)
-        
+
+        if printPIFManifestGraphviz {
+            // Print dot graph to stdout.
+            writePIF(topLevelObject.workspace, toDOT: stdoutStream)
+            stdoutStream.flush()
+
+            // Abort the build process, ensuring we don't add
+            // further noise to stdout (and break `dot` graph parsing).
+            throw PIFGenerationError.printedPIFManifestGraphviz
+        }
+
         return pifString
         #else
         fatalError("Swift Build support is not linked in.")
@@ -167,7 +179,7 @@ public final class PIFBuilder {
             )
 
             let workspace = PIF.Workspace(
-                guid: "Workspace:\(rootPackage.path.pathString)",
+                id: "Workspace:\(rootPackage.path.pathString)",
                 name: rootPackage.manifest.displayName, // TODO: use identity instead?
                 path: rootPackage.path,
                 projects: projects
@@ -405,6 +417,9 @@ public enum PIFGenerationError: Error {
         versions: [SwiftLanguageVersion],
         supportedVersions: [SwiftLanguageVersion]
     )
+
+    /// Early build termination when using `--print-pif-manifest-graph`.
+    case printedPIFManifestGraphviz
 }
 
 extension PIFGenerationError: CustomStringConvertible {
@@ -423,6 +438,9 @@ extension PIFGenerationError: CustomStringConvertible {
         ):
             "None of the Swift language versions used in target '\(target)' settings are supported." +
             " (given: \(given), supported: \(supported))"
+
+        case .printedPIFManifestGraphviz:
+            "Printed PIF manifest as graphviz"
         }
     }
 }
