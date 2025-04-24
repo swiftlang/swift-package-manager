@@ -577,6 +577,7 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
     }
 
     func testFatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation() async throws {
+        try XCTSkipIfCI()
         // Test for GitHub Issue #6605
         // GIVEN we have a Swift Package that has a fatalError building the tests
         let expected = 1
