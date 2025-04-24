@@ -940,7 +940,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         }
     }
 
-    func testPackageAddSameDependencyTwiceHasNoEffect() async throws {
+    func testPackageAddSameDependencyURLTwiceHasNoEffect() async throws {
         try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("PackageB")
@@ -965,6 +965,76 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 initialManifest: manifest,
                 url: url,
                 requirementArgs: ["--exact", "601.0.1"],
+                expectedManifestString: expected
+            )
+
+            try assertManifest(path) {
+                let components = $0.components(separatedBy: expected)
+                XCTAssertEqual(components.count, 2, "Expected the dependency to be added exactly once.")
+            }
+        }
+    }
+
+    func testPackageAddSameDependencyPathTwiceHasNoEffect() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            let depPath = "../foo"
+            let manifest = """
+                // swift-tools-version: 5.9
+                import PackageDescription
+                let package = Package(
+                    name: "client",
+                    dependencies: [
+                        .package(path: "\(depPath)")
+                    ],
+                    targets: [ .target(name: "client", dependencies: [ "library" ]) ]
+                )
+            """
+
+            let expected = #".package(path: "../foo")"#
+            try await executeAddURLDependencyAndAssert(
+                packagePath: path,
+                initialManifest: manifest,
+                url: depPath,
+                requirementArgs: ["--type", "path"],
+                expectedManifestString: expected
+            )
+
+            try assertManifest(path) {
+                let components = $0.components(separatedBy: expected)
+                XCTAssertEqual(components.count, 2, "Expected the dependency to be added exactly once.")
+            }
+        }
+    }
+
+    func testPackageAddSameDependencyRegistryTwiceHasNoEffect() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            let registryId = "foo"
+            let manifest = """
+                // swift-tools-version: 5.9
+                import PackageDescription
+                let package = Package(
+                    name: "client",
+                    dependencies: [
+                        .package(id: "\(registryId)")
+                    ],
+                    targets: [ .target(name: "client", dependencies: [ "library" ]) ]
+                )
+            """
+
+            let expected = #".package(id: "foo", exact: "1.0.0")"#
+            try await executeAddURLDependencyAndAssert(
+                packagePath: path,
+                initialManifest: manifest,
+                url: registryId,
+                requirementArgs: ["--type", "registry", "--exact", "1.0.0"],
                 expectedManifestString: expected
             )
 
