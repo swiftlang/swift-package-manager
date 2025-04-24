@@ -501,6 +501,9 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         if let resourceBundle = addResourceBundle(for: mainTarget, in: pifTarget) {
             settings[.PACKAGE_RESOURCE_BUNDLE_NAME] = resourceBundle
             settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"
+            settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, default: ["$(inherited)"]].append("SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE")
+        } else {
+            settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, default: ["$(inherited)"]].append("SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE")
         }
 
         // For targets, we use the common build settings for both the "Debug" and the "Release" configurations (all
@@ -729,7 +732,10 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         if let resourceBundle = addResourceBundle(for: target, in: pifTarget) {
             settings[.PACKAGE_RESOURCE_BUNDLE_NAME] = resourceBundle
             settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"
+            settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, default: ["$(inherited)"]].append("SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE")
             impartedSettings[.EMBED_PACKAGE_RESOURCE_BUNDLE_NAMES, default: ["$(inherited)"]].append(resourceBundle)
+        } else {
+            settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, default: ["$(inherited)"]].append("SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE")
         }
 
         // For targets, we use the common build settings for both the "Debug" and the "Release" configurations (all
