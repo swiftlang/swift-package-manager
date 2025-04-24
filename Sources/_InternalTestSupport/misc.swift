@@ -401,13 +401,7 @@ private func swiftArgs(
     Xswiftc: [String],
     buildSystem: BuildSystemProvider.Kind?
 ) -> [String] {
-    var args = ["--configuration"]
-    switch configuration {
-    case .debug:
-        args.append("debug")
-    case .release:
-        args.append("release")
-    }
+    var args = ["--configuration", "\(configuration)"]
 
     args += Xcc.flatMap { ["-Xcc", $0] }
     args += Xld.flatMap { ["-Xlinker", $0] }
