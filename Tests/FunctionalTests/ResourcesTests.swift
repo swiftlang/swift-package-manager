@@ -70,7 +70,7 @@ class ResourcesSwiftBuildDebugConfigTests: ResourcesTestCase {
         #if os(macOS)
         try XCTSkipSwiftBuildTodo(because: "Fails to build: cannot find 'PackageResources' in scope")
         #else
-        try await super.testResourcesEmbeddedInCode()()
+        try await super.testResourcesEmbeddedInCode()
         #endif
     }
 }
