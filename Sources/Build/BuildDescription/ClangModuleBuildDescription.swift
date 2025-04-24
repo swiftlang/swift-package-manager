@@ -455,12 +455,6 @@ public final class ClangModuleBuildDescription {
             break
         }
 
-        if bundlePath != nil {
-            compilationConditions += ["-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE=1"]
-        } else {
-            compilationConditions += ["-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE=1"]
-        }
-
         return compilationConditions
     }
 
