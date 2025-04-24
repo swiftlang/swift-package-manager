@@ -970,9 +970,9 @@ public final class SwiftModuleBuildDescription {
         }
 
         if bundlePath != nil {
-            compilationConditions += ["-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE=1"]
+            compilationConditions += ["-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE"]
         } else {
-            compilationConditions += ["-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE=1"]
+            compilationConditions += ["-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"]
         }
 
         return compilationConditions
