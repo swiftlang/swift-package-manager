@@ -11,6 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import PackageLoading
+import TSCUtility
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 @testable import PackageGraph
@@ -2921,7 +2923,7 @@ final class ModulesGraphTests: XCTestCase {
         ]
 
         let expectedPlatformsForTests = customXCTestMinimumDeploymentTargets
-            .reduce(into: [Platform: PlatformVersion]()) { partialResult, entry in
+            .reduce(into: [PackageModel.Platform: PlatformVersion]()) { partialResult, entry in
                 if entry.value > entry.key.oldestSupportedVersion {
                     partialResult[entry.key] = entry.value
                 } else {

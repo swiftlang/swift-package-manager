@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
+import TSCUtility
 
 import struct Basics.AbsolutePath
 import class Basics.ObservabilitySystem
@@ -989,7 +990,7 @@ extension PackagePIFProjectBuilder {
 
 private struct PackageRegistrySignature: Encodable {
     enum Source: Encodable {
-        case registry(url: URL)
+        case registry(url: Foundation.URL)
     }
 
     let packageIdentity: String

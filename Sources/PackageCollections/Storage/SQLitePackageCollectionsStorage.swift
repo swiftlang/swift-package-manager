@@ -20,6 +20,7 @@ import class Foundation.JSONEncoder
 import class Foundation.NSLock
 import struct Foundation.URL
 import PackageModel
+import TSCUtility
 
 import protocol TSCBasic.Closable
 

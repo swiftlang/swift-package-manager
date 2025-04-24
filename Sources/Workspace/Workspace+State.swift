@@ -15,6 +15,7 @@ import Foundation
 import PackageGraph
 import PackageModel
 import SourceControl
+import TSCBasic
 
 import struct TSCUtility.Version
 
@@ -30,14 +31,14 @@ public actor WorkspaceState {
     public private(set) var prebuilts: Workspace.ManagedPrebuilts
 
     /// Path to the state file.
-    public let storagePath: AbsolutePath
+    public let storagePath: Basics.AbsolutePath
 
     /// storage
     private let storage: WorkspaceStateStorage
 
     init(
         fileSystem: FileSystem,
-        storageDirectory: AbsolutePath,
+        storageDirectory: Basics.AbsolutePath,
         initializationWarningHandler: (String) -> Void
     ) {
         self.storagePath = storageDirectory.appending("workspace-state.json")
@@ -101,12 +102,12 @@ public actor WorkspaceState {
 // MARK: - Serialization
 
 private struct WorkspaceStateStorage {
-    private let path: AbsolutePath
+    private let path: Basics.AbsolutePath
     private let fileSystem: FileSystem
     private let encoder = JSONEncoder.makeWithDefaults()
     private let decoder = JSONDecoder.makeWithDefaults()
 
-    init(path: AbsolutePath, fileSystem: FileSystem) {
+    init(path: Basics.AbsolutePath, fileSystem: FileSystem) {
         self.path = path
         self.fileSystem = fileSystem
     }
@@ -285,7 +286,7 @@ extension WorkspaceStateStorage {
                     let kind = try container.decode(String.self, forKey: .name)
                     switch kind {
                     case "local", "fileSystem":
-                        let path = try container.decode(AbsolutePath.self, forKey: .path)
+                        let path = try container.decode(Basics.AbsolutePath.self, forKey: .path)
                         return self.init(underlying: .fileSystem(path))
                     case "checkout", "sourceControlCheckout":
                         let checkout = try container.decode(CheckoutInfo.self, forKey: .checkoutState)
@@ -295,14 +296,14 @@ extension WorkspaceStateStorage {
                         return try self
                             .init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version)))
                     case "edited":
-                        let path = try container.decode(AbsolutePath?.self, forKey: .path)
+                        let path = try container.decode(Basics.AbsolutePath?.self, forKey: .path)
                         return try self.init(underlying: .edited(
                             basedOn: basedOn.map { try .init($0) },
                             unmanagedPath: path
                         ))
                     case "custom":
                         let version = try container.decode(String.self, forKey: .version)
-                        let path = try container.decode(AbsolutePath.self, forKey: .path)
+                        let path = try container.decode(Basics.AbsolutePath.self, forKey: .path)
                         return try self.init(underlying: .custom(
                             version: TSCUtility.Version(versionString: version),
                             path: path
@@ -456,7 +457,7 @@ extension WorkspaceStateStorage {
         struct Prebuilt: Codable {
             let packageRef: PackageReference
             let libraryName: String
-            let path: AbsolutePath
+            let path: Basics.AbsolutePath
             let products: [String]
             let cModules: [String]
 
@@ -669,7 +670,7 @@ extension WorkspaceStateStorage {
                     let kind = try container.decode(String.self, forKey: .name)
                     switch kind {
                     case "local", "fileSystem":
-                        let path = try container.decode(AbsolutePath.self, forKey: .path)
+                        let path = try container.decode(Basics.AbsolutePath.self, forKey: .path)
                         return self.init(underlying: .fileSystem(path))
                     case "checkout", "sourceControlCheckout":
                         let checkout = try container.decode(CheckoutInfo.self, forKey: .checkoutState)
@@ -679,14 +680,14 @@ extension WorkspaceStateStorage {
                         return try self
                             .init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version)))
                     case "edited":
-                        let path = try container.decode(AbsolutePath?.self, forKey: .path)
+                        let path = try container.decode(Basics.AbsolutePath?.self, forKey: .path)
                         return try self.init(underlying: .edited(
                             basedOn: basedOn.map { try .init($0) },
                             unmanagedPath: path
                         ))
                     case "custom":
                         let version = try container.decode(String.self, forKey: .version)
-                        let path = try container.decode(AbsolutePath.self, forKey: .path)
+                        let path = try container.decode(Basics.AbsolutePath.self, forKey: .path)
                         return try self.init(underlying: .custom(
                             version: TSCUtility.Version(versionString: version),
                             path: path
@@ -1025,7 +1026,7 @@ extension WorkspaceStateStorage {
                     let kind = try container.decode(String.self, forKey: .name)
                     switch kind {
                     case "local", "fileSystem":
-                        let path = try container.decode(AbsolutePath.self, forKey: .path)
+                        let path = try container.decode(Basics.AbsolutePath.self, forKey: .path)
                         return self.init(underlying: .fileSystem(path))
                     case "checkout", "sourceControlCheckout":
                         let checkout = try container.decode(CheckoutInfo.self, forKey: .checkoutState)
@@ -1035,14 +1036,14 @@ extension WorkspaceStateStorage {
                         return try self
                             .init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version)))
                     case "edited":
-                        let path = try container.decode(AbsolutePath?.self, forKey: .path)
+                        let path = try container.decode(Basics.AbsolutePath?.self, forKey: .path)
                         return try self.init(underlying: .edited(
                             basedOn: basedOn.map { try .init($0) },
                             unmanagedPath: path
                         ))
                     case "custom":
                         let version = try container.decode(String.self, forKey: .version)
-                        let path = try container.decode(AbsolutePath.self, forKey: .path)
+                        let path = try container.decode(Basics.AbsolutePath.self, forKey: .path)
                         return try self.init(underlying: .custom(
                             version: TSCUtility.Version(versionString: version),
                             path: path
@@ -1215,7 +1216,7 @@ extension Workspace.ManagedDependency {
 
 extension Workspace.ManagedArtifact {
     fileprivate init(_ artifact: WorkspaceStateStorage.V5.Artifact) throws {
-        let path = try AbsolutePath(validating: artifact.path)
+        let path = try Basics.AbsolutePath(validating: artifact.path)
         try self.init(
             packageRef: .init(artifact.packageRef),
             targetName: artifact.targetName,
@@ -1337,7 +1338,7 @@ extension WorkspaceStateStorage {
                         let checkout = try container.decode(CheckoutInfo.self, forKey: .checkoutState)
                         return try self.init(underlying: .sourceControlCheckout(.init(checkout)))
                     case "edited":
-                        let path = try container.decode(AbsolutePath?.self, forKey: .path)
+                        let path = try container.decode(Basics.AbsolutePath?.self, forKey: .path)
                         return try self.init(underlying: .edited(
                             basedOn: basedOn.map { try .init($0) },
                             unmanagedPath: path
@@ -1458,7 +1459,7 @@ extension Workspace.ManagedDependency {
 
 extension Workspace.ManagedArtifact {
     fileprivate init(_ artifact: WorkspaceStateStorage.V4.Artifact) throws {
-        let path = try AbsolutePath(validating: artifact.path)
+        let path = try Basics.AbsolutePath(validating: artifact.path)
         try self.init(
             packageRef: .init(artifact.packageRef),
             targetName: artifact.targetName,
@@ -1479,7 +1480,7 @@ extension PackageModel.PackageReference {
         case "local":
             kind = try .fileSystem(.init(validating: reference.location))
         case "remote":
-            if let path = try? AbsolutePath(validating: reference.location) {
+            if let path = try? Basics.AbsolutePath(validating: reference.location) {
                 kind = .localSourceControl(path)
             } else {
                 kind = .remoteSourceControl(SourceControlURL(reference.location))
@@ -1512,7 +1513,7 @@ extension CheckoutState {
 // backwards compatibility for older formats
 
 extension BinaryModule.Kind {
-    fileprivate static func forPath(_ path: AbsolutePath) -> Self {
+    fileprivate static func forPath(_ path: Basics.AbsolutePath) -> Self {
         if let kind = allCases.first(where: { $0.fileExtension == path.extension }) {
             return kind
         }

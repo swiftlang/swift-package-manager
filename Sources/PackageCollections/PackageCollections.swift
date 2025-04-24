@@ -13,6 +13,7 @@
 import _Concurrency
 import Basics
 import PackageModel
+import Foundation
 
 import protocol TSCBasic.Closable
 

@@ -969,6 +969,7 @@ extension ProjectModel.BuildSettings.Platform {
         case .windows: .windows
         case .wasi: .wasi
         case .openbsd: .openbsd
+        case .freebsd: .freebsd
         default: preconditionFailure("Unexpected platform: \(platform.name)")
         }
     }
