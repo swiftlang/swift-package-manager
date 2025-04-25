@@ -259,3 +259,21 @@ public struct CommandExecutionError: Error {
     public let stdout: String
     public let stderr: String
 }
+
+/// Skips the test if running on a platform which lacks the ability for build tasks to set a working directory due to lack of requisite system API.
+///
+/// Presently, relevant platforms include Amazon Linux 2 and OpenBSD.
+///
+/// - seealso: https://github.com/swiftlang/swift-package-manager/issues/8560
+public func XCTSkipIfWorkingDirectoryUnsupported() throws {
+    func unavailable() throws {
+        throw XCTSkip("Thread-safe process working directory support is unavailable on this platform.")
+    }
+    #if os(Linux)
+    if FileManager.default.contents(atPath: "/etc/system-release").map({ String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" }) ?? false {
+        try unavailable()
+    }
+    #elseif os(OpenBSD)
+    try unavailable()
+    #endif
+}

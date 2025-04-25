@@ -3906,11 +3906,8 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
 
 #if !os(macOS)
     override func testCommandPluginTestingCallbacks() async throws {
-#if os(Linux)
-        if FileManager.default.contents(atPath: "/etc/system-release").map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false {
-            throw XCTSkip("Skipping Swift Build testing on Amazon Linux because of platform issues.")
-        }
-#endif
+        try XCTSkipIfWorkingDirectoryUnsupported()
+
         try await super.testCommandPluginTestingCallbacks()
     }
 #endif
