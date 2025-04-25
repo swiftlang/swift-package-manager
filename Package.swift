@@ -429,6 +429,12 @@ let package = Package(
             ]
         ),
 
+        // MARK: Documentation
+
+        .target(
+            name: "PackageManagerDocs"
+        ),
+
         // MARK: Package Manager Functionality
 
         .target(
@@ -1043,6 +1049,8 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/apple/swift-collections.git", "1.0.1" ..< "1.2.0"),
         .package(url: "https://github.com/apple/swift-certificates.git", "1.0.1" ..< "1.6.0"),
         .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", from: "1.0.0"),
+        // For use in previewing documentation
+        .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.1.0"),
     ]
 } else {
     package.dependencies += [
