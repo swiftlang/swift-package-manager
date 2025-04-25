@@ -267,8 +267,11 @@ extension PackagePIFProjectBuilder {
 
                 if result.shouldGenerateBundleAccessor {
                     settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"
-                    settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE") }
-                } else {
+
+                    if mainModule.usesSwift {
+                        settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE") }
+                    }
+                } else if mainModule.usesSwift {
                     settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE") }
                 }
                 if result.shouldGenerateEmbedInCodeAccessor {
