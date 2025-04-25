@@ -13,7 +13,7 @@
 extension Version: ExpressibleByStringLiteral {
     /// Initializes a version struct with the provided string literal.
     ///
-    /// - Parameter version: A string literal to use for creating a new version struct.
+    /// - Parameter value: A string literal to use for creating a new version struct.
     public init(stringLiteral value: String) {
         if let version = Version(value) {
             self = version
@@ -29,7 +29,7 @@ extension Version: ExpressibleByStringLiteral {
 
     /// Initializes a version struct with the provided extended grapheme cluster.
     ///
-    /// - Parameter version: An extended grapheme cluster to use for creating a new
+    /// - Parameter value: An extended grapheme cluster to use for creating a new
     ///   version struct.
     public init(extendedGraphemeClusterLiteral value: String) {
         self.init(stringLiteral: value)
@@ -37,7 +37,7 @@ extension Version: ExpressibleByStringLiteral {
 
     /// Initializes a version struct with the provided Unicode string.
     ///
-    /// - Parameter version: A Unicode string to use for creating a new version struct.
+    /// - Parameter value: A Unicode string to use for creating a new version struct.
     public init(unicodeScalarLiteral value: String) {
         self.init(stringLiteral: value)
     }
@@ -45,7 +45,7 @@ extension Version: ExpressibleByStringLiteral {
 
 extension Version: LosslessStringConvertible {
     /// Initializes a version struct with the provided version string.
-    /// - Parameter version: A version string to use for creating a new version struct.
+    /// - Parameter versionString: A version string to use for creating a new version struct.
     public init?(_ versionString: String) {
         // SemVer 2.0.0 allows only ASCII alphanumerical characters and "-" in the version string, except for "." and "+" as delimiters. ("-" is used as a delimiter between the version core and pre-release identifiers, but it's allowed within pre-release and metadata identifiers as well.)
         // Alphanumerics check will come later, after each identifier is split out (i.e. after the delimiters are removed).
