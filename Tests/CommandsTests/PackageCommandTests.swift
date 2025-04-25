@@ -3303,6 +3303,12 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
     }
 
     func testCommandPluginTestingCallbacks() async throws {
+#if os(Linux)
+        if FileManager.default.contents(atPath: "/etc/system-release").map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false {
+            throw XCTSkip("Skipping Swift Build testing on Amazon Linux because of platform issues.")
+        }
+#endif
+
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
