@@ -311,6 +311,12 @@ extension Basics.Diagnostic {
         return .error("\(messagePrefix) in dependencies of target '\(targetName)'; valid packages are: \(validPackages.map{ "\($0.descriptionForValidation)" }.joined(separator: ", "))")
     }
 
+    static func invalidDependencyOnTestTarget(dependency: Module.Dependency, targetName: String) -> Self {
+        .error(
+            "Invalid dependency: '\(targetName)' cannot depend on test target dependency '\(dependency.name)'. Only test targets can depend on other test targets"
+        )
+    }
+
     static func invalidBinaryLocation(targetName: String) -> Self {
         .error("invalid location for binary target '\(targetName)'")
     }
