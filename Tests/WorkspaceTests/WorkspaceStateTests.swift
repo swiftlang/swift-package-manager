@@ -486,7 +486,7 @@ final class WorkspaceStateTests: XCTestCase {
 }
 
 extension WorkspaceState {
-    fileprivate convenience init(fileSystem: FileSystem, storageDirectory: AbsolutePath) {
+    fileprivate init(fileSystem: FileSystem, storageDirectory: AbsolutePath) {
         self.init(fileSystem: fileSystem, storageDirectory: storageDirectory, initializationWarningHandler: { _ in })
     }
 }

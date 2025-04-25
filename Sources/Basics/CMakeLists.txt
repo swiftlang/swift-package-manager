@@ -24,6 +24,7 @@ add_library(Basics
   Concurrency/ThreadSafeArrayStore.swift
   Concurrency/ThreadSafeBox.swift
   Concurrency/ThreadSafeKeyValueStore.swift
+  Concurrency/ThrowingDefer.swift
   Concurrency/TokenBucket.swift
   DispatchTimeInterval+Extensions.swift
   Environment/Environment.swift

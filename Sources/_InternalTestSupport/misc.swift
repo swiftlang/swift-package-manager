@@ -29,6 +29,7 @@ import struct SPMBuildCore.BuildParameters
 import TSCTestSupport
 import Workspace
 import func XCTest.XCTFail
+import struct XCTest.XCTSkip
 
 import struct TSCBasic.ByteString
 import struct Basics.AsyncProcessResult
@@ -172,13 +173,22 @@ fileprivate func verifyFixtureExists(at fixtureSubpath: RelativePath, file: Stat
     return fixtureDir
 }
 
-fileprivate func setup(fixtureDir: AbsolutePath, in tmpDirPath: AbsolutePath, copyName: String, createGitRepo: Bool = true) throws -> AbsolutePath {
+fileprivate func setup(
+    fixtureDir: AbsolutePath,
+    in tmpDirPath: AbsolutePath,
+    copyName: String,
+    createGitRepo: Bool = true
+) throws -> AbsolutePath {
     func copy(from srcDir: AbsolutePath, to dstDir: AbsolutePath) throws {
-#if os(Windows)
+        #if os(Windows)
         try localFileSystem.copy(from: srcDir, to: dstDir)
-#else
+        #else
         try systemQuietly("cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
-#endif
+        #endif
+        
+        // Ensure we get a clean test fixture.
+        try localFileSystem.removeFileTree(dstDir.appending(component: ".build"))
+        try localFileSystem.removeFileTree(dstDir.appending(component: ".swiftpm"))
     }
 
     // The fixture contains either a checkout or just a Git directory.
@@ -274,6 +284,18 @@ public func executeSwiftBuild(
         buildSystem: buildSystem
     )
     return try await SwiftPM.Build.execute(args, packagePath: packagePath, env: env)
+}
+
+public func skipOnWindowsAsTestCurrentlyFails(because reason: String? = nil) throws {
+    #if os(Windows)
+    let failureCause: String
+    if let reason {
+        failureCause = " because \(reason.description)"
+    } else {
+        failureCause = ""
+    }
+    throw XCTSkip("Test fails on windows\(failureCause)")
+    #endif
 }
 
 @discardableResult

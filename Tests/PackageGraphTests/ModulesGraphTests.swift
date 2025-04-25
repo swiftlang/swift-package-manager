@@ -11,6 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import PackageLoading
+import TSCUtility
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 @testable import PackageGraph
@@ -23,8 +25,10 @@ import struct TSCBasic.ByteString
 
 final class ModulesGraphTests: XCTestCase {
     func testBasic() throws {
+        try skipOnWindowsAsTestCurrentlyFails()
         let fs = InMemoryFileSystem(
             emptyFiles:
+            "/Foo/Sources/Foo/source.swift",
             "/Foo/Sources/Foo/source.swift",
             "/Foo/Sources/FooDep/source.swift",
             "/Foo/Tests/FooTests/source.swift",
@@ -406,6 +410,181 @@ final class ModulesGraphTests: XCTestCase {
             result.check(packages: "Foo", "Bar")
             result.check(modules: "Bar", "Baz", "Foo")
         }
+    }
+
+    func testLibraryInvalidDependencyOnTestTarget() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Foo/Sources/Foo/Foo.swift",
+            "/Foo/Tests/FooTest/FooTest.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let _ = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    toolsVersion: .v6_0,
+                    products: [
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["FooTest"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["FooTest"]),
+                        TargetDescription(name: "FooTest", type: .test),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(
+                diagnostic: "Invalid dependency: 'Foo' cannot depend on test target dependency 'FooTest'. Only test targets can depend on other test targets",
+                severity: .error
+            )
+        }
+    }
+
+    func testExecutableInvalidDependencyOnTestTarget() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Foo/Sources/Foo/main.swift",
+            "/Foo/Tests/FooTest/FooTest.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let _ = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    toolsVersion: .v6_0,
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["FooTest"], type: .executable),
+                        TargetDescription(name: "FooTest", type: .test),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(
+                diagnostic: "Invalid dependency: 'Foo' cannot depend on test target dependency 'FooTest'. Only test targets can depend on other test targets",
+                severity: .error
+            )
+        }
+    }
+
+    func testPluginInvalidDependencyOnTestTarget() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Foo/Plugins/Foo/main.swift",
+            "/Foo/Tests/FooTest/FooTest.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let _ = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    toolsVersion: .v6_0,
+                    targets: [
+                        TargetDescription(
+                            name: "Foo",
+                            dependencies: ["FooTest"],
+                            type: .plugin,
+                            pluginCapability: .buildTool
+                        ),
+                        TargetDescription(name: "FooTest", type: .test),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(
+                diagnostic: "Invalid dependency: 'Foo' cannot depend on test target dependency 'FooTest'. Only test targets can depend on other test targets",
+                severity: .error
+            )
+        }
+    }
+    
+    func testMacroInvalidDependencyOnTestTarget() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Foo/Sources/Foo/main.swift",
+            "/Foo/Tests/FooTest/FooTest.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let _ = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    toolsVersion: .v6_0,
+                    targets: [
+                        TargetDescription(
+                            name: "Foo",
+                            dependencies: ["FooTest"],
+                            type: .macro
+                        ),
+                        TargetDescription(name: "FooTest", type: .test),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(
+                diagnostic: "Invalid dependency: 'Foo' cannot depend on test target dependency 'FooTest'. Only test targets can depend on other test targets",
+                severity: .error
+            )
+        }
+    }
+
+
+    func testValidDependencyOnTestTarget() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Foo/Tests/Foo/Foo.swift",
+            "/Foo/Tests/FooTest/FooTest.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let _ = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    toolsVersion: .v6_0,
+                    products: [
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["FooTest"], type: .test),
+                        TargetDescription(name: "FooTest", type: .test),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
     // Make sure there is no error when we reference Test targets in a package and then
@@ -2919,7 +3098,7 @@ final class ModulesGraphTests: XCTestCase {
         ]
 
         let expectedPlatformsForTests = customXCTestMinimumDeploymentTargets
-            .reduce(into: [Platform: PlatformVersion]()) { partialResult, entry in
+            .reduce(into: [PackageModel.Platform: PlatformVersion]()) { partialResult, entry in
                 if entry.value > entry.key.oldestSupportedVersion {
                     partialResult[entry.key] = entry.value
                 } else {

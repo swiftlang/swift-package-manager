@@ -13,6 +13,7 @@
 import Basics
 import Dispatch
 import PackageModel
+import TSCBasic
 
 /// An utility class around PackageContainerProvider that allows "prefetching" the containers
 /// in parallel. The basic idea is to kick off container fetching before starting the resolution

@@ -18,7 +18,7 @@ public class StringChecker {
 
     public init(string: String) {
         self.string = string
-        self.lines = string.split(separator: "\n")
+        self.lines = string.split(separator: ProcessInfo.EOL)
         self.currentLineIndex = 0
     }
 

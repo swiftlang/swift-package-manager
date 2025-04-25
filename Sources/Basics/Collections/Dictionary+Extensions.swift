@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import TSCBasic
+
 extension Dictionary {
     @inlinable
     @discardableResult

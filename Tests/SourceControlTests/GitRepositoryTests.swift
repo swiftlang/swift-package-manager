@@ -126,9 +126,8 @@ class GitRepositoryTests: XCTestCase {
     /// `Inputs`, which has known commit hashes. See the `construct.sh` script
     /// contained within it for more information.
     func testRawRepository() throws {
-#if os(Windows)
-        try XCTSkipIf(true, "test repository has non-portable file names")
-#endif
+        try skipOnWindowsAsTestCurrentlyFails(because: "https://github.com/swiftlang/swift-package-manager/issues/8385: test repository has non-portable file names")
+
         try testWithTemporaryDirectory { path in
             // Unarchive the static test repository.
             let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", "TestRepo.tgz")

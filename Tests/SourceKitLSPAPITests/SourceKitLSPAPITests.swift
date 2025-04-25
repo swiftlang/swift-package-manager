@@ -86,7 +86,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                 "-package-name", "pkg",
                 "-emit-dependencies",
                 "-emit-module",
-                "-emit-module-path", "/path/to/build/\(plan.destinationBuildParameters.triple)/debug/Modules/exe.swiftmodule"
+                "-emit-module-path", AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/Modules/exe.swiftmodule").pathString
             ],
             resources: [.init(filePath: "/Pkg/Sources/exe/Resources/some_file.txt")],
             ignoredFiles: [.init(filePath: "/Pkg/Sources/exe/exe.docc")],
@@ -101,7 +101,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                 "-package-name", "pkg",
                 "-emit-dependencies",
                 "-emit-module",
-                "-emit-module-path", "/path/to/build/\(plan.destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule"
+                "-emit-module-path", AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule").pathString
             ],
             resources: [.init(filePath: "/Pkg/Sources/lib/Resources/some_file.txt")],
             ignoredFiles: [.init(filePath: "/Pkg/Sources/lib/lib.docc")],
@@ -112,7 +112,7 @@ final class SourceKitLSPAPITests: XCTestCase {
             for: "plugin",
             graph: graph,
             partialArguments: [
-                "-I", "/fake/manifestLib/path"
+                "-I", AbsolutePath("/fake/manifestLib/path").pathString
             ],
             isPartOfRootPackage: true,
             destination: .host
@@ -313,7 +313,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                     "-package-name", "pkg",
                     "-emit-dependencies",
                     "-emit-module",
-                    "-emit-module-path", "/path/to/build/\(destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule"
+                    "-emit-module-path", AbsolutePath("/path/to/build/\(destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule").pathString
                 ],
                 isPartOfRootPackage: true
             )

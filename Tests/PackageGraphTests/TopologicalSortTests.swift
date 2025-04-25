@@ -37,7 +37,7 @@ extension Int {
 extension Int: @retroactive Identifiable {}
 
 private func topologicalSort(_ nodes: [Int], _ successors: [Int: [Int]]) throws -> [Int] {
-    return try topologicalSort(nodes, successors: { successors[$0] ?? [] })
+    return try topologicalSortIdentifiable(nodes, successors: { successors[$0] ?? [] })
 }
 private func topologicalSort(_ node: Int, _ successors: [Int: [Int]]) throws -> [Int] {
     return try topologicalSort([node], successors)

@@ -14,6 +14,12 @@ import Testing
 import TSCBasic
 import TSCTestSupport
 
+// TODO: This should be replaced with BuildSystem.BuildSystemProvider if 'IntegrationTests' are moved up under the swift-package-manager tests.
+public enum BuildSystemProvider: String, Codable, CaseIterable {
+    case native
+    case swiftbuild
+}
+
 @Suite
 private struct SwiftPMTests {
     @Test(.requireHostOS(.macOS))
@@ -22,10 +28,10 @@ private struct SwiftPMTests {
             try binaryTargetsFixture { fixturePath in
                 do {
                     withKnownIssue("error: local binary target ... does not contain a binary artifact") {
-                        let (stdout, stderr) = try sh(swiftRun, "--package-path", fixturePath, "exe")
-                        #expect(!stderr.contains("error:"))
+                        let runOutput = try sh(swiftRun, "--package-path", fixturePath, "exe")
+                        #expect(!runOutput.stderr.contains("error:"))
                         #expect(
-                            stdout == """
+                            runOutput.stdout == """
                             SwiftFramework()
                             Library(framework: SwiftFramework.SwiftFramework())
 
@@ -36,15 +42,15 @@ private struct SwiftPMTests {
 
                 do {
                     withKnownIssue("error: local binary target ... does not contain a binary artifact") {
-                        let (stdout, stderr) = try sh(swiftRun, "--package-path", fixturePath, "cexe")
-                        #expect(!stderr.contains("error:"))
-                        #expect(stdout.contains("<CLibrary: "))
+                        let runOutput = try sh(swiftRun, "--package-path", fixturePath, "cexe")
+                        #expect(!runOutput.stderr.contains("error:"))
+                        #expect(runOutput.stdout.contains("<CLibrary: "))
                     }
                 }
 
                 do {
                     let invalidPath = fixturePath.appending(component: "SwiftFramework.xcframework")
-                    let (_, stderr) = try shFails(
+                    var packageOutput = try shFails(
                         swiftPackage, "--package-path", fixturePath, "compute-checksum", invalidPath
                     )
                     #expect(
@@ -52,15 +58,15 @@ private struct SwiftPMTests {
                         //   '...supported extensions are: zip, tar.gz, tar'
                         //   '...supported extensions are: tar.gz, zip, tar'
                         // Only check for the start of that string.
-                        stderr.contains("error: unexpected file type; supported extensions are:")
+                        packageOutput.stderr.contains("error: unexpected file type; supported extensions are:")
                     )
 
                     let validPath = fixturePath.appending(component: "SwiftFramework.zip")
-                    let (stdout, _) = try sh(
+                    packageOutput = try sh(
                         swiftPackage, "--package-path", fixturePath, "compute-checksum", validPath
                     )
                     #expect(
-                        stdout.spm_chomp()
+                        packageOutput.stdout.spm_chomp()
                             == "d1f202b1bfe04dea30b2bc4038f8059dcd75a5a176f1d81fcaedb6d3597d1158"
                     )
                 }
@@ -68,45 +74,85 @@ private struct SwiftPMTests {
         }
     }
 
-    @Test(.requireThreadSafeWorkingDirectory)
-    func packageInitExecutable() throws {
-        // Executable
-        do {
-            try withTemporaryDirectory { tmpDir in
-                let packagePath = tmpDir.appending(component: "foo")
-                try localFileSystem.createDirectory(packagePath)
-                try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "executable")
-                try sh(swiftBuild, "--package-path", packagePath, "--build-system", "swiftbuild")
-                // SWBINTTODO: Path issues related to swift test of the output from a swiftbuild buildsystem
-                // let (stdout, stderr) = try sh(
-                //     swiftRun, "--package-path", packagePath, "--build-system", "swiftbuild"
-                // )
-                // #expect(!stderr.contains("error:"))
-                // #expect(stdout.contains("Hello, world!"))
+    @Test(
+        .requireThreadSafeWorkingDirectory,
+        arguments: [BuildSystemProvider.native]
+    )
+    func packageInitExecutable(_ buildSystemProvider: BuildSystemProvider) throws {
+        try _packageInitExecutable(buildSystemProvider)
+    }
+
+    @Test(
+        .skipHostOS(.windows),
+        .requireThreadSafeWorkingDirectory,
+        .bug(
+            "https://github.com/swiftlang/swift-package-manager/issues/8416",
+            "[Linux] swift run using --build-system swiftbuild fails to run executable"
+        ),
+        .bug(
+            "https://github.com/swiftlang/swift-package-manager/issues/8514",
+            "[Windows] Integration test SwiftPMTests.packageInitExecutable with --build-system swiftbuild is skipped"
+        ),
+        arguments: [BuildSystemProvider.swiftbuild]
+    )
+    func packageInitExecutablSkipWindows(_ buildSystemProvider: BuildSystemProvider) throws {
+        try _packageInitExecutable(buildSystemProvider)
+    }
+
+    private func _packageInitExecutable(_ buildSystemProvider: BuildSystemProvider) throws {
+        try withTemporaryDirectory { tmpDir in
+            let packagePath = tmpDir.appending(component: "foo")
+            try localFileSystem.createDirectory(packagePath)
+            try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "executable")
+            try sh(swiftBuild, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue)
+
+            try withKnownIssue(
+                "Error while loading shared libraries: libswiftCore.so: cannot open shared object file: No such file or directory"
+            ) {
+                // The 'native' build system uses 'swiftc' as the linker driver, which adds an RUNPATH to the swift
+                // runtime libraries in the SDK.
+                // 'swiftbuild' directly calls clang, which does not add the extra RUNPATH, so runtime libraries cannot
+                // be found.
+                let runOutput = try sh(
+                    swiftRun, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue
+                )
+                #expect(!runOutput.stderr.contains("error:"))
+                #expect(runOutput.stdout.contains("Hello, world!"))
+            } when: {
+                buildSystemProvider == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux
             }
         }
     }
 
     @Test(
-        .skipHostOS(
-            .windows,
-            "Windows fails to link this library package due to a 'lld-link: error: subsystem must be defined' error. See https://github.com/swiftlang/swift-build/issues/310"
-        ),
-        .requireThreadSafeWorkingDirectory
+        .requireThreadSafeWorkingDirectory,
+        .bug(id: 0, "SWBINTTODO: Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error:"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8380", "lld-link: error: subsystem must be defined"),
+        .bug(id: 0, "SWBINTTODO: MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found"),
+        arguments: BuildSystemProvider.allCases
     )
-    func packageInitLibrary() throws {
-        do {
-            try withTemporaryDirectory { tmpDir in
-                let packagePath = tmpDir.appending(component: "foo")
-                try localFileSystem.createDirectory(packagePath)
-                try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "library")
-                try sh(swiftBuild, "--package-path", packagePath, "--build-system", "swiftbuild")
-                // SWBINTTODO: Path issues related to swift test of the output from a swiftbuild buildsystem
-                // let (stdout, stderr) = try sh(
-                //     swiftTest, "--package-path", packagePath, "--build-system", "swiftbuild"
-                // )
-                // #expect(!stderr.contains("error:"))
-                // #expect(stdout.contains("Test Suite 'All tests' passed"))
+    func packageInitLibrary(_ buildSystemProvider: BuildSystemProvider) throws {
+        try withTemporaryDirectory { tmpDir in
+            let packagePath = tmpDir.appending(component: "foo")
+            try localFileSystem.createDirectory(packagePath)
+            try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "library")
+            try withKnownIssue(
+                """
+                Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error: undefined reference to 'main'
+                Windows: lld-link: error: subsystem must be defined
+                MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found
+                """,
+                isIntermittent: true
+            ) {
+                try sh(swiftBuild, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue)
+                let testOutput = try sh(
+                    swiftTest, "--package-path", packagePath, "--build-system", buildSystemProvider.rawValue
+                )
+                #expect(testOutput.returnCode == .terminated(code: 0))
+                #expect(!testOutput.stderr.contains("error:"))
+
+            } when: {
+                buildSystemProvider == .swiftbuild
             }
         }
     }

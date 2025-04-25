@@ -14,6 +14,8 @@ import ArgumentParser
 import Basics
 import CoreCommands
 import Foundation
+import PackageModel
+import PackageGraph
 import Workspace
 
 struct ShowExecutables: AsyncSwiftCommand {

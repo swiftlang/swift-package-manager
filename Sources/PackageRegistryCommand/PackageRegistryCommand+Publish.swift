@@ -16,6 +16,7 @@ import Commands
 import CoreCommands
 import Foundation
 import PackageModel
+import PackageFingerprint
 import PackageRegistry
 import PackageSigning
 import Workspace
@@ -221,8 +222,7 @@ extension PackageRegistryCommand {
                 metadataSignature: metadataSignature,
                 signatureFormat: self.signatureFormat,
                 fileSystem: localFileSystem,
-                observabilityScope: swiftCommandState.observabilityScope,
-                callbackQueue: .sharedConcurrent
+                observabilityScope: swiftCommandState.observabilityScope
             )
 
             switch result {

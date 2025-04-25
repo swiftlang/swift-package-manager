@@ -840,7 +840,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             XCTAssertMatch(contents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             XCTAssertFileExists(manifest)
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources")), ["main.swift"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending(("Foo"))), ["Foo.swift"])
         }
     }
 
@@ -871,7 +871,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             XCTAssertMatch(contents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             XCTAssertFileExists(manifest)
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources")), ["main.swift"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending("CustomName")), ["CustomName.swift"])
         }
     }
 
@@ -1120,7 +1120,6 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         }
     }
 
-
     func testPackageAddTarget() async throws {
         try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
@@ -1149,6 +1148,58 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             XCTAssertMatch(contents, .contains(#"dependencies:"#))
             XCTAssertMatch(contents, .contains(#""MyLib""#))
             XCTAssertMatch(contents, .contains(#""OtherLib""#))
+        }
+    }
+
+    func testPackageAddTargetWithoutModuleSourcesFolder() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let manifest = tmpPath.appending("Package.swift")
+            try fs.writeFileContents(manifest, string:
+                """
+                // swift-tools-version: 5.9
+                import PackageDescription
+                let package = Package(
+                    name: "SimpleExecutable",
+                    targets: [
+                        .executableTarget(name: "SimpleExecutable"),
+                    ]
+                )
+                """
+            )
+
+            let sourcesFolder = tmpPath.appending("Sources")
+            try fs.createDirectory(sourcesFolder)
+
+            try fs.writeFileContents(sourcesFolder.appending("main.swift"), string:
+                """
+                print("Hello World")
+                """
+            )
+
+            _ = try await execute(["add-target", "client"], packagePath: tmpPath)
+
+            XCTAssertFileExists(manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            XCTAssertMatch(contents, .contains(#"targets:"#))
+            XCTAssertMatch(contents, .contains(#".executableTarget"#))
+            XCTAssertMatch(contents, .contains(#"name: "client""#))
+
+            let fileStructure = try fs.getDirectoryContents(sourcesFolder)
+            XCTAssertEqual(fileStructure, ["SimpleExecutable", "client"])
+            XCTAssertTrue(fs.isDirectory(sourcesFolder.appending("SimpleExecutable")))
+            XCTAssertTrue(fs.isDirectory(sourcesFolder.appending("client")))
+            XCTAssertEqual(try fs.getDirectoryContents(sourcesFolder.appending("SimpleExecutable")), ["main.swift"])
+            XCTAssertEqual(try fs.getDirectoryContents(sourcesFolder.appending("client")), ["client.swift"])
+        }
+    }
+
+    func testAddTargetWithoutManifestThrows() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            await XCTAssertThrowsCommandExecutionError(try await execute(["add-target", "client"], packagePath: tmpPath)) { error in
+                XCTAssertMatch(error.stderr, .contains("error: Could not find Package.swift in this directory or any of its parent directories."))
+            }
         }
     }
 
@@ -1214,6 +1265,45 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             XCTAssertMatch(contents, .contains(#""MyLib""#))
         }
     }
+
+    func testPackageAddSetting() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageA")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(path.appending("Package.swift"), string:
+                """
+                // swift-tools-version: 6.2
+                import PackageDescription
+                let package = Package(
+                    name: "A",
+                    targets: [ .target(name: "test") ]
+                )
+                """
+            )
+
+            _ = try await execute([
+                "add-setting",
+                "--target", "test",
+                "--swift", "languageMode=6",
+                "--swift", "upcomingFeature=ExistentialAny:migratable",
+                "--swift", "experimentalFeature=TrailingCommas",
+                "--swift", "strictMemorySafety"
+            ], packagePath: path)
+
+            let manifest = path.appending("Package.swift")
+            XCTAssertFileExists(manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            XCTAssertMatch(contents, .contains(#"swiftSettings:"#))
+            XCTAssertMatch(contents, .contains(#".swiftLanguageMode(.v6)"#))
+            XCTAssertMatch(contents, .contains(#".enableUpcomingFeature("ExistentialAny:migratable")"#))
+            XCTAssertMatch(contents, .contains(#".enableExperimentalFeature("TrailingCommas")"#))
+            XCTAssertMatch(contents, .contains(#".strictMemorySafety"#))
+        }
+    }
+
     func testPackageEditAndUnedit() async throws {
         try await fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
             let fooPath = fixturePath.appending("foo")

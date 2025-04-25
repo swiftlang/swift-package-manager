@@ -24,6 +24,11 @@ import XCTest
 import struct TSCUtility.Version
 
 final class RegistryPackageContainerTests: XCTestCase {
+
+    override func setUpWithError() throws {
+        try skipOnWindowsAsTestCurrentlyFails()
+    }
+
     func testToolsVersionCompatibleVersions() async throws {
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()

@@ -19,6 +19,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
+import TSCBasic
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import SwiftDriver
@@ -90,7 +91,7 @@ extension [String] {
 
 extension BuildParameters {
     /// Returns the directory to be used for module cache.
-    public var moduleCache: AbsolutePath {
+    public var moduleCache: Basics.AbsolutePath {
         get throws {
             // FIXME: We use this hack to let swiftpm's functional test use shared
             // cache so it doesn't become painfully slow.
@@ -151,10 +152,30 @@ extension BuildParameters {
             args = ["-alias", "_\(target.c99name)_main", "_main"]
         case .elf:
             args = ["--defsym", "main=\(target.c99name)_main"]
+        case .coff:
+            // If the user is specifying a custom entry point name that isn't "main", assume they may be setting WinMain or wWinMain
+            // and don't do any modifications ourselves. In that case the linker will infer the WINDOWS subsystem and call WinMainCRTStartup,
+            // which will then call the custom entry point. And WinMain/wWinMain != main, so this still won't run into duplicate symbol
+            // issues when called from a test target, which always uses main.
+            if let customEntryPointFunctionName = findCustomEntryPointFunctionName(of: target), customEntryPointFunctionName != "main" {
+                return nil
+            }
+            args = ["/ALTERNATENAME:main=\(target.c99name)_main", "/SUBSYSTEM:CONSOLE"]
         default:
             return nil
         }
         return args.asSwiftcLinkerFlags()
+    }
+
+    private func findCustomEntryPointFunctionName(of target: ResolvedModule) -> String? {
+        let flags = createScope(for: target).evaluate(.OTHER_SWIFT_FLAGS)
+        var it = flags.makeIterator()
+        while let value = it.next() {
+            if value == "-Xfrontend" && it.next() == "-entry-point-function-name" && it.next() == "-Xfrontend" {
+                return it.next()
+            }
+        }
+        return nil
     }
 
     /// Returns the scoped view of build settings for a given target.
@@ -168,9 +189,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Return value of `inputs()`
     package enum Input {
         /// Any file in this directory affects the build plan
-        case directoryStructure(AbsolutePath)
+        case directoryStructure(Basics.AbsolutePath)
         /// The file at the given path affects the build plan
-        case file(AbsolutePath)
+        case file(Basics.AbsolutePath)
     }
 
     public enum Error: Swift.Error, CustomStringConvertible, Equatable {
@@ -276,7 +297,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         pluginConfiguration: PluginConfiguration? = nil,
         pluginTools: [ResolvedModule.ID: [String: PluginTool]] = [:],
         additionalFileRules: [FileRuleDescription] = [],
-        pkgConfigDirectories: [AbsolutePath] = [],
+        pkgConfigDirectories: [Basics.AbsolutePath] = [],
         disableSandbox: Bool = false,
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope
@@ -698,7 +719,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 .map { .directoryStructure($0) }
 
             // Add the output paths of any prebuilds that were run, so that we redo the plan if they change.
-            var derivedSourceDirPaths: [AbsolutePath] = []
+            var derivedSourceDirPaths: [Basics.AbsolutePath] = []
             for result in self.prebuildCommandResults.values.flatMap({ $0 }) {
                 derivedSourceDirPaths.append(contentsOf: result.outputDirectories)
             }
@@ -768,7 +789,7 @@ extension BuildPlan {
         modulesGraph: ModulesGraph,
         tools: [ResolvedModule.ID: [String: PluginTool]],
         additionalFileRules: [FileRuleDescription],
-        pkgConfigDirectories: [AbsolutePath],
+        pkgConfigDirectories: [Basics.AbsolutePath],
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope,
         surfaceDiagnostics: Bool = false
@@ -895,8 +916,8 @@ extension BuildPlan {
         try pluginResults.map { pluginResult in
             // As we go we will collect a list of prebuild output directories whose contents should be input to the
             // build, and a list of the files in those directories after running the commands.
-            var derivedFiles: [AbsolutePath] = []
-            var prebuildOutputDirs: [AbsolutePath] = []
+            var derivedFiles: [Basics.AbsolutePath] = []
+            var prebuildOutputDirs: [Basics.AbsolutePath] = []
             for command in pluginResult.prebuildCommands {
                 observabilityScope
                     .emit(
@@ -1154,8 +1175,8 @@ extension BuildPlan {
 
     package func traverseDependencies(
         of description: ModuleBuildDescription,
-        onProduct: (ResolvedProduct, BuildParameters.Destination, ProductBuildDescription?) -> Void,
-        onModule: (ResolvedModule, BuildParameters.Destination, ModuleBuildDescription?) -> Void
+        onProduct: (ResolvedProduct, BuildParameters.Destination, ProductBuildDescription?) -> DepthFirstContinue,
+        onModule: (ResolvedModule, BuildParameters.Destination, ModuleBuildDescription?) -> DepthFirstContinue
     ) {
         var visited = Set<TraversalNode>()
         func successors(
@@ -1196,16 +1217,16 @@ extension BuildPlan {
             case .package:
                 []
             }
-        } onNext: { module, _ in
+        } visitNext: { module, _ in
             switch module {
             case .package:
-                break
+                return .continue
 
             case .product(let product, let destination):
-                onProduct(product, destination, self.description(for: product, context: destination))
+                return onProduct(product, destination, self.description(for: product, context: destination))
 
             case .module(let module, let destination):
-                onModule(module, destination, self.description(for: module, context: destination))
+                return onModule(module, destination, self.description(for: module, context: destination))
             }
         }
     }
@@ -1248,7 +1269,7 @@ extension Basics.Diagnostic {
 
 extension BuildParameters {
     /// Returns a named bundle's path inside the build directory.
-    func bundlePath(named name: String) -> AbsolutePath {
+    func bundlePath(named name: String) -> Basics.AbsolutePath {
         self.buildPath.appending(component: name + self.triple.nsbundleExtension)
     }
 }
@@ -1257,7 +1278,7 @@ extension BuildParameters {
 func generateResourceInfoPlist(
     fileSystem: FileSystem,
     target: ResolvedModule,
-    path: AbsolutePath
+    path: Basics.AbsolutePath
 ) throws -> Bool {
     guard let defaultLocalization = target.defaultLocalization else {
         return false

@@ -2955,7 +2955,7 @@ final class PIFBuilderTests: XCTestCase {
             "/Foo/Sources/qux/main.swift"
         )
 
-        let observability = ObservabilitySystem.makeForTesting()
+        let observability = ObservabilitySystem.makeForTesting(verbose: false) // Don't print expected [error]s.
         let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
