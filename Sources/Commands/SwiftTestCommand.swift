@@ -1066,6 +1066,8 @@ final class ParallelTestRunner {
 
     /// The queue containing list of tests to run (producer).
     private let pendingTests = SynchronizedQueue<UnitTest?>()
+    private var remaining = Set<String>()
+    private var remainingLock = NSLock()
 
     /// The queue containing tests which are finished running.
     private let finishedTests = SynchronizedQueue<TestResult?>()
@@ -1147,6 +1149,7 @@ final class ParallelTestRunner {
         // Enqueue all the tests.
         for test in tests {
             pendingTests.enqueue(test)
+            remaining.insert(test.specifier)
         }
         self.numTests = tests.count
         self.numCurrentTest = 0
@@ -1192,6 +1195,15 @@ final class ParallelTestRunner {
                     let duration = start.distance(to: .now())
                     if result == .failure {
                         self.ranSuccessfully = false
+                    }
+                    self.remainingLock.withLock {
+                        self.remaining.remove(test.specifier)
+                        if self.remaining.count < 10 {
+                            print("Remaining:", self.remaining.count)
+                            for test in self.remaining {
+                                print(">", test)
+                            }
+                        }
                     }
                     self.finishedTests.enqueue(TestResult(
                         unitTest: test,
