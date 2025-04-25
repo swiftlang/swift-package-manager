@@ -1385,7 +1385,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
 
     func testPackageClean() async throws {
         try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-            let packageRoot = fixturePath.appending("Bar")
+            let packageRoot: AbsolutePath = fixturePath.appending("Bar")
 
             // Build it.
             await XCTAssertBuilds(packageRoot)
@@ -1397,6 +1397,8 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             // Clean, and check for removal of the build directory but not Packages.
             _ = try await execute(["clean"], packagePath: packageRoot)
             XCTAssertNoSuchPath(binFile)
+            XCTAssertFalse(try localFileSystem.getDirectoryContents(buildPath.appending("repositories")).isEmpty)
+
             // Clean again to ensure we get no error.
             _ = try await execute(["clean"], packagePath: packageRoot)
         }
@@ -1412,15 +1414,10 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             let binFile = buildPath.appending(components: try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Bar")
             XCTAssertFileExists(binFile)
             XCTAssert(localFileSystem.isDirectory(buildPath))
-            // Clean, and check for removal of the build directory but not Packages.
-
-            _ = try await execute(["clean"], packagePath: packageRoot)
-            XCTAssertNoSuchPath(binFile)
-            XCTAssertFalse(try localFileSystem.getDirectoryContents(buildPath.appending("repositories")).isEmpty)
 
             // Fully clean.
             _ = try await execute(["reset"], packagePath: packageRoot)
-            XCTAssertFalse(localFileSystem.isDirectory(buildPath))
+            XCTAssertFalse(localFileSystem.exists(buildPath))
 
             // Test that we can successfully run reset again.
             _ = try await execute(["reset"], packagePath: packageRoot)
@@ -3898,15 +3895,15 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
     }
 
     override func testCommandPluginBuildingCallbacks() async throws {
-        throw XCTSkip("SWBINTTODO: Test fails as plugins are not currenty supported")
+        try XCTSkipSwiftBuildTodo(because: "Test fails as plugins are not currenty supported")
     }
     override func testCommandPluginBuildTestability() async throws {
-        throw XCTSkip("SWBINTTODO: Test fails as plugins are not currenty supported")
+        try XCTSkipSwiftBuildTodo(because: "Test fails as plugins are not currenty supported")
     }
 
 #if !os(macOS)
     override func testCommandPluginTestingCallbacks() async throws {
-        throw XCTSkip("SWBINTTODO: Test fails on inability to find libclang on Linux. Also, plugins are not currently supported")
+        try XCTSkipSwiftBuildTodo(because: "Test fails on inability to find libclang on Linux. Also, plugins are not currently supported")
     }
 #endif
 }
