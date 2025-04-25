@@ -18,13 +18,20 @@ import enum TSCBasic.SystemError
 import class TSCBasic.Thread
 import protocol TSCBasic.WritableByteStream
 
+/// Process result data which is available after process termination.
+
+/// Process allows spawning new subprocesses and working with them.
+///
+/// Note: This class is thread safe.
+
+// MARK: - Private helpers
+
 #if os(Windows)
     import TSCLibc
     import WinSDK
 #elseif canImport(Android)
     import Android
-#endif
-
+#endif  // #if os(Linux)
 #if os(Linux)
     #if USE_IMPL_ONLY_IMPORTS
         @_implementationOnly import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
@@ -35,8 +42,6 @@ import protocol TSCBasic.WritableByteStream
         private import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
     #endif  // #if USE_IMPL_ONLY_IMPORTS
 #endif  // #if os(Linux)
-
-/// Process result data which is available after process termination.
 package struct AsyncProcessResult: CustomStringConvertible, Sendable {
     package enum Error: Swift.Error, Sendable {
         /// The output is not a valid UTF8 sequence.
@@ -142,25 +147,19 @@ package struct AsyncProcessResult: CustomStringConvertible, Sendable {
     package var description: String {
         """
         <AsyncProcessResult: exit: \(exitStatus), output:
-         \((try? utf8Output()) ?? "")
+            \((try? utf8Output()) ?? "")
         >
         """
     }
-}
-
-extension AsyncProcess: @unchecked Sendable {}
-
+}  // #if os(Linux)
+extension AsyncProcess: @unchecked Sendable {}  // #if os(Linux)
 extension DispatchQueue {
     // a shared concurrent queue for running concurrent asynchronous operations
     static let processConcurrent = DispatchQueue(
         label: "swift.org.swift-tsc.process.concurrent",
         attributes: .concurrent
     )
-}
-
-/// Process allows spawning new subprocesses and working with them.
-///
-/// Note: This class is thread safe.
+}  // #if os(Linux)
 package final class AsyncProcess {
     /// Errors when attempting to invoke a process
     package enum Error: Swift.Error, Sendable {
@@ -172,6 +171,11 @@ package final class AsyncProcess {
 
         /// The stdin could not be opened.
         case stdinUnavailable
+
+        #if os(Windows)
+            /// Errors from Win32 calls.
+            case win32Error(msg: String, code: DWORD)
+        #endif
     }
 
     package typealias ReadableStream = AsyncStream<[UInt8]>
@@ -301,10 +305,7 @@ package final class AsyncProcess {
 
     /// The process id of the spawned process, available after the process is launched.
     #if os(Windows)
-        private var _process: Foundation.Process?
-        package var processID: ProcessID {
-            DWORD(self._process?.processIdentifier ?? 0)
-        }
+        private var processHandle: HANDLE?
     #else
         package private(set) var processID = ProcessID()
     #endif
@@ -478,27 +479,128 @@ package final class AsyncProcess {
             loggingHandler(self.arguments.map { $0.spm_shellEscaped() }.joined(separator: " "))
         }
 
-        // Look for executable.
-        let executable = self.arguments[0]
-        guard
-            let executablePath = AsyncProcess.findExecutable(
-                executable, workingDirectory: workingDirectory)
-        else {
-            throw AsyncProcess.Error.missingExecutableProgram(program: executable)
-        }
-
         #if os(Windows)
-            let process = Foundation.Process()
-            self._process = process
-            process.arguments = Array(self.arguments.dropFirst())  // Avoid including the executable URL twice.
-            if let workingDirectory {
-                process.currentDirectoryURL = workingDirectory.asURL
-            }
-            process.executableURL = executablePath.asURL
-            process.environment = .init(self.environment)
+            var secAttr = SECURITY_ATTRIBUTES()
+            secAttr.nLength = DWORD(MemoryLayout<SECURITY_ATTRIBUTES>.size)
+            secAttr.lpSecurityDescriptor = nil
+            secAttr.bInheritHandle = true
 
-            let stdinPipe = Pipe()
-            process.standardInput = stdinPipe
+            let NULL = OpaquePointer(bitPattern: 0)
+            var childStdOutRead = HANDLE(NULL)
+            var childStdOutWrite = HANDLE(NULL)
+
+            if !CreatePipe(&childStdOutRead, &childStdOutWrite, &secAttr, 0) {
+                throw AsyncProcess.Error.win32Error(
+                    msg: "creating stdout pipe", code: GetLastError()
+                )
+            }
+
+            if !SetHandleInformation(childStdOutRead, HANDLE_FLAG_INHERIT, 0) {
+                throw AsyncProcess.Error.win32Error(
+                    msg: "setting stdout read inherit", code: GetLastError()
+                )
+            }
+
+            var childStdErrRead = HANDLE(NULL)
+            var childStdErrWrite = HANDLE(NULL)
+
+            if !self.outputRedirection.redirectStderr {
+                if !CreatePipe(&childStdErrRead, &childStdErrWrite, &secAttr, 0) {
+                    throw AsyncProcess.Error.win32Error(
+                        msg: "creating stderr pipe", code: GetLastError()
+                    )
+                }
+
+                if !SetHandleInformation(childStdErrRead, HANDLE_FLAG_INHERIT, 0) {
+                    throw AsyncProcess.Error.win32Error(
+                        msg: "setting stderr read inherit", code: GetLastError()
+                    )
+                }
+            } else {
+                childStdErrWrite = childStdOutWrite
+            }
+
+            var childStdInRead = HANDLE(NULL)
+            var childStdinWrite = HANDLE(NULL)
+
+            if !CreatePipe(&childStdInRead, &childStdinWrite, &secAttr, 0) {
+                throw AsyncProcess.Error.win32Error(
+                    msg: "creating stdin pipe", code: GetLastError()
+                )
+            }
+
+            if !SetHandleInformation(childStdinWrite, HANDLE_FLAG_INHERIT, 0) {
+                throw AsyncProcess.Error.win32Error(
+                    msg: "setting stdin write inherit", code: GetLastError()
+                )
+            }
+
+            var procInfo = PROCESS_INFORMATION()
+
+            var startInfo = STARTUPINFOW()
+            startInfo.cb = DWORD(MemoryLayout<STARTUPINFO>.size)
+            startInfo.hStdOutput = childStdOutWrite
+            startInfo.hStdError = childStdErrWrite
+            startInfo.hStdInput = childStdInRead
+            startInfo.dwFlags |= STARTF_USESTDHANDLES
+
+            // TODO: need to quote the elements
+            let cmdline = quoteWindowsCommandLine(self.arguments)
+            let env =
+                (self.environment.map({ $0.key.rawValue + "=" + $0.value }).joined(separator: "\0")
+                    + "\0\0")
+            let flags = DWORD(CREATE_UNICODE_ENVIRONMENT)
+            let result = cmdline.withCString(encodedAs: UTF16.self) { cmdlineW in
+                env.withCString(encodedAs: UTF16.self) { envW in
+                    if let cwd = workingDirectory?.pathString {
+                        return cwd.withCString(encodedAs: UTF16.self) { cwdW in
+                            return CreateProcessW(
+                                nil,
+                                UnsafeMutablePointer<WCHAR>(mutating: cmdlineW),
+                                nil,
+                                nil,
+                                true,
+                                flags,
+                                UnsafeMutablePointer(mutating: envW),
+                                cwdW,
+                                &startInfo,
+                                &procInfo
+                            )
+                        }
+                    } else {
+                        return CreateProcessW(
+                            nil,
+                            UnsafeMutablePointer<WCHAR>(mutating: cmdlineW),
+                            nil,
+                            nil,
+                            true,
+                            flags,
+                            UnsafeMutablePointer(mutating: envW),
+                            nil,
+                            &startInfo,
+                            &procInfo
+                        )
+                    }
+                }
+            }
+
+            if !result {
+                let error = GetLastError()
+                if error == ERROR_FILE_NOT_FOUND {
+                    throw AsyncProcess.Error.missingExecutableProgram(program: self.arguments[0])
+                } else {
+                    throw AsyncProcess.Error.win32Error(
+                        msg: "create process \(self.arguments[0])", code: GetLastError()
+                    )
+                }
+            }
+
+            self.processHandle = procInfo.hProcess
+
+            CloseHandle(procInfo.hThread)
+            CloseHandle(childStdOutWrite)
+            CloseHandle(childStdErrWrite)
+            CloseHandle(childStdInRead)
 
             var stdout: [UInt8] = []
             let stdoutLock = NSLock()
@@ -507,50 +609,73 @@ package final class AsyncProcess {
             let stderrLock = NSLock()
 
             let group = DispatchGroup()
-
             if self.outputRedirection.redirectsOutput {
-                let stdoutPipe = Pipe()
-                let stderrPipe = Pipe()
-
                 group.enter()
                 let stdoutThread = Thread { [weak self] in
+                    let maxSize = 4096
                     while true {
-                        let data = stdoutPipe.fileHandleForReading.availableData
-                        if data.count == 0 {
+                        let data = [UInt8](unsafeUninitializedCapacity: maxSize) {
+                            buffer, initializedCount in
+                            var numRead = DWORD(0)
+                            if !ReadFile(
+                                childStdOutRead, buffer.baseAddress, DWORD(maxSize), &numRead, nil)
+                            {
+                                initializedCount = 0
+                            } else {
+                                initializedCount = Int(numRead)
+                            }
+                        }
+
+                        if data.isEmpty {
+                            CloseHandle(childStdOutRead)
                             group.leave()
                             break
-                        } else {
-                            let contents = data.withUnsafeBytes { [UInt8]($0) }
-                            self?.outputRedirection.outputClosures?.stdoutClosure(contents)
-                            stdoutLock.withLock {
-                                stdout += contents
-                            }
+                        }
+
+                        self?.outputRedirection.outputClosures?.stdoutClosure(data)
+                        stdoutLock.withLock {
+                            stdout += data
                         }
                     }
                 }
 
-                group.enter()
-                let stderrThread = Thread { [weak self] in
-                    while true {
-                        let data = stderrPipe.fileHandleForReading.availableData
-                        if data.count == 0 {
-                            group.leave()
-                            break
-                        } else {
-                            let contents = data.withUnsafeBytes { [UInt8]($0) }
-                            self?.outputRedirection.outputClosures?.stderrClosure(contents)
+                let stderrThread: Thread?
+                if !self.outputRedirection.redirectStderr {
+                    group.enter()
+                    stderrThread = Thread { [weak self] in
+                        let maxSize = 4096
+                        while true {
+                            let data = [UInt8](unsafeUninitializedCapacity: maxSize) {
+                                buffer, initializedCount in
+                                var numRead = DWORD(0)
+                                if !ReadFile(
+                                    childStdErrRead, buffer.baseAddress, DWORD(maxSize), &numRead,
+                                    nil)
+                                {
+                                    initializedCount = 0
+                                } else {
+                                    initializedCount = Int(numRead)
+                                }
+                            }
+
+                            if data.isEmpty {
+                                CloseHandle(childStdErrRead)
+                                group.leave()
+                                break
+                            }
+
+                            self?.outputRedirection.outputClosures?.stderrClosure(data)
                             stderrLock.withLock {
-                                stderr += contents
+                                stderr += data
                             }
                         }
                     }
+                } else {
+                    stderrThread = nil
                 }
-
-                process.standardOutput = stdoutPipe
-                process.standardError = stderrPipe
 
                 stdoutThread.start()
-                stderrThread.start()
+                stderrThread?.start()
             }
 
             // first set state then start reading threads
@@ -567,9 +692,17 @@ package final class AsyncProcess {
                 sync.leave()
             }
 
-            try process.run()
-            return stdinPipe.fileHandleForWriting
+            return WritableHandle(childStdinWrite)
         #elseif (!canImport(Darwin) || os(macOS))
+            // Look for executable.
+            let executable = self.arguments[0]
+            guard
+                let executablePath = AsyncProcess.findExecutable(
+                    executable, workingDirectory: workingDirectory)
+            else {
+                throw AsyncProcess.Error.missingExecutableProgram(program: executable)
+            }
+
             // Initialize the spawn attributes.
             #if canImport(Darwin) || os(Android) || os(OpenBSD) || os(FreeBSD)
                 var attributes: posix_spawnattr_t? = nil
@@ -861,11 +994,14 @@ package final class AsyncProcess {
             defer { self.stateLock.unlock() }
             // Wait until process finishes execution.
             #if os(Windows)
-                precondition(self._process != nil, "The process is not yet launched.")
-                let p = self._process!
-                p.waitUntilExit()
-                let exitStatusCode = p.terminationStatus
-                let normalExit = p.terminationReason == .exit
+                precondition(self.processHandle != nil, "The process is not yet launched.")
+                _ = WaitForSingleObject(self.processHandle, INFINITE)
+                var exitCode = DWORD(0)
+                _ = GetExitCodeProcess(self.processHandle, &exitCode)
+                let exitStatusCode = exitCode & 0x8000_0000 == 0
+                    ? Int32(exitCode) : Int32(Int64(0x8000_0000) - Int64(exitCode))
+                let normalExit = true
+                CloseHandle(self.processHandle)
             #else
                 var exitStatusCode: Int32 = 0
                 var result = waitpid(processID, &exitStatusCode, 0)
@@ -946,18 +1082,13 @@ package final class AsyncProcess {
     /// Note: This will signal all processes in the process group.
     package func signal(_ signal: Int32) {
         #if os(Windows)
-            if signal == SIGINT {
-                self._process?.interrupt()
-            } else {
-                self._process?.terminate()
-            }
+            _ = TerminateProcess(self.processHandle, DWORD(signal))
         #else
             assert(self.launched, "The process is not yet launched.")
             kill(self.startNewProcessGroup ? -self.processID : self.processID, signal)
         #endif
     }
-}
-
+}  // #if os(Linux)
 extension AsyncProcess {
     /// Execute a subprocess and returns the result when it finishes execution
     ///
@@ -1103,8 +1234,7 @@ extension AsyncProcess {
             loggingHandler: loggingHandler
         )
     }
-}
-
+}  // #if os(Linux)
 extension AsyncProcess {
     /// Execute a subprocess and calls completion block when it finishes execution
     ///
@@ -1234,8 +1364,7 @@ extension AsyncProcess {
         try self.checkNonZeroExit(
             arguments: args, environment: environment, loggingHandler: loggingHandler)
     }
-}
-
+}  // #if os(Linux)
 extension AsyncProcess: Hashable {
     package func hash(into hasher: inout Hasher) {
         hasher.combine(ObjectIdentifier(self))
@@ -1244,10 +1373,7 @@ extension AsyncProcess: Hashable {
     package static func == (lhs: AsyncProcess, rhs: AsyncProcess) -> Bool {
         ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
     }
-}
-
-// MARK: - Private helpers
-
+}  // #if os(Linux)
 #if !os(Windows)
     #if canImport(Darwin)
         private typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t?
@@ -1314,8 +1440,7 @@ extension AsyncProcess: Hashable {
         }
     }
 
-#endif
-
+#endif  // #if os(Linux)
 extension AsyncProcessResult.Error: CustomStringConvertible {
     package var description: String {
         switch self {
@@ -1362,24 +1487,107 @@ extension AsyncProcessResult.Error: CustomStringConvertible {
             return str
         }
     }
-}
-
+}  // #if os(Linux)
 #if os(Windows)
-    extension FileHandle: WritableByteStream {
+    class WritableHandle: WritableByteStream {
+        private var handle: HANDLE?
+
+        package init(_ handle: HANDLE?) {
+            self.handle = handle
+        }
+
         package var position: Int {
-            Int(offsetInFile)
+            Int(SetFilePointer(self.handle, LONG(0), nil, DWORD(FILE_CURRENT)))
         }
 
         package func write(_ byte: UInt8) {
-            self.write(Data([byte]))
+            var buffer = byte
+            WriteFile(self.handle, &buffer, 1, nil, nil)
         }
 
         package func write(_ bytes: some Collection<UInt8>) {
-            self.write(Data(bytes))
+            _ = bytes.withContiguousStorageIfAvailable { buffer in
+                WriteFile(self.handle, buffer.baseAddress, DWORD(buffer.count), nil, nil)
+            }
         }
 
         package func flush() {
-            synchronizeFile()
+            FlushFileBuffers(self.handle)
+        }
+
+        package func close() {
+            CloseHandle(self.handle)
         }
     }
-#endif
+
+    extension String {
+        var LPCWSTR: [UInt16] {
+            return self.withCString(encodedAs: UTF16.self) { buffer in
+                [UInt16](unsafeUninitializedCapacity: self.utf16.count + 1) {
+                    wcscpy_s($0.baseAddress, $0.count, buffer)
+                    $1 = $0.count
+                }
+            }
+        }
+    }
+
+    // Taken from SCF
+    private func quoteWindowsCommandLine(_ commandLine: [String]) -> String {
+        func quoteWindowsCommandArg(arg: String) -> String {
+            // Windows escaping, adapted from Daniel Colascione's "Everyone quotes
+            // command line arguments the wrong way" - Microsoft Developer Blog
+            if !arg.contains(where: { " \t\n\"".contains($0) }) {
+                return arg
+            }
+
+            // To escape the command line, we surround the argument with quotes. However
+            // the complication comes due to how the Windows command line parser treats
+            // backslashes (\) and quotes (")
+            //
+            // - \ is normally treated as a literal backslash
+            //     - e.g. foo\bar\baz => foo\bar\baz
+            // - However, the sequence \" is treated as a literal "
+            //     - e.g. foo\"bar => foo"bar
+            //
+            // But then what if we are given a path that ends with a \? Surrounding
+            // foo\bar\ with " would be "foo\bar\" which would be an unterminated string
+
+            // since it ends on a literal quote. To allow this case the parser treats:
+            //
+            // - \\" as \ followed by the " metachar
+            // - \\\" as \ followed by a literal "
+            // - In general:
+            //     - 2n \ followed by " => n \ followed by the " metachar
+            //     - 2n+1 \ followed by " => n \ followed by a literal "
+            var quoted = "\""
+            var unquoted = arg.unicodeScalars
+
+            while !unquoted.isEmpty {
+                guard let firstNonBackslash = unquoted.firstIndex(where: { $0 != "\\" }) else {
+                    // String ends with a backslash e.g. foo\bar\, escape all the backslashes
+                    // then add the metachar " below
+                    let backslashCount = unquoted.count
+                    quoted.append(String(repeating: "\\", count: backslashCount * 2))
+                    break
+                }
+                let backslashCount = unquoted.distance(
+                    from: unquoted.startIndex, to: firstNonBackslash)
+                if unquoted[firstNonBackslash] == "\"" {
+                    // This is  a string of \ followed by a " e.g. foo\"bar. Escape the
+                    // backslashes and the quote
+                    quoted.append(String(repeating: "\\", count: backslashCount * 2 + 1))
+                    quoted.append(String(unquoted[firstNonBackslash]))
+                } else {
+                    // These are just literal backslashes
+                    quoted.append(String(repeating: "\\", count: backslashCount))
+                    quoted.append(String(unquoted[firstNonBackslash]))
+                }
+                // Drop the backslashes and the following character
+                unquoted.removeFirst(backslashCount + 1)
+            }
+            quoted.append("\"")
+            return quoted
+        }
+        return commandLine.map(quoteWindowsCommandArg).joined(separator: " ")
+    }
+#endif  // #if os(Linux)

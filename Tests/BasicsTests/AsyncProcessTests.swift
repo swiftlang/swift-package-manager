@@ -1,3 +1,16 @@
+import Basics
+import TSCclibc  // for SPM_posix_spawn_file_actions_addchdir_np_supported
+import XCTest
+import _Concurrency
+import _InternalTestSupport
+
+import class TSCBasic.BufferedOutputByteStream
+import struct TSCBasic.ByteString
+import struct TSCBasic.Format
+import class TSCBasic.Thread
+import func TSCBasic.withTemporaryFile
+import func TSCTestSupport.withCustomEnv
+
 /*
  This source file is part of the Swift.org open source project
 
@@ -8,43 +21,32 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import _InternalTestSupport
-import _Concurrency
-import Basics
-import XCTest
-
-import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
-
-import class TSCBasic.BufferedOutputByteStream
-import struct TSCBasic.ByteString
-import struct TSCBasic.Format
-import class TSCBasic.Thread
-import func TSCBasic.withTemporaryFile
-import func TSCTestSupport.withCustomEnv
-
 final class AsyncProcessTests: XCTestCase {
     #if os(Windows)
-    let executableExt = ".exe"
+        let echo = ["cmd", "/c", "echo"]
+        let cat = ["cmd", "/c", "type"]
+        let exit4 = "exit4.bat"
+        let nl = "\r\n"
     #else
-    let executableExt = ""
+        let executableExt = ""
+        let echo = ["echo"]
+        let cat = ["cat"]
+        let exit4 = "exit4"
+        let nl = "\n"
     #endif
 
     func testBasics() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-            threw error "missingExecutableProgram(program: "echo.exe")"
-        """)
-
         do {
-            let process = AsyncProcess(args: "echo\(executableExt)", "hello")
+            let process = AsyncProcess(arguments: echo + ["hello"])
             try process.launch()
             let result = try process.waitUntilExit()
-            XCTAssertEqual(try result.utf8Output(), "hello\n")
+            XCTAssertEqual(try result.utf8Output(), "hello\(nl)")
             XCTAssertEqual(result.exitStatus, .terminated(code: 0))
             XCTAssertEqual(result.arguments, process.arguments)
         }
 
         do {
-            let process = AsyncProcess(scriptName: "exit4")
+            let process = AsyncProcess(scriptName: exit4)
             try process.launch()
             let result = try process.waitUntilExit()
             XCTAssertEqual(result.exitStatus, .terminated(code: 4))
@@ -52,36 +54,33 @@ final class AsyncProcessTests: XCTestCase {
     }
 
     func testPopenBasic() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-            threw error "missingExecutableProgram(program: "echo.exe")"
-        """)
-
         // Test basic echo.
-        XCTAssertEqual(try AsyncProcess.popen(arguments: ["echo\(executableExt)", "hello"]).utf8Output(), "hello\n")
+        XCTAssertEqual(
+            try AsyncProcess.popen(arguments: echo + ["hello"]).utf8Output(),
+            "hello\(nl)")
     }
 
     func testPopenWithBufferLargerThanAllocated() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-            threw error "missingExecutableProgram(program: "cat.exe")"
-        """)
         // Test buffer larger than that allocated.
         try withTemporaryFile { file in
             let count = 10000
             let stream = BufferedOutputByteStream()
             stream.send(Format.asRepeating(string: "a", count: count))
             try localFileSystem.writeFileContents(file.path, bytes: stream.bytes)
-            let outputCount = try AsyncProcess.popen(args: "cat\(executableExt)", file.path.pathString).utf8Output().count
+            let outputCount = try AsyncProcess.popen(
+                arguments: cat + [file.path.pathString]
+            ).utf8Output().count
             XCTAssert(outputCount == count)
         }
     }
 
     func testPopenLegacyAsync() throws {
         #if os(Windows)
-        let args = ["where.exe", "where"]
-        let answer = "C:\\Windows\\System32\\where.exe"
+            let args = ["where.exe", "where"]
+            let answer = "C:\\Windows\\System32\\where.exe"
         #else
-        let args = ["whoami"]
-        let answer = NSUserName()
+            let args = ["whoami"]
+            let answer = NSUserName()
         #endif
         var popenResult: Result<AsyncProcessResult, Error>?
         let group = DispatchGroup()
@@ -105,11 +104,11 @@ final class AsyncProcessTests: XCTestCase {
     @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
     func testPopenAsync() async throws {
         #if os(Windows)
-        let args = ["where.exe", "where"]
-        let answer = "C:\\Windows\\System32\\where.exe"
+            let args = ["where.exe", "where"]
+            let answer = "C:\\Windows\\System32\\where.exe"
         #else
-        let args = ["whoami"]
-        let answer = NSUserName()
+            let args = ["whoami"]
+            let answer = NSUserName()
         #endif
         let processResult: AsyncProcessResult
         do {
@@ -123,17 +122,13 @@ final class AsyncProcessTests: XCTestCase {
     }
 
     func testCheckNonZeroExit() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-            threw error "missingExecutableProgram(program: "echo.exe")"
-        """)
-
         do {
-            let output = try AsyncProcess.checkNonZeroExit(args: "echo\(executableExt)", "hello")
-            XCTAssertEqual(output, "hello\n")
+            let output = try AsyncProcess.checkNonZeroExit(arguments: echo + ["hello"])
+            XCTAssertEqual(output, "hello\(nl)")
         }
 
         do {
-            let output = try AsyncProcess.checkNonZeroExit(scriptName: "exit4")
+            let output = try AsyncProcess.checkNonZeroExit(scriptName: exit4)
             XCTFail("Unexpected success \(output)")
         } catch AsyncProcessResult.Error.nonZeroExit(let result) {
             XCTAssertEqual(result.exitStatus, .terminated(code: 4))
@@ -142,56 +137,59 @@ final class AsyncProcessTests: XCTestCase {
 
     @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
     func testCheckNonZeroExitAsync() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-            threw error "missingExecutableProgram(program: "echo.exe")"
-        """)
-
         do {
-            let output = try await AsyncProcess.checkNonZeroExit(args: "echo\(executableExt)", "hello")
-            XCTAssertEqual(output, "hello\n")
+            let output = try await AsyncProcess.checkNonZeroExit(arguments: echo + ["hello"])
+            XCTAssertEqual(output, "hello\(nl)")
         }
 
         do {
-            let output = try await AsyncProcess.checkNonZeroExit(scriptName: "exit4")
+            let output = try await AsyncProcess.checkNonZeroExit(scriptName: exit4)
             XCTFail("Unexpected success \(output)")
         } catch AsyncProcessResult.Error.nonZeroExit(let result) {
             XCTAssertEqual(result.exitStatus, .terminated(code: 4))
         }
     }
 
-    func testFindExecutable() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: "Assertion failure when trying to find ls executable")
+    #if !os(Windows)  // Windows doesn't use findExecutable
+        func testFindExecutable() throws {
+            try skipOnWindowsAsTestCurrentlyFails(
+                because: "Assertion failure when trying to find ls executable")
 
-        try testWithTemporaryDirectory { tmpdir in
-            // This process should always work.
-            XCTAssertTrue(AsyncProcess.findExecutable("ls") != nil)
+            try testWithTemporaryDirectory { tmpdir in
+                // This process should always work.
+                XCTAssertTrue(AsyncProcess.findExecutable("ls") != nil)
 
-            XCTAssertEqual(AsyncProcess.findExecutable("nonExistantProgram"), nil)
-            XCTAssertEqual(AsyncProcess.findExecutable(""), nil)
+                XCTAssertEqual(AsyncProcess.findExecutable("nonExistantProgram"), nil)
+                XCTAssertEqual(AsyncProcess.findExecutable(""), nil)
 
-            // Create a local nonexecutable file to test.
-            let tempExecutable = tmpdir.appending(component: "nonExecutableProgram")
-            try localFileSystem.writeFileContents(tempExecutable, bytes: """
-            #!/bin/sh
-            exit
+                // Create a local nonexecutable file to test.
+                let tempExecutable = tmpdir.appending(component: "nonExecutableProgram")
+                try localFileSystem.writeFileContents(
+                    tempExecutable,
+                    bytes: """
+                        #!/bin/sh
+                        exit
 
-            """)
+                        """)
 
-            try withCustomEnv(["PATH": tmpdir.pathString]) {
-                XCTAssertEqual(AsyncProcess.findExecutable("nonExecutableProgram"), nil)
+                try withCustomEnv(["PATH": tmpdir.pathString]) {
+                    XCTAssertEqual(AsyncProcess.findExecutable("nonExecutableProgram"), nil)
+                }
             }
         }
-    }
+    #endif
 
     func testNonExecutableLaunch() throws {
         try testWithTemporaryDirectory { tmpdir in
             // Create a local nonexecutable file to test.
             let tempExecutable = tmpdir.appending(component: "nonExecutableProgram")
-            try localFileSystem.writeFileContents(tempExecutable, bytes: """
-            #!/bin/sh
-            exit
+            try localFileSystem.writeFileContents(
+                tempExecutable,
+                bytes: """
+                    #!/bin/sh
+                    exit
 
-            """)
+                    """)
 
             try withCustomEnv(["PATH": tmpdir.pathString]) {
                 do {
@@ -206,11 +204,7 @@ final class AsyncProcessTests: XCTestCase {
     }
 
     func testThreadSafetyOnWaitUntilExit() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-            threw error "missingExecutableProgram(program: "echo.exe")"
-        """)
-
-        let process = AsyncProcess(args: "echo\(executableExt)", "hello")
+        let process = AsyncProcess(arguments: echo + ["hello"])
         try process.launch()
 
         var result1 = ""
@@ -229,17 +223,13 @@ final class AsyncProcessTests: XCTestCase {
         t1.join()
         t2.join()
 
-        XCTAssertEqual(result1, "hello\n")
-        XCTAssertEqual(result2, "hello\n")
+        XCTAssertEqual(result1, "hello\(nl)")
+        XCTAssertEqual(result2, "hello\(nl)")
     }
 
     @available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *)
     func testThreadSafetyOnWaitUntilExitAsync() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-            threw error "missingExecutableProgram(program: "echo.exe")"
-        """)
-
-        let process = AsyncProcess(args: "echo\(executableExt)", "hello")
+        let process = AsyncProcess(arguments: echo + ["hello"])
         try process.launch()
 
         let t1 = Task {
@@ -253,19 +243,18 @@ final class AsyncProcessTests: XCTestCase {
         let result1 = try await t1.value
         let result2 = try await t2.value
 
-        XCTAssertEqual(result1, "hello\n")
-        XCTAssertEqual(result2, "hello\n")
+        XCTAssertEqual(result1, "hello\(nl)")
+        XCTAssertEqual(result2, "hello\(nl)")
     }
 
     func testStdin() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-        threw error "Error Domain=NSCocoaErrorDomain Code=3584 "(null)"UserInfo={NSUnderlyingError=Error Domain=org.swift.Foundation.WindowsError Code=193 "(null)"}"
-        """)
-
         var stdout = [UInt8]()
-        let process = AsyncProcess(scriptName: "in-to-out", outputRedirection: .stream(stdout: { stdoutBytes in
-            stdout += stdoutBytes
-        }, stderr: { _ in }))
+        let process = AsyncProcess(
+            pythonScript: "in-to-out",
+            outputRedirection: .stream(
+                stdout: { stdoutBytes in
+                    stdout += stdoutBytes
+                }, stderr: { _ in }))
         let stdinStream = try process.launch()
 
         stdinStream.write("hello\n")
@@ -275,24 +264,20 @@ final class AsyncProcessTests: XCTestCase {
 
         try process.waitUntilExit()
 
-        XCTAssertEqual(String(decoding: stdout, as: UTF8.self), "hello\n")
+        XCTAssertEqual(String(decoding: stdout, as: UTF8.self), "hello\(nl)")
     }
 
     func testStdoutStdErr() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-        threw error "Error Domain=NSCocoaErrorDomain Code=3584 "(null)"UserInfo={NSUnderlyingError=Error Domain=org.swift.Foundation.WindowsError Code=193 "(null)"}"
-        """)
-
         // A simple script to check that stdout and stderr are captured separatly.
         do {
-            let result = try AsyncProcess.popen(scriptName: "simple-stdout-stderr")
-            XCTAssertEqual(try result.utf8Output(), "simple output\n")
-            XCTAssertEqual(try result.utf8stderrOutput(), "simple error\n")
+            let result = try AsyncProcess.popen(pythonScript: "simple-stdout-stderr")
+            XCTAssertEqual(try result.utf8Output(), "simple output\(nl)")
+            XCTAssertEqual(try result.utf8stderrOutput(), "simple error\(nl)")
         }
 
         // A long stdout and stderr output.
         do {
-            let result = try AsyncProcess.popen(scriptName: "long-stdout-stderr")
+            let result = try AsyncProcess.popen(pythonScript: "long-stdout-stderr")
             let count = 16 * 1024
             XCTAssertEqual(try result.utf8Output(), String(repeating: "1", count: count))
             XCTAssertEqual(try result.utf8stderrOutput(), String(repeating: "2", count: count))
@@ -300,7 +285,7 @@ final class AsyncProcessTests: XCTestCase {
 
         // This script will block if the streams are not read.
         do {
-            let result = try AsyncProcess.popen(scriptName: "deadlock-if-blocking-io")
+            let result = try AsyncProcess.popen(pythonScript: "deadlock-if-blocking-io")
             let count = 16 * 1024
             XCTAssertEqual(try result.utf8Output(), String(repeating: "1", count: count))
             XCTAssertEqual(try result.utf8stderrOutput(), String(repeating: "2", count: count))
@@ -309,20 +294,16 @@ final class AsyncProcessTests: XCTestCase {
 
     @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
     func testStdoutStdErrAsync() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-        threw error "Error Domain=NSCocoaErrorDomain Code=3584 "(null)"UserInfo={NSUnderlyingError=Error Domain=org.swift.Foundation.WindowsError Code=193 "(null)"}"
-        """)
-
         // A simple script to check that stdout and stderr are captured separatly.
         do {
-            let result = try await AsyncProcess.popen(scriptName: "simple-stdout-stderr")
-            XCTAssertEqual(try result.utf8Output(), "simple output\n")
-            XCTAssertEqual(try result.utf8stderrOutput(), "simple error\n")
+            let result = try await AsyncProcess.popen(pythonScript: "simple-stdout-stderr")
+            XCTAssertEqual(try result.utf8Output(), "simple output\(nl)")
+            XCTAssertEqual(try result.utf8stderrOutput(), "simple error\(nl)")
         }
 
         // A long stdout and stderr output.
         do {
-            let result = try await AsyncProcess.popen(scriptName: "long-stdout-stderr")
+            let result = try await AsyncProcess.popen(pythonScript: "long-stdout-stderr")
             let count = 16 * 1024
             XCTAssertEqual(try result.utf8Output(), String(repeating: "1", count: count))
             XCTAssertEqual(try result.utf8stderrOutput(), String(repeating: "2", count: count))
@@ -330,7 +311,7 @@ final class AsyncProcessTests: XCTestCase {
 
         // This script will block if the streams are not read.
         do {
-            let result = try await AsyncProcess.popen(scriptName: "deadlock-if-blocking-io")
+            let result = try await AsyncProcess.popen(pythonScript: "deadlock-if-blocking-io")
             let count = 16 * 1024
             XCTAssertEqual(try result.utf8Output(), String(repeating: "1", count: count))
             XCTAssertEqual(try result.utf8stderrOutput(), String(repeating: "2", count: count))
@@ -338,26 +319,22 @@ final class AsyncProcessTests: XCTestCase {
     }
 
     func testStdoutStdErrRedirected() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-        threw error "Error Domain=NSCocoaErrorDomain Code=3584 "(null)"UserInfo={NSUnderlyingError=Error Domain=org.swift.Foundation.WindowsError Code=193 "(null)"}"
-        """)
-
         // A simple script to check that stdout and stderr are captured in the same location.
         do {
             let process = AsyncProcess(
-                scriptName: "simple-stdout-stderr",
+                pythonScript: "simple-stdout-stderr",
                 outputRedirection: .collect(redirectStderr: true)
             )
             try process.launch()
             let result = try process.waitUntilExit()
-            XCTAssertEqual(try result.utf8Output(), "simple error\nsimple output\n")
+            XCTAssertEqual(try result.utf8Output(), "simple error\(nl)simple output\(nl)")
             XCTAssertEqual(try result.utf8stderrOutput(), "")
         }
 
         // A long stdout and stderr output.
         do {
             let process = AsyncProcess(
-                scriptName: "long-stdout-stderr",
+                pythonScript: "long-stdout-stderr",
                 outputRedirection: .collect(redirectStderr: true)
             )
             try process.launch()
@@ -370,17 +347,17 @@ final class AsyncProcessTests: XCTestCase {
     }
 
     func testStdoutStdErrStreaming() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-        threw error "Error Domain=NSCocoaErrorDomain Code=3584 "(null)"UserInfo={NSUnderlyingError=Error Domain=org.swift.Foundation.WindowsError Code=193 "(null)"}"
-        """)
-
         var stdout = [UInt8]()
         var stderr = [UInt8]()
-        let process = AsyncProcess(scriptName: "long-stdout-stderr", outputRedirection: .stream(stdout: { stdoutBytes in
-            stdout += stdoutBytes
-        }, stderr: { stderrBytes in
-            stderr += stderrBytes
-        }))
+        let process = AsyncProcess(
+            pythonScript: "long-stdout-stderr",
+            outputRedirection: .stream(
+                stdout: { stdoutBytes in
+                    stdout += stdoutBytes
+                },
+                stderr: { stderrBytes in
+                    stderr += stderrBytes
+                }))
         try process.launch()
         try process.waitUntilExit()
 
@@ -390,40 +367,37 @@ final class AsyncProcessTests: XCTestCase {
     }
 
     func testStdoutStdErrStreamingRedirected() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-        threw error "Error Domain=NSCocoaErrorDomain Code=3584 "(null)"UserInfo={NSUnderlyingError=Error Domain=org.swift.Foundation.WindowsError Code=193 "(null)"}"
-        """)
-
         var stdout = [UInt8]()
         var stderr = [UInt8]()
-        let process = AsyncProcess(scriptName: "long-stdout-stderr", outputRedirection: .stream(stdout: { stdoutBytes in
-            stdout += stdoutBytes
-        }, stderr: { stderrBytes in
-            stderr += stderrBytes
-        }, redirectStderr: true))
+        let process = AsyncProcess(
+            pythonScript: "long-stdout-stderr",
+            outputRedirection: .stream(
+                stdout: { stdoutBytes in
+                    stdout += stdoutBytes
+                },
+                stderr: { stderrBytes in
+                    stderr += stderrBytes
+                }, redirectStderr: true))
         try process.launch()
         try process.waitUntilExit()
 
         let count = 16 * 1024
-        XCTAssertEqual(String(bytes: stdout, encoding: .utf8), String(repeating: "12", count: count))
+        XCTAssertEqual(
+            String(bytes: stdout, encoding: .utf8), String(repeating: "12", count: count))
         XCTAssertEqual(stderr, [])
     }
 
     func testWorkingDirectory() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-            threw error "missingExecutableProgram(program: "cat.exe")"
-        """)
-
         guard #available(macOS 10.15, *) else {
             // Skip this test since it's not supported in this OS.
             return
         }
 
         #if os(Linux) || os(Android)
-        guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
-            // Skip this test since it's not supported in this OS.
-            return
-        }
+            guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
+                // Skip this test since it's not supported in this OS.
+                return
+            }
         #endif
 
         try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
@@ -435,14 +409,18 @@ final class AsyncProcessTests: XCTestCase {
             try localFileSystem.writeFileContents(childPath, bytes: ByteString("child"))
 
             do {
-                let process = AsyncProcess(arguments: ["cat\(executableExt)", "file"], workingDirectory: tempDirPath)
+                let process = AsyncProcess(
+                    arguments: cat + ["file"],
+                    workingDirectory: tempDirPath
+                )
                 try process.launch()
                 let result = try process.waitUntilExit()
                 XCTAssertEqual(try result.utf8Output(), "parent")
             }
 
             do {
-                let process = AsyncProcess(arguments: ["cat", "file"], workingDirectory: childPath.parentDirectory)
+                let process = AsyncProcess(
+                    arguments: cat + ["file"], workingDirectory: childPath.parentDirectory)
                 try process.launch()
                 let result = try process.waitUntilExit()
                 XCTAssertEqual(try result.utf8Output(), "child")
@@ -453,15 +431,11 @@ final class AsyncProcessTests: XCTestCase {
     func testAsyncStream() async throws {
         // rdar://133548796
         try XCTSkipIfCI()
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-        threw error "Error Domain=NSCocoaErrorDomain Code=3584 "(null)"UserInfo={NSUnderlyingError=Error Domain=org.swift.Foundation.WindowsError Code=193 "(null)"}"
-        """)
-
         let (stdoutStream, stdoutContinuation) = AsyncProcess.ReadableStream.makeStream()
         let (stderrStream, stderrContinuation) = AsyncProcess.ReadableStream.makeStream()
 
         let process = AsyncProcess(
-            scriptName: "echo\(executableExt)",
+            pythonScript: "echo",
             outputRedirection: .stream {
                 stdoutContinuation.yield($0)
             } stderr: {
@@ -478,7 +452,7 @@ final class AsyncProcessTests: XCTestCase {
                 stdin.flush()
 
                 for await output in stdoutStream {
-                    XCTAssertEqual(output, .init("Hello \(counter)\n".utf8))
+                    XCTAssertEqual(output, .init("Hello \(counter)\(self.nl)".utf8))
                     counter += 1
 
                     stdin.write(.init("Hello \(counter)\n".utf8))
@@ -513,19 +487,16 @@ final class AsyncProcessTests: XCTestCase {
     func testAsyncStreamHighLevelAPI() async throws {
         // rdar://133548796
         try XCTSkipIfCI()
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-        threw error "Error Domain=NSCocoaErrorDomain Code=3584 "(null)"UserInfo={NSUnderlyingError=Error Domain=org.swift.Foundation.WindowsError Code=193 "(null)"}"
-        """)
 
         let result = try await AsyncProcess.popen(
-            scriptName: "echo\(executableExt)",
+            pythonScript: "echo",
             stdout: { stdin, stdout in
                 var counter = 0
                 stdin.write("Hello \(counter)\n")
                 stdin.flush()
 
                 for await output in stdout {
-                    XCTAssertEqual(output, .init("Hello \(counter)\n".utf8))
+                    XCTAssertEqual(output, .init("Hello \(counter)\(self.nl)".utf8))
                     counter += 1
 
                     stdin.write(.init("Hello \(counter)\n".utf8))
@@ -548,6 +519,16 @@ final class AsyncProcessTests: XCTestCase {
 
         XCTAssertEqual(result.exitStatus, .terminated(code: 0))
     }
+
+    func testEnvironment() async throws {
+        var env = Environment.current
+        env[EnvironmentKey("ASYNCPROCESSTESTVAR")] = "hello"
+        let result = try await AsyncProcess.popen(
+            pythonScript: "envtest",
+            environment: env
+        )
+        XCTAssertEqual(try result.utf8Output(), "hello\(nl)")
+    }
 }
 
 extension AsyncProcess {
@@ -562,6 +543,23 @@ extension AsyncProcess {
     ) {
         self.init(
             arguments: [Self.script(scriptName)] + arguments,
+            environment: .current,
+            outputRedirection: outputRedirection
+        )
+    }
+
+    fileprivate convenience init(
+        pythonScript: String,
+        arguments: [String] = [],
+        outputRedirection: OutputRedirection = .collect
+    ) {
+        #if os(Windows)
+            let cmd = ["python", Self.script(pythonScript)]
+        #else
+            let cmd = [Self.script(pythonScript)]
+        #endif
+        self.init(
+            arguments: cmd + arguments,
             environment: .current,
             outputRedirection: outputRedirection
         )
@@ -600,7 +598,30 @@ extension AsyncProcess {
         environment: Environment = .current,
         loggingHandler: LoggingHandler? = .none
     ) throws -> AsyncProcessResult {
-        try self.popen(arguments: [self.script(scriptName)], environment: .current, loggingHandler: loggingHandler)
+        try self.popen(
+            arguments: [self.script(scriptName)],
+            environment: environment,
+            loggingHandler: loggingHandler
+        )
+    }
+
+    @available(*, noasync)
+    @discardableResult
+    fileprivate static func popen(
+        pythonScript: String,
+        environment: Environment = .current,
+        loggingHandler: LoggingHandler? = .none
+    ) throws -> AsyncProcessResult {
+        #if os(Windows)
+            let cmd = ["python", Self.script(pythonScript)]
+        #else
+            let cmd = [Self.script(pythonScript)]
+        #endif
+        return try self.popen(
+            arguments: cmd,
+            environment: environment,
+            loggingHandler: loggingHandler
+        )
     }
 
     @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
@@ -610,7 +631,30 @@ extension AsyncProcess {
         environment: Environment = .current,
         loggingHandler: LoggingHandler? = .none
     ) async throws -> AsyncProcessResult {
-        try await self.popen(arguments: [self.script(scriptName)], environment: .current, loggingHandler: loggingHandler)
+        try await self.popen(
+            arguments: [self.script(scriptName)],
+            environment: environment,
+            loggingHandler: loggingHandler
+        )
+    }
+
+    @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+    @discardableResult
+    fileprivate static func popen(
+        pythonScript: String,
+        environment: Environment = .current,
+        loggingHandler: LoggingHandler? = .none
+    ) async throws -> AsyncProcessResult {
+        #if os(Windows)
+            let cmd = ["python", Self.script(pythonScript)]
+        #else
+            let cmd = [Self.script(pythonScript)]
+        #endif
+        return try await self.popen(
+            arguments: cmd,
+            environment: environment,
+            loggingHandler: loggingHandler
+        )
     }
 
     fileprivate static func popen(
@@ -618,6 +662,21 @@ extension AsyncProcess {
         stdout: @escaping AsyncProcess.DuplexStreamHandler,
         stderr: AsyncProcess.ReadableStreamHandler? = nil
     ) async throws -> AsyncProcessResult {
-        try await self.popen(arguments: [self.script(scriptName)], stdoutHandler: stdout, stderrHandler: stderr)
+        try await self.popen(
+            arguments: [self.script(scriptName)], stdoutHandler: stdout, stderrHandler: stderr)
+    }
+
+    fileprivate static func popen(
+        pythonScript: String,
+        stdout: @escaping AsyncProcess.DuplexStreamHandler,
+        stderr: AsyncProcess.ReadableStreamHandler? = nil
+    ) async throws -> AsyncProcessResult {
+        #if os(Windows)
+            let cmd = ["python", Self.script(pythonScript)]
+        #else
+            let cmd = [Self.script(pythonScript)]
+        #endif
+        return try await self.popen(
+            arguments: cmd, stdoutHandler: stdout, stderrHandler: stderr)
     }
 }
