@@ -201,10 +201,18 @@ extension ManifestLoaderProtocol {
         delegateQueue: DispatchQueue
     ) async throws -> Manifest {
         // find the manifest path and parse it's tools-version
-        let manifestPath = try ManifestLoader.findManifest(packagePath: packagePath, fileSystem: fileSystem, currentToolsVersion: currentToolsVersion)
+        let manifestPath = try ManifestLoader.findManifest(
+            packagePath: packagePath, 
+            fileSystem: fileSystem, 
+            currentToolsVersion: currentToolsVersion
+        )
         let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
         // validate the manifest tools-version against the toolchain tools-version
-        try manifestToolsVersion.validateToolsVersion(currentToolsVersion, packageIdentity: packageIdentity, packageVersion: packageVersion?.version?.description ?? packageVersion?.revision)
+        try manifestToolsVersion.validateToolsVersion(
+            currentToolsVersion, 
+            packageIdentity: packageIdentity, 
+            packageVersion: packageVersion?.version?.description ?? packageVersion?.revision
+        )
 
         return try await self.load(
             manifestPath: manifestPath,
@@ -652,7 +660,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 )
             ]).write(to: vfsOverlayTempFilePath, fileSystem: localFileSystem)
 
-            let _ = try await validateImports(
+            try await validateImports(
                 manifestPath: manifestTempFilePath,
                 toolsVersion: toolsVersion
             )
