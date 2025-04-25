@@ -92,6 +92,10 @@ public protocol ModuleBuildDescription {
     /// The build parameters.
     var buildParameters: BuildParameters { get }
 
+    /// The diagnostic file locations for all the source files
+    /// associated with this module.
+    var diagnosticFiles: [AbsolutePath] { get }
+
     /// FIXME: This shouldn't be necessary and ideally
     /// there should be a way to ask build system to
     /// introduce these arguments while building for symbol
