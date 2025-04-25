@@ -7,3 +7,4 @@
 - ``process(_:localization:)``
 - ``Localization``
 - ``copy(_:)``
+- ``embedInCode(_:)``
