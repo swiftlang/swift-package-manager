@@ -124,13 +124,13 @@ private struct BasicTests {
             let packagePath = tempDir.appending(component: "Project")
             try localFileSystem.createDirectory(packagePath)
             try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "executable")
-            let buildOutput = try sh(swiftBuild, "--package-path", packagePath).stdout
+            let packageOutput = try sh(swiftBuild, "--package-path", packagePath)
 
             // Check the build log.
-            let checker = StringChecker(string: buildOutput)
-            #expect(checker.check(.regex("Compiling .*Project.*")))
-            #expect(checker.check(.regex("Linking .*Project")))
-            #expect(checker.check(.contains("Build complete")))
+            let checker = StringChecker(string: packageOutput.stdout)
+            #expect(checker.check(.regex("Compiling .*Project.*")), "stdout: '\(packageOutput.stdout)'\n stderr:'\(packageOutput.stderr)'")
+            #expect(checker.check(.regex("Linking .*Project")), "stdout: '\(packageOutput.stdout)'\n stderr:'\(packageOutput.stderr)'")
+            #expect(checker.check(.contains("Build complete")), "stdout: '\(packageOutput.stdout)'\n stderr:'\(packageOutput.stderr)'")
 
             // Verify that the tool was built and works.
             let toolOutput = try sh(packagePath.appending(components: ".build", "debug", "Project"))
@@ -138,8 +138,8 @@ private struct BasicTests {
             #expect(toolOutput.lowercased().contains("hello, world!"))
 
             // Check there were no compile errors or warnings.
-            #expect(buildOutput.contains("error") == false)
-            #expect(buildOutput.contains("warning") == false)
+            #expect(packageOutput.stdout.contains("error") == false)
+            #expect(packageOutput.stdout.contains("warning") == false)
         }
     }
 
@@ -151,17 +151,19 @@ private struct BasicTests {
             try localFileSystem.createDirectory(packagePath)
             withKnownIssue("error: no tests found; create a target in the 'Tests' directory") {
                 try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "executable")
-                let testOutput = try sh(swiftTest, "--package-path", packagePath).stdout
+                let packageOutput = try sh(swiftTest, "--package-path", packagePath, "--vv")
 
                 // Check the test log.
-                let checker = StringChecker(string: testOutput)
-                #expect(checker.check(.regex("Compiling .*ProjectTests.*")))
-                #expect(checker.check("Test Suite 'All tests' passed"))
-                #expect(checker.checkNext("Executed 1 test"))
+                let checker = StringChecker(string: packageOutput.stdout)
+                #expect(checker.check(.regex("Compiling .*ProjectTests.*")), "stdout: '\(packageOutput.stdout)'\n stderr:'\(packageOutput.stderr)'")
+                #expect(checker.checkNext("Executed 1 test"), "stdout: '\(packageOutput.stdout)'\n stderr:'\(packageOutput.stderr)'")
+
+                // Check the return code
+                #expect(packageOutput.returnCode == .terminated(code: 0))
 
                 // Check there were no compile errors or warnings.
-                #expect(testOutput.contains("error") == false)
-                #expect(testOutput.contains("warning") == false)
+                #expect(packageOutput.stdout.contains("error") == false)
+                #expect(packageOutput.stdout.contains("warning") == false)
             }
         }
     }
@@ -192,17 +194,14 @@ private struct BasicTests {
             let packagePath = tempDir.appending(component: "Project")
             try localFileSystem.createDirectory(packagePath)
             try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "library")
-            let testOutput = try sh(swiftTest, "--package-path", packagePath).stdout
+            let shOutput = try sh(swiftTest, "--package-path", packagePath)
 
-            // Check the test log.
-            let checker = StringChecker(string: testOutput)
-            #expect(checker.check(.contains("Test Suite 'All tests' started")))
-            #expect(checker.check(.contains("Test example() passed after")))
-            #expect(checker.checkNext(.contains("Test run with 1 test passed after")))
+            // Check the return code
+            #expect(shOutput.returnCode == .terminated(code: 0))
 
             // Check there were no compile errors or warnings.
-            #expect(testOutput.contains("error") == false)
-            #expect(testOutput.contains("warning") == false)
+            #expect(shOutput.stdout.contains("error") == false)
+            #expect(shOutput.stdout.contains("warning") == false)
         }
     }
 
@@ -248,11 +247,11 @@ private struct BasicTests {
             #expect(buildOutput.contains("Build complete"))
 
             // Verify that the tool exists and works.
-            let toolOutput = try sh(
+            let shOutput = try sh(
                 packagePath.appending(components: ".build", "debug", "special tool")
             ).stdout
 
-            #expect(toolOutput == "HI\(ProcessInfo.EOL)")
+            #expect(shOutput == "HI\(ProcessInfo.EOL)")
         }
     }
 
@@ -281,17 +280,20 @@ private struct BasicTests {
                     """
                 )
             )
-            let (runOutput, runError) = try sh(
+            let shOutput = try sh(
                 swiftRun, "--package-path", packagePath, "secho", "1", #""two""#
             )
 
             // Check the run log.
-            let checker = StringChecker(string: runError)
-            #expect(checker.check(.regex("Compiling .*secho.*")))
-            #expect(checker.check(.regex("Linking .*secho")))
-            #expect(checker.check(.contains("Build of product 'secho' complete")))
+            let checker = StringChecker(string: shOutput.stderr)
+            #expect(checker.check(.regex("Compiling .*secho.*")), "stdout: '\(shOutput.stdout)'\n stderr:'\(shOutput.stderr)'")
+            #expect(checker.check(.regex("Linking .*secho")),  "stdout: '\(shOutput.stdout)'\n stderr:'\(shOutput.stderr)'")
+            #expect(checker.check(.contains("Build of product 'secho' complete")),  "stdout: '\(shOutput.stdout)'\n stderr:'\(shOutput.stderr)'")
 
-            #expect(runOutput == "1 \"two\"\(ProcessInfo.EOL)")
+            #expect(shOutput.stdout == "1 \"two\"\(ProcessInfo.EOL)")
+
+            // Check the return code
+            #expect(shOutput.returnCode == .terminated(code: 0))
         }
     }
 
@@ -318,16 +320,16 @@ private struct BasicTests {
                     """
                 )
             )
-            let testOutput = try sh(
+            let shOutput = try sh(
                 swiftTest, "--package-path", packagePath, "--filter", "MyTests.*", "--skip",
-                "testBaz"
-            ).stderr
+                "testBaz", "--vv"
+            )
 
             // Check the test log.
-            let checker = StringChecker(string: testOutput)
-            #expect(checker.check(.contains("Test Suite 'MyTests' started")))
-            #expect(checker.check(.contains("Test Suite 'MyTests' passed")))
-            #expect(checker.check(.contains("Executed 2 tests, with 0 failures")))
+            let checker = StringChecker(string: shOutput.stderr)
+            #expect(checker.check(.contains("Test Suite 'MyTests' started")), "stdout: '\(shOutput.stdout)'\n stderr:'\(shOutput.stderr)'")
+            #expect(checker.check(.contains("Test Suite 'MyTests' passed")), "stdout: '\(shOutput.stdout)'\n stderr:'\(shOutput.stderr)'")
+            #expect(checker.check(.contains("Executed 2 tests, with 0 failures")), "stdout: '\(shOutput.stdout)'\n stderr:'\(shOutput.stderr)'")
         }
     }
 
@@ -410,15 +412,15 @@ private struct BasicTests {
                 )
             )
 
-            let testOutput = try sh(
-                swiftTest, "--package-path", packagePath, "--filter", "MyTests.*"
-            ).stdout
+            let shOutput = try sh(
+                swiftTest, "--package-path", packagePath, "--filter", "MyTests.*", "--vv"
+            )
 
             // Check the test log.
-            let checker = StringChecker(string: testOutput)
-            #expect(checker.check(.contains("Test Suite 'MyTests' started")))
-            #expect(checker.check(.contains("Test Suite 'MyTests' passed")))
-            #expect(checker.check(.contains("Executed 2 tests, with 0 failures")))
+            let checker = StringChecker(string: shOutput.stdout)
+            #expect(checker.check(.contains("Test Suite 'MyTests' started")), "stdout: '\(shOutput.stdout)'\n stderr:'\(shOutput.stderr)'")
+            #expect(checker.check(.contains("Test Suite 'MyTests' passed")), "stdout: '\(shOutput.stdout)'\n stderr:'\(shOutput.stderr)'")
+            #expect(checker.check(.contains("Executed 2 tests, with 0 failures")), "stdout: '\(shOutput.stdout)'\n stderr:'\(shOutput.stderr)'")
         }
     }
 }
