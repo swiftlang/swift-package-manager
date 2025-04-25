@@ -504,20 +504,14 @@ extension PackagePIFProjectBuilder {
         }
 
         // Additional settings for the linker.
-        let baselineOTHER_LDFLAGS: [String]
         let enableDuplicateLinkageCulling = UserDefaults.standard.bool(
             forKey: "IDESwiftPackagesEnableDuplicateLinkageCulling",
             defaultValue: true
         )
         if enableDuplicateLinkageCulling {
-            baselineOTHER_LDFLAGS = [
-                "-Wl,-no_warn_duplicate_libraries",
-                "$(inherited)"
-            ]
-        } else {
-            baselineOTHER_LDFLAGS = ["$(inherited)"]
+            impartedSettings[.LD_WARN_DUPLICATE_LIBRARIES] = "NO"
         }
-        impartedSettings[.OTHER_LDFLAGS] = (sourceModule.isCxx ? ["-lc++"] : []) + baselineOTHER_LDFLAGS
+        impartedSettings[.OTHER_LDFLAGS] = (sourceModule.isCxx ? ["-lc++"] : []) + ["$(inherited)"]
         impartedSettings[.OTHER_LDRFLAGS] = []
         log(
             .debug,

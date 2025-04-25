@@ -959,10 +959,12 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
 
     override func testBuildCompleteMessage() async throws {
         #if os(Linux)
-        throw XCTSkip("SWBINTTODO: Need to properly set LD_LIBRARY_PATH on linux")
-        #else
-        try await super.testBuildCompleteMessage()
+        if FileManager.default.contents(atPath: "/etc/system-release").map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false {
+            throw XCTSkip("Skipping Swift Build testing on Amazon Linux because of platform issues.")
+        }
         #endif
+
+        try await super.testBuildCompleteMessage()
     }
 
 }

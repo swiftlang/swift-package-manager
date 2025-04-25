@@ -3898,7 +3898,7 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
     }
 
     override func testCommandPluginBuildingCallbacks() async throws {
-        throw XCTSkip("SWBINTTODO: Test fails as plugins are not currenty supported")
+        throw XCTSkip("SWBINTTODO: Test fails because plugin is not producing expected output to stdout.")
     }
     override func testCommandPluginBuildTestability() async throws {
         throw XCTSkip("SWBINTTODO: Test fails as plugins are not currenty supported")
@@ -3906,7 +3906,13 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
 
 #if !os(macOS)
     override func testCommandPluginTestingCallbacks() async throws {
-        throw XCTSkip("SWBINTTODO: Test fails on inability to find libclang on Linux. Also, plugins are not currently supported")
+#if os(Linux)
+        if FileManager.default.contents(atPath: "/etc/system-release").map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false {
+            throw XCTSkip("Skipping Swift Build testing on Amazon Linux because of platform issues.")
+        }
+#endif
+        try await super.testCommandPluginTestingCallbacks()
     }
 #endif
+
 }
