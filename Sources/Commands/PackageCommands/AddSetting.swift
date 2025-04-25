@@ -67,23 +67,47 @@ extension SwiftPackageCommand {
         }
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
+            if !self._swiftSettings.isEmpty {
+                try Self.editSwiftSettings(
+                    of: self.target,
+                    using: swiftCommandState,
+                    self.swiftSettings,
+                    verbose: !self.globalOptions.logging.quiet
+                )
+            }
+        }
+
+        package static func editSwiftSettings(
+            of target: String,
+            using swiftCommandState: SwiftCommandState,
+            _ settings: [(SwiftSetting, String)],
+            verbose: Bool = false
+        ) throws {
             let workspace = try swiftCommandState.getActiveWorkspace()
             guard let packagePath = try swiftCommandState.getWorkspaceRoot().packages.first else {
                 throw StringError("unknown package")
             }
 
-            try self.applyEdits(packagePath: packagePath, workspace: workspace)
+            try self.applyEdits(
+                packagePath: packagePath,
+                workspace: workspace,
+                target: target,
+                swiftSettings: settings
+            )
         }
 
-        private func applyEdits(
+        private static func applyEdits(
             packagePath: Basics.AbsolutePath,
-            workspace: Workspace
+            workspace: Workspace,
+            target: String,
+            swiftSettings: [(SwiftSetting, String)],
+            verbose: Bool = false
         ) throws {
             // Load the manifest file
             let fileSystem = workspace.fileSystem
             let manifestPath = packagePath.appending(component: Manifest.filename)
 
-            for (setting, value) in try self.swiftSettings {
+            for (setting, value) in swiftSettings {
                 let manifestContents: ByteString
                 do {
                     manifestContents = try fileSystem.readFileContents(manifestPath)
@@ -105,13 +129,13 @@ extension SwiftPackageCommand {
                 switch setting {
                 case .experimentalFeature:
                     editResult = try AddSwiftSetting.experimentalFeature(
-                        to: self.target,
+                        to: target,
                         name: value,
                         manifest: manifestSyntax
                     )
                 case .upcomingFeature:
                     editResult = try AddSwiftSetting.upcomingFeature(
-                        to: self.target,
+                        to: target,
                         name: value,
                         manifest: manifestSyntax
                     )
@@ -121,7 +145,7 @@ extension SwiftPackageCommand {
                     }
 
                     editResult = try AddSwiftSetting.languageMode(
-                        to: self.target,
+                        to: target,
                         mode: mode,
                         manifest: manifestSyntax
                     )
@@ -131,7 +155,7 @@ extension SwiftPackageCommand {
                     }
 
                     editResult = try AddSwiftSetting.strictMemorySafety(
-                        to: self.target,
+                        to: target,
                         manifest: manifestSyntax
                     )
                 }
@@ -140,7 +164,7 @@ extension SwiftPackageCommand {
                     to: fileSystem,
                     manifest: manifestSyntax,
                     manifestPath: manifestPath,
-                    verbose: !self.globalOptions.logging.quiet
+                    verbose: verbose
                 )
             }
         }
