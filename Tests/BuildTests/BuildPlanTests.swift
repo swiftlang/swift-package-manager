@@ -48,7 +48,10 @@ extension Build.BuildPlan {
 
 class BuildPlanTestCase: BuildSystemProviderTestCase {
     override func setUpWithError() throws {
-        try XCTSkipIf(type(of: self) == BuildPlanTestCase.self, "Skipping this test since it will be run in subclasses that will provide different build systems to test.")
+        try XCTSkipIf(
+            Self.self == BuildPlanTestCase.self,
+            "Skipping this test since it will be run in subclasses that will provide different build systems to test."
+        )
     }
 
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
@@ -696,47 +699,49 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             fileSystem: localFileSystem
         )
         try await fixture(name: "Miscellaneous/TargetPackageAccess") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(
+            let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath.appending("libPkg"),
                 extraArgs: ["-v"],
                 buildSystem: buildSystemProvider
             )
+            let output = stdout + "\n" + stderr
+            
             if isFlagSupportedInDriver {
-                let moduleFlag1 = stdout.range(of: "-module-name DataModel")
+                let moduleFlag1 = output.range(of: "-module-name DataModel")
                 XCTAssertNotNil(moduleFlag1)
-                let stdoutNext1 = stdout[moduleFlag1!.upperBound...]
-                let packageFlag1 = stdoutNext1.range(of: "-package-name libpkg")
+                let outNext1 = output[moduleFlag1!.upperBound...]
+                let packageFlag1 = outNext1.range(of: "-package-name libpkg")
                 XCTAssertNotNil(packageFlag1)
 
-                let moduleFlag2 = stdoutNext1.range(of: "-module-name DataManager")
+                let moduleFlag2 = outNext1.range(of: "-module-name DataManager")
                 XCTAssertNotNil(moduleFlag2)
                 XCTAssertTrue(packageFlag1!.upperBound < moduleFlag2!.lowerBound)
-                let stdoutNext2 = stdoutNext1[moduleFlag2!.upperBound...]
-                let packageFlag2 = stdoutNext2.range(of: "-package-name libpkg")
+                let outNext2 = outNext1[moduleFlag2!.upperBound...]
+                let packageFlag2 = outNext2.range(of: "-package-name libpkg")
                 XCTAssertNotNil(packageFlag2)
 
-                let moduleFlag3 = stdoutNext2.range(of: "-module-name Core")
+                let moduleFlag3 = outNext2.range(of: "-module-name Core")
                 XCTAssertNotNil(moduleFlag3)
                 XCTAssertTrue(packageFlag2!.upperBound < moduleFlag3!.lowerBound)
-                let stdoutNext3 = stdoutNext2[moduleFlag3!.upperBound...]
-                let packageFlag3 = stdoutNext3.range(of: "-package-name libpkg")
+                let outNext3 = outNext2[moduleFlag3!.upperBound...]
+                let packageFlag3 = outNext3.range(of: "-package-name libpkg")
                 XCTAssertNotNil(packageFlag3)
 
-                let moduleFlag4 = stdoutNext3.range(of: "-module-name MainLib")
+                let moduleFlag4 = outNext3.range(of: "-module-name MainLib")
                 XCTAssertNotNil(moduleFlag4)
                 XCTAssertTrue(packageFlag3!.upperBound < moduleFlag4!.lowerBound)
-                let stdoutNext4 = stdoutNext3[moduleFlag4!.upperBound...]
-                let packageFlag4 = stdoutNext4.range(of: "-package-name libpkg")
+                let outNext4 = outNext3[moduleFlag4!.upperBound...]
+                let packageFlag4 = outNext4.range(of: "-package-name libpkg")
                 XCTAssertNotNil(packageFlag4)
 
-                let moduleFlag5 = stdoutNext4.range(of: "-module-name ExampleApp")
+                let moduleFlag5 = outNext4.range(of: "-module-name ExampleApp")
                 XCTAssertNotNil(moduleFlag5)
                 XCTAssertTrue(packageFlag4!.upperBound < moduleFlag5!.lowerBound)
-                let stdoutNext5 = stdoutNext4[moduleFlag5!.upperBound...]
-                let packageFlag5 = stdoutNext5.range(of: "-package-name")
+                let outNext5 = outNext4[moduleFlag5!.upperBound...]
+                let packageFlag5 = outNext5.range(of: "-package-name")
                 XCTAssertNil(packageFlag5)
             } else {
-                XCTAssertNoMatch(stdout, .contains("-package-name"))
+                XCTAssertNoMatch(output, .contains("-package-name"))
             }
             XCTAssertMatch(stdout, .contains("Build complete!"))
         }
@@ -7059,27 +7064,20 @@ class BuildPlanSwiftBuildTests: BuildPlanTestCase {
         try await super.testDuplicateProductNamesWithNonDefaultLibsThrowError()
     }
 
-    override func testTargetsWithPackageAccess() async throws {
-        throw XCTSkip("Skip until swift build system can support this case.")
-    }
-
-    override func testTestModule() async throws {
-        throw XCTSkip("Skip until swift build system can support this case.")
-    }
-
     override func testPackageNameFlag() async throws {
-#if os(Windows)
+        #if os(Windows)
+        // * GitHub issue: https://github.com/swiftlang/swift-package-manager/issues/8380
         throw XCTSkip("Skip until there is a resolution to the partial linking with Windows that results in a 'subsystem must be defined' error.")
-#endif
+        #endif
 
-#if os(Linux)
+        #if os(Linux)
         if FileManager.default.contents(atPath: "/etc/system-release").map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false {
             throw XCTSkip("Skipping Swift Build testing on Amazon Linux because of platform issues.")
         }
         // Linking error: "/usr/bin/ld.gold: fatal error: -pie and -static are incompatible".
-        // Tracked by GitHub issue: https://github.com/swiftlang/swift-package-manager/issues/8499
+        // * GitHub issue: https://github.com/swiftlang/swift-package-manager/issues/8499
         throw XCTSkip("Skipping Swift Build testing on Linux because of linking issues.")
-#endif
+        #endif
 
         try await super.testPackageNameFlag()
     }
