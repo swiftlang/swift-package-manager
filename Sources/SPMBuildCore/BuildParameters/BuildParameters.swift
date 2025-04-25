@@ -127,6 +127,8 @@ public struct BuildParameters: Encodable {
 
     public var shouldSkipBuilding: Bool
 
+    public var printPIFManifestGraphviz: Bool = false
+
     /// Do minimal build to prepare for indexing
     public var prepareForIndexing: PrepareForIndexingMode
 

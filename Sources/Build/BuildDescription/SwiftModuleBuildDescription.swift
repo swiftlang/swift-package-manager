@@ -495,6 +495,8 @@ public final class SwiftModuleBuildDescription {
             args += ["-enable-batch-mode"]
         }
 
+        args += ["-serialize-diagnostics"]
+
         args += self.buildParameters.indexStoreArguments(for: self.target)
         args += self.optimizationArguments
         args += self.testingArguments
@@ -851,6 +853,7 @@ public final class SwiftModuleBuildDescription {
             let sourceFileName = source.basenameWithoutExt
             let partialModulePath = self.tempsPath.appending(component: sourceFileName + "~partial.swiftmodule")
             let swiftDepsPath = self.tempsPath.appending(component: sourceFileName + ".swiftdeps")
+            let diagnosticsPath = self.diagnosticFile(sourceFile: source)
 
             content +=
                 #"""
@@ -872,7 +875,8 @@ public final class SwiftModuleBuildDescription {
                 #"""
                     "\#(objectKey)": "\#(object._nativePathString(escaped: true))",
                     "swiftmodule": "\#(partialModulePath._nativePathString(escaped: true))",
-                    "swift-dependencies": "\#(swiftDepsPath._nativePathString(escaped: true))"
+                    "swift-dependencies": "\#(swiftDepsPath._nativePathString(escaped: true))",
+                    "diagnostics": "\#(diagnosticsPath._nativePathString(escaped: true))"
                   }\#((idx + 1) < sources.count ? "," : "")
 
                 """#
@@ -1053,5 +1057,15 @@ extension SwiftModuleBuildDescription {
         using plan: BuildPlan
     ) -> [ModuleBuildDescription.Dependency] {
         ModuleBuildDescription.swift(self).recursiveDependencies(using: plan)
+    }
+}
+
+extension SwiftModuleBuildDescription {
+    package var diagnosticFiles: [AbsolutePath] {
+        self.sources.compactMap { self.diagnosticFile(sourceFile: $0) }
+    }
+
+    private func diagnosticFile(sourceFile: AbsolutePath) -> AbsolutePath {
+        self.tempsPath.appending(component: "\(sourceFile.basenameWithoutExt).dia")
     }
 }

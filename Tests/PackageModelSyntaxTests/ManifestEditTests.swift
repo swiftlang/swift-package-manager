@@ -296,7 +296,7 @@ class ManifestEditTests: XCTestCase {
                 """
             )
         ) { (error: ManifestEditError) in
-            if case .oldManifest(.v5_4) = error {
+            if case .oldManifest(.v5_4, .v5_5) = error {
                 return true
             } else {
                 return false
@@ -611,6 +611,266 @@ class ManifestEditTests: XCTestCase {
                 .product(name: "SomethingOrOther", package: "swift-example"),
                 targetName: "MyTest",
                 to: manifest
+            )
+        }
+    }
+
+    func testAddSwiftSettings() throws {
+        XCTAssertThrows(
+            try AddSwiftSetting.upcomingFeature(
+                to: "MyTest",
+                name: "ExistentialAny",
+                manifest: """
+                // swift-tools-version: 5.5
+                let package = Package(
+                    name: "packages",
+                    targets: [
+                        .executableTarget(
+                            name: "MyTest"
+                        )
+                    ]
+                )
+                """
+            )
+        ) { (error: ManifestEditError) in
+            if case .oldManifest(.v5_5, .v5_8) = error {
+                return true
+            } else {
+                return false
+            }
+        }
+
+        XCTAssertThrows(
+            try AddSwiftSetting.upcomingFeature(
+                to: "OtherTest",
+                name: "ExistentialAny",
+                manifest: """
+                // swift-tools-version: 5.8
+                let package = Package(
+                    name: "packages",
+                    targets: [
+                        .executableTarget(
+                            name: "MyTest"
+                        )
+                    ]
+                )
+                """
+            )
+        ) { (error: ManifestEditError) in
+            if case .cannotFindTarget("OtherTest") = error {
+                return true
+            } else {
+                return false
+            }
+        }
+
+        XCTAssertThrows(
+            try AddSwiftSetting.upcomingFeature(
+                to: "MyPlugin",
+                name: "ExistentialAny",
+                manifest: """
+                // swift-tools-version: 5.8
+                let package = Package(
+                    name: "packages",
+                    targets: [
+                        .plugin(
+                            name: "MyPlugin",
+                            capability: .buildTool
+                        )
+                    ]
+                )
+                """
+            )
+        ) { (error: ManifestEditError) in
+            if case .cannotAddSettingsToPluginTarget = error {
+                return true
+            } else {
+                return false
+            }
+        }
+
+
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.8
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                        ]
+                    ),
+                ]
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 5.8
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                        ],
+                        swiftSettings: [
+                            .enableUpcomingFeature("ExistentialAny:migratable"),
+                        ]
+                    ),
+                ]
+            )
+            """) { manifest in
+            try AddSwiftSetting.upcomingFeature(
+                to: "MyTest",
+                name: "ExistentialAny:migratable",
+                manifest: manifest
+            )
+        }
+
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.8
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                        ],
+                        swiftSettings: [
+                            .enableExperimentalFeature("Extern")
+                        ]
+                    ),
+                ]
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 5.8
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                        ],
+                        swiftSettings: [
+                            .enableExperimentalFeature("Extern"),
+                            .enableExperimentalFeature("TrailingComma"),
+                        ]
+                    ),
+                ]
+            )
+            """) { manifest in
+            try AddSwiftSetting.experimentalFeature(
+                to: "MyTest",
+                name: "TrailingComma",
+                manifest: manifest
+            )
+        }
+
+        try assertManifestRefactor("""
+            // swift-tools-version: 6.2
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                        ]
+                    ),
+                ]
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 6.2
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                        ],
+                        swiftSettings: [
+                            .strictMemorySafety,
+                        ]
+                    ),
+                ]
+            )
+            """) { manifest in
+            try AddSwiftSetting.strictMemorySafety(
+                to: "MyTest",
+                manifest: manifest
+            )
+        }
+
+        try assertManifestRefactor("""
+            // swift-tools-version: 6.0
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                        ]
+                    ),
+                ]
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 6.0
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                        ],
+                        swiftSettings: [
+                            .swiftLanguageMode(.v5),
+                        ]
+                    ),
+                ]
+            )
+            """) { manifest in
+            try AddSwiftSetting.languageMode(
+                to: "MyTest",
+                mode: .init(string: "5")!,
+                manifest: manifest
+            )
+        }
+        
+        // Custom language mode
+        try assertManifestRefactor("""
+            // swift-tools-version: 6.0
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                        ]
+                    ),
+                ]
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 6.0
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                        ],
+                        swiftSettings: [
+                            .swiftLanguageMode(.version("6.2")),
+                        ]
+                    ),
+                ]
+            )
+            """) { manifest in
+            try AddSwiftSetting.languageMode(
+                to: "MyTest",
+                mode: .init(string: "6.2")!,
+                manifest: manifest
             )
         }
     }

@@ -1265,6 +1265,45 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             XCTAssertMatch(contents, .contains(#""MyLib""#))
         }
     }
+
+    func testPackageAddSetting() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageA")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(path.appending("Package.swift"), string:
+                """
+                // swift-tools-version: 6.2
+                import PackageDescription
+                let package = Package(
+                    name: "A",
+                    targets: [ .target(name: "test") ]
+                )
+                """
+            )
+
+            _ = try await execute([
+                "add-setting",
+                "--target", "test",
+                "--swift", "languageMode=6",
+                "--swift", "upcomingFeature=ExistentialAny:migratable",
+                "--swift", "experimentalFeature=TrailingCommas",
+                "--swift", "strictMemorySafety"
+            ], packagePath: path)
+
+            let manifest = path.appending("Package.swift")
+            XCTAssertFileExists(manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            XCTAssertMatch(contents, .contains(#"swiftSettings:"#))
+            XCTAssertMatch(contents, .contains(#".swiftLanguageMode(.v6)"#))
+            XCTAssertMatch(contents, .contains(#".enableUpcomingFeature("ExistentialAny:migratable")"#))
+            XCTAssertMatch(contents, .contains(#".enableExperimentalFeature("TrailingCommas")"#))
+            XCTAssertMatch(contents, .contains(#".strictMemorySafety"#))
+        }
+    }
+
     func testPackageEditAndUnedit() async throws {
         try await fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
             let fooPath = fixturePath.appending("foo")

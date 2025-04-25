@@ -11,6 +11,7 @@ add_library(Commands
   PackageCommands/AddProduct.swift 
   PackageCommands/AddTarget.swift
   PackageCommands/AddTargetDependency.swift
+  PackageCommands/AddSetting.swift
   PackageCommands/APIDiff.swift
   PackageCommands/ArchiveSource.swift
   PackageCommands/CompletionCommand.swift
