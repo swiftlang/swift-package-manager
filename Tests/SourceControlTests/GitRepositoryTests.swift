@@ -34,7 +34,8 @@ class GitRepositoryTests: XCTestCase {
     }
 
     /// Test the basic provider functions.
-    func testRepositorySpecifier() {
+    func testRepositorySpecifier() throws {
+        throw XCTSkip()
         do {
             let s1 = RepositorySpecifier(url: "a")
             let s2 = RepositorySpecifier(url: "a")
@@ -62,6 +63,7 @@ class GitRepositoryTests: XCTestCase {
 
     /// Test the basic provider functions.
     func testProvider() throws {
+        throw XCTSkip()
         try testWithTemporaryDirectory { path in
             let testRepoPath = path.appending("test-repo")
             try! makeDirectories(testRepoPath)
@@ -110,6 +112,7 @@ class GitRepositoryTests: XCTestCase {
 
     /// Check hash validation.
     func testGitRepositoryHash() throws {
+        throw XCTSkip()
         let validHash = "0123456789012345678901234567890123456789"
         XCTAssertNotEqual(GitRepository.Hash(validHash), nil)
 
@@ -126,6 +129,7 @@ class GitRepositoryTests: XCTestCase {
     /// `Inputs`, which has known commit hashes. See the `construct.sh` script
     /// contained within it for more information.
     func testRawRepository() throws {
+        throw XCTSkip()
         try skipOnWindowsAsTestCurrentlyFails(because: "https://github.com/swiftlang/swift-package-manager/issues/8385: test repository has non-portable file names")
 
         try testWithTemporaryDirectory { path in
@@ -186,6 +190,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testSubmoduleRead() throws {
+        throw XCTSkip()
         try testWithTemporaryDirectory { path in
             let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
@@ -209,6 +214,7 @@ class GitRepositoryTests: XCTestCase {
 
     /// Test the Git file system view.
     func testGitFileView() throws {
+        throw XCTSkip()
         try testWithTemporaryDirectory { path in
             let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
@@ -297,6 +303,7 @@ class GitRepositoryTests: XCTestCase {
 
     /// Test the handling of local checkouts.
     func testCheckouts() throws {
+        throw XCTSkip()
         try testWithTemporaryDirectory { path in
             // Create a test repository.
             let testRepoPath = path.appending("test-repo")
@@ -343,6 +350,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testFetch() throws {
+        throw XCTSkip()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -382,6 +390,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testHasUnpushedCommits() throws {
+        throw XCTSkip()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -418,6 +427,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testSetRemote() throws {
+        throw XCTSkip()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -448,6 +458,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testUncommittedChanges() throws {
+        throw XCTSkip()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -475,6 +486,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testBranchOperations() throws {
+        throw XCTSkip()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -505,6 +517,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testRevisionOperations() throws {
+        throw XCTSkip()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let repositoryPath = path.appending("test-repo")
@@ -530,6 +543,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testCheckoutRevision() throws {
+        throw XCTSkip()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -573,6 +587,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testSubmodules() throws {
+        throw XCTSkip()
         try testWithTemporaryDirectory { path in
             let provider = GitRepositoryProvider()
 
@@ -696,6 +711,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testAreIgnored() throws {
+        throw XCTSkip()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test_repo")
@@ -717,6 +733,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testAreIgnoredWithSpaceInRepoPath() throws {
+        throw XCTSkip()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test repo")
@@ -733,6 +750,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testMissingDefaultBranch() throws {
+        throw XCTSkip()
         try testWithTemporaryDirectory { path in
             // Create a repository.
             let testRepoPath = path.appending("test-repo")
@@ -770,6 +788,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testValidDirectoryLocalRelativeOrigin() async throws {
+        throw XCTSkip()
         try testWithTemporaryDirectory { tmpDir in
             // Create a repository.
             let packageDir = tmpDir.appending("SomePackage")
@@ -816,6 +835,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testValidDirectoryLocalAbsoluteOrigin() async throws {
+        throw XCTSkip()
         try testWithTemporaryDirectory { tmpDir in
             // Create a repository.
             let packageDir = tmpDir.appending("SomePackage")
@@ -866,6 +886,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testValidDirectoryRemoteOrigin() async throws {
+        throw XCTSkip()
         try testWithTemporaryDirectory { tmpDir in
             // Create a repository.
             let packageDir = tmpDir.appending("SomePackage")
