@@ -1068,6 +1068,9 @@ final class ParallelTestRunner {
     /// The queue containing list of tests to run (producer).
     private let pendingTests = SynchronizedQueue<UnitTest?>()
 
+    private var runningTests = Set<String>()
+    private let runningLock = NSLock()
+
     /// The queue containing tests which are finished running.
     private let finishedTests = SynchronizedQueue<TestResult?>()
 
@@ -1189,7 +1192,21 @@ final class ParallelTestRunner {
                     var output = ""
                     let outputLock = NSLock()
                     let start = DispatchTime.now()
+                    self.runningLock.withLock {
+                        self.runningTests.insert(test.specifier)
+                        print("Started tests:",  self.runningTests.count)
+                        for test in self.runningTests.sorted() {
+                            print(">", test)
+                        }
+                    }
                     let result = testRunner.test(outputHandler: { _output in outputLock.withLock{ output += _output }})
+                    self.runningLock.withLock {
+                        self.runningTests.insert(test.specifier)
+                        print("Running tests:",  self.runningTests.count)
+                        for test in self.runningTests.sorted() {
+                            print(">", test)
+                        }
+                    }
                     let duration = start.distance(to: .now())
                     if result == .failure {
                         self.ranSuccessfully = false
