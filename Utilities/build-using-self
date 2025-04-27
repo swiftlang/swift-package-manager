@@ -158,7 +158,7 @@ def main() -> None:
             shlex.split(f"swift run swift-test --configuration {args.config} --parallel {swift_testing_arg} {xctest_arg} --scratch-path .test {ignore}"),
         )
 
-        integration_test_dir = REPO_ROOT_PATH / "IntegrationTests"
+        integration_test_dir = (REPO_ROOT_PATH / "IntegrationTests").as_posix()
         call(
             shlex.split(f"swift package --package-path {integration_test_dir} update"),
         )
