@@ -1194,14 +1194,10 @@ final class ParallelTestRunner {
                     let start = DispatchTime.now()
                     self.runningLock.withLock {
                         self.runningTests.insert(test.specifier)
-                        print("Started tests:",  self.runningTests.count)
-                        for test in self.runningTests.sorted() {
-                            print(">", test)
-                        }
                     }
                     let result = testRunner.test(outputHandler: { _output in outputLock.withLock{ output += _output }})
                     self.runningLock.withLock {
-                        self.runningTests.insert(test.specifier)
+                        self.runningTests.remove(test.specifier)
                         print("Running tests:",  self.runningTests.count)
                         for test in self.runningTests.sorted() {
                             print(">", test)
