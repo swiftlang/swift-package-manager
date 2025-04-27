@@ -50,6 +50,12 @@ public func XCTSkipIfCI(file: StaticString = #filePath, line: UInt = #line) thro
     }
 }
 
+public func XCTSkipIfWindowsCI(file: StaticString = #filePath, line: UInt = #line) throws {
+    #if os(Windows)
+    XCTSkipIfCI(file: file, line: line)
+    #endif
+}
+
 /// An `async`-friendly replacement for `XCTAssertThrowsError`.
 public func XCTAssertAsyncThrowsError<T>(
     _ expression: @autoclosure () async throws -> T,
