@@ -52,7 +52,7 @@ public func XCTSkipIfCI(file: StaticString = #filePath, line: UInt = #line) thro
 
 public func XCTSkipIfWindowsCI(file: StaticString = #filePath, line: UInt = #line) throws {
     #if os(Windows)
-    XCTSkipIfCI(file: file, line: line)
+    try XCTSkipIfCI(file: file, line: line)
     #endif
 }
 
