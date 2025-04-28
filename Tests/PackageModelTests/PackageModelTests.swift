@@ -17,7 +17,6 @@ import Basics
 
 import func TSCBasic.withTemporaryFile
 import XCTest
-import _InternalTestSupport // for skipOnWindowsAsTestCurrentlyFails
 
 import struct TSCBasic.ByteString
 
@@ -160,10 +159,7 @@ final class PackageModelTests: XCTestCase {
     }
 
     func testDetermineSwiftCompilers() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let fs = localFileSystem
-        try withTemporaryFile { _ in
             try withTemporaryDirectory(removeTreeOnDeinit: true) { tmp in
                 // When swiftc is not in the toolchain bin directory, UserToolchain
                 // should find it in the system PATH search paths in the order they
@@ -175,10 +171,17 @@ final class PackageModelTests: XCTestCase {
 
                 // Create a directory with two swiftc binaries in it.
                 let binDirs = ["bin1", "bin2"].map { tmp.appending($0) }
+                #if os(Windows)
+                let exeSuffix = ".exe"
+                #else
+                let exeSuffix = ""
+                #endif
+                let expectedExecuable = "swiftc\(exeSuffix)" // Files that end with .exe are considered executable on Windows.
                 for binDir in binDirs {
                     try fs.createDirectory(binDir)
-                    let binFile = binDir.appending("swiftc")
+                    let binFile = binDir.appending(expectedExecuable)
                     try fs.writeFileContents(binFile, bytes: ByteString(Self.tinyPEBytes))
+                    XCTAssertTrue(fs.exists(binFile), "File '\(binFile)' does not exist when it should")
                     #if !os(Windows)
                     try fs.chmod(.executable, path: binFile, options: [])
                     #endif
@@ -193,8 +196,7 @@ final class PackageModelTests: XCTestCase {
                 )
 
                 // The first swiftc in the search paths should be chosen.
-                XCTAssertEqual(compilers.compile, binDirs.first?.appending("swiftc"))
+                XCTAssertEqual(compilers.compile, binDirs.first?.appending(expectedExecuable))
             }
-        }
     }
 }

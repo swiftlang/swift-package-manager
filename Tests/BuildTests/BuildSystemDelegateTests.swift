@@ -30,7 +30,7 @@ final class BuildSystemDelegateTests: XCTestCase {
     }
 
     func testFilterNonFatalCodesignMessages() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: "Package fails to build when the test is being executed")
+        try skipOnWindowsAsTestCurrentlyFails(because: "https://github.com/swiftlang/swift-package-manager/issues/8540: Package fails to build when the test is being executed")
 
         try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
         // Note: we can re-use the `TestableExe` fixture here since we just need an executable.

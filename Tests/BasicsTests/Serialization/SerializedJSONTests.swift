@@ -34,7 +34,7 @@ final class SerializedJSONTests: XCTestCase {
     }
 
     func testPathInterpolationFailsOnWindows() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: "Expectations are not met")
+        try skipOnWindowsAsTestCurrentlyFails(because: "Expectations are not met. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511")
 
 #if os(Windows)
         var path = try AbsolutePath(validating: #"\\?\C:\Users"#)
