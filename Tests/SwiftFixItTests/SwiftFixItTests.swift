@@ -575,31 +575,35 @@ extension SwiftFixItTests {
         }
     }
 
-    func testFixItInDifferentFile() throws {
-        XCTExpectFailure()
-
-        // Apply a fix-it in a different file.
-        try self.testAPI2Files { (filename1: String, filename2: String) in
-            .init(
-                edits: (
-                    .init(input: "var x = 1", result: "let x = 1"),
-                    .init(input: "", result: "")
-                ),
-                diagnostics: [
-                    TestDiagnostic(
-                        text: "error",
-                        level: .error,
-                        location: .init(filename: filename2, line: 1, column: 1, offset: 0),
-                        fixIts: [
-                            .init(
-                                start: .init(filename: filename1, line: 1, column: 1, offset: 0),
-                                end: .init(filename: filename1, line: 1, column: 4, offset: 0),
-                                text: "let"
-                            ),
-                        ]
+    func testFixItInDifferentFile() {
+        do {
+            try self.testAPI2Files { (filename1: String, filename2: String) in
+                .init(
+                    edits: (
+                        .init(input: "var x = 1", result: "let x = 1"),
+                        .init(input: "", result: "")
                     ),
-                ]
-            )
+                    diagnostics: [
+                        TestDiagnostic(
+                            text: "error",
+                            level: .error,
+                            location: .init(filename: filename2, line: 1, column: 1, offset: 0),
+                            fixIts: [
+                                .init(
+                                    start: .init(filename: filename1, line: 1, column: 1, offset: 0),
+                                    end: .init(filename: filename1, line: 1, column: 4, offset: 0),
+                                    text: "let"
+                                ),
+                            ]
+                        ),
+                    ]
+                )
+            }
+        } catch {
+            // Expected to throw an error.
+            return
         }
+
+        XCTFail()
     }
 }

@@ -219,7 +219,12 @@ private struct SourceFile {
         )
     }
 
-    func position(of location: borrowing some AnySourceLocation) -> AbsolutePosition {
+    func position(of location: borrowing some AnySourceLocation) throws -> AbsolutePosition {
+        guard try AbsolutePath(validating: location.filename) == self.path else {
+            // Wrong source file.
+            throw Error.failedToResolveSourceLocation
+        }
+
         guard location.offset == 0 else {
             return AbsolutePosition(utf8Offset: Int(location.offset))
         }
@@ -231,7 +236,7 @@ private struct SourceFile {
     }
 
     func node(at location: some AnySourceLocation) throws -> Syntax {
-        let position = position(of: location)
+        let position = try position(of: location)
 
         if let token = syntax.token(at: position) {
             return SwiftSyntax.Syntax(token)
@@ -305,10 +310,10 @@ extension DiagnosticConverter {
     private static func fixIt(
         from diagnostic: borrowing some AnyDiagnostic,
         in sourceFile: borrowing SourceFile
-    ) -> SwiftDiagnostics.FixIt {
-        let changes = diagnostic.fixIts.map { fixIt in
-            let startPosition = sourceFile.position(of: fixIt.start)
-            let endPosition = sourceFile.position(of: fixIt.end)
+    ) throws -> SwiftDiagnostics.FixIt {
+        let changes = try diagnostic.fixIts.map { fixIt in
+            let startPosition = try sourceFile.position(of: fixIt.start)
+            let endPosition = try sourceFile.position(of: fixIt.end)
 
             return SwiftDiagnostics.FixIt.Change.replaceText(
                 range: startPosition ..< endPosition,
@@ -325,8 +330,8 @@ extension DiagnosticConverter {
         in sourceFile: borrowing SourceFile
     ) throws -> [Syntax] {
         try diagnostic.ranges.map { startLocation, endLocation in
-            let startPosition = sourceFile.position(of: startLocation)
-            let endPosition = sourceFile.position(of: endLocation)
+            let startPosition = try sourceFile.position(of: startLocation)
+            let endPosition = try sourceFile.position(of: endLocation)
 
             var highlightedNode = try sourceFile.node(at: startLocation)
 
