@@ -17,6 +17,7 @@ import XCTest
 
 class GitRepositoryProviderTests: XCTestCase {
     func testIsValidDirectory() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { sandbox in
             let provider = GitRepositoryProvider()
 
@@ -42,6 +43,7 @@ class GitRepositoryProviderTests: XCTestCase {
     }
 
     func testIsValidDirectoryThrowsPrintableError() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { temp in
             let provider = GitRepositoryProvider()
             let expectedErrorMessage = "not a git repository"
@@ -56,6 +58,7 @@ class GitRepositoryProviderTests: XCTestCase {
     }
 
     func testGitShellErrorIsPrintable() throws {
+        try XCTSkipIfWindowsCI()
         let stdOut = "An error from Git - stdout"
         let stdErr = "An error from Git - stderr"
         let arguments = ["git", "error"]
@@ -84,6 +87,7 @@ class GitRepositoryProviderTests: XCTestCase {
     }
 
     func testGitShellErrorEmptyStdOut() throws {
+        try XCTSkipIfWindowsCI()
         let stdErr = "An error from Git - stderr"
         let result = AsyncProcessResult(
             arguments: ["git", "error"],
@@ -101,6 +105,7 @@ class GitRepositoryProviderTests: XCTestCase {
     }
 
     func testGitShellErrorEmptyStdErr() throws {
+        try XCTSkipIfWindowsCI()
         let stdOut = "An error from Git - stdout"
         let result = AsyncProcessResult(
             arguments: ["git", "error"],

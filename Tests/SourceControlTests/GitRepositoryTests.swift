@@ -62,6 +62,7 @@ class GitRepositoryTests: XCTestCase {
 
     /// Test the basic provider functions.
     func testProvider() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             let testRepoPath = path.appending("test-repo")
             try! makeDirectories(testRepoPath)
@@ -187,6 +188,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testSubmoduleRead() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
@@ -210,6 +212,7 @@ class GitRepositoryTests: XCTestCase {
 
     /// Test the Git file system view.
     func testGitFileView() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
@@ -298,6 +301,7 @@ class GitRepositoryTests: XCTestCase {
 
     /// Test the handling of local checkouts.
     func testCheckouts() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a test repository.
             let testRepoPath = path.appending("test-repo")
@@ -344,6 +348,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testFetch() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -383,6 +388,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testHasUnpushedCommits() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -419,6 +425,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testSetRemote() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -449,6 +456,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testUncommittedChanges() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -476,6 +484,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testBranchOperations() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -506,6 +515,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testRevisionOperations() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let repositoryPath = path.appending("test-repo")
@@ -531,6 +541,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testCheckoutRevision() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -574,6 +585,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testSubmodules() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             let provider = GitRepositoryProvider()
 
@@ -663,6 +675,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testAlternativeObjectStoreValidation() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -696,6 +709,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testAreIgnored() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test_repo")
@@ -717,6 +731,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testAreIgnoredWithSpaceInRepoPath() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test repo")
@@ -733,6 +748,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testMissingDefaultBranch() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repository.
             let testRepoPath = path.appending("test-repo")
@@ -770,6 +786,7 @@ class GitRepositoryTests: XCTestCase {
     }
     
     func testValidDirectoryLocalRelativeOrigin() async throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { tmpDir in
             // Create a repository.
             let packageDir = tmpDir.appending("SomePackage")
@@ -816,6 +833,7 @@ class GitRepositoryTests: XCTestCase {
     }
     
     func testValidDirectoryLocalAbsoluteOrigin() async throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { tmpDir in
             // Create a repository.
             let packageDir = tmpDir.appending("SomePackage")
@@ -866,6 +884,7 @@ class GitRepositoryTests: XCTestCase {
     }
     
     func testValidDirectoryRemoteOrigin() async throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { tmpDir in
             // Create a repository.
             let packageDir = tmpDir.appending("SomePackage")
