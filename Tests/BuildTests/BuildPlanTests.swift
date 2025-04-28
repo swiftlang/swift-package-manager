@@ -7033,7 +7033,8 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 let fileMap = try String(bytes: fs.readFileContents(file.path).contents, encoding: .utf8)
 
                 for diagnosticFile in buildDescription.diagnosticFiles {
-                    XCTAssertMatch(fileMap, .contains(diagnosticFile.pathString))
+                    let fileName = diagnosticFile.pathString.replacingOccurrences(of: "\\", with: "\\\\")
+                    XCTAssertMatch(fileMap, .contains(fileName))
                 }
             }
         }

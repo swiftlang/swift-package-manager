@@ -152,20 +152,19 @@ def main() -> None:
             shlex.split(f"swift build --configuration {args.config} {ignore}"),
         )
 
-        if os.name != "nt": # turn off for Windows until we get the hang resolved
-            swift_testing_arg= "--enable-swift-testing" if args.enable_swift_testing else ""
-            xctest_arg= "--enable-xctest" if args.enable_swift_testing else ""
-            call(
-                shlex.split(f"swift run swift-test --configuration {args.config} --parallel {swift_testing_arg} {xctest_arg} --scratch-path .test {ignore}"),
-            )
+        swift_testing_arg= "--enable-swift-testing" if args.enable_swift_testing else ""
+        xctest_arg= "--enable-xctest" if args.enable_swift_testing else ""
+        call(
+            shlex.split(f"swift run swift-test --configuration {args.config} --parallel {swift_testing_arg} {xctest_arg} --scratch-path .test {ignore}"),
+        )
 
-            integration_test_dir = REPO_ROOT_PATH / "IntegrationTests"
-            call(
-                shlex.split(f"swift package --package-path {integration_test_dir} update"),
-            )
-            call(
-                shlex.split(f"swift run swift-test --package-path {integration_test_dir} --parallel {ignore}"),
-            )
+        integration_test_dir = (REPO_ROOT_PATH / "IntegrationTests").as_posix()
+        call(
+            shlex.split(f"swift package --package-path {integration_test_dir} update"),
+        )
+        call(
+            shlex.split(f"swift run swift-test --package-path {integration_test_dir} --parallel {ignore}"),
+        )
 
     if is_on_darwin():
         run_bootstrap(swiftpm_bin_dir=swiftpm_bin_dir)
