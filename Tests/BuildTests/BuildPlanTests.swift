@@ -6984,11 +6984,13 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         
         // Make sure the tests do have the include path and the module map from the lib
         let myMacroTests = try XCTUnwrap(plan.targets.first(where: { $0.module.name == "MyMacroTests" })).swift()
-        XCTAssertTrue(myMacroTests.additionalFlags.contains(where: { $0.contains("CLib/include") }))
-        XCTAssertTrue(myMacroTests.additionalFlags.contains(where: { $0.contains("CLib-tool.build/module.modulemap") }))
+        let flags = myMacroTests.additionalFlags.joined(separator: " ")
+        XCTAssertMatch(flags, .regex("CLib[/\\\\]include"))
+        XCTAssertMatch(flags, .regex("CLib-tool.build[/\\\\]module.modulemap"))
         let myMacro2Tests = try XCTUnwrap(plan.targets.first(where: { $0.module.name == "MyMacro2Tests" })).swift()
-        XCTAssertTrue(myMacro2Tests.additionalFlags.contains(where: { $0.contains("CLib2/include") }))
-        XCTAssertTrue(myMacro2Tests.additionalFlags.contains(where: { $0.contains("CLib2-tool.build/module.modulemap") }))
+        let flags2 = myMacro2Tests.additionalFlags.joined(separator: " ")
+        XCTAssertMatch(flags2, .regex("CLib2[/\\\\]include"))
+        XCTAssertMatch(flags2, .regex("CLib2-tool.build[/\\\\]module.modulemap"))
     }
 }
 
