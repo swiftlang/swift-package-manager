@@ -28,7 +28,7 @@ The Swift Package Manager leets you share your code as a package, depend on and 
 
 <!-- ### Reference -->
 <!-- link to PackageDescription API reference docc -->
-<!-- link to Command API reference docc - the DocC Plugin API -->
+<!-- link to Command API reference docc - the DocC Plugin API (PackagePlugin) -->
 
 <!-- reference content for the CLI commands `swift ...` -->
 ### Swift Commands
