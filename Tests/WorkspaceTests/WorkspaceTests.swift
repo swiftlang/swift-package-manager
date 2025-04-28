@@ -38,7 +38,7 @@ final class WorkspaceTests: XCTestCase {
     //     ]
     //     let matches = windowsPassingTests.filter { $0 == self.invocation?.selector}
     //     if matches.count == 0 {
-    //         try skipOnWindowsAsTestCurrentlyFails()
+    //         try XCTSkipOnWindows()
     //     }
     // }
 
@@ -774,7 +774,6 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
     }
-
 
     func testCanResolveWithIncompatiblePackages() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
@@ -2233,7 +2232,6 @@ final class WorkspaceTests: XCTestCase {
             }
         }
     }
-
 
     func testMinimumRequiredToolsVersionInDependencyResolution() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
@@ -3887,6 +3885,8 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testResolvedFileSchemeToolsVersion() async throws {
+        let fs = InMemoryFileSystem()
+
         for pair in [
             (ToolsVersion.v5_2, ToolsVersion.v5_2),
             (ToolsVersion.v5_6, ToolsVersion.v5_6),
@@ -7782,7 +7782,6 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-
     func testDownloadedArtifactNotAnArchiveError() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -8038,7 +8037,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testArtifactChecksum() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"""
+        try XCTSkipOnWindows(because: #"""
         threw error "\tmp\ws doesn't exist in file system" because there is an issue with InMemoryFileSystem readFileContents(...) on Windows
         """#)
 
@@ -15511,7 +15510,6 @@ final class WorkspaceTests: XCTestCase {
         metadata: [String: RegistryReleaseMetadata],
         mirrors: DependencyMirrors? = nil
     ) async throws -> MockWorkspace {
-
         // let sandbox = AbsolutePath.root.appending("swiftpm-tests-can-be-deleted/tmp/ws")
         let sandbox = AbsolutePath.root.appending(components: ["swiftpm-tests-can-be-deleted", "tmp", "ws"])
         let fs = InMemoryFileSystem()

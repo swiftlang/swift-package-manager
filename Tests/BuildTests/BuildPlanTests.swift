@@ -620,7 +620,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     }
 
     func testPackageNameFlag() async throws {
-        try XCTSkipIfCI() // test is disabled because it isn't stable, see rdar://118239206
+        try XCTSkipIfPlatformCI() // test is disabled because it isn't stable, see rdar://118239206
         let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
             flags: ["package-name"],
             toolchain: UserToolchain.default,
@@ -2040,7 +2040,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     }
 
     func test_symbolGraphExtract_arguments() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows()
 
         // ModuleGraph:
         // .
@@ -4701,7 +4701,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     }
 
     func testUserToolchainCompileFlags() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows()
 
         let fs = InMemoryFileSystem(
             emptyFiles:
@@ -4955,7 +4955,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     }
 
     func testUserToolchainWithToolsetCompileFlags() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: "Path delimiters donw's work well on Windows")
+        try XCTSkipOnWindows(because: "Path delimiters donw's work well on Windows")
 
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
@@ -5125,7 +5125,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     }
 
     func testUserToolchainWithSDKSearchPaths() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows()
 
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
