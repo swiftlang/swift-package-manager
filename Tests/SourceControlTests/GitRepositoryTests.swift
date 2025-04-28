@@ -62,6 +62,9 @@ class GitRepositoryTests: XCTestCase {
 
     /// Test the basic provider functions.
     func testProvider() throws {
+        // Skipping all tests that call git on Windows.
+        // We have a hang in CI when running in parallel.
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             let testRepoPath = path.appending("test-repo")
             try! makeDirectories(testRepoPath)
@@ -110,10 +113,6 @@ class GitRepositoryTests: XCTestCase {
 
     /// Check hash validation.
     func testGitRepositoryHash() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-        Test failed with: 0 [main] sh (9736) C:\\Program Files\\Git\\usr\\bin\\sh.exe: *** fatal error - add_item ("\\??\\C:\\Program Files\\Git", "/", ...) failed, errno 1
-        """)
-
         let validHash = "0123456789012345678901234567890123456789"
         XCTAssertNotEqual(GitRepository.Hash(validHash), nil)
 
@@ -131,6 +130,7 @@ class GitRepositoryTests: XCTestCase {
     /// contained within it for more information.
     func testRawRepository() throws {
         try skipOnWindowsAsTestCurrentlyFails(because: "https://github.com/swiftlang/swift-package-manager/issues/8385: test repository has non-portable file names")
+        try XCTSkipIfWindowsCI()
 
         try testWithTemporaryDirectory { path in
             // Unarchive the static test repository.
@@ -190,10 +190,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testSubmoduleRead() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-        Test failed with: 0 [main] sh (9736) C:\\Program Files\\Git\\usr\\bin\\sh.exe: *** fatal error - add_item ("\\??\\C:\\Program Files\\Git", "/", ...) failed, errno 1
-        """)
-
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
@@ -217,6 +214,7 @@ class GitRepositoryTests: XCTestCase {
 
     /// Test the Git file system view.
     func testGitFileView() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
@@ -305,10 +303,7 @@ class GitRepositoryTests: XCTestCase {
 
     /// Test the handling of local checkouts.
     func testCheckouts() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-        Test failed with: 0 [main] sh (9736) C:\\Program Files\\Git\\usr\\bin\\sh.exe: *** fatal error - add_item ("\\??\\C:\\Program Files\\Git", "/", ...) failed, errno 1
-        """)
-
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a test repository.
             let testRepoPath = path.appending("test-repo")
@@ -355,10 +350,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testFetch() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-        Test failed with: 0 [main] sh (9736) C:\\Program Files\\Git\\usr\\bin\\sh.exe: *** fatal error - add_item ("\\??\\C:\\Program Files\\Git", "/", ...) failed, errno 1
-        """)
-
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -398,10 +390,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testHasUnpushedCommits() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-        Test failed with: 0 [main] sh (9736) C:\\Program Files\\Git\\usr\\bin\\sh.exe: *** fatal error - add_item ("\\??\\C:\\Program Files\\Git", "/", ...) failed, errno 1
-        """)
-
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -438,10 +427,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testSetRemote() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-        Test failed with: 0 [main] sh (9736) C:\\Program Files\\Git\\usr\\bin\\sh.exe: *** fatal error - add_item ("\\??\\C:\\Program Files\\Git", "/", ...) failed, errno 1
-        """)
-
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -472,6 +458,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testUncommittedChanges() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -499,6 +486,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testBranchOperations() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -529,6 +517,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testRevisionOperations() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let repositoryPath = path.appending("test-repo")
@@ -554,10 +543,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testCheckoutRevision() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-        Test failed with: 0 [main] sh (9736) C:\\Program Files\\Git\\usr\\bin\\sh.exe: *** fatal error - add_item ("\\??\\C:\\Program Files\\Git", "/", ...) failed, errno 1
-        """)
-
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -601,6 +587,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testSubmodules() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             let provider = GitRepositoryProvider()
 
@@ -690,8 +677,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testAlternativeObjectStoreValidation() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: "test might hang in CI")
-
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")
@@ -725,6 +711,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testAreIgnored() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test_repo")
@@ -746,6 +733,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testAreIgnoredWithSpaceInRepoPath() throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test repo")
@@ -762,10 +750,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testMissingDefaultBranch() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: """
-        Test failed with: 0 [main] sh (9736) C:\\Program Files\\Git\\usr\\bin\\sh.exe: *** fatal error - add_item ("\\??\\C:\\Program Files\\Git", "/", ...) failed, errno 1
-        """)
-
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { path in
             // Create a repository.
             let testRepoPath = path.appending("test-repo")
@@ -803,6 +788,7 @@ class GitRepositoryTests: XCTestCase {
     }
     
     func testValidDirectoryLocalRelativeOrigin() async throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { tmpDir in
             // Create a repository.
             let packageDir = tmpDir.appending("SomePackage")
@@ -849,6 +835,7 @@ class GitRepositoryTests: XCTestCase {
     }
     
     func testValidDirectoryLocalAbsoluteOrigin() async throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { tmpDir in
             // Create a repository.
             let packageDir = tmpDir.appending("SomePackage")
@@ -899,6 +886,7 @@ class GitRepositoryTests: XCTestCase {
     }
     
     func testValidDirectoryRemoteOrigin() async throws {
+        try XCTSkipIfWindowsCI()
         try testWithTemporaryDirectory { tmpDir in
             // Create a repository.
             let packageDir = tmpDir.appending("SomePackage")

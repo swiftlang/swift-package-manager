@@ -13,6 +13,7 @@
 import Basics
 import PackageModel
 import SPMBuildCore
+import TSCUtility
 
 import protocol TSCBasic.OutputByteStream
 

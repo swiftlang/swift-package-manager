@@ -15,6 +15,8 @@ import Basics
 import CoreCommands
 import Foundation
 import PackageModel
+import PackageGraph
+import Workspace
 
 import struct TSCBasic.StringError
 

@@ -12,6 +12,7 @@
 
 import PackageModel
 
+import func TSCBasic.topologicalSort
 import struct Basics.IdentifiableSet
 
 @available(*, deprecated, renamed: "ResolvedModule")

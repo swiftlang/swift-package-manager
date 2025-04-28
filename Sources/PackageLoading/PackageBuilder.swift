@@ -14,6 +14,8 @@ import Basics
 import Dispatch
 import OrderedCollections
 import PackageModel
+import Foundation
+import TSCUtility
 
 import func TSCBasic.findCycle
 import struct TSCBasic.KeyedPair
@@ -947,6 +949,19 @@ public final class PackageBuilder {
                             package: self.identity.description
                         ))
                 }
+        }
+
+        // Ensure non-test targets do not depend on test targets.
+        // Only test targets are allowed to have dependencies on other test targets.
+        if !potentialModule.isTest {
+            for dependency in dependencies {
+                if let depTarget = dependency.module, depTarget.type == .test {
+                    self.observabilityScope.emit(.invalidDependencyOnTestTarget(
+                        dependency: dependency,
+                        targetName: potentialModule.name
+                    ))
+                }
+            }
         }
 
         // Create the build setting assignment table for this target.

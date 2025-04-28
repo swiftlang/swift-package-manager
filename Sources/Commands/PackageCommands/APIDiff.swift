@@ -17,6 +17,8 @@ import Dispatch
 import PackageGraph
 import PackageModel
 import SourceControl
+import SPMBuildCore
+import TSCUtility
 import _Concurrency
 
 struct DeprecatedAPIDiff: ParsableCommand {

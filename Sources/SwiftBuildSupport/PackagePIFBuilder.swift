@@ -31,10 +31,17 @@ import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedPackage
 
 #if canImport(SwiftBuild)
-import enum SwiftBuild.PIF
+
+import enum SwiftBuild.ProjectModel
+
+typealias GUID = SwiftBuild.ProjectModel.GUID
+typealias BuildFile = SwiftBuild.ProjectModel.BuildFile
+typealias BuildConfig = SwiftBuild.ProjectModel.BuildConfig
+typealias BuildSettings = SwiftBuild.ProjectModel.BuildSettings
+typealias FileReference = SwiftBuild.ProjectModel.FileReference
 
 /// A builder for generating the PIF object from a package.
-public final class PIFPackageBuilder {
+public final class PackagePIFBuilder {
     let modulesGraph: ModulesGraph
     private let package: ResolvedPackage
 
@@ -42,28 +49,24 @@ public final class PIFPackageBuilder {
     let packageManifest: PackageModel.Manifest // FIXME: Can't we just use `package.manifest` instead? —— Paulo
 
     /// The built PIF project object.
-    public var pifProject: SwiftBuild.PIF.Project {
+    public var pifProject: ProjectModel.Project {
         assert(self._pifProject != nil, "Call build() method to build the PIF first")
         return self._pifProject!
     }
 
-    private var _pifProject: SwiftBuild.PIF.Project?
+    private var _pifProject: ProjectModel.Project?
 
     /// Scope for logging informational debug messages (intended for developers, not end users).
     let observabilityScope: ObservabilityScope
 
-    /// Logs an informational debug message (intended for developers, not end users).
+    /// Logs an informational message (intended for developers, not end users).
     func log(
         _ severity: Diagnostic.Severity,
         _ message: String,
         sourceFile: StaticString = #fileID,
         sourceLine: UInt = #line
     ) {
-        var metadata = ObservabilityMetadata()
-        metadata.sourceLocation = SourceLocation(sourceFile, sourceLine)
-
-        let diagnostic = Diagnostic(severity: severity, message: message, metadata: metadata)
-        self.observabilityScope.emit(diagnostic)
+        self.observabilityScope.logPIF(severity, message, sourceFile: sourceFile, sourceLine: sourceLine)
     }
 
     unowned let delegate: BuildDelegate
@@ -77,16 +80,16 @@ public final class PIFPackageBuilder {
         /// If a pure Swift package is open in the workspace.
         var hostsOnlyPackages: Bool { get }
 
-        /// Returns `true` if the package is managed by the user (i.e., the user is allowed to modify its sources,
-        /// package structure, etc).
+        /// Returns `true` if the package is managed by the user
+        /// (i.e., the user is allowed to modify its sources, package structure, etc).
         var isUserManaged: Bool { get }
 
         /// Whether or not this package is required by *branch* or *revision*.
         var isBranchOrRevisionBased: Bool { get }
 
-        /// For executables — only executables for now — we check to see if there is a custom package product type
-        /// provider that can provide this information.
-        func customProductType(forExecutable product: PackageModel.Product) -> SwiftBuild.PIF.Target.ProductType?
+        /// For executables — only executables for now — we check to see if there is a
+        /// custom package product type provider that can provide this information.
+        func customProductType(forExecutable product: PackageModel.Product) -> ProjectModel.Target.ProductType?
 
         /// Returns all *device family* IDs for all SDK variants.
         func deviceFamilyIDs() -> Set<Int>
@@ -98,12 +101,12 @@ public final class PIFPackageBuilder {
         var isPluginExecutionSandboxingDisabled: Bool { get }
 
         /// Hook to customize the project-wide build settings.
-        func configureProjectBuildSettings(_ buildSettings: inout SwiftBuild.PIF.BuildSettings)
+        func configureProjectBuildSettings(_ buildSettings: inout ProjectModel.BuildSettings)
 
         /// Hook to customize source module build settings.
         func configureSourceModuleBuildSettings(
             sourceModule: PackageGraph.ResolvedModule,
-            settings: inout SwiftBuild.PIF.BuildSettings
+            settings: inout ProjectModel.BuildSettings
         )
 
         /// Custom install path for the specified product, if any.
@@ -119,23 +122,25 @@ public final class PIFPackageBuilder {
         func customSDKOptions(forPlatform: PackageModel.Platform) -> [String]
 
         /// Create additional custom PIF targets after all targets have been built.
-        func addCustomTargets(pifProject: SwiftBuild.PIF.Project) throws -> [PIFPackageBuilder.ModuleOrProduct]
+        func addCustomTargets(pifProject: ProjectModel.Project) throws -> [PackagePIFBuilder.ModuleOrProduct]
 
         /// Should we suppresses the specific product dependency, updating the provided build settings if necessary?
         /// The specified product may be in the same package or a different one.
         func shouldSuppressProductDependency(
             product: PackageModel.Product,
-            buildSettings: inout SwiftBuild.PIF.BuildSettings
+            buildSettings: inout ProjectModel.BuildSettings
         ) -> Bool
 
         /// Should we set the install path for a dynamic library/framework?
         func shouldSetInstallPathForDynamicLib(productName: String) -> Bool
 
+        // FIXME: Let's try to replace `WritableKeyPath><_, Foo>` with `inout Foo` —— Paulo
+
         /// Provides additional configuration and files for the specified library product.
         func configureLibraryProduct(
             product: PackageModel.Product,
-            pifTarget: SwiftBuild.PIF.Target,
-            additionalFiles: SwiftBuild.PIF.Group
+            target: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
+            additionalFiles: WritableKeyPath<ProjectModel.Group, ProjectModel.Group>
         )
 
         /// The design intention behind this is to set a value for `watchOS`, `tvOS`, and `visionOS`
@@ -153,7 +158,7 @@ public final class PIFPackageBuilder {
     }
 
     /// Records the results of applying build tool plugins to modules in the package.
-    let buildToolPluginResultsByTargetName: [String: PIFPackageBuilder.BuildToolPluginInvocationResult]
+    let buildToolPluginResultsByTargetName: [String: PackagePIFBuilder.BuildToolPluginInvocationResult]
 
     /// Whether to create dynamic libraries for dynamic products.
     ///
@@ -182,7 +187,7 @@ public final class PIFPackageBuilder {
         modulesGraph: ModulesGraph,
         resolvedPackage: ResolvedPackage,
         packageManifest: PackageModel.Manifest,
-        delegate: PIFPackageBuilder.BuildDelegate,
+        delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: BuildToolPluginInvocationResult],
         createDylibForDynamicProducts: Bool = false,
         packageDisplayVersion: String?,
@@ -200,12 +205,12 @@ public final class PIFPackageBuilder {
 
     /// Build an empty PIF project.
     public func buildEmptyPIF() {
-        self._pifProject = PIFPackageBuilder.buildEmptyPIF(package: self.package.underlying)
+        self._pifProject = PackagePIFBuilder.buildEmptyPIF(package: self.package.underlying)
     }
 
     /// Build an empty PIF project for the specified `Package`.
 
-    public class func buildEmptyPIF(package: PackageModel.Package) -> SwiftBuild.PIF.Project {
+    public class func buildEmptyPIF(package: PackageModel.Package) -> ProjectModel.Project {
         self.buildEmptyPIF(
             id: "PACKAGE:\(package.identity)",
             path: package.manifest.path.pathString,
@@ -222,37 +227,46 @@ public final class PIFPackageBuilder {
         projectDir: String,
         name: String,
         developmentRegion: String? = nil
-    ) -> SwiftBuild.PIF.Project {
-        let project = SwiftBuild.PIF.Project(
-            id: id,
+    ) -> ProjectModel.Project {
+        var project = ProjectModel.Project(
+            id: GUID(id),
             path: path,
             projectDir: projectDir,
             name: name,
             developmentRegion: developmentRegion
         )
-        let settings = SwiftBuild.PIF.BuildSettings()
+        let settings = ProjectModel.BuildSettings()
 
-        project.addBuildConfig(name: "Debug", settings: settings)
-        project.addBuildConfig(name: "Release", settings: settings)
+        project.addBuildConfig { id in ProjectModel.BuildConfig(id: id, name: "Debug", settings: settings) }
+        project.addBuildConfig { id in ProjectModel.BuildConfig(id: id, name: "Release", settings: settings) }
 
         return project
     }
 
     public func buildPlaceholderPIF(id: String, path: String, projectDir: String, name: String) -> ModuleOrProduct {
-        let project = SwiftBuild.PIF.Project(
-            id: id,
+        var project = ProjectModel.Project(
+            id: GUID(id),
             path: path,
             projectDir: projectDir,
             name: name
         )
-        let projectSettings = SwiftBuild.PIF.BuildSettings()
-        project.addBuildConfig(name: "Debug", settings: projectSettings)
-        project.addBuildConfig(name: "Release", settings: projectSettings)
 
-        let target = project.addAggregateTarget(id: "PACKAGE-PLACEHOLDER:\(id)", name: id)
-        let targetSettings: SwiftBuild.PIF.BuildSettings = self.package.underlying.packageBaseBuildSettings
-        target.addBuildConfig(name: "Debug", settings: targetSettings)
-        target.addBuildConfig(name: "Release", settings: targetSettings)
+        let projectSettings = ProjectModel.BuildSettings()
+
+        project.addBuildConfig { id in ProjectModel.BuildConfig(id: id, name: "Debug", settings: projectSettings) }
+        project.addBuildConfig { id in ProjectModel.BuildConfig(id: id, name: "Release", settings: projectSettings) }
+
+        let targetKeyPath = try! project.addAggregateTarget { _ in
+            ProjectModel.AggregateTarget(id: "PACKAGE-PLACEHOLDER:\(id)", name: id)
+        }
+        let targetSettings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
+
+        project[keyPath: targetKeyPath].common.addBuildConfig { id in
+            ProjectModel.BuildConfig(id: id, name: "Debug", settings: targetSettings)
+        }
+        project[keyPath: targetKeyPath].common.addBuildConfig { id in
+            ProjectModel.BuildConfig(id: id, name: "Release", settings: targetSettings)
+        }
 
         self._pifProject = project
 
@@ -260,7 +274,7 @@ public final class PIFPackageBuilder {
             type: .placeholder,
             name: name,
             moduleName: name,
-            pifTarget: target,
+            pifTarget: .aggregate(project[keyPath: targetKeyPath]),
             indexableFileURLs: [],
             headerFiles: [],
             linkedPackageBinaries: [],
@@ -281,7 +295,7 @@ public final class PIFPackageBuilder {
         public var moduleName: String?
         public var isDynamicLibraryVariant: Bool = false
 
-        public var pifTarget: SwiftBuild.PIF.BaseTarget?
+        public var pifTarget: ProjectModel.BaseTarget?
 
         public var indexableFileURLs: [SourceControlURL]
         public var headerFiles: Set<AbsolutePath>
@@ -334,7 +348,7 @@ public final class PIFPackageBuilder {
 
         public var description: String { rawValue }
 
-        init(from pifProductType: SwiftBuild.PIF.Target.ProductType) {
+        init(from pifProductType: ProjectModel.Target.ProductType) {
             self = switch pifProductType {
             case .application: .application
             case .staticArchive: .staticArchive
@@ -355,25 +369,24 @@ public final class PIFPackageBuilder {
     /// Build the PIF.
     @discardableResult
     public func build() throws -> [ModuleOrProduct] {
-        self.log(.info, "building PIF for package \(self.package.identity)")
+        self.log(
+            .info,
+            "Building PIF project for package '\(self.package.identity)' " +
+            "(\(package.products.count) products, \(package.modules.count) modules)"
+        )
 
-        var project = PackagePIFProjectBuilder(createForPackage: package, builder: self)
-        self.addProjectBuildSettings(project: project)
-
-        self._pifProject = project.pif
+        var projectBuilder = PackagePIFProjectBuilder(createForPackage: package, builder: self)
+        self.addProjectBuildSettings(&projectBuilder)
 
         //
-        // Construct PIF *targets* (for modules, products, and test bundles) based on the contents of the parsed
-        // package.
-        // These PIF targets will be sent down to Swift Build.
+        // Construct PIF *targets* (for modules, products, and test bundles) based on the contents
+        // of the parsed package. These PIF targets will be sent down to Swift Build.
         //
         // We also track all constructed objects as `ModuleOrProduct` value for easy introspection by clients.
         // In SwiftPM a product is a codeless entity with a reference to the modules(s) that contains the
-        // implementation.
-        // In order to avoid creating two ModuleOrProducts for each product in the package, the logic below creates a
-        // single
-        // unified ModuleOrProduct from the combination of a product and the single target that contains its
-        // implementation.
+        // implementation. In order to avoid creating two ModuleOrProducts for each product in the package,
+        // the logic below creates a single unified ModuleOrProduct from the combination of a product
+        // and the single target that contains its implementation.
         //
         // Products. SwiftPM considers unit tests to be products, so in this discussion, the term *product*
         // refers to an *executable*, a *library*, or an *unit test*.
@@ -384,54 +397,58 @@ public final class PIFPackageBuilder {
         // the structure of the client(s).
         //
 
+        self.log(.debug, "Processing \(package.products.count) products:")
+        
         // For each of the **products** in the package we create a corresponding `PIFTarget` of the appropriate type.
         for product in self.package.products {
             switch product.type {
             case .library(.static):
                 let libraryType = self.delegate.customLibraryType(product: product.underlying) ?? .static
-                try project.makeLibraryProduct(product, type: libraryType)
+                try projectBuilder.makeLibraryProduct(product, type: libraryType)
 
             case .library(.dynamic):
                 let libraryType = self.delegate.customLibraryType(product: product.underlying) ?? .dynamic
-                try project.makeLibraryProduct(product, type: libraryType)
+                try projectBuilder.makeLibraryProduct(product, type: libraryType)
 
             case .library(.automatic):
                 // Check if this is a system library product.
                 if product.isSystemLibraryProduct {
-                    try project.makeSystemLibraryProduct(product)
+                    try projectBuilder.makeSystemLibraryProduct(product)
                 } else {
                     // Otherwise, it is a regular library product.
                     let libraryType = self.delegate.customLibraryType(product: product.underlying) ?? .automatic
-                    try project.makeLibraryProduct(product, type: libraryType)
+                    try projectBuilder.makeLibraryProduct(product, type: libraryType)
                 }
 
             case .executable, .test:
-                try project.makeMainModuleProduct(product)
+                try projectBuilder.makeMainModuleProduct(product)
 
             case .plugin:
-                try project.makePluginProduct(product)
+                try projectBuilder.makePluginProduct(product)
 
             case .snippet, .macro:
                 break // TODO: Double-check what's going on here as we skip snippet modules too (rdar://147705448)
             }
         }
 
+        self.log(.debug, "Processing \(package.modules.count) modules:")
+
         // For each of the **modules** in the package other than those that are the *main* module of a product
         // —— which we've already dealt with above —— we create a corresponding `PIFTarget` of the appropriate type.
         for module in self.package.modules {
             switch module.type {
             case .executable:
-                try project.makeTestableExecutableSourceModule(module)
+                try projectBuilder.makeTestableExecutableSourceModule(module)
 
             case .snippet:
                 // Already handled as a product. Note that snippets don't need testable modules.
                 break
 
             case .library:
-                try project.makeLibraryModule(module)
+                try projectBuilder.makeLibraryModule(module)
 
             case .systemModule:
-                try project.makeSystemLibraryModule(module)
+                try projectBuilder.makeSystemLibraryModule(module)
 
             case .test:
                 // Skip test module targets.
@@ -443,89 +460,90 @@ public final class PIFPackageBuilder {
                 break
 
             case .plugin:
-                try project.makePluginModule(module)
+                try projectBuilder.makePluginModule(module)
 
             case .macro:
-                try project.makeMacroModule(module)
+                try projectBuilder.makeMacroModule(module)
             }
         }
 
-        let customModulesAndProducts = try delegate.addCustomTargets(pifProject: project.pif)
-        project.builtModulesAndProducts.append(contentsOf: customModulesAndProducts)
+        let customModulesAndProducts = try delegate.addCustomTargets(pifProject: projectBuilder.project)
+        projectBuilder.builtModulesAndProducts.append(contentsOf: customModulesAndProducts)
 
-        return project.builtModulesAndProducts
+        self._pifProject = projectBuilder.project
+        return projectBuilder.builtModulesAndProducts
     }
 
     /// Configure the project-wide build settings.
     /// First we set those that are in common between the "Debug" and "Release" configurations, and then we set those
     /// that are different.
-    private func addProjectBuildSettings(project: PackagePIFProjectBuilder) {
-        var settings = SwiftBuild.PIF.BuildSettings()
-        settings.PRODUCT_NAME = "$(TARGET_NAME)"
-        settings.SUPPORTED_PLATFORMS = ["$(AVAILABLE_PLATFORMS)"]
-        settings.SKIP_INSTALL = "YES"
-        settings.MACOSX_DEPLOYMENT_TARGET = project.deploymentTargets[.macOS] ?? nil
-        settings.IPHONEOS_DEPLOYMENT_TARGET = project.deploymentTargets[.iOS] ?? nil
-        if let deploymentTarget_macCatalyst = project.deploymentTargets[.macCatalyst] ?? nil {
+    private func addProjectBuildSettings(_ builder: inout PackagePIFProjectBuilder) {
+        var settings = ProjectModel.BuildSettings()
+        settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
+        settings[.SUPPORTED_PLATFORMS] = ["$(AVAILABLE_PLATFORMS)"]
+        settings[.SKIP_INSTALL] = "YES"
+        settings[.MACOSX_DEPLOYMENT_TARGET] = builder.deploymentTargets[.macOS] ?? nil
+        settings[.IPHONEOS_DEPLOYMENT_TARGET] = builder.deploymentTargets[.iOS] ?? nil
+        if let deploymentTarget_macCatalyst = builder.deploymentTargets[.macCatalyst] ?? nil {
             settings
                 .platformSpecificSettings[.macCatalyst]![.IPHONEOS_DEPLOYMENT_TARGET] = [deploymentTarget_macCatalyst]
         }
-        settings.TVOS_DEPLOYMENT_TARGET = project.deploymentTargets[.tvOS] ?? nil
-        settings.WATCHOS_DEPLOYMENT_TARGET = project.deploymentTargets[.watchOS] ?? nil
-        settings.DRIVERKIT_DEPLOYMENT_TARGET = project.deploymentTargets[.driverKit] ?? nil
-        settings.XROS_DEPLOYMENT_TARGET = project.deploymentTargets[.visionOS] ?? nil
-        settings.DYLIB_INSTALL_NAME_BASE = "@rpath"
-        settings.USE_HEADERMAP = "NO"
-        settings.OTHER_SWIFT_FLAGS.lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("-DXcode") }
+        settings[.TVOS_DEPLOYMENT_TARGET] = builder.deploymentTargets[.tvOS] ?? nil
+        settings[.WATCHOS_DEPLOYMENT_TARGET] = builder.deploymentTargets[.watchOS] ?? nil
+        settings[.DRIVERKIT_DEPLOYMENT_TARGET] = builder.deploymentTargets[.driverKit] ?? nil
+        settings[.XROS_DEPLOYMENT_TARGET] = builder.deploymentTargets[.visionOS] ?? nil
+        settings[.DYLIB_INSTALL_NAME_BASE] = "@rpath"
+        settings[.USE_HEADERMAP] = "NO"
+        settings[.OTHER_SWIFT_FLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("-DXcode") }
 
         // TODO: Might be relevant to make customizable —— Paulo
         // (If we want to be extra careful with differences to the existing PIF in the SwiftPM.)
-        settings.OTHER_CFLAGS = ["$(inherited)", "-DXcode"]
+        settings[.OTHER_CFLAGS] = ["$(inherited)", "-DXcode"]
 
         if !self.delegate.isRootPackage {
             if self.suppressWarningsForPackageDependencies {
-                settings.SUPPRESS_WARNINGS = "YES"
+                settings[.SUPPRESS_WARNINGS] = "YES"
             }
             if self.skipStaticAnalyzerForPackageDependencies {
-                settings.SKIP_CLANG_STATIC_ANALYZER = "YES"
+                settings[.SKIP_CLANG_STATIC_ANALYZER] = "YES"
             }
         }
-        settings.SWIFT_ACTIVE_COMPILATION_CONDITIONS
+        settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS]
             .lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("SWIFT_PACKAGE") }
-        settings.GCC_PREPROCESSOR_DEFINITIONS = ["$(inherited)", "SWIFT_PACKAGE"]
-        settings.CLANG_ENABLE_OBJC_ARC = "YES"
-        settings.KEEP_PRIVATE_EXTERNS = "NO"
+        settings[.GCC_PREPROCESSOR_DEFINITIONS] = ["$(inherited)", "SWIFT_PACKAGE"]
+        settings[.CLANG_ENABLE_OBJC_ARC] = "YES"
+        settings[.KEEP_PRIVATE_EXTERNS] = "NO"
 
         // We currently deliberately do not support Swift ObjC interface headers.
-        settings.SWIFT_INSTALL_OBJC_HEADER = "NO"
-        settings.SWIFT_OBJC_INTERFACE_HEADER_NAME = ""
-        settings.OTHER_LDRFLAGS = []
+        settings[.SWIFT_INSTALL_OBJC_HEADER] = "NO"
+        settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME] = ""
+        settings[.OTHER_LDRFLAGS] = []
 
         // Packages use the SwiftPM workspace's cache directory as a compiler working directory to maximize module
         // sharing.
-        settings.COMPILER_WORKING_DIRECTORY = "$(WORKSPACE_DIR)"
+        settings[.COMPILER_WORKING_DIRECTORY] = "$(WORKSPACE_DIR)"
 
         // Hook to customize the project-wide build settings.
         self.delegate.configureProjectBuildSettings(&settings)
 
         for (platform, platformOptions) in self.package.sdkOptions(delegate: self.delegate) {
-            let pifPlatform = SwiftBuild.PIF.BuildSettings.Platform(from: platform)
+            let pifPlatform = ProjectModel.BuildSettings.Platform(from: platform)
             settings.platformSpecificSettings[pifPlatform]![.SPECIALIZATION_SDK_OPTIONS]!
                 .append(contentsOf: platformOptions)
         }
 
         let deviceFamilyIDs: Set<Int> = self.delegate.deviceFamilyIDs()
-        settings.TARGETED_DEVICE_FAMILY = deviceFamilyIDs.sorted().map { String($0) }.joined(separator: ",")
+        settings[.TARGETED_DEVICE_FAMILY] = deviceFamilyIDs.sorted().map { String($0) }.joined(separator: ",")
 
         // This will add the XCTest related search paths automatically,
         // including the Swift overlays.
-        settings.ENABLE_TESTING_SEARCH_PATHS = "YES"
+        settings[.ENABLE_TESTING_SEARCH_PATHS] = "YES"
 
         // Disable signing for all the things since there is no way
         // to configure signing information in packages right now.
-        settings.ENTITLEMENTS_REQUIRED = "NO"
-        settings.CODE_SIGNING_REQUIRED = "NO"
-        settings.CODE_SIGN_IDENTITY = ""
+        settings[.ENTITLEMENTS_REQUIRED] = "NO"
+        settings[.CODE_SIGNING_REQUIRED] = "NO"
+        settings[.CODE_SIGN_IDENTITY] = ""
 
         // If in a workspace that's set to build packages for arm64e, pass that along to Swift Build.
         if self.delegate.shouldiOSPackagesBuildForARM64e {
@@ -534,26 +552,24 @@ public final class PIFPackageBuilder {
 
         // Add the build settings that are specific to debug builds, and set those as the "Debug" configuration.
         var debugSettings = settings
-        debugSettings.COPY_PHASE_STRIP = "NO"
-        debugSettings.DEBUG_INFORMATION_FORMAT = "dwarf"
-        debugSettings.ENABLE_NS_ASSERTIONS = "YES"
-        debugSettings.GCC_OPTIMIZATION_LEVEL = "0"
-        debugSettings.ONLY_ACTIVE_ARCH = "YES"
-        debugSettings.SWIFT_OPTIMIZATION_LEVEL = "-Onone"
-        debugSettings.ENABLE_TESTABILITY = "YES"
-        debugSettings
-            .SWIFT_ACTIVE_COMPILATION_CONDITIONS = (settings.SWIFT_ACTIVE_COMPILATION_CONDITIONS ?? []) + ["DEBUG"]
-        debugSettings
-            .GCC_PREPROCESSOR_DEFINITIONS = (settings.GCC_PREPROCESSOR_DEFINITIONS ?? ["$(inherited)"]) + ["DEBUG=1"]
-        project.pif.addBuildConfig(name: "Debug", settings: debugSettings)
+        debugSettings[.COPY_PHASE_STRIP] = "NO"
+        debugSettings[.DEBUG_INFORMATION_FORMAT] = "dwarf"
+        debugSettings[.ENABLE_NS_ASSERTIONS] = "YES"
+        debugSettings[.GCC_OPTIMIZATION_LEVEL] = "0"
+        debugSettings[.ONLY_ACTIVE_ARCH] = "YES"
+        debugSettings[.SWIFT_OPTIMIZATION_LEVEL] = "-Onone"
+        debugSettings[.ENABLE_TESTABILITY] = "YES"
+        debugSettings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, default: []].append(contentsOf: ["DEBUG"])
+        debugSettings[.GCC_PREPROCESSOR_DEFINITIONS, default: ["$(inherited)"]].append(contentsOf: ["DEBUG=1"])
+        builder.project.addBuildConfig { id in BuildConfig(id: id, name: "Debug", settings: debugSettings) }
 
         // Add the build settings that are specific to release builds, and set those as the "Release" configuration.
         var releaseSettings = settings
-        releaseSettings.COPY_PHASE_STRIP = "YES"
-        releaseSettings.DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"
-        releaseSettings.GCC_OPTIMIZATION_LEVEL = "s"
-        releaseSettings.SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule"
-        project.pif.addBuildConfig(name: "Release", settings: releaseSettings)
+        releaseSettings[.COPY_PHASE_STRIP] = "YES"
+        releaseSettings[.DEBUG_INFORMATION_FORMAT] = "dwarf-with-dsym"
+        releaseSettings[.GCC_OPTIMIZATION_LEVEL] = "s"
+        releaseSettings[.SWIFT_OPTIMIZATION_LEVEL] = "-Owholemodule"
+        builder.project.addBuildConfig { id in BuildConfig(id: id, name: "Release", settings: releaseSettings) }
     }
 
     private enum SourceModuleType {
@@ -587,15 +603,15 @@ public final class PIFPackageBuilder {
 
 // MARK: - Helpers
 
-extension PIFPackageBuilder.ModuleOrProduct {
+extension PackagePIFBuilder.ModuleOrProduct {
     public init(
-        type moduleOrProductType: PIFPackageBuilder.ModuleOrProductType,
+        type moduleOrProductType: PackagePIFBuilder.ModuleOrProductType,
         name: String,
         moduleName: String?,
-        pifTarget: SwiftBuild.PIF.BaseTarget?,
+        pifTarget: ProjectModel.BaseTarget?,
         indexableFileURLs: [SourceControlURL] = [],
         headerFiles: Set<AbsolutePath> = [],
-        linkedPackageBinaries: [PIFPackageBuilder.LinkedPackageBinary] = [],
+        linkedPackageBinaries: [PackagePIFBuilder.LinkedPackageBinary] = [],
         swiftLanguageVersion: String? = nil,
         declaredPlatforms: [PackageModel.Platform]? = [],
         deploymentTargets: [PackageModel.Platform: String?]? = [:]
@@ -617,7 +633,7 @@ enum PIFBuildingError: Error {
     case packageExtensionFeatureNotEnabled
 }
 
-extension PIFPackageBuilder.LinkedPackageBinary {
+extension PackagePIFBuilder.LinkedPackageBinary {
     init?(module: ResolvedModule, package: ResolvedPackage) {
         let packageName = package.manifest.displayName
 
@@ -635,38 +651,13 @@ extension PIFPackageBuilder.LinkedPackageBinary {
 
     init?(dependency: ResolvedModule.Dependency, package: ResolvedPackage) {
         switch dependency {
-        case .product(let producutDependency, _):
-            guard producutDependency.hasSourceTargets else { return nil }
-            self.init(name: producutDependency.name, packageName: package.name, type: .product)
+        case .product(let productDependency, _):
+            guard productDependency.hasSourceTargets else { return nil }
+            self.init(name: productDependency.name, packageName: package.name, type: .product)
 
         case .module(let moduleDependency, _):
             self.init(module: moduleDependency, package: package)
         }
-    }
-}
-
-extension ObservabilityMetadata {
-    public var sourceLocation: SourceLocation? {
-        get {
-            self[SourceLocationKey.self]
-        }
-        set {
-            self[SourceLocationKey.self] = newValue
-        }
-    }
-
-    private enum SourceLocationKey: Key {
-        typealias Value = SourceLocation
-    }
-}
-
-public struct SourceLocation: Sendable {
-    public let file: StaticString
-    public let line: UInt
-
-    public init(_ file: StaticString, _ line: UInt) {
-        self.file = file
-        self.line = line
     }
 }
 

@@ -12,6 +12,7 @@
 
 import Basics
 import Foundation
+import TSCBasic
 
 /// The canonical identifier for a package, based on its source location.
 public struct PackageIdentity: CustomStringConvertible, Sendable {
@@ -39,7 +40,7 @@ public struct PackageIdentity: CustomStringConvertible, Sendable {
 
     /// Creates a package identity from a file path.
     /// - Parameter path: An absolute path to the package.
-    public init(path: AbsolutePath) {
+    public init(path: Basics.AbsolutePath) {
         self.description = PackageIdentityParser(path.pathString).description
     }
 
@@ -310,7 +311,7 @@ struct PackageIdentityParser {
     }
 
     /// Compute the default name of a package given its path.
-    public static func computeDefaultName(fromPath path: AbsolutePath) -> String {
+    public static func computeDefaultName(fromPath path: Basics.AbsolutePath) -> String {
         Self.computeDefaultName(fromLocation: path.pathString)
     }
 

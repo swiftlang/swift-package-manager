@@ -17,6 +17,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import PackageRegistry
+import TSCBasic
 
 import struct TSCUtility.Version
 
@@ -178,7 +179,7 @@ public class RegistryPackageContainer: PackageContainer {
                 throw StringError("failed locating placeholder manifest for \(preferredToolsVersion)")
             }
             // replace the fake manifest with the real manifest content
-            let manifestPath = AbsolutePath.root.appending(component: placeholderManifestFileName)
+            let manifestPath = Basics.AbsolutePath.root.appending(component: placeholderManifestFileName)
             try fileSystem.removeFileTree(manifestPath)
             try fileSystem.writeFileContents(manifestPath, string: manifestContent)
             // finally, load the manifest
@@ -202,7 +203,7 @@ public class RegistryPackageContainer: PackageContainer {
         // ToolsVersionLoader is designed to scan files to decide which is the best tools-version
         // as such, this writes a fake manifest based on the information returned by the registry
         // with only the header line which is all that is needed by ToolsVersionLoader
-        let fileSystem = InMemoryFileSystem()
+        let fileSystem = Basics.InMemoryFileSystem()
         for manifest in manifests {
             let content = manifest.value.content ?? "// swift-tools-version:\(manifest.value.toolsVersion)"
             try fileSystem.writeFileContents(AbsolutePath.root.appending(component: manifest.key), string: content)

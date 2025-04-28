@@ -414,29 +414,29 @@ private struct XCBuildTests {
             let fooPath = path.appending(component: "Foo")
 
             do {
-                let (_, stderr) = try sh(swiftTest, "--package-path", fooPath, "--build-system", "xcode")
-                #expect(stderr.contains("Test Suite 'FooTests.xctest'"))
-                #expect(stderr.contains("Test Suite 'CFooTests.xctest'"))
+                let output = try sh(swiftTest, "--package-path", fooPath, "--build-system", "xcode")
+                #expect(output.stderr.contains("Test Suite 'FooTests.xctest'"))
+                #expect(output.stderr.contains("Test Suite 'CFooTests.xctest'"))
             }
 
             do {
-                let (_, stderr) = try sh(
+                let output = try sh(
                     swiftTest,
                     "--package-path",
                     fooPath,
                     "--build-system",
                     "xcode",
                     "--filter",
-                    "CFooTests"
+                    "CFooTests",
                 )
-                #expect(stderr.contains("Test Suite 'Selected tests' started"))
-                #expect(stderr.contains("Test Suite 'CFooTests.xctest'"))
+                #expect(output.stderr.contains("Test Suite 'Selected tests' started"))
+                #expect(output.stderr.contains("Test Suite 'CFooTests.xctest'"))
             }
 
             do {
-                let (stdout, _) = try sh(swiftTest, "--package-path", fooPath, "--build-system", "xcode", "--parallel")
-                #expect(stdout.contains("Testing FooTests"))
-                #expect(stdout.contains("Testing CFooTests"))
+                let output = try sh(swiftTest, "--package-path", fooPath, "--build-system", "xcode", "--parallel")
+                #expect(output.stdout.contains("Testing FooTests"))
+                #expect(output.stdout.contains("Testing CFooTests"))
             }
         }
     }

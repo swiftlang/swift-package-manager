@@ -12,6 +12,7 @@
 
 import CoreCommands
 import PackageModel
+import TSCUtility
 
 /// A card showing the snippets in a ``SnippetGroup``.
 struct SnippetGroupCard: Card {

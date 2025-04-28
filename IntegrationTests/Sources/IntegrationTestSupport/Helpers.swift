@@ -14,6 +14,8 @@ import TSCBasic
 import TSCTestSupport
 import enum TSCUtility.Git
 
+public typealias ShReturnType = (stdout: String, stderr: String, returnCode: ProcessResult.ExitStatus)
+
 public let sdkRoot: AbsolutePath? = {
     if let environmentPath = ProcessInfo.processInfo.environment["SDK_ROOT"] {
         return try! AbsolutePath(validating: environmentPath)
@@ -106,7 +108,7 @@ public let lldb: AbsolutePath = {
 }()
 
 public let swiftpmBinaryDirectory: AbsolutePath = {
-    if let environmentPath = ProcessInfo.processInfo.environment["SWIFTPM_BIN_DIR"] {
+    if let environmentPath = ProcessInfo.processInfo.environment["SWIFTPM_CUSTOM_BIN_DIR"] {
         return try! AbsolutePath(validating: environmentPath)
     }
 
@@ -131,7 +133,7 @@ public func sh(
     env: [String: String] = [:],
     file: StaticString = #file,
     line: UInt = #line
-) throws -> (stdout: String, stderr: String) {
+) throws -> ShReturnType {
     let result = try _sh(arguments, env: env, file: file, line: line)
     let stdout = try result.utf8Output()
     let stderr = try result.utf8stderrOutput()
@@ -145,7 +147,7 @@ public func sh(
             )
     }
 
-    return (stdout, stderr)
+    return (stdout, stderr, result.exitStatus)
 }
 
 @discardableResult
@@ -154,7 +156,7 @@ public func shFails(
     env: [String: String] = [:],
     file: StaticString = #file,
     line: UInt = #line
-) throws -> (stdout: String, stderr: String) {
+) throws -> ShReturnType {
     let result = try _sh(arguments, env: env, file: file, line: line)
     let stdout = try result.utf8Output()
     let stderr = try result.utf8stderrOutput()
@@ -168,7 +170,7 @@ public func shFails(
             )
     }
 
-    return (stdout, stderr)
+    return (stdout, stderr, result.exitStatus)
 }
 
 @discardableResult
