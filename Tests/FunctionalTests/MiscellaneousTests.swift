@@ -665,4 +665,13 @@ final class MiscellaneousTestCase: XCTestCase {
             XCTAssertEqual(errors, [], "unexpected errors: \(errors)")
         }
     }
+
+    func testRootPackageWithConditionalsSwiftBuild() async throws {
+        try await fixture(name: "Miscellaneous/RootPackageWithConditionals") { path in
+            let (_, stderr) = try await SwiftPM.Build.execute(["--build-system=swiftbuild"], packagePath: path, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
+            let errors = stderr.components(separatedBy: .newlines).filter { !$0.contains("[logging] misuse") && !$0.isEmpty }
+                                                                  .filter { !$0.contains("Unable to locate libSwiftScan") }
+            XCTAssertEqual(errors, [], "unexpected errors: \(errors)")
+        }
+    }
 }
