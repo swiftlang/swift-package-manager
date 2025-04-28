@@ -72,35 +72,35 @@ struct BuildCommandOptions: ParsableArguments {
     }
 
     /// If the test should be built.
-    @Flag(help: "Build both source and test targets")
+    @Flag(help: "Build both source and test targets.")
     var buildTests: Bool = false
 
     /// Whether to enable code coverage.
     @Flag(name: .customLong("code-coverage"),
           inversion: .prefixedEnableDisable,
-          help: "Enable code coverage")
+          help: "Enable code coverage.")
     var enableCodeCoverage: Bool = false
 
     /// If the binary output path should be printed.
-    @Flag(name: .customLong("show-bin-path"), help: "Print the binary output path")
+    @Flag(name: .customLong("show-bin-path"), help: "Print the binary output path.")
     var shouldPrintBinPath: Bool = false
 
     /// Whether to output a graphviz file visualization of the combined job graph for all targets
     @Flag(name: .customLong("print-manifest-job-graph"),
-          help: "Write the command graph for the build manifest as a Graphviz file")
+          help: "Write the command graph for the build manifest as a Graphviz file.")
     var printManifestGraphviz: Bool = false
 
     /// Whether to output a graphviz file visualization of the PIF JSON sent to Swift Build.
     @Flag(name: .customLong("print-pif-manifest-graph"),
-          help: "Write the PIF JSON sent to Swift Build as a Graphviz file")
+          help: "Write the PIF JSON sent to Swift Build as a Graphviz file.")
     var printPIFManifestGraphviz: Bool = false
 
     /// Specific target to build.
-    @Option(help: "Build the specified target")
+    @Option(help: "Build the specified target.")
     var target: String?
 
     /// Specific product to build.
-    @Option(help: "Build the specified product")
+    @Option(help: "Build the specified product.")
     var product: String?
 
     /// Testing library options.
@@ -115,7 +115,7 @@ struct BuildCommandOptions: ParsableArguments {
     package var traits: TraitOptions
 
     /// If should link the Swift stdlib statically.
-    @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically")
+    @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically.")
     public var shouldLinkStaticSwiftStdlib: Bool = false
 }
 
@@ -124,7 +124,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
     public static var configuration = CommandConfiguration(
         commandName: "build",
         _superCommandName: "swift",
-        abstract: "Build sources into binary products",
+        abstract: "Build sources into binary products.",
         discussion: "SEE ALSO: swift run, swift package, swift test",
         version: SwiftVersion.current.completeDisplayString,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])

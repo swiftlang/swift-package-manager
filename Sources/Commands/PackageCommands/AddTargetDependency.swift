@@ -26,18 +26,18 @@ import Workspace
 extension SwiftPackageCommand {
     struct AddTargetDependency: SwiftCommand {
         package static let configuration = CommandConfiguration(
-            abstract: "Add a new target dependency to the manifest")
+            abstract: "Add a new target dependency to the manifest.")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Argument(help: "The name of the new dependency")
+        @Argument(help: "The name of the new dependency.")
         var dependencyName: String
 
-        @Argument(help: "The name of the target to update")
+        @Argument(help: "The name of the target to update.")
         var targetName: String
 
-        @Option(help: "The package in which the dependency resides")
+        @Option(help: "The package in which the dependency resides.")
         var package: String?
 
         func run(_ swiftCommandState: SwiftCommandState) throws {

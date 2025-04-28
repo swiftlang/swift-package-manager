@@ -72,16 +72,16 @@ let dockerImageRoot = "swiftlang/swift:nightly-"
 
 @main
 struct BuildPrebuilts: AsyncParsableCommand {
-    @Option(help: "The directory to generate the artifacts to")
+    @Option(help: "The directory to generate the artifacts to.")
     var stageDir = try! AbsolutePath(validating: FileManager.default.currentDirectoryPath).appending("stage")
 
-    @Flag(help: "Whether to build artifacts using docker")
+    @Flag(help: "Whether to build artifacts using docker.")
     var docker = false
 
-    @Flag(help: "Whether to build artifacts using docker only")
+    @Flag(help: "Whether to build artifacts using docker only.")
     var dockerOnly = false
 
-    @Option(help: "The command to use for docker")
+    @Option(help: "The command to use for docker.")
     var dockerCommand: String = "docker"
 
     mutating func run() async throws {
