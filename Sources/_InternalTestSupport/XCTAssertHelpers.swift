@@ -46,7 +46,7 @@ public func XCTAssertEqual<T:Equatable, U:Equatable> (_ lhs:(T,U), _ rhs:(T,U), 
 
 public func XCTSkipIfCI(file: StaticString = #filePath, line: UInt = #line) throws {
     // TODO: is this actually the right variable now?
-    if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil {
+    if isInCiEnvironment {
         throw XCTSkip("Skipping because the test is being run on CI", file: file, line: line)
     }
 }
