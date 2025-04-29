@@ -147,9 +147,14 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
                 }
 
                 let buildConfigurationDirName = try swiftCommandState.productsBuildParameters.configuration.dirname
+                #if os(macOS)
+                let libraryExtension = "dylib"
+                #else
+                let libraryExtension = "so"
+                #endif
                 let playgroundHelperArguments = [
                     "--lib-path",
-                    "\(swiftCommandState.scratchDirectory)/\(buildConfigurationDirName)/lib\(playgroundLibraryProduct.name).dylib"
+                    "\(swiftCommandState.scratchDirectory)/\(buildConfigurationDirName)/lib\(playgroundLibraryProduct.name).\(libraryExtension)"
                 ]
 
                 // Build the package
@@ -204,6 +209,7 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
                 case .liveUpdate:
                     playAgain = true
                     
+                    #if os(macOS)
                     // Monitor for file changes
                     var fileMonitor: FileMonitor? = nil
                     do {
@@ -217,14 +223,18 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
                         fileMonitor?.cancel()
                         fileMonitor = nil
                     }
+                    #endif
                     
                     if options.debugLoggingEnabled { print("[swift play waiting...]") }
                     var waitingForFileChanges = true
                     
+                    #if os(macOS)
                     fileMonitor?.onChange = {
                         if options.debugLoggingEnabled { print("[Files changed]") }
                         waitingForFileChanges = false
                     }
+                    #endif
+
                     while(waitingForFileChanges) {
                         sleep(1)
                         
@@ -275,7 +285,11 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
         do {
             if options.debugLoggingEnabled { print("[Launching helper: \(executablePath.pathString) \(allArguments.joined(separator: " "))]") }
             try helperProcess.run()
+            #if os(macOS)
+            // Allow the helper to read input from stdin
+            // FIXME: On Linux this suppresses CTRL-C
             tcsetpgrp(STDIN_FILENO, helperProcess.processIdentifier)
+            #endif
             if options.debugLoggingEnabled { print("[Helper launched with pid \(helperProcess.processIdentifier)]") }
         } catch {
             print("[Helper launch failed with error: \(error)]")
@@ -288,6 +302,7 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
     public init() {}
 }
 
+#if os(macOS)
 final private class FileMonitor {
     
     let url: URL
@@ -368,3 +383,4 @@ final private class FileMonitor {
         }
     }
 }
+#endif

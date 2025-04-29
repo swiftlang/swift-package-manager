@@ -1047,7 +1047,12 @@ let package = Package(
 package.targets.append(contentsOf: [
     .executableTarget(
         name: "swiftpm-testing-helper"
-    ),
+    )
+])
+#endif
+
+#if !os(Windows)
+package.targets.append(contentsOf: [
     .executableTarget(
         /** Helper tool to host #Playground execution */
         name: "swiftpm-playground-helper"
