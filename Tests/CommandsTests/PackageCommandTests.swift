@@ -95,7 +95,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
 	
     func testCompletionTool() async throws {
         let stdout = try await execute(["completion-tool", "--help"]).stdout
-        XCTAssertMatch(stdout, .contains("OVERVIEW: Completion command (for shell completions)"))
+        XCTAssertMatch(stdout, .contains("OVERVIEW: Command to generate shell completions."))
     }
 
 	func testInitOverview() async throws {
