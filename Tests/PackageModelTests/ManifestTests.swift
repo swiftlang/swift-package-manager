@@ -332,7 +332,7 @@ class ManifestTests: XCTestCase {
             }
 
             XCTAssertNoThrow(try manifest.enabledTraits(using: .enableAllTraits))
-            XCTAssertNoThrow(try manifest.enabledTraits(using: .none))
+            XCTAssertNoThrow(try manifest.enabledTraits(using: .default))
 
             // Enabled Traits when passed explicitly enabled traits list:
 
@@ -540,7 +540,7 @@ class ManifestTests: XCTestCase {
             // Calculate the enabled traits without an explicitly declared set of enabled traits.
             // This should default to fetching the default traits, if they exist (which in this test case
             // they do), and then will calculate the transitive set of traits that are enabled.
-            let allEnabledTraits = try XCTUnwrap(manifest.enabledTraits(using: .none)).sorted()
+            let allEnabledTraits = try XCTUnwrap(manifest.enabledTraits(using: .default)).sorted()
             XCTAssertEqual(allEnabledTraits, ["Trait1", "Trait2"])
         }
     }

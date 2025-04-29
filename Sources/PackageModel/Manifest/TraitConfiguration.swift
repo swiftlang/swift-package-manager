@@ -15,7 +15,7 @@ public enum TraitConfiguration: Codable, Hashable {
     case enableAllTraits
     case disableAllTraits
     case enabledTraits(Set<String>)
-    case none
+    case `default`
 
     public init(
         enabledTraits: Set<String>? = nil,
@@ -39,19 +39,14 @@ public enum TraitConfiguration: Codable, Hashable {
         } else {
             // Since enableAllTraits isn't enabled and there isn't a set of enabled traits,
             // there is no configuration passed by the user.
-            self = .none
+            self = .default
         }
-    }
-
-    /// Default instance of `TraitConfiguration`.
-    public static var `default`: TraitConfiguration {
-        .init(enabledTraits: nil)
     }
 
     /// The set of enabled traits, if available.
     public var enabledTraits: Set<String>? {
         switch self {
-        case .none:
+        case .default:
             ["default"]
         case .enabledTraits(let traits):
             traits

@@ -119,7 +119,7 @@ extension Manifest {
                     package: displayName,
                     explicitlyEnabledTraits: traits.map({ $0 })
                 )
-            case .enableAllTraits, .none:
+            case .enableAllTraits, .default:
                 return
             }
         }
@@ -168,7 +168,7 @@ extension Manifest {
         switch traitConfiguration {
         case .enableAllTraits:
             enabledTraits = Set(traits.map(\.name))
-        case .none:
+        case .default:
             if let defaultTraits = defaultTraits?.map(\.name) {
                 enabledTraits = Set(defaultTraits)
             }
