@@ -68,3 +68,36 @@ extension Trait where Self == Testing.ConditionTrait {
         }
     }
 }
+
+extension Tag {
+    public enum TestSize {}
+    public enum Feature {}
+}
+
+extension Tag.TestSize {
+    @Tag public static var small: Tag
+    @Tag public static var medium: Tag
+    @Tag public static var large: Tag
+}
+
+extension Tag.Feature {
+    public enum Command {}
+    public enum PackageType {}
+}
+
+extension Tag.Feature.Command {
+    @Tag public static var package: Tag
+    @Tag public static var build: Tag
+    @Tag public static var test: Tag
+    @Tag public static var run: Tag
+}
+
+extension Tag.Feature.PackageType {
+    @Tag public static var library: Tag
+    @Tag public static var executable: Tag
+    @Tag public static var tool: Tag
+    @Tag public static var plugin: Tag
+    @Tag public static var buildToolPlugin: Tag
+    @Tag public static var commandPlugin: Tag
+    @Tag public static var macro: Tag
+}
