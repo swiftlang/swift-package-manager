@@ -703,6 +703,7 @@ extension PackagePIFProjectBuilder {
         // Additional configuration and files for this library product.
         pifBuilder.delegate.configureLibraryProduct(
             product: product.underlying,
+            project: &self.project,
             target: librayUmbrellaTargetKeyPath,
             additionalFiles: additionalFilesGroupKeyPath
         )

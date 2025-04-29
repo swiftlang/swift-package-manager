@@ -278,7 +278,7 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
         []
     }
     
-    func addCustomTargets(pifProject: SwiftBuild.ProjectModel.Project) throws -> [PackagePIFBuilder.ModuleOrProduct] {
+    func addCustomTargets(pifProject: inout SwiftBuild.ProjectModel.Project) throws -> [PackagePIFBuilder.ModuleOrProduct] {
         return []
     }
     
@@ -292,6 +292,7 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
     
     func configureLibraryProduct(
         product: PackageModel.Product,
+        project: inout ProjectModel.Project,
         target: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
         additionalFiles: WritableKeyPath<ProjectModel.Group, ProjectModel.Group>
     ) {
