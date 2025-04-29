@@ -423,7 +423,7 @@ extension PackagePIFProjectBuilder {
                 .spm_mangledToBundleIdentifier()
             settings[.EXECUTABLE_NAME] = executableName
             settings[.CLANG_ENABLE_MODULES] = "YES"
-            settings[.GENERATE_MASTER_OBJECT_FILE] = "NO"
+            settings[.GENERATE_PRELINK_OBJECT_FILE] = "NO"
             settings[.STRIP_INSTALLED_PRODUCT] = "NO"
 
             // Macros build as executables, so they need slightly different
