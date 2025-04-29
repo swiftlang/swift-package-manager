@@ -209,6 +209,9 @@ final class XCBuildTests: XCTestCase {
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode")
             let debugPath = binaryPath.appending(component: "Debug")
+            let (stdout, stderr) = try sh("ls", debugPath.pathString)
+            print("ls:", stdout)
+            print("err:", stderr)
             XCTAssertFileExists(debugPath.appending(component: "FooLib_Module.o"))
             XCTAssertFileExists(debugPath.appending(component: "CFooLib_Module.o"))
             XCTAssertFileExists(debugPath.appending(component: "BarLib_Module.o"))
