@@ -186,7 +186,7 @@ struct TestCommandOptions: ParsableArguments {
     var filter: [String] = []
 
     @Option(name: .customLong("skip"),
-            help: "Skip test cases that match regular expression, Example: '--skip PerformanceTests'.")
+            help: "Skip test cases that match a regular expression, Example: '--skip PerformanceTests'.")
     var _testCaseSkip: [String] = []
 
     /// Path where the xUnit xml file should be generated.
