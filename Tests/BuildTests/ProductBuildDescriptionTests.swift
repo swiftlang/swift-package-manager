@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 @testable
-import Build
+import NativeBuildSupport
 
 import class Basics.InMemoryFileSystem
 import class Basics.ObservabilitySystem

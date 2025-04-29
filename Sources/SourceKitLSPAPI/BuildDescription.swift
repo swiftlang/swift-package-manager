@@ -16,7 +16,7 @@ import TSCBasic
 // Ideally wouldn't expose these (it defeats the purpose of this module), but we should replace this entire API with
 // a BSP server, so this is good enough for now (and LSP is using all these types internally anyway).
 import Basics
-import Build
+import NativeBuildSupport
 import PackageGraph
 internal import PackageLoading
 internal import PackageModel
@@ -201,14 +201,14 @@ private struct WrappedSwiftTargetBuildDescription: BuildTarget {
 }
 
 public struct BuildDescription {
-    private let buildPlan: Build.BuildPlan
+    private let buildPlan: NativeBuildSupport.BuildPlan
 
     /// The inputs of the build plan so we don't need to re-compute them  on every call to
     /// `fileAffectsSwiftOrClangBuildSettings`.
-    private let inputs: [Build.BuildPlan.Input]
+    private let inputs: [NativeBuildSupport.BuildPlan.Input]
 
     /// Wrap an already constructed build plan.
-    public init(buildPlan: Build.BuildPlan) {
+    public init(buildPlan: NativeBuildSupport.BuildPlan) {
         self.buildPlan = buildPlan
         self.inputs = buildPlan.inputs
     }

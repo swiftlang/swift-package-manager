@@ -13,7 +13,7 @@
 import Basics
 
 @_spi(SwiftPMInternal)
-import Build
+import NativeBuildSupport
 
 import _InternalTestSupport
 import struct PackageGraph.ModulesGraph
@@ -37,7 +37,7 @@ public func mockBuildPlan(
     targetSanitizers: EnabledSanitizers = .init(),
     fileSystem fs: any FileSystem,
     observabilityScope: ObservabilityScope
-) async throws -> Build.BuildPlan {
+) async throws -> NativeBuildSupport.BuildPlan {
     try await mockBuildPlan(
         buildPath: buildPath,
         config: environment.configuration ?? .debug,
@@ -70,7 +70,7 @@ public func mockBuildPlan(
     targetSanitizers: EnabledSanitizers = .init(),
     fileSystem fs: any FileSystem,
     observabilityScope: ObservabilityScope
-) async throws -> Build.BuildPlan {
+) async throws -> NativeBuildSupport.BuildPlan {
     let inferredTriple: Basics.Triple
     if let platform {
         precondition(triple == nil)
@@ -160,17 +160,17 @@ enum BuildError: Swift.Error {
 }
 
 public struct BuildPlanResult {
-    public let plan: Build.BuildPlan
+    public let plan: NativeBuildSupport.BuildPlan
 
-    public var productMap: IdentifiableSet<Build.ProductBuildDescription> {
+    public var productMap: IdentifiableSet<NativeBuildSupport.ProductBuildDescription> {
         self.plan.productMap
     }
 
-    public var targetMap: IdentifiableSet<Build.ModuleBuildDescription> {
+    public var targetMap: IdentifiableSet<NativeBuildSupport.ModuleBuildDescription> {
         self.plan.targetMap
     }
 
-    public init(plan: Build.BuildPlan) throws {
+    public init(plan: NativeBuildSupport.BuildPlan) throws {
         self.plan = plan
     }
 
@@ -182,7 +182,7 @@ public struct BuildPlanResult {
         XCTAssertEqual(self.productMap.count, count, file: file, line: line)
     }
 
-    public func moduleBuildDescription(for name: String) throws -> Build.ModuleBuildDescription {
+    public func moduleBuildDescription(for name: String) throws -> NativeBuildSupport.ModuleBuildDescription {
         let matches = self.targetMap.filter({ $0.module.name == name })
         guard matches.count == 1 else {
             if matches.isEmpty {
@@ -194,7 +194,7 @@ public struct BuildPlanResult {
         return matches.first!
     }
 
-    public func buildProduct(for name: String) throws -> Build.ProductBuildDescription {
+    public func buildProduct(for name: String) throws -> NativeBuildSupport.ProductBuildDescription {
         let matches = self.productMap.filter({ $0.product.name == name })
         guard matches.count == 1 else {
             if matches.isEmpty {
@@ -208,7 +208,7 @@ public struct BuildPlanResult {
     }
 }
 
-extension Build.ModuleBuildDescription {
+extension NativeBuildSupport.ModuleBuildDescription {
     public func swift() throws -> SwiftModuleBuildDescription {
         switch self {
         case .swift(let description):

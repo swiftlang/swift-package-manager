@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import XCTest
-import Build
+import NativeBuildSupport
 
 class SwiftCompilerOutputParserTests: XCTestCase {
     func testParse() throws {

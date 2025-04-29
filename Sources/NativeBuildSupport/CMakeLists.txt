@@ -6,7 +6,7 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-add_library(Build
+add_library(NativeBuildSupport
   BuildDescription/ClangModuleBuildDescription.swift
   BuildDescription/PluginBuildDescription.swift
   BuildDescription/ProductBuildDescription.swift
@@ -30,26 +30,26 @@ add_library(Build
   LLBuildProgressTracker.swift
   SwiftCompilerOutputParser.swift
   TestObservation.swift)
-target_link_libraries(Build PUBLIC
+target_link_libraries(NativeBuildSupport PUBLIC
   TSCBasic
   Basics
   SwiftCollections::OrderedCollections
   PackageGraph
   SPMBuildCore)
-target_link_libraries(Build PRIVATE
+target_link_libraries(NativeBuildSupport PRIVATE
   DriverSupport
   LLBuildManifest
   SPMLLBuild
   SwiftDriver)
-target_link_libraries(Build INTERFACE
+target_link_libraries(NativeBuildSupport INTERFACE
   llbuildSwift)
 
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
-set_target_properties(Build PROPERTIES
+set_target_properties(NativeBuildSupport PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
-install(TARGETS Build
+install(TARGETS NativeBuildSupport
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
-set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS Build)
+set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS NativeBuildSupport)

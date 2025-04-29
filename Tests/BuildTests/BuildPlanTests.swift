@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
-@testable import Build
+@testable import NativeBuildSupport
 
 @testable
 @_spi(SwiftPMInternal)
@@ -37,7 +37,7 @@ import func TSCBasic.withTemporaryFile
 
 import enum TSCUtility.Diagnostics
 
-extension Build.BuildPlan {
+extension NativeBuildSupport.BuildPlan {
     var productsBuildPath: AbsolutePath {
         let buildParameters = self.destinationBuildParameters
         let buildConfigurationComponent = buildParameters.buildEnvironment
@@ -3670,7 +3670,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             )
             XCTFail()
         } catch {
-            if let buildError = error as? Build.BuildPlan.Error {
+            if let buildError = error as? NativeBuildSupport.BuildPlan.Error {
                 XCTAssert(buildError == .noBuildableTarget)
             } else {
                 XCTFail()

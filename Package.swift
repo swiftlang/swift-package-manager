@@ -77,7 +77,7 @@ let swiftPMDataModelProduct = (
 let swiftPMProduct = (
     name: "SwiftPM",
     targets: swiftPMDataModelProduct.targets + [
-        "Build",
+        "NativeBuildSupport",
         "LLBuildManifest",
         "SourceKitLSPAPI",
         "SPMLLBuild",
@@ -205,11 +205,11 @@ let package = Package(
             name: "SourceKitLSPAPI",
             dependencies: [
                 "Basics",
-                "Build",
                 "PackageGraph",
                 "PackageLoading",
                 "PackageModel",
                 "SPMBuildCore",
+                "NativeBuildSupport",
             ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
@@ -451,8 +451,19 @@ let package = Package(
             ]
         ),
         .target(
-            /** Builds Modules and Products */
-            name: "Build",
+            name: "DriverSupport",
+            dependencies: [
+                "Basics",
+                "PackageModel",
+                .product(name: "SwiftDriver", package: "swift-driver"),
+            ],
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: commonExperimentalFeatures + [
+                .unsafeFlags(["-static"]),
+            ]
+        ),
+        .target(
+            name: "NativeBuildSupport",
             dependencies: [
                 "Basics",
                 "LLBuildManifest",
@@ -462,18 +473,6 @@ let package = Package(
                 .product(name: "SwiftDriver", package: "swift-driver"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 "DriverSupport",
-            ],
-            exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
-        ),
-        .target(
-            name: "DriverSupport",
-            dependencies: [
-                "Basics",
-                "PackageModel",
-                .product(name: "SwiftDriver", package: "swift-driver"),
             ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
@@ -500,7 +499,9 @@ let package = Package(
                 "PackageGraph",
             ],
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonExperimentalFeatures + [
+                .unsafeFlags(["-static"]),
+            ]
         ),
         .target(
             /** High level functionality */
@@ -544,11 +545,11 @@ let package = Package(
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Basics",
-                "Build",
                 "PackageLoading",
                 "PackageModel",
                 "PackageGraph",
                 "Workspace",
+                "NativeBuildSupport",
                 "XCBuildSupport",
                 "SwiftBuildSupport",
             ],
@@ -565,12 +566,12 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 "Basics",
-                "Build",
                 "CoreCommands",
                 "PackageGraph",
                 "PackageModelSyntax",
                 "SourceControl",
                 "Workspace",
+                "NativeBuildSupport",
                 "XCBuildSupport",
                 "SwiftBuildSupport",
             ] + swiftSyntaxDependencies(["SwiftIDEUtils"]),
@@ -666,10 +667,10 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 "Basics",
-                "Build",
                 "PackageGraph",
                 "PackageLoading",
                 "PackageModel",
+                "NativeBuildSupport",
                 "XCBuildSupport",
                 "SwiftBuildSupport",
             ],
@@ -749,7 +750,7 @@ let package = Package(
                 /** SwiftPM internal build test suite support library */
                 name: "_InternalBuildTestSupport",
                 dependencies: [
-                    "Build",
+                    "NativeBuildSupport",
                     "XCBuildSupport",
                     "SwiftBuildSupport",
                     "_InternalTestSupport"
@@ -830,7 +831,7 @@ let package = Package(
         ),
         .testTarget(
             name: "BuildTests",
-            dependencies: ["Build", "PackageModel", "Commands", "_InternalTestSupport", "_InternalBuildTestSupport"]
+            dependencies: ["NativeBuildSupport", "PackageModel", "Commands", "_InternalTestSupport", "_InternalBuildTestSupport"]
         ),
         .testTarget(
             name: "LLBuildManifestTests",
@@ -982,7 +983,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
             dependencies: [
                 "swift-package-manager",
                 "Basics",
-                "Build",
+                "NativeBuildSupport",
                 "Commands",
                 "PackageModel",
                 "PackageModelSyntax",

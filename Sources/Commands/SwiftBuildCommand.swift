@@ -13,16 +13,15 @@
 import ArgumentParser
 import Basics
 
-import Build
-
 @_spi(SwiftPMInternal)
 import CoreCommands
 
 import PackageGraph
 
 import SPMBuildCore
-import XCBuildSupport
-import SwiftBuildSupport
+
+private import NativeBuildSupport
+private import SwiftBuildSupport
 
 import class Basics.AsyncProcess
 import var TSCBasic.stdoutStream

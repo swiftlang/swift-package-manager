@@ -18,8 +18,8 @@ add_library(SwiftBuildSupport STATIC
   PIFBuilder.swift
   SwiftBuildSystem.swift)
 target_link_libraries(SwiftBuildSupport PUBLIC
-  Build
   DriverSupport
+  SPMBuildCore
   TSCBasic
   TSCUtility
   PackageGraph

@@ -205,7 +205,7 @@ extension ResolvedProduct {
             guard let macroModule = self.modules.first else {
                 throw InternalError("macro product \(self.name) has no targets")
             }
-            return Build.getLLBuildTargetName(macro: macroModule, buildParameters: buildParameters)
+            return NativeBuildSupport.getLLBuildTargetName(macro: macroModule, buildParameters: buildParameters)
         case .plugin:
             throw InternalError("unexpectedly asked for the llbuild target name of a plugin product")
         }

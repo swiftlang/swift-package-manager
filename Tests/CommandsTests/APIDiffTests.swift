@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import Build
 import Commands
 import SPMBuildCore
 

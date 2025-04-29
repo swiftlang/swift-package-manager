@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Build
+import NativeBuildSupport
 import Foundation
 @testable import Commands
 @testable import CoreCommands

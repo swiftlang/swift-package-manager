@@ -74,7 +74,6 @@ class WalkTests: XCTestCase {
             .appending(component: "Sources")
         var expected = [
             root.appending(component: "Basics"),
-            root.appending(component: "Build"),
             root.appending(component: "Commands"),
         ]
         for x in try! walk(root) {

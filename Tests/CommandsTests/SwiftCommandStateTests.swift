@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
-@testable import Build
+@testable import NativeBuildSupport
 @testable import Commands
 @testable import CoreCommands
 
@@ -294,7 +294,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
             fileSystem: fs,
             observabilityScope: observer.topScope
         )
-        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
+        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? NativeBuildSupport.ProductBuildDescription }.first?.linkArguments() ?? [],
                            [.anySequence, "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf"])
 
         /* -debug-info-format codeview */
@@ -308,7 +308,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
             fileSystem: fs,
             observabilityScope: observer.topScope
         )
-        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
+        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? NativeBuildSupport.ProductBuildDescription }.first?.linkArguments() ?? [],
                            [.anySequence, "-g", "-debug-info-format=codeview", "-Xlinker", "-debug"])
 
         // Explicitly pass Linux as when the `SwiftCommandState` tests are enabled on
@@ -331,7 +331,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
             fileSystem: fs,
             observabilityScope: observer.topScope
         )
-        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
+        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? NativeBuildSupport.ProductBuildDescription }.first?.linkArguments() ?? [],
                            [.anySequence, "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf"])
 
         /* -debug-info-format none */
@@ -344,7 +344,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
             fileSystem: fs,
             observabilityScope: observer.topScope
         )
-        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
+        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? NativeBuildSupport.ProductBuildDescription }.first?.linkArguments() ?? [],
                            [.anySequence, "-gnone", .anySequence])
     }
 
@@ -408,7 +408,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
             observabilityScope: observer.topScope
         )
 
-        let arguments = try plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? []
+        let arguments = try plan.buildProducts.compactMap { $0 as? NativeBuildSupport.ProductBuildDescription }.first?.linkArguments() ?? []
 
         XCTAssertMatch(arguments, [.contains("/path/to/toolchain")])
     }

@@ -13,7 +13,7 @@
 import XCTest
 
 import Basics
-@testable import Build
+@testable import NativeBuildSupport
 import LLBuildManifest
 import _InternalTestSupport
 
