@@ -100,7 +100,8 @@ public final class PIFBuilder {
     func generatePIF(
         prettyPrint: Bool = true,
         preservePIFModelStructure: Bool = false,
-        printPIFManifestGraphviz: Bool = false
+        printPIFManifestGraphviz: Bool = false,
+        buildParameters: BuildParameters
     ) throws -> String {
         #if canImport(SwiftBuild)
         let encoder = prettyPrint ? JSONEncoder.makeWithDefaults() : JSONEncoder()
@@ -109,7 +110,7 @@ public final class PIFBuilder {
             encoder.userInfo[.encodeForSwiftBuild] = true
         }
 
-        let topLevelObject = try self.construct()
+        let topLevelObject = try self.construct(buildParameters: buildParameters)
 
         // Sign the PIF objects before encoding it for Swift Build.
         try PIF.sign(workspace: topLevelObject.workspace)
@@ -138,7 +139,7 @@ public final class PIFBuilder {
     private var cachedPIF: PIF.TopLevelObject?
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
-    private func construct() throws -> PIF.TopLevelObject {
+    private func construct(buildParameters: BuildParameters) throws -> PIF.TopLevelObject {
         try memoize(to: &self.cachedPIF) {
             guard let rootPackage = self.graph.rootPackages.only else {
                 if self.graph.rootPackages.isEmpty {
@@ -174,7 +175,9 @@ public final class PIFBuilder {
             projects.append(
                 try buildAggregateProject(
                     packagesAndProjects: packagesAndProjects,
-                    observabilityScope: observabilityScope
+                    observabilityScope: observabilityScope,
+                    modulesGraph: graph,
+                    buildParameters: buildParameters
                 )
             )
 
@@ -197,7 +200,7 @@ public final class PIFBuilder {
         packageGraph: ModulesGraph,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        preservePIFModelStructure: Bool
+        preservePIFModelStructure: Bool,
     ) throws -> String {
         let parameters = PIFBuilderParameters(buildParameters, supportedSwiftVersions: [])
         let builder = Self(
@@ -206,7 +209,7 @@ public final class PIFBuilder {
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
-        return try builder.generatePIF(preservePIFModelStructure: preservePIFModelStructure)
+        return try builder.generatePIF(preservePIFModelStructure: preservePIFModelStructure, buildParameters: buildParameters)
     }
 }
 
@@ -306,7 +309,9 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
 
 fileprivate func buildAggregateProject(
     packagesAndProjects: [(package: ResolvedPackage, project: ProjectModel.Project)],
-    observabilityScope: ObservabilityScope
+    observabilityScope: ObservabilityScope,
+    modulesGraph: ModulesGraph,
+    buildParameters: BuildParameters
 ) throws -> ProjectModel.Project {
     precondition(!packagesAndProjects.isEmpty)
     
@@ -366,6 +371,13 @@ fileprivate func buildAggregateProject(
                     // as the build artifacts from "PACKAGE-TARGET:Foo"
                     // conflicts with those from "PACKAGE-TARGET:Foo-dynamic".
                     continue
+                }
+
+                if let resolvedModule = modulesGraph.module(for: target.name) {
+                    guard modulesGraph.isInRootPackages(resolvedModule, satisfying: buildParameters.buildEnvironment) else {
+                        // Disconnected target, possibly due to platform when condition that isn't satisfied
+                        continue
+                    }
                 }
                 
                 aggregateProject[keyPath: allIncludingTestsTargetKeyPath].common.addDependency(
