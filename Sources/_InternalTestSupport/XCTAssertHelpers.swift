@@ -101,6 +101,13 @@ public func XCTRequires(
     }
 }
 
+public func XCTSkipIfCompilerLessThan6_2() throws {
+    #if compiler(>=6.2)
+    #else
+        throw XCTSkip("Skipping as compiler version is less thann 6.2")
+    #endif
+}
+
 /// An `async`-friendly replacement for `XCTAssertThrowsError`.
 public func XCTAssertAsyncThrowsError<T>(
     _ expression: @autoclosure () async throws -> T,
