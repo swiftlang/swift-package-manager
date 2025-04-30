@@ -6928,14 +6928,16 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "/LeakTest/Sources/CLib/Clib.c",
             "/LeakTest/Sources/MyMacro/MyMacro.swift",
             "/LeakTest/Sources/MyPluginTool/MyPluginTool.swift",
-            "/LeakTest/Plugins/MyPlugin/MyPlugin.swift",
             "/LeakTest/Sources/MyLib/MyLib.swift",
+            "/LeakTest/Plugins/MyPlugin/MyPlugin.swift",
+            "/LeakTest/Tests/MyMacroTests/MyMacroTests.swift",
+            "/LeakTest/Tests/MyMacro2Tests/MyMacro2Tests.swift",
             "/LeakLib/Sources/CLib2/include/Clib.h",
             "/LeakLib/Sources/CLib2/Clib.c",
             "/LeakLib/Sources/MyMacro2/MyMacro.swift",
             "/LeakLib/Sources/MyPluginTool2/MyPluginTool.swift",
+            "/LeakLib/Sources/MyLib2/MyLib.swift",
             "/LeakLib/Plugins/MyPlugin2/MyPlugin.swift",
-            "/LeakLib/Sources/MyLib2/MyLib.swift"
         ])
 
         let graph = try loadModulesGraph(fileSystem: fs, manifests: [
@@ -6944,6 +6946,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 path: "/LeakLib",
                 products: [
                     ProductDescription(name: "MyLib2", type: .library(.automatic), targets: ["MyLib2"]),
+                    ProductDescription(name: "MyMacros2", type: .macro, targets: ["MyMacro2"])
                 ],
                 targets: [
                     TargetDescription(name: "CLib2"),
@@ -6969,6 +6972,11 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                         dependencies: ["CLib", "MyMacro", .product(name: "MyLib2", package: "LeakLib")],
                         pluginUsages: [.plugin(name: "MyPlugin", package: nil)]
                     ),
+                    TargetDescription(name: "MyMacroTests", dependencies: ["MyMacro"], type: .test),
+                    TargetDescription(
+                        name: "MyMacro2Tests",
+                        dependencies: [.product(name: "MyMacros2", package: "LeakLib")],
+                        type: .test),
                 ]
             )
         ], observabilityScope: observability.topScope)
@@ -6982,8 +6990,17 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let myLib = try XCTUnwrap(plan.targets.first(where: { $0.module.name == "MyLib" })).swift()
-        print(myLib.additionalFlags)
-        XCTAssertFalse(myLib.additionalFlags.contains(where: { $0.contains("-tool/include")}), "flags shouldn't contain tools items")
+        XCTAssertFalse(myLib.additionalFlags.contains(where: { $0.contains("-tool")}), "flags shouldn't contain tools items")
+        
+        // Make sure the tests do have the include path and the module map from the lib
+        let myMacroTests = try XCTUnwrap(plan.targets.first(where: { $0.module.name == "MyMacroTests" })).swift()
+        let flags = myMacroTests.additionalFlags.joined(separator: " ")
+        XCTAssertMatch(flags, .regex("CLib[/\\\\]include"))
+        XCTAssertMatch(flags, .regex("CLib-tool.build[/\\\\]module.modulemap"))
+        let myMacro2Tests = try XCTUnwrap(plan.targets.first(where: { $0.module.name == "MyMacro2Tests" })).swift()
+        let flags2 = myMacro2Tests.additionalFlags.joined(separator: " ")
+        XCTAssertMatch(flags2, .regex("CLib2[/\\\\]include"))
+        XCTAssertMatch(flags2, .regex("CLib2-tool.build[/\\\\]module.modulemap"))
     }
 
     func testDiagnosticsAreMentionedInOutputsFileMap() async throws {
