@@ -13,8 +13,8 @@
 import Basics
 import PackageModel
 import SwiftSyntax
+import SwiftSyntaxBuilder
 import SwiftParser
-
 
 extension TargetDescription: ManifestSyntaxRepresentable {
     /// The function name in the package manifest.

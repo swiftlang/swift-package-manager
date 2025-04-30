@@ -102,8 +102,8 @@ def is_on_darwin() -> bool:
 def set_environment(*, swiftpm_bin_dir: pathlib.Path,) -> None:
     os.environ["SWIFTCI_IS_SELF_HOSTED"] = "1"
 
-    # Set the SWIFTPM_BIN_DIR path
-    os.environ["SWIFTPM_BIN_DIR"] = str(swiftpm_bin_dir)
+    # Set the SWIFTPM_CUSTOM_BIN_DIR path
+    os.environ["SWIFTPM_CUSTOM_BIN_DIR"] = str(swiftpm_bin_dir)
 
     # Ensure SDKROOT is configure
     if is_on_darwin():
@@ -133,6 +133,7 @@ def run_bootstrap(swiftpm_bin_dir: pathlib.Path) -> None:
 
 def main() -> None:
     args = get_arguments()
+    ignore = "-Xlinker /ignore:4217" if os.name == "nt" else ""
     logging.getLogger().setLevel(logging.DEBUG if args.is_verbose else logging.INFO)
     logging.debug("Args: %r", args)
 
@@ -144,30 +145,25 @@ def main() -> None:
             shlex.split("swift --version"),
         )
 
-        # call(
-        #     shlex.split("swift package reset"),
-        # )
         call(
             shlex.split("swift package update"),
         )
         call(
-            shlex.split(f"swift build --configuration {args.config}"),
+            shlex.split(f"swift build --configuration {args.config} {ignore}"),
         )
+
         swift_testing_arg= "--enable-swift-testing" if args.enable_swift_testing else ""
         xctest_arg= "--enable-xctest" if args.enable_swift_testing else ""
         call(
-            shlex.split(f"swift test --configuration {args.config} --parallel {swift_testing_arg} {xctest_arg}"),
+            shlex.split(f"swift run swift-test --configuration {args.config} --parallel {swift_testing_arg} {xctest_arg} --scratch-path .test {ignore}"),
         )
 
-    with change_directory(REPO_ROOT_PATH / "IntegrationTests"):
+        integration_test_dir = (REPO_ROOT_PATH / "IntegrationTests").as_posix()
         call(
-            shlex.split("swift package update"),
+            shlex.split(f"swift package --package-path {integration_test_dir} update"),
         )
         call(
-            shlex.split(
-                f"{swiftpm_bin_dir / 'swift-test'} --parallel",
-                posix=(os.name == "posix"), # must be set correctly, otherwhsie shlex.split("C:\\Foo\\bar") become ['CFoobar']
-            ),
+            shlex.split(f"swift run swift-test --package-path {integration_test_dir} --parallel {ignore}"),
         )
 
     if is_on_darwin():

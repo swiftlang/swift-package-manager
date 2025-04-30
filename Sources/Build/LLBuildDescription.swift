@@ -15,6 +15,7 @@ import Foundation
 import LLBuildManifest
 import SPMBuildCore
 import PackageGraph
+import PackageModel
 
 import struct TSCBasic.ByteString
 

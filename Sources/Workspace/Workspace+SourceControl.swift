@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import TSCBasic
+
 import struct Basics.AbsolutePath
 import struct Basics.InternalError
 import class Basics.ObservabilityScope

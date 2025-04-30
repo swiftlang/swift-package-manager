@@ -11,6 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
+import PackageModel
+import TSCBasic
+
 import struct Basics.AbsolutePath
 import class Basics.InMemoryFileSystem
 import class Basics.ObservabilityScope

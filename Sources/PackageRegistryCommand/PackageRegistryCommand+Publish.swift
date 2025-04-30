@@ -16,6 +16,7 @@ import Commands
 import CoreCommands
 import Foundation
 import PackageModel
+import PackageFingerprint
 import PackageRegistry
 import PackageSigning
 import Workspace

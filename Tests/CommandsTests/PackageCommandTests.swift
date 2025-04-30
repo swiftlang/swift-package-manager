@@ -1265,6 +1265,45 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             XCTAssertMatch(contents, .contains(#""MyLib""#))
         }
     }
+
+    func testPackageAddSetting() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageA")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(path.appending("Package.swift"), string:
+                """
+                // swift-tools-version: 6.2
+                import PackageDescription
+                let package = Package(
+                    name: "A",
+                    targets: [ .target(name: "test") ]
+                )
+                """
+            )
+
+            _ = try await execute([
+                "add-setting",
+                "--target", "test",
+                "--swift", "languageMode=6",
+                "--swift", "upcomingFeature=ExistentialAny:migratable",
+                "--swift", "experimentalFeature=TrailingCommas",
+                "--swift", "strictMemorySafety"
+            ], packagePath: path)
+
+            let manifest = path.appending("Package.swift")
+            XCTAssertFileExists(manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            XCTAssertMatch(contents, .contains(#"swiftSettings:"#))
+            XCTAssertMatch(contents, .contains(#".swiftLanguageMode(.v6)"#))
+            XCTAssertMatch(contents, .contains(#".enableUpcomingFeature("ExistentialAny:migratable")"#))
+            XCTAssertMatch(contents, .contains(#".enableExperimentalFeature("TrailingCommas")"#))
+            XCTAssertMatch(contents, .contains(#".strictMemorySafety"#))
+        }
+    }
+
     func testPackageEditAndUnedit() async throws {
         try await fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
             let fooPath = fixturePath.appending("foo")
@@ -3859,7 +3898,7 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
     }
 
     override func testCommandPluginBuildingCallbacks() async throws {
-        throw XCTSkip("SWBINTTODO: Test fails as plugins are not currenty supported")
+        throw XCTSkip("SWBINTTODO: Test fails because plugin is not producing expected output to stdout.")
     }
     override func testCommandPluginBuildTestability() async throws {
         throw XCTSkip("SWBINTTODO: Test fails as plugins are not currenty supported")
@@ -3867,7 +3906,13 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
 
 #if !os(macOS)
     override func testCommandPluginTestingCallbacks() async throws {
-        throw XCTSkip("SWBINTTODO: Test fails on inability to find libclang on Linux. Also, plugins are not currently supported")
+#if os(Linux)
+        if FileManager.default.contents(atPath: "/etc/system-release").map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false {
+            throw XCTSkip("Skipping Swift Build testing on Amazon Linux because of platform issues.")
+        }
+#endif
+        try await super.testCommandPluginTestingCallbacks()
     }
 #endif
+
 }

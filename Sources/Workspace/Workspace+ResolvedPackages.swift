@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import SourceControl
+
 import class Basics.ObservabilityScope
 import class PackageGraph.ResolvedPackagesStore
 import struct PackageModel.PackageReference

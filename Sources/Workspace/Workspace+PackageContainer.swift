@@ -10,6 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+import SourceControl
+import TSCBasic
+
 import class Basics.ObservabilityScope
 import func Dispatch.dispatchPrecondition
 import class Dispatch.DispatchQueue

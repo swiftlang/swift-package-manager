@@ -18,6 +18,7 @@ import PackageModel
 
 import OrderedCollections
 import SPMBuildCore
+import TSCUtility
 
 import struct TSCBasic.SortedArray
 
@@ -434,7 +435,7 @@ extension SortedArray where Element == AbsolutePath {
     }
 }
 
-extension Triple {
+extension Basics.Triple {
     var supportsFrameworks: Bool {
         return self.isDarwin()
     }

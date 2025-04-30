@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import TSCBasic
 import Foundation
 
 #if SWIFT_PACKAGE && (os(Windows) || os(Android))
