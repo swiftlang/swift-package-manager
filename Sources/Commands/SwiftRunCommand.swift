@@ -274,7 +274,8 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         // If the executable is implicit, search through root products.
         let rootExecutables = graph.rootPackages
             .flatMap { $0.products }
-            .filter { $0.type == .executable || $0.type == .snippet }
+            // The type checker slows down significantly when ProductTypes arent explicitly typed.
+            .filter { $0.type == ProductType.executable || $0.type == ProductType.snippet }
             .map { $0.name }
 
         // Error out if the package contains no executables.
