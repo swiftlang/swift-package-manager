@@ -58,9 +58,9 @@ target_link_libraries(Commands PUBLIC
   SwiftCollections::OrderedCollections
   ArgumentParser
   Basics
-  Build
   CoreCommands
   LLBuildManifest
+  NativeBuildSupport
   PackageGraph
   PackageModelSyntax
   SourceControl

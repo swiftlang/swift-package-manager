@@ -11,7 +11,7 @@ add_library(SourceKitLSPAPI STATIC
   PluginTargetBuildDescription.swift)
 target_link_libraries(SourceKitLSPAPI PUBLIC
   Basics
-  Build
+  NativeBuildSupport
   PackageGraph
   SPMBuildCore)
 target_link_libraries(SourceKitLSPAPI PRIVATE

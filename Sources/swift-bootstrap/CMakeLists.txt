@@ -11,7 +11,7 @@ add_executable(swift-bootstrap
 target_link_libraries(swift-bootstrap PRIVATE
   ArgumentParser
   Basics
-  Build
+  NativeBuildSupport
   PackageGraph
   PackageLoading
   PackageModel

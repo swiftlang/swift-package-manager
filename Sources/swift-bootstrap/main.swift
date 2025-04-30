@@ -13,7 +13,6 @@
 import ArgumentParser
 import Basics
 import _Concurrency
-import Build
 import Dispatch
 
 @_spi(SwiftPMInternal)
@@ -25,8 +24,10 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
-import XCBuildSupport
-import SwiftBuildSupport
+
+private import NativeBuildSupport
+private import XCBuildSupport
+private import SwiftBuildSupport
 
 import struct TSCBasic.KeyedPair
 import func TSCBasic.topologicalSort

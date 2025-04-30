@@ -13,7 +13,7 @@
 import XCTest
 
 import Basics
-@testable import Build
+@testable import NativeBuildSupport
 
 import PackageGraph
 
@@ -141,7 +141,7 @@ final class BuildPlanTraversalTests: XCTestCase {
 
         let mmioModule = try XCTUnwrap(plan.description(for: graph.module(for: "MMIO")!, context: .target))
 
-        var moduleDependencies: [(ResolvedModule, Dest, Build.ModuleBuildDescription?)] = []
+        var moduleDependencies: [(ResolvedModule, Dest, NativeBuildSupport.ModuleBuildDescription?)] = []
         plan.traverseDependencies(of: mmioModule) { product, destination, description in
             XCTAssertEqual(product.name, "SwiftSyntax")
             XCTAssertEqual(destination, .host)

@@ -13,10 +13,10 @@
 import struct Basics.AbsolutePath
 import class Basics.InMemoryFileSystem
 import class Basics.ObservabilitySystem
-import class Build.BuildPlan
-import class Build.ProductBuildDescription
-@testable import enum Build.ModuleBuildDescription
-import class Build.SwiftModuleBuildDescription
+import class NativeBuildSupport.BuildPlan
+import class NativeBuildSupport.ProductBuildDescription
+@testable import enum NativeBuildSupport.ModuleBuildDescription
+import class NativeBuildSupport.SwiftModuleBuildDescription
 import struct Basics.Triple
 import class PackageModel.Manifest
 import struct PackageModel.TargetDescription

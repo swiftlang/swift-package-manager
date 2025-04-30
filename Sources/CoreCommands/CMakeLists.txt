@@ -14,7 +14,7 @@ add_library(CoreCommands
 target_link_libraries(CoreCommands PUBLIC
   ArgumentParser
   Basics
-  Build
+  NativeBuildSupport
   PackageGraph
   TSCBasic
   TSCUtility

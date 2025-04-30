@@ -20,7 +20,6 @@ import PackageModel
 import SourceControl
 import SPMBuildCore
 import Workspace
-import XCBuildSupport
 
 import enum TSCUtility.Diagnostics
 

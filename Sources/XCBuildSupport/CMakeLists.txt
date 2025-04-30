@@ -14,8 +14,8 @@ add_library(XCBuildSupport STATIC
   XCBuildOutputParser.swift
   XcodeBuildSystem.swift)
 target_link_libraries(XCBuildSupport PUBLIC
-  Build
   DriverSupport
+  SPMBuildCore
   TSCBasic
   TSCUtility
   SwiftCollections::OrderedCollections

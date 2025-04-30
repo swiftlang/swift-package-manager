@@ -11,12 +11,13 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import Build
 import SPMBuildCore
-import XCBuildSupport
-import SwiftBuildSupport
 import PackageGraph
 import Workspace
+
+private import NativeBuildSupport
+private import XCBuildSupport
+private import SwiftBuildSupport
 
 import class Basics.ObservabilityScope
 import struct PackageGraph.ModulesGraph

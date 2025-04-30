@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import Build
+@testable import NativeBuildSupport
 @testable import PackageModel
 
 import Basics

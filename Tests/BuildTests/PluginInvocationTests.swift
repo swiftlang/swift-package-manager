@@ -27,8 +27,8 @@ import _InternalTestSupport
 import Workspace
 import XCTest
 
-@testable import class Build.BuildPlan
-import struct Build.PluginConfiguration
+@testable import class NativeBuildSupport.BuildPlan
+import struct NativeBuildSupport.PluginConfiguration
 
 import struct TSCUtility.SerializedDiagnostics
 
