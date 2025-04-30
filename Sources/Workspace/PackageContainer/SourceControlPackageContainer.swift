@@ -419,12 +419,12 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public func getEnabledTraits(traitConfiguration: TraitConfiguration?, at revision: String?, version: Version?) async throws -> Set<String> {
+    public func getEnabledTraits(traitConfiguration: TraitConfiguration, at revision: String?, version: Version?) async throws -> Set<String> {
         guard let version, let tag = getTag(for: version) else {
             return []
         }
         let manifest = try await self.loadManifest(tag: tag, version: version)
-        return try manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false) ?? []
+        return try manifest.enabledTraits(using: traitConfiguration) ?? []
     }
 
     public var isRemoteContainer: Bool? {

@@ -22,6 +22,7 @@ import class Basics.ObservabilityScope
 import struct PackageGraph.ModulesGraph
 import struct PackageLoading.FileRuleDescription
 import protocol TSCBasic.OutputByteStream
+import enum PackageModel.TraitConfiguration
 
 private struct NativeBuildSystemFactory: BuildSystemFactory {
     let swiftCommandState: SwiftCommandState

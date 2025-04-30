@@ -433,7 +433,7 @@ public func loadPackageGraph(
     useXCBuildFileRules: Bool = false,
     customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
     observabilityScope: ObservabilityScope,
-    traitConfiguration: TraitConfiguration?
+    traitConfiguration: TraitConfiguration = .default
 ) throws -> ModulesGraph {
     try loadModulesGraph(
         identityResolver: identityResolver,

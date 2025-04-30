@@ -214,14 +214,14 @@ public final class SwiftCommandState {
     }
 
     /// Get the current workspace root object.
-    public func getWorkspaceRoot(traitConfiguration: TraitConfiguration? = nil) throws -> PackageGraphRootInput {
+    public func getWorkspaceRoot(traitConfiguration: TraitConfiguration = .default) throws -> PackageGraphRootInput {
         let packages: [AbsolutePath]
 
         if let workspace = options.locations.multirootPackageDataFile {
             packages = try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope)
                 .load(workspace: workspace)
         } else {
-            packages = [try getPackageRoot()]
+            packages = try [self.getPackageRoot()]
         }
 
         return PackageGraphRootInput(packages: packages, traitConfiguration: traitConfiguration)
@@ -457,10 +457,7 @@ public final class SwiftCommandState {
     }
 
     /// Returns the currently active workspace.
-    public func getActiveWorkspace(
-        emitDeprecatedConfigurationWarning: Bool = false,
-        traitConfiguration: TraitConfiguration? = nil
-    ) throws -> Workspace {
+    public func getActiveWorkspace(emitDeprecatedConfigurationWarning: Bool = false, traitConfiguration: TraitConfiguration = .default) throws -> Workspace {
         if let workspace = _workspace {
             return workspace
         }
@@ -525,9 +522,7 @@ public final class SwiftCommandState {
         return workspace
     }
 
-    public func getRootPackageInformation(traitConfiguration: TraitConfiguration? = nil) async throws
-        -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]])
-    {
+    public func getRootPackageInformation(traitConfiguration: TraitConfiguration = .default) async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
         let workspace = try self.getActiveWorkspace(traitConfiguration: traitConfiguration)
         let root = try self.getWorkspaceRoot(traitConfiguration: traitConfiguration)
         let rootManifests = try await workspace.loadRootManifests(
@@ -652,7 +647,7 @@ public final class SwiftCommandState {
     }
 
     /// Resolve the dependencies.
-    public func resolve(_ traitConfiguration: TraitConfiguration?) async throws {
+    public func resolve(_ traitConfiguration: TraitConfiguration = .default) async throws {
         let workspace = try getActiveWorkspace(traitConfiguration: traitConfiguration)
         let root = try getWorkspaceRoot(traitConfiguration: traitConfiguration)
 
@@ -682,7 +677,7 @@ public final class SwiftCommandState {
     ) async throws -> ModulesGraph {
         try await self.loadPackageGraph(
             explicitProduct: explicitProduct,
-            traitConfiguration: nil,
+            traitConfiguration: .default,
             testEntryPointPath: testEntryPointPath
         )
     }
@@ -695,7 +690,7 @@ public final class SwiftCommandState {
     @discardableResult
     package func loadPackageGraph(
         explicitProduct: String? = nil,
-        traitConfiguration: TraitConfiguration? = nil,
+        traitConfiguration: TraitConfiguration = .default,
         testEntryPointPath: AbsolutePath? = nil
     ) async throws -> ModulesGraph {
         do {
@@ -750,7 +745,7 @@ public final class SwiftCommandState {
         try self._manifestLoader.get()
     }
 
-    public func canUseCachedBuildManifest(_ traitConfiguration: TraitConfiguration? = nil) async throws -> Bool {
+    public func canUseCachedBuildManifest(_ traitConfiguration: TraitConfiguration = .default) async throws -> Bool {
         if !self.options.caching.cacheBuildManifest {
             return false
         }

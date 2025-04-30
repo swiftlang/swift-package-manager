@@ -519,6 +519,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
             displayName: "MyLibrary",
             path: packageDir.appending("Package.swift"),
             packageKind: .root("/tmp/MyLibrary"),
+            packageIdentity: .plain("MyLibrary"),
             packageLocation: packageDir.pathString,
             platforms: [],
             toolsVersion: .v5_5,
