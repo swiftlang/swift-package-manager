@@ -164,6 +164,7 @@ public final class PIFBuilder {
                     buildToolPluginResultsByTargetName: [:],
                     createDylibForDynamicProducts: self.parameters.shouldCreateDylibForDynamicProducts,
                     packageDisplayVersion: package.manifest.displayName,
+                    fileSystem: self.fileSystem,
                     observabilityScope: self.observabilityScope
                 )
                 
