@@ -969,6 +969,12 @@ public final class SwiftModuleBuildDescription {
             break
         }
 
+        if bundlePath != nil {
+            compilationConditions += ["-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE"]
+        } else {
+            compilationConditions += ["-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"]
+        }
+
         return compilationConditions
     }
 

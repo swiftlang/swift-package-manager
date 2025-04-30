@@ -792,6 +792,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
                 "-DDEBUG",
+                "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
                 "-swift-version", "4",
@@ -811,6 +812,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
                 "-DDEBUG",
+                "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
                 "-swift-version", "4",
@@ -1224,6 +1226,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 "-O",
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
+                "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
                 "-swift-version", "4",
@@ -1318,6 +1321,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 "-O",
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
+                "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
                 "-swift-version", "4",
@@ -1863,6 +1867,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
                 "-DDEBUG",
+                "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
                 "-Xcc",
                 "-fmodule-map-file=\(buildPath.appending(components: "lib.build", "module.modulemap"))",
                 "-Xcc", "-I", "-Xcc", "\(Pkg.appending(components: "Sources", "lib", "include"))",
@@ -2365,6 +2370,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
                 "-DDEBUG",
+                "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
                 "-swift-version", "4",
@@ -2387,6 +2393,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
                 "-DDEBUG",
+                "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
                 "-swift-version", "4",
@@ -2499,6 +2506,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 "-O",
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
+                "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
                 "-swift-version", "4",
@@ -2864,6 +2872,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             .equal(self.j),
             "-DSWIFT_PACKAGE",
             "-DDEBUG",
+            "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
             "-Xcc", "-fmodule-map-file=\(Clibgit.appending(components: "module.modulemap"))",
             "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
             .anySequence,
@@ -3166,6 +3175,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
                 "-DDEBUG",
+                "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
                 "-swift-version", "4",
@@ -3185,6 +3195,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
                 "-DDEBUG",
+                "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
                 "-swift-version", "4",
@@ -3824,7 +3835,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Onone",
             "-enable-testing",
             .equal(self.j),
-            "-DSWIFT_PACKAGE", "-DDEBUG",
+            "-DSWIFT_PACKAGE", "-DDEBUG", "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
             "-Xcc", "-fmodule-map-file=\(buildPath.appending(components: "lib.build", "module.modulemap"))",
             "-Xcc", "-I", "-Xcc", "\(Pkg.appending(components: "Sources", "lib", "include"))",
             "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
@@ -5888,6 +5899,9 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         XCTAssertEqual(try barTarget.objects.map(\.pathString), [
             buildPath.appending(components: "Bar.build", "Bar.swift.o").pathString,
         ])
+
+        XCTAssertTrue(try fooTarget.compileArguments().contains(["-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE"]))
+        XCTAssertTrue(try barTarget.compileArguments().contains(["-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"]))
     }
 
     func testSwiftWASIBundleAccessor() async throws {

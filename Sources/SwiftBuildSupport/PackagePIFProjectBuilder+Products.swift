@@ -245,6 +245,9 @@ extension PackagePIFProjectBuilder {
 
             if result.shouldGenerateBundleAccessor {
                 settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"
+
+                // Do not set `SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE` here since it is just going to point to the same bundle as code.
+                // #bundle can use its default implementation for that.
             }
             if result.shouldGenerateEmbedInCodeAccessor {
                 settings[.GENERATE_EMBED_IN_CODE_ACCESSORS] = "YES"
@@ -264,6 +267,12 @@ extension PackagePIFProjectBuilder {
 
                 if result.shouldGenerateBundleAccessor {
                     settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"
+
+                    if mainModule.usesSwift {
+                        settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE") }
+                    }
+                } else if mainModule.usesSwift {
+                    settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE") }
                 }
                 if result.shouldGenerateEmbedInCodeAccessor {
                     settings[.GENERATE_EMBED_IN_CODE_ACCESSORS] = "YES"
@@ -304,6 +313,9 @@ extension PackagePIFProjectBuilder {
                 // Generated resources always trigger the creation of a bundle accessor.
                 settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"
                 settings[.GENERATE_EMBED_IN_CODE_ACCESSORS] = "NO"
+
+                // Do not set `SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE` here since it is just going to point to the same bundle as code.
+                // #bundle can use its default implementation for that.
 
                 // If we did not create a resource bundle target,
                 // we still need to add build tool commands for any generated files.
