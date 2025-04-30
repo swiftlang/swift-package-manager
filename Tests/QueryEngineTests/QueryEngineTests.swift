@@ -100,7 +100,7 @@ private struct Expression: CachingQuery {
 
 final class QueryEngineTests: XCTestCase {
   func testFilePathHashing() throws {
-    try skipOnWindowsAsTestCurrentlyFails()
+    try skipOnWindowsAsTestCurrentlyFails(because: "https://github.com/swiftlang/swift-package-manager/issues/8541")
 
     let path = "/root"
 

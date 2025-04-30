@@ -11,4 +11,4 @@ Implement this method to conform to the Hashable protocol. The components used f
 > Important:
 > Never call finalize() on hasher. Doing so may become a compile-time error in the future.
 
-- Parameter into: The hasher to use when combining the components of this instance.
+- Parameter hasher: The hasher to use when combining the components of this instance.

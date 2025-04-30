@@ -46,7 +46,7 @@ public func XCTAssertEqual<T:Equatable, U:Equatable> (_ lhs:(T,U), _ rhs:(T,U), 
 
 public func XCTSkipIfCI(file: StaticString = #filePath, line: UInt = #line) throws {
     // TODO: is this actually the right variable now?
-    if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil {
+    if isInCiEnvironment {
         throw XCTSkip("Skipping because the test is being run on CI", file: file, line: line)
     }
 }
@@ -267,4 +267,22 @@ public struct CommandExecutionError: Error {
     package let result: AsyncProcessResult
     public let stdout: String
     public let stderr: String
+}
+
+/// Skips the test if running on a platform which lacks the ability for build tasks to set a working directory due to lack of requisite system API.
+///
+/// Presently, relevant platforms include Amazon Linux 2 and OpenBSD.
+///
+/// - seealso: https://github.com/swiftlang/swift-package-manager/issues/8560
+public func XCTSkipIfWorkingDirectoryUnsupported() throws {
+    func unavailable() throws {
+        throw XCTSkip("Thread-safe process working directory support is unavailable on this platform.")
+    }
+    #if os(Linux)
+    if FileManager.default.contents(atPath: "/etc/system-release").map({ String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" }) ?? false {
+        try unavailable()
+    }
+    #elseif os(OpenBSD)
+    try unavailable()
+    #endif
 }
