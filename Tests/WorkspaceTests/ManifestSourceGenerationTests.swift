@@ -233,7 +233,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testAdvancedFeatures() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows()
 
         let manifestContents = """
             // swift-tools-version:5.3
@@ -796,7 +796,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testStrictMemorySafety() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: "compilation error:  type 'SwiftSetting' has no member 'strictMemorySafety'")
+        try XCTSkipOnWindows(because: "compilation error:  type 'SwiftSetting' has no member 'strictMemorySafety'")
 
         let manifestContents = """
             // swift-tools-version:6.2
@@ -865,7 +865,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testDefaultIsolation() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: "there are compilation errors")
+        try XCTSkipOnWindows(because: "there are compilation errors")
 
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",

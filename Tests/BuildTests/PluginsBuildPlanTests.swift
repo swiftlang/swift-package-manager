@@ -18,7 +18,7 @@ import PackageModel
 
 final class PluginsBuildPlanTests: XCTestCase {
     func testBuildToolsDatabasePath() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows()
 
         try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath)

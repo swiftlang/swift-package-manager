@@ -40,6 +40,7 @@ import enum TSCUtility.Git
 @_exported import enum TSCTestSupport.StringPattern
 
 public let isInCiEnvironment = ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil
+public let isSelfHostedCiEnvironment = ProcessInfo.processInfo.environment["SWIFTCI_IS_SELF_HOSTED"] != nil
 
 /// Test helper utility for executing a block with a temporary directory.
 public func testWithTemporaryDirectory(
@@ -286,18 +287,6 @@ public func executeSwiftBuild(
         buildSystem: buildSystem
     )
     return try await SwiftPM.Build.execute(args, packagePath: packagePath, env: env)
-}
-
-public func skipOnWindowsAsTestCurrentlyFails(because reason: String? = nil) throws {
-    #if os(Windows)
-    let failureCause: String
-    if let reason {
-        failureCause = " because \(reason.description)"
-    } else {
-        failureCause = ""
-    }
-    throw XCTSkip("Skipping tests on windows\(failureCause)")
-    #endif
 }
 
 @discardableResult
