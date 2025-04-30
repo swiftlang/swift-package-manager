@@ -16145,7 +16145,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testInvalidTrait_WhenParentPackageEnablesTraits() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
+        try XCTSkipOnWindows(because: #"\tmp\ws doesn't exist in file system"#)
 
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -16208,7 +16208,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testInvalidTraitConfiguration_ForRootPackage() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
+        try XCTSkipOnWindows(because: #"\tmp\ws doesn't exist in file system"#)
 
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
