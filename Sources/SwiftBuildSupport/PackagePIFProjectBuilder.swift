@@ -460,7 +460,7 @@ struct PackagePIFProjectBuilder {
     ) {
         var commandLine = [command.executable] + command.arguments
         if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled {
-            commandLine = try! sandbox.apply(to: commandLine)
+            commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
         }
 
         self.project[keyPath: targetKeyPath].customTasks.append(

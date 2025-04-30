@@ -12,16 +12,16 @@
 
 import Foundation
 
+import protocol TSCBasic.FileSystem
 import struct TSCUtility.Version
 
 import struct Basics.AbsolutePath
 import struct Basics.Diagnostic
-import let Basics.localFileSystem
 import struct Basics.ObservabilityMetadata
-import class Basics.ObservabilityScope
-import class Basics.ObservabilitySystem
 import struct Basics.RelativePath
 import struct Basics.SourceControlURL
+import class Basics.ObservabilityScope
+import class Basics.ObservabilitySystem
 import class Basics.ThreadSafeArrayStore
 
 import enum PackageModel.BuildConfiguration
@@ -440,13 +440,13 @@ extension PackageGraph.ResolvedModule {
     }
 
     /// Relative path of the module-map file, if any (*only* applies to C-language modules).
-    var moduleMapFileRelativePath: RelativePath? {
+    func moduleMapFileRelativePath(fileSystem: FileSystem) -> RelativePath? {
         guard let clangModule = self.underlying as? ClangModule else { return nil }
         let moduleMapFileAbsolutePath = clangModule.moduleMapPath
 
         // Check whether there is actually a modulemap at the specified path.
         // FIXME: Feels wrong to do file system access at this level —— instead, libSwiftPM's TargetBuilder should do that?
-        guard localFileSystem.isFile(moduleMapFileAbsolutePath) else { return nil }
+        guard fileSystem.isFile(moduleMapFileAbsolutePath) else { return nil }
 
         let moduleMapFileRelativePath = moduleMapFileAbsolutePath.relative(to: clangModule.sources.root)
         return try! RelativePath(validating: moduleMapFileRelativePath.pathString)
@@ -612,6 +612,7 @@ extension SystemLibraryModule {
     /// Returns pkgConfig result for a system library target.
     func pkgConfig(
         package: PackageGraph.ResolvedPackage,
+        fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> (cFlags: [String], libs: [String]) {
         let diagnostics = ThreadSafeArrayStore<Basics.Diagnostic>()
@@ -651,7 +652,7 @@ extension SystemLibraryModule {
             for: self,
             pkgConfigDirectories: [],
             brewPrefix: brewPrefix,
-            fileSystem: localFileSystem,
+            fileSystem: fileSystem,
             observabilityScope: pkgConfigParsingScope
         )
         guard let pkgConfigResult else { return emptyPkgConfig }

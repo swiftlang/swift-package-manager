@@ -110,7 +110,7 @@ public final class PIFBuilder {
             encoder.userInfo[.encodeForSwiftBuild] = true
         }
 
-        let topLevelObject = try self.construct(buildParameters: buildParameters)
+        let topLevelObject = try self.constructPIF(buildParameters: buildParameters)
 
         // Sign the PIF objects before encoding it for Swift Build.
         try PIF.sign(workspace: topLevelObject.workspace)
@@ -139,7 +139,7 @@ public final class PIFBuilder {
     private var cachedPIF: PIF.TopLevelObject?
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
-    private func construct(buildParameters: BuildParameters) throws -> PIF.TopLevelObject {
+    private func constructPIF(buildParameters: BuildParameters) throws -> PIF.TopLevelObject {
         try memoize(to: &self.cachedPIF) {
             guard let rootPackage = self.graph.rootPackages.only else {
                 if self.graph.rootPackages.isEmpty {
@@ -164,6 +164,7 @@ public final class PIFBuilder {
                     buildToolPluginResultsByTargetName: [:],
                     createDylibForDynamicProducts: self.parameters.shouldCreateDylibForDynamicProducts,
                     packageDisplayVersion: package.manifest.displayName,
+                    fileSystem: self.fileSystem,
                     observabilityScope: self.observabilityScope
                 )
                 

@@ -377,7 +377,7 @@ extension PackagePIFProjectBuilder {
 
             // We only need to impart this to C clients.
             impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(moduleMapFile)", "$(inherited)"]
-        } else if sourceModule.moduleMapFileRelativePath == nil {
+        } else if sourceModule.moduleMapFileRelativePath(fileSystem: self.pifBuilder.fileSystem) == nil {
             // Otherwise, this is a C library module and we generate a modulemap if one is already not provided.
             if case .umbrellaHeader(let path) = sourceModule.moduleMapType {
                 log(.debug, "\(package.name).\(sourceModule.name) generated umbrella header")
@@ -824,6 +824,7 @@ extension PackagePIFProjectBuilder {
         let settings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
         let pkgConfig = try systemLibrary.pkgConfig(
             package: self.package,
+            fileSystem: self.pifBuilder.fileSystem,
             observabilityScope: pifBuilder.observabilityScope
         )
 

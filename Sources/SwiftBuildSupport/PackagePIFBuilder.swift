@@ -12,20 +12,22 @@
 
 import Foundation
 
+import protocol TSCBasic.FileSystem
+
 import struct Basics.AbsolutePath
 import struct Basics.SourceControlURL
-
-import class PackageModel.Manifest
-import class PackageModel.Package
-import struct PackageModel.Platform
-import struct PackageModel.PlatformVersion
-import class PackageModel.Product
-import enum PackageModel.ProductType
-import struct PackageModel.Resource
-
 import struct Basics.Diagnostic
 import struct Basics.ObservabilityMetadata
 import class Basics.ObservabilityScope
+
+import class PackageModel.Manifest
+import class PackageModel.Package
+import class PackageModel.Product
+import struct PackageModel.Platform
+import struct PackageModel.PlatformVersion
+import struct PackageModel.Resource
+import enum PackageModel.ProductType
+
 import struct PackageGraph.ModulesGraph
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedPackage
@@ -169,6 +171,9 @@ public final class PackagePIFBuilder {
     /// Package display version, if any (i.e., it can be a version, branch or a git ref).
     let packageDisplayVersion: String?
 
+    /// The file system to read from.
+    let fileSystem: FileSystem
+
     /// Whether to suppress warnings from compilers, linkers, and other build tools for package dependencies.
     private var suppressWarningsForPackageDependencies: Bool {
         UserDefaults.standard.bool(forKey: "SuppressWarningsForPackageDependencies", defaultValue: true)
@@ -191,6 +196,7 @@ public final class PackagePIFBuilder {
         buildToolPluginResultsByTargetName: [String: BuildToolPluginInvocationResult],
         createDylibForDynamicProducts: Bool = false,
         packageDisplayVersion: String?,
+        fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) {
         self.package = resolvedPackage
@@ -200,6 +206,7 @@ public final class PackagePIFBuilder {
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
         self.packageDisplayVersion = packageDisplayVersion
+        self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
     }
 
