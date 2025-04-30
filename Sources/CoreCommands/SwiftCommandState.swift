@@ -1060,15 +1060,16 @@ public final class SwiftCommandState {
         self.workspaceLockState = .locked
 
         let workspaceLock = try FileLock.prepareLock(fileToLock: self.scratchDirectory)
+        let lockFile = self.scratchDirectory.appending(".lock").pathString
 
         // Try a non-blocking lock first so that we can inform the user about an already running SwiftPM.
         do {
             try workspaceLock.lock(type: .exclusive, blocking: false)
             let pid = ProcessInfo.processInfo.processIdentifier
-            try String(pid).write(toFile: self.scratchDirectory.appending(".lock").pathString, atomically: true, encoding: .utf8)
+            try String(pid).write(toFile: lockFile, atomically: true, encoding: .utf8)
         } catch ProcessLockError.unableToAquireLock(let errno) {
             if errno == EWOULDBLOCK {
-                let lockingPID = try? String(contentsOfFile: self.scratchDirectory.appending(".lock").pathString, encoding: .utf8)
+                let lockingPID = try? String(contentsOfFile: lockFile, encoding: .utf8)
                 let pidInfo = lockingPID.map { "(PID: \($0)) " } ?? ""
                 
                 if self.options.locations.ignoreLock {
@@ -1090,7 +1091,7 @@ public final class SwiftCommandState {
                     try workspaceLock.lock(type: .exclusive, blocking: true)
 
                     let pid = ProcessInfo.processInfo.processIdentifier
-                    try String(pid).write(toFile: self.scratchDirectory.appending(".lock").pathString, atomically: true, encoding: .utf8)
+                    try String(pid).write(toFile: lockFile, atomically: true, encoding: .utf8)
                 }
             }
         }
