@@ -1069,19 +1069,19 @@ public final class SwiftCommandState {
         } catch ProcessLockError.unableToAquireLock(let errno) {
             if errno == EWOULDBLOCK {
                 let lockingPID = try? String(contentsOfFile: self.scratchDirectory.appending(".lock").pathString, encoding: .utf8)
-                let pidInfo = lockingPID.map { "(PID: \($0))" } ?? ""
+                let pidInfo = lockingPID.map { "(PID: \($0)) " } ?? ""
                 
                 if self.options.locations.ignoreLock {
                     self.outputStream
                         .write(
-                            "Another instance of SwiftPM \(pidInfo) is already running using '\(self.scratchDirectory)', but this will be ignored since `--ignore-lock` has been passed"
+                            "Another instance of SwiftPM \(pidInfo)is already running using '\(self.scratchDirectory)', but this will be ignored since `--ignore-lock` has been passed"
                                 .utf8
                         )
                     self.outputStream.flush()
                 } else {
                     self.outputStream
                         .write(
-                            "Another instance of SwiftPM \(pidInfo) is already running using '\(self.scratchDirectory)', waiting until that process has finished execution..."
+                            "Another instance of SwiftPM \(pidInfo)is already running using '\(self.scratchDirectory)', waiting until that process has finished execution..."
                                 .utf8
                         )
                     self.outputStream.flush()
