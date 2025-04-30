@@ -1064,25 +1064,33 @@ public final class SwiftCommandState {
         // Try a non-blocking lock first so that we can inform the user about an already running SwiftPM.
         do {
             try workspaceLock.lock(type: .exclusive, blocking: false)
+            let pid = ProcessInfo.processInfo.processIdentifier
+            try String(pid).write(toFile: self.scratchDirectory.appending(".lock").pathString, atomically: true, encoding: .utf8)
         } catch ProcessLockError.unableToAquireLock(let errno) {
             if errno == EWOULDBLOCK {
+                let lockingPID = try? String(contentsOfFile: self.scratchDirectory.appending(".lock").pathString, encoding: .utf8)
+                let pidInfo = lockingPID.map { "(PID: \($0))" } ?? ""
+                
                 if self.options.locations.ignoreLock {
                     self.outputStream
                         .write(
-                            "Another instance of SwiftPM is already running using '\(self.scratchDirectory)', but this will be ignored since `--ignore-lock` has been passed"
+                            "Another instance of SwiftPM \(pidInfo) is already running using '\(self.scratchDirectory)', but this will be ignored since `--ignore-lock` has been passed"
                                 .utf8
                         )
                     self.outputStream.flush()
                 } else {
                     self.outputStream
                         .write(
-                            "Another instance of SwiftPM is already running using '\(self.scratchDirectory)', waiting until that process has finished execution..."
+                            "Another instance of SwiftPM \(pidInfo) is already running using '\(self.scratchDirectory)', waiting until that process has finished execution..."
                                 .utf8
                         )
                     self.outputStream.flush()
 
                     // Only if we fail because there's an existing lock we need to acquire again as blocking.
                     try workspaceLock.lock(type: .exclusive, blocking: true)
+
+                    let pid = ProcessInfo.processInfo.processIdentifier
+                    try String(pid).write(toFile: self.scratchDirectory.appending(".lock").pathString, atomically: true, encoding: .utf8)
                 }
             }
         }
