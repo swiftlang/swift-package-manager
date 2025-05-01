@@ -39,7 +39,6 @@ extension SwiftPackageCommand {
         package var traits: TraitOptions
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            // TODO: how does adding traits change how edit behaves here?
             try await swiftCommandState.resolve(.init(traitOptions: traits))
             let workspace = try swiftCommandState.getActiveWorkspace(traitConfiguration: .init(traitOptions: traits))
 

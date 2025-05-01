@@ -73,6 +73,7 @@ extension ModulesGraph {
         let rootDependencyNodes = try root.dependencies.lazy.filter { requiredDependencies.contains($0.packageRef) }
             .compactMap { dependency in
                 try manifestMap[dependency.identity].map {
+
                     try GraphLoadingNode(
                         identity: dependency.identity,
                         manifest: $0.manifest,
@@ -294,7 +295,7 @@ private func checkAllDependenciesAreUsed(
 
             // Skip this check if traits are enabled since it is valid to add a dependency just
             // to enable traits on it. This is useful if there is a transitive dependency in the graph
-            // that can be configured by enabling traits e.g. the depdency has a trait for its logging
+            // that can be configured by enabling traits e.g. the dependency has a trait for its logging
             // behaviour. This allows the root package to configure traits of transitive dependencies
             // without emitting an unused dependency warning.
             if !dependency.enabledTraits.isEmpty {

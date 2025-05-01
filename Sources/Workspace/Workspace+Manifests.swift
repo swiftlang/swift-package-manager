@@ -202,24 +202,7 @@ extension Workspace {
                 }
             }
 
-            let rootEnabledTraitsMap: [PackageIdentity: Set<String>] = root.manifests
-                .reduce(into: [PackageIdentity: Set<String>]()) { traitMap, manifest in
-                    traitMap[manifest.key] = root.enabledTraits[manifest.key]
-                }
-
-            let allRootEnabledTraits = rootEnabledTraitsMap.values.flatMap { $0 }
-
-            let rootDependenciesEnabledTraitsMap = root.dependencies
-                .reduce(into: [PackageIdentity: Set<String>]()) { traitMap, dependency in
-                    let explicitlyEnabledTraits = dependency.traits?.filter {
-                        guard let conditionTraits = $0.condition?.traits else {
-                            return true
-                        }
-                        return !conditionTraits.intersection(allRootEnabledTraits).isEmpty
-                    }.map(\.name) ?? []
-
-                    traitMap[dependency.identity] = Set(explicitlyEnabledTraits)
-                }
+            let allRootEnabledTraits = root.enabledTraits.flatMap({ Set($0.value) })
 
             var unusedIdentities: OrderedCollections.OrderedSet<PackageReference> = []
             var inputIdentities: OrderedCollections.OrderedSet<PackageReference> = []
@@ -227,7 +210,7 @@ extension Workspace {
             let inputNodes: [GraphLoadingNode] = try root.packages.map { identity, package in
                 inputIdentities.append(package.reference)
                 var traits: Set<String>? = []
-                if let enabledTraits = rootEnabledTraitsMap[package.reference.identity] {
+                if let enabledTraits = root.enabledTraits[package.reference.identity] {
                     traits = try package.manifest.enabledTraits(using: enabledTraits)
                 }
                 let node = try GraphLoadingNode(
@@ -243,10 +226,15 @@ extension Workspace {
                 return try manifestsMap[dependency.identity].map { manifest in
                     var traits: Set<String>? = []
 
-                    if let enabledTraits = rootDependenciesEnabledTraitsMap[dependency.identity] {
-                        // Recursively calculate the enabled traits of this package.
-                        traits = try manifest.enabledTraits(using: enabledTraits)
-                    }
+                    let explicitlyEnabledTraits = dependency.traits?.filter {
+                        guard let conditionTraits = $0.condition?.traits else {
+                            return true
+                        }
+                        return !conditionTraits.intersection(allRootEnabledTraits).isEmpty
+                    }.map(\.name)
+
+                    traits = try manifest.enabledTraits(using: explicitlyEnabledTraits.flatMap({ Set($0) }))
+
                     return try GraphLoadingNode(
                         identity: dependency.identity,
                         manifest: manifest,
