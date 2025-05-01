@@ -158,7 +158,13 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
 
         let observability = ObservabilitySystem.makeForTesting()
         await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-            XCTAssertEqual(error.localizedDescription, "target 'Foo' contains a value for disallowed property 'settings'")
+            XCTAssertEqual(error.localizedDescription,
+                "target 'Foo' is assigned a property 'settings' which is not accepted for the binary target type. " +
+                "The current value of the property has the following representation: " +
+                "[PackageModel.TargetBuildSettingDescription.Setting(" +
+                "tool: PackageModel.TargetBuildSettingDescription.Tool.linker, " +
+                "kind: PackageModel.TargetBuildSettingDescription.Kind.linkedFramework(\"AVFoundation\"), " +
+                "condition: nil)].")
         }
     }
 
