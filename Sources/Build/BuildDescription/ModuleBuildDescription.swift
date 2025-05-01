@@ -192,4 +192,14 @@ extension ModuleBuildDescription {
         }
         return dependencies
     }
+
+    package func recursiveLinkDependencies(using plan: BuildPlan) -> [Dependency] {
+        var dependencies: [Dependency] = []
+        plan.traverseLinkDependencies(of: self) { product, _, description in
+            dependencies.append(.product(product, description))
+        } onModule: { module, _, description in
+            dependencies.append(.module(module, description))
+        }
+        return dependencies
+    }
 }
