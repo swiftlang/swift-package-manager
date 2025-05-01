@@ -1066,7 +1066,7 @@ public final class SwiftCommandState {
         do {
             try workspaceLock.lock(type: .exclusive, blocking: false)
             let pid = ProcessInfo.processInfo.processIdentifier
-            try String(pid).write(toFile: lockFile, atomically: true, encoding: .utf8)
+            try? String(pid).write(toFile: lockFile, atomically: true, encoding: .utf8)
         } catch ProcessLockError.unableToAquireLock(let errno) {
             if errno == EWOULDBLOCK {
                 let lockingPID = try? String(contentsOfFile: lockFile, encoding: .utf8)
@@ -1091,7 +1091,7 @@ public final class SwiftCommandState {
                     try workspaceLock.lock(type: .exclusive, blocking: true)
 
                     let pid = ProcessInfo.processInfo.processIdentifier
-                    try String(pid).write(toFile: lockFile, atomically: true, encoding: .utf8)
+                    try? String(pid).write(toFile: lockFile, atomically: true, encoding: .utf8)
                 }
             }
         }
