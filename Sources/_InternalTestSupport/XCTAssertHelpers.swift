@@ -76,6 +76,31 @@ public func XCTSkipOnWindows(because reason: String? = nil, skipPlatformCi: Bool
     #endif
 }
 
+public func _requiresTools(_ executable: String) throws {
+    func getAsyncProcessArgs(_ executable: String) -> [String] {
+        #if os(Windows)
+            let args = ["cmd.exe", "/c", "where.exe", executable]
+        #else
+            let args = ["which", executable]
+        #endif
+        return args
+    }
+    try AsyncProcess.checkNonZeroExit(arguments: getAsyncProcessArgs(executable))
+}
+public func XCTRequires(
+    executable: String,
+    file: StaticString = #filePath,
+    line: UInt = #line
+) throws {
+
+    do {
+        try _requiresTools(executable)
+    } catch (let AsyncProcessResult.Error.nonZeroExit(result)) {
+        throw XCTSkip(
+            "Skipping as tool \(executable) is not found in the path. (\(result.description))")
+    }
+}
+
 /// An `async`-friendly replacement for `XCTAssertThrowsError`.
 public func XCTAssertAsyncThrowsError<T>(
     _ expression: @autoclosure () async throws -> T,
