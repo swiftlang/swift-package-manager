@@ -304,6 +304,21 @@ let package = Package(
             ]
         ),
 
+        .target(
+            /** API for deserializing diagnostics and applying fix-its */
+            name: "SwiftFixIt",
+            dependencies: [
+                "Basics",
+                .product(name: "TSCBasic", package: "swift-tools-support-core"),
+            ] + swiftSyntaxDependencies(
+                ["SwiftDiagnostics", "SwiftIDEUtils", "SwiftParser", "SwiftSyntax"]
+            ),
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: commonExperimentalFeatures + [
+                .unsafeFlags(["-static"]),
+            ]
+        ),
+
         // MARK: Project Model
 
         .target(
@@ -915,6 +930,10 @@ let package = Package(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "_InternalTestSupport"],
             exclude: ["Inputs/TestRepo.tgz"]
+        ),
+        .testTarget(
+            name: "SwiftFixItTests",
+            dependencies: ["SwiftFixIt", "_InternalTestSupport"]
         ),
         .testTarget(
             name: "XCBuildSupportTests",
