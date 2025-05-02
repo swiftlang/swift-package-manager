@@ -104,7 +104,7 @@ let package = Package(
     name: "SwiftPM",
     platforms: [
         .macOS(.v13),
-        .iOS(.v16),
+        .iOS(.v17),
         .macCatalyst(.v17),
     ],
     products:
