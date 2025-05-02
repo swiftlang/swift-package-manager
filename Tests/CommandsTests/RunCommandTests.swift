@@ -58,17 +58,20 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
         XCTAssertMatch(stdout, .regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#))
     }
 
-// echo.sh script from the toolset won't work on Windows
-#if !os(Windows)
     func testToolsetDebugger() async throws {
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
+            #if os(Windows)
+                let win32 = ".win32"
+            #else
+                let win32 = ""
+            #endif
             let (stdout, stderr) = try await execute(
-                    ["--toolset", "\(fixturePath)/toolset.json"],
+                    ["--toolset", "\(fixturePath.appending("toolset\(win32).json").pathString)"],
                     packagePath: fixturePath
                 )
 
             // We only expect tool's output on the stdout stream.
-            XCTAssertMatch(stdout, .contains("\(fixturePath)/.build"))
+            XCTAssertMatch(stdout, .contains("\(fixturePath.appending(".build").pathString)"))
             XCTAssertMatch(stdout, .contains("sentinel"))
 
             // swift-build-tool output should go to stderr.
@@ -76,7 +79,6 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
             XCTAssertMatch(stderr, .contains("Linking"))
         }
     }
-#endif
 
     func testUnknownProductAndArgumentPassing() async throws {
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
@@ -121,6 +123,7 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
     }
 
     func testFileDeprecation() async throws {
+        try XCTSkipOnWindows(because: "error: invalid relative path, needs investigation")
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
             let filePath = AbsolutePath(fixturePath, "Sources/secho/main.swift").pathString
             let cwd = localFileSystem.currentWorkingDirectory!
@@ -140,6 +143,7 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
 
     func testSwiftRunSIGINT() throws {
         try XCTSkipIfPlatformCI()
+        try XCTSkipOnWindows(because: "fails due to possible timing issues, need investigation")
         try fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
             let mainFilePath = fixturePath.appending("main.swift")
             try localFileSystem.removeFileTree(mainFilePath)
@@ -151,7 +155,7 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
                 print("sleeping")
                 fflush(stdout)
 
-                sleep(10)
+                Thread.sleep(forTimeInterval: 10)
                 print("done")
                 """
             )

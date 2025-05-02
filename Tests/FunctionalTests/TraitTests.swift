@@ -25,7 +25,7 @@ final class TraitTests: XCTestCase {
                 extraArgs: ["--experimental-prune-unused-dependencies"]
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            XCTAssertFalse(stderr.contains("warning:"))
+            XCTAssertNoMatch(stderr, .contains("warning:"))
             XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -47,7 +47,7 @@ final class TraitTests: XCTestCase {
                 extraArgs: ["--traits", "default,Package9,Package10", "--experimental-prune-unused-dependencies"]
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            XCTAssertFalse(stderr.contains("warning:"))
+            XCTAssertNoMatch(stderr, .contains("warning:"))
             XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -73,7 +73,7 @@ final class TraitTests: XCTestCase {
                 extraArgs: ["--traits", "default,Package9", "--experimental-prune-unused-dependencies"]
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            XCTAssertFalse(stderr.contains("warning:"))
+            XCTAssertNoMatch(stderr, .contains("warning:"))
             XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -101,7 +101,7 @@ final class TraitTests: XCTestCase {
                 ]
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            XCTAssertFalse(stderr.contains("warning:"))
+            XCTAssertNoMatch(stderr, .contains("warning:"))
             XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -126,7 +126,7 @@ final class TraitTests: XCTestCase {
                 extraArgs: ["--disable-default-traits", "--experimental-prune-unused-dependencies"]
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            XCTAssertFalse(stderr.contains("warning:"))
+            XCTAssertNoMatch(stderr, .contains("warning:"))
             XCTAssertEqual(stdout, """
             DEFINE1 disabled
             DEFINE2 disabled
@@ -144,7 +144,7 @@ final class TraitTests: XCTestCase {
                 extraArgs: ["--traits", "Package5,Package7", "--experimental-prune-unused-dependencies"]
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            XCTAssertFalse(stderr.contains("warning:"))
+            XCTAssertNoMatch(stderr, .contains("warning:"))
             XCTAssertEqual(stdout, """
             Package5Library1 trait1 enabled
             Package6Library1 trait1 enabled
@@ -165,7 +165,7 @@ final class TraitTests: XCTestCase {
                 extraArgs: ["--enable-all-traits", "--experimental-prune-unused-dependencies"]
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            XCTAssertFalse(stderr.contains("warning:"))
+            XCTAssertNoMatch(stderr, .contains("warning:"))
             XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -198,7 +198,7 @@ final class TraitTests: XCTestCase {
                 ]
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            XCTAssertFalse(stderr.contains("warning:"))
+            XCTAssertNoMatch(stderr, .contains("warning:"))
             XCTAssertEqual(stdout, """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -246,7 +246,7 @@ final class TraitTests: XCTestCase {
             DEFINE3 disabled
 
             """
-            XCTAssertTrue(stdout.contains(expectedOut))
+            XCTAssertMatch(stdout, .contains(expectedOut))
         }
     }
 
@@ -277,7 +277,7 @@ final class TraitTests: XCTestCase {
             DEFINE3 enabled
 
             """
-            XCTAssertTrue(stdout.contains(expectedOut))
+            XCTAssertMatch(stdout, .contains(expectedOut))
         }
     }
 
@@ -295,8 +295,8 @@ final class TraitTests: XCTestCase {
 
             let path = try String(XCTUnwrap(optionalPath))
             let symbolGraph = try String(contentsOfFile: "\(path)/Package10Library1.symbols.json", encoding: .utf8)
-            XCTAssertTrue(symbolGraph.contains("TypeGatedByPackage10Trait1"))
-            XCTAssertTrue(symbolGraph.contains("TypeGatedByPackage10Trait2"))
+            XCTAssertMatch(symbolGraph, .contains("TypeGatedByPackage10Trait1"))
+            XCTAssertMatch(symbolGraph, .contains("TypeGatedByPackage10Trait2"))
         }
     }
 
@@ -308,8 +308,8 @@ final class TraitTests: XCTestCase {
             )
             let path = String(stdout.split(whereSeparator: \.isNewline).first!)
             let symbolGraph = try String(contentsOfFile: "\(path)/Package10Library1.symbols.json", encoding: .utf8)
-            XCTAssertTrue(symbolGraph.contains("TypeGatedByPackage10Trait1"))
-            XCTAssertTrue(symbolGraph.contains("TypeGatedByPackage10Trait2"))
+            XCTAssertMatch(symbolGraph, .contains("TypeGatedByPackage10Trait1"))
+            XCTAssertMatch(symbolGraph, .contains("TypeGatedByPackage10Trait2"))
         }
     }
 

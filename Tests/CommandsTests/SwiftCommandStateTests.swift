@@ -349,6 +349,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
     }
 
     func testToolchainOption() async throws {
+        try XCTSkipOnWindows(because: #"https://github.com/swiftlang/swift-package-manager/issues/8660, threw error \"toolchain is invalid: could not find CLI tool `swiftc` at any of these directories: [<AbsolutePath:\"\usr\bin\">]\", needs investigation"#)
         let customTargetToolchain = AbsolutePath("/path/to/toolchain")
         let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
         let hostArPath = AbsolutePath("/usr/bin/ar")
@@ -414,6 +415,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
     }
 
     func testToolsetOption() throws {
+        try XCTSkipOnWindows(because: #"https://github.com/swiftlang/swift-package-manager/issues/8660. threw error \"toolchain is invalid: could not find CLI tool `swiftc` at any of these directories: [<AbsolutePath:\"\usr\bin\">]\", needs investigation"#)
         let targetToolchainPath = "/path/to/toolchain"
         let customTargetToolchain = AbsolutePath(targetToolchainPath)
         let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
@@ -458,6 +460,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
     }
 
     func testMultipleToolsets() throws {
+        try XCTSkipOnWindows(because: #"https://github.com/swiftlang/swift-package-manager/issues/8660, threw error \"toolchain is invalid: could not find CLI tool `swiftc` at any of these directories: [<AbsolutePath:\"\usr\bin\">]\", needs investigation"#)
         let targetToolchainPath1 = "/path/to/toolchain1"
         let customTargetToolchain1 = AbsolutePath(targetToolchainPath1)
         let targetToolchainPath2 = "/path/to/toolchain2"

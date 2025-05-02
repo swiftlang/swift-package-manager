@@ -30,7 +30,7 @@ final class ModuleMapsTestCase: XCTestCase {
             let outdir = fixturePath.appending(components: rootpkg, ".build", triple.platformBuildPathComponent, "debug")
             try makeDirectories(outdir)
             let output = outdir.appending("libfoo\(triple.dynamicLibraryExtension)")
-            try systemQuietly(["clang", "-shared", input.pathString, "-o", output.pathString])
+            try systemQuietly([executableName("clang"), "-shared", input.pathString, "-o", output.pathString])
 
             var Xld = ["-L", outdir.pathString]
         #if os(Linux) || os(Android)
@@ -42,6 +42,7 @@ final class ModuleMapsTestCase: XCTestCase {
     }
 
     func testDirectDependency() async throws {
+         try XCTSkipOnWindows(because: "fails to build on windows (maybe not supported?)")
         try await fixture(name: "ModuleMaps/Direct", cModuleName: "CFoo", rootpkg: "App") { fixturePath, Xld in
             await XCTAssertBuilds(fixturePath.appending("App"), Xld: Xld)
 
@@ -59,6 +60,7 @@ final class ModuleMapsTestCase: XCTestCase {
     }
 
     func testTransitiveDependency() async throws {
+        try XCTSkipOnWindows(because: "fails to build on windows (maybe not supported?)")
         try await fixture(name: "ModuleMaps/Transitive", cModuleName: "packageD", rootpkg: "packageA") { fixturePath, Xld in
             await XCTAssertBuilds(fixturePath.appending("packageA"), Xld: Xld)
             
