@@ -4745,7 +4745,11 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 )
             )
 
+#if os(Windows)
+            let modulesDir = "-I\(prebuiltLibrary.path.pathString)\\Modules"
+#else
             let modulesDir = "-I\(prebuiltLibrary.path.pathString)/Modules"
+#endif
             let mytest = try XCTUnwrap(result.allTargets(named: "MyMacroTests").first)
             XCTAssert(try mytest.swift().compileArguments().contains(modulesDir))
             let entryPoint = try XCTUnwrap(result.allTargets(named: "MyPackagePackageTests").first)
@@ -7099,7 +7103,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         let myLib = try XCTUnwrap(plan.targets.first(where: { $0.module.name == "MyLib" })).swift()
         XCTAssertFalse(myLib.additionalFlags.contains(where: { $0.contains("-tool")}), "flags shouldn't contain tools items")
-        
+
         // Make sure the tests do have the include path and the module map from the lib
         let myMacroTests = try XCTUnwrap(plan.targets.first(where: { $0.module.name == "MyMacroTests" })).swift()
         let flags = myMacroTests.additionalFlags.joined(separator: " ")
