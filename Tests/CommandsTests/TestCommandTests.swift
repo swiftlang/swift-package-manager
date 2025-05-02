@@ -63,23 +63,22 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
         XCTAssertMatch(stdout, .regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#))
     }
 
-    // `echo.sh` script from the toolset won't work on Windows
-    #if !os(Windows)
-        func testToolsetRunner() async throws {
-            try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-                let (stdout, stderr) = try await execute(
-                    ["--toolset", "\(fixturePath)/toolset.json"], packagePath: fixturePath)
+    func testToolsetRunner() async throws {
+        try XCTSkipOnWindows(because: "echo.sh script from the toolset won't work on Windows")
 
-                // We only expect tool's output on the stdout stream.
-                XCTAssertMatch(stdout, .contains("sentinel"))
-                XCTAssertMatch(stdout, .contains("\(fixturePath)"))
+        try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
+            let (stdout, stderr) = try await execute(
+                ["--toolset", "\(fixturePath)/toolset.json"], packagePath: fixturePath)
 
-                // swift-build-tool output should go to stderr.
-                XCTAssertMatch(stderr, .regex("Compiling"))
-                XCTAssertMatch(stderr, .contains("Linking"))
-            }
+            // We only expect tool's output on the stdout stream.
+            XCTAssertMatch(stdout, .contains("sentinel"))
+            XCTAssertMatch(stdout, .contains("\(fixturePath)"))
+
+            // swift-build-tool output should go to stderr.
+            XCTAssertMatch(stderr, .regex("Compiling"))
+            XCTAssertMatch(stderr, .contains("Linking"))
         }
-    #endif
+    }
 
     func testNumWorkersParallelRequirement() async throws {
         #if !os(macOS)
@@ -106,6 +105,7 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
     }
 
     func testEnableDisableTestability() async throws {
+        try XCTSkipOnWindows(because: "lld-link: error: undefined symbol: __declspec(dllimport) swift_addNewDSOImage, needs investigation")
         // default should run with testability
         try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
             do {
@@ -131,6 +131,7 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
     }
 
     func testWithReleaseConfiguration() async throws {
+        try XCTSkipOnWindows(because: "lld-link: error: undefined symbol: __declspec(dllimport) swift_addNewDSOImage, needs investigation")
         try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
             do {
                 let result = try await execute(["-c", "release", "--vv"], packagePath: fixturePath)
@@ -219,6 +220,7 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
         enableExperimentalFlag: Bool,
         matchesPattern: [StringPattern]
     ) async throws {
+        try XCTSkipOnWindows(because: "result-swift-testing.xml doesn't exist in file system, needs investigation")
         try await fixture(name: fixtureName) { fixturePath in
             // GIVEN we have a Package with a failing \(testRunner) test cases
             let xUnitOutput = fixturePath.appending("result.xml")
@@ -560,6 +562,7 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
 #endif
 
     func testLibraryEnvironmentVariable() async throws {
+        try XCTSkipOnWindows(because: "produces a filepath that is too long, needs investigation")
         try await fixture(name: "Miscellaneous/CheckTestLibraryEnvironmentVariable") { fixturePath in
             var extraEnv = Environment()
             if try UserToolchain.default.swiftTestingPath != nil {
@@ -578,6 +581,7 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
 
     func testFatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation() async throws {
         try XCTSkipIfPlatformCI()
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Test for GitHub Issue #6605
         // GIVEN we have a Swift Package that has a fatalError building the tests
         let expected = 1

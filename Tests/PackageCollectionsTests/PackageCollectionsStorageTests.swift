@@ -70,9 +70,7 @@ class PackageCollectionsStorageTests: XCTestCase {
     }
 
     func testFileDeleted() async throws {
-#if os(Windows)
-        try XCTSkipIf(true, "open files cannot be deleted on Windows")
-#endif
+        try XCTSkipOnWindows(because: "open files cannot be deleted on Windows")
         try XCTSkipIf(is_tsan_enabled())
 
         try await testWithTemporaryDirectory { tmpPath in
@@ -112,9 +110,7 @@ class PackageCollectionsStorageTests: XCTestCase {
     }
 
     func testFileCorrupt() async throws {
-#if os(Windows)
-        try XCTSkipIf(true, "open files cannot be deleted on Windows")
-#endif
+        try XCTSkipOnWindows(because: "open files cannot be deleted on Windows")
         try XCTSkipIf(is_tsan_enabled())
 
         try await testWithTemporaryDirectory { tmpPath in

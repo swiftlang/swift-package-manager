@@ -4,8 +4,11 @@
 	import Musl
 #elseif canImport(Android)
 	import Android
-#else
+#elseif canImport(Darwin.C)
 	import Darwin.C
+#elseif canImport(ucrt)
+	import ucrt
+	let PATH_MAX = MAX_PATH
 #endif
 
 let cwd = getcwd(nil, Int(PATH_MAX))

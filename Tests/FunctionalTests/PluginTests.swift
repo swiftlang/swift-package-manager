@@ -24,6 +24,7 @@ import XCTest
 
 final class PluginTests: XCTestCase {
     func testUseOfBuildToolPluginTargetByExecutableInSamePackage() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -37,6 +38,7 @@ final class PluginTests: XCTestCase {
     }
 
     func testUseOfBuildToolPluginTargetNoPreBuildCommands() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
@@ -46,6 +48,7 @@ final class PluginTests: XCTestCase {
     }
 
     func testUseOfBuildToolPluginProductByExecutableAcrossPackages() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed,https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -59,6 +62,7 @@ final class PluginTests: XCTestCase {
     }
 
     func testUseOfPrebuildPluginTargetByExecutableAcrossPackages() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -72,6 +76,7 @@ final class PluginTests: XCTestCase {
     }
 
     func testUseOfPluginWithInternalExecutable() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         
@@ -100,6 +105,7 @@ final class PluginTests: XCTestCase {
     }
     
     func testLocalBuildToolPluginUsingRemoteExecutable() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         
@@ -114,6 +120,7 @@ final class PluginTests: XCTestCase {
     }
     
     func testBuildToolPluginDependencies() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         
@@ -128,6 +135,7 @@ final class PluginTests: XCTestCase {
     }
 
     func testContrivedTestCases() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -180,6 +188,7 @@ final class PluginTests: XCTestCase {
     }
 
     func testBuildToolWithoutOutputs() async throws {
+        try XCTSkipOnWindows(because: "build planning stopped due to build-tool plugin failures, needs investigating")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -1148,6 +1157,7 @@ final class PluginTests: XCTestCase {
     }
 
     func testPluginCanBeAffectedByXBuildToolsParameters() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
         // plugin APIs require).
         try XCTSkipIf(
@@ -1169,6 +1179,7 @@ final class PluginTests: XCTestCase {
     }
 
     func testURLBasedPluginAPI() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 

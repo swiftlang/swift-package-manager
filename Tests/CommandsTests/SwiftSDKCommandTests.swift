@@ -93,11 +93,10 @@ final class SwiftSDKCommandTests: CommandsTestCase {
                             return
                         }
 
-                        XCTAssertTrue(
-                            stderr.contains(
+                        XCTAssertMatch(
+                            stderr, .contains(
                                 "Error: Swift SDK bundle with name `test-sdk.artifactbundle` is already installed. Can't install a new bundle with the same name."
                             ),
-                            "got stderr: \(stderr)"
                         )
                     }
 
@@ -172,11 +171,11 @@ final class SwiftSDKCommandTests: CommandsTestCase {
                         XCTAssertMatch(stderr, .contains(deprecationWarning))
                     }
 
-                    let sdkSubpath = "test-sdk.artifactbundle/sdk/sdk"
+                    let sdkSubpath = ["test-sdk.artifactbundle", "sdk" ,"sdk"]
 
                     XCTAssertEqual(stdout,
                         """
-                        sdkRootPath: \(fixturePath.pathString)/\(sdkSubpath)
+                        sdkRootPath: \(fixturePath.appending(components: sdkSubpath))
                         swiftResourcesPath: not set
                         swiftStaticResourcesPath: not set
                         includeSearchPaths: not set
@@ -224,8 +223,8 @@ final class SwiftSDKCommandTests: CommandsTestCase {
 
                             XCTAssertEqual(stdout,
                                 """
-                                sdkRootPath: \(fixturePath.pathString)/\(sdkSubpath)
-                                swiftResourcesPath: \(fixturePath.pathString)/foo
+                                sdkRootPath: \(fixturePath.appending(components: sdkSubpath).pathString)
+                                swiftResourcesPath: \(fixturePath.appending("foo"))
                                 swiftStaticResourcesPath: not set
                                 includeSearchPaths: not set
                                 librarySearchPaths: not set

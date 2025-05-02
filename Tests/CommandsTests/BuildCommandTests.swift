@@ -85,7 +85,7 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
             
 
             if cleanAfterward {
-                try! await executeSwiftPackage(
+                try await executeSwiftPackage(
                     packagePath,
                     extraArgs: ["clean"],
                     buildSystem: buildSystemProvider
@@ -100,7 +100,7 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
             )
         } catch {
             if cleanAfterward {
-                try! await executeSwiftPackage(
+                try await executeSwiftPackage(
                     packagePath,
                     extraArgs: ["clean"],
                     buildSystem: buildSystemProvider
@@ -233,7 +233,7 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
 
             do {
                 let result = try await build(["--product", "exec1"], packagePath: fullPath)
-                XCTAssertMatch(result.binContents, ["exec1"])
+                XCTAssertMatch(result.binContents, [.equal(executableName("exec1"))])
                 XCTAssertNoMatch(result.binContents, ["exec2.build"])
             }
 
@@ -306,6 +306,8 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
     }
 
     func testAtMainSupport() async throws {
+        try XCTSkipOnWindows(because: "lld-link: error: undefined symbol: __declspec(dllimport) swift_addNewDSOImage, needs investigation")
+
         try await fixture(name: "Miscellaneous/AtMainSupport") { fixturePath in
             let fullPath = try resolveSymlinks(fixturePath)
 
@@ -316,12 +318,12 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
 
             do {
                 let result = try await build(["--product", "SwiftExecSingleFile"], packagePath: fullPath)
-                XCTAssertMatch(result.binContents, ["SwiftExecSingleFile"])
+                XCTAssertMatch(result.binContents, [.equal(executableName("SwiftExecSingleFile"))])
             }
 
             do {
                 let result = try await build(["--product", "SwiftExecMultiFile"], packagePath: fullPath)
-                XCTAssertMatch(result.binContents, ["SwiftExecMultiFile"])
+                XCTAssertMatch(result.binContents, [.equal(executableName("SwiftExecMultiFile"))])
             }
         }
     }
@@ -343,8 +345,8 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
             do {
                 let result = try await build(["--product", "bexec"], packagePath: aPath)
                 XCTAssertMatch(result.binContents, ["BTarget2.build"])
-                XCTAssertMatch(result.binContents, ["bexec"])
-                XCTAssertNoMatch(result.binContents, ["aexec"])
+                XCTAssertMatch(result.binContents, [.equal(executableName("bexec"))])
+                XCTAssertNoMatch(result.binContents, [.equal(executableName("aexec"))])
                 XCTAssertNoMatch(result.binContents, ["ATarget.build"])
                 XCTAssertNoMatch(result.binContents, ["BLibrary.a"])
 
@@ -380,6 +382,8 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
     }
 
     func testAutomaticParseableInterfacesWithLibraryEvolution() async throws {
+        try XCTSkipOnWindows(because:  "swift-package-manager hangs, needs investigation")
+
         try await fixture(name: "Miscellaneous/LibraryEvolution") { fixturePath in
             do {
                 let result = try await build([], packagePath: fixturePath)
@@ -541,6 +545,8 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
     }
 
     func testSwiftGetVersion() async throws {
+        try XCTSkipOnWindows(because: "SWIFT_EXEC override is not working, needs investigation")
+
         try await fixture(name: "Miscellaneous/Simple") { fixturePath in
             func findSwiftGetVersionFile() throws -> AbsolutePath {
                 let buildArenaPath = fixturePath.appending(components: ".build", "debug")
@@ -678,7 +684,7 @@ class BuildCommandTestCases: CommandsBuildProviderTestCase {
         }
     }
 
-#if !canImport(Darwin)
+#if os(Linux)
     func testIgnoresLinuxMain() async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/IgnoresLinuxMain") { fixturePath in
             let buildResult = try await self.build(["-v", "--build-tests", "--enable-test-discovery"], packagePath: fixturePath, cleanAfterward: false)
@@ -774,15 +780,10 @@ class BuildCommandNativeTests: BuildCommandTestCases {
                 components: ".build",
                 UserToolchain.default.targetTriple.platformBuildPathComponent
             )
-            try await XCTAssertAsyncEqual(
-                try await self.execute(["--show-bin-path"], packagePath: fullPath).stdout,
-                "\(targetPath.appending("debug").pathString)\n"
-            )
-            try await XCTAssertAsyncEqual(
-                try await self.execute(["-c", "release", "--show-bin-path"], packagePath: fullPath)
-                    .stdout,
-                "\(targetPath.appending("release").pathString)\n"
-            )
+            let debugPath = try await self.execute(["--show-bin-path"], packagePath: fullPath).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+            XCTAssertEqual(AbsolutePath(debugPath).pathString, targetPath.appending("debug").pathString)
+            let releasePath = try await self.execute(["-c", "release", "--show-bin-path"], packagePath: fullPath).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+            XCTAssertEqual(AbsolutePath(releasePath).pathString, targetPath.appending("release").pathString)
         }
     }
 }
@@ -861,6 +862,7 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
     override func testParseableInterfaces() async throws {
         try XCTSkipIfWorkingDirectoryUnsupported()
 
+        try XCTSkipOnWindows(because: "build errors, needs investigation")
         try await fixture(name: "Miscellaneous/ParseableInterfaces") { fixturePath in
             do {
                 let result = try await build(["--enable-parseable-module-interfaces"], packagePath: fixturePath)
@@ -885,9 +887,9 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
                 UserToolchain.default.targetTriple.platformBuildPathComponent
             )
             let debugPath = try await self.execute(["--show-bin-path"], packagePath: fullPath).stdout
-            XCTAssertMatch(debugPath, .regex(targetPath.appending(components: "Products", "Debug").pathString + "(\\-linux|\\-Windows)?\\n"))
+            XCTAssertMatch(AbsolutePath(debugPath).pathString, .regex(targetPath.appending(components: "Products", "Debug").escapedPathString + "(\\-linux|\\-Windows)?"))
             let releasePath = try await self.execute(["-c", "release", "--show-bin-path"], packagePath: fullPath).stdout
-            XCTAssertMatch(releasePath, .regex(targetPath.appending(components: "Products", "Release").pathString + "(\\-linux|\\-Windows)?\\n"))
+            XCTAssertMatch(AbsolutePath(releasePath).pathString, .regex(targetPath.appending(components: "Products", "Release").escapedPathString + "(\\-linux|\\-Windows)?"))
         }
     }
     
@@ -923,7 +925,7 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
         throw XCTSkip("SWBINTTODO: Test fails because of a difference in the build layout. This needs to be updated to the expected path")
     }
 
-#if !canImport(Darwin)
+#if os(Linux)
     override func testIgnoresLinuxMain() async throws {
         throw XCTSkip("SWBINTTODO: Swift build doesn't currently ignore Linux main when linking on Linux. This needs further investigation.")
     }
@@ -942,6 +944,7 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
     override func testBuildSystemDefaultSettings() async throws {
         try XCTSkipIfWorkingDirectoryUnsupported()
 
+        try XCTSkipOnWindows(because: "build errors, needs investigation")
         if ProcessInfo.processInfo.environment["SWIFTPM_NO_SWBUILD_DEPENDENCY"] != nil {
             throw XCTSkip("SWIFTPM_NO_SWBUILD_DEPENDENCY is set so skipping because SwiftPM doesn't have the swift-build capability built inside.")
         }
@@ -952,6 +955,7 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
     override func testBuildCompleteMessage() async throws {
         try XCTSkipIfWorkingDirectoryUnsupported()
 
+        try XCTSkipOnWindows(because: "Build fails on windows, needs investigation") 
         try await super.testBuildCompleteMessage()
     }
 

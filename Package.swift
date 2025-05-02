@@ -941,6 +941,13 @@ let package = Package(
             dependencies: ["XCBuildSupport", "_InternalTestSupport", "_InternalBuildTestSupport"],
             exclude: ["Inputs/Foo.pc"]
         ),
+        .testTarget(
+            name: "FunctionalPerformanceTests",
+            dependencies: [
+                "swift-package-manager",
+                "_InternalTestSupport",
+            ]
+        ),
         // Examples (These are built to ensure they stay up to date with the API.)
         .executableTarget(
             name: "package-info",
@@ -959,19 +966,6 @@ package.targets.append(contentsOf: [
 ])
 #endif
 
-// Workaround SwiftPM's attempt to link in executables which does not work on all
-// platforms.
-#if !os(Windows)
-package.targets.append(contentsOf: [
-    .testTarget(
-        name: "FunctionalPerformanceTests",
-        dependencies: [
-            "swift-package-manager",
-            "_InternalTestSupport",
-        ]
-    ),
-])
-
 // rdar://101868275 "error: cannot find 'XCTAssertEqual' in scope" can affect almost any functional test, so we flat out
 // disable them all until we know what is going on
 if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] == nil {
@@ -984,7 +978,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "_InternalTestSupport",
             ]
         ),
-
         .executableTarget(
             name: "dummy-swiftc",
             dependencies: [
@@ -1015,7 +1008,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
         ),
     ])
 }
-#endif
 
 
 func swiftSyntaxDependencies(_ names: [String]) -> [Target.Dependency] {

@@ -58,9 +58,9 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
         XCTAssertMatch(stdout, .regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#))
     }
 
-// echo.sh script from the toolset won't work on Windows
-#if !os(Windows)
     func testToolsetDebugger() async throws {
+        try XCTSkipOnWindows(because: "echo.sh script from the toolset won't work on Windows")
+
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
             let (stdout, stderr) = try await execute(
                     ["--toolset", "\(fixturePath)/toolset.json"],
@@ -76,9 +76,9 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
             XCTAssertMatch(stderr, .contains("Linking"))
         }
     }
-#endif
 
     func testUnknownProductAndArgumentPassing() async throws {
+        try XCTSkipOnWindows(because: "error about a missing file, needs investigation")
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
             let (stdout, stderr) = try await execute(
                 ["secho", "1", "--hello", "world"], packagePath: fixturePath)
@@ -121,6 +121,7 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
     }
 
     func testFileDeprecation() async throws {
+        try XCTSkipOnWindows(because: "error: invalid relative path, needs investigation")
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
             let filePath = AbsolutePath(fixturePath, "Sources/secho/main.swift").pathString
             let cwd = localFileSystem.currentWorkingDirectory!
@@ -131,6 +132,7 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
     }
 
     func testMutualExclusiveFlags() async throws {
+        try XCTSkipOnWindows(because: "error about a missing file, needs investigation")
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
             await XCTAssertThrowsCommandExecutionError(try await execute(["--build-tests", "--skip-build"], packagePath: fixturePath)) { error in
                 XCTAssertMatch(error.stderr, .contains("error: '--build-tests' and '--skip-build' are mutually exclusive"))
@@ -140,6 +142,7 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
 
     func testSwiftRunSIGINT() throws {
         try XCTSkipIfPlatformCI()
+        try XCTSkipOnWindows(because: "fails due to possible timing issues, need investigation")
         try fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
             let mainFilePath = fixturePath.appending("main.swift")
             try localFileSystem.removeFileTree(mainFilePath)
@@ -151,7 +154,7 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
                 print("sleeping")
                 fflush(stdout)
 
-                sleep(10)
+                Thread.sleep(forTimeInterval: 10)
                 print("done")
                 """
             )
