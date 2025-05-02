@@ -135,17 +135,6 @@ struct FilePackageSigningEntityStorageTests {
             }
             return true
         }
-        // await XCTAssertAsyncThrowsError(try storage.put(
-        //     package: package,
-        //     version: version,
-        //     signingEntity: appleseed,
-        //     origin: .registry(URL("http://foo.com"))
-        // )) { error in
-        //     guard case PackageSigningEntityStorageError.conflict = error else {
-        //         Issue.record("Expected PackageSigningEntityStorageError.conflict, got \(error)")
-        //         return
-        //     }
-        // }
     }
 
     @Test
@@ -208,17 +197,6 @@ struct FilePackageSigningEntityStorageTests {
             }
             return true
         }
-        // await XCTAssertAsyncThrowsError(try storage.put(
-        //     package: package,
-        //     version: version,
-        //     signingEntity: appleseed,
-        //     origin: .registry(URL("http://bar.com")) // origin is different and should be added
-        // )) { error in
-        //     guard case PackageSigningEntityStorageError.unrecognizedSigningEntity = error else {
-        //         Issue.record("Expected PackageSigningEntityStorageError.unrecognizedSigningEntity but got \(error)")
-        //         return
-        //     }
-        // }
     }
 
     @Test
@@ -302,17 +280,6 @@ struct FilePackageSigningEntityStorageTests {
             }
             return true
         }
-        // await XCTAssertAsyncThrowsError(try storage.add(
-        //     package: package,
-        //     version: version,
-        //     signingEntity: appleseed,
-        //     origin: .registry(URL("http://bar.com"))
-        // )) { error in
-        //     guard case PackageSigningEntityStorageError.unrecognizedSigningEntity = error else {
-        //         Issue.record("Expected PackageSigningEntityStorageError.unrecognizedSigningEntity but got \(error)")
-        //         return
-        //     }
-        // }
     }
 
     @Test
@@ -479,17 +446,6 @@ struct FilePackageSigningEntityStorageTests {
             }
             return true
         }
-        // await XCTAsserttAsyncThrowsError(try storage.changeSigningEntityForAllVersions(
-        //     package: package,
-        //     version: Version("1.5.0"),
-        //     signingEntity: appleseed,
-        //     origin: .registry(URL("http://bar.com"))
-        // )) { error in
-        //     guard case PackageSigningEntityStorageError.unrecognizedSigningEntity = error else {
-        //         Issue.record("Expected PackageSigningEntityStorageError.unrecognizedSigningEntity but got \(error)")
-        //         return
-        //     }
-        // }
     }
 }
 

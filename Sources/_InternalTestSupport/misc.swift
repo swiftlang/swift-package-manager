@@ -42,6 +42,17 @@ import enum TSCUtility.Git
 public let isInCiEnvironment = ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil
 public let isSelfHostedCiEnvironment = ProcessInfo.processInfo.environment["SWIFTCI_IS_SELF_HOSTED"] != nil
 
+public let isRealSigningIdentyEcLabelEnvVarSet =
+    ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_EC_LABEL"] != nil
+
+public let isRealSigningIdentitTestDefined = {
+    #if ENABLE_REAL_SIGNING_IDENTITY_TEST
+        return true
+    #else
+        return false
+    #endif
+}()
+
 /// Test helper utility for executing a block with a temporary directory.
 public func testWithTemporaryDirectory(
     function: StaticString = #function,
