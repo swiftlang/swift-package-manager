@@ -681,3 +681,17 @@ extension FileSystem {
         }
     }
 }
+
+extension FileSystem {
+    /// Do a deep enumeration, passing each file to block
+    public func enumerate(directory: AbsolutePath, block: (AbsolutePath) throws -> ()) throws {
+        for file in try getDirectoryContents(directory) {
+            let path = directory.appending(file)
+            if isDirectory(path) {
+                try enumerate(directory: path, block: block)
+            } else {
+                try block(path)
+            }
+        }
+    }
+}

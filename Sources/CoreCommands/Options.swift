@@ -199,6 +199,19 @@ public struct CachingOptions: ParsableArguments {
           inversion: .prefixedEnableDisable,
           help: "Whether to use prebuilt swift-syntax libraries for macros")
     public var usePrebuilts: Bool = false
+
+    /// Hidden option to override the prebuilts download location for testing
+    @Option(
+        name: .customLong("experimental-prebuilts-download-url"),
+        help: .hidden
+    )
+    public var prebuiltsDownloadURL: String?
+
+    @Option(
+        name: .customLong("experimental-prebuilts-root-cert"),
+        help: .hidden
+    )
+    public var prebuiltsRootCertPath: String?
 }
 
 public struct LoggingOptions: ParsableArguments {

@@ -229,15 +229,15 @@ final class HTTPClientTests: XCTestCase {
         try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8501")
 
         let counter = SendableBox(0)
-        let lastCall = SendableBox<Date>()
+        let lastCall = SendableBox<Date>(Date())
         let maxAttempts = 5
         let errorCode = Int.random(in: 500 ..< 600)
         let delay = SendableTimeInterval.milliseconds(100)
 
         let httpClient = HTTPClient { _, _ in
-            let count = await counter.value!
+            let count = await counter.value
             let expectedDelta = pow(2.0, Double(count - 1)) * delay.timeInterval()!
-            let delta = await lastCall.value.flatMap { Date().timeIntervalSince($0) } ?? 0
+            let delta = await Date().timeIntervalSince(lastCall.value)
             XCTAssertEqual(delta, expectedDelta, accuracy: 0.1)
 
             await counter.increment()
@@ -406,7 +406,7 @@ final class HTTPClientTests: XCTestCase {
         let httpClient = HTTPClient(configuration: configuration) { request, _ in
             await concurrentRequests.increment()
 
-            if await concurrentRequests.value! > maxConcurrentRequests {
+            if await concurrentRequests.value > maxConcurrentRequests {
                 XCTFail("too many concurrent requests \(concurrentRequests), expected \(maxConcurrentRequests)")
             }
 

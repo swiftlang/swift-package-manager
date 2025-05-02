@@ -568,19 +568,30 @@ public class Workspace {
         // register the binary artifacts downloader with the cancellation handler
         cancellator?.register(name: "binary artifacts downloads", handler: binaryArtifactsManager)
 
-        let prebuiltsManager: PrebuiltsManager? = configuration.usePrebuilts ? PrebuiltsManager(
-            fileSystem: fileSystem,
-            authorizationProvider: authorizationProvider,
-            scratchPath: location.prebuiltsDirectory,
-            cachePath: customPrebuiltsManager?.useCache == false || !configuration
-                .sharedDependenciesCacheEnabled ? .none : location.sharedPrebuiltsCacheDirectory,
-            customHTTPClient: customPrebuiltsManager?.httpClient,
-            customArchiver: customPrebuiltsManager?.archiver,
-            delegate: delegate.map(WorkspacePrebuiltsManagerDelegate.init(workspaceDelegate:))
-        ) : .none
-        // register the prebuilt packages downloader with the cancellation handler
-        if let prebuiltsManager {
+        if configuration.usePrebuilts, let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsManifest.Platform.hostPlatform {
+            let rootCertPath: AbsolutePath?
+            if let path = configuration.prebuiltsRootCertPath {
+                rootCertPath = try AbsolutePath(validating: path)
+            } else {
+                rootCertPath = nil
+            }
+
+            let prebuiltsManager = PrebuiltsManager(
+                fileSystem: fileSystem,
+                hostPlatform: hostPlatform,
+                authorizationProvider: authorizationProvider,
+                scratchPath: location.prebuiltsDirectory,
+                cachePath: customPrebuiltsManager?.useCache == false || !configuration.sharedDependenciesCacheEnabled ? .none : location.sharedPrebuiltsCacheDirectory,
+                customHTTPClient: customPrebuiltsManager?.httpClient,
+                customArchiver: customPrebuiltsManager?.archiver,
+                delegate: delegate.map(WorkspacePrebuiltsManagerDelegate.init(workspaceDelegate:)),
+                prebuiltsDownloadURL: configuration.prebuiltsDownloadURL,
+                rootCertPath: customPrebuiltsManager?.rootCertPath ?? rootCertPath
+            )
             cancellator?.register(name: "package prebuilts downloads", handler: prebuiltsManager)
+            self.prebuiltsManager = prebuiltsManager
+        } else {
+            self.prebuiltsManager = nil
         }
 
         // initialize
@@ -599,7 +610,6 @@ public class Workspace {
         self.registryClient = registryClient
         self.registryDownloadsManager = registryDownloadsManager
         self.binaryArtifactsManager = binaryArtifactsManager
-        self.prebuiltsManager = prebuiltsManager
 
         self.identityResolver = identityResolver
         self.dependencyMapper = dependencyMapper
@@ -955,17 +965,12 @@ extension Workspace {
             }
 
         let prebuilts: [PackageIdentity: [String: PrebuiltLibrary]] = await self.state.prebuilts.reduce(into: .init()) {
-            let prebuilt = PrebuiltLibrary(
-                packageRef: $1.packageRef,
-                libraryName: $1.libraryName,
-                path: $1.path,
-                products: $1.products,
-                cModules: $1.cModules
-            )
+            let prebuilt = PrebuiltLibrary(identity: $1.identity, libraryName: $1.libraryName, path: $1.path, products: $1.products, cModules: $1.cModules)
             for product in $1.products {
-                $0[$1.packageRef.identity, default: [:]][product] = prebuilt
+                $0[$1.identity, default: [:]][product] = prebuilt
             }
         }
+
         // Load the graph.
         let packageGraph = try ModulesGraph.load(
             root: manifests.root,
