@@ -125,7 +125,9 @@ private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
 
 final class SourceControlPackageContainerTests: XCTestCase {
     func testVprefixVersions() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows(because: """
+        https://github.com/swiftlang/swift-package-manager/issues/8578
+        """)
 
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -172,7 +174,9 @@ final class SourceControlPackageContainerTests: XCTestCase {
     }
 
     func testVersions() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows(because: """
+        https://github.com/swiftlang/swift-package-manager/issues/8578
+        """)
 
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -270,7 +274,9 @@ final class SourceControlPackageContainerTests: XCTestCase {
     }
 
     func testPreReleaseVersions() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows(because: """
+        https://github.com/swiftlang/swift-package-manager/issues/8578
+        """)
 
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -319,7 +325,9 @@ final class SourceControlPackageContainerTests: XCTestCase {
     }
 
     func testSimultaneousVersions() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows(because: """
+        https://github.com/swiftlang/swift-package-manager/issues/8578
+        """)
 
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -374,7 +382,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
     func testDependencyConstraints() throws {
 #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
 #else
-        try XCTSkipIf(true)
+        try XCTSkipIf(true, "Target based dependency resolution is disabled")
 #endif
 
         let dependencies: [PackageDependency] = [

@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+@testable import struct Basics.TarArchiver
 import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
 import _InternalTestSupport
 import XCTest
@@ -18,6 +19,11 @@ import XCTest
 import struct TSCBasic.FileSystemError
 
 final class TarArchiverTests: XCTestCase {
+    override func setUp() async throws {
+        let archiver = TarArchiver(fileSystem: localFileSystem)
+        try XCTRequires(executable: archiver.tarCommand)
+    }
+
     func testSuccess() async throws {
         try await testWithTemporaryDirectory { tmpdir in
             let archiver = TarArchiver(fileSystem: localFileSystem)

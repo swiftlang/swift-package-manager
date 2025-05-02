@@ -20,7 +20,7 @@ import struct TSCUtility.Version
 /// Represents a package dependency.
 public enum PackageDependency: Equatable, Hashable, Sendable {
     /// A struct representing an enabled trait of a dependency.
-    package struct Trait: Hashable, Sendable, Codable, ExpressibleByStringLiteral {
+    public struct Trait: Hashable, Sendable, Codable, ExpressibleByStringLiteral {
         /// A condition that limits the application of a dependencies trait.
         package struct Condition: Hashable, Sendable, Codable {
             /// The set of traits of this package that enable the dependency's trait.

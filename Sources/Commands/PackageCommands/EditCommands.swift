@@ -37,7 +37,7 @@ extension SwiftPackageCommand {
         var packageIdentity: String
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            try await swiftCommandState.resolve(nil)
+            try await swiftCommandState.resolve()
             let workspace = try swiftCommandState.getActiveWorkspace()
 
             // Put the dependency in edit mode.
@@ -66,7 +66,7 @@ extension SwiftPackageCommand {
         var packageIdentity: String
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            try await swiftCommandState.resolve(nil)
+            try await swiftCommandState.resolve()
             let workspace = try swiftCommandState.getActiveWorkspace()
 
             try await workspace.unedit(
