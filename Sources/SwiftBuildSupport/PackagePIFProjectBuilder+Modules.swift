@@ -377,7 +377,7 @@ extension PackagePIFProjectBuilder {
 
             // We only need to impart this to C clients.
             impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(moduleMapFile)", "$(inherited)"]
-        } else if sourceModule.moduleMapFileRelativePath == nil {
+        } else if sourceModule.moduleMapFileRelativePath(fileSystem: self.pifBuilder.fileSystem) == nil {
             // Otherwise, this is a C library module and we generate a modulemap if one is already not provided.
             if case .umbrellaHeader(let path) = sourceModule.moduleMapType {
                 log(.debug, "\(package.name).\(sourceModule.name) generated umbrella header")
@@ -423,7 +423,7 @@ extension PackagePIFProjectBuilder {
                 .spm_mangledToBundleIdentifier()
             settings[.EXECUTABLE_NAME] = executableName
             settings[.CLANG_ENABLE_MODULES] = "YES"
-            settings[.GENERATE_MASTER_OBJECT_FILE] = "NO"
+            settings[.GENERATE_PRELINK_OBJECT_FILE] = "NO"
             settings[.STRIP_INSTALLED_PRODUCT] = "NO"
 
             // Macros build as executables, so they need slightly different
@@ -824,6 +824,7 @@ extension PackagePIFProjectBuilder {
         let settings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
         let pkgConfig = try systemLibrary.pkgConfig(
             package: self.package,
+            fileSystem: self.pifBuilder.fileSystem,
             observabilityScope: pifBuilder.observabilityScope
         )
 

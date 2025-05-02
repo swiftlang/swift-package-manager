@@ -239,7 +239,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         let pifBuilder = try await getPIFBuilder()
         let pif = try pifBuilder.generatePIF(
-            printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz
+            printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
+            buildParameters: buildParameters
         )
 
         try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, string: pif)

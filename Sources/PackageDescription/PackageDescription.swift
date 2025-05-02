@@ -171,6 +171,7 @@ public final class Package {
     ///   - pkgConfig: The name to use for C modules. If present, the Swift
     ///           Package Manager searches for a `<name>.pc` file to get the
     ///           additional flags required for a system target.
+    ///   - providers: The system package providers that this package uses.
     ///   - products: The list of products that this package makes available for clients to use.
     ///   - dependencies: The list of package dependencies.
     ///   - targets: The list of targets that are part of this package.
@@ -211,6 +212,7 @@ public final class Package {
     ///   - pkgConfig: The name to use for C modules. If present, the Swift
     ///           Package Manager searches for a `<name>.pc` file to get the
     ///           additional flags required for a system target.
+    ///   - providers: The system package providers that this package uses.
     ///   - products: The list of products that this package makes available for clients to use.
     ///   - dependencies: The list of package dependencies.
     ///   - targets: The list of targets that are part of this package.

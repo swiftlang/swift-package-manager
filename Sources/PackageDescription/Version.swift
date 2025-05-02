@@ -59,11 +59,11 @@ public struct Version: Sendable {
     ///   - minor: The minor version number.
     ///   - patch: The patch version number.
     ///   - prereleaseIdentifiers: The pre-release identifier.
-    ///   - buildMetaDataIdentifiers: Build metadata that identifies a build.
+    ///   - buildMetadataIdentifiers: Build metadata that identifies a build.
     ///
     /// - Precondition: `major >= 0 && minor >= 0 && patch >= 0`.
     /// - Precondition: `prereleaseIdentifiers` can contain only ASCII alpha-numeric characters and "-".
-    /// - Precondition: `buildMetaDataIdentifiers` can contain only ASCII alpha-numeric characters and "-".
+    /// - Precondition: `buildMetadataIdentifiers` can contain only ASCII alpha-numeric characters and "-".
     public init(
         _ major: Int,
         _ minor: Int,

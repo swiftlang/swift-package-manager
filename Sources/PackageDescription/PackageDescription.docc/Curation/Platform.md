@@ -9,10 +9,12 @@
 - ``macOS``
 - ``tvOS``
 - ``watchOS``
+- ``visionOS``
 - ``macCatalyst``
 - ``driverKit``
 - ``android``
 - ``linux``
+- ``freebsd``
 - ``openbsd``
 - ``wasi``
 - ``windows``
