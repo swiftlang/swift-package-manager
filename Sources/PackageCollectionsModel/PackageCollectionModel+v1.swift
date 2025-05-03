@@ -17,7 +17,7 @@ extension PackageCollectionModel {
 }
 
 extension PackageCollectionModel.V1 {
-    public struct Collection: Equatable, Codable {
+    public struct Collection: Equatable, Codable, Sendable {
         /// The name of the package collection, for display purposes only.
         public let name: String
 
@@ -65,7 +65,7 @@ extension PackageCollectionModel.V1 {
             self.generatedBy = generatedBy
         }
 
-        public struct Author: Equatable, Codable {
+        public struct Author: Equatable, Codable, Sendable {
             /// The author name.
             public let name: String
 
@@ -78,7 +78,7 @@ extension PackageCollectionModel.V1 {
 }
 
 extension PackageCollectionModel.V1.Collection {
-    public struct Package: Equatable, Codable {
+    public struct Package: Equatable, Codable, Sendable {
         /// The URL of the package. Currently only Git repository URLs are supported.
         public let url: URL
         
@@ -122,7 +122,7 @@ extension PackageCollectionModel.V1.Collection {
 }
 
 extension PackageCollectionModel.V1.Collection.Package {
-    public struct Version: Equatable, Codable {
+    public struct Version: Equatable, Codable, Sendable {
         /// The semantic version string.
         public let version: String
 
@@ -173,7 +173,7 @@ extension PackageCollectionModel.V1.Collection.Package {
             self.createdAt = createdAt
         }
 
-        public struct Manifest: Equatable, Codable {
+        public struct Manifest: Equatable, Codable, Sendable {
             /// The tools (semantic) version specified in `Package.swift`.
             public let toolsVersion: String
 
@@ -205,7 +205,7 @@ extension PackageCollectionModel.V1.Collection.Package {
             }
         }
 
-        public struct Author: Equatable, Codable {
+        public struct Author: Equatable, Codable, Sendable {
             /// The author name.
             public let name: String
 
@@ -218,7 +218,7 @@ extension PackageCollectionModel.V1.Collection.Package {
 }
 
 extension PackageCollectionModel.V1 {
-    public struct Target: Equatable, Codable {
+    public struct Target: Equatable, Codable, Sendable {
         /// The target name.
         public let name: String
 
@@ -232,7 +232,7 @@ extension PackageCollectionModel.V1 {
         }
     }
 
-    public struct Product: Equatable, Codable {
+    public struct Product: Equatable, Codable, Sendable {
         /// The product name.
         public let name: String
 
@@ -254,7 +254,7 @@ extension PackageCollectionModel.V1 {
         }
     }
 
-    public struct PlatformVersion: Equatable, Codable {
+    public struct PlatformVersion: Equatable, Codable, Sendable {
         /// The name of the platform (e.g., macOS, Linux, etc.).
         public let name: String
 
@@ -268,7 +268,7 @@ extension PackageCollectionModel.V1 {
         }
     }
 
-    public struct Platform: Equatable, Codable {
+    public struct Platform: Equatable, Codable, Sendable {
         /// The name of the platform (e.g., macOS, Linux, etc.).
         public let name: String
 
@@ -279,7 +279,7 @@ extension PackageCollectionModel.V1 {
     }
 
     /// Compatible platform and Swift version.
-    public struct Compatibility: Equatable, Codable {
+    public struct Compatibility: Equatable, Codable, Sendable {
         /// The platform (e.g., macOS, Linux, etc.)
         public let platform: Platform
 
@@ -293,7 +293,7 @@ extension PackageCollectionModel.V1 {
         }
     }
 
-    public struct License: Equatable, Codable {
+    public struct License: Equatable, Codable, Sendable {
         /// License name (e.g., Apache-2.0, MIT, etc.)
         public let name: String?
 
@@ -307,7 +307,7 @@ extension PackageCollectionModel.V1 {
         }
     }
 
-    public struct Signer: Equatable, Codable {
+    public struct Signer: Equatable, Codable, Sendable {
         /// The signer type. (e.g., ADP)
         public let type: String
 
@@ -359,9 +359,9 @@ extension PackageCollectionModel.V1.Compatibility: Comparable {
 
 extension PackageCollectionModel.V1 {
     /// The type of product.
-    public enum ProductType: Equatable {
+    public enum ProductType: Equatable, Sendable {
         /// The type of library.
-        public enum LibraryType: String, Codable {
+        public enum LibraryType: String, Codable, Sendable {
             /// Static library.
             case `static`
 
@@ -445,7 +445,7 @@ extension PackageCollectionModel.V1.ProductType: Codable {
 extension PackageCollectionModel.V1 {
     /// A  signed package collection. The only difference between this and `Collection`
     /// is the presence of `signature`.
-    public struct SignedCollection: Equatable {
+    public struct SignedCollection: Equatable, Sendable {
         /// The package collection
         public let collection: PackageCollectionModel.V1.Collection
 
@@ -460,7 +460,7 @@ extension PackageCollectionModel.V1 {
     }
 
     /// Package collection signature and associated metadata
-    public struct Signature: Equatable, Codable {
+    public struct Signature: Equatable, Codable, Sendable {
         /// The signature
         public let signature: String
 
@@ -472,7 +472,7 @@ extension PackageCollectionModel.V1 {
             self.certificate = certificate
         }
 
-        public struct Certificate: Equatable, Codable {
+        public struct Certificate: Equatable, Codable, Sendable {
             /// Subject of the certificate
             public let subject: Name
 
@@ -486,7 +486,7 @@ extension PackageCollectionModel.V1 {
             }
 
             /// Generic certificate name (e.g., subject, issuer)
-            public struct Name: Equatable, Codable {
+            public struct Name: Equatable, Codable, Sendable {
                 /// User ID
                 public let userID: String?
 
