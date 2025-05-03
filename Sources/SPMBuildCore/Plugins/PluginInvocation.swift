@@ -976,6 +976,7 @@ public struct PluginInvocationBuildParameters {
         case concise, verbose, debug
     }
     public var echoLogs: Bool
+    public var progressToConsole: Bool
     public var otherCFlags: [String]
     public var otherCxxFlags: [String]
     public var otherSwiftcFlags: [String]
@@ -1089,6 +1090,7 @@ fileprivate extension PluginInvocationBuildParameters {
         self.configuration = .init(parameters.configuration)
         self.logging = .init(parameters.logging)
         self.echoLogs = parameters.echoLogs
+        self.progressToConsole = parameters.progressToConsole
         self.otherCFlags = parameters.otherCFlags
         self.otherCxxFlags = parameters.otherCxxFlags
         self.otherSwiftcFlags = parameters.otherSwiftcFlags
