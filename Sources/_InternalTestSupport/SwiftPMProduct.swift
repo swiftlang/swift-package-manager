@@ -23,6 +23,7 @@ import enum TSCBasic.ProcessEnv
 /// helper method to execute them.
 public enum SwiftPM {
     case Build
+    case Migrate
     case Package
     case Registry
     case Test
@@ -37,6 +38,8 @@ extension SwiftPM {
         switch self {
         case .Build:
             return "swift-build"
+        case .Migrate:
+            return "swift-migrate"
         case .Package:
             return "swift-package"
         case .Registry:

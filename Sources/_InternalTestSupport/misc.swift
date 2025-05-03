@@ -393,6 +393,28 @@ public func executeSwiftTest(
     return try await SwiftPM.Test.execute(args, packagePath: packagePath, env: env, throwIfCommandFails: throwIfCommandFails)
 }
 
+@discardableResult
+public func executeSwiftMigrate(
+    _ packagePath: AbsolutePath?,
+    configuration: Configuration = .Debug,
+    extraArgs: [String] = [],
+    Xcc: [String] = [],
+    Xld: [String] = [],
+    Xswiftc: [String] = [],
+    env: Environment? = nil,
+    buildSystem: BuildSystemProvider.Kind = .native
+) async throws -> (stdout: String, stderr: String) {
+    let args = swiftArgs(
+        configuration: configuration,
+        extraArgs: extraArgs,
+        Xcc: Xcc,
+        Xld: Xld,
+        Xswiftc: Xswiftc,
+        buildSystem: buildSystem
+    )
+    return try await SwiftPM.Migrate.execute(args, packagePath: packagePath, env: env)
+}
+
 private func swiftArgs(
     configuration: Configuration,
     extraArgs: [String],

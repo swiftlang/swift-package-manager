@@ -138,7 +138,7 @@ let package = Package(
             type: .dynamic,
             targets: ["AppleProductTypes"]
         ),
-        
+
         .library(
             name: "PackagePlugin",
             type: .dynamic,
@@ -588,6 +588,7 @@ let package = Package(
                 "Workspace",
                 "XCBuildSupport",
                 "SwiftBuildSupport",
+                "SwiftFixIt",
             ] + swiftSyntaxDependencies(["SwiftIDEUtils"]),
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: swift6CompatibleExperimentalFeatures + [
@@ -744,6 +745,12 @@ let package = Package(
                 "Basics",
                 "Workspace",
             ]
+        ),
+        .executableTarget(
+            /** Builds packages */
+            name: "swift-migrate",
+            dependencies: ["Commands"],
+            exclude: ["CMakeLists.txt"]
         ),
 
         // MARK: Support for Swift macros, should eventually move to a plugin-based solution

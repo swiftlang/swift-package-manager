@@ -53,6 +53,13 @@ public enum SwiftCompilerFeature {
 }
 
 extension Toolchain {
+    public var supportesSupportedFeatures: Bool {
+        guard let features = try? swiftCompilerSupportedFeatures else {
+            return false
+        }
+        return !features.isEmpty
+    }
+
     public var swiftCompilerSupportedFeatures: [SwiftCompilerFeature] {
         get throws {
             let compilerOutput: String

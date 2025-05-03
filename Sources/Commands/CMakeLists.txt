@@ -40,6 +40,7 @@ add_library(Commands
   Snippets/Card.swift
   Snippets/Colorful.swift
   SwiftBuildCommand.swift
+  SwiftMigrateCommand.swift
   SwiftRunCommand.swift
   SwiftTestCommand.swift
   CommandWorkspaceDelegate.swift
@@ -64,6 +65,7 @@ target_link_libraries(Commands PUBLIC
   PackageGraph
   PackageModelSyntax
   SourceControl
+  SwiftFixIt
   TSCBasic
   TSCUtility
   Workspace
