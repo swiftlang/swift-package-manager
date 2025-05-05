@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2022-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -11,26 +11,27 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
-import XCTest
+import Testing
 
-final class DictionaryTests: XCTestCase {
-    func testThrowingUniqueKeysWithValues() throws {
+struct DictionaryTests {
+    @Test
+    func throwingUniqueKeysWithValues() throws {
         do {
             let keysWithValues = [("key1", "value1"), ("key2", "value2")]
             let dictionary = try Dictionary(throwingUniqueKeysWithValues: keysWithValues)
-            XCTAssertEqual(dictionary["key1"], "value1")
-            XCTAssertEqual(dictionary["key2"], "value2")
+            #expect(dictionary["key1"] == "value1")
+            #expect(dictionary["key2"] == "value2")
         }
         do {
             let keysWithValues = [("key1", "value"), ("key2", "value")]
             let dictionary = try Dictionary(throwingUniqueKeysWithValues: keysWithValues)
-            XCTAssertEqual(dictionary["key1"], "value")
-            XCTAssertEqual(dictionary["key2"], "value")
+            #expect(dictionary["key1"] == "value")
+            #expect(dictionary["key2"] == "value")
         }
         do {
             let keysWithValues = [("key", "value1"), ("key", "value2")]
-            XCTAssertThrowsError(try Dictionary(throwingUniqueKeysWithValues: keysWithValues)) { error in
-                XCTAssertEqual(error as? StringError, StringError("duplicate key found: 'key'"))
+            #expect(throws: StringError("duplicate key found: 'key'")) {
+                try Dictionary(throwingUniqueKeysWithValues: keysWithValues)
             }
         }
     }
