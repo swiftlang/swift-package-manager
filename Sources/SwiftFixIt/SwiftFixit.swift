@@ -89,6 +89,7 @@ package struct SwiftFixIt /*: ~Copyable */ {
 
     package init(
         diagnosticFiles: [AbsolutePath],
+        categories: Set<String> = [],
         fileSystem: any FileSystem
     ) throws {
         // Deserialize the diagnostics.
@@ -97,11 +98,16 @@ package struct SwiftFixIt /*: ~Copyable */ {
             return try TSCUtility.SerializedDiagnostics(bytes: fileContents).diagnostics
         }.lazy.joined()
 
-        self = try SwiftFixIt(diagnostics: diagnostics, fileSystem: fileSystem)
+        self = try SwiftFixIt(
+            diagnostics: diagnostics,
+            categories: categories,
+            fileSystem: fileSystem
+        )
     }
 
     init(
         diagnostics: some Collection<some AnyDiagnostic>,
+        categories: Set<String> = [],
         fileSystem: any FileSystem
     ) throws {
         self.fileSystem = fileSystem
@@ -141,6 +147,14 @@ package struct SwiftFixIt /*: ~Copyable */ {
                 try diagnosticConverter.diagnostic(from: diagnostic)
             else {
                 continue
+            }
+
+            if !categories.isEmpty {
+                guard let category = convertedDiagnostic.diagMessage.category?.name,
+                      categories.contains(category)
+                else {
+                    continue
+                }
             }
 
             diagnosticsPerFile[consume sourceFile, default: []].append(consume convertedDiagnostic)

@@ -55,13 +55,18 @@ final class SwiftFixItTests: XCTestCase {
 
     private func _testAPI(
         _ sourceFilePathsAndEdits: [(AbsolutePath, SourceFileEdit)],
-        _ diagnostics: [TestDiagnostic]
+        _ diagnostics: [TestDiagnostic],
+        _ categories: Set<String>,
     ) throws {
         for (path, edit) in sourceFilePathsAndEdits {
             try localFileSystem.writeFileContents(path, string: edit.input)
         }
 
-        let swiftFixIt = try SwiftFixIt(diagnostics: diagnostics, fileSystem: localFileSystem)
+        let swiftFixIt = try SwiftFixIt(
+            diagnostics: diagnostics,
+            categories: categories,
+            fileSystem: localFileSystem
+        )
         try swiftFixIt.applyFixIts()
 
         for (path, edit) in sourceFilePathsAndEdits {
@@ -75,6 +80,7 @@ final class SwiftFixItTests: XCTestCase {
 
     // Cannot use variadic generics: crashes.
     private func testAPI1File(
+        categories: Set<String> = [],
         _ getTestCase: (String) -> TestCase<SourceFileEdit>
     ) throws {
         try testWithTemporaryDirectory { fixturePath in
@@ -84,13 +90,15 @@ final class SwiftFixItTests: XCTestCase {
 
             try self._testAPI(
                 [(sourceFilePath, testCase.edits)],
-                testCase.diagnostics
+                testCase.diagnostics,
+                categories
             )
         }
     }
 
     private func testAPI2Files(
-        _ getTestCase: (String, String) -> TestCase<(SourceFileEdit, SourceFileEdit)>
+        categories: Set<String> = [],
+        _ getTestCase: (String, String) -> TestCase<(SourceFileEdit, SourceFileEdit)>,
     ) throws {
         try testWithTemporaryDirectory { fixturePath in
             let sourceFilePath1 = fixturePath.appending(self.uniqueSwiftFileName())
@@ -100,7 +108,8 @@ final class SwiftFixItTests: XCTestCase {
 
             try self._testAPI(
                 [(sourceFilePath1, testCase.edits.0), (sourceFilePath2, testCase.edits.1)],
-                testCase.diagnostics
+                testCase.diagnostics,
+                categories
             )
         }
     }
@@ -121,6 +130,85 @@ extension SwiftFixItTests {
                                 start: .init(filename: filename, line: 1, column: 1, offset: 0),
                                 end: .init(filename: filename, line: 1, column: 4, offset: 0),
                                 text: "let"
+                            ),
+                        ]
+                    ),
+                ]
+            )
+        }
+    }
+
+    func testCategoryFiltering() throws {
+        // Check that the fix-it gets ignored because category doesn't match
+        try self.testAPI1File(categories: ["Test"]) { (filename: String) in
+            .init(
+                edits: .init(input: "var x = 1", result: "var x = 1"),
+                diagnostics: [
+                    TestDiagnostic(
+                        text: "error",
+                        level: .error,
+                        location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                        fixIts: [
+                            .init(
+                                start: .init(filename: filename, line: 1, column: 1, offset: 0),
+                                end: .init(filename: filename, line: 1, column: 4, offset: 0),
+                                text: "let"
+                            ),
+                        ]
+                    ),
+                ]
+            )
+        }
+
+        // Check that the fix-it gets ignored because category doesn't match
+        try self.testAPI1File(categories: ["Test"]) { (filename: String) in
+            .init(
+                edits: .init(input: "var x = 1", result: "var x = 1"),
+                diagnostics: [
+                    TestDiagnostic(
+                        text: "error",
+                        level: .error,
+                        location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                        category: "Other",
+                        fixIts: [
+                            .init(
+                                start: .init(filename: filename, line: 1, column: 1, offset: 0),
+                                end: .init(filename: filename, line: 1, column: 4, offset: 0),
+                                text: "let"
+                            ),
+                        ]
+                    ),
+                ]
+            )
+        }
+
+        try self.testAPI1File(categories: ["Other", "Test"]) { (filename: String) in
+            .init(
+                edits: .init(input: "var x = 1", result: "let _ = 1"),
+                diagnostics: [
+                    TestDiagnostic(
+                        text: "error",
+                        level: .error,
+                        location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                        category: "Test",
+                        fixIts: [
+                            .init(
+                                start: .init(filename: filename, line: 1, column: 1, offset: 0),
+                                end: .init(filename: filename, line: 1, column: 4, offset: 0),
+                                text: "let"
+                            ),
+                        ]
+                    ),
+                    TestDiagnostic(
+                        text: "error",
+                        level: .error,
+                        location: .init(filename: filename, line: 1, column: 4, offset: 0),
+                        category: "Other",
+                        fixIts: [
+                            .init(
+                                start: .init(filename: filename, line: 1, column: 5, offset: 0),
+                                end: .init(filename: filename, line: 1, column: 6, offset: 0),
+                                text: "_"
                             ),
                         ]
                     ),
