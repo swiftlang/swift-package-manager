@@ -28,20 +28,6 @@ import struct TSCBasic.ByteString
 import struct TSCUtility.Version
 
 final class WorkspaceTests: XCTestCase {
-    // override func setUpWithError() throws {
-    //     let windowsPassingTests = [
-    //         #selector(self.testBinaryArtifactsInvalidPath),
-    //         #selector(self.testManifestLoaderDiagnostics),
-    //         #selector(self.testInterpreterFlags),
-    //         #selector(self.testManifestParseError),
-    //         #selector(self.testSimpleAPI)
-    //     ]
-    //     let matches = windowsPassingTests.filter { $0 == self.invocation?.selector}
-    //     if matches.count == 0 {
-    //         try XCTSkipOnWindows()
-    //     }
-    // }
-
     func testBasics() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -8036,7 +8022,7 @@ final class WorkspaceTests: XCTestCase {
 
     func testArtifactChecksum() async throws {
         try XCTSkipOnWindows(because: #"""
-        threw error "\tmp\ws doesn't exist in file system" because there is an issue with InMemoryFileSystem readFileContents(...) on Windows
+        https://github.com/swiftlang/swift-package-manager/issues/8615: threw error "\tmp\ws doesn't exist in file system" because there is an issue with InMemoryFileSystem readFileContents(...) on Windows
         """#)
 
         let fs = InMemoryFileSystem()
