@@ -15,9 +15,11 @@ The Swift Package Manager leets you share your code as a package, depend on and 
 ### Essentials
 
 - <doc:GettingStarted>      <!-- tutorial or article based walk through -->
-- <doc:IntroducingPackages> <!-- content from Documentation/README -->
+- <doc:IntroducingPackages>
 
 ### Guides
+
+- <doc:ExploreDependencies>
 
 <!-- ### Command Plugins -->
 <!-- placeholder for content about swift package manager extensions - command plugins -->
