@@ -26,7 +26,7 @@ import struct PackageModel.TargetDescription
 
 class PrepareForIndexTests: XCTestCase {
     func testPrepare() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows()
 
         let (graph, fs, scope) = try macrosPackageGraph()
 
@@ -96,7 +96,7 @@ class PrepareForIndexTests: XCTestCase {
 
     // enable-testing requires the non-exportable-decls, make sure they aren't skipped.
     func testEnableTesting() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows()
 
         let fs = InMemoryFileSystem(
             emptyFiles:
@@ -167,7 +167,7 @@ class PrepareForIndexTests: XCTestCase {
     }
 
     func testPrepareNoLazy() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows()
 
         let (graph, fs, scope) = try macrosPackageGraph()
 

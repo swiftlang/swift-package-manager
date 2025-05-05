@@ -356,7 +356,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
-        try XCTSkipIfCI()
+        try XCTSkipIfPlatformCI()
         let netrcContent = "default login default password default"
         let netrc = try NetrcAuthorizationWrapper(underlying: NetrcParser.parse(netrcContent))
         let authData = Data("default:default".utf8)

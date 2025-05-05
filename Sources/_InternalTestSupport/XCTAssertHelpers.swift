@@ -44,17 +44,34 @@ public func XCTAssertEqual<T:Equatable, U:Equatable> (_ lhs:(T,U), _ rhs:(T,U), 
     TSCTestSupport.XCTAssertEqual(lhs, rhs, file: file, line: line)
 }
 
-public func XCTSkipIfCI(file: StaticString = #filePath, line: UInt = #line) throws {
+public func XCTSkipIfPlatformCI(because reason: String? = nil, file: StaticString = #filePath, line: UInt = #line) throws {
     // TODO: is this actually the right variable now?
     if isInCiEnvironment {
-        throw XCTSkip("Skipping because the test is being run on CI", file: file, line: line)
+        let failureCause = reason ?? "Skipping because the test is being run on CI"
+        throw XCTSkip(failureCause, file: file, line: line)
     }
 }
 
-public func XCTSkipIfWindowsCI(file: StaticString = #filePath, line: UInt = #line) throws {
+public func XCTSkipIfselfHostedCI(because reason: String, file: StaticString = #filePath, line: UInt = #line) throws {
+    // TODO: is this actually the right variable now?
+    if isSelfHostedCiEnvironment {
+        throw XCTSkip(reason, file: file, line: line)
+    }
+}
+
+public func XCTSkipOnWindows(because reason: String? = nil, skipPlatformCi: Bool = false, skipSelfHostedCI: Bool = false , file: StaticString = #filePath, line: UInt = #line) throws {
     #if os(Windows)
-    if ProcessInfo.processInfo.environment["SWIFTCI_IS_SELF_HOSTED"] != nil {
-        throw XCTSkip("Skipping because the test is being run on CI", file: file, line: line)
+    let failureCause: String
+    if let reason {
+        failureCause = " because \(reason.description)"
+    } else {
+        failureCause = ""
+    }
+    if (skipPlatformCi || skipSelfHostedCI) {
+        try XCTSkipIfPlatformCI(because: "Test is run in Platform CI.  Skipping\(failureCause)", file: file, line: line)
+        try XCTSkipIfselfHostedCI(because: "Test is run in Self hosted CI.  Skipping\(failureCause)", file: file, line: line)
+    } else {
+        throw XCTSkip("Skipping test\(failureCause)", file: file, line: line)
     }
     #endif
 }
@@ -276,7 +293,7 @@ public struct CommandExecutionError: Error {
 /// - seealso: https://github.com/swiftlang/swift-package-manager/issues/8560
 public func XCTSkipIfWorkingDirectoryUnsupported() throws {
     func unavailable() throws {
-        throw XCTSkip("Thread-safe process working directory support is unavailable on this platform.")
+        throw XCTSkip("https://github.com/swiftlang/swift-package-manager/issues/8560: Thread-safe process working directory support is unavailable on this platform.")
     }
     #if os(Linux)
     if FileManager.default.contents(atPath: "/etc/system-release").map({ String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" }) ?? false {

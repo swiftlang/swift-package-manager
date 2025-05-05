@@ -12,7 +12,7 @@
 
 @testable import Basics
 import XCTest
-import _InternalTestSupport // for skipOnWindowsAsTestCurrentlyFails
+import _InternalTestSupport // for XCTSkipOnWindows
 
 final class SerializedJSONTests: XCTestCase {
     func testPathInterpolation() throws {
@@ -34,7 +34,7 @@ final class SerializedJSONTests: XCTestCase {
     }
 
     func testPathInterpolationFailsOnWindows() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: "Expectations are not met. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511")
+        try XCTSkipOnWindows(because: "Expectations are not met. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511")
 
 #if os(Windows)
         var path = try AbsolutePath(validating: #"\\?\C:\Users"#)

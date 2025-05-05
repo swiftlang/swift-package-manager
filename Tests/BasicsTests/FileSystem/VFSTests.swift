@@ -16,7 +16,7 @@ import XCTest
 
 import struct TSCBasic.ByteString
 
-import _InternalTestSupport // for skipOnWindowsAsTestCurrentlyFails
+import _InternalTestSupport // for XCTSkipOnWindows
 
 func testWithTemporaryDirectory(
     function: StaticString = #function,
@@ -38,7 +38,7 @@ func testWithTemporaryDirectory(
 
 class VFSTests: XCTestCase {
     func testLocalBasics() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows()
 
         // tiny PE binary from: https://archive.is/w01DO
         let contents: [UInt8] = [

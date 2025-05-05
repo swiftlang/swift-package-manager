@@ -620,7 +620,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     }
 
     func testPackageNameFlag() async throws {
-        try XCTSkipIfCI() // test is disabled because it isn't stable, see rdar://118239206
+        try XCTSkipIfPlatformCI() // test is disabled because it isn't stable, see rdar://118239206
         let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
             flags: ["package-name"],
             toolchain: UserToolchain.default,
@@ -792,6 +792,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
                 "-DDEBUG",
+                "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
                 "-swift-version", "4",
@@ -811,6 +812,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
                 "-DDEBUG",
+                "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
                 "-swift-version", "4",
@@ -1224,6 +1226,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 "-O",
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
+                "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
                 "-swift-version", "4",
@@ -1318,6 +1321,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 "-O",
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
+                "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
                 "-swift-version", "4",
@@ -1863,6 +1867,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
                 "-DDEBUG",
+                "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
                 "-Xcc",
                 "-fmodule-map-file=\(buildPath.appending(components: "lib.build", "module.modulemap"))",
                 "-Xcc", "-I", "-Xcc", "\(Pkg.appending(components: "Sources", "lib", "include"))",
@@ -2040,7 +2045,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     }
 
     func test_symbolGraphExtract_arguments() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows()
 
         // ModuleGraph:
         // .
@@ -2365,6 +2370,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
                 "-DDEBUG",
+                "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
                 "-swift-version", "4",
@@ -2387,6 +2393,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
                 "-DDEBUG",
+                "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
                 "-swift-version", "4",
@@ -2499,6 +2506,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 "-O",
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
+                "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
                 "-swift-version", "4",
@@ -2864,6 +2872,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             .equal(self.j),
             "-DSWIFT_PACKAGE",
             "-DDEBUG",
+            "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
             "-Xcc", "-fmodule-map-file=\(Clibgit.appending(components: "module.modulemap"))",
             "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
             .anySequence,
@@ -3166,6 +3175,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
                 "-DDEBUG",
+                "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
                 "-swift-version", "4",
@@ -3185,6 +3195,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
                 "-DDEBUG",
+                "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
                 "-swift-version", "4",
@@ -3824,7 +3835,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Onone",
             "-enable-testing",
             .equal(self.j),
-            "-DSWIFT_PACKAGE", "-DDEBUG",
+            "-DSWIFT_PACKAGE", "-DDEBUG", "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
             "-Xcc", "-fmodule-map-file=\(buildPath.appending(components: "lib.build", "module.modulemap"))",
             "-Xcc", "-I", "-Xcc", "\(Pkg.appending(components: "Sources", "lib", "include"))",
             "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
@@ -4701,7 +4712,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     }
 
     func testUserToolchainCompileFlags() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows()
 
         let fs = InMemoryFileSystem(
             emptyFiles:
@@ -4955,7 +4966,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     }
 
     func testUserToolchainWithToolsetCompileFlags() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: "Path delimiters donw's work well on Windows")
+        try XCTSkipOnWindows(because: "Path delimiters donw's work well on Windows")
 
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
@@ -5125,7 +5136,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     }
 
     func testUserToolchainWithSDKSearchPaths() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows()
 
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
@@ -5888,6 +5899,9 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         XCTAssertEqual(try barTarget.objects.map(\.pathString), [
             buildPath.appending(components: "Bar.build", "Bar.swift.o").pathString,
         ])
+
+        XCTAssertTrue(try fooTarget.compileArguments().contains(["-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE"]))
+        XCTAssertTrue(try barTarget.compileArguments().contains(["-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"]))
     }
 
     func testSwiftWASIBundleAccessor() async throws {
@@ -6928,14 +6942,16 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "/LeakTest/Sources/CLib/Clib.c",
             "/LeakTest/Sources/MyMacro/MyMacro.swift",
             "/LeakTest/Sources/MyPluginTool/MyPluginTool.swift",
-            "/LeakTest/Plugins/MyPlugin/MyPlugin.swift",
             "/LeakTest/Sources/MyLib/MyLib.swift",
+            "/LeakTest/Plugins/MyPlugin/MyPlugin.swift",
+            "/LeakTest/Tests/MyMacroTests/MyMacroTests.swift",
+            "/LeakTest/Tests/MyMacro2Tests/MyMacro2Tests.swift",
             "/LeakLib/Sources/CLib2/include/Clib.h",
             "/LeakLib/Sources/CLib2/Clib.c",
             "/LeakLib/Sources/MyMacro2/MyMacro.swift",
             "/LeakLib/Sources/MyPluginTool2/MyPluginTool.swift",
+            "/LeakLib/Sources/MyLib2/MyLib.swift",
             "/LeakLib/Plugins/MyPlugin2/MyPlugin.swift",
-            "/LeakLib/Sources/MyLib2/MyLib.swift"
         ])
 
         let graph = try loadModulesGraph(fileSystem: fs, manifests: [
@@ -6944,6 +6960,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 path: "/LeakLib",
                 products: [
                     ProductDescription(name: "MyLib2", type: .library(.automatic), targets: ["MyLib2"]),
+                    ProductDescription(name: "MyMacros2", type: .macro, targets: ["MyMacro2"])
                 ],
                 targets: [
                     TargetDescription(name: "CLib2"),
@@ -6969,6 +6986,11 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                         dependencies: ["CLib", "MyMacro", .product(name: "MyLib2", package: "LeakLib")],
                         pluginUsages: [.plugin(name: "MyPlugin", package: nil)]
                     ),
+                    TargetDescription(name: "MyMacroTests", dependencies: ["MyMacro"], type: .test),
+                    TargetDescription(
+                        name: "MyMacro2Tests",
+                        dependencies: [.product(name: "MyMacros2", package: "LeakLib")],
+                        type: .test),
                 ]
             )
         ], observabilityScope: observability.topScope)
@@ -6982,8 +7004,17 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let myLib = try XCTUnwrap(plan.targets.first(where: { $0.module.name == "MyLib" })).swift()
-        print(myLib.additionalFlags)
-        XCTAssertFalse(myLib.additionalFlags.contains(where: { $0.contains("-tool/include")}), "flags shouldn't contain tools items")
+        XCTAssertFalse(myLib.additionalFlags.contains(where: { $0.contains("-tool")}), "flags shouldn't contain tools items")
+        
+        // Make sure the tests do have the include path and the module map from the lib
+        let myMacroTests = try XCTUnwrap(plan.targets.first(where: { $0.module.name == "MyMacroTests" })).swift()
+        let flags = myMacroTests.additionalFlags.joined(separator: " ")
+        XCTAssertMatch(flags, .regex("CLib[/\\\\]include"))
+        XCTAssertMatch(flags, .regex("CLib-tool.build[/\\\\]module.modulemap"))
+        let myMacro2Tests = try XCTUnwrap(plan.targets.first(where: { $0.module.name == "MyMacro2Tests" })).swift()
+        let flags2 = myMacro2Tests.additionalFlags.joined(separator: " ")
+        XCTAssertMatch(flags2, .regex("CLib2[/\\\\]include"))
+        XCTAssertMatch(flags2, .regex("CLib2-tool.build[/\\\\]module.modulemap"))
     }
 
     func testDiagnosticsAreMentionedInOutputsFileMap() async throws {

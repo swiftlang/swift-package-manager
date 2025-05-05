@@ -144,7 +144,7 @@ final class AsyncProcessTests: XCTestCase {
     }
 
     func testFindExecutable() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: Assertion failure when trying to find ls executable")
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: Assertion failure when trying to find ls executable")
 
         try testWithTemporaryDirectory { tmpdir in
             // This process should always work.
@@ -426,8 +426,8 @@ final class AsyncProcessTests: XCTestCase {
 
     func testAsyncStream() async throws {
         // rdar://133548796
-        try XCTSkipIfCI()
-        try skipOnWindowsAsTestCurrentlyFails(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was hanging.")
+        try XCTSkipIfPlatformCI()
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was hanging.")
 
         let (stdoutStream, stdoutContinuation) = AsyncProcess.ReadableStream.makeStream()
         let (stderrStream, stderrContinuation) = AsyncProcess.ReadableStream.makeStream()
@@ -484,8 +484,8 @@ final class AsyncProcessTests: XCTestCase {
 
     func testAsyncStreamHighLevelAPI() async throws {
         // rdar://133548796
-        try XCTSkipIfCI()
-        try skipOnWindowsAsTestCurrentlyFails(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was hanging.")
+        try XCTSkipIfPlatformCI()
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was hanging.")
 
         let result = try await AsyncProcess.popen(
             scriptName: "echo\(ProcessInfo.batSuffix)", // maps to 'processInputs/echo' script

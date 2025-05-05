@@ -102,7 +102,7 @@ public protocol PackageContainer {
     /// Fetch the enabled traits of a package container.
     ///
     /// NOTE: This method should only be called on root packages.
-    func getEnabledTraits(traitConfiguration: TraitConfiguration?, version: Version?) async throws -> Set<String>
+    func getEnabledTraits(traitConfiguration: TraitConfiguration, version: Version?) async throws -> Set<String>
 }
 
 extension PackageContainer {
@@ -118,7 +118,7 @@ extension PackageContainer {
         return true
     }
 
-    public func getEnabledTraits(traitConfiguration: TraitConfiguration?, version: Version? = nil) async throws -> Set<String> {
+    public func getEnabledTraits(traitConfiguration: TraitConfiguration, version: Version? = nil) async throws -> Set<String> {
         return []
     }
 }
