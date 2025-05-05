@@ -1070,7 +1070,7 @@ public final class SwiftCommandState {
             lockAcquired = true
         } catch ProcessLockError.unableToAquireLock(let errno) {
             if errno == EWOULDBLOCK {
-                let existingPID = self.pidManipulator.readPID(from: self.pidManipulator.pidFilePath)
+                let existingPID = self.pidManipulator.readPID()
                 let pidInfo = existingPID.map { "(PID: \($0)) " } ?? ""
                 if self.options.locations.ignoreLock {
                     self.outputStream
@@ -1098,7 +1098,7 @@ public final class SwiftCommandState {
         self.workspaceLock = workspaceLock
         
         if lockAcquired || self.options.locations.ignoreLock {
-            try self.pidManipulator.writePID(pid: self.pidManipulator.getCurrentPID(), to: self.pidManipulator.pidFilePath.asURL, atomically: true, encoding: .utf8)
+            try self.pidManipulator.writePID(pid: self.pidManipulator.getCurrentPID())
         }
     }
 
@@ -1113,7 +1113,7 @@ public final class SwiftCommandState {
         self.workspaceLock?.unlock()
         
         do {
-            try self.pidManipulator.deletePIDFile(file: self.pidManipulator.pidFilePath.asURL)
+            try self.pidManipulator.deletePIDFile()
         } catch {
             self.observabilityScope.emit(warning: "Failed to delete PID file: \(error)")
         }
