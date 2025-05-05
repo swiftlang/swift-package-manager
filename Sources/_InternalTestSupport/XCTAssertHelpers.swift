@@ -59,16 +59,12 @@ public func XCTSkipIfselfHostedCI(because reason: String, file: StaticString = #
     }
 }
 
-public func XCTSkipOnWindows(because reason: String? = nil, skipPlatformCi: Bool = false, skipSelfHostedCI: Bool = false , file: StaticString = #filePath, line: UInt = #line) throws {
+public func XCTSkipOnWindows(because reason: String, skipPlatformCi: Bool = false, skipSelfHostedCI: Bool = false , file: StaticString = #filePath, line: UInt = #line) throws {
     #if os(Windows)
-    let failureCause: String
-    if let reason {
-        failureCause = " because \(reason.description)"
-    } else {
-        failureCause = ""
-    }
-    if (skipPlatformCi || skipSelfHostedCI) {
+    let failureCause = " because \(reason.description)"
+    if (skipPlatformCi) {
         try XCTSkipIfPlatformCI(because: "Test is run in Platform CI.  Skipping\(failureCause)", file: file, line: line)
+    } else if skipSelfHostedCI {
         try XCTSkipIfselfHostedCI(because: "Test is run in Self hosted CI.  Skipping\(failureCause)", file: file, line: line)
     } else {
         throw XCTSkip("Skipping test\(failureCause)", file: file, line: line)
