@@ -58,7 +58,7 @@ public enum DependencyResolutionNode {
     ///   It is a warning condition, and builds do not actually need these dependencies.
     ///   However, forcing the graph to resolve and fetch them anyway allows the diagnostics passes access
     ///   to the information needed in order to provide actionable suggestions to help the user stitch up the dependency declarations properly.
-    case root(package: PackageReference, traitConfiguration: TraitConfiguration? = nil)
+    case root(package: PackageReference, traitConfiguration: TraitConfiguration = .default)
 
     /// The package.
     public var package: PackageReference {
@@ -94,11 +94,22 @@ public enum DependencyResolutionNode {
     public var traits: Set<String>? {
         switch self {
         case .root(_, let config):
-            return config?.enabledTraits
+            return config.enabledTraits
         case .product(_, _, let enabledTraits):
             return enabledTraits
         default:
             return nil
+        }
+    }
+
+    public var traitConfiguration: TraitConfiguration {
+        switch self {
+        case .root(_, let config):
+            return config
+        case .product(_, _, let enabledTraits):
+            return .init(enabledTraits: enabledTraits)
+        case .empty:
+            return .default
         }
     }
 

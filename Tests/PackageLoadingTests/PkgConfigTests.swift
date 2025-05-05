@@ -87,7 +87,7 @@ class PkgConfigTests: XCTestCase {
     }
 
     func testEnvVar() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows()
 
         // Pc file.
         try Environment.makeCustom(["PKG_CONFIG_PATH": inputsDir.pathString]) {
@@ -152,7 +152,7 @@ class PkgConfigTests: XCTestCase {
     }
 
     func testExplicitPkgConfigDirectories() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows()
 
         // Pc file.
         for result in try pkgConfigArgs(
@@ -212,7 +212,7 @@ class PkgConfigTests: XCTestCase {
     }
 
     func testDependencies() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows()
 
         // Use additionalSearchPaths instead of pkgConfigArgs to test handling
         // of search paths when loading dependencies.

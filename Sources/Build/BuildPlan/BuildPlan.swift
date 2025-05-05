@@ -1175,8 +1175,8 @@ extension BuildPlan {
 
     package func traverseDependencies(
         of description: ModuleBuildDescription,
-        onProduct: (ResolvedProduct, BuildParameters.Destination, ProductBuildDescription?) -> DepthFirstContinue,
-        onModule: (ResolvedModule, BuildParameters.Destination, ModuleBuildDescription?) -> DepthFirstContinue
+        onProduct: (ResolvedProduct, BuildParameters.Destination, ProductBuildDescription?) -> Void,
+        onModule: (ResolvedModule, BuildParameters.Destination, ModuleBuildDescription?) -> Void
     ) {
         var visited = Set<TraversalNode>()
         func successors(
@@ -1217,16 +1217,92 @@ extension BuildPlan {
             case .package:
                 []
             }
-        } visitNext: { module, _ in
+        } onNext: { module, _ in
             switch module {
             case .package:
-                return .continue
+                break
 
             case .product(let product, let destination):
-                return onProduct(product, destination, self.description(for: product, context: destination))
+                onProduct(product, destination, self.description(for: product, context: destination))
 
             case .module(let module, let destination):
-                return onModule(module, destination, self.description(for: module, context: destination))
+                onModule(module, destination, self.description(for: module, context: destination))
+            }
+        }
+    }
+
+    // Only follow link time dependencies, i.e. skip dependencies on macros and plugins
+    // except for testTargets that depend on macros.
+    package func traverseLinkDependencies(
+        of description: ModuleBuildDescription,
+        onProduct: (ResolvedProduct, BuildParameters.Destination, ProductBuildDescription?) -> Void,
+        onModule: (ResolvedModule, BuildParameters.Destination, ModuleBuildDescription?) -> Void
+    ) {
+        var visited = Set<TraversalNode>()
+        func successors(
+            for product: ResolvedProduct,
+            destination: Destination
+        ) -> [TraversalNode] {
+            product.modules.map { module in
+                TraversalNode(module: module, context: destination)
+            }.filter {
+                visited.insert($0).inserted
+            }
+        }
+
+        func successors(
+            for parentModule: ResolvedModule,
+            destination: Destination
+        ) -> [TraversalNode] {
+            parentModule
+                .dependencies(satisfying: description.buildParameters.buildEnvironment)
+                .reduce(into: [TraversalNode]()) { partial, dependency in
+                    switch dependency {
+                    case .product(let product, _):
+                        guard product.type != .plugin else {
+                            return
+                        }
+                        
+                        guard product.type != .macro || parentModule.type == .test else {
+                            return
+                        }
+
+                        partial.append(.init(product: product, context: destination))
+                    case .module(let childModule, _):
+                        guard childModule.type != .plugin else {
+                            return
+                        }
+                        
+                        guard childModule.type != .macro || parentModule.type == .test else {
+                            return
+                        }
+
+                        partial.append(.init(module: childModule, context: destination))
+                    }
+                }.filter {
+                    visited.insert($0).inserted
+                }
+        }
+
+        depthFirstSearch(successors(for: description.module, destination: description.destination)) {
+            switch $0 {
+            case .module(let module, let destination):
+                successors(for: module, destination: destination)
+            case .product(let product, let destination):
+                successors(for: product, destination: destination)
+            case .package:
+                []
+            }
+        } onNext: { module, _ in
+            switch module {
+            case .package:
+                break
+
+            case .product(let product, let destination):
+                onProduct(product, destination, self.description(for: product, context: destination))
+
+            case .module(let module, let destination):
+                onModule(module, destination, self.description(for: module, context: destination))
             }
         }
     }

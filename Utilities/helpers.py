@@ -65,11 +65,11 @@ def mkdir_p(path):
 def call(cmd, cwd=None, verbose=False):
     """Calls a subprocess."""
     cwd = cwd or pathlib.Path.cwd()
-    logging.info("executing command >>> %r with cwd %s", " ".join([str(c) for c in cmd]), cwd)
     try:
+        logging.info("executing command >>> %r with cwd %s", cmd, cwd)
         subprocess.check_call(cmd, cwd=cwd)
     except subprocess.CalledProcessError as cpe:
-        logging.debug("executing command >>> %r with cwd %s", " ".join([str(c) for c in cmd]), cwd)
+        logging.debug("executing command >>> %r with cwd %s", cmd, cwd)
         logging.error(
             "\n".join([
                 "Process failure with return code %d: %s",
@@ -96,7 +96,7 @@ def call_output(cmd, cwd=None, stderr=False, verbose=False):
     """Calls a subprocess for its return data."""
     stderr = subprocess.STDOUT if stderr else False
     cwd = cwd or pathlib.Path.cwd()
-    logging.info("executing command >>> %r with cwd %s", " ".join([str(c) for c in cmd]), cwd)
+    logging.info("executing command >>> %r with cwd %s", cmd, cwd)
     try:
         return subprocess.check_output(
             cmd,
@@ -105,7 +105,7 @@ def call_output(cmd, cwd=None, stderr=False, verbose=False):
             universal_newlines=True,
         ).strip()
     except subprocess.CalledProcessError as cpe:
-        logging.debug("executing command >>> %r with cwd %s", " ".join([str(c) for c in cmd]), cwd)
+        logging.debug("executing command >>> %r with cwd %s", cmd, cwd)
         logging.error(
             "\n".join([
                 "Process failure with return code %d: %s",

@@ -139,7 +139,7 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
     }
 
     func testSwiftRunSIGINT() throws {
-        try XCTSkipIfCI()
+        try XCTSkipIfPlatformCI()
         try fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
             let mainFilePath = fixturePath.appending("main.swift")
             try localFileSystem.removeFileTree(mainFilePath)

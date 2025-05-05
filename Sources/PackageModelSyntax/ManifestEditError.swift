@@ -23,6 +23,7 @@ package enum ManifestEditError: Error {
     case cannotFindArrayLiteralArgument(argumentName: String, node: Syntax)
     case oldManifest(ToolsVersion, expected: ToolsVersion)
     case cannotAddSettingsToPluginTarget
+    case existingDependency(dependencyName: String)
 }
 
 extension ToolsVersion {
@@ -46,6 +47,8 @@ extension ManifestEditError: CustomStringConvertible {
             "package manifest version \(version) is too old: please update to manifest version \(expectedVersion) or newer"
         case .cannotAddSettingsToPluginTarget:
             "plugin targets do not support settings"
+        case .existingDependency(let name):
+            "unable to add dependency '\(name)' because it already exists in the list of dependencies"
         }
     }
 }

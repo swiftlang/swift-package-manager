@@ -1001,7 +1001,7 @@ extension Workspace {
         try await self.loadPackageGraph(
             rootPath: rootPath,
             explicitProduct: explicitProduct,
-            traitConfiguration: nil,
+            traitConfiguration: .default,
             observabilityScope: observabilityScope
         )
     }
@@ -1010,7 +1010,7 @@ extension Workspace {
     package func loadPackageGraph(
         rootPath: AbsolutePath,
         explicitProduct: String? = nil,
-        traitConfiguration: TraitConfiguration? = nil,
+        traitConfiguration: TraitConfiguration = .default,
         observabilityScope: ObservabilityScope
     ) async throws -> ModulesGraph {
         try await self.loadPackageGraph(

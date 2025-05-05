@@ -12,6 +12,8 @@
 # ===----------------------------------------------------------------------===##
 
 import argparse
+import dataclasses
+import itertools
 import logging
 import os
 import pathlib
@@ -64,9 +66,21 @@ def get_arguments() -> argparse.Namespace:
         "--configuration",
         type=Configuration,
         dest="config",
-        default="debug",
-        choices=[e.value for e in Configuration],
+        default=Configuration.DEBUG,
+        choices=[e for e in Configuration],
         help="The configuraiton to use.",
+    )
+    parser.add_argument(
+        "-t",
+        "--triple",
+        type=str,
+        dest="triple",
+    )
+    parser.add_argument(
+        "-b",
+        "--build-system",
+        type=str,
+        dest="build_system",
     )
     parser.add_argument(
         "--enable-swift-testing",
@@ -99,7 +113,10 @@ def is_on_darwin() -> bool:
     return platform.uname().system == "Darwin"
 
 
-def set_environment(*, swiftpm_bin_dir: pathlib.Path,) -> None:
+def set_environment(
+    *,
+    swiftpm_bin_dir: pathlib.Path,
+) -> None:
     os.environ["SWIFTCI_IS_SELF_HOSTED"] = "1"
 
     # Set the SWIFTPM_CUSTOM_BIN_DIR path
@@ -131,39 +148,117 @@ def run_bootstrap(swiftpm_bin_dir: pathlib.Path) -> None:
     )
 
 
+GlobalArgsValueType = str
+
+
+@dataclasses.dataclass
+class GlobalArgs:
+    global_argument: str
+    value: t.Optional[GlobalArgsValueType]
+
+
+def filterNone(items: t.Iterable) -> t.Iterable:
+    return list(filter(lambda x: x is not None, items))
+
+
 def main() -> None:
     args = get_arguments()
-    ignore = "-Xlinker /ignore:4217" if os.name == "nt" else ""
     logging.getLogger().setLevel(logging.DEBUG if args.is_verbose else logging.INFO)
     logging.debug("Args: %r", args)
-
+    ignore_args = ["-Xlinker", "/ignore:4217"] if os.name == "nt" else []
+    globalArgsData = [
+        GlobalArgs(global_argument="--triple", value=args.triple),
+        GlobalArgs(global_argument="--build-system", value=args.build_system),
+    ]
+    global_args: t.Iterator[GlobalArgsValueType] = list(
+        itertools.chain.from_iterable(
+            [[arg.global_argument, arg.value] for arg in globalArgsData if arg.value]
+        )
+    )
+    logging.debug("Global Args: %r", global_args)
     with change_directory(REPO_ROOT_PATH):
         swiftpm_bin_dir = get_swiftpm_bin_dir(config=args.config)
         set_environment(swiftpm_bin_dir=swiftpm_bin_dir)
 
         call(
-            shlex.split("swift --version"),
+            filterNone(
+                [
+                    "swift",
+                    "--version",
+                ]
+            )
         )
 
         call(
-            shlex.split("swift package update"),
+            filterNone(
+                [
+                    "swift",
+                    "package",
+                    "update",
+                ]
+            )
         )
         call(
-            shlex.split(f"swift build --configuration {args.config} {ignore}"),
+            filterNone(
+                [
+                    "swift",
+                    "build",
+                    *global_args,
+                    "--configuration",
+                    args.config,
+                    *ignore_args,
+                ]
+            )
         )
 
-        swift_testing_arg= "--enable-swift-testing" if args.enable_swift_testing else ""
-        xctest_arg= "--enable-xctest" if args.enable_swift_testing else ""
+        swift_testing_arg = (
+            "--enable-swift-testing" if args.enable_swift_testing else None
+        )
+        xctest_arg = "--enable-xctest" if args.enable_swift_testing else None
         call(
-            shlex.split(f"swift run swift-test --configuration {args.config} --parallel {swift_testing_arg} {xctest_arg} --scratch-path .test {ignore}"),
+            filterNone(
+                [
+                    "swift",
+                    "run",
+                    "swift-test",
+                    *global_args,
+                    "--configuration",
+                    args.config,
+                    "--parallel",
+                    swift_testing_arg,
+                    xctest_arg,
+                    "--scratch-path",
+                    ".test",
+                    *ignore_args,
+                ]
+            )
         )
 
         integration_test_dir = (REPO_ROOT_PATH / "IntegrationTests").as_posix()
         call(
-            shlex.split(f"swift package --package-path {integration_test_dir} update"),
+            filterNone(
+                [
+                    "swift",
+                    "package",
+                    "--package-path",
+                    integration_test_dir,
+                    "update",
+                ]
+            )
         )
         call(
-            shlex.split(f"swift run swift-test --package-path {integration_test_dir} --parallel {ignore}"),
+            filterNone(
+                [
+                    "swift",
+                    "run",
+                    "swift-test",
+                    *global_args,
+                    "--package-path",
+                    integration_test_dir,
+                    "--parallel",
+                    *ignore_args,
+                ]
+            )
         )
 
     if is_on_darwin():
