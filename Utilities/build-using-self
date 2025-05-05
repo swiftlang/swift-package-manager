@@ -163,7 +163,6 @@ def filterNone(items: t.Iterable) -> t.Iterable:
 
 def main() -> None:
     args = get_arguments()
-    ignore = "-Xlinker /ignore:4217" if os.name == "nt" else ""
     logging.getLogger().setLevel(logging.DEBUG if args.is_verbose else logging.INFO)
     logging.debug("Args: %r", args)
     ignore_args = ["-Xlinker", "/ignore:4217"] if os.name == "nt" else []
