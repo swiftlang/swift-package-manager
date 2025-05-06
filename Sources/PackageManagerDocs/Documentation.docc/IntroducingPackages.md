@@ -23,10 +23,11 @@ A target may define a library, a test suite, an executable, an macro, a binary d
 
 ### About Modules
 
-Swift organizes code into _modules_. 
-Each module specifies a namespace and enforces access controls on which parts of that code can be used outside of that module.
+A Swift package organizes code into _modules_.
+A module specifies a namespace and enforces access controls on which parts of the code can be used outside of that module.
+When you import a library in Swift, you're importing a module to use from your code, regardless of what language was used to create that module.
 
-A program may have all of its code in a single module, or it may import other modules as _dependencies_. 
+A program may have all of its code in a single module, or it may import other modules as _dependencies_.
 Aside from the handful of system-provided modules, such as Darwin on macOS or Glibc on Linux, most dependencies require code to be downloaded and built in order to be used.
 
 Extracting code that solves a particular problem into a separate module allows for that code to be reused in other situations. 
