@@ -23,9 +23,14 @@ A target may define a library, a test suite, an executable, an macro, a binary d
 
 ### About Modules
 
-A Swift package organizes code into _modules_.
+A Swift package organizes code into _modules_, a unit of code distribution.
 A module specifies a namespace and enforces access controls on which parts of the code can be used outside of that module.
+Each target you define in a Swift package is a module.
+
+When you expose a library from a package, you expose the public API from your targets that make up that library for other packages to use.
 When you import a library in Swift, you're importing a module to use from your code, regardless of what language was used to create that module.
+A Swift package can also host C, C++, or Objective-C code as modules.
+Like Swift, these are also units of code distribution, but unlike Swift you expose the API that by hand-authoring a module-defining file (`module.modulemap`) that references a header or collection of headers with the API to expose.
 
 A program may have all of its code in a single module, or it may import other modules as _dependencies_.
 Aside from the handful of system-provided modules, such as Darwin on macOS or Glibc on Linux, most dependencies require code to be downloaded and built in order to be used.
