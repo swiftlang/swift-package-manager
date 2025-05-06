@@ -102,10 +102,20 @@ public struct PluginContext {
 
         /// Full path of the built or provided tool in the file system.
         @available(_PackageDescription, deprecated: 6.0, renamed: "url")
-        public let path: Path
+        public var path: Path {
+            get { _path }
+        }
 
         /// Full path of the built or provided tool in the file system.
         @available(_PackageDescription, introduced: 6.0)
         public let url: URL
+
+        private let _path: Path
+
+        @_spi(PackagePluginInternal) public init(name: String, path: Path, url: URL) {
+            self.name = name
+            self.url = url
+            self._path = path
+        }
     }
 }

@@ -143,8 +143,6 @@ final class ResourcesTests: XCTestCase {
     }
 
     func testResourcesOutsideOfTargetCanBeIncluded() async throws {
-        try UserToolchain.default.skipUnlessAtLeastSwift6()
-
         try await testWithTemporaryDirectory { tmpPath in
             let packageDir = tmpPath.appending(components: "MyPackage")
 

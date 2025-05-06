@@ -44,6 +44,13 @@ public enum AddPackageDependency {
             throw ManifestEditError.cannotFindPackage
         }
 
+        guard try !dependencyAlreadyAdded(
+            dependency,
+            in: packageCall
+        ) else {
+            return PackageEditResult(manifestEdits: [])
+        }
+
         let newPackageCall = try addPackageDependencyLocal(
             dependency, to: packageCall
         )
@@ -53,6 +60,50 @@ public enum AddPackageDependency {
                 .replace(packageCall, with: newPackageCall.description),
             ]
         )
+    }
+
+    /// Return `true` if the dependency already exists in the manifest, otherwise return `false`.
+    /// Throws an error if a dependency already exists with the same id or url, but different arguments.
+    private static func dependencyAlreadyAdded(
+        _ dependency: MappablePackageDependency.Kind,
+        in packageCall: FunctionCallExprSyntax
+    ) throws -> Bool {
+        let dependencySyntax = dependency.asSyntax()
+        guard let dependenctFnSyntax = dependencySyntax.as(FunctionCallExprSyntax.self) else {
+            throw ManifestEditError.cannotFindPackage
+        }
+
+        guard let id = dependenctFnSyntax.arguments.first(where: {
+            $0.label?.text == "url" || $0.label?.text == "id" || $0.label?.text == "path"
+        }) else {
+            throw InternalError("Missing id or url argument in dependency syntax")
+        }
+
+        if let existingDependencies = packageCall.findArgument(labeled: "dependencies") {
+            // If we have an existing dependencies array, we need to check if
+            if let expr = existingDependencies.expression.as(ArrayExprSyntax.self) {
+                // Iterate through existing dependencies and look for an argument that matches
+                // either the `id` or `url` argument of the new dependency. 
+                let existingArgument = expr.elements.first { elem in
+                    if let funcExpr = elem.expression.as(FunctionCallExprSyntax.self) {
+                        return funcExpr.arguments.contains {
+                            $0.trimmedDescription == id.trimmedDescription
+                        }
+                    }
+                    return true
+                }
+
+                if let existingArgument {
+                    let normalizedExistingArgument = existingArgument.detached.with(\.trailingComma, nil)
+                    // This exact dependency already exists, return false to indicate we should do nothing.
+                    if normalizedExistingArgument.trimmedDescription == dependencySyntax.trimmedDescription {
+                        return true
+                    }
+                    throw ManifestEditError.existingDependency(dependencyName: dependency.identifier)
+                }
+            }
+        }
+        return false
     }
 
     /// Implementation of adding a package dependency to an existing call.
@@ -65,5 +116,18 @@ public enum AddPackageDependency {
             trailingLabels: self.argumentLabelsAfterDependencies,
             newElement: dependency.asSyntax()
         )
+    }
+}
+
+fileprivate extension MappablePackageDependency.Kind {
+    var identifier: String {
+        switch self {
+            case .sourceControl(let name, let path, _):
+                return name ?? path
+            case .fileSystem(let name, let location):
+                return name ?? location
+            case .registry(let id, _):
+                return id
+        }
     }
 }

@@ -75,7 +75,7 @@ public protocol PackageContainer {
     /// - Precondition: `versions.contains(version)`
     /// - Throws: If the version could not be resolved; this will abort
     ///   dependency resolution completely.
-    func getDependencies(at version: Version, productFilter: ProductFilter) async throws -> [PackageContainerConstraint]
+    func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: Set<String>?) async throws -> [PackageContainerConstraint]
 
     /// Fetch the declared dependencies for a particular revision.
     ///
@@ -84,12 +84,12 @@ public protocol PackageContainer {
     ///
     /// - Throws: If the revision could not be resolved; this will abort
     ///   dependency resolution completely.
-    func getDependencies(at revision: String, productFilter: ProductFilter) async throws -> [PackageContainerConstraint]
+    func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String>?) async throws -> [PackageContainerConstraint]
 
     /// Fetch the dependencies of an unversioned package container.
     ///
     /// NOTE: This method should not be called on a versioned container.
-    func getUnversionedDependencies(productFilter: ProductFilter) async throws -> [PackageContainerConstraint]
+    func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: Set<String>?) async throws -> [PackageContainerConstraint]
 
     /// Get the updated identifier at a bound version.
     ///
@@ -97,6 +97,12 @@ public protocol PackageContainer {
     /// after the container is available. The updated identifier is returned in result of the
     /// dependency resolution.
     func loadPackageReference(at boundVersion: BoundVersion) async throws -> PackageReference
+
+
+    /// Fetch the enabled traits of a package container.
+    ///
+    /// NOTE: This method should only be called on root packages.
+    func getEnabledTraits(traitConfiguration: TraitConfiguration, version: Version?) async throws -> Set<String>
 }
 
 extension PackageContainer {
@@ -110,6 +116,10 @@ extension PackageContainer {
 
     public var shouldInvalidatePinnedVersions: Bool {
         return true
+    }
+
+    public func getEnabledTraits(traitConfiguration: TraitConfiguration, version: Version? = nil) async throws -> Set<String> {
+        return []
     }
 }
 
@@ -145,24 +155,40 @@ public struct PackageContainerConstraint: Equatable, Hashable {
     /// The required products.
     public let products: ProductFilter
 
+    /// The traits that have been enabled for the package.
+    public let enabledTraits: Set<String>?
+
     /// Create a constraint requiring the given `container` satisfying the
     /// `requirement`.
-    public init(package: PackageReference, requirement: PackageRequirement, products: ProductFilter) {
+    public init(package: PackageReference, requirement: PackageRequirement, products: ProductFilter, enabledTraits: Set<String>? = nil) {
         self.package = package
         self.requirement = requirement
         self.products = products
+        self.enabledTraits = enabledTraits
     }
 
     /// Create a constraint requiring the given `container` satisfying the
     /// `versionRequirement`.
-    public init(package: PackageReference, versionRequirement: VersionSetSpecifier, products: ProductFilter) {
-        self.init(package: package, requirement: .versionSet(versionRequirement), products: products)
+    public init(package: PackageReference, versionRequirement: VersionSetSpecifier, products: ProductFilter, enabledTraits: Set<String>? = nil) {
+        self.init(package: package, requirement: .versionSet(versionRequirement), products: products, enabledTraits: enabledTraits)
+    }
+
+    /// Custom implementation for the hash method due to interference of traits in its computation.
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(package)
+        hasher.combine(requirement)
+        hasher.combine(products)
+    }
+
+    /// Custom implementation to check equality due to interference of traits in its computation.
+    static public func == (lhs: PackageContainerConstraint, rhs: PackageContainerConstraint) -> Bool {
+        return lhs.package == rhs.package && lhs.requirement == rhs.requirement && lhs.products == rhs.products
     }
 }
 
 extension PackageContainerConstraint: CustomStringConvertible {
     public var description: String {
-        return "Constraint(\(self.package), \(requirement), \(products)"
+        return "Constraint(\(self.package), \(requirement), \(products), \(enabledTraits ?? [])"
     }
 }
 

@@ -12,6 +12,7 @@
 
 import PackageModel
 
+import func TSCBasic.topologicalSort
 import struct Basics.IdentifiableSet
 
 @available(*, deprecated, renamed: "ResolvedModule")
@@ -151,7 +152,7 @@ public struct ResolvedModule {
         self.underlying.sources
     }
 
-    let packageIdentity: PackageIdentity
+    package let packageIdentity: PackageIdentity
 
     /// The underlying module represented in this resolved module.
     public let underlying: Module

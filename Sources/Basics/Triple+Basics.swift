@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import TSCUtility
 import enum TSCBasic.JSON
 
 extension Triple {

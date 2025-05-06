@@ -13,11 +13,14 @@
 @_spi(SwiftPMInternal)
 import Basics
 import Dispatch
+import PackageModel
 
 import protocol TSCBasic.OutputByteStream
 import class TSCBasic.TerminalController
 import class TSCBasic.ThreadSafeOutputByteStream
 
+import class TSCBasic.BufferedOutputByteStream
+import class TSCBasic.LocalFileOutputByteStream
 import class TSCUtility.MultiLineNinjaProgressAnimation
 import class TSCUtility.NinjaProgressAnimation
 import protocol TSCUtility.ProgressAnimationProtocol
@@ -34,9 +37,15 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
     ///   - outputStream: an instance of a stream used for output.
     ///   - logLevel: the lowest severity of diagnostics that this handler will forward to `outputStream`. Diagnostics
     ///   emitted below this level will be ignored.
-    public init(outputStream: OutputByteStream, logLevel: Basics.Diagnostic.Severity) {
-        let threadSafeOutputByteStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
-        self.outputHandler = OutputHandler(logLevel: logLevel, outputStream: threadSafeOutputByteStream)
+
+    public init(outputStream: OutputByteStream, logLevel: Basics.Diagnostic.Severity, colorDiagnostics: Bool = true) {
+        let threadSafeOutputByteStream = outputStream as? ThreadSafeOutputByteStream ??
+            ThreadSafeOutputByteStream(outputStream)
+        self.outputHandler = OutputHandler(
+            logLevel: logLevel,
+            outputStream: threadSafeOutputByteStream,
+            colorDiagnostics: colorDiagnostics
+        )
     }
 
     // for raw output reporting
@@ -68,11 +77,11 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
         internal let outputStream: ThreadSafeOutputByteStream
         private let writer: InteractiveWriter
         private let progressAnimation: ProgressAnimationProtocol
-
+        private let colorDiagnostics: Bool
         private let queue = DispatchQueue(label: "org.swift.swiftpm.tools-output")
         private let sync = DispatchGroup()
 
-        init(logLevel: Diagnostic.Severity, outputStream: ThreadSafeOutputByteStream) {
+        init(logLevel: Diagnostic.Severity, outputStream: ThreadSafeOutputByteStream, colorDiagnostics: Bool) {
             self.logLevel = logLevel
             self.outputStream = outputStream
             self.writer = InteractiveWriter(stream: outputStream)
@@ -80,6 +89,7 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
                 stream: self.outputStream,
                 verbose: self.logLevel.isVerbose
             )
+            self.colorDiagnostics = colorDiagnostics
         }
 
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
@@ -90,17 +100,12 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
 
                 // TODO: do something useful with scope
                 var output: String
-                switch diagnostic.severity {
-                case .error:
-                    output = self.writer.format("error: ", inColor: .red, bold: true)
-                case .warning:
-                    output = self.writer.format("warning: ", inColor: .yellow, bold: true)
-                case .info:
-                    output = self.writer.format("info: ", inColor: .white, bold: true)
-                case .debug:
-                    output = self.writer.format("debug: ", inColor: .white, bold: true)
-                }
 
+                let prefix = diagnostic.severity.logLabel
+                let color = self.colorDiagnostics ? diagnostic.severity.color : .noColor
+                let bold = self.colorDiagnostics ? diagnostic.severity.isBold : false
+
+                output = self.writer.format(prefix, inColor: color, bold: bold)
                 if let diagnosticPrefix = diagnostic.metadata?.diagnosticPrefix {
                     output += diagnosticPrefix
                     output += ": "

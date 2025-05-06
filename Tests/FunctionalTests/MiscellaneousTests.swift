@@ -426,9 +426,6 @@ final class MiscellaneousTestCase: XCTestCase {
 
     @available(macOS 15, *)
     func testTestsCanLinkAgainstAsyncExecutable() async throws {
-        #if compiler(<5.10)
-        try XCTSkipIf(true, "skipping because host compiler doesn't have a fix for symbol conflicts yet")
-        #endif
         try await fixture(name: "Miscellaneous/TestableAsyncExe") { fixturePath in
             let (stdout, stderr) = try await executeSwiftTest(fixturePath)
             // in "swift test" build output goes to stderr
@@ -666,6 +663,17 @@ final class MiscellaneousTestCase: XCTestCase {
             let errors = stderr.components(separatedBy: .newlines).filter { !$0.contains("[logging] misuse") && !$0.isEmpty }
                                                                   .filter { !$0.contains("Unable to locate libSwiftScan") }
             XCTAssertEqual(errors, [], "unexpected errors: \(errors)")
+        }
+    }
+
+    func testRootPackageWithConditionalsSwiftBuild() async throws {
+#if os(Linux)
+        if FileManager.default.contents(atPath: "/etc/system-release").map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false {
+            throw XCTSkip("Skipping Swift Build testing on Amazon Linux because of platform issues.")
+        }
+#endif
+        try await fixture(name: "Miscellaneous/RootPackageWithConditionals") { path in
+            _ = try await SwiftPM.Build.execute(["--build-system=swiftbuild"], packagePath: path, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
         }
     }
 }

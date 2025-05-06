@@ -15,6 +15,7 @@ import Basics
 import Dispatch
 import Foundation
 import PackageCollectionsModel
+import SwiftASN1
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import _CryptoExtras

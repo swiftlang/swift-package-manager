@@ -204,8 +204,4 @@ extension ProductFilter {
     }
 }
 
-#if compiler(<6.0)
 extension ProductFilter: JSONSerializable, JSONMappable {}
-#else
-extension ProductFilter: @retroactive JSONSerializable, @retroactive JSONMappable {}
-#endif

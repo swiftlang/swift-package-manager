@@ -10,6 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if USE_IMPL_ONLY_IMPORTS
+@_implementationOnly import Foundation
+#else
+import Foundation
+#endif
 
 extension Package {
     /// A package dependency of a Swift package.
@@ -506,7 +511,6 @@ extension Package.Dependency {
     /// ```
     ///
     /// - Parameters:
-    ///   - name: The name of the package, or nil to deduce it from the URL.
     ///   - url: The valid Git URL of the package.
     ///   - range: The custom version range requirement.
     ///
@@ -529,7 +533,6 @@ extension Package.Dependency {
     /// ```
     ///
     /// - Parameters:
-    ///   - name: The name of the package, or nil to deduce it from the URL.
     ///   - url: The valid Git URL of the package.
     ///   - range: The custom version range requirement.
     ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
@@ -580,7 +583,6 @@ extension Package.Dependency {
     /// ```
     ///
     /// - Parameters:
-    ///   - name: The name of the package, or `nil` to deduce it from the URL.
     ///   - url: The valid Git URL of the package.
     ///   - range: The closed version range requirement.
     ///
@@ -603,7 +605,6 @@ extension Package.Dependency {
     /// ```
     ///
     /// - Parameters:
-    ///   - name: The name of the package, or `nil` to deduce it from the URL.
     ///   - url: The valid Git URL of the package.
     ///   - range: The closed version range requirement.
     ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
@@ -783,7 +784,6 @@ extension Package.Dependency {
     /// Adds a remote package dependency given a version requirement.
     ///
     /// - Parameters:
-    ///   - name: The name of the package, or nil to deduce it from the URL.
     ///   - url: The valid Git URL of the package.
     ///   - requirement: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
     ///

@@ -16,6 +16,7 @@ import Dispatch
 import Foundation
 import PackageLoading
 import PackageModel
+import TSCBasic
 
 import struct TSCUtility.Version
 
@@ -23,8 +24,8 @@ public class RegistryDownloadsManager: AsyncCancellable {
     public typealias Delegate = RegistryDownloadsManagerDelegate
 
     private let fileSystem: FileSystem
-    private let path: AbsolutePath
-    private let cachePath: AbsolutePath?
+    private let path: Basics.AbsolutePath
+    private let cachePath: Basics.AbsolutePath?
     private let registryClient: RegistryClient
     private let delegate: Delegate?
 
@@ -33,13 +34,13 @@ public class RegistryDownloadsManager: AsyncCancellable {
         let version: Version
     }
 
-    private var pendingLookups = [PackageLookup: Task<AbsolutePath, Error>]()
+    private var pendingLookups = [PackageLookup: Task<Basics.AbsolutePath, Error>]()
     private var pendingLookupsLock = NSLock()
 
     public init(
         fileSystem: FileSystem,
-        path: AbsolutePath,
-        cachePath: AbsolutePath?,
+        path: Basics.AbsolutePath,
+        cachePath: Basics.AbsolutePath?,
         registryClient: RegistryClient,
         delegate: Delegate?
     ) {
@@ -54,11 +55,10 @@ public class RegistryDownloadsManager: AsyncCancellable {
         package: PackageIdentity,
         version: Version,
         observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue,
-        callbackQueue: DispatchQueue
-    ) async throws -> AbsolutePath {
-        let packageRelativePath: RelativePath
-        let packagePath: AbsolutePath
+        delegateQueue: DispatchQueue
+    ) async throws -> Basics.AbsolutePath {
+        let packageRelativePath: Basics.RelativePath
+        let packagePath: Basics.AbsolutePath
 
         packageRelativePath = try package.downloadPath(version: version)
         packagePath = self.path.appending(packageRelativePath)
@@ -97,8 +97,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
                             version: version,
                             packagePath: packagePath,
                             observabilityScope: observabilityScope,
-                            delegateQueue: delegateQueue,
-                            callbackQueue: callbackQueue,
+                            delegateQueue: delegateQueue
                         )
                         // inform delegate that we finished to fetch
                         let duration = start.distance(to: .now())
@@ -129,15 +128,14 @@ public class RegistryDownloadsManager: AsyncCancellable {
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<AbsolutePath, Error>) -> Void
+        completion: @escaping (Result<Basics.AbsolutePath, Error>) -> Void
     ) {
-        self.executeAsync(completion, on: callbackQueue) {
+        callbackQueue.asyncResult(completion) {
             try await self.lookup(
                 package: package,
                 version: version,
                 observabilityScope: observabilityScope,
-                delegateQueue: delegateQueue,
-                callbackQueue: callbackQueue,
+                delegateQueue: delegateQueue
             )
         }
     }
@@ -150,10 +148,9 @@ public class RegistryDownloadsManager: AsyncCancellable {
     private func downloadAndPopulateCache(
         package: PackageIdentity,
         version: Version,
-        packagePath: AbsolutePath,
+        packagePath: Basics.AbsolutePath,
         observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue,
-        callbackQueue: DispatchQueue
+        delegateQueue: DispatchQueue
     ) async throws -> FetchDetails {
         if let cachePath {
             do {
@@ -184,8 +181,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
                                 destinationPath: cachedPackagePath,
                                 progressHandler: updateDownloadProgress,
                                 fileSystem: self.fileSystem,
-                                observabilityScope: observabilityScope,
-                                callbackQueue: callbackQueue
+                                observabilityScope: observabilityScope
                             )
 
                             // extra validation to defend from racy edge cases
@@ -219,8 +215,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
                     destinationPath: packagePath,
                     progressHandler: updateDownloadProgress,
                     fileSystem: self.fileSystem,
-                    observabilityScope: observabilityScope,
-                    callbackQueue: callbackQueue
+                    observabilityScope: observabilityScope
                 )
                 return FetchDetails(fromCache: false, updatedCache: false)
             }
@@ -235,8 +230,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
                 destinationPath: packagePath,
                 progressHandler: updateDownloadProgress,
                 fileSystem: self.fileSystem,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
+                observabilityScope: observabilityScope
             )
             return FetchDetails(fromCache: false, updatedCache: false)
         }
@@ -309,24 +303,9 @@ public class RegistryDownloadsManager: AsyncCancellable {
         }
     }
 
-    private func initializeCacheIfNeeded(cachePath: AbsolutePath) throws {
+    private func initializeCacheIfNeeded(cachePath: Basics.AbsolutePath) throws {
         if !self.fileSystem.exists(cachePath) {
             try self.fileSystem.createDirectory(cachePath, recursive: true)
-        }
-    }
-
-    private func executeAsync<T>(
-        _ callback: @escaping (Result<T, Error>) -> Void,
-        on queue: DispatchQueue,
-        _ closure: @escaping () async throws -> T
-    ) {
-        let completion: (Result<T, Error>) -> Void = { result in queue.async { callback(result) } }
-        Task {
-            do {
-                completion(.success(try await closure()))
-            } catch {
-                completion(.failure(error))
-            }
         }
     }
 }
@@ -367,7 +346,7 @@ extension RegistryDownloadsManager {
 }
 
 extension FileSystem {
-    func validPackageDirectory(_ path: AbsolutePath) throws -> Bool {
+    func validPackageDirectory(_ path: Basics.AbsolutePath) throws -> Bool {
         if !self.exists(path) {
             return false
         }
@@ -376,14 +355,14 @@ extension FileSystem {
 }
 
 extension PackageIdentity {
-    internal func downloadPath() throws -> RelativePath {
+    internal func downloadPath() throws -> Basics.RelativePath {
         guard let registryIdentity = self.registry else {
             throw StringError("invalid package identifier \(self), expected registry scope and name")
         }
         return try RelativePath(validating: registryIdentity.scope.description).appending(component: registryIdentity.name.description)
     }
 
-    internal func downloadPath(version: Version) throws -> RelativePath {
+    internal func downloadPath(version: Version) throws -> Basics.RelativePath {
         try self.downloadPath().appending(component: version.description)
     }
 }

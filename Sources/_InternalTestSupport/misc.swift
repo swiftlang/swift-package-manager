@@ -29,6 +29,7 @@ import struct SPMBuildCore.BuildParameters
 import TSCTestSupport
 import Workspace
 import func XCTest.XCTFail
+import struct XCTest.XCTSkip
 
 import struct TSCBasic.ByteString
 import struct Basics.AsyncProcessResult
@@ -37,6 +38,20 @@ import enum TSCUtility.Git
 
 @_exported import func TSCTestSupport.systemQuietly
 @_exported import enum TSCTestSupport.StringPattern
+
+public let isInCiEnvironment = ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil
+public let isSelfHostedCiEnvironment = ProcessInfo.processInfo.environment["SWIFTCI_IS_SELF_HOSTED"] != nil
+
+public let isRealSigningIdentyEcLabelEnvVarSet =
+    ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_EC_LABEL"] != nil
+
+public let isRealSigningIdentitTestDefined = {
+    #if ENABLE_REAL_SIGNING_IDENTITY_TEST
+        return true
+    #else
+        return false
+    #endif
+}()
 
 /// Test helper utility for executing a block with a temporary directory.
 public func testWithTemporaryDirectory(
@@ -117,6 +132,10 @@ public func testWithTemporaryDirectory<Result>(
     }
 }
 
+public enum TestError: Error {
+    case platformNotSupported
+}
+
 @discardableResult public func fixture<T>(
     name: String,
     createGitRepo: Bool = true,
@@ -168,13 +187,22 @@ fileprivate func verifyFixtureExists(at fixtureSubpath: RelativePath, file: Stat
     return fixtureDir
 }
 
-fileprivate func setup(fixtureDir: AbsolutePath, in tmpDirPath: AbsolutePath, copyName: String, createGitRepo: Bool = true) throws -> AbsolutePath {
+fileprivate func setup(
+    fixtureDir: AbsolutePath,
+    in tmpDirPath: AbsolutePath,
+    copyName: String,
+    createGitRepo: Bool = true
+) throws -> AbsolutePath {
     func copy(from srcDir: AbsolutePath, to dstDir: AbsolutePath) throws {
-#if os(Windows)
+        #if os(Windows)
         try localFileSystem.copy(from: srcDir, to: dstDir)
-#else
+        #else
         try systemQuietly("cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
-#endif
+        #endif
+        
+        // Ensure we get a clean test fixture.
+        try localFileSystem.removeFileTree(dstDir.appending(component: ".build"))
+        try localFileSystem.removeFileTree(dstDir.appending(component: ".swiftpm"))
     }
 
     // The fixture contains either a checkout or just a Git directory.
@@ -252,7 +280,7 @@ public func getBuildSystemArgs(for buildSystem: BuildSystemProvider.Kind?) -> [S
 
 @discardableResult
 public func executeSwiftBuild(
-    _ packagePath: AbsolutePath,
+    _ packagePath: AbsolutePath?,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
@@ -274,8 +302,8 @@ public func executeSwiftBuild(
 
 @discardableResult
 public func executeSwiftRun(
-    _ packagePath: AbsolutePath,
-    _ executable: String,
+    _ packagePath: AbsolutePath?,
+    _ executable: String?,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
@@ -292,13 +320,15 @@ public func executeSwiftRun(
         Xswiftc: Xswiftc,
         buildSystem: buildSystem
     )
-    args.append(executable)
+    if let executable {
+        args.append(executable)
+    }
     return try await SwiftPM.Run.execute(args, packagePath: packagePath, env: env)
 }
 
 @discardableResult
 public func executeSwiftPackage(
-    _ packagePath: AbsolutePath,
+    _ packagePath: AbsolutePath?,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
@@ -320,7 +350,7 @@ public func executeSwiftPackage(
 
 @discardableResult
 public func executeSwiftPackageRegistry(
-    _ packagePath: AbsolutePath,
+    _ packagePath: AbsolutePath?,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
@@ -342,13 +372,14 @@ public func executeSwiftPackageRegistry(
 
 @discardableResult
 public func executeSwiftTest(
-    _ packagePath: AbsolutePath,
+    _ packagePath: AbsolutePath?,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: Environment? = nil,
+    throwIfCommandFails: Bool = false,
     buildSystem: BuildSystemProvider.Kind = .native
 ) async throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(
@@ -359,7 +390,7 @@ public func executeSwiftTest(
         Xswiftc: Xswiftc,
         buildSystem: buildSystem
     )
-    return try await SwiftPM.Test.execute(args, packagePath: packagePath, env: env)
+    return try await SwiftPM.Test.execute(args, packagePath: packagePath, env: env, throwIfCommandFails: throwIfCommandFails)
 }
 
 private func swiftArgs(
@@ -401,7 +432,8 @@ public func loadPackageGraph(
     createREPLProduct: Bool = false,
     useXCBuildFileRules: Bool = false,
     customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
-    observabilityScope: ObservabilityScope
+    observabilityScope: ObservabilityScope,
+    traitConfiguration: TraitConfiguration = .default
 ) throws -> ModulesGraph {
     try loadModulesGraph(
         identityResolver: identityResolver,
@@ -413,7 +445,8 @@ public func loadPackageGraph(
         createREPLProduct: createREPLProduct,
         useXCBuildFileRules: useXCBuildFileRules,
         customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
-        observabilityScope: observabilityScope
+        observabilityScope: observabilityScope,
+        traitConfiguration: traitConfiguration
     )
 }
 
@@ -513,25 +546,14 @@ extension InitPackage {
     }
 }
 
-#if compiler(<6.0)
 extension RelativePath: ExpressibleByStringLiteral {}
 extension RelativePath: ExpressibleByStringInterpolation {}
-extension URL: ExpressibleByStringLiteral {}
-extension URL: ExpressibleByStringInterpolation {}
+extension URL: @retroactive ExpressibleByStringLiteral {}
+extension URL: @retroactive ExpressibleByStringInterpolation {}
 extension PackageIdentity: ExpressibleByStringLiteral {}
 extension PackageIdentity: ExpressibleByStringInterpolation {}
 extension AbsolutePath: ExpressibleByStringLiteral {}
 extension AbsolutePath: ExpressibleByStringInterpolation {}
-#else
-extension RelativePath: @retroactive ExpressibleByStringLiteral {}
-extension RelativePath: @retroactive ExpressibleByStringInterpolation {}
-extension URL: @retroactive ExpressibleByStringLiteral {}
-extension URL: @retroactive ExpressibleByStringInterpolation {}
-extension PackageIdentity: @retroactive ExpressibleByStringLiteral {}
-extension PackageIdentity: @retroactive ExpressibleByStringInterpolation {}
-extension AbsolutePath: @retroactive ExpressibleByStringLiteral {}
-extension AbsolutePath: @retroactive ExpressibleByStringInterpolation {}
-#endif
 
 public func getNumberOfMatches(of match: String, in value: String) -> Int {
     guard match.count != 0 else { return 0 }

@@ -296,7 +296,7 @@ class ManifestEditTests: XCTestCase {
                 """
             )
         ) { (error: ManifestEditError) in
-            if case .oldManifest(.v5_4) = error {
+            if case .oldManifest(.v5_4, .v5_5) = error {
                 return true
             } else {
                 return false
@@ -612,6 +612,402 @@ class ManifestEditTests: XCTestCase {
                 targetName: "MyTest",
                 to: manifest
             )
+        }
+    }
+
+    func testAddSwiftSettings() throws {
+        XCTAssertThrows(
+            try AddSwiftSetting.upcomingFeature(
+                to: "MyTest",
+                name: "ExistentialAny",
+                manifest: """
+                // swift-tools-version: 5.5
+                let package = Package(
+                    name: "packages",
+                    targets: [
+                        .executableTarget(
+                            name: "MyTest"
+                        )
+                    ]
+                )
+                """
+            )
+        ) { (error: ManifestEditError) in
+            if case .oldManifest(.v5_5, .v5_8) = error {
+                return true
+            } else {
+                return false
+            }
+        }
+
+        XCTAssertThrows(
+            try AddSwiftSetting.upcomingFeature(
+                to: "OtherTest",
+                name: "ExistentialAny",
+                manifest: """
+                // swift-tools-version: 5.8
+                let package = Package(
+                    name: "packages",
+                    targets: [
+                        .executableTarget(
+                            name: "MyTest"
+                        )
+                    ]
+                )
+                """
+            )
+        ) { (error: ManifestEditError) in
+            if case .cannotFindTarget("OtherTest") = error {
+                return true
+            } else {
+                return false
+            }
+        }
+
+        XCTAssertThrows(
+            try AddSwiftSetting.upcomingFeature(
+                to: "MyPlugin",
+                name: "ExistentialAny",
+                manifest: """
+                // swift-tools-version: 5.8
+                let package = Package(
+                    name: "packages",
+                    targets: [
+                        .plugin(
+                            name: "MyPlugin",
+                            capability: .buildTool
+                        )
+                    ]
+                )
+                """
+            )
+        ) { (error: ManifestEditError) in
+            if case .cannotAddSettingsToPluginTarget = error {
+                return true
+            } else {
+                return false
+            }
+        }
+
+
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.8
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                        ]
+                    ),
+                ]
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 5.8
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                        ],
+                        swiftSettings: [
+                            .enableUpcomingFeature("ExistentialAny:migratable"),
+                        ]
+                    ),
+                ]
+            )
+            """) { manifest in
+            try AddSwiftSetting.upcomingFeature(
+                to: "MyTest",
+                name: "ExistentialAny:migratable",
+                manifest: manifest
+            )
+        }
+
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.8
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                        ],
+                        swiftSettings: [
+                            .enableExperimentalFeature("Extern")
+                        ]
+                    ),
+                ]
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 5.8
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                        ],
+                        swiftSettings: [
+                            .enableExperimentalFeature("Extern"),
+                            .enableExperimentalFeature("TrailingComma"),
+                        ]
+                    ),
+                ]
+            )
+            """) { manifest in
+            try AddSwiftSetting.experimentalFeature(
+                to: "MyTest",
+                name: "TrailingComma",
+                manifest: manifest
+            )
+        }
+
+        try assertManifestRefactor("""
+            // swift-tools-version: 6.2
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                        ]
+                    ),
+                ]
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 6.2
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                        ],
+                        swiftSettings: [
+                            .strictMemorySafety,
+                        ]
+                    ),
+                ]
+            )
+            """) { manifest in
+            try AddSwiftSetting.strictMemorySafety(
+                to: "MyTest",
+                manifest: manifest
+            )
+        }
+
+        try assertManifestRefactor("""
+            // swift-tools-version: 6.0
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                        ]
+                    ),
+                ]
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 6.0
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                        ],
+                        swiftSettings: [
+                            .swiftLanguageMode(.v5),
+                        ]
+                    ),
+                ]
+            )
+            """) { manifest in
+            try AddSwiftSetting.languageMode(
+                to: "MyTest",
+                mode: .init(string: "5")!,
+                manifest: manifest
+            )
+        }
+        
+        // Custom language mode
+        try assertManifestRefactor("""
+            // swift-tools-version: 6.0
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                        ]
+                    ),
+                ]
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 6.0
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [
+                        ],
+                        swiftSettings: [
+                            .swiftLanguageMode(.version("6.2")),
+                        ]
+                    ),
+                ]
+            )
+            """) { manifest in
+            try AddSwiftSetting.languageMode(
+                to: "MyTest",
+                mode: .init(string: "6.2")!,
+                manifest: manifest
+            )
+        }
+    }
+}
+/// Assert that applying the moveSingleTargetSources operation to the manifest
+/// produces the expected file system.
+func assertFileSystemRefactor(
+    _ manifest: String,
+    inputFileLayout: [AbsolutePath] = [],
+    expectedFileLayout: [AbsolutePath] = [],
+    file: StaticString = #filePath,
+    line: UInt = #line
+) throws {
+    let mockFileSystem = InMemoryFileSystem();
+    for path in inputFileLayout {
+        try mockFileSystem.writeFileContents(path, string: "print(\"Hello, world!\")")
+    }
+
+    try AddTarget.moveSingleTargetSources(
+        packagePath: AbsolutePath("/"),
+        manifest: Parser.parse(source: manifest),
+        fileSystem: mockFileSystem
+    )
+
+    for path in expectedFileLayout {
+        XCTAssertTrue(mockFileSystem.exists(path))
+    }
+
+    let unexpectedFiles = inputFileLayout.filter { !expectedFileLayout.contains($0) }
+    for path in unexpectedFiles {
+        XCTAssertFalse(mockFileSystem.exists(path))
+    }
+}
+
+class SingleTargetSourceTests: XCTestCase {
+    func testMoveSingleTargetSources() throws {
+        try assertFileSystemRefactor(
+            """
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .executableTarget(name: "Foo"),
+                ]
+            )
+            """,
+            inputFileLayout: [AbsolutePath("/Sources/Foo.swift")],
+            expectedFileLayout: [AbsolutePath("/Sources/Foo/Foo.swift")]
+        )
+    }
+
+    func testMoveSingleTargetSourcesNoTargets() throws {
+        try assertFileSystemRefactor(
+            """
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages"
+            )
+            """,
+            inputFileLayout: [AbsolutePath("/Sources/Foo.swift")],
+            expectedFileLayout: [AbsolutePath("/Sources/Foo.swift")]
+        )
+    }
+
+    func testMoveSingleTargetSourcesAlreadyOrganized() throws {
+        try assertFileSystemRefactor(
+            """
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .executableTarget(name: "Foo"),
+                ]
+            )
+            """,
+            inputFileLayout: [AbsolutePath("/Sources/Foo/Foo.swift")],
+            expectedFileLayout: [AbsolutePath("/Sources/Foo/Foo.swift")]
+        )
+    }
+
+    func testMoveSingleTargetSourcesInvalidManifestTargets() throws {
+        XCTAssertThrowsError(
+            try assertFileSystemRefactor(
+                """
+                // swift-tools-version: 5.5
+                let package = Package(
+                    name: "packages",
+                    targets: "invalid"
+                )
+                """
+            )
+        ) { error in
+            XCTAssertTrue(error is ManifestEditError)
+        }
+    }
+
+    func testMoveSingleTargetSourcesInvalidManifestToolsVersion() throws {
+        XCTAssertThrowsError(
+            try assertFileSystemRefactor(
+                """
+                // swift-tools-version: 5.4
+                let package = Package(
+                    name: "packages",
+                    targets: []
+                )
+                """
+            )
+        ) { error in
+            XCTAssertTrue(error is ManifestEditError)
+        }
+    }
+
+    func testMoveSingleTargetSourcesInvalidManifestTarget() throws {
+        XCTAssertThrowsError(
+            try assertFileSystemRefactor(
+                """
+                // swift-tools-version: 5.4
+                let package = Package(
+                    name: "packages",
+                    targets: [.executableTarget(123)]
+                )
+                """
+            )
+        ) { error in
+            XCTAssertTrue(error is ManifestEditError)
+        }
+    }
+
+    func testMoveSingleTargetSourcesInvalidManifestPackage() throws {
+        XCTAssertThrowsError(
+            try assertFileSystemRefactor(
+                """
+                // swift-tools-version: 5.5
+                """
+            )
+        ) { error in
+            XCTAssertTrue(error is ManifestEditError)
         }
     }
 }

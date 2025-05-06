@@ -15,6 +15,7 @@ import Foundation
 import PackageGraph
 import PackageLoading
 import PackageModel
+import TSCUtility
 
 @_spi(SwiftPMInternal)
 import SPMBuildCore
@@ -24,7 +25,7 @@ import func TSCBasic.topologicalSort
 
 /// The parameters required by `PIFBuilder`.
 struct PIFBuilderParameters {
-    let triple: Triple
+    let triple: Basics.Triple
 
     /// Whether the toolchain supports `-package-name` option.
     let isPackageAccessModifierSupported: Bool
@@ -306,6 +307,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS] = ["$(inherited)", "SWIFT_PACKAGE"]
         settings[.GCC_PREPROCESSOR_DEFINITIONS] = ["$(inherited)", "SWIFT_PACKAGE"]
         settings[.CLANG_ENABLE_OBJC_ARC] = "YES"
+
         settings[.KEEP_PRIVATE_EXTERNS] = "NO"
         // We currently deliberately do not support Swift ObjC interface headers.
         settings[.SWIFT_INSTALL_OBJC_HEADER] = "NO"
@@ -486,12 +488,14 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             settings[.GENERATE_INFOPLIST_FILE] = "YES"
         }
 
+        var isSwiftModule = false
         if let clangTarget = mainTarget.underlying as? ClangModule {
             // Let the target itself find its own headers.
             settings[.HEADER_SEARCH_PATHS, default: ["$(inherited)"]].append(clangTarget.includeDir.pathString)
             settings[.GCC_C_LANGUAGE_STANDARD] = clangTarget.cLanguageStandard
             settings[.CLANG_CXX_LANGUAGE_STANDARD] = clangTarget.cxxLanguageStandard
         } else if let swiftTarget = mainTarget.underlying as? SwiftModule {
+            isSwiftModule = true
             try settings.addSwiftVersionSettings(target: swiftTarget, parameters: self.parameters)
             settings.addCommonSwiftSettings(package: self.package, target: mainTarget, parameters: self.parameters)
         }
@@ -499,6 +503,12 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         if let resourceBundle = addResourceBundle(for: mainTarget, in: pifTarget) {
             settings[.PACKAGE_RESOURCE_BUNDLE_NAME] = resourceBundle
             settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"
+
+            if isSwiftModule {
+                settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, default: ["$(inherited)"]].append("SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE")
+            }
+        } else if isSwiftModule {
+            settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, default: ["$(inherited)"]].append("SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE")
         }
 
         // For targets, we use the common build settings for both the "Debug" and the "Release" configurations (all
@@ -652,6 +662,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         let moduleMapFileContents: String?
         let shouldImpartModuleMap: Bool
 
+        var isSwiftModule = false
         if let clangTarget = target.underlying as? ClangModule {
             // Let the target itself find its own headers.
             settings[.HEADER_SEARCH_PATHS, default: ["$(inherited)"]].append(clangTarget.includeDir.pathString)
@@ -678,6 +689,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
                 shouldImpartModuleMap = false
             }
         } else if let swiftTarget = target.underlying as? SwiftModule {
+            isSwiftModule = true
             try settings.addSwiftVersionSettings(target: swiftTarget, parameters: self.parameters)
 
             // Generate ObjC compatibility header for Swift library targets.
@@ -727,7 +739,12 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         if let resourceBundle = addResourceBundle(for: target, in: pifTarget) {
             settings[.PACKAGE_RESOURCE_BUNDLE_NAME] = resourceBundle
             settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"
+            if isSwiftModule {
+                settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, default: ["$(inherited)"]].append("SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE")
+            }
             impartedSettings[.EMBED_PACKAGE_RESOURCE_BUNDLE_NAMES, default: ["$(inherited)"]].append(resourceBundle)
+        } else if isSwiftModule {
+            settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, default: ["$(inherited)"]].append("SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE")
         }
 
         // For targets, we use the common build settings for both the "Debug" and the "Release" configurations (all
@@ -921,6 +938,11 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             // CoreData files should also be in the actual target because they can end up generating code during the
             // build. The build system will only perform codegen tasks for the main target in this case.
             if coreDataFileTypes.contains(resource.path.extension ?? "") {
+                pifTarget.addSourceFile(resourceFile)
+            }
+
+            // Asset Catalogs need to be included in the sources target for generated asset symbols.
+            if XCBuildFileType.xcassets.fileTypes.contains(resource.path.extension ?? "") {
                 pifTarget.addSourceFile(resourceFile)
             }
 

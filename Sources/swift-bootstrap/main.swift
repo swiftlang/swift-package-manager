@@ -197,6 +197,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 observabilityScope: observabilityScope,
                 logLevel: self.logLevel
             )
+
             try await builder.build(
                 packagePath: packagePath,
                 scratchDirectory: scratchDirectory,
@@ -281,8 +282,6 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             shouldDisableLocalRpath: Bool,
             logLevel: Basics.Diagnostic.Severity
         ) throws -> BuildSystem {
-            var buildFlags = buildFlags
-
             let dataPath = scratchDirectory.appending(
                 component: self.targetToolchain.targetTriple.platformBuildPathComponent(buildSystem: buildSystem)
             )
@@ -294,8 +293,8 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 toolchain: self.targetToolchain,
                 triple: self.hostToolchain.targetTriple,
                 flags: buildFlags,
+                buildSystemKind: buildSystem,
                 architectures: architectures,
-                isXcodeBuildSystemEnabled: buildSystem.usesXcodeBuildEngine,
                 driverParameters: .init(
                     explicitTargetDependencyImportCheckingMode: explicitTargetDependencyImportCheck == .error ? .error : .none,
                     useIntegratedSwiftDriver: useIntegratedSwiftDriver,
@@ -340,7 +339,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                         disableSandbox: false
                     ),
                     scratchDirectory: scratchDirectory,
-                    // When bootrapping no special trait build configuration is used
+                    // When bootstrapping no special trait build configuration is used
                     traitConfiguration: nil,
                     additionalFileRules: [],
                     pkgConfigDirectories: [],
@@ -362,6 +361,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 return try SwiftBuildSystem(
                     buildParameters: buildParameters,
                     packageGraphLoader: asyncUnsafePackageGraphLoader,
+                    packageManagerResourcesDirectory: nil,
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
                     fileSystem: self.fileSystem,
@@ -393,7 +393,8 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             // Compute the transitive closure of available dependencies.
             let input = loadedManifests.map { identity, manifest in KeyedPair(manifest, key: identity) }
             _ = try await topologicalSort(input) { pair in
-                let dependenciesRequired = pair.item.dependenciesRequired(for: .everything)
+                // When bootstrapping no special trait build configuration is used
+                let dependenciesRequired = try pair.item.dependenciesRequired(for: .everything, nil)
                 let dependenciesToLoad = dependenciesRequired.map{ $0.packageRef }.filter { !loadedManifests.keys.contains($0.identity) }
                 let dependenciesManifests = try await self.loadManifests(manifestLoader: manifestLoader, packages: dependenciesToLoad)
                 dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
@@ -404,7 +405,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 }
             }
 
-            let packageGraphRoot = PackageGraphRoot(
+            let packageGraphRoot = try PackageGraphRoot(
                 input: .init(packages: [packagePath]),
                 manifests: [packagePath: rootPackageManifest],
                 observabilityScope: observabilityScope
@@ -493,15 +494,9 @@ extension BuildConfiguration {
     }
 }
 
-#if compiler(<6.0)
 extension AbsolutePath: ExpressibleByArgument {}
-extension BuildConfiguration: ExpressibleByArgument, CaseIterable {}
-extension BuildSystemProvider.Kind: ExpressibleByArgument, CaseIterable {}
-#else
-extension AbsolutePath: @retroactive ExpressibleByArgument {}
-extension BuildConfiguration: @retroactive ExpressibleByArgument, CaseIterable {}
-extension BuildSystemProvider.Kind: @retroactive ExpressibleByArgument, CaseIterable {}
-#endif
+extension BuildConfiguration: ExpressibleByArgument {}
+extension BuildSystemProvider.Kind: ExpressibleByArgument {}
 
 public func topologicalSort<T: Hashable>(
     _ nodes: [T], successors: (T) async throws -> [T]

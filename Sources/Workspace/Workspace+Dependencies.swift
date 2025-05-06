@@ -45,6 +45,10 @@ import enum PackageModel.ProductFilter
 import struct PackageModel.ToolsVersion
 import struct SourceControl.Revision
 import struct TSCUtility.Version
+import struct PackageModel.TargetDescription
+import struct PackageModel.TraitDescription
+import enum PackageModel.TraitConfiguration
+import class PackageModel.Manifest
 
 extension Workspace {
     enum ResolvedFileStrategy {
@@ -78,7 +82,7 @@ extension Workspace {
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
         // Load the current manifests.
-        let graphRoot = PackageGraphRoot(
+        let graphRoot = try PackageGraphRoot(
             input: root,
             manifests: rootManifests,
             dependencyMapper: self.dependencyMapper,
@@ -346,7 +350,7 @@ extension Workspace {
             packages: root.packages,
             observabilityScope: observabilityScope
         )
-        let graphRoot = PackageGraphRoot(
+        let graphRoot = try PackageGraphRoot(
             input: root,
             manifests: rootManifests,
             explicitProduct: explicitProduct,
@@ -513,13 +517,15 @@ extension Workspace {
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
         // Load the current manifests.
-        let graphRoot = PackageGraphRoot(
+        let graphRoot = try PackageGraphRoot(
             input: root,
             manifests: rootManifests,
             explicitProduct: explicitProduct,
             dependencyMapper: self.dependencyMapper,
             observabilityScope: observabilityScope
         )
+
+        // Of the enabled dependencies of targets, only consider these for dependency resolution
         let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,
             observabilityScope: observabilityScope
@@ -586,7 +592,7 @@ extension Workspace {
             }
         }
 
-        // Create the constraints.
+        // Create the constraints; filter unused dependencies.
         var computedConstraints = [PackageContainerConstraint]()
         computedConstraints += currentManifests.editedPackagesConstraints
         computedConstraints += try graphRoot.constraints() + constraints
@@ -623,6 +629,7 @@ extension Workspace {
             root: graphRoot,
             observabilityScope: observabilityScope
         )
+
         // If we still have missing packages, something is fundamentally wrong with the resolution of the graph
         let stillMissingPackages = try updatedDependencyManifests.missingPackages
         guard stillMissingPackages.isEmpty else {
@@ -744,7 +751,7 @@ extension Workspace {
             // FIXME: this should not block
             let container = try await packageContainerProvider.getContainer(
                 for: package,
-                updateStrategy: .never,
+                updateStrategy: ContainerUpdateStrategy.never,
                 observabilityScope: observabilityScope,
                 on: .sharedConcurrent
             )
@@ -853,9 +860,9 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async throws -> ResolutionPrecomputationResult {
         let computedConstraints =
-            try root.constraints() +
+        try root.constraints() +
             // Include constraints from the manifests in the graph root.
-            root.manifests.values.flatMap { try $0.dependencyConstraints(productFilter: .everything) } +
+        root.manifests.values.flatMap { try $0.dependencyConstraints(productFilter: .everything, nil) } +
             dependencyManifests.dependencyConstraints +
             constraints
 
@@ -1167,7 +1174,7 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async -> [DependencyResolverBinding] {
         os_signpost(.begin, name: SignpostName.pubgrub)
-        let result = await resolver.solve(constraints: constraints)
+        let result = await resolver.solve(constraints: constraints, traitConfiguration: configuration.traitConfiguration)
         os_signpost(.end, name: SignpostName.pubgrub)
 
         // Take an action based on the result.

@@ -22,8 +22,6 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testPackageContextGitStatus() async throws {
-        try UserToolchain.default.skipUnlessAtLeastSwift6()
-
         let content = """
                 import PackageDescription
                 let package = Package(name: "\\(Context.gitInformation?.hasUncommittedChanges == true)")
@@ -36,8 +34,6 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testPackageContextGitTag() async throws {
-        try UserToolchain.default.skipUnlessAtLeastSwift6()
-
         let content = """
                 import PackageDescription
                 let package = Package(name: "\\(Context.gitInformation?.currentTag ?? "")")
@@ -50,8 +46,6 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testPackageContextGitCommit() async throws {
-        try UserToolchain.default.skipUnlessAtLeastSwift6()
-
         let content = """
                 import PackageDescription
                 let package = Package(name: "\\(Context.gitInformation?.currentCommit ?? "")")
@@ -67,8 +61,6 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testSwiftLanguageModesPerTarget() async throws {
-        try UserToolchain.default.skipUnlessAtLeastSwift6()
-
         let content = """
                 import PackageDescription
                 let package = Package(

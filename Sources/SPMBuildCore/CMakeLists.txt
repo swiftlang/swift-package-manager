@@ -26,7 +26,8 @@ add_library(SPMBuildCore
   CommandPluginResult.swift
   ResolvedPackage+Extensions.swift
   Triple+Extensions.swift
-  XCFrameworkMetadata.swift)
+  XCFrameworkMetadata.swift
+  XcodeProjectRepresentation.swift)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(SPMBuildCore PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})

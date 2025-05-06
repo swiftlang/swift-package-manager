@@ -14,6 +14,7 @@ import Basics
 import class Foundation.ProcessInfo
 import PackageModel
 import PackageGraph
+import TSCBasic
 
 public struct BuildParameters: Encodable {
     public enum PrepareForIndexingMode: Encodable {
@@ -50,7 +51,7 @@ public struct BuildParameters: Encodable {
     public var destination: Destination
 
     /// The path to the data directory.
-    public var dataPath: AbsolutePath
+    public var dataPath: Basics.AbsolutePath
 
     /// The build configuration.
     public var configuration: BuildConfiguration
@@ -69,7 +70,7 @@ public struct BuildParameters: Encodable {
     public var flags: BuildFlags
 
     /// An array of paths to search for pkg-config `.pc` files.
-    public var pkgConfigDirectories: [AbsolutePath]
+    public var pkgConfigDirectories: [Basics.AbsolutePath]
 
     /// The architectures to build for.
     // FIXME: this may be inconsistent with `targetTriple`.
@@ -122,10 +123,11 @@ public struct BuildParameters: Encodable {
         }
     }
 
-    /// Whether the Xcode build system is used.
-    public var isXcodeBuildSystemEnabled: Bool
+    public var buildSystemKind: BuildSystemProvider.Kind
 
     public var shouldSkipBuilding: Bool
+
+    public var printPIFManifestGraphviz: Bool = false
 
     /// Do minimal build to prepare for indexing
     public var prepareForIndexing: PrepareForIndexingMode
@@ -147,18 +149,18 @@ public struct BuildParameters: Encodable {
 
     public init(
         destination: Destination,
-        dataPath: AbsolutePath,
+        dataPath: Basics.AbsolutePath,
         configuration: BuildConfiguration,
         toolchain: Toolchain,
         triple: Triple? = nil,
         flags: BuildFlags,
-        pkgConfigDirectories: [AbsolutePath] = [],
+        buildSystemKind: BuildSystemProvider.Kind = .native,
+        pkgConfigDirectories: [Basics.AbsolutePath] = [],
         architectures: [String]? = nil,
         workers: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldCreateDylibForDynamicProducts: Bool = true,
         sanitizers: EnabledSanitizers = EnabledSanitizers(),
         indexStoreMode: IndexStoreMode = .auto,
-        isXcodeBuildSystemEnabled: Bool = false,
         shouldSkipBuilding: Bool = false,
         prepareForIndexing: PrepareForIndexingMode = .off,
         debuggingParameters: Debugging? = nil,
@@ -179,6 +181,7 @@ public struct BuildParameters: Encodable {
         self.configuration = configuration
         self._toolchain = _Toolchain(toolchain: toolchain)
         self.triple = triple
+        self.buildSystemKind = buildSystemKind
         switch self.debuggingParameters.debugInfoFormat {
         case .dwarf:
             var flags = flags
@@ -214,7 +217,6 @@ public struct BuildParameters: Encodable {
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
         self.sanitizers = sanitizers
         self.indexStoreMode = indexStoreMode
-        self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
         self.shouldSkipBuilding = shouldSkipBuilding
         self.prepareForIndexing = prepareForIndexing
         self.driverParameters = driverParameters
@@ -224,56 +226,64 @@ public struct BuildParameters: Encodable {
     }
 
     /// The path to the build directory (inside the data directory).
-    public var buildPath: AbsolutePath {
-        if isXcodeBuildSystemEnabled {
-            return dataPath.appending(components: "Products", configuration.dirname.capitalized)
-        } else {
+    public var buildPath: Basics.AbsolutePath {
+        // TODO: query the build system for this.
+        switch buildSystemKind {
+        case .xcode, .swiftbuild:
+            var configDir: String = configuration.dirname.capitalized
+            if self.triple.isWindows() {
+                configDir += "-windows"
+            } else if self.triple.isLinux() {
+                configDir += "-linux"
+            }
+            return dataPath.appending(components: "Products", configDir)
+        case .native:
             return dataPath.appending(component: configuration.dirname)
         }
     }
 
     /// The path to the index store directory.
-    public var indexStore: AbsolutePath {
+    public var indexStore: Basics.AbsolutePath {
         assert(indexStoreMode != .off, "index store is disabled")
         return buildPath.appending(components: "index", "store")
     }
 
     /// The path to the code coverage directory.
-    public var codeCovPath: AbsolutePath {
+    public var codeCovPath: Basics.AbsolutePath {
         return buildPath.appending("codecov")
     }
 
     /// The path to the code coverage profdata file.
-    public var codeCovDataFile: AbsolutePath {
+    public var codeCovDataFile: Basics.AbsolutePath {
         return codeCovPath.appending("default.profdata")
     }
 
-    public var llbuildManifest: AbsolutePath {
+    public var llbuildManifest: Basics.AbsolutePath {
         // FIXME: this path isn't specific to `BuildParameters` due to its use of `..`
         // FIXME: it should be calculated in a different place
         return dataPath.appending(components: "..", configuration.dirname + ".yaml")
     }
 
-    public var pifManifest: AbsolutePath {
+    public var pifManifest: Basics.AbsolutePath {
         // FIXME: this path isn't specific to `BuildParameters` due to its use of `..`
         // FIXME: it should be calculated in a different place
         return dataPath.appending(components: "..", "manifest.pif")
     }
 
-    public var buildDescriptionPath: AbsolutePath {
+    public var buildDescriptionPath: Basics.AbsolutePath {
         // FIXME: this path isn't specific to `BuildParameters`, should be moved one directory level higher
         return buildPath.appending(components: "description.json")
     }
 
-    public var testOutputPath: AbsolutePath {
+    public var testOutputPath: Basics.AbsolutePath {
         return buildPath.appending(component: "testOutput.txt")
     }
     /// Returns the path to the binary of a product for the current build parameters.
-    public func binaryPath(for product: ResolvedProduct) throws -> AbsolutePath {
+    public func binaryPath(for product: ResolvedProduct) throws -> Basics.AbsolutePath {
         return try buildPath.appending(binaryRelativePath(for: product))
     }
 
-    public func macroBinaryPath(_ module: ResolvedModule) throws -> AbsolutePath {
+    public func macroBinaryPath(_ module: ResolvedModule) throws -> Basics.AbsolutePath {
         assert(module.type == .macro)
         #if BUILD_MACROS_AS_DYLIBS
         return buildPath.appending(try dynamicLibraryPath(for: module.name))
@@ -283,17 +293,17 @@ public struct BuildParameters: Encodable {
     }
 
     /// Returns the path to the dynamic library of a product for the current build parameters.
-    private func dynamicLibraryPath(for name: String) throws -> RelativePath {
+    private func dynamicLibraryPath(for name: String) throws -> Basics.RelativePath {
         try RelativePath(validating: self.triple.dynamicLibrary("\(name)\(self.suffix)"))
     }
 
     /// Returns the path to the executable of a product for the current build parameters.
-    package func executablePath(for name: String) throws -> RelativePath {
+    package func executablePath(for name: String) throws -> Basics.RelativePath {
         try RelativePath(validating: "\(name)\(self.suffix)\(self.triple.executableExtension)")
     }
 
     /// Returns the path to the binary of a product for the current build parameters, relative to the build directory.
-    public func binaryRelativePath(for product: ResolvedProduct) throws -> RelativePath {
+    public func binaryRelativePath(for product: ResolvedProduct) throws -> Basics.RelativePath {
         switch product.type {
         case .executable, .snippet:
             return try executablePath(for: product.name)

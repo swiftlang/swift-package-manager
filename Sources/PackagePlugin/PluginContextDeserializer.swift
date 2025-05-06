@@ -25,6 +25,8 @@ internal struct PluginContextDeserializer {
     var packagesById: [WireInput.Package.Id: Package] = [:]
     var productsById: [WireInput.Product.Id: Product] = [:]
     var targetsById: [WireInput.Target.Id: Target] = [:]
+    var xcodeProjectsById: [WireInput.XcodeProject.Id: XcodeProjectPluginInvocationRecord.XcodeProject] = [:]
+    var xcodeTargetsById: [WireInput.XcodeTarget.Id: XcodeProjectPluginInvocationRecord.XcodeTarget] = [:]
     
     /// Initializes the deserializer with the given wire input.
     init(_ input: WireInput) {
@@ -102,7 +104,7 @@ internal struct PluginContextDeserializer {
                 case .unknown:
                     type = .unknown
                 }
-                return try File(path: Path(url: path), url: path, type: type)
+                return File(url: path, type: type)
             })
             target = try SwiftSourceModuleTarget(
                 id: String(id),
@@ -135,7 +137,7 @@ internal struct PluginContextDeserializer {
                 case .unknown:
                     type = .unknown
                 }
-                return try File(path: Path(url: path), url: path, type: type)
+                return File(url: path, type: type)
             })
             target = try ClangSourceModuleTarget(
                 id: String(id),
@@ -284,6 +286,87 @@ internal struct PluginContextDeserializer {
         
         packagesById[id] = package
         return package
+    }
+
+    /// Returns the `XcodeTarget` that corresponds to the given ID (a small integer),
+    /// or throws an error if the ID is invalid. The product is deserialized on-
+    /// demand if it hasn't already been deserialized.
+    mutating func xcodeTarget(for id: WireInput.XcodeTarget.Id, pluginGeneratedSources: [URL] = [], pluginGeneratedResources: [URL] = []) throws -> XcodeProjectPluginInvocationRecord.XcodeTarget {
+        if let xcodeTarget = xcodeTargetsById[id],
+           xcodeTarget.pluginGeneratedSources.count == pluginGeneratedSources.count,
+           xcodeTarget.pluginGeneratedResources.count == pluginGeneratedResources.count {
+            return xcodeTarget
+        }
+        guard id < wireInput.xcodeTargets.count else {
+            throw PluginDeserializationError.malformedInputJSON("invalid Xcode target id (\(id))")
+        }
+
+        let wireXcodeTarget = wireInput.xcodeTargets[id]
+        let product: XcodeProjectPluginInvocationRecord.XcodeTarget.Product? = wireXcodeTarget.product.map {
+            let kind: XcodeProjectPluginInvocationRecord.XcodeTarget.Product.Kind
+            switch $0.kind {
+            case .application:
+                kind = .application
+            case .executable:
+                kind = .executable
+            case .framework:
+                kind = .framework
+            case .library:
+                kind = .library
+            case .other(let ident):
+                kind = .other(ident)
+            }
+            return .init(name: $0.name, kind: kind)
+        }
+        let inputFiles = FileList(try wireXcodeTarget.inputFiles.map {
+            let path = try self.url(for: $0.basePathId).appendingPathComponent($0.name)
+            let type: FileType
+            switch $0.type {
+            case .source:
+                type = .source
+            case .header:
+                type = .header
+            case .resource:
+                type = .resource
+            case .unknown:
+                type = .unknown
+            }
+            return .init(url: path, type: type)
+        })
+        let xcodeTarget = XcodeProjectPluginInvocationRecord.XcodeTarget(
+            id: String(id),
+            displayName: wireXcodeTarget.displayName,
+            product: product,
+            inputFiles: inputFiles,
+            pluginGeneratedSources: pluginGeneratedSources,
+            pluginGeneratedResources: pluginGeneratedResources
+        )
+
+        xcodeTargetsById[id] = xcodeTarget
+        return xcodeTarget
+    }
+
+    /// Returns the `Package` that corresponds to the given ID (a small integer),
+    /// or throws an error if the ID is invalid. The package is deserialized on-
+    /// demand if it hasn't already been deserialized.
+    mutating func xcodeProject(for id: WireInput.XcodeProject.Id) throws -> XcodeProjectPluginInvocationRecord.XcodeProject {
+        if let xcodeProject = xcodeProjectsById[id] { return xcodeProject }
+        guard id < wireInput.xcodeProjects.count else {
+            throw PluginDeserializationError.malformedInputJSON("invalid Xcode project id (\(id))") }
+        
+        let wireXcodeProject = wireInput.xcodeProjects[id]
+        let directoryPath = try self.url(for: wireXcodeProject.directoryPathId)
+        let filePaths = PathList(try wireXcodeProject.urlIds.map{ try self.url(for: $0) })
+        let targets = try wireXcodeProject.targetIds.map { try self.xcodeTarget(for: $0) }
+        let xcodeProject = XcodeProjectPluginInvocationRecord.XcodeProject(
+            id: String(id),
+            displayName: wireXcodeProject.displayName,
+            directoryPathURL: directoryPath,
+            filePaths: filePaths,
+            targets: targets)
+        
+        xcodeProjectsById[id] = xcodeProject
+        return xcodeProject
     }
 }
 

@@ -13,11 +13,12 @@
 import Basics
 import Foundation
 import PackageModel
+import TSCBasic
 
 /// Name of the module map file recognized by the Clang and Swift compilers.
 public let moduleMapFilename = "module.modulemap"
 
-extension AbsolutePath {
+extension Basics.AbsolutePath {
   fileprivate var moduleEscapedPathString: String {
     return self.pathString.replacing("\\", with: "\\\\")
   }
@@ -25,27 +26,27 @@ extension AbsolutePath {
 
 /// A protocol for targets which might have a modulemap.
 protocol ModuleMapProtocol {
-    var moduleMapPath: AbsolutePath { get }
+    var moduleMapPath: Basics.AbsolutePath { get }
 
-    var moduleMapDirectory: AbsolutePath { get }
+    var moduleMapDirectory: Basics.AbsolutePath { get }
 }
 
 extension SystemLibraryModule: ModuleMapProtocol {
-    var moduleMapDirectory: AbsolutePath {
+    var moduleMapDirectory: Basics.AbsolutePath {
         return path
     }
 
-    public var moduleMapPath: AbsolutePath {
+    public var moduleMapPath: Basics.AbsolutePath {
         return moduleMapDirectory.appending(component: moduleMapFilename)
     }
 }
 
 extension ClangModule: ModuleMapProtocol {
-    var moduleMapDirectory: AbsolutePath {
+    var moduleMapDirectory: Basics.AbsolutePath {
         return includeDir
     }
 
-    public var moduleMapPath: AbsolutePath {
+    public var moduleMapPath: Basics.AbsolutePath {
         return moduleMapDirectory.appending(component: moduleMapFilename)
     }
 }
@@ -75,12 +76,12 @@ public struct ModuleMapGenerator {
     private let moduleName: String
 
     /// The target's public-headers directory.
-    private let publicHeadersDir: AbsolutePath
+    private let publicHeadersDir: Basics.AbsolutePath
 
     /// The file system to be used.
     private let fileSystem: FileSystem
 
-    public init(targetName: String, moduleName: String, publicHeadersDir: AbsolutePath, fileSystem: FileSystem) {
+    public init(targetName: String, moduleName: String, publicHeadersDir: Basics.AbsolutePath, fileSystem: FileSystem) {
         self.targetName = targetName
         self.moduleName = moduleName
         self.publicHeadersDir = publicHeadersDir
@@ -110,7 +111,7 @@ public struct ModuleMapGenerator {
         }
 
         // Next try to get the entries in the public-headers directory.
-        let entries: Set<AbsolutePath>
+        let entries: Set<Basics.AbsolutePath>
         do {
             entries = try Set(fileSystem.getDirectoryContents(publicHeadersDir).map({ publicHeadersDir.appending(component: $0) }))
         }
@@ -174,7 +175,7 @@ public struct ModuleMapGenerator {
     }
 
     /// Generates a module map based of the specified type, throwing an error if anything goes wrong.  Any diagnostics are added to the receiver's diagnostics engine.
-    public func generateModuleMap(type: GeneratedModuleMapType, at path: AbsolutePath) throws {
+    public func generateModuleMap(type: GeneratedModuleMapType, at path: Basics.AbsolutePath) throws {
         var moduleMap = "module \(moduleName) {\n"
         switch type {
         case .umbrellaHeader(let hdr):
@@ -205,8 +206,8 @@ public struct ModuleMapGenerator {
 
 /// A type of module map to generate.
 public enum GeneratedModuleMapType {
-    case umbrellaHeader(AbsolutePath)
-    case umbrellaDirectory(AbsolutePath)
+    case umbrellaHeader(Basics.AbsolutePath)
+    case umbrellaDirectory(Basics.AbsolutePath)
 }
 
 public extension ModuleMapType {
@@ -223,32 +224,32 @@ public extension ModuleMapType {
 private extension Basics.Diagnostic {
 
     /// Warning emitted if the public-headers directory is missing.
-    static func missingPublicHeadersDirectory(targetName: String, publicHeadersDir: AbsolutePath) -> Self {
+    static func missingPublicHeadersDirectory(targetName: String, publicHeadersDir: Basics.AbsolutePath) -> Self {
         .warning("no include directory found for target '\(targetName)'; libraries cannot be imported without public headers")
     }
 
     /// Error emitted if the public-headers directory is inaccessible.
-    static func inaccessiblePublicHeadersDirectory(targetName: String, publicHeadersDir: AbsolutePath, fileSystemError: Error) -> Self {
+    static func inaccessiblePublicHeadersDirectory(targetName: String, publicHeadersDir: Basics.AbsolutePath, fileSystemError: Error) -> Self {
         .error("cannot access public-headers directory for target '\(targetName)': \(String(describing: fileSystemError))")
     }
 
     /// Warning emitted if a misnamed umbrella header was found.
-    static func misnamedUmbrellaHeader(misnamedUmbrellaHeader: AbsolutePath, umbrellaHeader: AbsolutePath) -> Self {
+    static func misnamedUmbrellaHeader(misnamedUmbrellaHeader: Basics.AbsolutePath, umbrellaHeader: Basics.AbsolutePath) -> Self {
         .warning("\(misnamedUmbrellaHeader) should be renamed to \(umbrellaHeader) to be used as an umbrella header")
     }
 
     /// Error emitted if there are directories next to a top-level umbrella header.
-    static func umbrellaHeaderHasSiblingDirectories(targetName: String, umbrellaHeader: AbsolutePath, siblingDirs: Set<AbsolutePath>) -> Self {
+    static func umbrellaHeaderHasSiblingDirectories(targetName: String, umbrellaHeader: Basics.AbsolutePath, siblingDirs: Set<Basics.AbsolutePath>) -> Self {
         .error("target '\(targetName)' has invalid header layout: umbrella header found at '\(umbrellaHeader)', but directories exist next to it: \(siblingDirs.map({ String(describing: $0) }).sorted().joined(separator: ", ")); consider removing them")
     }
 
     /// Error emitted if there are other directories next to the parent directory of a nested umbrella header.
-    static func umbrellaHeaderParentDirHasSiblingDirectories(targetName: String, umbrellaHeader: AbsolutePath, siblingDirs: Set<AbsolutePath>) -> Self {
+    static func umbrellaHeaderParentDirHasSiblingDirectories(targetName: String, umbrellaHeader: Basics.AbsolutePath, siblingDirs: Set<Basics.AbsolutePath>) -> Self {
         .error("target '\(targetName)' has invalid header layout: umbrella header found at '\(umbrellaHeader)', but more than one directory exists next to its parent directory: \(siblingDirs.map({ String(describing: $0) }).sorted().joined(separator: ", ")); consider reducing them to one")
     }
 
     /// Error emitted if there are other headers next to the parent directory of a nested umbrella header.
-    static func umbrellaHeaderParentDirHasSiblingHeaders(targetName: String, umbrellaHeader: AbsolutePath, siblingHeaders: Set<AbsolutePath>) -> Self {
+    static func umbrellaHeaderParentDirHasSiblingHeaders(targetName: String, umbrellaHeader: Basics.AbsolutePath, siblingHeaders: Set<Basics.AbsolutePath>) -> Self {
         .error("target '\(targetName)' has invalid header layout: umbrella header found at '\(umbrellaHeader)', but additional header files exist: \((siblingHeaders.map({ String(describing: $0) }).sorted().joined(separator: ", "))); consider reducing them to one")
     }
 }

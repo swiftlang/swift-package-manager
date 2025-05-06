@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import Foundation
 import PackageModel
 import SwiftParser
 import SwiftSyntax
@@ -54,6 +55,71 @@ public enum AddTarget {
 
         public init(testHarness: TestHarness = .default) {
             self.testHarness = testHarness
+        }
+    }
+
+    // Check if the package has a single target with that target's sources located
+    // directly in `./Sources`. If so, move the sources into a folder named after
+    // the target before adding a new target.
+    package static func moveSingleTargetSources(
+        packagePath: AbsolutePath,
+        manifest: SourceFileSyntax,
+        fileSystem: any FileSystem,
+        verbose: Bool = false
+    ) throws {
+        // Make sure we have a suitable tools version in the manifest.
+        try manifest.checkEditManifestToolsVersion()
+
+        guard let packageCall = manifest.findCall(calleeName: "Package") else {
+            throw ManifestEditError.cannotFindPackage
+        }
+
+        if let arg = packageCall.findArgument(labeled: "targets") {
+            guard let argArray = arg.expression.findArrayArgument() else {
+                throw ManifestEditError.cannotFindArrayLiteralArgument(
+                    argumentName: "targets",
+                    node: Syntax(arg.expression)
+                )
+            }
+
+            // Check the contents of the `targets` array to see if there is only one target defined.
+            guard argArray.elements.count == 1,
+                let firstTarget = argArray.elements.first?.expression.as(FunctionCallExprSyntax.self),
+                let targetStringLiteral = firstTarget.arguments.first?.expression.as(StringLiteralExprSyntax.self) else {
+                return
+            }
+
+            let targetName = targetStringLiteral.segments.description
+            let sourcesFolder = packagePath.appending("Sources")
+            let expectedTargetFolder = sourcesFolder.appending(targetName)
+
+            // If there is one target then pull its name out and use that to look for a folder in `Sources/TargetName`.
+            // If the folder doesn't exist then we know we have a single target package and we need to migrate files
+            // into this folder before we can add a new target.
+            if !fileSystem.isDirectory(expectedTargetFolder) {
+                if verbose {
+                    print(
+                        """
+                        Moving existing files from \(
+                            sourcesFolder.relative(to: packagePath)
+                        ) to \(
+                            expectedTargetFolder.relative(to: packagePath)
+                        )...
+                        """,
+                        terminator: ""
+                    )
+                }
+                let contentsToMove = try fileSystem.getDirectoryContents(sourcesFolder)
+                try fileSystem.createDirectory(expectedTargetFolder)
+                for file in contentsToMove {
+                    let source = sourcesFolder.appending(file)
+                    let destination = expectedTargetFolder.appending(file)
+                    try fileSystem.move(from: source, to: destination)
+                }
+                if verbose {
+                    print(" done.")
+                }
+            }
         }
     }
 

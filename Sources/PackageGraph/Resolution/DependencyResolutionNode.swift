@@ -44,7 +44,7 @@ public enum DependencyResolutionNode {
     ///   Since a non‐existent product ends up with only its implicit dependency on its own package,
     ///   only whichever package contains the product will end up adding additional constraints.
     ///   See `ProductFilter` and `Manifest.register(...)`.
-    case product(String, package: PackageReference)
+    case product(String, package: PackageReference, enabledTraits: Set<String>? = nil)
 
     /// A root node.
     ///
@@ -58,12 +58,12 @@ public enum DependencyResolutionNode {
     ///   It is a warning condition, and builds do not actually need these dependencies.
     ///   However, forcing the graph to resolve and fetch them anyway allows the diagnostics passes access
     ///   to the information needed in order to provide actionable suggestions to help the user stitch up the dependency declarations properly.
-    case root(package: PackageReference)
+    case root(package: PackageReference, traitConfiguration: TraitConfiguration = .default)
 
     /// The package.
     public var package: PackageReference {
         switch self {
-        case .empty(let package), .product(_, let package), .root(let package):
+        case .empty(let package), .product(_, let package, _), .root(let package, _):
             return package
         }
     }
@@ -73,7 +73,7 @@ public enum DependencyResolutionNode {
         switch self {
         case .empty, .root:
             return nil
-        case .product(let product, _):
+        case .product(let product, _, _):
             return product
         }
     }
@@ -83,10 +83,33 @@ public enum DependencyResolutionNode {
         switch self {
         case .empty:
             return .specific([])
-        case .product(let product, _):
+        case .product(let product, _, _):
             return .specific([product])
         case .root:
             return .everything
+        }
+    }
+
+    /// Returns the enabled traits for this node's manifest.
+    public var traits: Set<String>? {
+        switch self {
+        case .root(_, let config):
+            return config.enabledTraits
+        case .product(_, _, let enabledTraits):
+            return enabledTraits
+        default:
+            return nil
+        }
+    }
+
+    public var traitConfiguration: TraitConfiguration {
+        switch self {
+        case .root(_, let config):
+            return config
+        case .product(_, _, let enabledTraits):
+            return .init(enabledTraits: enabledTraits)
+        case .empty:
+            return .default
         }
     }
 
@@ -99,7 +122,8 @@ public enum DependencyResolutionNode {
         return PackageContainerConstraint(
             package: self.package,
             versionRequirement: .exact(version),
-            products: .specific([])
+            products: .specific([]),
+            enabledTraits: traits
         )
     }
 
@@ -112,7 +136,8 @@ public enum DependencyResolutionNode {
         return PackageContainerConstraint(
             package: self.package,
             requirement: .revision(revision),
-            products: .specific([])
+            products: .specific([]),
+            enabledTraits: traits
         )
     }
 }

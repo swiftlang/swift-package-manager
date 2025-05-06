@@ -286,6 +286,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private let isManifestSandboxEnabled: Bool
     private let extraManifestFlags: [String]
     private let importRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
+    private let pruneDependencies: Bool
 
     // not thread safe
     public var delegate: Delegate?
@@ -308,7 +309,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         cacheDir: AbsolutePath? = .none,
         extraManifestFlags: [String]? = .none,
         importRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])? = .none,
-        delegate: Delegate? = .none
+        delegate: Delegate? = .none,
+        pruneDependencies: Bool = false
     ) {
         self.toolchain = toolchain
         self.serializedDiagnostics = serializedDiagnostics
@@ -326,6 +328,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         self.evaluationQueue.name = "org.swift.swiftpm.manifest-loader"
         self.evaluationQueue.maxConcurrentOperationCount = Concurrency.maxOperations
         self.concurrencySemaphore = DispatchSemaphore(value: Concurrency.maxOperations)
+        self.pruneDependencies = pruneDependencies
     }
     
     public func load(
@@ -437,6 +440,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
                 let manifest = Manifest(
                     displayName: parsedManifest.name,
+                    packageIdentity: packageIdentity,
                     path: manifestPath,
                     packageKind: packageKind,
                     packageLocation: packageLocation,
@@ -453,7 +457,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     dependencies: parsedManifest.dependencies,
                     products: products,
                     targets: targets,
-                    traits: parsedManifest.traits
+                    traits: parsedManifest.traits,
+                    pruneDependencies: self.pruneDependencies
                 )
 
                 // Inform the delegate.
@@ -879,9 +884,15 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         if runtimePath.extension == "framework" {
             cmd += [
                 "-F", runtimePath.parentDirectory.pathString,
-                "-framework", "PackageDescription",
                 "-Xlinker", "-rpath", "-Xlinker", runtimePath.parentDirectory.pathString,
             ]
+
+            // Explicitly link `AppleProductTypes` since auto-linking won't work here.
+#if ENABLE_APPLE_PRODUCT_TYPES
+            cmd += ["-framework", "AppleProductTypes"]
+#else
+            cmd += ["-framework", "PackageDescription"]
+#endif
         } else {
             cmd += [
                 "-L", runtimePath.pathString,

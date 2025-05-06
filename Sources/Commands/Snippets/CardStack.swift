@@ -60,10 +60,17 @@ struct CardStack {
     }
 
     func askForLineInput(prompt: String?) -> String? {
+        let isColorized: Bool = swiftCommandState.options.logging.colorDiagnostics
+
         if let prompt {
-            print(brightBlack { prompt }.terminalString())
+            isColorized ?
+                print(brightBlack { prompt }.terminalString()) :
+                print(plain { prompt }.terminalString())
         }
-        terminal.write(">>> ", inColor: .green, bold: true)
+        isColorized ?
+            terminal.write(">>> ", inColor: .green, bold: true)
+            : terminal.write(">>> ", inColor: .noColor, bold: false)
+
         return readLine(strippingNewline: true)
     }
 
@@ -87,10 +94,12 @@ struct CardStack {
 
             askForLine: while let line = askForLineInput(prompt: top.inputPrompt) {
                 inputFinished = false
-                let trimmedLine = String(line.drop { $0.isWhitespace }
-                                            .reversed()
-                                            .drop { $0.isWhitespace }
-                                            .reversed())
+                let trimmedLine = String(
+                    line.drop { $0.isWhitespace }
+                        .reversed()
+                        .drop { $0.isWhitespace }
+                        .reversed()
+                )
                 let response = await top.acceptLineInput(trimmedLine)
                 switch response {
                 case .none:

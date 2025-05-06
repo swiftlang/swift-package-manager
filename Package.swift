@@ -1,4 +1,4 @@
-// swift-tools-version:5.9
+// swift-tools-version:6.0
 
 //===----------------------------------------------------------------------===//
 //
@@ -34,6 +34,19 @@ if let resourceDirPath = ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RP
     swiftpmLinkSettings = []
     packageLibraryLinkSettings = []
 }
+
+// Common experimental flags to be added to all targets.
+let commonExperimentalFeatures: [SwiftSetting] = [
+    .enableExperimentalFeature("MemberImportVisibility"),
+]
+
+// Certain targets fail to compile with MemberImportVisibility enabled on 6.0.3
+// but work with >=6.1. These targets opt in to using `swift6CompatibleExperimentalFeatures`.
+#if swift(>=6.1)
+let swift6CompatibleExperimentalFeatures = commonExperimentalFeatures
+#else
+let swift6CompatibleExperimentalFeatures: [SwiftSetting] = []
+#endif
 
 /** SwiftPMDataModel is the subset of SwiftPM product that includes just its data model.
  This allows some clients (such as IDEs) that use SwiftPM's data model but not its build system
@@ -91,7 +104,8 @@ let package = Package(
     name: "SwiftPM",
     platforms: [
         .macOS(.v13),
-        .iOS(.v16),
+        .iOS(.v17),
+        .macCatalyst(.v17),
     ],
     products:
     autoProducts.flatMap {
@@ -120,6 +134,12 @@ let package = Package(
             targets: ["PackageDescription", "CompilerPluginSupport"]
         ),
         .library(
+            name: "AppleProductTypes",
+            type: .dynamic,
+            targets: ["AppleProductTypes"]
+        ),
+        
+        .library(
             name: "PackagePlugin",
             type: .dynamic,
             targets: ["PackagePlugin"]
@@ -145,7 +165,7 @@ let package = Package(
         .target(
             name: "PackageDescription",
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .define("USE_IMPL_ONLY_IMPORTS"),
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
@@ -153,13 +173,28 @@ let package = Package(
             linkerSettings: packageLibraryLinkSettings
         ),
 
+        // The `AppleProductTypes` target provides additional product types
+        // to `Package.swift` manifests. Here we build a debug version of the
+        // library; the bootstrap scripts build the deployable version.
+        .target(
+            name: "AppleProductTypes",
+            // Note: We use `-module-link-name` so clients link against the
+            // AppleProductTypes library when they import it without further
+            // messing with the manifest loader.
+            dependencies: ["PackageDescription"],
+            swiftSettings: commonExperimentalFeatures + [
+                .unsafeFlags(["-package-description-version", "999.0"]),
+                .unsafeFlags(["-enable-library-evolution"], .when(platforms: [.macOS])),
+                .unsafeFlags(["-Xfrontend", "-module-link-name", "-Xfrontend", "AppleProductTypes"])
+            ]),
+
         // The `PackagePlugin` target provides the API that is available to
         // plugin scripts. Here we build a debug version of the library; the
         // bootstrap scripts build the deployable version.
         .target(
             name: "PackagePlugin",
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
             ],
@@ -177,7 +212,7 @@ let package = Package(
                 "SPMBuildCore",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .enableExperimentalFeature("AccessLevelOnImport"),
                 .unsafeFlags(["-static"]),
             ]
@@ -193,7 +228,7 @@ let package = Package(
                 .product(name: "SystemPackage", package: "swift-system"),
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .enableExperimentalFeature("StrictConcurrency"),
                 .enableExperimentalFeature("AccessLevelOnImport"),
                 .enableExperimentalFeature("InternalImportsByDefault"),
@@ -205,7 +240,7 @@ let package = Package(
             name: "Basics",
             dependencies: [
                 "_AsyncFileSystem",
-                .target(name: "SPMSQLite3", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS, .macCatalyst, .linux, .custom("freebsd")])),
+                .target(name: "SPMSQLite3", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS, .macCatalyst, .linux, .openbsd, .custom("freebsd")])),
                 .product(name: "SwiftToolchainCSQLite", package: "swift-toolchain-sqlite", condition: .when(platforms: [.windows, .android])),
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
@@ -213,7 +248,7 @@ let package = Package(
                 .product(name: "SystemPackage", package: "swift-system"),
             ],
             exclude: ["CMakeLists.txt", "Vendor/README.md"],
-            swiftSettings: [
+            swiftSettings: swift6CompatibleExperimentalFeatures + [
                 .enableExperimentalFeature("StrictConcurrency"),
                 .enableExperimentalFeature("AccessLevelOnImport"),
                 .unsafeFlags(["-static"]),
@@ -225,7 +260,7 @@ let package = Package(
             name: "LLBuildManifest",
             dependencies: ["Basics"],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -241,7 +276,7 @@ let package = Package(
                 "PackageSigning",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -254,7 +289,7 @@ let package = Package(
                 "PackageModel",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -264,7 +299,22 @@ let package = Package(
             name: "SPMLLBuild",
             dependencies: ["Basics"],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
+                .unsafeFlags(["-static"]),
+            ]
+        ),
+
+        .target(
+            /** API for deserializing diagnostics and applying fix-its */
+            name: "SwiftFixIt",
+            dependencies: [
+                "Basics",
+                .product(name: "TSCBasic", package: "swift-tools-support-core"),
+            ] + swiftSyntaxDependencies(
+                ["SwiftDiagnostics", "SwiftIDEUtils", "SwiftParser", "SwiftSyntax"]
+            ),
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -276,7 +326,7 @@ let package = Package(
             name: "PackageModel",
             dependencies: ["Basics"],
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: [
+            swiftSettings: swift6CompatibleExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -290,7 +340,7 @@ let package = Package(
                 "PackageModel",
             ] + swiftSyntaxDependencies(["SwiftBasicFormat", "SwiftDiagnostics", "SwiftIDEUtils", "SwiftParser", "SwiftSyntax", "SwiftSyntaxBuilder"]),
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -304,7 +354,7 @@ let package = Package(
                 "SourceControl",
             ],
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -321,7 +371,7 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -335,7 +385,7 @@ let package = Package(
             exclude: [
                 "Formats/v1.md",
             ],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -350,7 +400,7 @@ let package = Package(
                 "PackageModel",
                 "SourceControl",
             ],
-            swiftSettings: [
+            swiftSettings: swift6CompatibleExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -363,7 +413,7 @@ let package = Package(
                 "Basics",
                 "PackageCollectionsModel",
             ],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -375,7 +425,7 @@ let package = Package(
                 "PackageModel",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -389,9 +439,15 @@ let package = Package(
                 "PackageModel",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
+        ),
+
+        // MARK: Documentation
+
+        .target(
+            name: "PackageManagerDocs"
         ),
 
         // MARK: Package Manager Functionality
@@ -405,7 +461,7 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -423,7 +479,7 @@ let package = Package(
                 "DriverSupport",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -435,7 +491,7 @@ let package = Package(
                 .product(name: "SwiftDriver", package: "swift-driver"),
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -448,7 +504,7 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -457,7 +513,9 @@ let package = Package(
             dependencies: [
                 "SPMBuildCore",
                 "PackageGraph",
-            ]
+            ],
+            exclude: ["CMakeLists.txt", "README.md"],
+            swiftSettings: commonExperimentalFeatures
         ),
         .target(
             /** High level functionality */
@@ -474,7 +532,7 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -488,7 +546,7 @@ let package = Package(
                 "PackageRegistry",
                 "PackageSigning",
             ],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -510,7 +568,7 @@ let package = Package(
                 "SwiftBuildSupport",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -532,7 +590,7 @@ let package = Package(
                 "SwiftBuildSupport",
             ] + swiftSyntaxDependencies(["SwiftIDEUtils"]),
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: [
+            swiftSettings: swift6CompatibleExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -548,7 +606,7 @@ let package = Package(
                 "PackageModel",
             ],
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -564,7 +622,7 @@ let package = Package(
                 "PackageCollections",
                 "PackageModel",
             ],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -586,7 +644,7 @@ let package = Package(
                 "SPMBuildCore",
                 "Workspace",
             ],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
@@ -694,7 +752,7 @@ let package = Package(
             name: "CompilerPluginSupport",
             dependencies: ["PackageDescription"],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
             ]
@@ -772,11 +830,17 @@ let package = Package(
                 "Archiver/Inputs/invalid_archive.tar.gz",
                 "Archiver/Inputs/invalid_archive.zip",
                 "processInputs/long-stdout-stderr",
+                "processInputs/long-stdout-stderr.bat",
                 "processInputs/exit4",
+                "processInputs/exit4.bat",
                 "processInputs/simple-stdout-stderr",
+                "processInputs/simple-stdout-stderr.bat",
                 "processInputs/deadlock-if-blocking-io",
+                "processInputs/deadlock-if-blocking-io.bat",
                 "processInputs/echo",
+                "processInputs/echo.bat",
                 "processInputs/in-to-out",
+                "processInputs/in-to-out.bat",
             ]
         ),
         .testTarget(
@@ -817,7 +881,8 @@ let package = Package(
         ),
         .testTarget(
             name: "PackageGraphTests",
-            dependencies: ["PackageGraph", "_InternalTestSupport"]
+            dependencies: ["PackageGraph", "_InternalTestSupport"],
+            swiftSettings: commonExperimentalFeatures
         ),
         .testTarget(
             name: "PackageGraphPerformanceTests",
@@ -865,6 +930,10 @@ let package = Package(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "_InternalTestSupport"],
             exclude: ["Inputs/TestRepo.tgz"]
+        ),
+        .testTarget(
+            name: "SwiftFixItTests",
+            dependencies: ["SwiftFixIt", "_InternalTestSupport"]
         ),
         .testTarget(
             name: "XCBuildSupportTests",
@@ -947,16 +1016,14 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
 }
 #endif
 
-/// Whether swift-syntax is being built as a single dynamic library instead of as a separate library per module.
-///
-/// This means that the swift-syntax symbols don't need to be statically linked, which allows us to stay below the
-/// maximum number of exported symbols on Windows, in turn allowing us to build sourcekit-lsp using SwiftPM on Windows
-/// and run its tests.
-var buildDynamicSwiftSyntaxLibrary: Bool {
-  ProcessInfo.processInfo.environment["SWIFTSYNTAX_BUILD_DYNAMIC_LIBRARY"] != nil
-}
 
 func swiftSyntaxDependencies(_ names: [String]) -> [Target.Dependency] {
+  /// Whether swift-syntax is being built as a single dynamic library instead of as a separate library per module.
+  ///
+  /// This means that the swift-syntax symbols don't need to be statically linked, which allows us to stay below the
+  /// maximum number of exported symbols on Windows, in turn allowing us to build sourcekit-lsp using SwiftPM on Windows
+  /// and run its tests.
+  let buildDynamicSwiftSyntaxLibrary = ProcessInfo.processInfo.environment["SWIFTSYNTAX_BUILD_DYNAMIC_LIBRARY"] != nil
   if buildDynamicSwiftSyntaxLibrary {
     return [.product(name: "_SwiftSyntaxDynamic", package: "swift-syntax")]
   } else {
@@ -979,7 +1046,7 @@ let relatedDependenciesBranch = "main"
 if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         package.dependencies += [
-            .package(url: "https://github.com/apple/swift-llbuild.git", branch: relatedDependenciesBranch),
+            .package(url: "https://github.com/swiftlang/swift-llbuild.git", branch: relatedDependenciesBranch),
         ]
     } else {
         // In Swift CI, use a local path to llbuild to interoperate with tools
@@ -995,18 +1062,20 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
-        .package(url: "https://github.com/apple/swift-tools-support-core.git", branch: relatedDependenciesBranch),
+        .package(url: "https://github.com/swiftlang/swift-tools-support-core.git", branch: relatedDependenciesBranch),
         // The 'swift-argument-parser' version declared here must match that
         // used by 'swift-driver' and 'sourcekit-lsp'. Please coordinate
         // dependency version changes here with those projects.
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.4.0")),
-        .package(url: "https://github.com/apple/swift-driver.git", branch: relatedDependenciesBranch),
+        .package(url: "https://github.com/swiftlang/swift-driver.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-system.git", from: "1.1.1"),
         .package(url: "https://github.com/apple/swift-collections.git", "1.0.1" ..< "1.2.0"),
         .package(url: "https://github.com/apple/swift-certificates.git", "1.0.1" ..< "1.6.0"),
         .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", from: "1.0.0"),
+        // For use in previewing documentation
+        .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.1.0"),
     ]
 } else {
     package.dependencies += [
@@ -1020,6 +1089,13 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-certificates"),
         .package(path: "../swift-toolchain-sqlite"),
     ]
+}
+
+/// If ENABLE_APPLE_PRODUCT_TYPES is set in the environment, then also define ENABLE_APPLE_PRODUCT_TYPES in each of the regular targets and test targets.
+if ProcessInfo.processInfo.environment["ENABLE_APPLE_PRODUCT_TYPES"] == "1" {
+    for target in package.targets.filter({ $0.type == .regular || $0.type == .test }) {
+        target.swiftSettings = (target.swiftSettings ?? []) + [ .define("ENABLE_APPLE_PRODUCT_TYPES") ]
+    }
 }
 
 if ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] == nil &&

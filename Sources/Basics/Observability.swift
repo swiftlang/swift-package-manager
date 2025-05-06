@@ -16,6 +16,7 @@ import Foundation
 import struct TSCBasic.Diagnostic
 import protocol TSCBasic.DiagnosticData
 import protocol TSCBasic.DiagnosticLocation
+import class TSCBasic.TerminalController
 import class TSCBasic.UnknownLocation
 import protocol TSCUtility.DiagnosticDataConvertible
 import enum TSCUtility.Diagnostics
@@ -161,7 +162,7 @@ public protocol DiagnosticsHandler: Sendable {
     func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic)
 }
 
-// helper protocol to share default behavior
+/// Helper protocol to share default behavior.
 public protocol DiagnosticsEmitterProtocol {
     func emit(_ diagnostic: Diagnostic)
 }
@@ -393,7 +394,7 @@ public struct Diagnostic: Sendable, CustomStringConvertible {
         case info
         case debug
 
-        internal var naturalIntegralValue: Int {
+        var naturalIntegralValue: Int {
             switch self {
             case .debug:
                 return 0
@@ -409,6 +410,39 @@ public struct Diagnostic: Sendable, CustomStringConvertible {
         public static func < (lhs: Self, rhs: Self) -> Bool {
             lhs.naturalIntegralValue < rhs.naturalIntegralValue
         }
+
+        /// A string that represents the log label associated with the severity level.
+        /// This property provides a descriptive prefix for log messages, indicating the type of message based on its
+        /// severity.
+        public var logLabel: String {
+            switch self {
+            case .debug:
+                return "debug: "
+            case .info:
+                return "info: "
+            case .warning:
+                return "warning: "
+            case .error:
+                return "error: "
+            }
+        }
+
+        public var color: TerminalController.Color {
+            switch self {
+            case .debug:
+                return .white
+            case .info:
+                return .white
+            case .error:
+                return .red
+            case .warning:
+                return .yellow
+            }
+        }
+
+        public var isBold: Bool {
+            return true
+        }
     }
 }
 
@@ -417,7 +451,8 @@ public struct Diagnostic: Sendable, CustomStringConvertible {
 /// Provides type-safe access to the ObservabilityMetadata's values.
 /// This API should ONLY be used inside of accessor implementations.
 ///
-/// End users should use "accessors" the key's author MUST define rather than using this subscript, following this pattern:
+/// End users should use "accessors" the key's author MUST define rather than using this subscript, following this
+/// pattern:
 ///
 ///     extension ObservabilityMetadata {
 ///       var testID: String? {
@@ -538,7 +573,8 @@ public struct ObservabilityMetadata: Sendable, CustomDebugStringConvertible {
         }
     }
 
-    /// A type-erased `ObservabilityMetadataKey` used when iterating through the `ObservabilityMetadata` using its `forEach` method.
+    /// A type-erased `ObservabilityMetadataKey` used when iterating through the `ObservabilityMetadata` using its
+    /// `forEach` method.
     public struct AnyKey: Sendable {
         /// The key's type represented erased to an `Any.Type`.
         public let keyType: Any.Type

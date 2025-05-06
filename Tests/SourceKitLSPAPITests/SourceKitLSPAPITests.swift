@@ -86,7 +86,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                 "-package-name", "pkg",
                 "-emit-dependencies",
                 "-emit-module",
-                "-emit-module-path", "/path/to/build/\(plan.destinationBuildParameters.triple)/debug/Modules/exe.swiftmodule"
+                "-emit-module-path", AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/Modules/exe.swiftmodule").pathString
             ],
             resources: [.init(filePath: "/Pkg/Sources/exe/Resources/some_file.txt")],
             ignoredFiles: [.init(filePath: "/Pkg/Sources/exe/exe.docc")],
@@ -101,7 +101,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                 "-package-name", "pkg",
                 "-emit-dependencies",
                 "-emit-module",
-                "-emit-module-path", "/path/to/build/\(plan.destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule"
+                "-emit-module-path", AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule").pathString
             ],
             resources: [.init(filePath: "/Pkg/Sources/lib/Resources/some_file.txt")],
             ignoredFiles: [.init(filePath: "/Pkg/Sources/lib/lib.docc")],
@@ -112,7 +112,7 @@ final class SourceKitLSPAPITests: XCTestCase {
             for: "plugin",
             graph: graph,
             partialArguments: [
-                "-I", "/fake/manifestLib/path"
+                "-I", AbsolutePath("/fake/manifestLib/path").pathString
             ],
             isPartOfRootPackage: true,
             destination: .host
@@ -313,7 +313,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                     "-package-name", "pkg",
                     "-emit-dependencies",
                     "-emit-module",
-                    "-emit-module-path", "/path/to/build/\(destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule"
+                    "-emit-module-path", AbsolutePath("/path/to/build/\(destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule").pathString
                 ],
                 isPartOfRootPackage: true
             )
@@ -323,7 +323,7 @@ final class SourceKitLSPAPITests: XCTestCase {
     func testClangOutputPaths() async throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/lib/include/lib.h",
-            "/Pkg/Sources/lib/lib.cpp",
+            "/Pkg/Sources/lib/lib.cpp"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -361,8 +361,8 @@ final class SourceKitLSPAPITests: XCTestCase {
 
         let target = try XCTUnwrap(description.getBuildTarget(for: XCTUnwrap(graph.module(for: "lib")), destination: .target))
         XCTAssertEqual(target.compiler, .clang)
-        XCTAssertEqual(try target.outputPaths.count, 1)
-        XCTAssertEqual(try target.outputPaths.last?.lastPathComponent, "lib.cpp.o")
+        XCTAssertEqual(target.sources.count, 1)
+        XCTAssertEqual(target.sources.last?.outputFile?.lastPathComponent, "lib.cpp.o")
     }
 }
 
@@ -384,7 +384,7 @@ extension SourceKitLSPAPI.BuildDescription {
         XCTAssertEqual(buildTarget.ignored, ignoredFiles, "build target \(targetName) contains unexpected ignored files")
         XCTAssertEqual(buildTarget.others, otherFiles, "build target \(targetName) contains unexpected other files")
 
-        guard let source = buildTarget.sources.first else {
+        guard let source = buildTarget.sources.first?.sourceFile else {
             XCTFail("build target \(targetName) contains no source files")
             return false
         }

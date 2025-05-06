@@ -32,12 +32,14 @@ extension Manifest {
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
-        traits: Set<TraitDescription> = [.init(name: "defaults")]
+        traits: Set<TraitDescription> = [.init(name: "default")],
+        pruneDependencies: Bool = false
     ) -> Manifest {
         Self.createManifest(
             displayName: displayName,
             path: path,
             packageKind: .root(path),
+            packageIdentity: .plain(displayName),
             packageLocation: path.pathString,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
@@ -51,7 +53,8 @@ extension Manifest {
             dependencies: dependencies,
             products: products,
             targets: targets,
-            traits: traits
+            traits: traits,
+            pruneDependencies: pruneDependencies
         )
     }
 
@@ -70,12 +73,14 @@ extension Manifest {
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
-        traits: Set<TraitDescription> = [.init(name: "defaults")]
+        traits: Set<TraitDescription> = [.init(name: "default")],
+        pruneDependencies: Bool = false
     ) -> Manifest {
         Self.createManifest(
             displayName: displayName,
             path: path,
             packageKind: .fileSystem(path),
+            packageIdentity: .plain(displayName),
             packageLocation: path.pathString,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
@@ -89,7 +94,8 @@ extension Manifest {
             dependencies: dependencies,
             products: products,
             targets: targets,
-            traits: traits
+            traits: traits,
+            pruneDependencies: pruneDependencies
         )
     }
 
@@ -107,12 +113,14 @@ extension Manifest {
         swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
-        targets: [TargetDescription] = []
+        targets: [TargetDescription] = [],
+        pruneDependencies: Bool = false
     ) -> Manifest {
         Self.createManifest(
             displayName: displayName,
             path: path,
             packageKind: .localSourceControl(path),
+            packageIdentity: .plain(displayName),
             packageLocation: path.pathString,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
@@ -125,7 +133,9 @@ extension Manifest {
             swiftLanguageVersions: swiftLanguageVersions,
             dependencies: dependencies,
             products: products,
-            targets: targets
+            targets: targets,
+            traits: [],
+            pruneDependencies: pruneDependencies
         )
     }
 
@@ -144,12 +154,14 @@ extension Manifest {
         swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
-        targets: [TargetDescription] = []
+        targets: [TargetDescription] = [],
+        pruneDependencies: Bool = false
     ) -> Manifest {
         Self.createManifest(
             displayName: displayName,
             path: path,
             packageKind: .remoteSourceControl(url),
+            packageIdentity: .plain(displayName),
             packageLocation: url.absoluteString,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
@@ -162,7 +174,8 @@ extension Manifest {
             swiftLanguageVersions: swiftLanguageVersions,
             dependencies: dependencies,
             products: products,
-            targets: targets
+            targets: targets,
+            pruneDependencies: pruneDependencies
         )
     }
 
@@ -181,12 +194,14 @@ extension Manifest {
         swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
-        targets: [TargetDescription] = []
+        targets: [TargetDescription] = [],
+        pruneDependencies: Bool = false
     ) -> Manifest {
         Self.createManifest(
             displayName: displayName,
             path: path,
             packageKind: .registry(identity),
+            packageIdentity: .plain(displayName),
             packageLocation: identity.description,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
@@ -199,7 +214,8 @@ extension Manifest {
             swiftLanguageVersions: swiftLanguageVersions,
             dependencies: dependencies,
             products: products,
-            targets: targets
+            targets: targets,
+            pruneDependencies: pruneDependencies
         )
     }
 
@@ -207,6 +223,7 @@ extension Manifest {
         displayName: String,
         path: AbsolutePath = .root,
         packageKind: PackageReference.Kind,
+        packageIdentity: PackageIdentity,
         packageLocation: String? = nil,
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription] = [],
@@ -220,10 +237,12 @@ extension Manifest {
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
-        traits: Set<TraitDescription> = [.init(name: "defaults")]
+        traits: Set<TraitDescription> = [.init(name: "default")],
+        pruneDependencies: Bool = false
     ) -> Manifest {
         return Manifest(
             displayName: displayName,
+            packageIdentity: packageIdentity,
             path: path.basename == Manifest.filename ? path : path.appending(component: Manifest.filename),
             packageKind: packageKind,
             packageLocation: packageLocation ?? path.pathString,
@@ -240,13 +259,15 @@ extension Manifest {
             dependencies: dependencies,
             products: products,
             targets: targets,
-            traits: traits
+            traits: traits,
+            pruneDependencies: pruneDependencies
         )
     }
 
     public func with(location: String) -> Manifest {
         Manifest(
             displayName: self.displayName,
+            packageIdentity: self.packageIdentity,
             path: self.path,
             packageKind: self.packageKind,
             packageLocation: location,
@@ -263,7 +284,8 @@ extension Manifest {
             dependencies: self.dependencies,
             products: self.products,
             targets: self.targets,
-            traits: self.traits
+            traits: self.traits,
+            pruneDependencies: false
         )
     }
 }

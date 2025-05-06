@@ -14,8 +14,11 @@ import ArgumentParser
 import struct Basics.Environment
 import CoreCommands
 import Foundation
+import PackageGraph
 import PackageModel
+import SPMBuildCore
 import TSCBasic
+import Workspace
 
 extension SwiftPackageCommand {
     struct Install: AsyncSwiftCommand {

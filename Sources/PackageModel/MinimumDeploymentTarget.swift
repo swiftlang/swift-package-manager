@@ -11,12 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import Foundation
+import TSCUtility
 
 import class Basics.AsyncProcess
 
 public struct MinimumDeploymentTarget {
     private struct MinimumDeploymentTargetKey: Hashable {
-        let binaryPath: AbsolutePath
+        let binaryPath: Basics.AbsolutePath
         let platform: PackageModel.Platform
     }
 
@@ -28,7 +30,7 @@ public struct MinimumDeploymentTarget {
     private init() {
     }
 
-    public func computeMinimumDeploymentTarget(of binaryPath: AbsolutePath, platform: PackageModel.Platform) throws -> PlatformVersion {
+    public func computeMinimumDeploymentTarget(of binaryPath: Basics.AbsolutePath, platform: PackageModel.Platform) throws -> PlatformVersion {
         try self.minimumDeploymentTargets.memoize(MinimumDeploymentTargetKey(binaryPath: binaryPath, platform: platform)) {
             return try Self.computeMinimumDeploymentTarget(of: binaryPath, platform: platform) ?? platform.oldestSupportedVersion
         }
@@ -40,7 +42,7 @@ public struct MinimumDeploymentTarget {
         }
     }
 
-    static func computeMinimumDeploymentTarget(of binaryPath: AbsolutePath, platform: PackageModel.Platform) throws -> PlatformVersion? {
+    static func computeMinimumDeploymentTarget(of binaryPath: Basics.AbsolutePath, platform: PackageModel.Platform) throws -> PlatformVersion? {
         guard let (_, platformName) = platform.sdkNameAndPlatform else {
             return nil
         }
@@ -58,8 +60,8 @@ public struct MinimumDeploymentTarget {
 
     static func computeXCTestMinimumDeploymentTarget(with runResult: AsyncProcessResult, platform: PackageModel.Platform) throws -> PlatformVersion? {
         guard let output = try runResult.utf8Output().spm_chuzzle() else { return nil }
-        let sdkPath = try AbsolutePath(validating: output)
-        let xcTestPath = try AbsolutePath(validating: "Developer/Library/Frameworks/XCTest.framework/XCTest", relativeTo: sdkPath)
+        let sdkPath = try Basics.AbsolutePath(validating: output)
+        let xcTestPath = try Basics.AbsolutePath(validating: "Developer/Library/Frameworks/XCTest.framework/XCTest", relativeTo: sdkPath)
         return try computeMinimumDeploymentTarget(of: xcTestPath, platform: platform)
     }
 

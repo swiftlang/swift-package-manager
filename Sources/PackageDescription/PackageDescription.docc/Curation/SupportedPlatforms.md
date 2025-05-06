@@ -51,15 +51,10 @@
 - <doc:/documentation/PackageDescription/Platform/driverKit>
 - ``DriverKitVersion``
 
-### Supporting Linux
-
-- <doc:/documentation/PackageDescription/Platform/linux>
-
-### Type methods
+### Supporting Custom Platforms
 
 - ``custom(_:versionString:)``
 
 ### Operator Functions
 
 - ``!=(_:_:)``
-- ``==(_:_:)``

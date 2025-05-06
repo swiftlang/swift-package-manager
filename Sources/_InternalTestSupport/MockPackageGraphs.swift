@@ -76,7 +76,8 @@ package func macrosPackageGraph() throws -> MockPackageGraph {
                     ),
                     TargetDescription(name: "CoreTests", dependencies: ["Core"], type: .test),
                     TargetDescription(name: "HALTests", dependencies: ["HAL"], type: .test),
-                ]
+                ],
+                traits: []
             ),
             Manifest.createFileSystemManifest(
                 displayName: "swift-mmio",
@@ -104,7 +105,8 @@ package func macrosPackageGraph() throws -> MockPackageGraph {
                         dependencies: [.product(name: "SwiftSyntax", package: "swift-syntax")],
                         type: .macro
                     )
-                ]
+                ],
+                traits: []
             ),
             Manifest.createFileSystemManifest(
                 displayName: "swift-syntax",
@@ -119,10 +121,12 @@ package func macrosPackageGraph() throws -> MockPackageGraph {
                 targets: [
                     TargetDescription(name: "SwiftSyntax", dependencies: []),
                     TargetDescription(name: "SwiftSyntaxTests", dependencies: ["SwiftSyntax"], type: .test),
-                ]
+                ],
+                traits: []
             ),
         ],
-        observabilityScope: observability.topScope
+        observabilityScope: observability.topScope,
+        traitConfiguration: .default
     )
 
     XCTAssertNoDiagnostics(observability.diagnostics)
@@ -210,7 +214,8 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
                         dependencies: [],
                         type: .test
                     )
-                ]
+                ],
+                traits: []
             ),
             Manifest.createRootManifest(
                 displayName: "swift-syntax",
@@ -274,10 +279,12 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
                         dependencies: ["SwiftSyntax"],
                         type: .test
                     ),
-                ]
+                ],
+                traits: []
             ),
         ],
-        observabilityScope: observability.topScope
+        observabilityScope: observability.topScope,
+        traitConfiguration: .default
     )
 
     XCTAssertNoDiagnostics(observability.diagnostics)
@@ -305,10 +312,12 @@ package func trivialPackageGraph() throws -> MockPackageGraph {
                     TargetDescription(name: "app", dependencies: ["lib"]),
                     TargetDescription(name: "lib", dependencies: []),
                     TargetDescription(name: "test", dependencies: ["lib"], type: .test),
-                ]
+                ],
+                traits: []
             ),
         ],
-        observabilityScope: observability.topScope
+        observabilityScope: observability.topScope,
+        traitConfiguration: .default
     )
     XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -347,10 +356,12 @@ package func embeddedCxxInteropPackageGraph() throws -> MockPackageGraph {
                         dependencies: ["lib"],
                         type: .test
                     ),
-                ]
+                ],
+                traits: []
             ),
         ],
-        observabilityScope: observability.topScope
+        observabilityScope: observability.topScope,
+        traitConfiguration: .default
     )
     XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -392,7 +403,8 @@ package func toolsExplicitLibrariesGraph(linkage: ProductType.LibraryType) throw
                         ],
                         type: .test
                     )
-                ]
+                ],
+                traits: []
             ),
             Manifest.createFileSystemManifest(
                 displayName: "swift-syntax",
@@ -409,10 +421,12 @@ package func toolsExplicitLibrariesGraph(linkage: ProductType.LibraryType) throw
                         name: "SwiftSyntax",
                         dependencies: []
                     ),
-                ]
+                ],
+                traits: []
             ),
         ],
-        observabilityScope: observability.topScope
+        observabilityScope: observability.topScope,
+        traitConfiguration: .default
     )
 
     XCTAssertNoDiagnostics(observability.diagnostics)

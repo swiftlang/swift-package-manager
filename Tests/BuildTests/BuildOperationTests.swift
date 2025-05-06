@@ -62,7 +62,8 @@ final class BuildOperationTests: XCTestCase {
                     path: "/Pkg",
                     targets: [
                         TargetDescription(name: "ATarget"),
-                    ]
+                    ],
+                    traits: []
                 ),
             ],
             observabilityScope: observability.topScope

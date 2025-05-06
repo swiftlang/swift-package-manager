@@ -11,8 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import Basics
 import CoreCommands
 import TSCUtility
+import Workspace
+
+import enum PackageModel.TraitConfiguration
 
 extension SwiftPackageCommand {
     struct ResolveOptions: ParsableArguments {
@@ -27,6 +31,10 @@ extension SwiftPackageCommand {
 
         @Argument(help: "The name of the package to resolve")
         var packageName: String?
+
+        /// Specifies the traits to build.
+        @OptionGroup(visibility: .hidden)
+        package var traits: TraitOptions
     }
 
     struct Resolve: AsyncSwiftCommand {
@@ -42,10 +50,10 @@ extension SwiftPackageCommand {
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             // If a package is provided, use that to resolve the dependencies.
             if let packageName = resolveOptions.packageName {
-                let workspace = try swiftCommandState.getActiveWorkspace()
+                let workspace = try swiftCommandState.getActiveWorkspace(traitConfiguration: .init(traitOptions: resolveOptions.traits))
                 try await workspace.resolve(
                     packageName: packageName,
-                    root: swiftCommandState.getWorkspaceRoot(),
+                    root: swiftCommandState.getWorkspaceRoot(traitConfiguration: .init(traitOptions: resolveOptions.traits)),
                     version: resolveOptions.version,
                     branch: resolveOptions.branch,
                     revision: resolveOptions.revision,
@@ -56,7 +64,7 @@ extension SwiftPackageCommand {
                 }
             } else {
                 // Otherwise, run a normal resolve.
-                try await swiftCommandState.resolve()
+                try await swiftCommandState.resolve(.init(traitOptions: resolveOptions.traits))
             }
         }
     }

@@ -4,11 +4,21 @@ import PackageDescription
 
 let package = Package(
     name: "IntegrationTests",
+    platforms: [.macOS("13.0")],
     targets: [
-        .testTarget(name: "IntegrationTests", dependencies: [
-            .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
-            .product(name: "TSCTestSupport", package: "swift-tools-support-core")
-        ]),
+        .testTarget(
+            name: "IntegrationTests",
+            dependencies: [
+                .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+                .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
+                "IntegrationTestSupport",
+            ]),
+        .target(
+            name: "IntegrationTestSupport",
+            dependencies: [
+                .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
+            ]
+        ),
     ]
 )
 

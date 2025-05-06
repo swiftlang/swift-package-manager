@@ -13,6 +13,8 @@
 import Basics
 import PackageGraph
 
+import enum PackageModel.TraitConfiguration
+
 import protocol TSCBasic.OutputByteStream
 
 /// An enum representing what subset of the package to build.
@@ -128,7 +130,7 @@ public protocol BuildSystemFactory {
 
 public struct BuildSystemProvider {
     // TODO: In the future, we may want this to be about specific capabilities of a build system rather than choosing a concrete one.
-    public enum Kind: String, CaseIterable {
+    public enum Kind: String, Codable, CaseIterable {
         case native
         case swiftbuild
         case xcode
@@ -169,15 +171,6 @@ public struct BuildSystemProvider {
     }
 }
 
-extension BuildSystemProvider.Kind {
-    public var usesXcodeBuildEngine: Bool {
-        switch self {
-            case .native: return false
-            case .swiftbuild: return false
-            case .xcode: return true
-        }
-    }
-}
 private enum Errors: Swift.Error {
     case buildSystemProviderNotRegistered(kind: BuildSystemProvider.Kind)
 }

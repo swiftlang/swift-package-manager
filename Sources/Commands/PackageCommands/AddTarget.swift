@@ -13,6 +13,8 @@
 import ArgumentParser
 import Basics
 import CoreCommands
+import Foundation
+import PackageGraph
 import PackageModel
 import PackageModelSyntax
 import SwiftParser
@@ -88,6 +90,14 @@ extension SwiftPackageCommand {
                     }
                 }
             }
+
+            // Move sources into their own folder if they're directly in `./Sources`.
+            try PackageModelSyntax.AddTarget.moveSingleTargetSources(
+                packagePath: packagePath,
+                manifest: manifestSyntax,
+                fileSystem: fileSystem,
+                verbose: !globalOptions.logging.quiet
+            )
 
             // Map the target type.
             let type: TargetDescription.TargetKind = switch self.type {

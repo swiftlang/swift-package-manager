@@ -662,7 +662,8 @@ final class RegistryClientTests: XCTestCase {
 
         let availableManifests = try await registryClient.getAvailableManifests(
             package: identity,
-            version: version
+            version: version,
+            observabilityScope: ObservabilitySystem.NOOP
         )
         assert(availableManifests)
 
@@ -801,7 +802,8 @@ final class RegistryClientTests: XCTestCase {
         )
         let availableManifests = try await registryClient.getAvailableManifests(
             package: identity,
-            version: version
+            version: version,
+            observabilityScope: ObservabilitySystem.NOOP
         )
 
         XCTAssertEqual(availableManifests["Package.swift"]?.toolsVersion, .v5_5)
@@ -937,7 +939,8 @@ final class RegistryClientTests: XCTestCase {
         await XCTAssertAsyncThrowsError(
             try await registryClient.getAvailableManifests(
                 package: identity,
-                version: version
+                version: version,
+                observabilityScope: ObservabilitySystem.NOOP
             )
         ) { error in
             guard case RegistryError.invalidChecksum = error else {
@@ -1136,7 +1139,13 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        await XCTAssertAsyncThrowsError(try await registryClient.getAvailableManifests(package: identity, version: version)) { error in
+        await XCTAssertAsyncThrowsError(
+            try await registryClient.getAvailableManifests(
+                package: identity,
+                version: version,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+        ) { error in
             guard case RegistryError
                 .failedRetrievingManifest(
                     registry: configuration.defaultRegistry!,
@@ -1196,7 +1205,13 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        await XCTAssertAsyncThrowsError(try await registryClient.getAvailableManifests(package: identity, version: version)) { error in
+        await XCTAssertAsyncThrowsError(
+            try await registryClient.getAvailableManifests(
+                package: identity,
+                version: version,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+        ) { error in
             guard case RegistryError
                 .failedRetrievingManifest(
                     registry: configuration.defaultRegistry!,
@@ -1224,7 +1239,13 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = registry
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        await XCTAssertAsyncThrowsError(try await registryClient.getAvailableManifests(package: identity, version: version)) { error in
+        await XCTAssertAsyncThrowsError(
+            try await registryClient.getAvailableManifests(
+                package: identity,
+                version: version,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+        ) { error in
             guard case RegistryError.registryNotAvailable(registry) = error
             else {
                 return XCTFail("unexpected error: '\(error)'")
@@ -1360,7 +1381,7 @@ final class RegistryClientTests: XCTestCase {
                     version: version,
                     customToolsVersion: nil,
                     observabilityScope: ObservabilitySystem.NOOP,
-                    callbackQueue: .sharedConcurrent,
+                    callbackQueue: .sharedConcurrent
                 ) { continuation.resume(with: $0) }
             }
             let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifestSync)
@@ -3419,7 +3440,7 @@ final class RegistryClientTests: XCTestCase {
                     signatureFormat: .none,
                     fileSystem: localFileSystem,
                     observabilityScope: ObservabilitySystem.NOOP,
-                    callbackQueue: .sharedConcurrent,
+                    callbackQueue: .sharedConcurrent
                 ) { result in continuation.resume(with: result) }
             }
 
@@ -3942,8 +3963,7 @@ extension RegistryClient {
     fileprivate func getPackageMetadata(package: PackageIdentity) async throws -> RegistryClient.PackageMetadata {
         try await self.getPackageMetadata(
             package: package,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 
@@ -3955,8 +3975,7 @@ extension RegistryClient {
             package: package,
             version: version,
             fileSystem: InMemoryFileSystem(),
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 
@@ -3964,45 +3983,11 @@ extension RegistryClient {
         package: PackageIdentity.RegistryIdentity,
         version: Version
     ) async throws -> PackageVersionMetadata {
-        return try await withCheckedThrowingContinuation { continuation in
-            self.getPackageVersionMetadata(
-                package: package.underlying,
-                version: version,
-                fileSystem: InMemoryFileSystem(),
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: {
-                  continuation.resume(with: $0)
-                }
-            )
-        }
-    }
-
-    fileprivate func getAvailableManifests(
-        package: PackageIdentity,
-        version: Version,
-        observabilityScope: ObservabilityScope = ObservabilitySystem.NOOP
-    ) async throws -> [String: (toolsVersion: ToolsVersion, content: String?)] {
-        try await self.getAvailableManifests(
-            package: package,
+        return try await self.getPackageVersionMetadata(
+            package: package.underlying,
             version: version,
-            observabilityScope: observabilityScope,
-            callbackQueue: .sharedConcurrent
-        )
-    }
-
-    fileprivate func getManifestContent(
-        package: PackageIdentity,
-        version: Version,
-        customToolsVersion: ToolsVersion?,
-        observabilityScope: ObservabilityScope = ObservabilitySystem.NOOP
-    ) async throws -> String {
-        try await self.getManifestContent(
-            package: package,
-            version: version,
-            customToolsVersion: customToolsVersion,
-            observabilityScope: observabilityScope,
-            callbackQueue: .sharedConcurrent
+            fileSystem: InMemoryFileSystem(),
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 
@@ -4019,24 +4004,34 @@ extension RegistryClient {
             destinationPath: destinationPath,
             progressHandler: .none,
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: observabilityScope
         )
     }
 
     fileprivate func lookupIdentities(scmURL: SourceControlURL) async throws -> Set<PackageIdentity> {
         try await self.lookupIdentities(
             scmURL: scmURL,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+    }
+
+    fileprivate func getManifestContent(
+        package: PackageIdentity,
+        version: Version,
+        customToolsVersion: ToolsVersion?
+    ) async throws -> String {
+        try await self.getManifestContent(
+            package: package,
+            version: version,
+            customToolsVersion: customToolsVersion,
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 
     fileprivate func login(loginURL: URL) async throws {
         try await self.login(
             loginURL: loginURL,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 
@@ -4061,8 +4056,7 @@ extension RegistryClient {
             metadataSignature: metadataSignature,
             signatureFormat: signatureFormat,
             fileSystem: fileSystem,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 

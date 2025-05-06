@@ -30,16 +30,32 @@ public enum PluginAction {
         pluginGeneratedSources: [AbsolutePath],
         pluginGeneratedResources: [AbsolutePath]
     )
+    case createXcodeProjectBuildToolCommands(
+        project: XcodeProjectRepresentation,
+        target: XcodeProjectRepresentation.Target,
+        pluginGeneratedSources: [AbsolutePath],
+        pluginGeneratedResources: [AbsolutePath]
+    )
     case performCommand(package: ResolvedPackage, arguments: [String])
+    case performXcodeProjectCommand(project: XcodeProjectRepresentation, arguments: [String])
 }
 
 public struct PluginTool {
     public let path: AbsolutePath
     public let triples: [String]?
+    public let source: Source
 
-    public init(path: AbsolutePath, triples: [String]? = nil) {
+    public enum Source {
+        // Built from an executable target
+        case built
+        // Brought in from a binary target
+        case vended
+    }
+
+    public init(path: AbsolutePath, triples: [String]? = nil, source: Source) {
         self.path = path
         self.triples = triples
+        self.source = source
     }
 }
 
@@ -172,6 +188,8 @@ extension PluginModule {
                     targets: serializer.targets,
                     products: serializer.products,
                     packages: serializer.packages,
+                    xcodeTargets: serializer.xcodeTargets,
+                    xcodeProjects: serializer.xcodeProjects,
                     pluginWorkDirId: pluginWorkDirId,
                     toolSearchDirIds: toolSearchDirIds,
                     accessibleTools: accessibleTools)
@@ -182,6 +200,32 @@ extension PluginModule {
                     pluginGeneratedSources: generatedSources,
                     pluginGeneratedResources: generatedResources
                 )
+
+            case .createXcodeProjectBuildToolCommands(let project, let target, let generatedSources, let generatedResources):
+                let rootProjectId = try serializer.serialize(xcodeProject: project)
+                guard let targetId = try serializer.serialize(xcodeTarget: target) else {
+                    throw StringError("unexpectedly was unable to serialize target \(target)")
+                }
+                let pluginGeneratedSources = try generatedSources.map { try serializer.serialize(path: $0) }
+                let pluginGeneratedResources = try generatedResources.map { try serializer.serialize(path: $0) }
+                let wireInput = WireInput(
+                    paths: serializer.paths,
+                    targets: serializer.targets,
+                    products: serializer.products,
+                    packages: serializer.packages,
+                    xcodeTargets: serializer.xcodeTargets,
+                    xcodeProjects: serializer.xcodeProjects,
+                    pluginWorkDirId: pluginWorkDirId,
+                    toolSearchDirIds: toolSearchDirIds,
+                    accessibleTools: accessibleTools)
+                actionMessage = .createXcodeProjectBuildToolCommands(
+                    context: wireInput,
+                    rootProjectId: rootProjectId,
+                    targetId: targetId,
+                    pluginGeneratedSources: pluginGeneratedSources,
+                    pluginGeneratedResources: pluginGeneratedResources
+                )
+
             case .performCommand(let package, let arguments):
                 let rootPackageId = try serializer.serialize(package: package)
                 let wireInput = WireInput(
@@ -189,12 +233,31 @@ extension PluginModule {
                     targets: serializer.targets,
                     products: serializer.products,
                     packages: serializer.packages,
+                    xcodeTargets: serializer.xcodeTargets,
+                    xcodeProjects: serializer.xcodeProjects,
                     pluginWorkDirId: pluginWorkDirId,
                     toolSearchDirIds: toolSearchDirIds,
                     accessibleTools: accessibleTools)
                 actionMessage = .performCommand(
                     context: wireInput,
                     rootPackageId: rootPackageId,
+                    arguments: arguments)
+                
+            case .performXcodeProjectCommand(let xcodeProject, let arguments):
+                let rootProjectId = try serializer.serialize(xcodeProject: xcodeProject)
+                let wireInput = WireInput(
+                    paths: serializer.paths,
+                    targets: serializer.targets,
+                    products: serializer.products,
+                    packages: serializer.packages,
+                    xcodeTargets: serializer.xcodeTargets,
+                    xcodeProjects: serializer.xcodeProjects,
+                    pluginWorkDirId: pluginWorkDirId,
+                    toolSearchDirIds: toolSearchDirIds,
+                    accessibleTools: accessibleTools)
+                actionMessage = .performXcodeProjectCommand(
+                    context: wireInput,
+                    rootProjectId: rootProjectId,
                     arguments: arguments)
             }
             initialMessage = try actionMessage.toData()
@@ -453,12 +516,14 @@ extension PluginModule {
         // Determine additional input dependencies for any plugin commands,
         // based on any executables the plugin target depends on.
         let toolPaths = accessibleTools.values.map(\.path).sorted()
+        
+        let builtToolPaths = accessibleTools.values.filter({ $0.source == .built }).map((\.path)).sorted()
 
         let delegate = DefaultPluginInvocationDelegate(
             fileSystem: fileSystem,
             delegateQueue: delegateQueue,
             toolPaths: toolPaths,
-            builtToolNames: accessibleTools.map(\.key)
+            builtToolPaths: builtToolPaths
         )
 
         let startTime = DispatchTime.now()
@@ -654,7 +719,7 @@ public extension ResolvedModule {
             switch tool {
             case .builtTool(let name, let path):
                 if let path = try await builtToolHandler(name, path) {
-                    tools[name] = PluginTool(path: path)
+                    tools[name] = PluginTool(path: path, source: .built)
                 }
             case .vendedTool(let name, let path, let triples):
                 // Avoid having the path of an unsupported tool overwrite a supported one.
@@ -662,7 +727,7 @@ public extension ResolvedModule {
                     continue
                 }
                 let priorTriples = tools[name]?.triples ?? []
-                tools[name] = PluginTool(path: path, triples: priorTriples + triples)
+                tools[name] = PluginTool(path: path, triples: priorTriples + triples, source: .vended)
             }
         }
 
@@ -786,7 +851,7 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
     let fileSystem: FileSystem
     let delegateQueue: DispatchQueue
     let toolPaths: [AbsolutePath]
-    let builtToolNames: [String]
+    let builtToolPaths: [AbsolutePath]
     var outputData = Data()
     var diagnostics = [Basics.Diagnostic]()
     var buildCommands = [BuildToolPluginInvocationResult.BuildCommand]()
@@ -796,12 +861,12 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
         fileSystem: FileSystem,
         delegateQueue: DispatchQueue,
         toolPaths: [AbsolutePath],
-        builtToolNames: [String]
+        builtToolPaths: [AbsolutePath]
     ) {
         self.fileSystem = fileSystem
         self.delegateQueue = delegateQueue
         self.toolPaths = toolPaths
-        self.builtToolNames = builtToolNames
+        self.builtToolPaths = builtToolPaths
     }
 
     func pluginCompilationStarted(commandLine: [String], environment: [String: String]) {}
@@ -855,7 +920,7 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
     ) -> Bool {
         dispatchPrecondition(condition: .onQueue(self.delegateQueue))
         // executable must exist before running prebuild command
-        if self.builtToolNames.contains(executable.basename) {
+        if builtToolPaths.contains(executable) {
             self.diagnostics
                 .append(
                     .error(

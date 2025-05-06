@@ -16,6 +16,7 @@ import CoreCommands
 import Foundation
 import PackageGraph
 import PackageModel
+import SPMBuildCore
 
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.exec
@@ -273,7 +274,8 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         // If the executable is implicit, search through root products.
         let rootExecutables = graph.rootPackages
             .flatMap { $0.products }
-            .filter { $0.type == .executable || $0.type == .snippet }
+            // The type checker slows down significantly when ProductTypes arent explicitly typed.
+            .filter { $0.type == ProductType.executable || $0.type == ProductType.snippet }
             .map { $0.name }
 
         // Error out if the package contains no executables.
@@ -350,10 +352,10 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         #else
         let number_fds = getdtablesize()
         #endif /* os(Android) */
-        
-        // 2. close all file descriptors.
+
+        // 2. set to close all file descriptors on exec
         for i in 3..<number_fds {
-            close(i)
+            _ = fcntl(i, F_SETFD, FD_CLOEXEC)
         }
         #endif /* os(FreeBSD) || os(OpenBSD) */
         #endif

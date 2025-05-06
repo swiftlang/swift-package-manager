@@ -12,8 +12,8 @@
 
 import ArgumentParser
 
-import var Basics.localFileSystem
 import struct Basics.AbsolutePath
+import var Basics.localFileSystem
 import enum Basics.TestingLibrary
 import struct Basics.Triple
 
@@ -22,12 +22,12 @@ import struct Foundation.URL
 import enum PackageModel.BuildConfiguration
 import struct PackageModel.BuildFlags
 import struct PackageModel.EnabledSanitizers
-import struct PackageModel.PackageIdentity
 import class PackageModel.Manifest
+import struct PackageModel.PackageIdentity
 import enum PackageModel.Sanitizer
 @_spi(SwiftPMInternal) import struct PackageModel.SwiftSDK
 
-import struct PackageGraph.TraitConfiguration
+import enum PackageModel.TraitConfiguration
 
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildSystemProvider
@@ -36,6 +36,7 @@ import struct TSCBasic.StringError
 
 import struct TSCUtility.Version
 
+import Foundation
 import class Workspace.Workspace
 import struct Workspace.WorkspaceConfiguration
 
@@ -124,7 +125,7 @@ public struct LocationOptions: ParsableArguments {
         completion: .directory
     )
     public var swiftSDKsDirectory: AbsolutePath?
-    
+
     @Option(
         name: .customLong("toolset"),
         help: """
@@ -146,6 +147,12 @@ public struct LocationOptions: ParsableArguments {
         completion: .directory
     )
     public var pkgConfigDirectories: [AbsolutePath] = []
+    
+    @Option(
+        help: .init("Specify alternate path to search for resources required for SwiftPM to operate. (default: <Toolchain Directory>/usr/share/pm)", visibility: .hidden),
+        completion: .directory
+    )
+    public var packageManagerResourcesDirectory: AbsolutePath?
 
     @Flag(name: .customLong("ignore-lock"), help: .hidden)
     public var ignoreLock: Bool = false
@@ -208,6 +215,15 @@ public struct LoggingOptions: ParsableArguments {
     /// Whether logging output should be limited to `.error`.
     @Flag(name: .shortAndLong, help: "Decrease verbosity to only include error output.")
     public var quiet: Bool = false
+
+    @Flag(name: .customLong("color-diagnostics"),
+          inversion: .prefixedNo,
+          help:
+            """
+            Enables or disables color diagnostics when printing to a TTY. 
+            By default, color diagnostics are enabled when connected to a TTY and disabled otherwise.
+            """)
+    public var colorDiagnostics: Bool = ProcessInfo.processInfo.environment["NO_COLOR"] == nil
 }
 
 public struct SecurityOptions: ParsableArguments {
@@ -293,6 +309,17 @@ public struct ResolverOptions: ParsableArguments {
     @Flag(help: "Define automatic transformation of source control based dependencies to registry based ones")
     public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation =
         .disabled
+
+    /// Enables pruning unused dependencies to omit redundant calculations during resolution, and each phase thereafter.
+    /// Hidden from the generated help text as this feature is only currently being considered for traits.
+    @Flag(
+        name: .customLong("experimental-prune-unused-dependencies"),
+        help: ArgumentHelp(
+            "Enables the ability to prune unused dependencies of the package to avoid redundant loads during resolution",
+            visibility: .hidden
+        )
+    )
+    public var pruneDependencies: Bool = false
 
     @Option(help: "Default registry URL to use, instead of the registries.json configuration file")
     public var defaultRegistryURL: URL?
@@ -532,7 +559,7 @@ public struct BuildOptions: ParsableArguments {
 
     // Whether to omit frame pointers
     // this can be removed once the backtracer uses DWARF instead of frame pointers
-    @Flag(inversion: .prefixedNo,  help: .hidden)
+    @Flag(inversion: .prefixedNo, help: .hidden)
     public var omitFramePointers: Bool? = nil
 
     // @Flag works best when there is a default value present
@@ -646,7 +673,6 @@ public struct TestLibraryOptions: ParsableArguments {
         isEnabled(library, default: false, swiftCommandState: swiftCommandState)
     }
 }
-
 
 package struct TraitOptions: ParsableArguments {
     package init() {}
@@ -763,22 +789,11 @@ extension URL {
     }
 }
 
-#if compiler(<6.0)
-extension BuildConfiguration: ExpressibleByArgument, CaseIterable {}
+extension BuildConfiguration: ExpressibleByArgument {}
 extension AbsolutePath: ExpressibleByArgument {}
 extension WorkspaceConfiguration.CheckingMode: ExpressibleByArgument {}
 extension Sanitizer: ExpressibleByArgument {}
-extension BuildSystemProvider.Kind: ExpressibleByArgument, CaseIterable {}
-extension Version: ExpressibleByArgument {}
-extension PackageIdentity: ExpressibleByArgument {}
-extension URL: ExpressibleByArgument {}
-#else
-extension BuildConfiguration: @retroactive ExpressibleByArgument, CaseIterable {}
-extension AbsolutePath: @retroactive ExpressibleByArgument {}
-extension WorkspaceConfiguration.CheckingMode: @retroactive ExpressibleByArgument {}
-extension Sanitizer: @retroactive ExpressibleByArgument {}
-extension BuildSystemProvider.Kind: @retroactive ExpressibleByArgument, CaseIterable {}
+extension BuildSystemProvider.Kind: ExpressibleByArgument {}
 extension Version: @retroactive ExpressibleByArgument {}
-extension PackageIdentity: @retroactive ExpressibleByArgument {}
+extension PackageIdentity: ExpressibleByArgument {}
 extension URL: @retroactive ExpressibleByArgument {}
-#endif

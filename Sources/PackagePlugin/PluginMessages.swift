@@ -24,14 +24,28 @@ enum HostToPluginMessage: Codable {
         pluginGeneratedResources: [InputContext.URL.Id]
     )
 
+    /// The host requests that the plugin create build commands (corresponding to a `.buildTool` capability) for a target in the package graph.
+    case createXcodeProjectBuildToolCommands(
+        context: InputContext,
+        rootProjectId: InputContext.XcodeProject.Id,
+        targetId: InputContext.XcodeTarget.Id,
+        pluginGeneratedSources: [InputContext.URL.Id],
+        pluginGeneratedResources: [InputContext.URL.Id]
+    )
+
     /// The host requests that the plugin perform a user command (corresponding to a `.command` capability) on a package in the graph.
     case performCommand(context: InputContext, rootPackageId: InputContext.Package.Id, arguments: [String])
+
+    /// The host requests that the plugin perform a user command (corresponding to a `.command` capability) on a package in the graph.
+    case performXcodeProjectCommand(context: InputContext, rootProjectId: InputContext.XcodeProject.Id, arguments: [String])
 
         struct InputContext: Codable {
             let paths: [URL]
             let targets: [Target]
             let products: [Product]
             let packages: [Package]
+            let xcodeTargets: [XcodeTarget]
+            let xcodeProjects: [XcodeProject]
             let pluginWorkDirId: URL.Id
             let toolSearchDirIds: [URL.Id]
             let accessibleTools: [String: Tool]
@@ -163,19 +177,6 @@ enum HostToPluginMessage: Codable {
                         compilerFlags: [String],
                         linkerFlags: [String])
 
-                    struct File: Codable {
-                        let basePathId: URL.Id
-                        let name: String
-                        let type: FileType
-
-                        enum FileType: String, Codable {
-                            case source
-                            case header
-                            case resource
-                            case unknown
-                        }
-                    }
-
                     enum SourceModuleKind: String, Codable {
                         case generic
                         case executable
@@ -193,6 +194,70 @@ enum HostToPluginMessage: Codable {
                         case local
                         case remote(url: String)
                     }
+                }
+            }
+            
+            /// A typed file in the wire structure. All references to other entities are
+            /// their ID numbers.
+            struct File: Codable {
+                let basePathId: URL.Id
+                let name: String
+                let type: FileType
+
+                enum FileType: String, Codable {
+                    case source
+                    case header
+                    case resource
+                    case unknown
+                }
+            }
+
+            /// An Xcode project in the wire structure. All references to other entities are their ID numbers.
+            struct XcodeProject: Codable {
+                typealias Id = Int
+                let displayName: String
+                let directoryPathId: URL.Id
+                let dependencies: [Dependency]
+                let urlIds: [URL.Id]
+                let targetIds: [XcodeTarget.Id]
+
+                /// A dependency on a package or project in the wire structure. All references to
+                /// other entities are ID numbers.
+                enum Dependency: Codable {
+                    case package(Package.Id)
+                    case xcodeProject(XcodeProject.Id)
+                }
+            }
+
+            /// A target in the wire structure. All references to other entities are
+            /// their ID numbers.
+            struct XcodeTarget: Codable {
+                typealias Id = Int
+                let displayName: String
+                let product: XcodeProduct?
+                let dependencies: [Dependency]
+                let inputFiles: [File]
+
+                /// A product in the wire structure.
+                struct XcodeProduct: Codable {
+                    let name: String
+                    let kind: Kind
+                    public enum Kind: Codable {
+                        case application
+                        case executable
+                        case framework
+                        case library
+                        case other(String)
+                    }
+                }
+
+                /// A dependency on either a target or a product in the wire structure.
+                /// All references to other entities are ID their numbers.
+                enum Dependency: Codable {
+                    case target(
+                        targetId: XcodeTarget.Id)
+                    case product(
+                        productId: Product.Id)
                 }
             }
         }

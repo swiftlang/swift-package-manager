@@ -10,12 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-import protocol Basics.FileSystem
-import class Basics.ObservabilityScope
-import struct Basics.IdentifiableSet
 import OrderedCollections
 import PackageLoading
 import PackageModel
+import TSCBasic
+
+import protocol Basics.FileSystem
+import class Basics.ObservabilityScope
+import struct Basics.IdentifiableSet
 
 enum PackageGraphError: Swift.Error {
     /// Indicates a non-root package with no modules.
@@ -36,11 +38,19 @@ enum PackageGraphError: Swift.Error {
     )
 
     /// The package dependency already satisfied by a different dependency package
+    ///  - package: Package for which the dependency conflict was detected.
+    ///  - identity: Conflicting identity.
+    ///  - dependencyLocation: Dependency from the current package which triggered the conflict.
+    ///  - otherDependencyLocation: Conflicting dependency from another package.
+    ///  - dependencyPath: a dependency path as a list of locations from the root to the dependency that triggered the conflict.
+    ///  - otherDependencyPath: a dependency path as a list of locations from the root to the conflicting dependency from another package.
     case dependencyAlreadySatisfiedByIdentifier(
         package: String,
+        identity: PackageIdentity,
         dependencyLocation: String,
-        otherDependencyURL: String,
-        identity: PackageIdentity
+        otherDependencyLocation: String,
+        dependencyPath: [String] = [],
+        otherDependencyPath: [String] = []
     )
 
     /// The package dependency already satisfied by a different dependency package
@@ -260,7 +270,7 @@ public struct ModulesGraph {
 
         for module in rootModules where module.type == .executable {
             // Find all dependencies of this module within its package. Note that we do not traverse plugin usages.
-            let dependencies = try topologicalSort(module.dependencies, successors: {
+            let dependencies = try topologicalSortIdentifiable(module.dependencies, successors: {
                 $0.dependencies.compactMap{ $0.module }.filter{ $0.type != .plugin }.map{ .module($0, conditions: []) }
             }).compactMap({ $0.module })
 
@@ -300,8 +310,30 @@ extension PackageGraphError: CustomStringConvertible {
                 }
                 return description
             }
-        case .dependencyAlreadySatisfiedByIdentifier(let package, let dependencyURL, let otherDependencyURL, let identity):
-            return "'\(package)' dependency on '\(dependencyURL)' conflicts with dependency on '\(otherDependencyURL)' which has the same identity '\(identity)'"
+        case .dependencyAlreadySatisfiedByIdentifier(
+            _,
+            let identity,
+            let dependencyURL,
+            let otherDependencyURL,
+            let dependencyPath,
+            let otherDependencyPath
+        ):
+            var description =
+                "Conflicting identity for \(identity): " +
+                "dependency '\(dependencyURL)' and dependency '\(otherDependencyURL)' " +
+                "both point to the same package identity '\(identity)'."
+            if !dependencyPath.isEmpty && !otherDependencyPath.isEmpty {
+                let chainA = dependencyPath.map { String(describing: $0) }.joined(separator: "->")
+                let chainB = otherDependencyPath.map { String(describing: $0) }.joined(separator: "->")
+                description += (
+                    " The dependencies are introduced through the following chains: " +
+                    "(A) \(chainA) (B) \(chainB). If there are multiple chains that lead to the same dependency, " +
+                    "only the first chain is shown here. To see all chains use debug output option. " +
+                    "To resolve the conflict, coordinate with the maintainer of the package " +
+                    "that introduces the conflicting dependency."
+                )
+            }
+            return description
 
         case .dependencyAlreadySatisfiedByName(let package, let dependencyURL, let otherDependencyURL, let name):
             return "'\(package)' dependency on '\(dependencyURL)' conflicts with dependency on '\(otherDependencyURL)' which has the same explicit name '\(name)'"
@@ -369,12 +401,12 @@ enum GraphError: Error {
 ///
 /// - Complexity: O(v + e) where (v, e) are the number of vertices and edges
 /// reachable from the input nodes via the relation.
-func topologicalSort<T: Identifiable>(
+func topologicalSortIdentifiable<T: Identifiable>(
     _ nodes: [T], successors: (T) throws -> [T]
 ) throws -> [T] {
     // Implements a topological sort via recursion and reverse postorder DFS.
     func visit(_ node: T,
-               _ stack: inout OrderedSet<T.ID>, _ visited: inout Set<T.ID>, _ result: inout [T],
+               _ stack: inout OrderedCollections.OrderedSet<T.ID>, _ visited: inout Set<T.ID>, _ result: inout [T],
                _ successors: (T) throws -> [T]) throws {
         // Mark this node as visited -- we are done if it already was.
         if !visited.insert(node.id).inserted {
@@ -401,7 +433,7 @@ func topologicalSort<T: Identifiable>(
     // FIXME: This should use a stack not recursion.
     var visited = Set<T.ID>()
     var result = [T]()
-    var stack = OrderedSet<T.ID>()
+    var stack = OrderedCollections.OrderedSet<T.ID>()
     for node in nodes {
         precondition(stack.isEmpty)
         stack.append(node.id)
@@ -425,7 +457,8 @@ public func loadModulesGraph(
     createREPLProduct: Bool = false,
     useXCBuildFileRules: Bool = false,
     customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
-    observabilityScope: ObservabilityScope
+    observabilityScope: ObservabilityScope,
+    traitConfiguration: TraitConfiguration = .default
 ) throws -> ModulesGraph {
     let rootManifests = manifests.filter(\.packageKind.isRoot).spm_createDictionary { ($0.path, $0) }
     let externalManifests = try manifests.filter { !$0.packageKind.isRoot }
@@ -437,8 +470,8 @@ public func loadModulesGraph(
         }
 
     let packages = Array(rootManifests.keys)
-    let input = PackageGraphRootInput(packages: packages)
-    let graphRoot = PackageGraphRoot(
+    let input = PackageGraphRootInput(packages: packages, traitConfiguration: traitConfiguration)
+    let graphRoot = try PackageGraphRoot(
         input: input,
         manifests: rootManifests,
         explicitProduct: explicitProduct,

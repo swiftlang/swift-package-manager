@@ -28,14 +28,15 @@ import PackageGraph
 import PackageModel
 
 import SPMBuildCore
+import TSCUtility
 
 import func TSCLibc.exit
 import Workspace
 
-import struct TSCBasic.FileSystemError
-import struct TSCBasic.ByteString
-import enum TSCBasic.JSON
 import class Basics.AsyncProcess
+import struct TSCBasic.ByteString
+import struct TSCBasic.FileSystemError
+import enum TSCBasic.JSON
 import var TSCBasic.stdoutStream
 import class TSCBasic.SynchronizedQueue
 import class TSCBasic.Thread
@@ -120,10 +121,15 @@ struct TestEventStreamOptions: ParsableArguments {
             help: .hidden)
     var eventStreamVersion: Int?
 
-  /// Experimental path for writing attachments (Swift Testing only.)
-  @Option(name: .customLong("experimental-attachments-path"),
-          help: .private)
-  var experimentalAttachmentsPath: AbsolutePath?
+    /// Experimental path for writing attachments (Swift Testing only.)
+    @Option(name: .customLong("experimental-attachments-path"),
+            help: .private)
+    var experimentalAttachmentsPath: AbsolutePath?
+
+    /// Path for writing attachments (Swift Testing only.)
+    @Option(name: .customLong("attachments-path"),
+            help: "Path where attachments should be written (Swift Testing only). This path must be an existing directory the current user can write to. If not specified, any attachments created during testing are discarded.")
+    var attachmentsPath: AbsolutePath?
 }
 
 struct TestCommandOptions: ParsableArguments {
@@ -223,13 +229,13 @@ struct TestCommandOptions: ParsableArguments {
 public enum TestCaseSpecifier {
     /// No filtering
     case none
-    
+
     /// Specify test with fully quantified name
     case specific(String)
-    
+
     /// RegEx patterns for tests to run
     case regex([String])
-    
+
     /// RegEx patterns for tests to skip
     case skip([String])
 }
@@ -465,7 +471,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             if self.options.enableCodeCoverage, swiftCommandState.executionStatus != .failure {
                 try await processCodeCoverage(testProducts, swiftCommandState: swiftCommandState)
             }
-
         }
     }
 
@@ -664,7 +669,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     private func validateArguments(swiftCommandState: SwiftCommandState) throws {
         // Validation for --num-workers.
         if let workers = options.numberOfWorkers {
-
             // The --num-worker option should be called with --parallel. Since
             // this option does not affect swift-testing at this time, we can
             // effectively ignore that it defaults to enabling parallelization.
@@ -702,8 +706,8 @@ extension SwiftTestCommand {
         }
         let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(enableCodeCoverage: true)
         print(productsBuildParameters.codeCovAsJSONPath(packageName: rootManifest.displayName))
-     }
- }
+    }
+}
 
 extension SwiftTestCommand {
     struct Last: SwiftCommand {
@@ -1118,7 +1122,8 @@ final class ParallelTestRunner {
             self.progressAnimation = ProgressAnimation.percent(
                 stream: TSCBasic.stdoutStream,
                 verbose: false,
-                header: "Testing:"
+                header: "Testing:",
+                isColorized: productsBuildParameters.outputParameters.isColorized
             )
         } else {
             self.progressAnimation = ProgressAnimation.ninja(
@@ -1235,12 +1240,10 @@ final class ParallelTestRunner {
 
         return processedTests.get()
     }
-
 }
 
 /// A struct to hold the XCTestSuite data.
 struct TestSuite {
-
     /// A struct to hold a XCTestCase data.
     struct TestCase {
         /// Name of the test case.
@@ -1317,7 +1320,6 @@ struct TestSuite {
         })
     }
 }
-
 
 fileprivate extension Dictionary where Key == AbsolutePath, Value == [TestSuite] {
     /// Returns all the unit tests of the test suites.
@@ -1490,7 +1492,7 @@ extension TestCommandOptions {
 
         return self._testCaseSkip.isEmpty
             ? .none
-        : .skip(self._testCaseSkip)
+            : .skip(self._testCaseSkip)
     }
 
     /// Returns the test case specifier if overridden in the env.

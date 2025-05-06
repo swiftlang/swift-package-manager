@@ -15,6 +15,8 @@ import Foundation
 import PackageGraph
 import PackageLoading
 import PackageModel
+import TSCBasic
+import TSCUtility
 
 typealias WireInput = HostToPluginMessage.InputContext
 
@@ -24,10 +26,10 @@ internal struct PluginContextSerializer {
     let fileSystem: FileSystem
     let modulesGraph: ModulesGraph
     let buildEnvironment: BuildEnvironment
-    let pkgConfigDirectories: [AbsolutePath]
-    let sdkRootPath: AbsolutePath?
+    let pkgConfigDirectories: [Basics.AbsolutePath]
+    let sdkRootPath: Basics.AbsolutePath?
     var paths: [WireInput.URL] = []
-    var pathsToIds: [AbsolutePath: WireInput.URL.Id] = [:]
+    var pathsToIds: [Basics.AbsolutePath: WireInput.URL.Id] = [:]
     var targets: [WireInput.Target] = []
     var targetsToWireIDs: [ResolvedModule.ID: WireInput.Target.Id] = [:]
     var products: [WireInput.Product] = []
@@ -35,9 +37,14 @@ internal struct PluginContextSerializer {
     var packages: [WireInput.Package] = []
     var packagesToWireIDs: [ResolvedPackage.ID: WireInput.Package.Id] = [:]
 
+    var xcodeTargets: [WireInput.XcodeTarget] = []
+    var xcodeTargetsToIds: [XcodeProjectRepresentation.Target: WireInput.XcodeTarget.Id] = [:]
+    var xcodeProjects: [WireInput.XcodeProject] = []
+    var xcodeProjectsToIds: [XcodeProjectRepresentation: WireInput.XcodeProject.Id] = [:]
+    
     /// Adds a path to the serialized structure, if it isn't already there.
     /// Either way, this function returns the path's wire ID.
-    mutating func serialize(path: AbsolutePath) throws -> WireInput.URL.Id {
+    mutating func serialize(path: Basics.AbsolutePath) throws -> WireInput.URL.Id {
         // If we've already seen the path, just return the wire ID we already assigned to it.
         if let id = pathsToIds[path] { return id }
         
@@ -75,7 +82,7 @@ internal struct PluginContextSerializer {
         if let id = targetsToWireIDs[target.id] { return id }
 
         // Construct the FileList
-        var targetFiles: [WireInput.Target.TargetInfo.File] = []
+        var targetFiles: [WireInput.File] = []
         targetFiles.append(contentsOf: try target.underlying.sources.paths.map {
             .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .source)
         })
@@ -280,6 +287,47 @@ internal struct PluginContextSerializer {
         packagesToWireIDs[package.id] = id
         return id
     }
+
+    // Adds an Xcode target to the serialized structure, if it isn't already there and if it is of a kind that should be passed to the plugin. If so, this function returns the target's wire ID. If not, it returns nil.
+    mutating func serialize(xcodeTarget: XcodeProjectRepresentation.Target) throws -> WireInput.XcodeTarget.Id? {
+        // If we've already seen the target, just return the wire ID we already assigned to it.
+        if let id = xcodeTargetsToIds[xcodeTarget] { return id }
+
+        // Create the list of source files.
+        var inputFiles: [WireInput.File] = []
+        inputFiles.append(contentsOf: try xcodeTarget.inputFiles.map {
+            .init(basePathId: try serialize(path: $0.path.parentDirectory), name: $0.path.basename, type: .init($0.role))
+        })
+
+        // Assign the next wire ID to the target, and append a serialized XcodeProject record.
+        let id = xcodeTargets.count
+        xcodeTargets.append(.init(
+            displayName: xcodeTarget.displayName,
+            product: xcodeTarget.product.map{ .init(name: $0.name, kind: .init($0.kind)) },
+            dependencies: [],
+            inputFiles: inputFiles))
+        xcodeTargetsToIds[xcodeTarget] = id
+        return id
+    }
+
+
+    // Adds an Xcode project to the serialized structure, if it isn't already there.
+    // Either way, this function returns the project's wire ID.
+    mutating func serialize(xcodeProject: XcodeProjectRepresentation) throws -> WireInput.XcodeProject.Id {
+        // If we've already seen the project, just return the wire ID we already assigned to it.
+        if let id = xcodeProjectsToIds[xcodeProject] { return id }
+
+        // Assign the next wire ID to the project, and append a serialized XcodeProject record.
+        let id = xcodeProjects.count
+        xcodeProjects.append(.init(
+            displayName: xcodeProject.displayName,
+            directoryPathId: try serialize(path: xcodeProject.directoryPath),
+            dependencies: [],
+            urlIds: try xcodeProject.filePaths.map { try serialize(path: $0) },
+            targetIds: try xcodeProject.targets.compactMap{ try serialize(xcodeTarget: $0) }))
+        xcodeProjectsToIds[xcodeProject] = id
+        return id
+    }
 }
 
 fileprivate extension WireInput.Target.TargetInfo.SourceModuleKind {
@@ -297,6 +345,38 @@ fileprivate extension WireInput.Target.TargetInfo.SourceModuleKind {
             self = .macro
         case .binary, .plugin, .systemModule:
             throw StringError("unexpected target kind \(kind) for source module")
+        }
+    }
+}
+
+fileprivate extension WireInput.File.FileType {
+    init(_ role: XcodeProjectRepresentation.Target.InputFile.Role) {
+        switch role {
+        case .source:
+            self = .source
+        case .header:
+            self = .header
+        case .resource:
+            self = .resource
+        case .unknown:
+            self = .unknown
+        }
+    }
+}
+
+fileprivate extension WireInput.XcodeTarget.XcodeProduct.Kind {
+    init(_ kind: XcodeProjectRepresentation.Target.Product.Kind) {
+        switch kind {
+        case .application:
+            self = .application
+        case .executable:
+            self = .executable
+        case .framework:
+            self = .framework
+        case .library:
+            self = .library
+        case .other(let ident):
+            self = .other(ident)
         }
     }
 }

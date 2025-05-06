@@ -10,6 +10,10 @@ Swift 6.2
 
   Starting from tools-version 6.2, `SwiftSetting` provides a `strictMemorySafety` setting to enable the strict memory safety checking introduced in [SE-0458].
 
+* [#8301]
+
+  Starting from tools-version 6.2, `SwiftSetting` provides a `defaultIsolation` setting to allow specifying default actor isolation for a target [SE-0466].
+
 Swift 6.0
 -----------
 
@@ -455,3 +459,5 @@ Swift 3.0
 [#7722]: https://github.com/swiftlang/swift-package-manager/pull/7722
 [#7741]: https://github.com/swiftlang/swift-package-manager/pull/7741
 [#7813]: https://github.com/swiftlang/swift-package-manager/pull/7813
+[#8301]: https://github.com/swiftlang/swift-package-manager/pull/8301
+[#8314]: https://github.com/swiftlang/swift-package-manager/pull/8314

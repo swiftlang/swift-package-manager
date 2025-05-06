@@ -140,7 +140,7 @@ You can link against system libraries using the package manager. To do so, you'l
 need to add a special `target` of type `.systemLibrary`, and a `module.modulemap`
 for each system library you're using.
 
-Let's see an example of adding [libgit2](https://libgit2.github.com) as a
+Let's see an example of adding [libgit2](https://github.com/libgit2/libgit2) as a
 dependency to an executable target.
 
 Create a directory called `example`, and initialize it as a package that
@@ -226,8 +226,8 @@ The header file should look like this:
 #include <git2.h>
 ```
 
-**Note:** Avoiding specifying an absolute path to `git2.h` provided
-by the library in the `module.modulemap`. Doing so will break compatibility of 
+**Note:** Avoid specifying an absolute path  in the `module.modulemap` to `git2.h`
+header provided by the library. Doing so will break compatibility of 
 your project between machines that may use a different file system layout or
 install libraries to different paths.
 
@@ -497,7 +497,7 @@ This feature is intended for use in the following scenarios:
 
 It is *not* expected that the packages would ever use this feature unless absolutely
 necessary to support existing clients. Specifically, packages *should not*
-adopt this syntax for tagging versions supporting the _latest GM_ Swift
+adopt this syntax for tagging versions supporting the _latest released_ Swift
 version.
 
 The package manager supports looking for any of the following marked tags, in
@@ -511,7 +511,7 @@ order of preference:
 
 The package manager will additionally look for a version-specific marked
 manifest version when loading the particular version of a package, by searching
-for a manifest in the form of `Package@swift-3.swift`. The set of markers
+for a manifest in the form of `Package@swift-6.swift`. The set of markers
 looked for is the same as for version-specific tag selection.
 
 This feature is intended for use in cases where a package wishes to maintain
@@ -521,20 +521,28 @@ changes in the manifest API).
 
 It is *not* expected the packages would ever use this feature unless absolutely
 necessary to support existing clients. Specifically, packages *should not*
-adopt this syntax for tagging versions supporting the _latest GM_ Swift
+adopt this syntax for tagging versions supporting the _latest released_ Swift
 version.
 
 In case the current Swift version doesn't match any version-specific manifest,
 the package manager will pick the manifest with the most compatible tools
 version. For example, if there are three manifests:
 
-`Package.swift` (tools version 3.0)
-`Package@swift-4.swift` (tools version 4.0)
-`Package@swift-4.2.swift` (tools version 4.2)
+- `Package.swift` (tools version 6.0)
+- `Package@swift-5.10.swift` (tools version 5.10)
+- `Package@swift-5.9.swift` (tools version 5.9)
 
-The package manager will pick `Package.swift` on Swift 3, `Package@swift-4.swift` on
-Swift 4, and `Package@swift-4.2.swift` on Swift 4.2 and above because its tools
-version will be most compatible with future version of the package manager.
+The package manager will pick `Package.swift` on Swift 6 and above, because its
+tools version will be most compatible with future version of the package manager.
+When using Swift 5.10, it will pick `Package@swift-5.10.swift`. Otherwise, when
+using Swift 5.9 it will pick `Package@swift-5.9.swift`, and this is the minimum
+tools version this package may be used with.
+
+A package may have versioned manifest files which specify newer tools versions
+than its unversioned `Package.swift` file[^1]. In this scenario, the manifest
+corresponding to the newest-compatible tools version will be used.
+
+[^1]: Support for having a versioned manifest file with a _newer_ tools version was required when the feature was first introduced, because prior versions of the package manager were not aware of the concept and only knew to look for the unversioned `Package.swift`. This is still supported, but there have been many Swift releases since the feature was introduced and it is now considered best practice to have `Package.swift` declare the newest-supported tools version and for versioned manifest files to only specifer older versions.
 
 ## Editing a Package
 

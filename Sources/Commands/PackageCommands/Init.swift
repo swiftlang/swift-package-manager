@@ -16,6 +16,7 @@ import Basics
 @_spi(SwiftPMInternal)
 import CoreCommands
 
+import PackageModel
 import Workspace
 import SPMBuildCore
 
@@ -48,6 +49,9 @@ extension SwiftPackageCommand {
 
         @Option(name: .customLong("name"), help: "Provide custom package name")
         var packageName: String?
+
+        // This command should support creating the supplied --package-path if it isn't created.
+        var createPackagePath = true
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
             guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
@@ -85,8 +89,4 @@ extension SwiftPackageCommand {
     }
 }
 
-#if compiler(<6.0)
 extension InitPackage.PackageType: ExpressibleByArgument {}
-#else
-extension InitPackage.PackageType: @retroactive ExpressibleByArgument {}
-#endif

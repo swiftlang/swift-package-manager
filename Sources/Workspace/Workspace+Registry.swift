@@ -266,7 +266,8 @@ extension Workspace {
                         ):
                             if let packageName,
                                // makes sure we use the updated package name for target based dependencies
-                               let modifiedPackageName = targetDependencyPackageNameTransformations[packageName.lowercased()]
+                               let modifiedPackageName =
+                               targetDependencyPackageNameTransformations[packageName.lowercased()]
                             {
                                 modifiedDependency = .product(
                                     name: name,
@@ -276,7 +277,9 @@ extension Workspace {
                                 )
                             }
                         case .byName(name: let packageName, condition: let condition):
-                            if let modifiedPackageName = targetDependencyPackageNameTransformations[packageName.lowercased()] {
+                            if let modifiedPackageName =
+                                targetDependencyPackageNameTransformations[packageName.lowercased()]
+                            {
                                 modifiedDependency = .product(
                                     name: packageName,
                                     package: modifiedPackageName,
@@ -315,6 +318,7 @@ extension Workspace {
 
             let modifiedManifest = Manifest(
                 displayName: manifest.displayName,
+                packageIdentity: manifest.packageIdentity,
                 path: manifest.path,
                 packageKind: manifest.packageKind,
                 packageLocation: manifest.packageLocation,
@@ -331,7 +335,8 @@ extension Workspace {
                 dependencies: modifiedDependencies,
                 products: manifest.products,
                 targets: modifiedTargets,
-                traits: manifest.traits
+                traits: manifest.traits,
+                pruneDependencies: manifest.pruneDependencies
             )
 
             return modifiedManifest
@@ -415,8 +420,7 @@ extension Workspace {
             package: package.identity,
             version: version,
             observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent,
-            callbackQueue: .sharedConcurrent
+            delegateQueue: .sharedConcurrent
         )
 
         // Record the new state.

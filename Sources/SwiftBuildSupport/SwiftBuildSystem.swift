@@ -43,15 +43,32 @@ struct SessionFailedError: Error {
     var diagnostics: [SwiftBuild.SwiftBuildMessage.DiagnosticInfo]
 }
 
+func withService(
+    connectionMode: SWBBuildServiceConnectionMode = .default,
+    variant: SWBBuildServiceVariant = .default,
+    serviceBundleURL: URL? = nil,
+    body: @escaping (_ service: SWBBuildService) async throws -> Void
+) async throws {
+    let service = try await SWBBuildService(connectionMode: connectionMode, variant: variant, serviceBundleURL: serviceBundleURL)
+    do {
+        try await body(service)
+    } catch {
+        await service.close()
+        throw error
+    }
+    await service.close()
+}
+
 func withSession(
     service: SWBBuildService,
     name: String,
+    packageManagerResourcesDirectory: Basics.AbsolutePath?,
     body: @escaping (
         _ session: SWBBuildServiceSession,
         _ diagnostics: [SwiftBuild.SwiftBuildMessage.DiagnosticInfo]
     ) async throws -> Void
 ) async throws {
-    switch await service.createSession(name: name, cachePath: nil, inferiorProductsPath: nil, environment: nil) {
+    switch await service.createSession(name: name, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil) {
     case (.success(let session), let diagnostics):
         do {
             try await body(session, diagnostics)
@@ -143,6 +160,7 @@ private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sen
 public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
     private let packageGraphLoader: () async throws -> ModulesGraph
+    private let packageManagerResourcesDirectory: Basics.AbsolutePath?
     private let logLevel: Basics.Diagnostic.Severity
     private var packageGraph: AsyncThrowingValueMemoizer<ModulesGraph> = .init()
     private var pifBuilder: AsyncThrowingValueMemoizer<PIFBuilder> = .init()
@@ -193,6 +211,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     public init(
         buildParameters: BuildParameters,
         packageGraphLoader: @escaping () async throws -> ModulesGraph,
+        packageManagerResourcesDirectory: Basics.AbsolutePath?,
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: FileSystem,
@@ -200,6 +219,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     ) throws {
         self.buildParameters = buildParameters
         self.packageGraphLoader = packageGraphLoader
+        self.packageManagerResourcesDirectory = packageManagerResourcesDirectory
         self.outputStream = outputStream
         self.logLevel = logLevel
         self.fileSystem = fileSystem
@@ -218,11 +238,15 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
 
         let pifBuilder = try await getPIFBuilder()
-        let pif = try pifBuilder.generatePIF()
+        let pif = try pifBuilder.generatePIF(
+            printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
+            buildParameters: buildParameters
+        )
 
         try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, string: pif)
 
         try await startSWBuildOperation(pifTargetName: subset.pifTargetName)
+
         #else
         fatalError("Swift Build support is not linked in.")
         #endif
@@ -230,160 +254,175 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     #if canImport(SwiftBuild)
     private func startSWBuildOperation(pifTargetName: String) async throws {
-        let service = try await SWBBuildService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint))
-        let parameters = try makeBuildParameters()
-        let derivedDataPath = buildParameters.dataPath.pathString
+        let buildStartTime = ContinuousClock.Instant.now
 
-        let progressAnimation = ProgressAnimation.percent(
-            stream: self.outputStream,
-            verbose: self.logLevel.isVerbose,
-            header: ""
-        )
+        try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
+            let parameters = try self.makeBuildParameters()
+            let derivedDataPath = self.buildParameters.dataPath.pathString
 
-        do {
-            try await withSession(service: service, name: buildParameters.pifManifest.pathString) { session, _ in
-                // Load the workspace, and set the system information to the default
-                do {
-                    try await session.loadWorkspace(containerPath: self.buildParameters.pifManifest.pathString)
-                    try await session.setSystemInfo(.default())
-                } catch {
-                    self.observabilityScope.emit(error: error.localizedDescription)
-                    throw error
-                }
+            let progressAnimation = ProgressAnimation.percent(
+                stream: self.outputStream,
+                verbose: self.logLevel.isVerbose,
+                header: "",
+                isColorized: self.buildParameters.outputParameters.isColorized
+            )
 
-                // Find the targets to build.
-                let configuredTargets: [SWBConfiguredTarget]
-                do {
-                    let workspaceInfo = try await session.workspaceInfo()
+            do {
+                try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
+                    self.outputStream.send("Building for \(self.buildParameters.configuration == .debug ? "debugging" : "production")...\n")
 
-                    configuredTargets = try [pifTargetName].map { targetName in
-                        let infos = workspaceInfo.targetInfos.filter { $0.targetName == targetName }
-                        switch infos.count {
-                        case 0:
-                            self.observabilityScope.emit(error: "Could not find target named '\(targetName)'")
-                            throw Diagnostics.fatalError
-                        case 1:
-                            return SWBConfiguredTarget(guid: infos[0].guid, parameters: parameters)
+                    // Load the workspace, and set the system information to the default
+                    do {
+                        try await session.loadWorkspace(containerPath: self.buildParameters.pifManifest.pathString)
+                        try await session.setSystemInfo(.default())
+                    } catch {
+                        self.observabilityScope.emit(error: error.localizedDescription)
+                        throw error
+                    }
+
+                    // Find the targets to build.
+                    let configuredTargets: [SWBConfiguredTarget]
+                    do {
+                        let workspaceInfo = try await session.workspaceInfo()
+
+                        configuredTargets = try [pifTargetName].map { targetName in
+                            let infos = workspaceInfo.targetInfos.filter { $0.targetName == targetName }
+                            switch infos.count {
+                            case 0:
+                                self.observabilityScope.emit(error: "Could not find target named '\(targetName)'")
+                                throw Diagnostics.fatalError
+                            case 1:
+                                return SWBConfiguredTarget(guid: infos[0].guid, parameters: parameters)
+                            default:
+                                self.observabilityScope.emit(error: "Found multiple targets named '\(targetName)'")
+                                throw Diagnostics.fatalError
+                            }
+                        }
+                    } catch {
+                        self.observabilityScope.emit(error: error.localizedDescription)
+                        throw error
+                    }
+
+                    var request = SWBBuildRequest()
+                    request.parameters = parameters
+                    request.configuredTargets = configuredTargets
+                    request.useParallelTargets = true
+                    request.useImplicitDependencies = false
+                    request.useDryRun = false
+                    request.hideShellScriptEnvironment = true
+                    request.showNonLoggedProgress = true
+
+                    // Override the arena. We need to apply the arena info to both the request-global build
+                    // parameters as well as the target-specific build parameters, since they may have been
+                    // deserialized from the build request file above overwriting the build parameters we set
+                    // up earlier in this method.
+
+                    #if os(Windows)
+                    let ddPathPrefix = derivedDataPath.replacingOccurrences(of: "\\", with: "/")
+                    #else
+                    let ddPathPrefix = derivedDataPath
+                    #endif
+
+                    let arenaInfo = SWBArenaInfo(
+                        derivedDataPath: ddPathPrefix,
+                        buildProductsPath: ddPathPrefix + "/Products",
+                        buildIntermediatesPath: ddPathPrefix + "/Intermediates.noindex",
+                        pchPath: ddPathPrefix + "/PCH",
+                        indexRegularBuildProductsPath: nil,
+                        indexRegularBuildIntermediatesPath: nil,
+                        indexPCHPath: ddPathPrefix,
+                        indexDataStoreFolderPath: ddPathPrefix,
+                        indexEnableDataStore: request.parameters.arenaInfo?.indexEnableDataStore ?? false
+                    )
+
+                    request.parameters.arenaInfo = arenaInfo
+                    request.configuredTargets = request.configuredTargets.map { configuredTarget in
+                        var configuredTarget = configuredTarget
+                        configuredTarget.parameters?.arenaInfo = arenaInfo
+                        return configuredTarget
+                    }
+
+                    func emitEvent(_ message: SwiftBuild.SwiftBuildMessage) throws {
+                        switch message {
+                        case .buildCompleted:
+                            progressAnimation.complete(success: true)
+                        case .didUpdateProgress(let progressInfo):
+                            var step = Int(progressInfo.percentComplete)
+                            if step < 0 { step = 0 }
+                            let message = if let targetName = progressInfo.targetName {
+                                "\(targetName) \(progressInfo.message)"
+                            } else {
+                                "\(progressInfo.message)"
+                            }
+                            progressAnimation.update(step: step, total: 100, text: message)
+                        case .diagnostic(let info):
+                            let fixItsDescription = if info.fixIts.hasContent {
+                                ": " + info.fixIts.map { String(describing: $0) }.joined(separator: ", ")
+                            } else {
+                                ""
+                            }
+                            let message = if let locationDescription = info.location.userDescription {
+                                "\(locationDescription) \(info.message)\(fixItsDescription)"
+                            } else {
+                                "\(info.message)\(fixItsDescription)"
+                            }
+                            let severity: Diagnostic.Severity = switch info.kind {
+                            case .error: .error
+                            case .warning: .warning
+                            case .note: .info
+                            case .remark: .debug
+                            }
+                            self.observabilityScope.emit(severity: severity, message: message)
+                        case .taskOutput(let info):
+                            self.observabilityScope.emit(info: "\(info.data)")
+                        case .taskStarted(let info):
+                            if let commandLineDisplay = info.commandLineDisplayString {
+                                self.observabilityScope.emit(info: "\(info.executionDescription)\n\(commandLineDisplay)")
+                            } else {
+                                self.observabilityScope.emit(info: "\(info.executionDescription)")
+                            }
                         default:
-                            self.observabilityScope.emit(error: "Found multiple targets named '\(targetName)'")
-                            throw Diagnostics.fatalError
+                            break
                         }
                     }
-                } catch {
-                    self.observabilityScope.emit(error: error.localizedDescription)
-                    throw error
-                }
 
-                var request = SWBBuildRequest()
-                request.parameters = parameters
-                request.configuredTargets = configuredTargets
-                request.useParallelTargets = true
-                request.useImplicitDependencies = false
-                request.useDryRun = false
-                request.hideShellScriptEnvironment = true
-                request.showNonLoggedProgress = true
+                    let operation = try await session.createBuildOperation(
+                        request: request,
+                        delegate: PlanningOperationDelegate()
+                    )
 
-                // Override the arena. We need to apply the arena info to both the request-global build
-                // parameters as well as the target-specific build parameters, since they may have been
-                // deserialized from the build request file above overwriting the build parameters we set
-                // up earlier in this method.
+                    for try await event in try await operation.start() {
+                        try emitEvent(event)
+                    }
 
-                #if os(Windows)
-                let ddPathPrefix = derivedDataPath.replacingOccurrences(of: "\\", with: "/")
-                #else
-                let ddPathPrefix = derivedDataPath
-                #endif
+                    await operation.waitForCompletion()
 
-                let arenaInfo = SWBArenaInfo(
-                    derivedDataPath: ddPathPrefix,
-                    buildProductsPath: ddPathPrefix + "/Products",
-                    buildIntermediatesPath: ddPathPrefix + "/Intermediates.noindex",
-                    pchPath: ddPathPrefix + "/PCH",
-                    indexRegularBuildProductsPath: nil,
-                    indexRegularBuildIntermediatesPath: nil,
-                    indexPCHPath: ddPathPrefix,
-                    indexDataStoreFolderPath: ddPathPrefix,
-                    indexEnableDataStore: request.parameters.arenaInfo?.indexEnableDataStore ?? false
-                )
-
-                request.parameters.arenaInfo = arenaInfo
-                request.configuredTargets = request.configuredTargets.map { configuredTarget in
-                    var configuredTarget = configuredTarget
-                    configuredTarget.parameters?.arenaInfo = arenaInfo
-                    return configuredTarget
-                }
-
-                func emitEvent(_ message: SwiftBuild.SwiftBuildMessage) throws {
-                    switch message {
-                    case .buildCompleted:
+                    switch operation.state {
+                    case .succeeded:
+                        progressAnimation.update(step: 100, total: 100, text: "")
                         progressAnimation.complete(success: true)
-                    case .didUpdateProgress(let progressInfo):
-                        var step = Int(progressInfo.percentComplete)
-                        if step < 0 { step = 0 }
-                        let message = if let targetName = progressInfo.targetName {
-                            "\(targetName) \(progressInfo.message)"
-                        } else {
-                            "\(progressInfo.message)"
-                        }
-                        progressAnimation.update(step: step, total: 100, text: message)
-                    case .diagnostic(let info):
-                        if info.kind == .error {
-                            self.observabilityScope.emit(error: "\(info.location) \(info.message) \(info.fixIts)")
-                        } else if info.kind == .warning {
-                            self.observabilityScope.emit(warning: "\(info.location) \(info.message) \(info.fixIts)")
-                        } else if info.kind == .note {
-                            self.observabilityScope.emit(info: "\(info.location) \(info.message) \(info.fixIts)")
-                        } else if info.kind == .remark {
-                            self.observabilityScope.emit(debug: "\(info.location) \(info.message) \(info.fixIts)")
-                        }
-                    case .taskOutput(let info):
-                        self.observabilityScope.emit(info: "\(info.data)")
-                    case .taskStarted(let info):
-                        if let commandLineDisplay = info.commandLineDisplayString {
-                            self.observabilityScope.emit(info: "\(info.executionDescription)\n\(commandLineDisplay)")
-                        } else {
-                            self.observabilityScope.emit(info: "\(info.executionDescription)")
-                        }
-                    default:
-                        break
+                        let duration = ContinuousClock.Instant.now - buildStartTime
+                        self.outputStream.send("Build complete! (\(duration))\n")
+                        self.outputStream.flush()
+                    case .failed:
+                        self.observabilityScope.emit(error: "Build failed")
+                        throw Diagnostics.fatalError
+                    case .cancelled:
+                        self.observabilityScope.emit(error: "Build was cancelled")
+                        throw Diagnostics.fatalError
+                    case .requested, .running, .aborted:
+                        self.observabilityScope.emit(error: "Unexpected build state")
+                        throw Diagnostics.fatalError
                     }
                 }
-
-                let operation = try await session.createBuildOperation(
-                    request: request,
-                    delegate: PlanningOperationDelegate()
-                )
-
-                for try await event in try await operation.start() {
-                    try emitEvent(event)
+            } catch let sessError as SessionFailedError {
+                for diagnostic in sessError.diagnostics {
+                    self.observabilityScope.emit(error: diagnostic.message)
                 }
-
-                await operation.waitForCompletion()
-
-                switch operation.state {
-                case .succeeded:
-                    progressAnimation.update(step: 100, total: 100, text: "")
-                    progressAnimation.complete(success: true)
-                    self.outputStream.send("Build complete!\n")
-                    self.outputStream.flush()
-                case .failed:
-                    self.observabilityScope.emit(error: "Build failed")
-                    throw Diagnostics.fatalError
-                case .cancelled:
-                    self.observabilityScope.emit(error: "Build was cancelled")
-                    throw Diagnostics.fatalError
-                case .requested, .running, .aborted:
-                    self.observabilityScope.emit(error: "Unexpected build state")
-                    throw Diagnostics.fatalError
-                }
+                throw sessError.error
+            } catch {
+                throw error
             }
-        } catch let sessError as SessionFailedError {
-            for diagnostic in sessError.diagnostics {
-                self.observabilityScope.emit(error: diagnostic.message)
-            }
-            throw sessError.error
-        } catch {
-            throw error
         }
     }
 
@@ -410,10 +449,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
         // native build system.
         settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
-        // Use lld linker instead of Visual Studio link.exe when targeting Windows
-        if buildParameters.triple.isWindows() {
-            settings["ALTERNATE_LINKER"] = "lld-link"
-        }
         // FIXME: workaround for old Xcode installations such as what is in CI
         settings["LM_SKIP_METADATA_EXTRACTION"] = "YES"
 
@@ -444,6 +479,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // Optionally also set the list of architectures to build for.
         if let architectures = buildParameters.architectures, !architectures.isEmpty {
             settings["ARCHS"] = architectures.joined(separator: " ")
+        }
+
+        // support for --enable-parseable-module-interfaces
+        if buildParameters.driverParameters.enableParseableModuleInterfaces {
+            settings["SWIFT_EMIT_MODULE_INTERFACE"] = "YES"
         }
 
         // Generate the build parameters.
@@ -485,6 +525,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 }
 
+// MARK: - Helpers
+
 extension String {
     /// Escape the usual shell related things, such as quoting, but also handle Windows
     /// back-slashes.
@@ -517,3 +559,34 @@ extension Basics.Diagnostic.Severity {
         self <= .info
     }
 }
+
+#if canImport(SwiftBuild)
+
+fileprivate extension SwiftBuild.SwiftBuildMessage.DiagnosticInfo.Location {
+    var userDescription: String? {
+        switch self {
+        case .path(let path, let fileLocation):
+            switch fileLocation {
+            case .textual(let line, let column):
+                var description = "\(path):\(line)"
+                if let column { description += ":\(column)" }
+                return description
+            case .object(let identifier):
+                return "\(path):\(identifier)"
+            case .none:
+                return path
+            }
+        
+        case .buildSettings(let names):
+            return names.joined(separator: ", ")
+        
+        case .buildFiles(let buildFiles, let targetGUID):
+            return "\(targetGUID): " + buildFiles.map { String(describing: $0) }.joined(separator: ", ")
+            
+        case .unknown:
+            return nil
+        }
+    }
+}
+
+#endif

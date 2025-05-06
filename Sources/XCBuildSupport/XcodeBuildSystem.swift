@@ -22,9 +22,9 @@ import PackageModel
 @_spi(SwiftPMInternal)
 import SPMBuildCore
 
+import class Basics.AsyncProcess
 import func TSCBasic.memoize
 import protocol TSCBasic.OutputByteStream
-import class Basics.AsyncProcess
 import func TSCBasic.withTemporaryFile
 
 import enum TSCUtility.Diagnostics
@@ -38,7 +38,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     private var pifBuilder: AsyncThrowingValueMemoizer<PIFBuilder> = .init()
     private let fileSystem: FileSystem
     private let observabilityScope: ObservabilityScope
-
+    private let isColorized: Bool
     /// The output stream for the build delegate.
     private let outputStream: OutputByteStream
 
@@ -94,7 +94,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         self.logLevel = logLevel
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Xcode Build System")
-
+        self.isColorized = buildParameters.outputParameters.isColorized
         if let xcbuildTool = Environment.current["XCBUILD_TOOL"] {
             xcbuildPath = try AbsolutePath(validating: xcbuildTool)
         } else {
@@ -311,7 +311,8 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         let progressAnimation = ProgressAnimation.percent(
             stream: self.outputStream,
             verbose: self.logLevel.isVerbose,
-            header: ""
+            header: "",
+            isColorized: buildParameters.outputParameters.isColorized
         )
         let delegate = XCBuildDelegate(
             buildSystem: self,

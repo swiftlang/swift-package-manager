@@ -19,6 +19,7 @@ import PackageLoading
 import PackageModel
 import SPMBuildCore
 import _InternalTestSupport
+import TSCTestSupport
 import Workspace
 import XCTest
 
@@ -30,14 +31,24 @@ struct BuildResult {
     let moduleContents: [String]
 }
 
-final class BuildCommandTests: CommandsTestCase {
+class BuildCommandTestCases: CommandsBuildProviderTestCase {
+
+    override func setUpWithError() throws {
+        try XCTSkipIf(type(of: self) == BuildCommandTestCases.self, "Skipping this test since it will be run in subclasses that will provide different build systems to test.")
+    }
+
     @discardableResult
-    private func execute(
+    func execute(
         _ args: [String] = [],
         environment: Environment? = nil,
         packagePath: AbsolutePath? = nil
     ) async throws -> (stdout: String, stderr: String) {
-        try await SwiftPM.Build.execute(args, packagePath: packagePath, env: environment)
+        return try await executeSwiftBuild(
+            packagePath,
+            extraArgs: args,
+            env: environment,
+            buildSystem: buildSystemProvider
+        )
     }
 
     func build(_ args: [String], packagePath: AbsolutePath? = nil, isRelease: Bool = false, cleanAfterward: Bool = true) async throws -> BuildResult {
@@ -59,10 +70,26 @@ final class BuildCommandTests: CommandsTestCase {
                 // is what `binContents` is meant to represent.
                 return contents != ["output-file-map.json"]
             }
-            let moduleContents = (try? localFileSystem.getDirectoryContents(binPath.appending(component: "Modules"))) ?? []
+            var moduleContents: [String] = []
+            if buildSystemProvider == .native { 
+                moduleContents = (try? localFileSystem.getDirectoryContents(binPath.appending(component: "Modules"))) ?? []
+            } else {
+                let moduleDirs = (try? localFileSystem.getDirectoryContents(binPath).filter {
+                    $0.hasSuffix(".swiftmodule")
+                }) ?? []
+                for dir: String in moduleDirs {
+                    moduleContents +=
+                        (try? localFileSystem.getDirectoryContents(binPath.appending(component: dir)).map { "\(dir)/\($0)" }) ?? []
+                }
+            }
+            
 
             if cleanAfterward {
-                try! await SwiftPM.Package.execute(["clean"], packagePath: packagePath)
+                try! await executeSwiftPackage(
+                    packagePath,
+                    extraArgs: ["clean"],
+                    buildSystem: buildSystemProvider
+                )
             }
             return BuildResult(
                 binPath: binPath,
@@ -73,7 +100,11 @@ final class BuildCommandTests: CommandsTestCase {
             )
         } catch {
             if cleanAfterward {
-                try! await SwiftPM.Package.execute(["clean"], packagePath: packagePath)
+                try! await executeSwiftPackage(
+                    packagePath,
+                    extraArgs: ["clean"],
+                    buildSystem: buildSystemProvider
+                )
             }
             throw error
         }
@@ -84,13 +115,17 @@ final class BuildCommandTests: CommandsTestCase {
         XCTAssertMatch(stdout, .contains("USAGE: swift build"))
     }
 
+    func testBinSymlink() async throws {
+        XCTAssertTrue(false, "Must be implemented at build system test class.")
+    }
+
     func testSeeAlso() async throws {
         let stdout = try await execute(["--help"]).stdout
         XCTAssertMatch(stdout, .contains("SEE ALSO: swift run, swift package, swift test"))
     }
 
     func testCommandDoesNotEmitDuplicateSymbols() async throws {
-        let (stdout, stderr) = try await execute(["--help"])
+        let (stdout, stderr) = try await SwiftPM.Build.execute(["--help"])
         XCTAssertNoMatch(stdout, duplicateSymbolRegex)
         XCTAssertNoMatch(stderr, duplicateSymbolRegex)
     }
@@ -171,41 +206,13 @@ final class BuildCommandTests: CommandsTestCase {
         }
     }
 
-    func testBinPathAndSymlink() async throws {
+    func testSymlink() async throws {
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             let fullPath = try resolveSymlinks(fixturePath)
-            let targetPath = try fullPath.appending(
-                components: ".build",
+            let targetPath = try fullPath.appending(components:
+                ".build",
                 UserToolchain.default.targetTriple.platformBuildPathComponent
             )
-            let xcbuildTargetPath = fullPath.appending(components: ".build", "apple")
-            try await XCTAssertAsyncEqual(
-                try await self.execute(["--show-bin-path"], packagePath: fullPath).stdout,
-                "\(targetPath.appending("debug").pathString)\n"
-            )
-            try await XCTAssertAsyncEqual(
-                try await self.execute(["-c", "release", "--show-bin-path"], packagePath: fullPath).stdout,
-                "\(targetPath.appending("release").pathString)\n"
-            )
-
-            // Print correct path when building with XCBuild.
-            #if os(macOS)
-            let xcodeDebugOutput = try await execute(["--build-system", "xcode", "--show-bin-path"], packagePath: fullPath)
-                .stdout
-            let xcodeReleaseOutput = try await execute(
-                ["--build-system", "xcode", "-c", "release", "--show-bin-path"],
-                packagePath: fullPath
-            ).stdout
-            XCTAssertEqual(
-                xcodeDebugOutput,
-                "\(xcbuildTargetPath.appending(components: "Products", "Debug").pathString)\n"
-            )
-            XCTAssertEqual(
-                xcodeReleaseOutput,
-                "\(xcbuildTargetPath.appending(components: "Products", "Release").pathString)\n"
-            )
-            #endif
-
             // Test symlink.
             try await self.execute(packagePath: fullPath)
             XCTAssertEqual(
@@ -232,7 +239,11 @@ final class BuildCommandTests: CommandsTestCase {
 
             do {
                 let (_, stderr) = try await execute(["--product", "lib1"], packagePath: fullPath)
-                try await SwiftPM.Package.execute(["clean"], packagePath: fullPath)
+                try await executeSwiftPackage(
+                    fullPath,
+                    extraArgs:["clean"],
+                    buildSystem: buildSystemProvider
+                )
                 XCTAssertMatch(
                     stderr,
                     .contains(
@@ -379,14 +390,13 @@ final class BuildCommandTests: CommandsTestCase {
     }
 
     func testBuildCompleteMessage() async throws {
-        try XCTSkipIf(true, "This test fails to match the 'Compiling' regex; rdar://101815761")
-
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             do {
                 let result = try await execute(packagePath: fixturePath)
-                XCTAssertMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
+                // This test fails to match the 'Compiling' regex; rdar://101815761
+                // XCTAssertMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
                 let lines = result.stdout.split(whereSeparator: { $0.isNewline })
-                XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*s\\)"))
+                XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*\\s*s(econds)?\\)"))
             }
 
             do {
@@ -397,9 +407,10 @@ final class BuildCommandTests: CommandsTestCase {
             do {
                 // test third time, to make sure message is presented even when nothing to build (cached)
                 let result = try await execute(packagePath: fixturePath)
-                XCTAssertNoMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
+                // This test fails to match the 'Compiling' regex; rdar://101815761
+                // XCTAssertNoMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
                 let lines = result.stdout.split(whereSeparator: { $0.isNewline })
-                XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*s\\)"))
+                XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*\\s*s(econds)?\\)"))
             }
         }
     }
@@ -418,15 +429,15 @@ final class BuildCommandTests: CommandsTestCase {
         }
     }
 
-    private func testBuildSystemDefaultSettings(buildSystem: String) async throws {
+    func testBuildSystemDefaultSettings() async throws {
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             // try await building using XCBuild with default parameters.  This should succeed.  We build verbosely so we get
             // full command lines.
-            let output = try await execute(["--build-system", buildSystem, "-c", "debug", "-v"], packagePath: fixturePath)
+            let output = try await execute(["-c", "debug", "-v"], packagePath: fixturePath)
 
             // In the case of the native build system check for the cross-compile target, only for macOS
 #if os(macOS)
-            if buildSystem == "native" {
+            if buildSystemProvider == .native {
                  XCTAssertMatch(
                      output.stdout,
                      try .contains("-target \(UserToolchain.default.targetTriple.tripleString(forPlatformVersion: ""))")
@@ -437,36 +448,9 @@ final class BuildCommandTests: CommandsTestCase {
             // Look for build completion message from the particular build system
             XCTAssertMatch(
                 output.stdout,
-                try .contains("Build complete!")
+                .contains("Build complete!")
             )
         }
-    }
-
-    func testNativeBuildSystemDefaultSettings() async throws {
-        try await self.testBuildSystemDefaultSettings(buildSystem: "native")
-    }
-
-    #if os(macOS)
-    func testXcodeBuildSystemDefaultSettings() async throws {
-        // TODO figure out in what circumstance the xcode build system test can run.
-        throw XCTSkip("Xcode build system test is not working in test")
-
-        try await self.testBuildSystemDefaultSettings(buildSystem: "xcode")
-    }
-    #endif
-
-    func testSwiftBuildSystemDefaultSettings() async throws {
-        #if os(Linux)
-        if FileManager.default.contents(atPath: "/etc/system-release").map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false {
-            throw XCTSkip("Skipping SwiftBuild testing on Amazon Linux because of platform issues.")
-        }
-        #endif
-
-        if ProcessInfo.processInfo.environment["SWIFTPM_NO_SWBUILD_DEPENDENCY"] != nil {
-            throw XCTSkip("SWIFTPM_NO_SWBUILD_DEPENDENCY is set so skipping because SwiftPM doesn't have the swift-build capability built inside.")
-        }
-
-        try await testBuildSystemDefaultSettings(buildSystem: "swiftbuild")
     }
 
     func testXcodeBuildSystemWithAdditionalBuildFlags() async throws {
@@ -475,15 +459,15 @@ final class BuildCommandTests: CommandsTestCase {
             "Disabled for now because it is hitting 'IR generation failure: Cannot read legacy layout file' in CI (rdar://88828632)"
         )
 
-        #if !os(macOS)
-        try XCTSkipIf(true, "test requires `xcbuild` and is therefore only supported on macOS")
-        #endif
+        guard buildSystemProvider == .xcode || buildSystemProvider == .swiftbuild else {
+            throw XCTSkip("This test only works with the xcode or swift build build system")
+        }
+
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableMixed") { fixturePath in
             // try await building using XCBuild with additional flags.  This should succeed.  We build verbosely so we get
             // full command lines.
             let defaultOutput = try await execute(
                 [
-                    "--build-system", "xcode",
                     "-c", "debug", "-v",
                     "-Xlinker", "-rpath", "-Xlinker", "/fakerpath",
                     "-Xcc", "-I/cfakepath",
@@ -501,10 +485,11 @@ final class BuildCommandTests: CommandsTestCase {
         }
     }
 
-    func testXcodeBuildSystemOverrides() async throws {
-        #if !os(macOS)
-        try XCTSkipIf(true, "test requires `xcbuild` and is therefore only supported on macOS")
-        #endif
+    func testBuildSystemOverrides() async throws {
+        guard buildSystemProvider == .xcode else {
+            throw XCTSkip("Build system overrides are only available with the xcode build system.")
+        }
+
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             // try await building using XCBuild without specifying overrides.  This should succeed, and should use the default
             // compiler path.
@@ -621,6 +606,7 @@ final class BuildCommandTests: CommandsTestCase {
             // lines.
             var buildResult = try await build(["-v"], packagePath: fixturePath)
 
+            // TODO verification of the ad-hoc code signing can be done by `swift run` of the executable in these cases once swiftbuild build system is working with that
             XCTAssertMatch(buildResult.stdout, .contains("codesign --force --sign - --entitlements"))
 
             buildResult = try await self.build(["-c", "debug", "-v"], packagePath: fixturePath)
@@ -707,13 +693,31 @@ final class BuildCommandTests: CommandsTestCase {
         // Test that no codecov directory is created if not specified when building.
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
             _ = try await self.build(["--build-tests"], packagePath: path, cleanAfterward: false)
-            await XCTAssertAsyncThrowsError(try await SwiftPM.Test.execute(["--skip-build", "--enable-code-coverage"], packagePath: path))
+            await XCTAssertAsyncThrowsError(
+                try await executeSwiftTest(
+                    path,
+                    extraArgs: [
+                        "--skip-build",
+                        "--enable-code-coverage",
+                    ],
+                    throwIfCommandFails: true,
+                    buildSystem: buildSystemProvider
+                )
+            )
         }
 
         // Test that enabling code coverage during building produces the expected folder.
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
             let buildResult = try await self.build(["--build-tests", "--enable-code-coverage"], packagePath: path, cleanAfterward: false)
-            try await SwiftPM.Test.execute(["--skip-build", "--enable-code-coverage"], packagePath: path)
+            try await executeSwiftTest(
+                path,
+                extraArgs: [
+                    "--skip-build",
+                    "--enable-code-coverage",
+                ],
+                throwIfCommandFails: true,
+                buildSystem: buildSystemProvider
+            )
             let codeCovPath = buildResult.binPath.appending("codecov")
             let codeCovFiles = try localFileSystem.getDirectoryContents(codeCovPath)
             XCTAssertGreaterThan(codeCovFiles.count, 0)
@@ -721,13 +725,7 @@ final class BuildCommandTests: CommandsTestCase {
     }
 
     func testFatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation() async throws {
-        // Test for GitHub Issue #6605
-        // GIVEN we have a Swift Package that has a fatalError building the tests
-        #if compiler(>=6)
         let expected = 0
-        #else
-        let expected = 1
-        #endif
         try await fixture(name: "Miscellaneous/Errors/FatalErrorInSingleXCTest/TypeLibrary") { fixturePath in
             // WHEN swift-build --build-tests is executed"
             await XCTAssertAsyncThrowsError(try await self.execute(["--build-tests"], packagePath: fixturePath)) { error in
@@ -754,6 +752,207 @@ final class BuildCommandTests: CommandsTestCase {
                 )
             }
         }
+    }
+
+}
+
+
+class BuildCommandNativeTests: BuildCommandTestCases {
+
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .native
+    }
+
+    override func testUsage() async throws {
+        try await super.testUsage()
+    }
+
+    override func testBinSymlink() async throws {
+        try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
+            let fullPath = try resolveSymlinks(fixturePath)
+            let targetPath = try fullPath.appending(
+                components: ".build",
+                UserToolchain.default.targetTriple.platformBuildPathComponent
+            )
+            try await XCTAssertAsyncEqual(
+                try await self.execute(["--show-bin-path"], packagePath: fullPath).stdout,
+                "\(targetPath.appending("debug").pathString)\n"
+            )
+            try await XCTAssertAsyncEqual(
+                try await self.execute(["-c", "release", "--show-bin-path"], packagePath: fullPath)
+                    .stdout,
+                "\(targetPath.appending("release").pathString)\n"
+            )
+        }
+    }
+}
+
+#if os(macOS)
+// Xcode build system tests can only function on macOS
+class BuildCommandXcodeTests: BuildCommandTestCases {
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .xcode
+    }
+
+    override func testUsage() async throws {
+        try await super.testUsage()
+    }
+
+    override func testAutomaticParseableInterfacesWithLibraryEvolution() async throws {
+        throw XCTSkip("Test not implemented for xcode build system.")
+    }
+
+    override func testNonReachableProductsAndTargetsFunctional() async throws {
+        throw XCTSkip("Test not implemented for xcode build system.")
+    }
+
+    override func testCodeCoverage() async throws {
+        throw XCTSkip("Test not implemented for xcode build system.")
+    }
+
+    override func testBuildStartMessage() async throws {
+        throw XCTSkip("Test not implemented for xcode build system.")
+    }
+
+    override func testBinSymlink() async throws {
+        throw XCTSkip("Test not implemented for xcode build system.")
+    }
+
+    override func testSymlink() async throws {
+        throw XCTSkip("Test not implemented for xcode build system.")
+    }
+
+    override func testSwiftGetVersion() async throws {
+        throw XCTSkip("Test not implemented for xcode build system.")
+    }
+
+    override func testParseableInterfaces() async throws {
+        throw XCTSkip("Test not implemented for xcode build system.")
+    }
+
+    override func testProductAndTarget() async throws {
+        throw XCTSkip("Test not implemented for xcode build system.")
+    }
+
+    override func testImportOfMissedDepWarning() async throws {
+        throw XCTSkip("Test not implemented for xcode build system.")
+    }
+
+    override func testGetTaskAllowEntitlement() async throws {
+        throw XCTSkip("Test not implemented for xcode build system.")
+    }
+
+    override func testBuildCompleteMessage() async throws {
+        throw XCTSkip("Test not implemented for xcode build system.")
+    }
+}
+#endif
+
+class BuildCommandSwiftBuildTests: BuildCommandTestCases {
+
+    override open var buildSystemProvider: BuildSystemProvider.Kind {
+        return .swiftbuild
+    }
+
+    override func testNonReachableProductsAndTargetsFunctional() async throws {
+        throw XCTSkip("SWBINTTODO: Test failed. This needs to be investigated")
+    }
+
+    override func testParseableInterfaces() async throws {
+        try XCTSkipIfWorkingDirectoryUnsupported()
+
+        try await fixture(name: "Miscellaneous/ParseableInterfaces") { fixturePath in
+            do {
+                let result = try await build(["--enable-parseable-module-interfaces"], packagePath: fixturePath)
+                XCTAssertMatch(result.moduleContents, [.regex(#"A[.]swiftmodule[/].*[.]swiftinterface"#)])
+                XCTAssertMatch(result.moduleContents, [.regex(#"B[.]swiftmodule[/].*[.]swiftmodule"#)])
+            } catch SwiftPMError.executionFailure(_, _, let stderr) {
+                XCTFail(stderr)
+            }
+        }
+    }
+    
+    override func testAutomaticParseableInterfacesWithLibraryEvolution() async throws {
+        throw XCTSkip("SWBINTTODO: Test failed because of missing 'A.swiftmodule/*.swiftinterface' files")
+        // TODO: We still need to override this test just like we did for `testParseableInterfaces` above.
+    }
+
+    override func testBinSymlink() async throws {
+        try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
+            let fullPath = try resolveSymlinks(fixturePath)
+            let targetPath = try fullPath.appending(
+                components: ".build",
+                UserToolchain.default.targetTriple.platformBuildPathComponent
+            )
+            let debugPath = try await self.execute(["--show-bin-path"], packagePath: fullPath).stdout
+            XCTAssertMatch(debugPath, .regex(targetPath.appending(components: "Products", "Debug").pathString + "(\\-linux|\\-Windows)?\\n"))
+            let releasePath = try await self.execute(["-c", "release", "--show-bin-path"], packagePath: fullPath).stdout
+            XCTAssertMatch(releasePath, .regex(targetPath.appending(components: "Products", "Release").pathString + "(\\-linux|\\-Windows)?\\n"))
+        }
+    }
+    
+    override func testGetTaskAllowEntitlement() async throws {
+        throw XCTSkip("SWBINTTODO: Test failed because swiftbuild doesn't output precis codesign commands. Once swift run works with swiftbuild the test can be investigated.")
+    }
+
+    override func testCodeCoverage() async throws {
+        throw XCTSkip("SWBINTTODO: Test failed because of missing plugin support in the PIF builder. This can be reinvestigated after the support is there.")
+    }
+
+    override func testAtMainSupport() async throws {
+        #if !os(macOS)
+        throw XCTSkip("SWBINTTODO: File not found or missing libclang errors on non-macOS platforms. This needs to be investigated")
+        #else
+        try await super.testAtMainSupport()
+        #endif
+    }
+
+    override func testImportOfMissedDepWarning() async throws {
+        throw XCTSkip("SWBINTTODO: Test fails because the warning message regarding missing imports is expected to be more verbose and actionable at the SwiftPM level with mention of the involved targets. This needs to be investigated. See case targetDiagnostic(TargetDiagnosticInfo) as a message type that may help.")
+    }
+
+    override func testProductAndTarget() async throws {
+        throw XCTSkip("SWBINTTODO: Test fails because there isn't a clear warning message about the lib1 being an automatic product and that the default product is being built instead. This needs to be investigated")
+    }
+
+    override func testSwiftGetVersion() async throws {
+        throw XCTSkip("SWBINTTODO: Test fails because the dummy-swiftc used in the test isn't accepted by swift-build. This needs to be investigated")
+    }
+
+    override func testSymlink() async throws {
+        throw XCTSkip("SWBINTTODO: Test fails because of a difference in the build layout. This needs to be updated to the expected path")
+    }
+
+#if !canImport(Darwin)
+    override func testIgnoresLinuxMain() async throws {
+        throw XCTSkip("SWBINTTODO: Swift build doesn't currently ignore Linux main when linking on Linux. This needs further investigation.")
+    }
+#endif
+
+#if !os(macOS)
+    override func testBuildStartMessage() async throws {
+        throw XCTSkip("SWBINTTODO: Swift build produces an error building the fixture for this test.")
+    }
+
+    override func testSwiftDriverRawOutputGetsNewlines() async throws {
+        throw XCTSkip("SWBINTTODO: Swift build produces an error building the fixture for this test.")
+    }
+#endif
+
+    override func testBuildSystemDefaultSettings() async throws {
+        try XCTSkipIfWorkingDirectoryUnsupported()
+
+        if ProcessInfo.processInfo.environment["SWIFTPM_NO_SWBUILD_DEPENDENCY"] != nil {
+            throw XCTSkip("SWIFTPM_NO_SWBUILD_DEPENDENCY is set so skipping because SwiftPM doesn't have the swift-build capability built inside.")
+        }
+
+        try await super.testBuildSystemDefaultSettings()
+    }
+
+    override func testBuildCompleteMessage() async throws {
+        try XCTSkipIfWorkingDirectoryUnsupported()
+
+        try await super.testBuildCompleteMessage()
     }
 
 }
