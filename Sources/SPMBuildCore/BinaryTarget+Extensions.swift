@@ -37,6 +37,20 @@ public struct ExecutableInfo: Equatable {
     public let supportedTriples: [Triple]
 }
 
+enum LibraryArtifactMetadataError: Error, CustomStringConvertible {
+    case expectedOneVariant
+    case supportedTriplesDisallowed
+
+    var description: String {
+        switch self {
+        case .expectedOneVariant:
+            "library artifacts must specify exactly one variant per artifactbundle"
+        case .supportedTriplesDisallowed:
+            "library artifacts must not specify supported triples"
+        }
+    }
+}
+
 extension BinaryModule {
     public func parseXCFrameworks(for triple: Triple, fileSystem: FileSystem) throws -> [LibraryInfo] {
         // At the moment we return at most a single library.
@@ -56,8 +70,27 @@ extension BinaryModule {
             .map { [try AbsolutePath(validating: $0, relativeTo: libraryDir)] } ?? [] + [libraryDir]
         return [LibraryInfo(libraryPath: libraryFile, headersPaths: headersDirs)]
     }
+    public func parseLibraries(for triple: Triple, fileSystem: FileSystem) throws -> [LibraryInfo] {
+        let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: self.artifactPath)
+        return try metadata.artifacts.reduce(into: []) {
+            guard case .library = $1.value.type else {
+                return
+            }
+            guard let inhabitant: ArtifactsArchiveMetadata.Variant = $1.value.variants.first,
+                $1.value.variants.count == 1 else {
+                throw LibraryArtifactMetadataError.expectedOneVariant
+            }
+            if let triples = inhabitant.supportedTriples, !triples.isEmpty {
+                throw LibraryArtifactMetadataError.supportedTriplesDisallowed
+            }
 
-    public func parseArtifactArchives(for triple: Triple, fileSystem: FileSystem) throws -> [ExecutableInfo] {
+            let libraryDir = self.artifactPath.appending(inhabitant.path)
+            let libraryFile = libraryDir.appending(component: triple.dynamicLibrary($1.key))
+
+            $0.append(.init(libraryPath: libraryFile, headersPaths: [libraryDir]))
+        }
+    }
+    public func parseExecutables(for triple: Triple, fileSystem: FileSystem) throws -> [ExecutableInfo] {
         // The host triple might contain a version which we don't want to take into account here.
         let versionLessTriple = try triple.withoutVersion()
         // We return at most a single variant of each artifact.
@@ -82,6 +115,11 @@ extension BinaryModule {
                 )
             }
         }
+    }
+
+    @available(*, deprecated, renamed: "parseExecutables(for:fileSystem:)")
+    public func parseArtifactArchives(for triple: Triple, fileSystem: FileSystem) throws -> [ExecutableInfo] {
+        try self.parseExecutables(for: triple, fileSystem: fileSystem)
     }
 }
 

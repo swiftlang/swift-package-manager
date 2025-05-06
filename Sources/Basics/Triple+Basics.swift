@@ -125,6 +125,10 @@ extension Triple {
 }
 
 extension Triple {
+    public func dynamicLibrary(_ id: String) -> String {
+        return "\(self.dynamicLibraryPrefix)\(id)\(self.dynamicLibraryExtension)"
+    }
+
     /// The file prefix for dynamic libraries
     public var dynamicLibraryPrefix: String {
         switch os {
