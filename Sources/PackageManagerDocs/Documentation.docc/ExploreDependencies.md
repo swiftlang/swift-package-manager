@@ -7,7 +7,7 @@
 You define constraints for dependencies when you add them to your package, and those constraints can not always be met.
 
 <!-- link to CLI docs for swift package resolve -->
-Prior to running a build or test, or when you run `swift package resolve`, the package manager walks through the dependencies in your package, and all their dependencies recusively, to build a complete list.
+Prior to running a build or test, or when you run `swift package resolve`, the package manager walks through the dependencies in your package, and all their dependencies recursively, to build a complete list.
 It then attempts to choose a version of each dependency that fits within the constraints of your package, and any constraints provided by your dependencies.
 
 If all the dependencies are available and resolved, the versions are recorded locally in the file `Package.resolved`.
