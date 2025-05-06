@@ -4,17 +4,17 @@ Learn to create and use a Swift package.
 
 ## Overview
 
-A package consists of Swift source files, including the `Package.swift` manifest file. 
+A package consists of a `Package.swift` manifest file along with source files, resources, and other assets. 
 The manifest file, or package manifest, defines the package's name and its contents using the PackageDescription module.
 
 Each package declares `Products`, a list of what the package produces.
 Types of products include libraries, executables, and plugins:
 
-- A library defines a module that can be imported by other Swift code. 
+- A library defines a module that can be imported by other code. 
 - An executable is a program that can be run by the operating system.
 - A plugin is executable code that the Swift Package Manager may use to provide additional commands or build capabilities.
 
-The package can also declare `Dependencies`, most frequently other swift packages that provide modules you use.
+The package can also declare `Dependencies`, most frequently other Swift packages that provide modules you use.
 Dependencies can also provide macros, plugins, or reference system or binary (non-source) dependencies.
 
 Each product is made up of one or more `Targets`, the basic building block of a Swift package.
@@ -27,7 +27,7 @@ Swift organizes code into _modules_.
 Each module specifies a namespace and enforces access controls on which parts of that code can be used outside of that module.
 
 A program may have all of its code in a single module, or it may import other modules as _dependencies_. 
-Aside from the handful of system-provided modules, such as Darwin on OS X or GLibc on Linux, most dependencies require code to be downloaded and built in order to be used.
+Aside from the handful of system-provided modules, such as Darwin on macOS or Glibc on Linux, most dependencies require code to be downloaded and built in order to be used.
 
 Extracting code that solves a particular problem into a separate module allows for that code to be reused in other situations. 
 For example, a module that provides functionality for making network requests could be shared between a photo sharing app and a program that displays the weather forecast. 
