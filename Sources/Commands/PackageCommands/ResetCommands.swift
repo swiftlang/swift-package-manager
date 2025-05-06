@@ -17,7 +17,7 @@ import Workspace
 extension SwiftPackageCommand {
     struct Clean: SwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Delete build artifacts")
+            abstract: "Delete build artifacts.")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
@@ -41,7 +41,7 @@ extension SwiftPackageCommand {
 
     struct Reset: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Reset the complete cache/build directory")
+            abstract: "Reset the complete cache/build directory.")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions

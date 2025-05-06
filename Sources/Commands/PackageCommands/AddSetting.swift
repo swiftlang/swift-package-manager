@@ -33,19 +33,19 @@ extension SwiftPackageCommand {
         }
 
         package static let configuration = CommandConfiguration(
-            abstract: "Add a new setting to the manifest"
+            abstract: "Add a new setting to the manifest."
         )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Option(help: "The target to add the setting to")
+        @Option(help: "The target to add the setting to.")
         var target: String
 
         @Option(
             name: .customLong("swift"),
             parsing: .unconditionalSingleValue,
-            help: "The Swift language setting(s) to add. Supported settings: \(SwiftSetting.allCases.map(\.rawValue).joined(separator: ", "))"
+            help: "The Swift language setting(s) to add. Supported settings: \(SwiftSetting.allCases.map(\.rawValue).joined(separator: ", "))."
         )
         var _swiftSettings: [String]
 

@@ -21,16 +21,16 @@ import Workspace
 extension SwiftPackageCommand {
     struct Update: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Update package dependencies")
-        
+            abstract: "Update package dependencies.")
+
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
         
         @Flag(name: [.long, .customShort("n")],
-              help: "Display the list of dependencies that can be updated")
+              help: "Display the list of dependencies that can be updated.")
         var dryRun: Bool = false
         
-        @Argument(help: "The packages to update")
+        @Argument(help: "The packages to update.")
         var packages: [String] = []
         
         func run(_ swiftCommandState: SwiftCommandState) async throws {

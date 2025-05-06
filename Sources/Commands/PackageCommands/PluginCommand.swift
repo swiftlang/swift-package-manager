@@ -25,7 +25,7 @@ import Workspace
 struct PluginCommand: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
         commandName: "plugin",
-        abstract: "Invoke a command plugin or perform other actions on command plugins"
+        abstract: "Invoke a command plugin or perform other actions on command plugins."
     )
 
     @OptionGroup(visibility: .hidden)
@@ -33,20 +33,20 @@ struct PluginCommand: AsyncSwiftCommand {
 
     @Flag(
         name: .customLong("list"),
-        help: "List the available command plugins"
+        help: "List the available command plugins."
     )
     var listCommands: Bool = false
 
     struct PluginOptions: ParsableArguments {
         @Flag(
             name: .customLong("allow-writing-to-package-directory"),
-            help: "Allow the plugin to write to the package directory"
+            help: "Allow the plugin to write to the package directory."
         )
         var allowWritingToPackageDirectory: Bool = false
 
         @Option(
             name: .customLong("allow-writing-to-directory"),
-            help: "Allow the plugin to write to an additional directory"
+            help: "Allow the plugin to write to an additional directory."
         )
         var additionalAllowedWritableDirectories: [String] = []
 
@@ -123,7 +123,7 @@ struct PluginCommand: AsyncSwiftCommand {
 
         @Option(
             name: .customLong("package"),
-            help: "Limit available plugins to a single package with the given identity"
+            help: "Limit available plugins to a single package with the given identity."
         )
         var packageIdentity: String? = nil
     }
@@ -131,12 +131,12 @@ struct PluginCommand: AsyncSwiftCommand {
     @OptionGroup()
     var pluginOptions: PluginOptions
 
-    @Argument(help: "Verb of the command plugin to invoke")
+    @Argument(help: "Verb of the command plugin to invoke.")
     var command: String = ""
 
     @Argument(
         parsing: .captureForPassthrough,
-        help: "Arguments to pass to the command plugin"
+        help: "Arguments to pass to the command plugin."
     )
     var arguments: [String] = []
 
