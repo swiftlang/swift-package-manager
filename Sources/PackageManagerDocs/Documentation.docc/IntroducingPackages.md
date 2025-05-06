@@ -10,15 +10,15 @@ The manifest file, or package manifest, defines the package's name and its conte
 Each package declares `Products`, a list of what the package produces.
 Types of products include libraries, executables, and plugins:
 
-- A library defines a module that can be imported by other code. 
+- A library defines one or more modules that can be imported by other code.
 - An executable is a program that can be run by the operating system.
 - A plugin is executable code that the Swift Package Manager may use to provide additional commands or build capabilities.
 
-The package can also declare `Dependencies`, most frequently other Swift packages that provide modules you use.
+The package can also declare `Dependencies`, that can include other Swift packages that provide modules you use.
 Dependencies can also provide macros, plugins, or reference system or binary (non-source) dependencies.
 
 Each product is made up of one or more `Targets`, the basic building block of a Swift package.
-Each target specifies an output, may declare one or more dependencies on other targets within the same package and on products vended by the package’s dependencies.
+Each target specifies an module, may declare one or more dependencies on other targets within the same package and on products vended by the package’s dependencies.
 A target may define a library, a test suite, an executable, an macro, a binary dependency, and so on.
 
 ### About Modules
@@ -28,7 +28,7 @@ A module specifies a namespace and enforces access controls on which parts of th
 Each target you define in a Swift package is a module.
 
 When you expose a library from a package, you expose the public API from your targets that make up that library for other packages to use.
-When you import a library in Swift, you're importing a module to use from your code, regardless of what language was used to create that module.
+When you import a library in Swift, you're importing the modules that make up that library to use from your code, regardless of what language was used to create that module.
 A Swift package can also host C, C++, or Objective-C code as modules.
 Like Swift, these are also units of code distribution, but unlike Swift you expose the API that by hand-authoring a module-defining file (`module.modulemap`) that references a header or collection of headers with the API to expose.
 
