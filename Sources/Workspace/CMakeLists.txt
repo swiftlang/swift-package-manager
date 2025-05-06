@@ -42,6 +42,7 @@ add_library(Workspace
   Workspace+SourceControl.swift
   Workspace+State.swift)
 target_link_libraries(Workspace PUBLIC
+  SwiftASN1
   TSCBasic
   TSCUtility
   Basics
