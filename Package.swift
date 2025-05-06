@@ -746,12 +746,6 @@ let package = Package(
                 "Workspace",
             ]
         ),
-        .executableTarget(
-            /** Builds packages */
-            name: "swift-migrate",
-            dependencies: ["Commands"],
-            exclude: ["CMakeLists.txt"]
-        ),
 
         // MARK: Support for Swift macros, should eventually move to a plugin-based solution
 

@@ -24,6 +24,7 @@ add_library(Commands
   PackageCommands/Init.swift
   PackageCommands/Install.swift
   PackageCommands/Learn.swift
+  PackageCommands/Migrate.swift
   PackageCommands/PluginCommand.swift
   PackageCommands/ResetCommands.swift
   PackageCommands/Resolve.swift
@@ -40,7 +41,6 @@ add_library(Commands
   Snippets/Card.swift
   Snippets/Colorful.swift
   SwiftBuildCommand.swift
-  SwiftMigrateCommand.swift
   SwiftRunCommand.swift
   SwiftTestCommand.swift
   CommandWorkspaceDelegate.swift
