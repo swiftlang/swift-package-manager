@@ -14,7 +14,7 @@ import _Concurrency
 import ArgumentParser
 import Basics
 import Dispatch
-import class Foundation.NSDistributedLock
+import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import PackageGraph
 import PackageLoading
@@ -22,7 +22,6 @@ import PackageLoading
 import PackageModel
 import SPMBuildCore
 import Workspace
-import Foundation.NSFileManager
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly
