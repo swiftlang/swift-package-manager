@@ -14,7 +14,7 @@ import _Concurrency
 import ArgumentParser
 import Basics
 import Dispatch
-import class Foundation.NSLock
+import class Foundation.NSDistributedLock
 import class Foundation.ProcessInfo
 import PackageGraph
 import PackageLoading
@@ -22,6 +22,7 @@ import PackageLoading
 import PackageModel
 import SPMBuildCore
 import Workspace
+import Foundation.NSFileManager
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly
@@ -287,6 +288,7 @@ public final class SwiftCommandState {
 
     private let hostTriple: Basics.Triple?
 
+    private let pidManipulator: pidFileManipulator
     package var preferredBuildConfiguration = BuildConfiguration.debug
 
     /// Create an instance of this tool.
@@ -324,7 +326,8 @@ public final class SwiftCommandState {
         createPackagePath: Bool,
         hostTriple: Basics.Triple? = nil,
         fileSystem: any FileSystem = localFileSystem,
-        environment: Environment = .current
+        environment: Environment = .current,
+        pidManipulator: pidFileManipulator? = nil
     ) throws {
         self.hostTriple = hostTriple
         self.fileSystem = fileSystem
@@ -407,6 +410,8 @@ public final class SwiftCommandState {
         self.sharedSwiftSDKsDirectory = try fileSystem.getSharedSwiftSDKsDirectory(
             explicitDirectory: options.locations.swiftSDKsDirectory ?? options.locations.deprecatedSwiftSDKsDirectory
         )
+        
+        self.pidManipulator = pidManipulator ?? pidFile(scratchDirectory: self.scratchDirectory)
 
         // set global process logging handler
         AsyncProcess.loggingHandler = { self.observabilityScope.emit(debug: $0) }
@@ -1059,16 +1064,16 @@ public final class SwiftCommandState {
         let workspaceLock = try FileLock.prepareLock(fileToLock: self.scratchDirectory)
         let lockFile = self.scratchDirectory.appending(".lock").pathString
 
+        var lockAcquired = false
+
         // Try a non-blocking lock first so that we can inform the user about an already running SwiftPM.
         do {
             try workspaceLock.lock(type: .exclusive, blocking: false)
-            let pid = ProcessInfo.processInfo.processIdentifier
-            try? String(pid).write(toFile: lockFile, atomically: true, encoding: .utf8)
+            lockAcquired = true
         } catch ProcessLockError.unableToAquireLock(let errno) {
             if errno == EWOULDBLOCK {
-                let lockingPID = try? String(contentsOfFile: lockFile, encoding: .utf8)
-                let pidInfo = lockingPID.map { "(PID: \($0)) " } ?? ""
-                
+                let existingPID = self.pidManipulator.readPID(from: self.pidManipulator.pidFilePath)
+                let pidInfo = existingPID.map { "(PID: \($0)) " } ?? ""
                 if self.options.locations.ignoreLock {
                     self.outputStream
                         .write(
@@ -1087,13 +1092,16 @@ public final class SwiftCommandState {
                     // Only if we fail because there's an existing lock we need to acquire again as blocking.
                     try workspaceLock.lock(type: .exclusive, blocking: true)
 
-                    let pid = ProcessInfo.processInfo.processIdentifier
-                    try? String(pid).write(toFile: lockFile, atomically: true, encoding: .utf8)
+                    lockAcquired = true
                 }
             }
         }
 
         self.workspaceLock = workspaceLock
+        
+        if lockAcquired || self.options.locations.ignoreLock {
+            try self.pidManipulator.writePID(pid: self.pidManipulator.getCurrentPID(), to: self.pidManipulator.pidFilePath.asURL, atomically: true, encoding: .utf8)
+        }
     }
 
     fileprivate func releaseLockIfNeeded() {
@@ -1105,6 +1113,12 @@ public final class SwiftCommandState {
         self.workspaceLockState = .unlocked
 
         self.workspaceLock?.unlock()
+        
+        do {
+            try self.pidManipulator.deletePIDFile(file: self.pidManipulator.pidFilePath.asURL)
+        } catch {
+            self.observabilityScope.emit(warning: "Failed to delete PID file: \(error)")
+        }
     }
 }
 
