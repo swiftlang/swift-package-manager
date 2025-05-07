@@ -539,7 +539,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
             let scratchPath = tmpDir.appending(component: "scratch")
             try localFileSystem.createDirectory(scratchPath)
 
-            var pidHandler = PIDFile(scratchDirectory: scratchPath)
+            let pidHandler = PIDFile(scratchDirectory: scratchPath)
 
             // Ensure no PID file exists initially
             XCTAssertNil(pidHandler.readPID(), "No PID should exist initially")

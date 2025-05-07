@@ -68,6 +68,13 @@ public struct PIDFile: PIDFileHandler {
 
     /// Write .pid file containing PID of process currently using .build directory
     public func writePID(pid: pid_t) throws {
+        let parent = self.lockFilePath.parentDirectory
+        try FileManager.default.createDirectory(
+            at: parent.asURL,
+            withIntermediateDirectories: true,
+            attributes: nil
+        )
+
         try "\(pid)".write(to: self.lockFilePath.asURL, atomically: true, encoding: .utf8)
     }
 
