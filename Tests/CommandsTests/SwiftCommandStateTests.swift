@@ -533,6 +533,48 @@ final class SwiftCommandStateTests: CommandsTestCase {
             }
         }
     }
+    
+    func testPIDFileHandlerLifecycle() async throws {
+        try withTemporaryDirectory { tmpDir in
+            let scratchPath = tmpDir.appending(component: "scratch")
+            try localFileSystem.createDirectory(scratchPath)
+
+            var pidHandler: PIDFile = PIDFile(scratchDirectory: scratchPath)
+
+
+
+            // Ensure no PID file exists initially
+            XCTAssertNil(pidHandler.readPID(), "No PID should exist initially")
+
+            // Write current PID
+            let currentPID = pidHandler.getCurrentPID()
+            try pidHandler.writePID(pid: currentPID)
+
+
+            // Read PID back
+            let readPID = pidHandler.readPID()
+            XCTAssertEqual(readPID, currentPID, "PID read should match written PID")
+
+            // Delete the file
+            try pidHandler.deletePIDFile()
+
+            // Ensure file is gone
+            XCTAssertNil(pidHandler.readPID(), "PID should be nil after deletion")
+        }
+    }
+
+    func testMalformedPIDFile() async throws {
+        try withTemporaryDirectory { tmpDir in
+            let scratchPath = tmpDir.appending(component: "scratch")
+            try localFileSystem.createDirectory(scratchPath)
+
+            let pidPath = scratchPath.appending(component: "PackageManager.lock.pid")
+            try localFileSystem.writeFileContents(pidPath, bytes: "notanumber")
+
+            let pidHandler = PIDFile(scratchDirectory: scratchPath)
+            XCTAssertNil(pidHandler.readPID(), "Malformed PID file should result in nil")
+        }
+    }
 }
 
 extension SwiftCommandState {

@@ -288,7 +288,7 @@ public final class SwiftCommandState {
 
     private let hostTriple: Basics.Triple?
 
-    private let pidManipulator: pidFileManipulator
+    private let pidManipulator: PIDFileHandler
     package var preferredBuildConfiguration = BuildConfiguration.debug
 
     /// Create an instance of this tool.
@@ -327,7 +327,7 @@ public final class SwiftCommandState {
         hostTriple: Basics.Triple? = nil,
         fileSystem: any FileSystem = localFileSystem,
         environment: Environment = .current,
-        pidManipulator: pidFileManipulator? = nil
+        pidManipulator: PIDFileHandler? = nil
     ) throws {
         self.hostTriple = hostTriple
         self.fileSystem = fileSystem
@@ -411,7 +411,7 @@ public final class SwiftCommandState {
             explicitDirectory: options.locations.swiftSDKsDirectory ?? options.locations.deprecatedSwiftSDKsDirectory
         )
         
-        self.pidManipulator = pidManipulator ?? pidFile(scratchDirectory: self.scratchDirectory)
+        self.pidManipulator = pidManipulator ?? PIDFile(scratchDirectory: self.scratchDirectory)
 
         // set global process logging handler
         AsyncProcess.loggingHandler = { self.observabilityScope.emit(debug: $0) }
@@ -1072,8 +1072,8 @@ public final class SwiftCommandState {
             lockAcquired = true
         } catch ProcessLockError.unableToAquireLock(let errno) {
             if errno == EWOULDBLOCK {
-                let existingPID = self.pidManipulator.readPID()
-                let pidInfo = existingPID.map { "(PID: \($0)) " } ?? ""
+                let existingProcessPID = self.pidManipulator.readPID()
+                let pidInfo = existingProcessPID.map { "(PID: \($0)) " } ?? ""
                 if self.options.locations.ignoreLock {
                     self.outputStream
                         .write(
@@ -1100,7 +1100,11 @@ public final class SwiftCommandState {
         self.workspaceLock = workspaceLock
         
         if lockAcquired || self.options.locations.ignoreLock {
-            try self.pidManipulator.writePID(pid: self.pidManipulator.getCurrentPID())
+            do {
+                try self.pidManipulator.writePID(pid: self.pidManipulator.getCurrentPID())
+            } catch {
+                self.observabilityScope.emit(warning: "Failed to write to PID file: \(error)")
+            }
         }
     }
 
