@@ -14,12 +14,12 @@ Types of products include libraries, executables, and plugins:
 - An executable is a program that can be run by the operating system.
 - A plugin is executable code that the Swift Package Manager may use to provide additional commands or build capabilities.
 
-The package can also declare `Dependencies`, that can include other Swift packages that provide modules you use.
-Dependencies can also provide macros, plugins, or reference system or binary (non-source) dependencies.
+A package may declare `Dependencies`, that provide products from other Swift packages.
+A dependency may also be defined to a system library or binary (non-source) artifact.
 
 Each product is made up of one or more `Targets`, the basic building block of a Swift package.
 Each target specifies an module, may declare one or more dependencies on other targets within the same package and on products vended by the package’s dependencies.
-A target may define a library, a test suite, an executable, an macro, a binary dependency, and so on.
+A target may define a library, a test suite, an executable, an macro, a binary file, and so on.
 
 ### About Modules
 
