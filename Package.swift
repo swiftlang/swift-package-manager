@@ -138,7 +138,7 @@ let package = Package(
             type: .dynamic,
             targets: ["AppleProductTypes"]
         ),
-        
+
         .library(
             name: "PackagePlugin",
             type: .dynamic,
@@ -588,6 +588,7 @@ let package = Package(
                 "Workspace",
                 "XCBuildSupport",
                 "SwiftBuildSupport",
+                "SwiftFixIt",
             ] + swiftSyntaxDependencies(["SwiftIDEUtils"]),
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: swift6CompatibleExperimentalFeatures + [
