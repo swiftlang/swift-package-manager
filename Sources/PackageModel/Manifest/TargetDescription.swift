@@ -596,12 +596,12 @@ private enum Error: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .binaryTargetRequiresEitherPathOrURL(let targetName):
-            "binary target '\(targetName)' neither defines neither path nor URL for its artifacts"
+            "binary target '\(targetName)' must define either path or URL for its artifacts"
         case .pluginTargetRequiresPluginCapability(let targetName):
             "plugin target '\(targetName)' does not define any plugin capability"
         case .disallowedPropertyInTarget(let targetName, let targetType, let propertyName, let value):
             "target '\(targetName)' is assigned a property '\(propertyName)' which is not accepted " +
-            "for the \(targetType) target type. The current value of the property has " +
+            "for the \(targetType) target type. The current property value has " +
             "the following representation: \(value)."
         }
     }
