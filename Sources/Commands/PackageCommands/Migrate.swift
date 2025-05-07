@@ -126,6 +126,7 @@ extension SwiftPackageCommand {
             for module in modules {
                 let fixit = try SwiftFixIt(
                     diagnosticFiles: module.diagnosticFiles,
+                    categories: Set(features.map(\.name)),
                     fileSystem: swiftCommandState.fileSystem
                 )
                 try fixit.applyFixIts()
