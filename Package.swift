@@ -824,7 +824,12 @@ let package = Package(
 
         .testTarget(
             name: "BasicsTests",
-            dependencies: ["Basics", "_InternalTestSupport", "tsan_utils"],
+            dependencies: [
+                "Basics",
+                "_InternalTestSupport",
+                "tsan_utils",
+                .product(name: "Numerics", package: "swift-numerics"),
+            ],
             exclude: [
                 "Archiver/Inputs/archive.tar.gz",
                 "Archiver/Inputs/archive.zip",
@@ -1077,6 +1082,9 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", from: "1.0.0"),
         // For use in previewing documentation
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.1.0"),
+
+        // Test dependency
+        .package(url: "https://github.com/apple/swift-numerics.git", from: "1.0.3"),
     ]
 } else {
     package.dependencies += [
@@ -1089,6 +1097,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-collections"),
         .package(path: "../swift-certificates"),
         .package(path: "../swift-toolchain-sqlite"),
+        .package(path: "../swift-numerics"),
     ]
 }
 
