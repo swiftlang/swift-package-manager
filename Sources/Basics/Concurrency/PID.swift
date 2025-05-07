@@ -1,50 +1,53 @@
+//===----------------------------------------------------------------------===//
 //
-//  PID.swift
-//  SwiftPM
+// This source file is part of the Swift open source project
 //
-//  Created by John Bute on 2025-04-24.
+// Copyright (c) 2023 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
 //
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Foundation
 
 public protocol PIDFileHandler {
-    var scratchDirectory: AbsolutePath {get set}
+    var scratchDirectory: AbsolutePath { get set }
 
     init(scratchDirectory: AbsolutePath)
-    
+
     func readPID() -> Int32?
     func deletePIDFile() throws
     func writePID(pid: pid_t) throws
     func getCurrentPID() -> Int32
 }
 
-
-
 public struct PIDFile: PIDFileHandler {
-    
     public var scratchDirectory: AbsolutePath
-    
+
     public init(scratchDirectory: AbsolutePath) {
         self.scratchDirectory = scratchDirectory
     }
-    
+
     /// Return the path of the PackageManager.lock.pid file where the PID is located
     private var lockFilePath: AbsolutePath {
-        return self.scratchDirectory.appending(component: "PackageManager.lock.pid")
+        self.scratchDirectory.appending(component: "PackageManager.lock.pid")
     }
 
     /// Read the pid file
     public func readPID() -> Int32? {
         // Check if the file exists
-        let filePath = lockFilePath.pathString
-        guard FileManager.default.fileExists(atPath: filePath)  else {
+        let filePath = self.lockFilePath.pathString
+        guard FileManager.default.fileExists(atPath: filePath) else {
             print("File does not exist at path: \(filePath)")
             return nil
         }
 
         do {
             // Read the contents of the file
-            let pidString = try String(contentsOf: lockFilePath.asURL, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
+            let pidString = try String(contentsOf: lockFilePath.asURL, encoding: .utf8)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
 
             // Check if the PID string can be converted to an Int32
             if let pid = Int32(pidString) {
@@ -60,17 +63,16 @@ public struct PIDFile: PIDFileHandler {
 
     /// Get the current PID of the process
     public func getCurrentPID() -> Int32 {
-        return getpid()
+        getpid()
     }
 
     /// Write .pid file containing PID of process currently using .build directory
     public func writePID(pid: pid_t) throws {
-        try "\(pid)".write(to: lockFilePath.asURL, atomically: true, encoding: .utf8)
-    }
-    
-    /// Delete PID file at URL
-    public func deletePIDFile() throws {
-        try FileManager.default.removeItem(at: lockFilePath.asURL)
+        try "\(pid)".write(to: self.lockFilePath.asURL, atomically: true, encoding: .utf8)
     }
 
+    /// Delete PID file at URL
+    public func deletePIDFile() throws {
+        try FileManager.default.removeItem(at: self.lockFilePath.asURL)
+    }
 }

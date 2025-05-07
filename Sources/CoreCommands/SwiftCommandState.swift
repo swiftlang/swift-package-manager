@@ -289,6 +289,7 @@ public final class SwiftCommandState {
     private let hostTriple: Basics.Triple?
 
     private let pidManipulator: PIDFileHandler
+
     package var preferredBuildConfiguration = BuildConfiguration.debug
 
     /// Create an instance of this tool.
@@ -410,7 +411,7 @@ public final class SwiftCommandState {
         self.sharedSwiftSDKsDirectory = try fileSystem.getSharedSwiftSDKsDirectory(
             explicitDirectory: options.locations.swiftSDKsDirectory ?? options.locations.deprecatedSwiftSDKsDirectory
         )
-        
+
         self.pidManipulator = pidManipulator ?? PIDFile(scratchDirectory: self.scratchDirectory)
 
         // set global process logging handler
@@ -1098,7 +1099,7 @@ public final class SwiftCommandState {
         }
 
         self.workspaceLock = workspaceLock
-        
+
         if lockAcquired || self.options.locations.ignoreLock {
             do {
                 try self.pidManipulator.writePID(pid: self.pidManipulator.getCurrentPID())
@@ -1117,7 +1118,7 @@ public final class SwiftCommandState {
         self.workspaceLockState = .unlocked
 
         self.workspaceLock?.unlock()
-        
+
         do {
             try self.pidManipulator.deletePIDFile()
         } catch {
