@@ -19,7 +19,7 @@ public protocol PIDFileHandler {
 
     func readPID() -> Int32?
     func deletePIDFile() throws
-    func writePID(pid: pid_t) throws
+    func writePID(pid: Int32) throws
     func getCurrentPID() -> Int32
 }
 
@@ -61,13 +61,13 @@ public struct PIDFile: PIDFileHandler {
         }
     }
 
-    /// Get the current PID of the process
+    /// Get the current PID of the proces
     public func getCurrentPID() -> Int32 {
-        getpid()
+        return ProcessInfo.processInfo.processIdentifier
     }
 
     /// Write .pid file containing PID of process currently using .build directory
-    public func writePID(pid: pid_t) throws {
+    public func writePID(pid: Int32) throws {
         let parent = self.lockFilePath.parentDirectory
         try FileManager.default.createDirectory(
             at: parent.asURL,
