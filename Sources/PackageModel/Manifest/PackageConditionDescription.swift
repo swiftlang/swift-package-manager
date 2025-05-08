@@ -118,7 +118,6 @@ public struct TraitCondition: Hashable, Sendable {
     }
 
     public func satisfies(_ environment: BuildEnvironment) -> Bool {
-        // TODO: modify build environment to contain enabled traits?
         return true
     }
 }

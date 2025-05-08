@@ -1052,7 +1052,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             let plan = try await mockBuildPlan(
                 environment: BuildEnvironment(
                     platform: .linux,
-                    configuration: .debug
+                    configuration: .release
                 ),
                 graph: graph,
                 fileSystem: fs,
