@@ -24,6 +24,8 @@ target_link_libraries(SwiftBuildSupport PUBLIC
   TSCBasic
   TSCUtility
   PackageGraph
+  SwiftBuild::SwiftBuild
+  SwiftBuild::SWBBuildService
 )
 
 set_target_properties(SwiftBuildSupport PROPERTIES
