@@ -104,7 +104,7 @@ let package = Package(
     name: "SwiftPM",
     platforms: [
         .macOS(.v13),
-        .iOS(.v16),
+        .iOS(.v17),
         .macCatalyst(.v17),
     ],
     products:
@@ -298,6 +298,21 @@ let package = Package(
             /** Shim for llbuild library */
             name: "SPMLLBuild",
             dependencies: ["Basics"],
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: commonExperimentalFeatures + [
+                .unsafeFlags(["-static"]),
+            ]
+        ),
+
+        .target(
+            /** API for deserializing diagnostics and applying fix-its */
+            name: "SwiftFixIt",
+            dependencies: [
+                "Basics",
+                .product(name: "TSCBasic", package: "swift-tools-support-core"),
+            ] + swiftSyntaxDependencies(
+                ["SwiftDiagnostics", "SwiftIDEUtils", "SwiftParser", "SwiftSyntax"]
+            ),
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
@@ -915,6 +930,10 @@ let package = Package(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "_InternalTestSupport"],
             exclude: ["Inputs/TestRepo.tgz"]
+        ),
+        .testTarget(
+            name: "SwiftFixItTests",
+            dependencies: ["SwiftFixIt", "_InternalTestSupport"]
         ),
         .testTarget(
             name: "XCBuildSupportTests",
