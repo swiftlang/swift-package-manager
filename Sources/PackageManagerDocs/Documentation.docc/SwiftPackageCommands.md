@@ -26,8 +26,10 @@ Overview of package manager commands here...
 - <doc:PackageAddProduct>
 - <doc:PackageAddTarget>
 - <doc:PackageAddTargetDependency>
+- <doc:PackageAddSetting>
 - <doc:PackageEdit>
 - <doc:PackageUnedit>
+- <doc:PackageMigrate>
 
 ### Using package manager plugins
 - <doc:PackagePlugin>
@@ -60,4 +62,8 @@ Overview of package manager commands here...
 - <doc:PackageConfigUnsetMirror>
 - <doc:PackageConfigGetMirror>
 
+### Experimental commands
+
+- <doc:PackageExperimentalInstall>
+- <doc:PackageExperimentalUninstall>
 
