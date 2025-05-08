@@ -27,7 +27,7 @@ extension SwiftPackageCommand {
         static let configuration = CommandConfiguration(
             commandName: "_format", shouldDisplay: false)
 
-        @OptionGroup(visibility: .hidden)
+        @OptionGroup(visibility: .private)
         var globalOptions: GlobalOptions
 
         @Argument(parsing: .captureForPassthrough,
