@@ -75,7 +75,7 @@ private func generateBundleFiles(bundle: MockBundle) throws -> [(String, ByteStr
         let toolsetPath = if artifact.metadataPath != nil {
             "\(bundle.path)/toolset.json"
         } else {
-            "\(bundle.path)/\(artifact.id)/\(targetTriple.triple)/toolset"
+            "\(bundle.path)/\(artifact.id)/\(targetTriple.triple)/toolset.json"
         }
         return artifact.toolsetRootPath.map { path in
             (
