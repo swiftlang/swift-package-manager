@@ -461,7 +461,7 @@ extension PIFGenerationError: CustomStringConvertible {
 
 // MARK: - Helpers
 
-public extension PIFBuilderParameters {
+extension PIFBuilderParameters {
     init(_ buildParameters: BuildParameters, supportedSwiftVersions: [SwiftLanguageVersion]) {
         self.init(
             triple: buildParameters.triple,
