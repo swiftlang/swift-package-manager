@@ -18,3 +18,9 @@ swift build -c release
 
 As of May 2025, the generation tool generates a single large markdown file in DocC format, which we then split up manually into small pieces
 for the CLI content.
+
+Use the following command to preview documentation changes for this target:
+
+```bash
+swift package --disable-sandbox preview-documentation --target PackageManagerDocs
+```
