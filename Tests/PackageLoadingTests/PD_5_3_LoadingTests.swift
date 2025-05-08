@@ -168,6 +168,31 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
+    func testBinaryTargetRequiresPathOrUrl() async throws {
+        let content = """
+        import PackageDescription
+        var fwBinaryTarget = Target.binaryTarget(
+            name: "nickel",
+            url: "https://example.com/foo.git",
+            checksum: "bee"
+        )
+        fwBinaryTarget.url = nil
+        let package = Package(name: "foo", targets: [fwBinaryTarget])
+        """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        await XCTAssertAsyncThrowsError(
+            try await loadAndValidateManifest(
+                content, observabilityScope: observability.topScope
+            ), "expected error"
+        ) { error in
+            XCTAssertEqual(
+                error.localizedDescription,
+                "binary target 'nickel' must define either path or URL for its artifacts"
+            )
+        }
+    }
+
     func testBinaryTargetsValidation() async throws {
         do {
             let content = """

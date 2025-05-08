@@ -598,7 +598,7 @@ private enum Error: LocalizedError, Equatable {
         case .binaryTargetRequiresEitherPathOrURL(let targetName):
             "binary target '\(targetName)' must define either path or URL for its artifacts"
         case .pluginTargetRequiresPluginCapability(let targetName):
-            "plugin target '\(targetName)' does not define any plugin capability"
+            "plugin target '\(targetName)' must define a plugin capability"
         case .disallowedPropertyInTarget(let targetName, let targetType, let propertyName, let value):
             "target '\(targetName)' is assigned a property '\(propertyName)' which is not accepted " +
             "for the \(targetType) target type. The current property value has " +
