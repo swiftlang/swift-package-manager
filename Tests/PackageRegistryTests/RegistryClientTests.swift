@@ -1036,7 +1036,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         )
 
         // But there should be a warning
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(diagnostic: .contains("does not match previously recorded value"), severity: .warning)
         }
 
@@ -1750,7 +1750,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             )
 
             // But there should be a warning
-            testDiagnostics(observability.diagnostics) { result in
+            try expectDiagnostics(observability.diagnostics) { result in
                 result.check(diagnostic: .contains("does not match previously recorded value"), severity: .warning)
             }
 
@@ -2423,7 +2423,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         )
 
         // But there should be a warning
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(diagnostic: .contains("does not match previously recorded value"), severity: .warning)
         }
 
