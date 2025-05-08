@@ -12,6 +12,7 @@
 
 import Basics
 import Foundation
+import TSCUtility
 
 import class Basics.AsyncProcess
 
@@ -69,9 +70,9 @@ public final class UserToolchain: Toolchain {
 
     /// The target triple that should be used for compilation.
     @available(*, deprecated, renamed: "targetTriple")
-    public var triple: Triple { targetTriple }
+    public var triple: Basics.Triple { targetTriple }
 
-    public let targetTriple: Triple
+    public let targetTriple: Basics.Triple
 
     /// The list of CPU architectures to build for.
     public let architectures: [String]?
@@ -162,7 +163,7 @@ public final class UserToolchain: Toolchain {
     // MARK: - public API
 
     public static func determineLibrarian(
-        triple: Triple,
+        triple: Basics.Triple,
         binDirectories: [AbsolutePath],
         useXcrun: Bool,
         environment: Environment,
@@ -405,7 +406,7 @@ public final class UserToolchain: Toolchain {
 #endif
 
     internal static func deriveSwiftCFlags(
-        triple: Triple,
+        triple: Basics.Triple,
         swiftSDK: SwiftSDK,
         environment: Environment,
         fileSystem: any FileSystem
@@ -839,7 +840,7 @@ public final class UserToolchain: Toolchain {
         return .init(swiftCompilerPath: swiftCompilerPath)
     }
 
-    private static func derivePluginServerPath(triple: Triple) throws -> AbsolutePath? {
+    private static func derivePluginServerPath(triple: Basics.Triple) throws -> AbsolutePath? {
         if triple.isDarwin() {
             let pluginServerPathFindArgs = ["/usr/bin/xcrun", "--find", "swift-plugin-server"]
             if let path = try? AsyncProcess.checkNonZeroExit(arguments: pluginServerPathFindArgs, environment: [:])
@@ -889,7 +890,7 @@ public final class UserToolchain: Toolchain {
     // TODO: We should have some general utility to find tools.
     private static func deriveXCTestPath(
         swiftSDK: SwiftSDK,
-        triple: Triple,
+        triple: Basics.Triple,
         environment: Environment,
         fileSystem: any FileSystem
     ) throws -> AbsolutePath? {
@@ -970,9 +971,9 @@ public final class UserToolchain: Toolchain {
 
     /// Find the swift-testing path if it is within a path that will need extra search paths.
     private static func deriveSwiftTestingPath(
-        derivedSwiftCompiler: AbsolutePath,
+        derivedSwiftCompiler: Basics.AbsolutePath,
         swiftSDK: SwiftSDK,
-        triple: Triple,
+        triple: Basics.Triple,
         environment: Environment,
         fileSystem: any FileSystem
     ) throws -> AbsolutePath? {

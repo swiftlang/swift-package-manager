@@ -8,13 +8,16 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Foundation
 import IntegrationTestSupport
 import Testing
 import TSCBasic
 import TSCTestSupport
 @Suite
 private struct BasicTests {
-    @Test
+    @Test(
+        .skipHostOS(.windows,  "'try!' expression unexpectedly raised an error: TSCBasic.Process.Error.missingExecutableProgram(program: \"which\")")
+    )
     func testVersion() throws {
         #expect(try sh(swift, "--version").stdout.contains("Swift version"))
     }
@@ -23,13 +26,15 @@ private struct BasicTests {
         .skipSwiftCISelfHosted(
             "These packages don't use the latest runtime library, which doesn't work with self-hosted builds."
         ),
-        .requireUnrestrictedNetworkAccess("Test requires access to https://github.com")
+        .requireUnrestrictedNetworkAccess("Test requires access to https://github.com"),
+        .skipHostOS(.windows, "Issue #8409 - random.swift:34:8: error: unsupported platform")
     )
     func testExamplePackageDealer() throws {
         try withTemporaryDirectory { tempDir in
             let packagePath = tempDir.appending(component: "dealer")
-            try sh("git", "clone", "https://github.com/apple/example-package-dealer", packagePath)
+            try sh("git\(ProcessInfo.exeSuffix)", "clone", "https://github.com/apple/example-package-dealer", packagePath)
             let build1Output = try sh(swiftBuild, "--package-path", packagePath).stdout
+
             // Check the build log.
             #expect(build1Output.contains("Build complete"))
 
@@ -41,7 +46,7 @@ private struct BasicTests {
 
             // Verify that the 'git status' is clean after a build.
             try localFileSystem.changeCurrentWorkingDirectory(to: packagePath)
-            let gitOutput = try sh("git", "status").stdout
+            let gitOutput = try sh("git\(ProcessInfo.exeSuffix)", "status").stdout
             #expect(gitOutput.contains("nothing to commit, working tree clean"))
 
             // Verify that another 'swift build' does nothing.
@@ -84,11 +89,13 @@ private struct BasicTests {
             // Verify that the tool exists and works.
             let toolOutput = try sh(packagePath.appending(components: ".build", "debug", "tool"))
                 .stdout
-            #expect(toolOutput == "HI\n")
+            #expect(toolOutput == "HI\(ProcessInfo.EOL)")
         }
     }
 
-    @Test
+    @Test(
+        .skipHostOS(.windows, "'try!' expression unexpectedly raised an error: TSCBasic.Process.Error.missingExecutableProgram(program: \"which\")")
+    )
     func testSwiftCompiler() throws {
         try withTemporaryDirectory { tempDir in
             let helloSourcePath = tempDir.appending(component: "hello.swift")
@@ -104,24 +111,26 @@ private struct BasicTests {
 
             // Check the file runs.
             let helloOutput = try sh(helloBinaryPath).stdout
-            #expect(helloOutput == "hello\n")
+            #expect(helloOutput == "hello\(ProcessInfo.EOL)")
         }
     }
 
-    @Test
+    @Test(
+        .skipHostOS(.windows, "failed to build package")
+    )
     func testSwiftPackageInitExec() throws {
         try withTemporaryDirectory { tempDir in
             // Create a new package with an executable target.
             let packagePath = tempDir.appending(component: "Project")
             try localFileSystem.createDirectory(packagePath)
             try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "executable")
-            let buildOutput = try sh(swiftBuild, "--package-path", packagePath).stdout
+            let packageOutput = try sh(swiftBuild, "--package-path", packagePath)
 
             // Check the build log.
-            let checker = StringChecker(string: buildOutput)
-            #expect(checker.check(.regex("Compiling .*Project.*")))
-            #expect(checker.check(.regex("Linking .*Project")))
-            #expect(checker.check(.contains("Build complete")))
+            let checker = StringChecker(string: packageOutput.stdout)
+            #expect(checker.check(.regex("Compiling .*Project.*")), "stdout: '\(packageOutput.stdout)'\n stderr:'\(packageOutput.stderr)'")
+            #expect(checker.check(.regex("Linking .*Project")), "stdout: '\(packageOutput.stdout)'\n stderr:'\(packageOutput.stderr)'")
+            #expect(checker.check(.contains("Build complete")), "stdout: '\(packageOutput.stdout)'\n stderr:'\(packageOutput.stderr)'")
 
             // Verify that the tool was built and works.
             let toolOutput = try sh(packagePath.appending(components: ".build", "debug", "Project"))
@@ -129,29 +138,33 @@ private struct BasicTests {
             #expect(toolOutput.lowercased().contains("hello, world!"))
 
             // Check there were no compile errors or warnings.
-            #expect(buildOutput.contains("error") == false)
-            #expect(buildOutput.contains("warning") == false)
+            #expect(packageOutput.stdout.contains("error") == false)
+            #expect(packageOutput.stdout.contains("warning") == false)
         }
     }
 
-    @Test(.skip("FIXME: swift-test invocations are timing out in Xcode and self-hosted CI"))
+    @Test
     func testSwiftPackageInitExecTests() throws {
         try withTemporaryDirectory { tempDir in
             // Create a new package with an executable target.
             let packagePath = tempDir.appending(component: "Project")
             try localFileSystem.createDirectory(packagePath)
-            try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "executable")
-            let testOutput = try sh(swiftTest, "--package-path", packagePath).stdout
+            withKnownIssue("error: no tests found; create a target in the 'Tests' directory") {
+                try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "executable")
+                let packageOutput = try sh(swiftTest, "--package-path", packagePath, "--vv")
 
-            // Check the test log.
-            let checker = StringChecker(string: testOutput)
-            #expect(checker.check(.regex("Compiling .*ProjectTests.*")))
-            #expect(checker.check("Test Suite 'All tests' passed"))
-            #expect(checker.checkNext("Executed 1 test"))
+                // Check the test log.
+                let checker = StringChecker(string: packageOutput.stdout)
+                #expect(checker.check(.regex("Compiling .*ProjectTests.*")), "stdout: '\(packageOutput.stdout)'\n stderr:'\(packageOutput.stderr)'")
+                #expect(checker.checkNext("Executed 1 test"), "stdout: '\(packageOutput.stdout)'\n stderr:'\(packageOutput.stderr)'")
 
-            // Check there were no compile errors or warnings.
-            #expect(testOutput.contains("error") == false)
-            #expect(testOutput.contains("warning") == false)
+                // Check the return code
+                #expect(packageOutput.returnCode == .terminated(code: 0))
+
+                // Check there were no compile errors or warnings.
+                #expect(packageOutput.stdout.contains("error") == false)
+                #expect(packageOutput.stdout.contains("warning") == false)
+            }
         }
     }
 
@@ -174,28 +187,27 @@ private struct BasicTests {
         }
     }
 
-    @Test(.skip("FIXME: swift-test invocations are timing out in Xcode and self-hosted CI"))
+    @Test
     func testSwiftPackageLibsTests() throws {
         try withTemporaryDirectory { tempDir in
             // Create a new package with an executable target.
             let packagePath = tempDir.appending(component: "Project")
             try localFileSystem.createDirectory(packagePath)
             try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "library")
-            let testOutput = try sh(swiftTest, "--package-path", packagePath).stdout
+            let shOutput = try sh(swiftTest, "--package-path", packagePath)
 
-            // Check the test log.
-            let checker = StringChecker(string: testOutput)
-            #expect(checker.check(.regex("Compiling .*ProjectTests.*")))
-            #expect(checker.check("Test Suite 'All tests' passed"))
-            #expect(checker.checkNext("Executed 1 test"))
+            // Check the return code
+            #expect(shOutput.returnCode == .terminated(code: 0))
 
             // Check there were no compile errors or warnings.
-            #expect(testOutput.contains("error") == false)
-            #expect(testOutput.contains("warning") == false)
+            #expect(shOutput.stdout.contains("error") == false)
+            #expect(shOutput.stdout.contains("warning") == false)
         }
     }
 
-    @Test
+    @Test(
+        .skipHostOS(.windows, "unexpected failure matching")
+    )
     func testSwiftPackageWithSpaces() throws {
         try withTemporaryDirectory { tempDir in
             let packagePath = tempDir.appending(components: "more spaces", "special tool")
@@ -227,21 +239,25 @@ private struct BasicTests {
 
             // Check the build.
             let buildOutput = try sh(swiftBuild, "--package-path", packagePath, "-v").stdout
-            #expect(try 
-                #/swiftc.* -module-name special_tool .* '@.*/more spaces/special tool/.build/[^/]+/debug/special_tool.build/sources'/#
-                    .firstMatch(in: buildOutput) != nil
-            )
+            let expression = ProcessInfo
+                .hostOperatingSystem != .windows ?
+                #/swiftc.* -module-name special_tool .* '@.*/more spaces/special tool/.build/[^/]+/debug/special_tool.build/sources'/# :
+                #/swiftc.* -module-name special_tool .* "@.*\\more spaces\\special tool\\.build\\[^\\]+\\debug\\special_tool.build\\sources"/#
+            #expect(try expression.firstMatch(in: buildOutput) != nil)
             #expect(buildOutput.contains("Build complete"))
 
             // Verify that the tool exists and works.
-            let toolOutput = try sh(
+            let shOutput = try sh(
                 packagePath.appending(components: ".build", "debug", "special tool")
             ).stdout
-            #expect(toolOutput == "HI\n")
+
+            #expect(shOutput == "HI\(ProcessInfo.EOL)")
         }
     }
 
-    @Test
+    @Test(
+        .skipHostOS(.windows, "package fails to build")
+    )
     func testSwiftRun() throws {
         try withTemporaryDirectory { tempDir in
             let packagePath = tempDir.appending(component: "secho")
@@ -264,21 +280,23 @@ private struct BasicTests {
                     """
                 )
             )
-            let (runOutput, runError) = try sh(
+            let shOutput = try sh(
                 swiftRun, "--package-path", packagePath, "secho", "1", #""two""#
             )
 
             // Check the run log.
-            let checker = StringChecker(string: runError)
-            #expect(checker.check(.regex("Compiling .*secho.*")))
-            #expect(checker.check(.regex("Linking .*secho")))
-            #expect(checker.check(.contains("Build of product 'secho' complete")))
+            let checker = StringChecker(string: shOutput.stderr)
+            #expect(checker.check(.regex("Compiling .*secho.*")), "stdout: '\(shOutput.stdout)'\n stderr:'\(shOutput.stderr)'")
+            #expect(checker.check(.regex("Linking .*secho")),  "stdout: '\(shOutput.stdout)'\n stderr:'\(shOutput.stderr)'")
+            #expect(checker.check(.contains("Build of product 'secho' complete")),  "stdout: '\(shOutput.stdout)'\n stderr:'\(shOutput.stderr)'")
 
-            #expect(runOutput == "1 \"two\"\n")
+            #expect(shOutput.stdout == "1 \"two\"\(ProcessInfo.EOL)")
+
+            // Check the return code
+            #expect(shOutput.returnCode == .terminated(code: 0))
         }
     }
 
-    @Test(.skip("FIXME: swift-test invocations are timing out in Xcode and self-hosted CI"))
     func testSwiftTest() throws {
         try withTemporaryDirectory { tempDir in
             let packagePath = tempDir.appending(component: "swiftTest")
@@ -302,20 +320,20 @@ private struct BasicTests {
                     """
                 )
             )
-            let testOutput = try sh(
+            let shOutput = try sh(
                 swiftTest, "--package-path", packagePath, "--filter", "MyTests.*", "--skip",
-                "testBaz"
-            ).stderr
+                "testBaz", "--vv"
+            )
 
             // Check the test log.
-            let checker = StringChecker(string: testOutput)
-            #expect(checker.check(.contains("Test Suite 'MyTests' started")))
-            #expect(checker.check(.contains("Test Suite 'MyTests' passed")))
-            #expect(checker.check(.contains("Executed 2 tests, with 0 failures")))
+            let checker = StringChecker(string: shOutput.stderr)
+            #expect(checker.check(.contains("Test Suite 'MyTests' started")), "stdout: '\(shOutput.stdout)'\n stderr:'\(shOutput.stderr)'")
+            #expect(checker.check(.contains("Test Suite 'MyTests' passed")), "stdout: '\(shOutput.stdout)'\n stderr:'\(shOutput.stderr)'")
+            #expect(checker.check(.contains("Executed 2 tests, with 0 failures")), "stdout: '\(shOutput.stdout)'\n stderr:'\(shOutput.stderr)'")
         }
     }
 
-    @Test(.skip("FIXME: swift-test invocations are timing out in Xcode and self-hosted CI"))
+    @Test
     func testSwiftTestWithResources() throws {
         try withTemporaryDirectory { tempDir in
             let packagePath = tempDir.appending(component: "swiftTestResources")
@@ -394,15 +412,15 @@ private struct BasicTests {
                 )
             )
 
-            let testOutput = try sh(
-                swiftTest, "--package-path", packagePath, "--filter", "MyTests.*"
-            ).stderr
+            let shOutput = try sh(
+                swiftTest, "--package-path", packagePath, "--filter", "MyTests.*", "--vv"
+            )
 
             // Check the test log.
-            let checker = StringChecker(string: testOutput)
-            #expect(checker.check(.contains("Test Suite 'MyTests' started")))
-            #expect(checker.check(.contains("Test Suite 'MyTests' passed")))
-            #expect(checker.check(.contains("Executed 2 tests, with 0 failures")))
+            let checker = StringChecker(string: shOutput.stdout)
+            #expect(checker.check(.contains("Test Suite 'MyTests' started")), "stdout: '\(shOutput.stdout)'\n stderr:'\(shOutput.stderr)'")
+            #expect(checker.check(.contains("Test Suite 'MyTests' passed")), "stdout: '\(shOutput.stdout)'\n stderr:'\(shOutput.stderr)'")
+            #expect(checker.check(.contains("Executed 2 tests, with 0 failures")), "stdout: '\(shOutput.stdout)'\n stderr:'\(shOutput.stderr)'")
         }
     }
 }

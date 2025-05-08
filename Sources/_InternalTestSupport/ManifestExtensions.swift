@@ -39,6 +39,7 @@ extension Manifest {
             displayName: displayName,
             path: path,
             packageKind: .root(path),
+            packageIdentity: .plain(displayName),
             packageLocation: path.pathString,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
@@ -79,6 +80,7 @@ extension Manifest {
             displayName: displayName,
             path: path,
             packageKind: .fileSystem(path),
+            packageIdentity: .plain(displayName),
             packageLocation: path.pathString,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
@@ -118,6 +120,7 @@ extension Manifest {
             displayName: displayName,
             path: path,
             packageKind: .localSourceControl(path),
+            packageIdentity: .plain(displayName),
             packageLocation: path.pathString,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
@@ -158,6 +161,7 @@ extension Manifest {
             displayName: displayName,
             path: path,
             packageKind: .remoteSourceControl(url),
+            packageIdentity: .plain(displayName),
             packageLocation: url.absoluteString,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
@@ -197,6 +201,7 @@ extension Manifest {
             displayName: displayName,
             path: path,
             packageKind: .registry(identity),
+            packageIdentity: .plain(displayName),
             packageLocation: identity.description,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
@@ -218,6 +223,7 @@ extension Manifest {
         displayName: String,
         path: AbsolutePath = .root,
         packageKind: PackageReference.Kind,
+        packageIdentity: PackageIdentity,
         packageLocation: String? = nil,
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription] = [],
@@ -236,6 +242,7 @@ extension Manifest {
     ) -> Manifest {
         return Manifest(
             displayName: displayName,
+            packageIdentity: packageIdentity,
             path: path.basename == Manifest.filename ? path : path.appending(component: Manifest.filename),
             packageKind: packageKind,
             packageLocation: packageLocation ?? path.pathString,
@@ -260,6 +267,7 @@ extension Manifest {
     public func with(location: String) -> Manifest {
         Manifest(
             displayName: self.displayName,
+            packageIdentity: self.packageIdentity,
             path: self.path,
             packageKind: self.packageKind,
             packageLocation: location,

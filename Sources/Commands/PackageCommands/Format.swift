@@ -14,6 +14,9 @@ import ArgumentParser
 import Basics
 import CoreCommands
 import PackageModel
+import PackageGraph
+import TSCBasic
+import Workspace
 
 import class Basics.AsyncProcess
 
@@ -28,13 +31,13 @@ extension SwiftPackageCommand {
         var globalOptions: GlobalOptions
 
         @Argument(parsing: .captureForPassthrough,
-                  help: "Pass flag through to the swift-format tool")
+                  help: "Pass flag through to the swift-format tool.")
         var swiftFormatFlags: [String] = []
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             // Look for swift-format binary.
             // FIXME: This should be moved to user toolchain.
-            let swiftFormatInEnv = lookupExecutablePath(filename: Environment.current["SWIFT_FORMAT"])
+            let swiftFormatInEnv = Basics.lookupExecutablePath(filename: Environment.current["SWIFT_FORMAT"])
             guard let swiftFormat = swiftFormatInEnv ?? AsyncProcess.findExecutable("swift-format") else {
                 swiftCommandState.observabilityScope.emit(error: "Could not find swift-format in PATH or SWIFT_FORMAT")
                 throw TSCUtility.Diagnostics.fatalError

@@ -233,6 +233,8 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testAdvancedFeatures() async throws {
+        try XCTSkipOnWindows()
+
         let manifestContents = """
             // swift-tools-version:5.3
             // The swift-tools-version declares the minimum version of Swift required to build this package.
@@ -517,6 +519,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
             displayName: "MyLibrary",
             path: packageDir.appending("Package.swift"),
             packageKind: .root("/tmp/MyLibrary"),
+            packageIdentity: .plain("MyLibrary"),
             packageLocation: packageDir.pathString,
             platforms: [],
             toolsVersion: .v5_5,
@@ -793,6 +796,8 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testStrictMemorySafety() async throws {
+        try XCTSkipIfCompilerLessThan6_2()
+
         let manifestContents = """
             // swift-tools-version:6.2
             import PackageDescription
@@ -860,6 +865,8 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testDefaultIsolation() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8543: there are compilation errors")
+
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
             path: "/pkg",

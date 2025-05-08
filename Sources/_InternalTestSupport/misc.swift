@@ -29,6 +29,7 @@ import struct SPMBuildCore.BuildParameters
 import TSCTestSupport
 import Workspace
 import func XCTest.XCTFail
+import struct XCTest.XCTSkip
 
 import struct TSCBasic.ByteString
 import struct Basics.AsyncProcessResult
@@ -37,6 +38,20 @@ import enum TSCUtility.Git
 
 @_exported import func TSCTestSupport.systemQuietly
 @_exported import enum TSCTestSupport.StringPattern
+
+public let isInCiEnvironment = ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil
+public let isSelfHostedCiEnvironment = ProcessInfo.processInfo.environment["SWIFTCI_IS_SELF_HOSTED"] != nil
+
+public let isRealSigningIdentyEcLabelEnvVarSet =
+    ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_EC_LABEL"] != nil
+
+public let isRealSigningIdentitTestDefined = {
+    #if ENABLE_REAL_SIGNING_IDENTITY_TEST
+        return true
+    #else
+        return false
+    #endif
+}()
 
 /// Test helper utility for executing a block with a temporary directory.
 public func testWithTemporaryDirectory(
@@ -172,13 +187,22 @@ fileprivate func verifyFixtureExists(at fixtureSubpath: RelativePath, file: Stat
     return fixtureDir
 }
 
-fileprivate func setup(fixtureDir: AbsolutePath, in tmpDirPath: AbsolutePath, copyName: String, createGitRepo: Bool = true) throws -> AbsolutePath {
+fileprivate func setup(
+    fixtureDir: AbsolutePath,
+    in tmpDirPath: AbsolutePath,
+    copyName: String,
+    createGitRepo: Bool = true
+) throws -> AbsolutePath {
     func copy(from srcDir: AbsolutePath, to dstDir: AbsolutePath) throws {
-#if os(Windows)
+        #if os(Windows)
         try localFileSystem.copy(from: srcDir, to: dstDir)
-#else
+        #else
         try systemQuietly("cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
-#endif
+        #endif
+        
+        // Ensure we get a clean test fixture.
+        try localFileSystem.removeFileTree(dstDir.appending(component: ".build"))
+        try localFileSystem.removeFileTree(dstDir.appending(component: ".swiftpm"))
     }
 
     // The fixture contains either a checkout or just a Git directory.
@@ -409,7 +433,7 @@ public func loadPackageGraph(
     useXCBuildFileRules: Bool = false,
     customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
     observabilityScope: ObservabilityScope,
-    traitConfiguration: TraitConfiguration?
+    traitConfiguration: TraitConfiguration = .default
 ) throws -> ModulesGraph {
     try loadModulesGraph(
         identityResolver: identityResolver,

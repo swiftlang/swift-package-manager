@@ -12,6 +12,8 @@
 
 import Basics
 import Foundation
+import TSCBasic
+import TSCUtility
 
 import class Basics.AsyncProcess
 
@@ -59,7 +61,7 @@ public enum WriteAuxiliary {
         public static let name = "link-file-list"
 
         // FIXME: We should extend the `InProcessTool` support to allow us to specify these in a typed way, but today we have to flatten all the inputs into a generic `Node` array (rdar://109844243).
-        public static func computeInputs(objects: [AbsolutePath]) -> [Node] {
+        public static func computeInputs(objects: [Basics.AbsolutePath]) -> [Node] {
             return [.virtual(Self.name)] + objects.map { Node.file($0) }
         }
 
@@ -88,7 +90,7 @@ public enum WriteAuxiliary {
     public struct SourcesFileList: AuxiliaryFileType {
         public static let name = "sources-file-list"
 
-        public static func computeInputs(sources: [AbsolutePath]) -> [Node] {
+        public static func computeInputs(sources: [Basics.AbsolutePath]) -> [Node] {
             return [.virtual(Self.name)] + sources.map { Node.file($0) }
         }
 
@@ -114,7 +116,7 @@ public enum WriteAuxiliary {
     public struct SwiftGetVersion: AuxiliaryFileType {
         public static let name = "swift-get-version"
 
-        public static func computeInputs(swiftCompilerPath: AbsolutePath) -> [Node] {
+        public static func computeInputs(swiftCompilerPath: Basics.AbsolutePath) -> [Node] {
             return [.virtual(Self.name), .file(swiftCompilerPath)]
         }
 
@@ -122,7 +124,7 @@ public enum WriteAuxiliary {
             guard let swiftCompilerPathString = inputs.first(where: { $0.kind == .file })?.name else {
                 throw Error.unknownSwiftCompilerPath
             }
-            let swiftCompilerPath = try AbsolutePath(validating: swiftCompilerPathString)
+            let swiftCompilerPath = try Basics.AbsolutePath(validating: swiftCompilerPathString)
             return try AsyncProcess.checkNonZeroExit(args: swiftCompilerPath.pathString, "-version")
         }
 
@@ -164,7 +166,7 @@ public enum WriteAuxiliary {
     public struct EmbeddedResources: AuxiliaryFileType {
         public static let name = "embedded-resources"
 
-        public static func computeInputs(resources: [AbsolutePath]) -> [Node] {
+        public static func computeInputs(resources: [Basics.AbsolutePath]) -> [Node] {
             return [.virtual(Self.name)] + resources.map { Node.file($0) }
         }
 
@@ -178,7 +180,7 @@ public enum WriteAuxiliary {
                 """
 
             for input in inputs where input.kind == .file {
-                let resourcePath = try AbsolutePath(validating: input.name)
+                let resourcePath = try Basics.AbsolutePath(validating: input.name)
                 let variableName = resourcePath.basename.spm_mangledToC99ExtendedIdentifier()
                 let fileContent = try Data(contentsOf: URL(fileURLWithPath: resourcePath.pathString)).map { String($0) }.joined(separator: ",")
 
@@ -267,7 +269,7 @@ public struct LLBuildManifest {
         addCommand(name: name, tool: tool)
     }
 
-    public mutating func addEntitlementPlistCommand(entitlement: String, outputPath: AbsolutePath) {
+    public mutating func addEntitlementPlistCommand(entitlement: String, outputPath: Basics.AbsolutePath) {
         let inputs = WriteAuxiliary.EntitlementPlist.computeInputs(entitlement: entitlement)
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: outputPath)
         let name = outputPath.pathString
@@ -275,8 +277,8 @@ public struct LLBuildManifest {
     }
 
     public mutating func addWriteLinkFileListCommand(
-        objects: [AbsolutePath],
-        linkFileListPath: AbsolutePath
+        objects: [Basics.AbsolutePath],
+        linkFileListPath: Basics.AbsolutePath
     ) {
         let inputs = WriteAuxiliary.LinkFileList.computeInputs(objects: objects)
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: linkFileListPath)
@@ -285,8 +287,8 @@ public struct LLBuildManifest {
     }
 
     public mutating func addWriteSourcesFileListCommand(
-        sources: [AbsolutePath],
-        sourcesFileListPath: AbsolutePath
+        sources: [Basics.AbsolutePath],
+        sourcesFileListPath: Basics.AbsolutePath
     ) {
         let inputs = WriteAuxiliary.SourcesFileList.computeInputs(sources: sources)
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: sourcesFileListPath)
@@ -295,8 +297,8 @@ public struct LLBuildManifest {
     }
 
     public mutating func addSwiftGetVersionCommand(
-        swiftCompilerPath: AbsolutePath,
-        swiftVersionFilePath: AbsolutePath
+        swiftCompilerPath: Basics.AbsolutePath,
+        swiftVersionFilePath: Basics.AbsolutePath
     ) {
         let inputs = WriteAuxiliary.SwiftGetVersion.computeInputs(swiftCompilerPath: swiftCompilerPath)
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: swiftVersionFilePath, alwaysOutOfDate: true)
@@ -304,7 +306,7 @@ public struct LLBuildManifest {
         addCommand(name: name, tool: tool)
     }
 
-    public mutating func addWriteInfoPlistCommand(principalClass: String, outputPath: AbsolutePath) {
+    public mutating func addWriteInfoPlistCommand(principalClass: String, outputPath: Basics.AbsolutePath) {
         let inputs = WriteAuxiliary.XCTestInfoPlist.computeInputs(principalClass: principalClass)
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: outputPath)
         let name = outputPath.pathString
@@ -312,8 +314,8 @@ public struct LLBuildManifest {
     }
 
     public mutating func addWriteEmbeddedResourcesCommand(
-        resources: [AbsolutePath],
-        outputPath: AbsolutePath
+        resources: [Basics.AbsolutePath],
+        outputPath: Basics.AbsolutePath
     ) {
         let inputs = WriteAuxiliary.EmbeddedResources.computeInputs(resources: resources)
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: outputPath)
@@ -393,19 +395,19 @@ public struct LLBuildManifest {
         name: String,
         inputs: [Node],
         outputs: [Node],
-        executable: AbsolutePath,
+        executable: Basics.AbsolutePath,
         moduleName: String,
         moduleAliases: [String: String]?,
-        moduleOutputPath: AbsolutePath,
-        importPath: AbsolutePath,
-        tempsPath: AbsolutePath,
-        objects: [AbsolutePath],
+        moduleOutputPath: Basics.AbsolutePath,
+        importPath: Basics.AbsolutePath,
+        tempsPath: Basics.AbsolutePath,
+        objects: [Basics.AbsolutePath],
         otherArguments: [String],
-        sources: [AbsolutePath],
-        fileList: AbsolutePath,
+        sources: [Basics.AbsolutePath],
+        fileList: Basics.AbsolutePath,
         isLibrary: Bool,
         wholeModuleOptimization: Bool,
-        outputFileMapPath: AbsolutePath,
+        outputFileMapPath: Basics.AbsolutePath,
         prepareForIndexing: Bool
     ) {
         let tool = SwiftCompilerTool(

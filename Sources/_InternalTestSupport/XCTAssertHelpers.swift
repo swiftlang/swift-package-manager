@@ -44,10 +44,68 @@ public func XCTAssertEqual<T:Equatable, U:Equatable> (_ lhs:(T,U), _ rhs:(T,U), 
     TSCTestSupport.XCTAssertEqual(lhs, rhs, file: file, line: line)
 }
 
-public func XCTSkipIfCI(file: StaticString = #filePath, line: UInt = #line) throws {
-    if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil {
-        throw XCTSkip("Skipping because the test is being run on CI", file: file, line: line)
+public func XCTSkipIfPlatformCI(because reason: String? = nil, file: StaticString = #filePath, line: UInt = #line) throws {
+    // TODO: is this actually the right variable now?
+    if isInCiEnvironment {
+        let failureCause = reason ?? "Skipping because the test is being run on CI"
+        throw XCTSkip(failureCause, file: file, line: line)
     }
+}
+
+public func XCTSkipIfselfHostedCI(because reason: String, file: StaticString = #filePath, line: UInt = #line) throws {
+    // TODO: is this actually the right variable now?
+    if isSelfHostedCiEnvironment {
+        throw XCTSkip(reason, file: file, line: line)
+    }
+}
+
+public func XCTSkipOnWindows(because reason: String? = nil, skipPlatformCi: Bool = false, skipSelfHostedCI: Bool = false , file: StaticString = #filePath, line: UInt = #line) throws {
+    #if os(Windows)
+    let failureCause: String
+    if let reason {
+        failureCause = " because \(reason.description)"
+    } else {
+        failureCause = ""
+    }
+    if (skipPlatformCi || skipSelfHostedCI) {
+        try XCTSkipIfPlatformCI(because: "Test is run in Platform CI.  Skipping\(failureCause)", file: file, line: line)
+        try XCTSkipIfselfHostedCI(because: "Test is run in Self hosted CI.  Skipping\(failureCause)", file: file, line: line)
+    } else {
+        throw XCTSkip("Skipping test\(failureCause)", file: file, line: line)
+    }
+    #endif
+}
+
+public func _requiresTools(_ executable: String) throws {
+    func getAsyncProcessArgs(_ executable: String) -> [String] {
+        #if os(Windows)
+            let args = ["cmd.exe", "/c", "where.exe", executable]
+        #else
+            let args = ["which", executable]
+        #endif
+        return args
+    }
+    try AsyncProcess.checkNonZeroExit(arguments: getAsyncProcessArgs(executable))
+}
+public func XCTRequires(
+    executable: String,
+    file: StaticString = #filePath,
+    line: UInt = #line
+) throws {
+
+    do {
+        try _requiresTools(executable)
+    } catch (let AsyncProcessResult.Error.nonZeroExit(result)) {
+        throw XCTSkip(
+            "Skipping as tool \(executable) is not found in the path. (\(result.description))")
+    }
+}
+
+public func XCTSkipIfCompilerLessThan6_2() throws {
+    #if compiler(>=6.2)
+    #else
+        throw XCTSkip("Skipping as compiler version is less thann 6.2")
+    #endif
 }
 
 /// An `async`-friendly replacement for `XCTAssertThrowsError`.
@@ -258,4 +316,22 @@ public struct CommandExecutionError: Error {
     package let result: AsyncProcessResult
     public let stdout: String
     public let stderr: String
+}
+
+/// Skips the test if running on a platform which lacks the ability for build tasks to set a working directory due to lack of requisite system API.
+///
+/// Presently, relevant platforms include Amazon Linux 2 and OpenBSD.
+///
+/// - seealso: https://github.com/swiftlang/swift-package-manager/issues/8560
+public func XCTSkipIfWorkingDirectoryUnsupported() throws {
+    func unavailable() throws {
+        throw XCTSkip("https://github.com/swiftlang/swift-package-manager/issues/8560: Thread-safe process working directory support is unavailable on this platform.")
+    }
+    #if os(Linux)
+    if FileManager.default.contents(atPath: "/etc/system-release").map({ String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" }) ?? false {
+        try unavailable()
+    }
+    #elseif os(OpenBSD)
+    try unavailable()
+    #endif
 }

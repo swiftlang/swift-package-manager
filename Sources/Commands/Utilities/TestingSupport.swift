@@ -14,6 +14,7 @@ import Basics
 import CoreCommands
 import PackageModel
 import SPMBuildCore
+import TSCUtility
 import Workspace
 
 import struct TSCBasic.FileSystemError

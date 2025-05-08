@@ -13,6 +13,8 @@
 import ArgumentParser
 import Basics
 import CoreCommands
+import Foundation
+import PackageGraph
 import PackageModel
 import PackageModelSyntax
 import SwiftParser
@@ -34,33 +36,33 @@ extension SwiftPackageCommand {
         }
 
         package static let configuration = CommandConfiguration(
-            abstract: "Add a new target to the manifest")
+            abstract: "Add a new target to the manifest.")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Argument(help: "The name of the new target")
+        @Argument(help: "The name of the new target.")
         var name: String
 
-        @Option(help: "The type of target to add")
+        @Option(help: "The type of target to add.")
         var type: TargetType = .library
 
         @Option(
             parsing: .upToNextOption,
-            help: "A list of target dependency names"
+            help: "A list of target dependency names."
         )
         var dependencies: [String] = []
 
-        @Option(help: "The URL for a remote binary target")
+        @Option(help: "The URL for a remote binary target.")
         var url: String?
 
-        @Option(help: "The path to a local binary target")
+        @Option(help: "The path to a local binary target.")
         var path: String?
 
-        @Option(help: "The checksum for a remote binary target")
+        @Option(help: "The checksum for a remote binary target.")
         var checksum: String?
 
-        @Option(help: "The testing library to use when generating test targets, which can be one of 'xctest', 'swift-testing', or 'none'")
+        @Option(help: "The testing library to use when generating test targets, which can be one of 'xctest', 'swift-testing', or 'none'.")
         var testingLibrary: PackageModelSyntax.AddTarget.TestHarness = .default
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
@@ -88,6 +90,14 @@ extension SwiftPackageCommand {
                     }
                 }
             }
+
+            // Move sources into their own folder if they're directly in `./Sources`.
+            try PackageModelSyntax.AddTarget.moveSingleTargetSources(
+                packagePath: packagePath,
+                manifest: manifestSyntax,
+                fileSystem: fileSystem,
+                verbose: !globalOptions.logging.quiet
+            )
 
             // Map the target type.
             let type: TargetDescription.TargetKind = switch self.type {

@@ -17,6 +17,8 @@ import Dispatch
 import PackageGraph
 import PackageModel
 import SourceControl
+import SPMBuildCore
+import TSCUtility
 import _Concurrency
 
 struct DeprecatedAPIDiff: ParsableCommand {
@@ -36,7 +38,7 @@ struct DeprecatedAPIDiff: ParsableCommand {
 struct APIDiff: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
         commandName: "diagnose-api-breaking-changes",
-        abstract: "Diagnose API-breaking changes to Swift modules in a package",
+        abstract: "Diagnose API-breaking changes to Swift modules in a package.",
         discussion: """
         The diagnose-api-breaking-changes command can be used to compare the Swift API of \
         a package to a baseline revision, diagnosing any breaking changes which have \
@@ -57,7 +59,7 @@ struct APIDiff: AsyncSwiftCommand {
     """)
     var breakageAllowlistPath: AbsolutePath?
 
-    @Argument(help: "The baseline treeish to compare to (e.g. a commit hash, branch name, tag, etc.)")
+    @Argument(help: "The baseline treeish to compare to (for example, a commit hash, branch name, tag, and so on).")
     var treeish: String
 
     @Option(parsing: .upToNextOption,

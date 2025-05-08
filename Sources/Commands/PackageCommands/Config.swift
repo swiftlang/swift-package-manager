@@ -13,6 +13,7 @@
 import ArgumentParser
 import Basics
 import CoreCommands
+import PackageGraph
 import Workspace
 
 import var TSCBasic.stderrStream
@@ -29,7 +30,7 @@ extension SwiftPackageCommand {
 extension SwiftPackageCommand.Config {
     struct SetMirror: SwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Set a mirror for a dependency"
+            abstract: "Set a mirror for a dependency."
         )
 
         @OptionGroup(visibility: .hidden)
@@ -44,10 +45,10 @@ extension SwiftPackageCommand.Config {
         @Option(name: .customLong("mirror-url"), help: .hidden)
         var _deprecate_mirrorURL: String?
 
-        @Option(help: "The original url or identity")
+        @Option(help: "The original url or identity.")
         var original: String?
 
-        @Option(help: "The mirror url or identity")
+        @Option(help: "The mirror url or identity.")
         var mirror: String?
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
@@ -87,7 +88,7 @@ extension SwiftPackageCommand.Config {
 
     struct UnsetMirror: SwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Remove an existing mirror"
+            abstract: "Remove an existing mirror."
         )
 
         @OptionGroup(visibility: .hidden)
@@ -102,10 +103,10 @@ extension SwiftPackageCommand.Config {
         @Option(name: .customLong("mirror-url"), help: .hidden)
         var _deprecate_mirrorURL: String?
 
-        @Option(help: "The original url or identity")
+        @Option(help: "The original url or identity.")
         var original: String?
 
-        @Option(help: "The mirror url or identity")
+        @Option(help: "The mirror url or identity.")
         var mirror: String?
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
@@ -142,7 +143,7 @@ extension SwiftPackageCommand.Config {
 
     struct GetMirror: SwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Print mirror configuration for the given package dependency"
+            abstract: "Print mirror configuration for the given package dependency."
         )
 
         @OptionGroup(visibility: .hidden)
@@ -153,7 +154,7 @@ extension SwiftPackageCommand.Config {
         @Option(name: .customLong("original-url"), help: .hidden)
         var _deprecate_originalURL: String?
 
-        @Option(help: "The original url or identity")
+        @Option(help: "The original url or identity.")
         var original: String?
 
         func run(_ swiftCommandState: SwiftCommandState) throws {

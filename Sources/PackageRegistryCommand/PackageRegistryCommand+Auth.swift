@@ -15,8 +15,11 @@ import Basics
 import Commands
 import CoreCommands
 import Foundation
+import PackageFingerprint
 import PackageModel
 import PackageRegistry
+import PackageSigning
+import Workspace
 
 import struct TSCBasic.SHA256
 
@@ -110,7 +113,7 @@ extension PackageRegistryCommand {
         }
 
         static let configuration = CommandConfiguration(
-            abstract: "Log in to a registry"
+            abstract: "Log in to a registry."
         )
 
         static let maxPasswordLength = 512
@@ -122,29 +125,29 @@ extension PackageRegistryCommand {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Argument(help: "The registry URL")
+        @Argument(help: "The registry URL.")
         var url: URL?
 
         var registryURL: URL? {
             self.url
         }
 
-        @Option(help: "Username")
+        @Option(help: "The username for the registry.")
         var username: String?
 
-        @Option(help: "Password")
+        @Option(help: "The password for the registry.")
         var password: String?
 
-        @Option(help: "Access token")
+        @Option(help: "The access token for the registry.")
         var token: String?
 
         @Option(
             name: .customLong("token-file"),
-            help: "Path to the file containing access token"
+            help: "Path to the file containing access token."
         )
         var tokenFilePath: AbsolutePath?
 
-        @Flag(help: "Allow writing to netrc file without confirmation")
+        @Flag(help: "Allow writing to netrc file without confirmation.")
         var noConfirm: Bool = false
 
         private static let PLACEHOLDER_TOKEN_USER = "token"
@@ -263,8 +266,7 @@ extension PackageRegistryCommand {
             try await registryClient.login(
                 loginURL: loginURL,
                 timeout: .seconds(5),
-                observabilityScope: swiftCommandState.observabilityScope,
-                callbackQueue: .sharedConcurrent
+                observabilityScope: swiftCommandState.observabilityScope
             )
 
             print("Login successful.")

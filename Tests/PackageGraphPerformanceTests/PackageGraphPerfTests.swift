@@ -66,6 +66,7 @@ final class PackageGraphPerfTests: XCTestCasePerf {
                 displayName: name,
                 path: try AbsolutePath(validating: location).appending(component: Manifest.filename),
                 packageKind: isRoot ? .root(try .init(validating: location)) : .localSourceControl(try .init(validating: location)),
+                packageIdentity: .plain(name),
                 packageLocation: location,
                 platforms: [],
                 version: "1.0.0",
@@ -165,6 +166,8 @@ final class PackageGraphPerfTests: XCTestCasePerf {
     }
 
     func testRecursiveDependencies() throws {
+        try XCTSkipOnWindows()
+
         var resolvedTarget = ResolvedModule.mock(packageIdentity: "pkg", name: "t0")
         for i in 1..<1000 {
             resolvedTarget = ResolvedModule.mock(packageIdentity: "pkg", name: "t\(i)", deps: resolvedTarget)

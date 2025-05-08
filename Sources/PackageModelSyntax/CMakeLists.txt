@@ -9,6 +9,7 @@
 add_library(PackageModelSyntax
   AddPackageDependency.swift
   AddProduct.swift
+  AddSwiftSetting.swift
   AddTarget.swift
   AddTargetDependency.swift
   ManifestEditError.swift

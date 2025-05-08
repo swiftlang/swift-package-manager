@@ -94,7 +94,7 @@ public final class MockWorkspace {
     public var sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration
         .SourceControlToRegistryDependencyTransformation
     var defaultRegistry: Registry?
-    public let traitConfiguration: TraitConfiguration?
+    public let traitConfiguration: TraitConfiguration
     public let pruneDependencies: Bool
 
     public init(
@@ -116,7 +116,7 @@ public final class MockWorkspace {
             .SourceControlToRegistryDependencyTransformation = .disabled,
         defaultRegistry: Registry? = .none,
         customHostTriple: Triple = hostTriple,
-        traitConfiguration: TraitConfiguration? = nil,
+        traitConfiguration: TraitConfiguration = .default,
         pruneDependencies: Bool = false
     ) async throws {
         try fileSystem.createMockToolchain()
@@ -185,12 +185,14 @@ public final class MockWorkspace {
 
     private func create() async throws {
         // Remove the sandbox if present.
-        try self.fileSystem.removeFileTree(self.sandbox)
+        if self.fileSystem.exists(self.sandbox) {
+            try self.fileSystem.removeFileTree(self.sandbox)
+        }
 
         // Create directories.
         try self.fileSystem.createDirectory(self.sandbox, recursive: true)
-        try self.fileSystem.createDirectory(self.rootsDir)
-        try self.fileSystem.createDirectory(self.packagesDir)
+        try self.fileSystem.createDirectory(self.rootsDir, recursive: true)
+        try self.fileSystem.createDirectory(self.packagesDir, recursive: true)
 
         var manifests: [MockManifestLoader.Key: Manifest] = [:]
 
@@ -319,6 +321,7 @@ public final class MockWorkspace {
                     displayName: package.name,
                     path: packagePath,
                     packageKind: packageKind,
+                    packageIdentity: .plain(package.name),
                     packageLocation: packageLocation,
                     platforms: package.platforms,
                     version: v,
@@ -678,7 +681,7 @@ public final class MockWorkspace {
             packages: rootInput.packages,
             observabilityScope: observability.topScope
         )
-        let root = PackageGraphRoot(
+        let root = try PackageGraphRoot(
             input: rootInput,
             manifests: rootManifests,
             observabilityScope: observability.topScope
@@ -945,7 +948,7 @@ public final class MockWorkspace {
             packages: rootInput.packages,
             observabilityScope: observability.topScope
         )
-        let graphRoot = PackageGraphRoot(
+        let graphRoot = try PackageGraphRoot(
             input: rootInput,
             manifests: rootManifests,
             observabilityScope: observability.topScope

@@ -16,6 +16,7 @@ import Dispatch
 import Basics
 import PackageFingerprint
 import PackageModel
+import Foundation
 
 import struct TSCUtility.Version
 
@@ -43,22 +44,26 @@ struct PackageVersionChecksumTOFU {
         version: Version,
         checksum: String,
         timeout: DispatchTimeInterval?,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws {
-        try await withCheckedThrowingContinuation { continuation in
-            self.validateSourceArchive(
-                registry: registry,
-                package: package,
-                version: version,
-                checksum: checksum,
-                timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: {
-                    continuation.resume(with: $0)
-                }
-            )
+        let expectedChecksum = try await self.getExpectedChecksum(
+            registry: registry,
+            package: package,
+            version: version,
+            timeout: timeout,
+            observabilityScope: observabilityScope
+        )
+
+        if checksum != expectedChecksum {
+            switch self.fingerprintCheckingMode {
+            case .strict:
+                throw RegistryError.invalidChecksum(expected: expectedChecksum, actual: checksum)
+            case .warn:
+                observabilityScope
+                    .emit(
+                        warning: "the checksum \(checksum) for source archive of \(package) \(version) does not match previously recorded value \(expectedChecksum)"
+                    )
+            }
         }
     }
 
@@ -73,28 +78,14 @@ struct PackageVersionChecksumTOFU {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        self.getExpectedChecksum(
-            registry: registry,
-            package: package,
-            version: version,
-            timeout: timeout,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
-        ) { result in
-            completion(
-                result.tryMap { expectedChecksum in
-                    if checksum != expectedChecksum {
-                        switch self.fingerprintCheckingMode {
-                        case .strict:
-                            throw RegistryError.invalidChecksum(expected: expectedChecksum, actual: checksum)
-                        case .warn:
-                            observabilityScope
-                                .emit(
-                                    warning: "the checksum \(checksum) for source archive of \(package) \(version) does not match previously recorded value \(expectedChecksum)"
-                                )
-                        }
-                    }
-                }
+        callbackQueue.asyncResult(completion) {
+            try await self.validateSourceArchive(
+                registry: registry,
+                package: package,
+                version: version,
+                checksum: checksum,
+                timeout: timeout,
+                observabilityScope: observabilityScope
             )
         }
     }
@@ -104,54 +95,48 @@ struct PackageVersionChecksumTOFU {
         package: PackageIdentity.RegistryIdentity,
         version: Version,
         timeout: DispatchTimeInterval?,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<String, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) async throws -> String {
         // We either use a previously recorded checksum, or fetch it from the registry.
         if let savedChecksum = try? self.readFromStorage(package: package, version: version, contentType: .sourceCode, observabilityScope: observabilityScope) {
-            return completion(.success(savedChecksum))
+            return savedChecksum
         }
 
         // Try fetching checksum from registry if:
         //   - No storage available
         //   - Checksum not found in storage
         //   - Reading from storage resulted in error
-        Task {
-            do {
-                let versionMetadata = try await self.versionMetadataProvider(package, version)
-                guard let sourceArchiveResource = versionMetadata.sourceArchive else {
-                    throw RegistryError.missingSourceArchive
-                }
-                guard let checksum = sourceArchiveResource.checksum else {
-                    throw RegistryError.sourceArchiveMissingChecksum(
-                        registry: registry,
-                        package: package.underlying,
-                        version: version
-                    )
-                }
-                do {
-                    try self.writeToStorage(
-                        registry: registry,
-                        package: package,
-                        version: version,
-                        checksum: checksum,
-                        contentType: .sourceCode,
-                        observabilityScope: observabilityScope
-                    )
-                    completion(.success(checksum))
-                } catch {
-                    completion(.failure(error))
-                }
-            } catch {
-                completion(.failure(RegistryError.failedRetrievingReleaseChecksum(
+        var checksum: String
+        do {
+            let versionMetadata = try await self.versionMetadataProvider(package, version)
+            guard let sourceArchiveResource = versionMetadata.sourceArchive else {
+                throw RegistryError.missingSourceArchive
+            }
+            guard let archiveChecksum = sourceArchiveResource.checksum else {
+                throw RegistryError.sourceArchiveMissingChecksum(
                     registry: registry,
                     package: package.underlying,
-                    version: version,
-                    error: error
-                )))
+                    version: version
+                )
             }
+            checksum = archiveChecksum
+        } catch {
+            throw RegistryError.failedRetrievingReleaseChecksum(
+                registry: registry,
+                package: package.underlying,
+                version: version,
+                error: error
+            )
         }
+        try self.writeToStorage(
+            registry: registry,
+            package: package,
+            version: version,
+            checksum: checksum,
+            contentType: .sourceCode,
+            observabilityScope: observabilityScope
+        )
+        return checksum
     }
 
     func validateManifest(

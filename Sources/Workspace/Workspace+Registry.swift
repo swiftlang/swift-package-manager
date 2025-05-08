@@ -318,6 +318,7 @@ extension Workspace {
 
             let modifiedManifest = Manifest(
                 displayName: manifest.displayName,
+                packageIdentity: manifest.packageIdentity,
                 path: manifest.path,
                 packageKind: manifest.packageKind,
                 packageLocation: manifest.packageLocation,
@@ -419,8 +420,7 @@ extension Workspace {
             package: package.identity,
             version: version,
             observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent,
-            callbackQueue: .sharedConcurrent
+            delegateQueue: .sharedConcurrent
         )
 
         // Record the new state.

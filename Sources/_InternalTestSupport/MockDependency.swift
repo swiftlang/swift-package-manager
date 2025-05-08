@@ -22,7 +22,7 @@ public struct MockDependency {
     public let deprecatedName: String?
     public let location: Location
     public let products: ProductFilter
-    package let traits: Set<PackageDependency.Trait>
+    public let traits: Set<PackageDependency.Trait>
 
     init(
         deprecatedName: String? = nil,

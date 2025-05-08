@@ -595,7 +595,7 @@ fileprivate enum Library: Sendable {
         return LibraryHandle(rawValue: handle)
         #else
         guard let handle = dlopen(nil, RTLD_NOW | RTLD_LOCAL) else {
-            throw LibraryOpenError(message: String(cString: dlerror()))
+            throw LibraryOpenError(message: String(cString: dlerror()!))
         }
         return LibraryHandle(rawValue: handle)
         #endif

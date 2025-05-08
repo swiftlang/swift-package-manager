@@ -592,7 +592,8 @@ def install_file(args, src, destination, destination_is_directory=True, ignored_
 
     logging.info("Installing %s to %s", src, dest)
     if os.path.isdir(src):
-        shutil.copytree(src, dest, ignore=shutil.ignore_patterns(*ignored_patterns), dirs_exist_ok=True)
+        additional_kwargs = { "dirs_exist_ok": True } if sys.version_info.major >=3 and sys.version_info.minor >= 8 else {}
+        shutil.copytree(src, dest, ignore=shutil.ignore_patterns(*ignored_patterns), **additional_kwargs)
     else:
         shutil.copy2(src, dest)
 
@@ -809,7 +810,7 @@ def call_swiftpm(args, cmd, cwd=None):
     full_cmd = get_swiftpm_env_cmd(args) + cmd + get_swiftpm_flags(args)
     if cwd is None:
         cwd = args.project_root
-    call_output(full_cmd, cwd=cwd, stderr=True, verbose=True)
+    call(full_cmd, cwd=cwd)
 
 # -----------------------------------------------------------
 # Build-related helper functions
@@ -925,6 +926,10 @@ def get_swiftpm_flags(args):
         ])
 
     if '-openbsd' in args.build_target:
+        # Because of swiftlang/swift#80059, swiftpm only works
+        # with BTCFI disabled.
+        if 'aarch64' in args.build_target:
+            build_flags.extend(["-Xlinker", "-z", "-Xlinker", "nobtcfi"])
         build_flags.extend(["-Xlinker", "-z", "-Xlinker", "origin"])
         build_flags.extend(["-Xcc", "-I/usr/local/include"])
         build_flags.extend(["-Xlinker", "-L/usr/local/lib"])
@@ -933,10 +938,6 @@ def get_swiftpm_flags(args):
         build_flags.extend(["-Xlinker", "-z", "-Xlinker", "origin"])
         build_flags.extend(["-Xcc", "-I/usr/local/include"])
         build_flags.extend(["-Xlinker", "-L/usr/local/lib"])
-
-    # Don't use GNU strerror_r on Android.
-    if '-android' in args.build_target:
-        build_flags.extend(["-Xswiftc", "-Xcc", "-Xswiftc", "-U_GNU_SOURCE"])
 
     cross_compile_hosts = args.cross_compile_hosts
     if cross_compile_hosts:

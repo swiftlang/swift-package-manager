@@ -13,6 +13,7 @@
 import ArgumentParser
 import Basics
 import CoreCommands
+import Foundation
 import PackageGraph
 import PackageModel
 
@@ -22,7 +23,7 @@ extension SwiftPackageCommand {
         @OptionGroup()
         var globalOptions: GlobalOptions
 
-        static let configuration = CommandConfiguration(abstract: "Learn about Swift and this package")
+        static let configuration = CommandConfiguration(abstract: "Learn about Swift and this package.")
 
         func files(fileSystem: FileSystem, in directory: AbsolutePath, fileExtension: String? = nil) throws -> [AbsolutePath] {
             guard fileSystem.isDirectory(directory) else {

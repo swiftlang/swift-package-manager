@@ -14,25 +14,26 @@ import ArgumentParser
 import Basics
 import CoreCommands
 import SourceControl
+import Workspace
 
 extension SwiftPackageCommand {
     struct Edit: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Put a package in editable mode")
+            abstract: "Put a package in editable mode.")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Option(help: "The revision to edit", transform: { Revision(identifier: $0) })
+        @Option(help: "The revision to edit.", transform: { Revision(identifier: $0) })
         var revision: Revision?
 
-        @Option(name: .customLong("branch"), help: "The branch to create")
+        @Option(name: .customLong("branch"), help: "The branch to create.")
         var checkoutBranch: String?
 
-        @Option(help: "Create or use the checkout at this path")
+        @Option(help: "Create or use the checkout at this path.")
         var path: AbsolutePath?
 
-        @Argument(help: "The identity of the package to edit")
+        @Argument(help: "The identity of the package to edit.")
         var packageIdentity: String
 
         @OptionGroup(visibility: .hidden)
@@ -55,16 +56,16 @@ extension SwiftPackageCommand {
 
     struct Unedit: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Remove a package from editable mode")
+            abstract: "Remove a package from editable mode.")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         @Flag(name: .customLong("force"),
-              help: "Unedit the package even if it has uncommitted and unpushed changes")
+              help: "Unedit the package even if it has uncommitted and unpushed changes.")
         var shouldForceRemove: Bool = false
 
-        @Argument(help: "The identity of the package to unedit")
+        @Argument(help: "The identity of the package to unedit.")
         var packageIdentity: String
 
         @OptionGroup(visibility: .hidden)

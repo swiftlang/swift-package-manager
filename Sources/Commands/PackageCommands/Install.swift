@@ -14,8 +14,11 @@ import ArgumentParser
 import struct Basics.Environment
 import CoreCommands
 import Foundation
+import PackageGraph
 import PackageModel
+import SPMBuildCore
 import TSCBasic
+import Workspace
 
 extension SwiftPackageCommand {
     struct Install: AsyncSwiftCommand {
@@ -27,7 +30,7 @@ extension SwiftPackageCommand {
         @OptionGroup()
         var globalOptions: GlobalOptions
 
-        @Option(help: "The name of the executable product to install")
+        @Option(help: "The name of the executable product to install.")
         var product: String?
 
         func run(_ commandState: SwiftCommandState) async throws {

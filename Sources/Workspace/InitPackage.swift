@@ -13,6 +13,7 @@
 import Basics
 import PackageModel
 import SPMBuildCore
+import TSCUtility
 
 import protocol TSCBasic.OutputByteStream
 
@@ -239,7 +240,8 @@ public final class InitPackage {
                         // Products define the executables and libraries a package produces, making them visible to other packages.
                         .library(
                             name: "\(pkgname)",
-                            targets: ["\(pkgname)"]),
+                            targets: ["\(pkgname)"]
+                        ),
                     ]
                 """)
             } else if packageType == .buildToolPlugin || packageType == .commandPlugin {
@@ -248,7 +250,8 @@ public final class InitPackage {
                         // Products can be used to vend plugins, making them visible to other packages.
                         .plugin(
                             name: "\(pkgname)",
-                            targets: ["\(pkgname)"]),
+                            targets: ["\(pkgname)"]
+                        ),
                     ]
                 """)
             } else if packageType == .macro {
@@ -299,7 +302,8 @@ public final class InitPackage {
                 if packageType == .executable {
                     param += """
                             .executableTarget(
-                                name: "\(pkgname)"),
+                                name: "\(pkgname)"
+                            ),
                         ]
                     """
                 } else if packageType == .tool {
@@ -394,7 +398,8 @@ public final class InitPackage {
 
                     param += """
                             .target(
-                                name: "\(pkgname)"),
+                                name: "\(pkgname)"
+                            ),
                     \(testTarget)
                         ]
                     """
@@ -570,21 +575,12 @@ public final class InitPackage {
         progressReporter?("Creating \(sources.relative(to: destinationPath))")
         try makeDirectories(sources)
 
-        let moduleDir: AbsolutePath
-        switch packageType {
-        case .executable, .tool:
-            moduleDir = sources
-        default:
-            moduleDir = sources.appending("\(pkgname)")
-        }
+        let moduleDir = sources.appending("\(pkgname)")
         try makeDirectories(moduleDir)
 
-        let sourceFileName: String
-        if packageType == .executable {
-            sourceFileName = "main.swift"
-        } else {
-            sourceFileName = "\(typeName).swift"
-        }
+        // If we're creating an executable we can't have both a @main declaration and a main.swift file.
+        // Handle the edge case of a user creating a project called "main" by give the generated file a different name.
+        let sourceFileName = ((packageType == .executable || packageType == .tool) && typeName == "main") ? "MainEntrypoint.swift" : "\(typeName).swift"
         let sourceFile = try AbsolutePath(validating: sourceFileName, relativeTo: moduleDir)
 
         let content: String
@@ -600,7 +596,12 @@ public final class InitPackage {
                 // The Swift Programming Language
                 // https://docs.swift.org/swift-book
 
-                print("Hello, world!")
+                @main
+                struct \(typeName) {
+                    static func main() {
+                        print("Hello, world!")
+                    }
+                }
 
                 """
         case .tool:
@@ -686,7 +687,6 @@ public final class InitPackage {
         }
         content += "@testable import \(moduleName)\n"
 
-
         if options.supportedTestingLibraries.contains(.swiftTesting) {
             content += """
 
@@ -749,7 +749,6 @@ public final class InitPackage {
 
 
             """##
-
 
         // XCTest is only added if it was explicitly asked for, so add tests
         // for it *and* Testing if it is enabled.

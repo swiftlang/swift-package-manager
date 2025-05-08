@@ -24,7 +24,7 @@ struct ComputeChecksum: SwiftCommand {
     @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
 
-    @Argument(help: "The absolute or relative path to the binary artifact")
+    @Argument(help: "The absolute or relative path to the binary artifact.")
     var path: AbsolutePath
 
     func run(_ swiftCommandState: SwiftCommandState) throws {

@@ -13,6 +13,8 @@
 import ArgumentParser
 import Basics
 import CoreCommands
+import Foundation
+import PackageGraph
 import PackageModel
 import PackageModelSyntax
 import SwiftParser
@@ -34,20 +36,20 @@ extension SwiftPackageCommand {
         }
 
         package static let configuration = CommandConfiguration(
-            abstract: "Add a new product to the manifest")
+            abstract: "Add a new product to the manifest.")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Argument(help: "The name of the new product")
+        @Argument(help: "The name of the new product.")
         var name: String
 
-        @Option(help: "The type of target to add")
+        @Option(help: "The type of target to add.")
         var type: CommandProductType = .library
 
         @Option(
             parsing: .upToNextOption,
-            help: "A list of targets that are part of this product"
+            help: "A list of targets that are part of this product."
         )
         var targets: [String] = []
 

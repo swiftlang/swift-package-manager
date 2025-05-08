@@ -15,7 +15,7 @@ import Foundation
 import Basics
 import PackageGraph
 internal import PackageLoading
-internal import PackageModel
+import PackageModel
 
 struct PluginTargetBuildDescription: BuildTarget {
     private let target: ResolvedModule

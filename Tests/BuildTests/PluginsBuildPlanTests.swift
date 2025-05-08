@@ -18,6 +18,8 @@ import PackageModel
 
 final class PluginsBuildPlanTests: XCTestCase {
     func testBuildToolsDatabasePath() async throws {
+        try XCTSkipOnWindows(because: "Fails to build the project to due to incorrect Path handling.  Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511")
+
         try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath)
             XCTAssertMatch(stdout, .contains("Build complete!"))
