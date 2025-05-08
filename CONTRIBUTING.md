@@ -343,6 +343,8 @@ your contribution to Apple and the community, and agree by submitting the patch
 that your contributions are licensed under the [Swift
 license](https://swift.org/LICENSE.txt).
 
+After a change is known not to cause regressions in the `main` branch, it may be considered for cherry-picking to the latest release branch depending on the release schedule. Cherry-picks require [a specific template to be followed](https://github.com/swiftlang/.github/blob/main/PULL_REQUEST_TEMPLATE/release.md) in PR description that consolidates information about the change necessary for inclusion in the release branch and provides risk evaluation for nominating the change.
+
 ## Continuous Integration
 
 SwiftPM uses [swift-ci](https://ci.swift.org) infrastructure for its continuous integration testing. The bots can be triggered on pull-requests if you have commit access. Otherwise, ask one of the code owners to trigger them for you.
