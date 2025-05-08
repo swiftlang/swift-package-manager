@@ -1,3 +1,4 @@
+import Foundation
 /*
  This source file is part of the Swift.org open source project
 
@@ -6,62 +7,64 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import _AsyncFileSystem
 import _InternalTestSupport
-import XCTest
+import Testing
 import struct SystemPackage.FilePath
 
-final class AsyncFileSystemTests: XCTestCase {
-    func testMockFileSystem() async throws {
+struct AsyncFileSystemTests {
+    @Test
+    func mockFileSystem() async throws {
         let fs = MockFileSystem()
 
         let mockPath: FilePath = "/foo/bar"
 
-        await XCTAssertAsyncFalse(await fs.exists(mockPath))
+        #expect(await !fs.exists(mockPath))
 
         let mockContent = "baz".utf8
 
         try await fs.write(mockPath, bytes: mockContent)
 
-        await XCTAssertAsyncTrue(await fs.exists(mockPath))
+        #expect(await fs.exists(mockPath))
 
         // Test overwriting
         try await fs.write(mockPath, bytes: mockContent)
 
-        await XCTAssertAsyncTrue(await fs.exists(mockPath))
+        #expect(await fs.exists(mockPath))
 
         let bytes = try await fs.withOpenReadableFile(mockPath) { fileHandle in
             try await fileHandle.read().reduce(into: []) { $0.append(contentsOf: $1) }
         }
 
-        XCTAssertEqual(bytes, Array(mockContent))
+        #expect(bytes == Array(mockContent))
     }
-    func testOSFileSystem() async throws {
+    @Test
+    func oSFileSystem() async throws {
         try await testWithTemporaryDirectory { tmpDir in
             let fs = OSFileSystem()
 
             let mockPath = FilePath(tmpDir.appending("foo").pathString)
 
-            await XCTAssertAsyncFalse(await fs.exists(mockPath))
+            #expect(await !fs.exists(mockPath))
 
             let mockContent = "baz".utf8
 
             try await fs.write(mockPath, bytes: mockContent)
 
-            await XCTAssertAsyncTrue(await fs.exists(mockPath))
+            #expect(await fs.exists(mockPath))
 
             // Test overwriting
             try await fs.write(mockPath, bytes: mockContent)
 
-            await XCTAssertAsyncTrue(await fs.exists(mockPath))
+            #expect(await fs.exists(mockPath))
 
             let bytes = try await fs.withOpenReadableFile(mockPath) { fileHandle in
                 try await fileHandle.read().reduce(into: []) { $0.append(contentsOf: $1) }
             }
 
-            XCTAssertEqual(bytes, Array(mockContent))
+            #expect(bytes == Array(mockContent))
         }
     }
 }
