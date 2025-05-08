@@ -107,7 +107,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
 
             // Resetting the cache should allow us to remove the cache
             // directory without triggering assertions in sqlite.
-            manifestLoader.purgeCache(observabilityScope: observability.topScope)
+            await manifestLoader.purgeCache(observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             try fileSystem.removeFileTree(path)
         }
@@ -198,7 +198,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
             try await check(loader: noCacheLoader, expectCached: false)
         }
 
-        manifestLoader.purgeCache(observabilityScope: observability.topScope)
+        await manifestLoader.purgeCache(observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
