@@ -1,19 +1,14 @@
-# swift package add-dependency
+# swift package experimental-uninstall
 
 @Metadata {
     @PageImage(purpose: icon, source: command-icon)
 }
 
-Add a package dependency to the manifest.
+Offers the ability to uninstall executable products previously installed by `swift package experimental-install`.
 
 ```
-package add-dependency <dependency> [--package-path=<package-path>] [--cache-path=<cache-path>] [--config-path=<config-path>] [--security-path=<security-path>] [--scratch-path=<scratch-path>]     [--swift-sdks-path=<swift-sdks-path>] [--toolset=<toolset>...] [--pkg-config-path=<pkg-config-path>...]   [--enable-dependency-cache|disable-dependency-cache]  [--enable-build-manifest-caching|disable-build-manifest-caching] [--manifest-cache=<manifest-cache>] [--enable-experimental-prebuilts|disable-experimental-prebuilts] [--verbose] [--very-verbose|vv] [--quiet] [--color-diagnostics|no-color-diagnostics] [--disable-sandbox] [--netrc] [--enable-netrc|disable-netrc] [--netrc-file=<netrc-file>] [--enable-keychain|disable-keychain] [--resolver-fingerprint-checking=<resolver-fingerprint-checking>] [--resolver-signing-entity-checking=<resolver-signing-entity-checking>] [--enable-signature-validation|disable-signature-validation] [--enable-prefetching|disable-prefetching] [--force-resolved-versions|disable-automatic-resolution|only-use-versions-from-resolved-file] [--skip-update] [--disable-scm-to-registry-transformation] [--use-registry-identity-for-scm] [--replace-scm-with-registry]  [--default-registry-url=<default-registry-url>] [--configuration=<configuration>] [--=<Xcc>...] [--=<Xswiftc>...] [--=<Xlinker>...] [--=<Xcxx>...]    [--triple=<triple>] [--sdk=<sdk>] [--toolchain=<toolchain>]   [--swift-sdk=<swift-sdk>] [--sanitize=<sanitize>...] [--auto-index-store|enable-index-store|disable-index-store]   [--enable-parseable-module-interfaces] [--jobs=<jobs>] [--use-integrated-swift-driver] [--explicit-target-dependency-import-check=<explicit-target-dependency-import-check>] [--experimental-explicit-module-build] [--build-system=<build-system>] [--=<debug-info-format>]      [--enable-dead-strip|disable-dead-strip] [--disable-local-rpath] [--exact=<exact>] [--revision=<revision>] [--branch=<branch>] [--from=<from>] [--up-to-next-minor-from=<up-to-next-minor-from>] [--to=<to>] [--type=<type>] [--version] [--help]
+package experimental-uninstall [--package-path=<package-path>] [--cache-path=<cache-path>] [--config-path=<config-path>] [--security-path=<security-path>] [--scratch-path=<scratch-path>]     [--swift-sdks-path=<swift-sdks-path>] [--toolset=<toolset>...] [--pkg-config-path=<pkg-config-path>...]   [--enable-dependency-cache|disable-dependency-cache]  [--enable-build-manifest-caching|disable-build-manifest-caching] [--manifest-cache=<manifest-cache>] [--enable-experimental-prebuilts|disable-experimental-prebuilts] [--verbose] [--very-verbose|vv] [--quiet] [--color-diagnostics|no-color-diagnostics] [--disable-sandbox] [--netrc] [--enable-netrc|disable-netrc] [--netrc-file=<netrc-file>] [--enable-keychain|disable-keychain] [--resolver-fingerprint-checking=<resolver-fingerprint-checking>] [--resolver-signing-entity-checking=<resolver-signing-entity-checking>] [--enable-signature-validation|disable-signature-validation] [--enable-prefetching|disable-prefetching] [--force-resolved-versions|disable-automatic-resolution|only-use-versions-from-resolved-file] [--skip-update] [--disable-scm-to-registry-transformation] [--use-registry-identity-for-scm] [--replace-scm-with-registry]  [--default-registry-url=<default-registry-url>] [--configuration=<configuration>] [--=<Xcc>...] [--=<Xswiftc>...] [--=<Xlinker>...] [--=<Xcxx>...]    [--triple=<triple>] [--sdk=<sdk>] [--toolchain=<toolchain>]   [--swift-sdk=<swift-sdk>] [--sanitize=<sanitize>...] [--auto-index-store|enable-index-store|disable-index-store]   [--enable-parseable-module-interfaces] [--jobs=<jobs>] [--use-integrated-swift-driver] [--explicit-target-dependency-import-check=<explicit-target-dependency-import-check>] [--experimental-explicit-module-build] [--build-system=<build-system>] [--=<debug-info-format>]      [--enable-dead-strip|disable-dead-strip] [--disable-local-rpath] <name> [--version] [--help]
 ```
-
-- term **dependency:**
-
-*The URL or directory of the package to add.*
-
 
 - term **--package-path=\<package-path\>:**
 
@@ -250,39 +245,9 @@ By default, color diagnostics are enabled when connected to a TTY and disabled o
 *Disable adding $ORIGIN/@loader_path to the rpath by default.*
 
 
-- term **--exact=\<exact\>:**
+- term **name:**
 
-*The exact package version to depend on.*
-
-
-- term **--revision=\<revision\>:**
-
-*The specific package revision to depend on.*
-
-
-- term **--branch=\<branch\>:**
-
-*The branch of the package to depend on.*
-
-
-- term **--from=\<from\>:**
-
-*The package version to depend on (up to the next major version).*
-
-
-- term **--up-to-next-minor-from=\<up-to-next-minor-from\>:**
-
-*The package version to depend on (up to the next minor version).*
-
-
-- term **--to=\<to\>:**
-
-*Specify upper bound on the package version range (exclusive).*
-
-
-- term **--type=\<type\>:**
-
-*Specify dependency type.*
+*Name of the executable to uninstall.*
 
 
 - term **--version:**
@@ -293,4 +258,3 @@ By default, color diagnostics are enabled when connected to a TTY and disabled o
 - term **--help:**
 
 *Show help information.*
-
