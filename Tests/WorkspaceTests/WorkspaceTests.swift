@@ -2447,6 +2447,308 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testEditAndUneditDependencyWithTraitConfiguration() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Lunch",
+                    targets: [
+                        MockTarget(
+                            name: "Sandwich",
+                            dependencies: [
+                                .product(
+                                    name: "Ham",
+                                    package: "LunchMeat",
+                                    condition: .init(traits: ["Pork"])
+                                ),
+                                .product(
+                                    name: "Bacon",
+                                    package: "LunchMeat",
+                                    condition: .init(traits: ["Pork"])
+                                ),
+                                .product(
+                                    name: "Lettuce",
+                                    package: "Vegetables",
+                                    condition: .init(traits: ["Veggies"])
+                                ),
+                                .product(
+                                    name: "Tomato",
+                                    package: "Vegetables",
+                                    condition: .init(traits: ["Veggies"])
+                                ),
+                                .product(
+                                    name: "Cheese",
+                                    package: "Dairy",
+                                    condition: .init(traits: ["Dairy"])
+                                ),
+                                .product(
+                                    name: "Mustard",
+                                    package: "Condiments"
+                                ),
+                                .product(
+                                    name: "Buttermilk Ranch",
+                                    package: "Condiments",
+                                    condition: .init(traits: ["Dairy"])
+                                )
+                            ]
+                        ),
+                    ],
+                    dependencies: [
+                        // Since traits can configure transitive dependencies, we won't get an unused dependency warning for
+                        // 'lunchmeat' if we configure enabled traits like so:
+                        .sourceControl(path: "./LunchMeat", requirement: .upToNextMajor(from: "1.0.0"), traits: ["Meat"]),
+                        .sourceControl(path: "./Vegetables", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Condiments", requirement: .upToNextMajor(from: "1.0.0")),
+                        // Since this dependency does not have any enabled traits and we haven't specified a config
+                        // here, this dependency *should* emit an unused dependency warning.
+                        .sourceControl(path: "./Dairy", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    traits: [.init(name: "default", enabledTraits: ["Veggies"]), "Pork", "Dairy", "Veggies"]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "LunchMeat",
+                    targets: [
+                        MockTarget(
+                            name: "Ham",
+                            dependencies: [
+                                .target(name: "Pig", condition: .init(traits: ["Meat"]))
+                            ]
+                        ),
+                        MockTarget(
+                            name: "Bacon",
+                            dependencies: [
+                                .target(name: "Pig", condition: .init(traits: ["Meat"]))
+                            ]
+                        ),
+                        MockTarget(name: "Pig")
+                    ],
+                    products: [
+                        MockProduct(name: "Ham", modules: ["Ham"]),
+                        MockProduct(name: "Bacon", modules: ["Bacon"]),
+                    ],
+                    traits: [.init(stringLiteral: "Meat")],
+                    versions: ["1.0.0", nil]
+                ),
+                MockPackage(
+                    name: "Vegetables",
+                    targets: [
+                        MockTarget(name: "Lettuce"),
+                        MockTarget(name: "Tomato"),
+                    ],
+                    products: [
+                        MockProduct(name: "Lettuce", modules: ["Lettuce"]),
+                        MockProduct(name: "Tomato", modules: ["Tomato"]),
+                    ],
+                    versions: ["1.0.0", nil]
+                ),
+                MockPackage(
+                    name: "Condiments",
+                    targets: [
+                        MockTarget(name: "Mustard"),
+                        MockTarget(name: "Buttermilk Ranch"),
+                    ],
+                    products: [
+                        MockProduct(name: "Mustard", modules: ["Mustard"]),
+                        MockProduct(name: "Buttermilk Ranch", modules: ["Buttermilk Ranch"]),
+                    ],
+                    versions: ["1.0.0", nil]
+                ),
+                MockPackage(
+                    name: "Dairy",
+                    targets: [
+                        MockTarget(name: "Cheese"),
+                    ],
+                    products: [
+                        MockProduct(name: "Cheese", modules: ["Cheese"]),
+                    ],
+                    versions: ["1.0.0", nil]
+                ),
+            ],
+            traitConfiguration: .init(enabledTraits: nil, enableAllTraits: false),
+            pruneDependencies: false
+        )
+
+        // Edited version of LunchMeat dependency
+        // TODO: Since the current mocks only support checking whether a managed dependency is marked as
+        // TODO: being in edit mode, there is an open radar (rdar://150935011) to improve the support
+        // TODO: for mocking edit/unedit commands. This test will be improved once that is completed.
+        let lunchMeatLocalEditSandbox = AbsolutePath("/tmp/lunchmeat_ws/")
+        let lunchMeatMockWorkspace = try await MockWorkspace(
+            sandbox: lunchMeatLocalEditSandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "LunchMeat",
+                    targets: [
+                        MockTarget(name: "Ham"),
+                        MockTarget(
+                            name: "Bacon",
+                            dependencies: [
+                                .product(name: "NothingHere", package: "NothingHere", condition: .init(traits: ["Block"]))
+                            ]
+                        ),
+                        MockTarget(name: "Pig")
+                    ],
+                    products: [
+                        MockProduct(name: "Ham", modules: ["Ham"]),
+                        MockProduct(name: "Bacon", modules: ["Bacon"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./NothingHere", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    traits: [.init(stringLiteral: "Block")],
+                    versions: ["1.0.0", nil]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "NothingHere",
+                    targets: [
+                        MockTarget(name: "NothingHere")
+                    ],
+                    products: [
+                        MockProduct(name: "NothingHere", modules: ["NothingHere"])
+                    ],
+                    versions: ["1.0.0", nil]
+                )
+            ]
+        )
+
+        // Load lunchmeat graph.
+        try await lunchMeatMockWorkspace.checkPackageGraph(roots: ["LunchMeat"]) { graph, diagnostics in
+            PackageGraphTester(graph) { result in
+                result.check(roots: .plain("LunchMeat"))
+                result.check(packages: .plain("nothinghere"), .plain("lunchmeat"))
+            }
+            testDiagnostics(diagnostics) { result in
+                result.check(
+                    diagnostic: .equal(
+                        "dependency 'nothinghere' is not used by any target"
+                    ),
+                    severity: .warning
+                )
+            }
+        }
+
+        // Load the main workspace graph.
+        try await workspace.checkPackageGraph(roots: ["Lunch"]) { graph, diagnostics in
+            PackageGraphTester(graph) { result in
+                result.check(roots: .plain("Lunch"))
+                result.check(packages: .plain("lunchmeat"), .plain("vegetables"), .plain("condiments"), .plain("lunch"), .plain("dairy"))
+            }
+            // Note that 'LunchMeat' doesn't emit a warning here because of its trait parameterization, but 'Dairy' does
+            // not have a trait parameter nor is it used in the workspace, so it does emit a warning.
+            testDiagnostics(diagnostics) { result in
+                result.check(
+                    diagnostic: .equal(
+                        "dependency 'dairy' is not used by any target"
+                    ),
+                    severity: .warning
+                )
+            }
+        }
+
+        // Edit lunchmeat in main workspace to redirect to "local" copy.
+        let lunchMeatLocalCopyPath = lunchMeatLocalEditSandbox.appending(components: "roots", "LunchMeat")
+        await workspace.checkEdit(packageIdentity: "lunchmeat", path: lunchMeatLocalCopyPath) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "lunchmeat", at: .edited(lunchMeatLocalCopyPath))
+        }
+
+        // Add entry for the edited package in the main workspace.
+        do {
+            let editedLunchmeatKey = MockManifestLoader.Key(url: lunchMeatLocalCopyPath.pathString)
+            let manifest = lunchMeatMockWorkspace.manifestLoader.manifests[editedLunchmeatKey]!
+            workspace.manifestLoader.manifests[editedLunchmeatKey] = manifest
+        }
+
+        // Edit dairy.
+        let dairyPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending("dairy")
+        await workspace.checkEdit(packageIdentity: "dairy") { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "dairy", at: .edited(nil))
+        }
+        XCTAssertTrue(fs.exists(dairyPath))
+
+        // Load the graph again with the edited lunchmeat repo.
+        try await workspace.checkPackageGraph(roots: ["Lunch"]) { graph, diagnostics in
+            PackageGraphTester(graph) { result in
+                result.check(roots: .plain("Lunch"))
+                result.check(packages: .plain("lunchmeat"), .plain("vegetables"), .plain("condiments"), .plain("lunch"), .plain("dairy"))
+            }
+            testDiagnostics(diagnostics) { result in
+                result.check(
+                    diagnostic: .equal(
+                        "dependency 'dairy' is not used by any target"
+                    ),
+                    severity: .warning
+                )
+            }
+        }
+
+        // Check that lunchmeat and dairy are in edit mode.
+        try await workspace.loadDependencyManifests(roots: ["Lunch"]) { manifests, diagnostics in
+            let editedPackages = manifests.editedPackagesConstraints
+            // Assert edited packages (lunchmeat, dairy).
+            XCTAssertEqual(editedPackages.map(\.package.locationString).sorted(), [lunchMeatLocalCopyPath.pathString, dairyPath.pathString].sorted())
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // Try re-editing lunchmeat.
+        await workspace.checkEdit(packageIdentity: "lunchmeat") { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(diagnostic: .equal("dependency 'lunchmeat' already in edit mode"), severity: .error)
+            }
+        }
+        // Assure that lunchmeat is still in the proper edit mode.
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "lunchmeat", at: .edited(lunchMeatLocalCopyPath))
+        }
+
+        // Try editing vegetables at bad revision.
+        await workspace.checkEdit(packageIdentity: "vegetables", revision: Revision(identifier: "dev")) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(diagnostic: .equal("revision 'dev' does not exist"), severity: .error)
+            }
+        }
+
+        // Edit vegetables at a custom path and branch.
+        let vegetablesPath = AbsolutePath("/tmp/ws/custom/vegetables")
+        await workspace.checkEdit(packageIdentity: "vegetables", path: vegetablesPath, checkoutBranch: "dev") { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "vegetables", at: .edited(vegetablesPath))
+        }
+        let vegetablesRepo = try workspace.repositoryProvider.openWorkingCopy(at: vegetablesPath) as! InMemoryGitRepository
+        XCTAssert(vegetablesRepo.revisions.contains("dev"))
+
+        // Test unediting.
+        await workspace.checkUnedit(packageIdentity: "lunchmeat", roots: ["Lunch"]) { diagnostics in
+            XCTAssertTrue(fs.exists(lunchMeatLocalCopyPath))
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        await workspace.checkUnedit(packageIdentity: "vegetables", roots: ["Lunch"]) { diagnostics in
+            XCTAssert(fs.exists(vegetablesPath))
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "dairy", at: .edited(nil))
+        }
+    }
+
     func testUnsafeFlagsInEditedPackage() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
