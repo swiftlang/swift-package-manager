@@ -9,7 +9,7 @@
  */
 
 import Foundation
-import IntegrationTestSupport
+import _IntegrationTestSupport
 import Testing
 import TSCBasic
 import TSCTestSupport

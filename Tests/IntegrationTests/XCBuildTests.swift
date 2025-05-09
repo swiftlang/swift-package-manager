@@ -10,7 +10,7 @@
 
 import TSCBasic
 import TSCTestSupport
-import IntegrationTestSupport
+import _IntegrationTestSupport
 import Testing
 
 @Suite
