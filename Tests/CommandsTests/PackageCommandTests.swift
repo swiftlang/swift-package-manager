@@ -95,7 +95,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
 	
     func testCompletionTool() async throws {
         let stdout = try await execute(["completion-tool", "--help"]).stdout
-        XCTAssertMatch(stdout, .contains("OVERVIEW: Completion command (for shell completions)"))
+        XCTAssertMatch(stdout, .contains("OVERVIEW: Command to generate shell completions."))
     }
 
 	func testInitOverview() async throws {
@@ -2094,6 +2094,48 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         }
     }
 
+    func testMigrateCommand() async throws {
+        try XCTSkipIf(
+            !UserToolchain.default.supportesSupportedFeatures,
+            "skipping because test environment compiler doesn't support `-print-supported-features`"
+        )
+
+        try await fixture(name: "SwiftMigrate/ExistentialAnyMigration") { fixturePath in
+            let sourcePaths: [AbsolutePath]
+            let fixedSourcePaths: [AbsolutePath]
+
+            do {
+                let sourcesPath = fixturePath.appending(components: "Sources")
+                let fixedSourcesPath = sourcesPath.appending("Fixed")
+
+                sourcePaths = try localFileSystem.getDirectoryContents(sourcesPath).filter { filename in
+                    filename.hasSuffix(".swift")
+                }.sorted().map { filename in
+                    sourcesPath.appending(filename)
+                }
+                fixedSourcePaths = try localFileSystem.getDirectoryContents(fixedSourcesPath).filter { filename in
+                    filename.hasSuffix(".swift")
+                }.sorted().map { filename in
+                    fixedSourcesPath.appending(filename)
+                }
+            }
+
+            _ = try await self.execute(
+                ["migrate", "--to-feature", "ExistentialAny"],
+                packagePath: fixturePath
+            )
+
+            XCTAssertEqual(sourcePaths.count, fixedSourcePaths.count)
+
+            for (sourcePath, fixedSourcePath) in zip(sourcePaths, fixedSourcePaths) {
+                try XCTAssertEqual(
+                    localFileSystem.readFileContents(sourcePath),
+                    localFileSystem.readFileContents(fixedSourcePath)
+                )
+            }
+        }
+    }
+
     func testBuildToolPlugin() async throws {
         try await testBuildToolPlugin(staticStdlib: false)
     }
@@ -4003,6 +4045,10 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
     }
     override func testCommandPluginBuildTestability() async throws {
         throw XCTSkip("SWBINTTODO: Test fails as plugins are not currenty supported")
+    }
+
+    override func testMigrateCommand() async throws {
+        throw XCTSkip("SWBINTTODO: Build plan is not currently supported")
     }
 
 #if !os(macOS)

@@ -23,12 +23,12 @@ import struct TSCBasic.StringError
 extension SwiftPackageCommand {
     struct Describe: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Describe the current package")
-        
+            abstract: "Describe the current package.")
+
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
         
-        @Option(help: "Set the output format")
+        @Option(help: "Set the output format.")
         var type: DescribeMode = .text
         
         func run(_ swiftCommandState: SwiftCommandState) async throws {

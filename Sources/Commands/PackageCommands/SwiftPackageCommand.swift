@@ -29,7 +29,7 @@ public struct SwiftPackageCommand: AsyncParsableCommand {
     public static var configuration = CommandConfiguration(
         commandName: "package",
         _superCommandName: "swift",
-        abstract: "Perform operations on Swift packages",
+        abstract: "Perform operations on Swift packages.",
         discussion: "SEE ALSO: swift build, swift run, swift test",
         version: SwiftVersion.current.completeDisplayString,
         subcommands: [
@@ -45,6 +45,7 @@ public struct SwiftPackageCommand: AsyncParsableCommand {
             Describe.self,
             Init.self,
             Format.self,
+            Migrate.self,
 
             Install.self,
             Uninstall.self,
