@@ -267,14 +267,10 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
+
         task = Task {
-            do {
-                _ = try await registryClient.getPackageMetadata(package: identity)
-                Issue.record("Task completed without being cancelled")
-            } catch let error where error is _Concurrency.CancellationError {
-                // OK
-            } catch {
-                Issue.record("Task failed with unexpected error: \(error)")
+            await #expect(throws: _Concurrency.CancellationError.self) {
+                try await registryClient.getPackageMetadata(package: identity)
             }
         }
 
@@ -1304,7 +1300,8 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         }
     }
 
-    @Test func getManifestContentWithOptionalContentVersion() async throws {
+    @Test(arguments: [ToolsVersion.v5_3, nil])
+    func getManifestContentWithOptionalContentVersion(toolsVersion: ToolsVersion?) async throws {
         let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
@@ -1392,20 +1389,10 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             let manifest = try await registryClient.getManifestContent(
                 package: identity,
                 version: version,
-                customToolsVersion: nil
+                customToolsVersion: toolsVersion
             )
             let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
-            #expect(parsedToolsVersion == .current)
-        }
-
-        do {
-            let manifest = try await registryClient.getManifestContent(
-                package: identity,
-                version: version,
-                customToolsVersion: .v5_3
-            )
-            let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
-            #expect(parsedToolsVersion == .v5_3)
+            #expect(parsedToolsVersion == toolsVersion ?? .current)
         }
     }
 
