@@ -288,4 +288,28 @@ extension Manifest {
             pruneDependencies: false
         )
     }
+
+    public func with(dependencies: [PackageDependency]) -> Manifest {
+        Manifest(
+            displayName: self.displayName,
+            packageIdentity: self.packageIdentity,
+            path: self.path,
+            packageKind: self.packageKind,
+            packageLocation: self.packageLocation,
+            defaultLocalization: self.defaultLocalization,
+            platforms: self.platforms,
+            version: self.version,
+            revision: self.revision,
+            toolsVersion: self.toolsVersion,
+            pkgConfig: self.pkgConfig,
+            providers: self.providers,
+            cLanguageStandard: self.cLanguageStandard,
+            cxxLanguageStandard: self.cxxLanguageStandard,
+            swiftLanguageVersions: self.swiftLanguageVersions,
+            dependencies: dependencies,
+            products: self.products,
+            targets: self.targets,
+            traits: self.traits
+        )
+    }
 }

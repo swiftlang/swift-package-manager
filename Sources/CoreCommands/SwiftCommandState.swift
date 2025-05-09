@@ -508,6 +508,8 @@ public final class SwiftCommandState {
                 },
                 manifestImportRestrictions: .none,
                 usePrebuilts: self.options.caching.usePrebuilts,
+                prebuiltsDownloadURL: options.caching.prebuiltsDownloadURL,
+                prebuiltsRootCertPath: options.caching.prebuiltsRootCertPath,
                 pruneDependencies: self.options.resolver.pruneDependencies,
                 traitConfiguration: traitConfiguration
             ),
