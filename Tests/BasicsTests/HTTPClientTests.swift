@@ -425,7 +425,7 @@ struct HTTPClientTests {
         let httpClient = HTTPClient(configuration: configuration) { request, _ in
             await concurrentRequests.increment()
 
-            if await concurrentRequests.value! > maxConcurrentRequests {
+            if await concurrentRequests.value > maxConcurrentRequests {
                 Issue.record("too many concurrent requests \(concurrentRequests), expected \(maxConcurrentRequests)")
             }
 
