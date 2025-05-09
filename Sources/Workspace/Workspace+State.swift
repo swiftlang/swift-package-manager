@@ -427,7 +427,8 @@ extension WorkspaceStateStorage {
 
             enum Kind: Codable {
                 case xcframework
-                case artifactsArchive([String])
+                case artifactsArchive
+                case typedArtifactsArchive([String])
                 case unknown
 
                 init(_ underlying: BinaryModule.Kind) {
@@ -435,7 +436,7 @@ extension WorkspaceStateStorage {
                     case .xcframework:
                         self = .xcframework
                     case .artifactsArchive(let types):
-                        self = .artifactsArchive(types.map { $0.rawValue })
+                        self = .typedArtifactsArchive(types.map { $0.rawValue })
                     case .unknown:
                         self = .unknown
                     }
@@ -445,7 +446,11 @@ extension WorkspaceStateStorage {
                     switch self {
                     case .xcframework:
                         return .xcframework
-                    case .artifactsArchive(let types):
+                    case .artifactsArchive:
+                        // For backwards compatiblity reasons we assume an empty types array which in the worst case
+                        // results in a need for a clean build but we won't fail decoding the JSON.
+                        return .artifactsArchive(types: [])
+                    case .typedArtifactsArchive(let types):
                         return .artifactsArchive(types: types.compactMap { ArtifactsArchiveMetadata.ArtifactType(rawValue: $0) })
                     case .unknown:
                         return .unknown

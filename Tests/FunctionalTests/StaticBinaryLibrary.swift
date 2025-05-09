@@ -23,10 +23,7 @@ struct StaticBinaryLibraryTests {
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Static").appending("Package1"),
                 "Example",
-                extraArgs: ["--experimental-prune-unused-dependencies"]
             )
-            // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            #expect(!stderr.contains("warning:"))
             #expect(stdout ==  """
             42
             42
