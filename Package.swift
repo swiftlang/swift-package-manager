@@ -1,4 +1,4 @@
-// swift-tools-version:6.0
+// swift-tools-version:6.1
 
 //===----------------------------------------------------------------------===//
 //
@@ -953,7 +953,7 @@ let package = Package(
             path: "Examples/package-info/Sources/package-info"
         )
     ],
-    swiftLanguageVersions: [.v5]
+    swiftLanguageModes: [.v5]
 )
 
 #if canImport(Darwin)
