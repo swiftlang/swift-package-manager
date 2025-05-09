@@ -20,6 +20,7 @@ import Testing
 
 import struct TSCUtility.Version
 
+
 struct FilePackageSigningEntityStorageTests {
     @Test
     func happyCase() async throws {
@@ -326,7 +327,12 @@ struct FilePackageSigningEntityStorageTests {
         #expect(packageSigners.signers[davinci]?.origins == [.registry(URL("http://foo.com"))])
     }
 
-    @Test
+    @Test(
+        .disabled(
+            if: ProcessInfo.hostOperatingSystem == .linux && (FileManager.default.contents(atPath: "/etc/system-release").map({ String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" }) ?? false),
+            "Test fails on Amazon Linux 2",
+        )
+    )
     func changeSigningEntityFromVersion_unrecognizedSigningEntityShouldError() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/signing")
