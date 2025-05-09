@@ -458,3 +458,20 @@ extension PIFGenerationError: CustomStringConvertible {
         }
     }
 }
+
+// MARK: - Helpers
+
+extension PIFBuilderParameters {
+    init(_ buildParameters: BuildParameters, supportedSwiftVersions: [SwiftLanguageVersion]) {
+        self.init(
+            triple: buildParameters.triple,
+            isPackageAccessModifierSupported: buildParameters.driverParameters.isPackageAccessModifierSupported,
+            enableTestability: buildParameters.enableTestability,
+            shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
+            toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root,
+            pkgConfigDirectories: buildParameters.pkgConfigDirectories,
+            sdkRootPath: buildParameters.toolchain.sdkRootPath,
+            supportedSwiftVersions: supportedSwiftVersions
+        )
+    }
+}
