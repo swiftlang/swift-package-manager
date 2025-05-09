@@ -2,230 +2,209 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2025 Apple Inc. and the Swift project authors
+// Copyright (c) 2021 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import Foundation
 
 @_spi(SwiftPMInternal)
 @testable
 import Basics
 
-import Testing
+import XCTest
 
-struct EnvironmentTests {
-    @Test
-    func initialize() {
+final class EnvironmentTests: XCTestCase {
+    func test_init() {
         let environment = Environment()
-        #expect(environment.isEmpty)
+        XCTAssertTrue(environment.isEmpty)
     }
 
-    @Test
-    func setting_and_accessing_via_subscript() {
+    func test_subscript() {
         var environment = Environment()
         let key = EnvironmentKey("TestKey")
         environment[key] = "TestValue"
-        #expect(environment[key] == "TestValue")
+        XCTAssertEqual(environment[key], "TestValue")
     }
 
-    @Test
-    func initDictionaryFromSelf() {
+    func test_initDictionaryFromSelf() {
         let dictionary = [
             "TestKey": "TestValue",
             "testKey": "TestValue2",
         ]
         let environment = Environment(dictionary)
-        let expectedValue: String
-        let expectedCount: Int
-
         #if os(Windows)
-            expectedValue = "TestValue2"  // uppercase sorts before lowercase, so the second value overwrites the first
-            expectedCount = 1
+        XCTAssertEqual(environment["TestKey"], "TestValue2")
+        XCTAssertEqual(environment.count, 1)
         #else
-            expectedValue = "TestValue"
-            expectedCount = 2
+        XCTAssertEqual(environment["TestKey"], "TestValue")
+        XCTAssertEqual(environment.count, 2)
         #endif
-        #expect(environment["TestKey"] == expectedValue)
-        #expect(environment.count == expectedCount)
     }
 
-    @Test
-    func initSelfFromDictionary() {
+    func test_initSelfFromDictionary() {
         let dictionary = ["TestKey": "TestValue"]
         let environment = Environment(dictionary)
-        #expect(environment["TestKey"] == "TestValue")
-        #expect(environment.count == 1)
+        XCTAssertEqual(environment["TestKey"], "TestValue")
+        XCTAssertEqual(environment.count, 1)
     }
 
     func path(_ components: String...) -> String {
         components.joined(separator: Environment.pathEntryDelimiter)
     }
 
-    @Test
-    func prependPath() {
+    func test_prependPath() {
         var environment = Environment()
         let key = EnvironmentKey(UUID().uuidString)
-        #expect(environment[key] == nil)
+        XCTAssertNil(environment[key])
 
         environment.prependPath(key: key, value: "/bin")
-        #expect(environment[key] == path("/bin"))
+        XCTAssertEqual(environment[key], path("/bin"))
 
         environment.prependPath(key: key, value: "/usr/bin")
-        #expect(environment[key] == path("/usr/bin", "/bin"))
+        XCTAssertEqual(environment[key], path("/usr/bin", "/bin"))
 
         environment.prependPath(key: key, value: "/usr/local/bin")
-        #expect(environment[key] == path("/usr/local/bin", "/usr/bin", "/bin"))
+        XCTAssertEqual(environment[key], path("/usr/local/bin", "/usr/bin", "/bin"))
 
         environment.prependPath(key: key, value: "")
-        #expect(environment[key] == path("/usr/local/bin", "/usr/bin", "/bin"))
+        XCTAssertEqual(environment[key], path("/usr/local/bin", "/usr/bin", "/bin"))
     }
 
-    @Test
-    func appendPath() {
+    func test_appendPath() {
         var environment = Environment()
         let key = EnvironmentKey(UUID().uuidString)
-        #expect(environment[key] == nil)
+        XCTAssertNil(environment[key])
 
         environment.appendPath(key: key, value: "/bin")
-        #expect(environment[key] == path("/bin"))
+        XCTAssertEqual(environment[key], path("/bin"))
 
         environment.appendPath(key: key, value: "/usr/bin")
-        #expect(environment[key] == path("/bin", "/usr/bin"))
+        XCTAssertEqual(environment[key], path("/bin", "/usr/bin"))
 
         environment.appendPath(key: key, value: "/usr/local/bin")
-        #expect(environment[key] == path("/bin", "/usr/bin", "/usr/local/bin"))
+        XCTAssertEqual(environment[key], path("/bin", "/usr/bin", "/usr/local/bin"))
 
         environment.appendPath(key: key, value: "")
-        #expect(environment[key] == path("/bin", "/usr/bin", "/usr/local/bin"))
+        XCTAssertEqual(environment[key], path("/bin", "/usr/bin", "/usr/local/bin"))
     }
 
-    @Test
-    func pathEntryDelimiter() {
-        let expectedPathDelimiter: String
+    func test_pathEntryDelimiter() {
         #if os(Windows)
-            expectedPathDelimiter = ";"
+        XCTAssertEqual(Environment.pathEntryDelimiter, ";")
         #else
-            expectedPathDelimiter = ":"
+        XCTAssertEqual(Environment.pathEntryDelimiter, ":")
         #endif
-        #expect(Environment.pathEntryDelimiter == expectedPathDelimiter)
     }
 
     /// Important: This test is inherently race-prone, if it is proven to be
     /// flaky, it should run in a singled threaded environment/removed entirely.
-    @Test
-    func current() throws {
+    func test_current() throws {
         #if os(Windows)
         let pathEnvVarName = "Path"
         #else
         let pathEnvVarName = "PATH"
         #endif
 
-        #expect(Environment.current["PATH"] == ProcessInfo.processInfo.environment[pathEnvVarName])
+
+        XCTAssertEqual(
+            Environment.current["PATH"],
+            ProcessInfo.processInfo.environment[pathEnvVarName]
+        )
     }
 
     /// Important: This test is inherently race-prone, if it is proven to be
     /// flaky, it should run in a singled threaded environment/removed entirely.
-    @Test
-    func makeCustom() async throws {
+    func test_makeCustom() async throws {
         let key = EnvironmentKey(UUID().uuidString)
         let value = "TestValue"
 
         var customEnvironment = Environment()
         customEnvironment[key] = value
 
-        #expect(Environment.current[key] == nil)
+        XCTAssertNil(Environment.current[key])
         try Environment.makeCustom(customEnvironment) {
-            #expect(Environment.current[key] == value)
+            XCTAssertEqual(Environment.current[key], value)
         }
-        #expect(Environment.current[key] == nil)
+        XCTAssertNil(Environment.current[key])
     }
 
     /// Important: This test is inherently race-prone, if it is proven to be
     /// flaky, it should run in a singled threaded environment/removed entirely.
-    @Test
-    func process() throws {
+    func testProcess() throws {
         let key = EnvironmentKey(UUID().uuidString)
         let value = "TestValue"
 
         var environment = Environment.current
-        #expect(environment[key] == nil)
+        XCTAssertNil(environment[key])
 
         try Environment.set(key: key, value: value)
         environment = Environment.current // reload
-        #expect(environment[key] == value)
+        XCTAssertEqual(environment[key], value)
 
         try Environment.set(key: key, value: nil)
-        #expect(environment[key] == value)  // this is a copy!
+        XCTAssertEqual(environment[key], value) // this is a copy!
 
         environment = Environment.current // reload
-        #expect(environment[key] == nil)
+        XCTAssertNil(environment[key])
     }
 
-    @Test
-    func cachable() {
+    func test_cachable() {
         let term = EnvironmentKey("TERM")
         var environment = Environment()
         environment[.path] = "/usr/bin"
         environment[term] = "xterm-256color"
 
         let cachableEnvironment = environment.cachable
-        #expect(cachableEnvironment[.path] != nil)
-        #expect(cachableEnvironment[term] == nil)
+        XCTAssertNotNil(cachableEnvironment[.path])
+        XCTAssertNil(cachableEnvironment[term])
     }
 
-    @Test
-    func collection() {
+    func test_collection() {
         let environment: Environment = ["TestKey": "TestValue"]
-        #expect(environment.count == 1)
-        #expect(environment.first?.key == EnvironmentKey("TestKey"))
-        #expect(environment.first?.value == "TestValue")
+        XCTAssertEqual(environment.count, 1)
+        XCTAssertEqual(environment.first?.key, EnvironmentKey("TestKey"))
+        XCTAssertEqual(environment.first?.value, "TestValue")
     }
 
-    @Test
-    func description() {
+    func test_description() {
         var environment = Environment()
         environment[EnvironmentKey("TestKey")] = "TestValue"
-        #expect(environment.description == #"["TestKey=TestValue"]"#)
+        XCTAssertEqual(environment.description, #"["TestKey=TestValue"]"#)
     }
 
-    @Test
-    func encodable() throws {
+    func test_encodable() throws {
         var environment = Environment()
         environment["TestKey"] = "TestValue"
         let data = try JSONEncoder().encode(environment)
         let jsonString = String(data: data, encoding: .utf8)
-        #expect(jsonString == #"{"TestKey":"TestValue"}"#)
+        XCTAssertEqual(jsonString, #"{"TestKey":"TestValue"}"#)
     }
 
-    @Test
-    func equatable() {
+    func test_equatable() {
         let environment0: Environment = ["TestKey": "TestValue"]
         let environment1: Environment = ["TestKey": "TestValue"]
-        #expect(environment0 == environment1)
+        XCTAssertEqual(environment0, environment1)
 
 #if os(Windows)
         // Test case insensitivity on windows
         let environment2: Environment = ["testKey": "TestValue"]
-            #expect(environment0 == environment2)
+        XCTAssertEqual(environment0, environment2)
 #endif
     }
 
-    @Test
-    func expressibleByDictionaryLiteral() {
+    func test_expressibleByDictionaryLiteral() {
         let environment: Environment = ["TestKey": "TestValue"]
-        #expect(environment["TestKey"] == "TestValue")
+        XCTAssertEqual(environment["TestKey"], "TestValue")
     }
 
 
-    @Test
-    func decodable() throws {
+    func test_decodable() throws {
         let jsonString = #"{"TestKey":"TestValue"}"#
         let data = jsonString.data(using: .utf8)!
         let environment = try JSONDecoder().decode(Environment.self, from: data)
-        #expect(environment[EnvironmentKey("TestKey")] == "TestValue")
+        XCTAssertEqual(environment[EnvironmentKey("TestKey")], "TestValue")
     }
 }
