@@ -22,7 +22,7 @@ public struct MockPackage {
     public let products: [MockProduct]
     public let dependencies: [MockDependency]
     public let versions: [String?]
-    package let traits: Set<TraitDescription>
+    public let traits: Set<TraitDescription>
     /// Provides revision identifier for the given version. A random identifier might be assigned if this is nil.
     public let revisionProvider: ((String) -> String)?
     // FIXME: This should be per-version.
