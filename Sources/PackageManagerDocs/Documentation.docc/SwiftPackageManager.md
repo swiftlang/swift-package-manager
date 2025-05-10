@@ -39,5 +39,4 @@ The Swift Package Manager leets you share your code as a package, depend on and 
 - <doc:SwiftSDKCommands>
 - <doc:SwiftPackageRegistryCommands>
 - <doc:SwiftPackageCollectionCommands>
-- <doc:SwiftRepl>
 - <doc:SwiftRun>

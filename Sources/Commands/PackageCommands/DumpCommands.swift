@@ -113,7 +113,7 @@ enum ExtensionBlockSymbolBehavior: String, EnumerableFlag {
 
 struct DumpPackage: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Print parsed Package.swift as JSON")
+        abstract: "Print parsed Package.swift as JSON.")
 
     @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
@@ -141,9 +141,9 @@ struct DumpPackage: AsyncSwiftCommand {
 
 struct DumpPIF: AsyncSwiftCommand {
     // hides this command from CLI `--help` output
-    static let configuration = CommandConfiguration(shouldDisplay: false) 
+    static let configuration = CommandConfiguration(shouldDisplay: false)
 
-    @OptionGroup(visibility: .hidden)
+    @OptionGroup(visibility: .private)
     var globalOptions: GlobalOptions
 
     @Flag(help: "Preserve the internal structure of PIF")
