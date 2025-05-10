@@ -73,6 +73,16 @@ protocol AnyDiagnostic {
     var fixIts: [FixIt] { get }
 }
 
+extension AnyDiagnostic {
+    var isPrimary: Bool {
+        self.level != .note
+    }
+
+    var isIgnored: Bool {
+        self.level == .ignored
+    }
+}
+
 extension SerializedDiagnostics.Diagnostic: AnyDiagnostic {}
 extension SerializedDiagnostics.SourceLocation: AnySourceLocation {}
 extension SerializedDiagnostics.FixIt: AnyFixIt {}
@@ -116,10 +126,43 @@ package struct SwiftFixIt /*: ~Copyable */ {
         var diagnosticConverter = DiagnosticConverter(fileSystem: fileSystem)
         var currentPrimaryDiagnosticHasNoteWithFixIt = false
 
-        for diagnostic in diagnostics {
+        var index = diagnostics.startIndex
+        while index != diagnostics.endIndex {
+            let diagnostic = diagnostics[index]
+
+            func skipDiagnostic() {
+                guard diagnostic.isPrimary else {
+                    diagnostics.formIndex(after: &index)
+                    return
+                }
+
+                // Skip a primary diagnostic together with its notes.
+                repeat {
+                    diagnostics.formIndex(after: &index)
+                } while index != diagnostics.endIndex && !diagnostics[index].isPrimary
+            }
+
+            // Skip ignored diagnostics.
+            guard !diagnostic.isIgnored else {
+                skipDiagnostic()
+                continue
+            }
+
+            // Skip diagnostics with no location.
+            guard diagnostic.location != nil else {
+                skipDiagnostic()
+                continue
+            }
+
+            defer {
+                diagnostics.formIndex(after: &index)
+            }
+
             let hasFixits = !diagnostic.fixIts.isEmpty
 
-            if diagnostic.level == .note {
+            if diagnostic.isPrimary {
+                currentPrimaryDiagnosticHasNoteWithFixIt = false
+            } else {
                 if hasFixits {
                     // The Swift compiler produces parallel fix-its by attaching
                     // them to notes, which in turn associate to a single
@@ -132,8 +175,6 @@ package struct SwiftFixIt /*: ~Copyable */ {
 
                     currentPrimaryDiagnosticHasNoteWithFixIt = true
                 }
-            } else {
-                currentPrimaryDiagnosticHasNoteWithFixIt = false
             }
 
             // We are only interested in diagnostics with fix-its.
@@ -141,11 +182,7 @@ package struct SwiftFixIt /*: ~Copyable */ {
                 continue
             }
 
-            guard let (sourceFile, convertedDiagnostic) =
-                try diagnosticConverter.diagnostic(from: diagnostic)
-            else {
-                continue
-            }
+            let (sourceFile, convertedDiagnostic) = try diagnosticConverter.diagnostic(from: diagnostic)
 
             if !categories.isEmpty {
                 guard let category = convertedDiagnostic.diagMessage.category?.name,
@@ -374,19 +411,19 @@ extension DiagnosticConverter {
 
     mutating func diagnostic(
         from diagnostic: borrowing some AnyDiagnostic
-    ) throws -> Diagnostic? {
-        if diagnostic.fixIts.isEmpty {
+    ) throws -> Diagnostic {
+        guard !diagnostic.fixIts.isEmpty else {
             preconditionFailure("Expected diagnostic with fix-its")
         }
 
         guard let location = diagnostic.location else {
-            return nil
+            preconditionFailure("Diagnostic without location cannot be converted")
         }
 
         let message: DeserializedDiagnosticMessage
         do {
             guard let severity = SwiftDiagnostics.DiagnosticSeverity(from: diagnostic.level) else {
-                return nil
+                preconditionFailure("Diagnostic with 'ignored' severity cannot be converted")
             }
 
             let category: SwiftDiagnostics.DiagnosticCategory? =
