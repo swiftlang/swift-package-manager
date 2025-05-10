@@ -2240,17 +2240,61 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        // WMO should always be on with Embedded
-        let plan = try await mockBuildPlan(
+        // -Xfrontend -mergeable symbols should be passed with Embedded
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
+        ))
+        result.checkTargetsCount(1)
+
+        // Compile Swift Target
+        let aCompileArguments = try result.moduleBuildDescription(for: "A").swift().compileArguments()
+        let aCompileArgumentsPattern: [StringPattern] = ["-whole-module-optimization"]
+        let aCompileArgumentsNegativePattern: [StringPattern] = ["-wmo"]
+        XCTAssertMatch(aCompileArguments, aCompileArgumentsPattern)
+        XCTAssertNoMatch(aCompileArguments, aCompileArgumentsNegativePattern)
+    }
+
+    // Workaround for: https://github.com/swiftlang/swift-package-manager/issues/8648
+    func test_mergeableSymbols_enabledInEmbedded() async throws {
+        let Pkg: AbsolutePath = "/Pkg"
+        let fs: FileSystem = InMemoryFileSystem(
+            emptyFiles:
+                Pkg.appending(components: "Sources", "A", "A.swift").pathString
         )
 
-        let a = try BuildPlanResult(plan: plan)
-            .moduleBuildDescription(for: "A").swift().emitCommandLine()
-        XCTAssertMatch(a, ["-whole-module-optimization"])
-        XCTAssertNoMatch(a, ["-wmo"])
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: .init(validating: Pkg.pathString),
+                    targets: [
+                        TargetDescription(
+                            name: "A",
+                            settings: [.init(tool: .swift, kind: .enableExperimentalFeature("Embedded"))]
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        // -Xfrontend -mergeable symbols should be passed with Embedded
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkTargetsCount(1)
+
+        // Compile Swift Target
+        let aCompileArguments = try result.moduleBuildDescription(for: "A").swift().compileArguments()
+        let aCompileArgumentsPattern: [StringPattern] = ["-Xfrontend", "-mergeable-symbols"]
+        XCTAssertMatch(aCompileArguments, aCompileArgumentsPattern)
     }
 
     func testREPLArguments() async throws {
