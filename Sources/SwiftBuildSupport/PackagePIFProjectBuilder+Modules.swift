@@ -763,18 +763,27 @@ extension PackagePIFProjectBuilder {
             }
         }
 
-        // Set the imparted settings, which are ones that clients (both direct and indirect ones) use.
-        var debugImpartedSettings = impartedSettings
-        debugImpartedSettings[.LD_RUNPATH_SEARCH_PATHS] =
-            ["$(BUILT_PRODUCTS_DIR)/PackageFrameworks"] +
-            (debugImpartedSettings[.LD_RUNPATH_SEARCH_PATHS] ?? ["$(inherited)"])
+        // Set the **imparted** settings, which are ones that clients (both direct and indirect ones) use.
+        // For instance, given targets A, B, C with the following dependency graph:
+        //
+        //   A (executable) -> B (dynamicLibrary) -> C (objectFile)
+        //
+        // An imparted build setting on C will propagate back to both B and A.
+        let additionalRunPaths = if productType == .framework {
+            ["$(BUILT_PRODUCTS_DIR)/PackageFrameworks"]
+        } else {
+            ["@loader_path"]
+        }
+        impartedSettings[.LD_RUNPATH_SEARCH_PATHS] =
+            additionalRunPaths +
+            (impartedSettings[.LD_RUNPATH_SEARCH_PATHS] ?? ["$(inherited)"])
 
         self.project[keyPath: sourceModuleTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(
                 id: id,
                 name: "Debug",
                 settings: debugSettings,
-                impartedBuildSettings: debugImpartedSettings
+                impartedBuildSettings: impartedSettings
             )
         }
         self.project[keyPath: sourceModuleTargetKeyPath].common.addBuildConfig { id in
