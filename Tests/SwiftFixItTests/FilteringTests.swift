@@ -146,4 +146,80 @@ final class FilteringTests: XCTestCase {
             )
         }
     }
+
+    func testDuplicateReplacementFixIts() throws {
+        try testAPI1File { (filename: String) in
+            .init(
+                edits: .init(input: "var x = 1", result: "let x = 22"),
+                diagnostics: [
+                    // On primary diagnostics.
+                    PrimaryDiagnostic(
+                        level: .error,
+                        text: "error1",
+                        location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                        fixIts: [
+                            // Applied.
+                            .init(
+                                start: .init(filename: filename, line: 1, column: 1, offset: 0),
+                                end: .init(filename: filename, line: 1, column: 4, offset: 0),
+                                text: "let"
+                            ),
+                        ]
+                    ),
+                    PrimaryDiagnostic(
+                        level: .error,
+                        text: "error2",
+                        location: .init(filename: filename, line: 1, column: 4, offset: 0),
+                        fixIts: [
+                            // Applied.
+                            .init(
+                                start: .init(filename: filename, line: 1, column: 1, offset: 0),
+                                end: .init(filename: filename, line: 1, column: 4, offset: 0),
+                                text: "let"
+                            ),
+                        ]
+                    ),
+                    // On notes.
+                    PrimaryDiagnostic(
+                        level: .error,
+                        text: "error3",
+                        location: .init(filename: filename, line: 1, column: 9, offset: 0),
+                        notes: [
+                            Note(
+                                text: "error3_note1",
+                                location: .init(filename: filename, line: 1, column: 9, offset: 0),
+                                fixIts: [
+                                    // Applied.
+                                    .init(
+                                        start: .init(filename: filename, line: 1, column: 9, offset: 0),
+                                        end: .init(filename: filename, line: 1, column: 10, offset: 0),
+                                        text: "22"
+                                    ),
+                                ]
+                            ),
+                        ]
+                    ),
+                    PrimaryDiagnostic(
+                        level: .error,
+                        text: "error4",
+                        location: .init(filename: filename, line: 1, column: 9, offset: 0),
+                        notes: [
+                            Note(
+                                text: "error4_note1",
+                                location: .init(filename: filename, line: 1, column: 9, offset: 0),
+                                fixIts: [
+                                    // Applied.
+                                    .init(
+                                        start: .init(filename: filename, line: 1, column: 9, offset: 0),
+                                        end: .init(filename: filename, line: 1, column: 10, offset: 0),
+                                        text: "22"
+                                    ),
+                                ]
+                            ),
+                        ]
+                    ),
+                ]
+            )
+        }
+    }
 }
