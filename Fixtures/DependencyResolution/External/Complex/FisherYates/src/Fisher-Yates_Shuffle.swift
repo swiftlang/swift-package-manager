@@ -1,12 +1,3 @@
-#if os(macOS) || os(iOS)
-import Darwin
-#elseif canImport(Glibc)
-import Glibc
-#elseif canImport(Musl)
-import Musl
-#elseif canImport(Bionic)
-import Bionic
-#endif
 
 public extension Collection {
     func shuffle() -> [Iterator.Element] {
@@ -24,15 +15,13 @@ public extension MutableCollection {
         guard c > 1 else { return }
         
         for (firstUnshuffled, unshuffledCount) in zip(indices, stride(from: c, to: 1, by: -1)) {
-#if os(macOS) || os(iOS)
-            let d = arc4random_uniform(numericCast(unshuffledCount))
-#else
-            let d = numericCast(random()) % unshuffledCount
-#endif
-            let i = index(firstUnshuffled, offsetBy: numericCast(d))
+            var g = SystemRandomNumberGenerator()
+            let d = Int.random(in: 1...unshuffledCount, using: &g)
+            let i = index(firstUnshuffled, offsetBy: d)
             swapAt(firstUnshuffled, i)
         }
     }
 }
+
 
 public let shuffle = false
