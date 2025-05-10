@@ -12,8 +12,6 @@
 
 import struct Basics.AbsolutePath
 import protocol Basics.FileSystem
-import var Basics.localFileSystem
-import struct Basics.SwiftVersion
 
 import struct SwiftDiagnostics.Diagnostic
 import struct SwiftDiagnostics.DiagnosticCategory
@@ -96,7 +94,7 @@ package struct SwiftFixIt /*: ~Copyable */ {
         let diagnostics = try diagnosticFiles.map { path in
             let fileContents = try fileSystem.readFileContents(path)
             return try TSCUtility.SerializedDiagnostics(bytes: fileContents).diagnostics
-        }.lazy.joined()
+        }.joined()
 
         self = try SwiftFixIt(
             diagnostics: diagnostics,
@@ -323,7 +321,7 @@ extension DiagnosticConverter {
     // emit notes with those fix-its.
     private static func fixIt(
         from diagnostic: borrowing some AnyDiagnostic,
-        in sourceFile: /*borrowing*/ SourceFile
+        in sourceFile: /* borrowing */ SourceFile
     ) throws -> SwiftDiagnostics.FixIt {
         let changes = try diagnostic.fixIts.map { fixIt in
             let startPosition = try sourceFile.position(of: fixIt.start)
@@ -341,7 +339,7 @@ extension DiagnosticConverter {
 
     private static func highlights(
         from diagnostic: borrowing some AnyDiagnostic,
-        in sourceFile: /*borrowing*/ SourceFile
+        in sourceFile: /* borrowing */ SourceFile
     ) throws -> [Syntax] {
         try diagnostic.ranges.map { startLocation, endLocation in
             let startPosition = try sourceFile.position(of: startLocation)
