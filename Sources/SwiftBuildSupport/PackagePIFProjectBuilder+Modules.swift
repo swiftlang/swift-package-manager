@@ -227,7 +227,7 @@ extension PackagePIFProjectBuilder {
         case macro
     }
 
-    /// Constructs a *PIF target* for building a *module* target as a particular type.
+    /// Constructs a *PIF target* for building a *module* as a particular type.
     /// An optional target identifier suffix is passed when building variants of a target.
     @discardableResult
     private mutating func buildSourceModule(
@@ -245,7 +245,8 @@ extension PackagePIFProjectBuilder {
 
         switch desiredModuleType {
         case .dynamicLibrary:
-            if pifBuilder.createDylibForDynamicProducts { // We are re-using this default for dynamic targets as well.
+            // We are re-using this default for dynamic targets as well.
+            if pifBuilder.createDylibForDynamicProducts {
                 pifProductName = "lib\(sourceModule.name).dylib"
                 executableName = pifProductName
                 productType = .dynamicLibrary
