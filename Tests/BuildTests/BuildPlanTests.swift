@@ -6655,6 +6655,44 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         }
     }
 
+    func testNoRpathForOSNone() async throws {
+        let fileSystem = InMemoryFileSystem(
+            emptyFiles:
+            "/Pkg/Sources/exe/main.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fileSystem,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "exe"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let toolchain = try UserToolchain.default
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
+            triple: Triple("arm64-unknown-none"),
+            toolchain: toolchain,
+            graph: graph,
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(1)
+
+        // Assert the objects getting linked contain all the bitcode objects
+        // built by the Swift Target
+        let exeLinkArguments = try result.buildProduct(for: "exe").linkArguments()
+        let exeLinkArgumentsNegativePattern: [StringPattern] = ["-rpath"]
+        XCTAssertNoMatch(exeLinkArguments, exeLinkArgumentsNegativePattern)
+    }
+
     func testPackageDependencySetsUserModuleVersion() async throws {
         let fs = InMemoryFileSystem(emptyFiles: "/Pkg/Sources/exe/main.swift", "/ExtPkg/Sources/ExtLib/best.swift")
 
